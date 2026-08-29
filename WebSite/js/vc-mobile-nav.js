@@ -104,6 +104,29 @@
     }
   }
 
+  function readCachedDiscordUserId() {
+    try {
+      var t = localStorage.getItem("vc_discord_access_token");
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (!t || (exp && Date.now() >= exp)) return "";
+      var fp = exp + "|" + String(t).slice(0, 32);
+      var raw = sessionStorage.getItem("vc_discord_me_cache_v1");
+      if (raw) {
+        var o = JSON.parse(raw);
+        if (o && o.v === 1 && o.user && String(o.fp || "") === fp) {
+          var uid = String(o.user.id || "").trim();
+          if (/^\d{17,22}$/.test(uid)) return uid;
+        }
+      }
+      var uidRaw = localStorage.getItem("vc_discord_uid_v1");
+      if (uidRaw) {
+        var uo = JSON.parse(uidRaw);
+        if (uo && String(uo.fp || "") === fp && /^\d{17,22}$/.test(String(uo.uid || ""))) return String(uo.uid);
+      }
+    } catch (eCache) {}
+    return "";
+  }
+
   function resolveMobileAccountUserId(userId) {
     var id = String(userId || "").trim();
     if (/^\d{17,22}$/.test(id)) return id;
@@ -112,7 +135,7 @@
       var fromProfile = String(profile && profile.id || "").trim();
       if (/^\d{17,22}$/.test(fromProfile)) return fromProfile;
     } catch (eP) {}
-    return "";
+    return readCachedDiscordUserId();
   }
 
   function mobileProfileHref(userId) {
@@ -195,13 +218,33 @@
       var actions = document.createElement("div");
       actions.className = "vc-mobile-nav-footer__actions";
       var prof = document.createElement("a");
-      prof.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--profile";
+      prof.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--profile vc-mobile-nav-footer__action--icon";
       prof.href = mobileProfileHref(profile.id);
-      prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i> Profilo';
+      prof.setAttribute("aria-label", i18nLabel("auth.profile", "Profilo"));
+      prof.title = i18nLabel("auth.profile", "Profilo");
+      prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i>';
+      actions.appendChild(prof);
+      if (isDashboardNavAllowed()) {
+        var dash = document.createElement("a");
+        dash.className =
+          "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--dashboard vc-mobile-nav-footer__action--icon";
+        dash.href = resolveDashboardHref();
+        dash.setAttribute("aria-label", i18nLabel("auth.dashboard", "Dashboard"));
+        dash.title = i18nLabel("auth.dashboard", "Dashboard");
+        dash.setAttribute("data-vc-mobile-dashboard", "1");
+        dash.innerHTML = '<i class="fa fa-server" aria-hidden="true"></i>';
+        dash.addEventListener("click", function () {
+          closeDrawer();
+        });
+        actions.appendChild(dash);
+        actions.classList.add("is-trio");
+      }
       var lo = document.createElement("button");
       lo.type = "button";
-      lo.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--logout";
-      lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i> Esci';
+      lo.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--logout vc-mobile-nav-footer__action--icon";
+      lo.setAttribute("aria-label", i18nLabel("auth.logout", "Esci"));
+      lo.title = i18nLabel("auth.logout", "Esci");
+      lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i>';
       lo.addEventListener("click", function () {
         if (logoutBtn) logoutBtn.click();
         else if (typeof window.__vcDiscordClearToken === "function") {
@@ -214,7 +257,6 @@
         }
         closeDrawer();
       });
-      actions.appendChild(prof);
       actions.appendChild(lo);
       wrap.appendChild(who);
       wrap.appendChild(actions);
@@ -244,6 +286,131 @@
       .toUpperCase();
   }
 
+  function isStaffOnlyNavSection(title) {
+    var t = String(title || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    return (
+      /^area\s*staff$/.test(t) ||
+      t === "staff area" ||
+      t === "staff" ||
+      t === "gestione" ||
+      t === "gestione staff"
+    );
+  }
+
+  function isStaffDetailsEl(el) {
+    if (!el) return false;
+    try {
+      if (el.classList && el.classList.contains("vc-snav-details--staff")) return true;
+      if (el.hasAttribute && el.hasAttribute("data-vc-staff-tools-nav")) return true;
+    } catch (eAttr) {}
+    var sum = el.querySelector ? el.querySelector(".vc-snav-summary span, .vc-snav-summary") : null;
+    var title = sum ? String(sum.textContent || "") : "";
+    return isStaffOnlyNavSection(title);
+  }
+
+  function isStaffGuideHref(href) {
+    var h = String(href || "").toLowerCase();
+    return h.indexOf("/staff/guida") >= 0;
+  }
+
+  function isStaffGuideLabel(label) {
+    var t = String(label || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    return t === "guida" || t === "guida staff" || t === "staff guide";
+  }
+
+  /** Navbar dedicate Hogwarts /evento: niente Area staff né blocco Guida. */
+  function isEventDedicatedNavPage() {
+    try {
+      var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+      if (p === "/evento" || p.indexOf("/evento/") === 0) return true;
+      if (document.body && document.body.classList.contains("vc-hw-page")) return true;
+      var snav = document.querySelector("nav.vc-header-snav");
+      if (snav && snav.querySelector && snav.querySelector(".vc-snav-item--event")) return true;
+      var label = snav ? String(snav.getAttribute("aria-label") || "").toLowerCase() : "";
+      if (label.indexOf("evento") >= 0 || label.indexOf("hogwarts") >= 0) return true;
+    } catch (eEv) {}
+    return false;
+  }
+
+  function appendStaffGuideSection(gridRoot, sourceDetails) {
+    if (!gridRoot) return;
+    if (isEventDedicatedNavPage()) return;
+    try {
+      if (gridRoot.querySelector('a[href*="/staff/guida"]')) return;
+    } catch (eDup) {}
+    var rows = sourceDetails
+      ? sourceDetails.querySelectorAll(".vc-snav-panel .vc-snav-row, a.vc-snav-row")
+      : [];
+    var guideRow = null;
+    var r;
+    for (r = 0; r < rows.length; r += 1) {
+      var row = rows[r];
+      var href = row.getAttribute("href") || "";
+      var lab = "";
+      try {
+        var spans = row.querySelectorAll("span");
+        var sj;
+        for (sj = 0; sj < spans.length; sj += 1) {
+          if (spans[sj].classList.contains("vc-snav-row-ico")) continue;
+          lab = String(spans[sj].textContent || "").trim();
+          if (lab) break;
+        }
+      } catch (eLab) {}
+      if (!lab) lab = String(row.textContent || "").trim();
+      if (isStaffOnlyNavHref(href) || isStaffOnlyNavLabel(lab)) continue;
+      if (isStaffGuideHref(href) || isStaffGuideLabel(lab)) {
+        guideRow = row;
+        break;
+      }
+    }
+    var tile = null;
+    if (guideRow) tile = createTileFromRow(guideRow);
+    if (!tile && isStaffNavAllowed()) {
+      var a = document.createElement("a");
+      a.className = "vc-mobile-nav-tile";
+      a.href = "/staff/guida/";
+      a.setAttribute("data-vc-mobile-staff-guide", "1");
+      a.innerHTML =
+        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-book"></i></span>' +
+        '<span class="vc-mobile-nav-tile-label">Guida</span>';
+      a.addEventListener("click", function () {
+        closeDrawer();
+      });
+      tile = a;
+    }
+    if (!tile) return;
+    var sec = document.createElement("section");
+    sec.className = "vc-mobile-nav-section vc-mobile-nav-section--staff-guide";
+    var h = document.createElement("h3");
+    h.className = "vc-mobile-nav-section-title";
+    h.textContent = "STAFF";
+    var g = document.createElement("div");
+    g.className = "vc-mobile-nav-grid";
+    g.appendChild(tile);
+    sec.appendChild(h);
+    sec.appendChild(g);
+    gridRoot.appendChild(sec);
+  }
+
+  function isStaffOnlyNavHref(href) {
+    var h = String(href || "").toLowerCase();
+    return h.indexOf("/staff/gestione") >= 0;
+  }
+
+  function isStaffOnlyNavLabel(label) {
+    var t = String(label || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    return t === "gestione" || t === "gestione staff" || t === "area staff" || t === "staff area";
+  }
+
   function navItemHidden(el) {
     return !el || el.hidden || el.hasAttribute("hidden");
   }
@@ -271,12 +438,30 @@
     return "/dashboard/";
   }
 
+  function hasLikelyDiscordSession() {
+    try {
+      if (window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) return true;
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        if (String(window.__vcDiscordGetAccessToken() || "").trim()) return true;
+      }
+      if (document.documentElement.classList.contains("vc-auth-session-pending")) return true;
+      var t = localStorage.getItem("vc_discord_access_token");
+      if (!t) return false;
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      return !exp || Date.now() < exp;
+    } catch (eSess) {}
+    return false;
+  }
+
   function isDashboardNavAllowed() {
     if (window.__VC_DASHBOARD_MENU_BLACKLISTED === true) return false;
     if (window.__VC_DASHBOARD_ACCESS_OK === true) return true;
     if (window.__VC_DASHBOARD_MENU_ALLOWED === true) return true;
+    if (window.__VC_DASHBOARD_MENU_ALLOWED === false && window.__VC_DASHBOARD_MENU_CHECKED === true) return false;
     var link = document.getElementById("discord-dashboard-link");
-    return Boolean(link && !navItemHidden(link) && !link.classList.contains("is-blacklisted"));
+    if (link && !navItemHidden(link) && !link.classList.contains("is-blacklisted")) return true;
+    if (hasLikelyDiscordSession()) return true;
+    return false;
   }
 
   function shouldInjectDashboardTile() {
@@ -328,11 +513,7 @@
   }
 
   function shouldInjectStaffTile() {
-    try {
-      var p = String(window.location.pathname || "").toLowerCase();
-      if (p === "/staff" || p === "/staff/" || p.indexOf("/staff/") === 0) return false;
-    } catch (e) {}
-    return isStaffNavAllowed();
+    return false;
   }
 
   function createStaffTile() {
@@ -373,6 +554,7 @@
     if (navItemHidden(row)) return null;
     var href = row.getAttribute("href");
     if (!href) return null;
+    if (isStaffOnlyNavHref(href)) return null;
     var target = row.getAttribute("target");
     var rel = row.getAttribute("rel");
     var dvl = row.getAttribute("data-vc-loading");
@@ -398,6 +580,7 @@
       if (labelText) break;
     }
     if (!labelText) labelText = String(row.textContent || "").trim();
+    if (isStaffOnlyNavLabel(labelText)) return null;
     lab.textContent = labelText;
     a.appendChild(ico);
     a.appendChild(lab);
@@ -412,6 +595,7 @@
     if (navItemHidden(item)) return null;
     var href = item.getAttribute("href");
     if (!href) return null;
+    if (isStaffOnlyNavHref(href)) return null;
     var a = document.createElement("a");
     a.className = "vc-mobile-nav-tile";
     a.href = href;
@@ -423,7 +607,9 @@
     var lab = document.createElement("span");
     lab.className = "vc-mobile-nav-tile-label";
     var innerSpan = item.querySelector("span");
-    lab.textContent = innerSpan ? String(innerSpan.textContent || "").trim() : String(item.textContent || "").trim();
+    var labelText = innerSpan ? String(innerSpan.textContent || "").trim() : String(item.textContent || "").trim();
+    if (isStaffOnlyNavLabel(labelText)) return null;
+    lab.textContent = labelText;
     a.appendChild(ico);
     a.appendChild(lab);
     markTileActive(a, item);
@@ -488,6 +674,12 @@
           var sp = sum.querySelector("span");
           titleTxt = sectionLabel(sp ? sp.textContent : sum.textContent);
         }
+        // Area staff: niente sezione, ma tieni Guida nel hamburger.
+        if (isStaffDetailsEl(el) || isStaffOnlyNavSection(titleTxt)) {
+          appendStaffGuideSection(gridRoot, el);
+          i += 1;
+          continue;
+        }
         var sec2 = document.createElement("section");
         sec2.className = "vc-mobile-nav-section";
         var h2 = document.createElement("h3");
@@ -498,7 +690,20 @@
         var rows = el.querySelectorAll(".vc-snav-panel .vc-snav-row");
         var r;
         for (r = 0; r < rows.length; r += 1) {
-          var tile = createTileFromRow(rows[r]);
+          var rowEl = rows[r];
+          var rowHref = rowEl ? rowEl.getAttribute("href") : "";
+          var rowLab = "";
+          try {
+            var spans = rowEl.querySelectorAll("span");
+            var sj;
+            for (sj = 0; sj < spans.length; sj += 1) {
+              if (spans[sj].classList.contains("vc-snav-row-ico")) continue;
+              rowLab = String(spans[sj].textContent || "").trim();
+              if (rowLab) break;
+            }
+          } catch (eLab) {}
+          if (isStaffOnlyNavHref(rowHref) || isStaffOnlyNavLabel(rowLab)) continue;
+          var tile = createTileFromRow(rowEl);
           if (tile) g2.appendChild(tile);
         }
         if (!g2.children.length) {
@@ -511,29 +716,8 @@
       }
       i += 1;
     }
-    var dashTile = createDashboardTile();
-    var staffTile = createStaffTile();
-    if (dashTile || staffTile) {
-      var secAreas = document.createElement("section");
-      secAreas.className = "vc-mobile-nav-section vc-mobile-nav-section--account-areas";
-      var pair = document.createElement("div");
-      pair.className = "vc-mobile-nav-pair";
-      if (dashTile && staffTile) pair.classList.add("is-split");
-      function makeAreaCol(titleKey, titleFallback, tile) {
-        var col = document.createElement("div");
-        col.className = "vc-mobile-nav-pair__col";
-        var h = document.createElement("h3");
-        h.className = "vc-mobile-nav-section-title";
-        h.textContent = i18nLabel(titleKey, titleFallback).toUpperCase();
-        col.appendChild(h);
-        col.appendChild(tile);
-        return col;
-      }
-      if (dashTile) pair.appendChild(makeAreaCol("footer.dashboard", "Dashboard", dashTile));
-      if (staffTile) pair.appendChild(makeAreaCol("auth.staffArea", "Area Staff", staffTile));
-      secAreas.appendChild(pair);
-      gridRoot.appendChild(secAreas);
-    }
+    appendStaffGuideSection(gridRoot, document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
+    // Dashboard: solo nel footer hamburger (icona), non nella griglia scroll.
   }
 
   function cloneBrand(intoEl) {
@@ -792,6 +976,10 @@
         removeHeaderDashboardBtn();
       });
       window.addEventListener("vc-dashboard-access", function () {
+        rebuildGrid();
+        removeHeaderDashboardBtn();
+      });
+      window.addEventListener("vc-auth-session-boot", function () {
         rebuildGrid();
         removeHeaderDashboardBtn();
       });

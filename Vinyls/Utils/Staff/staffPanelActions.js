@@ -339,6 +339,24 @@ function getNextLadderRoleId(currentId) {
   return STAFF_LADDER_ROLES[idx + 1];
 }
 
+/** Ruolo risultante dopo un depex di un grado (stessa logica di applyDepexOneLevel). */
+function peekDepexLadderTargetRoleId(ladderRoleId) {
+  const roleId = String(ladderRoleId || "").trim();
+  if (!roleId) return null;
+  if (ROLE_OWNER && roleId === ROLE_OWNER) return ROLE_MANAGER || ROLE_ADMIN || null;
+  if (ROLE_MANAGER && roleId === ROLE_MANAGER) return ROLE_ADMIN || null;
+  if (ROLE_ADMIN && roleId === ROLE_ADMIN) return ROLE_DIRECTOR || null;
+  if (ROLE_DIRECTOR && roleId === ROLE_DIRECTOR) return ROLE_SENIOR_MODERATOR || null;
+  if (ROLE_SENIOR_MODERATOR && roleId === ROLE_SENIOR_MODERATOR) return ROLE_MODERATOR || null;
+  if ((ROLE_MODERATOR && roleId === ROLE_MODERATOR) || (ROLE_HELPER && roleId === ROLE_HELPER)) {
+    return ROLE_MEMBER || "";
+  }
+  const idx = STAFF_LADDER_ROLES.indexOf(roleId);
+  if (idx > 0) return STAFF_LADDER_ROLES[idx - 1];
+  if (idx === 0) return ROLE_MEMBER || "";
+  return null;
+}
+
 async function runProspectStaffPex(guild, client, targetUser, actorUser, reason, targetRoleId = ROLE_HELPER) {
   if (String(targetUser.id) === String(actorUser.id)) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
@@ -648,7 +666,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
       return {
         ok: false,
         message:
-          "<:VC_Attention:1482534443632558151> Nessun ruolo sulla scala staff (Helper→Founder) da depexare. Usa **Depex Partner Manager** se ha solo PM.",
+          "<:VC_Attention:1482534443632558151> Nessun ruolo sulla scala staff (Helper→Founder) da depexare. Usa **Depex → Partner Manager** se ha solo PM.",
       };
     }
     if (!member.roles.cache.has(ladderRole)) {
@@ -976,4 +994,6 @@ module.exports = {
   runProfileStaffWarnAdd,
   runProfileStaffWarnRemove,
   getHighestLadderRole,
+  getNextLadderRoleId,
+  peekDepexLadderTargetRoleId,
 };

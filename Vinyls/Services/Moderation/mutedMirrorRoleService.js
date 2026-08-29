@@ -9,7 +9,7 @@ const { getUserExpStats, syncLevelRolesForMember } = require("../Community/expSe
 const { applyTenureForMember } = require("../Community/communityOpsService");
 const { applyZodiacRoleFromBirthday } = require("../../Utils/Community/zodiacRoles");
 const { applyAgeBracketRoleFromBirthday } = require("../../Utils/Community/ageBracketRoles");
-const { restorePersistedPersonalityRoles, persistMuteRoleSnapshotToProfile } = require("../../Utils/Community/personalityRolePersistence");
+const { restorePersistedPersonalityRoles, persistMuteRoleSnapshotToProfile, loadStoredPersonalityRoleIds } = require("../../Utils/Community/personalityRolePersistence");
 const {
   registerMuteMirrorRestoreRoleSuppress,
   wasRoleRestoredByMuteMirror,
@@ -22,7 +22,9 @@ const RECENT_UNMUTE_RECOVERY_MS = 7 * 24 * 60 * 60 * 1000;
 const RECENT_UNMUTE_RECOVERY_DEDUPE_MS = 6 * 60 * 60 * 1000;
 const SWEEP_DEFAULT_LIMIT = 50;
 const ACTIVE_MUTE_RECONCILE_LIMIT = 80;
+const EMPTY_SNAPSHOT_COOLDOWN_MS = 30 * 60 * 1000;
 const recentUnmuteProfileRecoveryUntil = new Map();
+const emptySnapshotCooldownUntil = new Map();
 const SNAPSHOT_PERSIST_WAIT_MS = 8000;
 const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [IDs.roles.VIP, IDs.roles.ServerBooster, IDs.roles.DoubleBooster, IDs.roles.Level50].filter(Boolean);
 const memorySnapshots = new Map();
@@ -269,6 +271,46 @@ async function loadSnapshot(guildId, userId) {
 async function hasSnapshot(guildId, userId) {
   const ids = await loadSnapshot(guildId, userId);
   return ids.length > 0;
+}
+
+function emptySnapshotCooldownKey(guildId, userId) {
+  return `${String(guildId || "").trim()}:${String(userId || "").trim()}`;
+}
+
+function isEmptySnapshotOnCooldown(guildId, userId) {
+  const until = Number(emptySnapshotCooldownUntil.get(emptySnapshotCooldownKey(guildId, userId)) || 0);
+  return Number.isFinite(until) && until > Date.now();
+}
+
+function markEmptySnapshotCooldown(guildId, userId) {
+  const key = emptySnapshotCooldownKey(guildId, userId);
+  if (!key || key === ":") return;
+  emptySnapshotCooldownUntil.set(key, Date.now() + EMPTY_SNAPSHOT_COOLDOWN_MS);
+  // Evita crescita infinita della Map.
+  if (emptySnapshotCooldownUntil.size > 2000) {
+    const now = Date.now();
+    for (const [k, until] of emptySnapshotCooldownUntil) {
+      if (!Number.isFinite(until) || until <= now) emptySnapshotCooldownUntil.delete(k);
+    }
+  }
+}
+
+function clearEmptySnapshotCooldown(guildId, userId) {
+  emptySnapshotCooldownUntil.delete(emptySnapshotCooldownKey(guildId, userId));
+}
+
+/** Ultimo tentativo di snapshot se profilo mute + ruoli live sono vuoti. */
+async function recoverSnapshotRoleIdsFallback(guildId, userId, mutedRoleId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return [];
+  try {
+    const ids = await loadStoredPersonalityRoleIds(gid, uid).catch(() => []);
+    const muted = String(mutedRoleId || "").trim();
+    return normalizeSnapshotRoleIds(ids).filter((id) => id && id !== muted);
+  } catch (_) {
+    return [];
+  }
 }
 
 async function clearSnapshot(guildId, userId) {
@@ -1001,29 +1043,26 @@ async function enforceMutedStripIfNeeded(member, options = {}) {
   const ctx = await resolveMutedRoleContext(guild, me, mutedRoleId);
   if (!ctx) return false;
 
-  // Timeout attivo senza snapshot: salva i ruoli attuali prima di strippare,
-  // altrimenti all'unmute non c'è nulla da ripristinare.
+  // Timeout attivo senza snapshot: prova a salvarlo PRIMA di strippare.
   if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
+    if (isEmptySnapshotOnCooldown(guild.id, member.id)) {
+      // Già valutato di recente: assicura solo Muted e stop.
+      if (!member.roles.cache.has(ctx.mutedRoleId)) {
+        await member.roles.add(ctx.mutedRoleId, String(options.reason || "Timeout Discord / +mute")).catch(() => null);
+      }
+      return false;
+    }
     const fromProfile = await loadProfileMuteSnapshotRoleIds(guild.id, member.id);
-    const snapshotIds = fromProfile.length
+    let snapshotIds = fromProfile.length
       ? fromProfile
       : collectSnapshotRoleIds(member, ctx.mutedRoleId);
+    if (!snapshotIds.length) {
+      snapshotIds = await recoverSnapshotRoleIdsFallback(guild.id, member.id, ctx.mutedRoleId);
+    }
     if (snapshotIds.length) {
       await upsertSnapshot(guild.id, member.id, snapshotIds);
+      clearEmptySnapshotCooldown(guild.id, member.id);
     }
-  }
-
-  // Mai strippare senza snapshot: altrimenti all'unmute restano solo Unverified.
-  if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
-    global.logger?.warn?.(
-      "[mutedMirrorRole] enforce strip abortito: snapshot vuoto",
-      guild.id,
-      member.id,
-    );
-    if (!member.roles.cache.has(ctx.mutedRoleId)) {
-      await member.roles.add(ctx.mutedRoleId, String(options.reason || "Timeout Discord / +mute")).catch(() => null);
-    }
-    return false;
   }
 
   const stripTarget = me
@@ -1041,7 +1080,28 @@ async function enforceMutedStripIfNeeded(member, options = {}) {
       }
     }
   }
-  if (!needsStrip) return false;
+  // Già solo Muted (+ unmanaged): niente da strippare. Snapshot vuoto non è un errore.
+  if (!needsStrip) {
+    if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
+      markEmptySnapshotCooldown(guild.id, member.id);
+    }
+    return false;
+  }
+
+  // Sta per strippare ruoli extra: senza snapshot abortiamo (altrimenti unmute = Unverified).
+  if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
+    markEmptySnapshotCooldown(guild.id, member.id);
+    global.logger?.warn?.(
+      "[mutedMirrorRole] enforce strip abortito: snapshot vuoto con ruoli extra",
+      guild.id,
+      member.id,
+      `(cooldown ${Math.round(EMPTY_SNAPSHOT_COOLDOWN_MS / 60000)}m)`,
+    );
+    if (!member.roles.cache.has(ctx.mutedRoleId)) {
+      await member.roles.add(ctx.mutedRoleId, String(options.reason || "Timeout Discord / +mute")).catch(() => null);
+    }
+    return false;
+  }
 
   const reason = String(options.reason || "Timeout Discord / +mute (enforce strip)").trim();
   await setMemberRolesSafe(member, stripTarget, reason).catch((err) => {
@@ -1077,6 +1137,7 @@ async function captureMuteRoleSnapshot(member, options = {}) {
   if (!roleIds.length) return { ok: false, reason: "empty_roles", roleIds: [] };
 
   await upsertSnapshot(member.guild.id, member.id, roleIds);
+  clearEmptySnapshotCooldown(member.guild.id, member.id);
   if (!(await hasSnapshot(member.guild.id, member.id))) {
     return { ok: false, reason: "persist_failed", roleIds };
   }
@@ -1157,6 +1218,7 @@ async function runReconcileIncompleteActiveMuteMirrors(client, options = {}) {
     const key = `${gid}:${uid}`;
     if (seen.has(key)) return;
     seen.add(key);
+    if (isEmptySnapshotOnCooldown(gid, uid)) return;
     try {
       const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
       if (!isViniliFullFeatureGuild(gid)) return;

@@ -2,7 +2,7 @@ const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, Button
 const IDs = require("../Utils/Config/ids");
 const { STAFF_HP_PREFIX, STAFF_HP_SELECT_PREFIX, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_SHOP, buildStaffProfilePayload, resolveStaffPartnerPointsDisplay, parseStaffProfileCloseCustomId, parseStaffProfileSelectCustomId, encodeStaffHpButtonAction, decodeStaffHpButtonActionToken, staffHpSectionToken, parseStaffHpButtonSectionToken } = require("../Utils/Staff/staffProfilePanelRuntime");
 const { viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounder, targetIsFounder, shouldOmitPexDepexHomeRow, shouldOmitStaffLadderPexDepexForTarget, buildProspectPexRows } = require("../Utils/Staff/staffProfilePanelRuntime");
-const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove, getHighestLadderRole } = require("../Utils/Staff/staffPanelActions");
+const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove, getHighestLadderRole, getNextLadderRoleId, peekDepexLadderTargetRoleId } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange, partnerManagerRedeemTierFromAction } = require("../Utils/Staff/partnerPointsUtils");
 const { completePartnerManagerRedeemForGuild } = require("../Utils/Staff/partnerManagerRedeemRuntime");
@@ -24,6 +24,19 @@ const STAFF_HP_MODAL_CODE_ACTION = Object.fromEntries(Object.entries(STAFF_HP_MO
 const SECTION_CHAR_FOR_MODAL = { [SECTION_HOME]: "h", [SECTION_VALUTAZIONI]: "v", [SECTION_WARN]: "w", [SECTION_PAUSE]: "p", [SECTION_MODSTATS]: "m", [SECTION_SHOP]: "q" };
 const MODAL_CHAR_TO_SECTION = { h: SECTION_HOME, v: SECTION_VALUTAZIONI, w: SECTION_WARN, p: SECTION_PAUSE, m: SECTION_MODSTATS, q: SECTION_SHOP };
 const TITLE_BY_ACTION = { pex: "Motivo pex", pex_helper: "Motivo pex Helper", pex_mod: "Motivo pex Moderator", pex_senior_moderator: "Motivo pex Senior Moderator", pex_director: "Motivo pex Director", pex_admin: "Motivo pex Admin", pex_manager: "Motivo pex Manager", pex_founder: "Motivo pex Founder", pex_pm: "Motivo pex Partner Manager", depex: "Motivo depex", depex_full: "Motivo depex completo", depex_staff: "Motivo depex", depex_pm_only: "Motivo depex", valpos: "Motivo valutazione positiva", valneg: "Motivo valutazione negativa", warn: "Motivo warn staff", valpos_rm: "Rimuovi valutazione positiva", valneg_rm: "Rimuovi valutazione negativa", warn_rm: "Rimuovi warn staff", ppm_add: "Aggiungi punti partner", ppm_remove: "Rimuovi punti partner" };
+
+function staffHpArrowLabel(verb, dest) {
+  const v = String(verb || "").trim() || "Azione";
+  const d = String(dest || "").trim() || "Ruolo";
+  return `${v} → ${d}`.slice(0, 80);
+}
+
+function guildRoleLabel(guild, roleId, fallback) {
+  const id = String(roleId || "").trim();
+  if (!id) return String(fallback || "Ruolo").trim() || "Ruolo";
+  const name = guild?.roles?.cache?.get?.(id)?.name;
+  return String(name || fallback || "Ruolo").trim() || "Ruolo";
+}
 
 function normalizeSourceMessageId(raw) {
   const id = String(raw || "").trim();
@@ -556,14 +569,19 @@ async function execute(interaction) {
           }).catch(() => { });
           return true;
         }
+        const highest = getHighestLadderRole(targetMember);
+        const nextLadderId = getNextLadderRoleId(highest);
+        const pexStaffDest = nextLadderId
+          ? guildRoleLabel(interaction.guild, nextLadderId, "Ruolo nuovo")
+          : "Ruolo nuovo";
         const pexRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("pex")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
-            .setLabel("Pex Staff")
+            .setLabel(staffHpArrowLabel("Pex", pexStaffDest))
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
             .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("pex_pm")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
-            .setLabel("Pex Partner Manager")
+            .setLabel(staffHpArrowLabel("Pex", "Partner Manager"))
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(hasPartnerManager),
         );
@@ -572,7 +590,7 @@ async function execute(interaction) {
       }
       if (shouldOmitStaffLadderPexDepexForTarget(targetMember)) {
         await interaction.reply({
-          content: "<a:VC_Cross:1482532424570376253> **Depex** non è disponibile su un **Founder**. Puoi usare **Pex Partner Manager** se non ha ancora PM.",
+          content: "<a:VC_Cross:1482532424570376253> **Depex** non è disponibile su un **Founder**. Puoi usare **Pex → Partner Manager** se non ha ancora PM.",
           flags: PRIVATE_FLAG,
         }).catch(() => { });
         return true;
@@ -580,21 +598,31 @@ async function execute(interaction) {
       if (!targetShouldChooseDepexMode(targetMember)) {
         return await openStaffHpReasonModalFromButton(interaction, { ...parsed, action: "depex_full" });
       }
+      const highestDepex = getHighestLadderRole(targetMember);
+      const depexLadderDestId = peekDepexLadderTargetRoleId(highestDepex);
+      const depexLadderDest = depexLadderDestId
+        ? guildRoleLabel(
+            interaction.guild,
+            depexLadderDestId,
+            String(depexLadderDestId) === String(IDs.roles.Member) ? "Member" : "Ruolo nuovo",
+          )
+        : "Ruolo nuovo";
+      const memberDest = guildRoleLabel(interaction.guild, IDs.roles.Member, "Member");
       const depexRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_staff")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
-          .setLabel("Depex Staff")
+          .setLabel(staffHpArrowLabel("Depex", depexLadderDest))
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_full")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
-          .setLabel("Depex completo")
+          .setLabel(staffHpArrowLabel("Depex", memberDest))
           .setStyle(ButtonStyle.Secondary),
       );
       if (hasPartnerManager) {
         depexRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_pm_only")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
-            .setLabel("Depex Partner Manager")
+            .setLabel(staffHpArrowLabel("Depex", "Partner Manager"))
             .setStyle(ButtonStyle.Secondary),
         );
       }

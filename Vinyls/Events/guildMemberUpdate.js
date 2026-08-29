@@ -1056,6 +1056,12 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
       .then(() => true)
       .catch(() => false);
   } else if (action === "timeout" && canTimeout) {
+    try {
+      const { captureMuteRoleSnapshot } = require("../Services/Moderation/mutedMirrorRoleService");
+      await captureMuteRoleSnapshot(newMember, { reason: "JoinGate post-join (pre-timeout)" });
+    } catch (err) {
+      global.logger?.warn?.("[JoinGate post-join] pre-timeout snapshot:", newMember.id, err?.message || err);
+    }
     punished = await newMember
       .timeout(6 * 60 * 60_000, reason)
       .then(() => true)
@@ -1065,6 +1071,12 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
   }
 
   if (!punished && appliedAction !== "log" && canTimeout) {
+    try {
+      const { captureMuteRoleSnapshot } = require("../Services/Moderation/mutedMirrorRoleService");
+      await captureMuteRoleSnapshot(newMember, { reason: "JoinGate post-join fallback (pre-timeout)" });
+    } catch (err) {
+      global.logger?.warn?.("[JoinGate post-join] fallback pre-timeout snapshot:", newMember.id, err?.message || err);
+    }
     punished = await newMember
       .timeout(6 * 60 * 60_000, "JoinGate post-join fallback timeout.")
       .then(() => true)

@@ -1642,13 +1642,14 @@ function monthlyVoterRewardRoleByRank(rankIndex) {
 }
 
 async function cleanupExpiredMonthlyVoterRewards(guild) {
+  const { hasActiveHogwartsFinaleRewardOnRole } = require("./hogwartsEventEndService");
   const now = new Date();
   const nowMs = Date.now();
   const rows = await ActivityUserProfile.find({
     guildId: guild.id,
     [`${MONTHLY_VOTER_REWARD_PATH}.expiresAt`]: { $lte: now },
   })
-    .select(`userId ${MONTHLY_VOTER_REWARD_PATH} ${MONTHLY_TOP_REWARD_PATH}`)
+    .select(`userId ${MONTHLY_VOTER_REWARD_PATH} ${MONTHLY_TOP_REWARD_PATH} profile.events.hogwarts.finaleRoleRewards`)
     .lean()
     .catch(() => []);
   for (const row of rows) {
@@ -1657,7 +1658,8 @@ async function cleanupExpiredMonthlyVoterRewards(guild) {
     const roleId = String(reward?.roleId || "");
     const hadRoleBefore = Boolean(reward?.hadRoleBefore);
     const keepByTopReward = hasActiveMonthlyTopRewardOnRole(row, roleId, nowMs);
-    if (userId && roleId && !hadRoleBefore && !keepByTopReward) {
+    const keepByFinale = hasActiveHogwartsFinaleRewardOnRole(row, roleId, nowMs);
+    if (userId && roleId && !hadRoleBefore && !keepByTopReward && !keepByFinale) {
       const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
       if (member?.roles?.cache?.has(roleId)) {
         await member.roles.remove(roleId).catch(() => null);
@@ -1825,6 +1827,7 @@ function hasActiveMonthlyVoterRewardOnRole(profile, roleId, now = Date.now()) {
 }
 
 async function revokeMonthlyRewardHolder(guild, row, rewardPath, nowMs = Date.now()) {
+  const { hasActiveHogwartsFinaleRewardOnRole } = require("./hogwartsEventEndService");
   const userId = String(row?.userId || "");
   const reward =
     rewardPath === MONTHLY_TOP_REWARD_PATH
@@ -1838,7 +1841,7 @@ async function revokeMonthlyRewardHolder(guild, row, rewardPath, nowMs = Date.no
     rewardPath === MONTHLY_TOP_REWARD_PATH
       ? hasActiveMonthlyVoterRewardOnRole(row, roleId, nowMs)
       : hasActiveMonthlyTopRewardOnRole(row, roleId, nowMs);
-  if (keepByOtherReward) return false;
+  if (keepByOtherReward || hasActiveHogwartsFinaleRewardOnRole(row, roleId, nowMs)) return false;
 
   if (!hadRoleBefore) {
     const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
@@ -1940,13 +1943,14 @@ async function reconcileDuplicateActiveMonthlyRewardRoles(guild) {
 }
 
 async function cleanupExpiredMonthlyTopRewards(guild) {
+  const { hasActiveHogwartsFinaleRewardOnRole } = require("./hogwartsEventEndService");
   const now = new Date();
   const nowMs = Date.now();
   const rows = await ActivityUserProfile.find({
     guildId: guild.id,
     [`${MONTHLY_TOP_REWARD_PATH}.expiresAt`]: { $lte: now },
   })
-    .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+    .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH} profile.events.hogwarts.finaleRoleRewards`)
     .lean()
     .catch(() => []);
   for (const row of rows) {
@@ -1955,7 +1959,8 @@ async function cleanupExpiredMonthlyTopRewards(guild) {
     const roleId = String(reward?.roleId || "");
     const hadRoleBefore = Boolean(reward?.hadRoleBefore);
     const keepByVoterReward = hasActiveMonthlyVoterRewardOnRole(row, roleId, nowMs);
-    if (userId && roleId && !hadRoleBefore && !keepByVoterReward) {
+    const keepByFinale = hasActiveHogwartsFinaleRewardOnRole(row, roleId, nowMs);
+    if (userId && roleId && !hadRoleBefore && !keepByVoterReward && !keepByFinale) {
       const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
       if (member?.roles?.cache?.has(roleId)) {
         await member.roles.remove(roleId).catch(() => null);

@@ -1056,9 +1056,9 @@ async function updateStaffWorkflowStatusByDedupe(guildId, dedupeKey, status, ext
     if (/^\d{16,22}$/.test(messageId)) {
       doc = await SiteDocument.findOneAndUpdate(
         { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: "resoconti", workflowMessageId: messageId },
-        { $set: set },
-        { new: true },
-      ).catch(() => null);
+    { $set: set },
+    { new: true },
+  ).catch(() => null);
     }
     if (!doc) {
       const uid = String(extras.userId || "").trim();
@@ -1546,7 +1546,7 @@ async function loadMembersForIds(guild, ids, limit = 40) {
           getGuildMemberCached(guild, uid),
           new Promise((resolve) => setTimeout(() => resolve(null), 2500)),
         ]);
-        if (member) cache.set(uid, member);
+      if (member) cache.set(uid, member);
       } catch {
         /* ignore */
       }
@@ -1869,7 +1869,7 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
       });
       docs = all.slice(skip, skip + pageSize);
     } else {
-      all.sort((a, b) => workflowSortTimestamp(b) - workflowSortTimestamp(a));
+    all.sort((a, b) => workflowSortTimestamp(b) - workflowSortTimestamp(a));
       docs = all.slice(skip, skip + pageSize);
     }
   }
@@ -1882,7 +1882,7 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
   if (q === "pause" && client && items.length) {
     try {
       const { resolveWebUserIdentitiesBatch, safeDisplayLabel } = require("./siteWebUserIdentity");
-      const guild =
+    const guild =
         client.guilds?.cache?.get(gid) || (await client.guilds?.fetch?.(gid).catch(() => null));
       const needIds = items.map((it) => String(it.userId || "").trim()).filter(Boolean);
       const identityMap = await resolveWebUserIdentitiesBatch(client, guild, needIds, {
@@ -1961,10 +1961,10 @@ async function getStaffWorkflowDetailFromDb(client, guildId, queue, itemId, user
   if (!needsSubject || !client) return fast;
 
   const enrich = (async () => {
-    const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
-    const memberCache = await loadMembersForIds(guild, [String(doc.userId || ""), String(doc.workflowDecidedBy || "")]);
-    const member = memberCache.get(String(doc.userId || "")) || null;
-    const detail = docToDetail(doc, member, memberCache);
+  const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
+  const memberCache = await loadMembersForIds(guild, [String(doc.userId || ""), String(doc.workflowDecidedBy || "")]);
+  const member = memberCache.get(String(doc.userId || "")) || null;
+  const detail = docToDetail(doc, member, memberCache);
     const enriched = await applyWorkflowSubjectToItem(client, guild, detail);
     // Denormalizza nome/avatar risolti così la lista successiva non resta con solo l'ID.
     const resolvedName = pickSubjectDisplayName(enriched?.userId, enriched?.displayName);
@@ -2051,6 +2051,7 @@ async function syncAppealsToWorkflowStore(guild, opts = {}) {
   if (!channel?.messages?.fetch) return 0;
   const scope = String(opts.scope || "all").toLowerCase();
   const maxPages = Math.max(1, Math.min(20, Number(opts.maxPages) || 5));
+  const skipSanctionCheck = Boolean(opts.skipSanctionCheck || opts.fastInbox);
   let count = 0;
   let before;
   for (let page = 0; page < maxPages; page += 1) {
@@ -2064,7 +2065,11 @@ async function syncAppealsToWorkflowStore(guild, opts = {}) {
       const parsed = parseAppealFromMessageOrEmbed(msg);
       if (!parsed) continue;
       let status = deriveAppealStatus(msg);
-      if (status === "pending" && !(await appealSanctionStillActive(guild, parsed.kind, parsed.userId))) {
+      if (
+        status === "pending" &&
+        !skipSanctionCheck &&
+        !(await appealSanctionStillActive(guild, parsed.kind, parsed.userId))
+      ) {
         await closeAppealAsObsolete(guild, msg, parsed, { messageId: msg.id }).catch(() => null);
         status = "cancelled";
       }
@@ -2169,7 +2174,7 @@ async function upsertPauseWorkflowFromPause(client, guild, userId, pause) {
   const today = getTodayUtc();
   const yearBounds = getCurrentYearBoundsUtc(today);
   const status = normalizeStatus(pause?.status, "pending");
-  const statusLabel = getPauseStatusLabel(pause, today);
+      const statusLabel = getPauseStatusLabel(pause, today);
   const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
   const subject = await resolveWorkflowSubject(guild?.client || client, guild, uid);
   const fromMember = memberToSubjectFields(member, uid);
@@ -2180,40 +2185,40 @@ async function upsertPauseWorkflowFromPause(client, guild, userId, pause) {
     guild,
   );
   return upsertStaffWorkflowItem({
-    guildId: gid,
-    queue: "pause",
+        guildId: gid,
+        queue: "pause",
     dedupeKey: buildWorkflowDedupeKey("pause", [uid, pauseId]),
     userId: uid,
-    pauseId,
-    status,
-    statusLabel,
+        pauseId,
+        status,
+        statusLabel,
     title: fromMember.displayName || subject.displayName || uid,
     displayName: fromMember.displayName || subject.displayName || uid,
-    avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
-    preview: String(pause.motivazione || "").slice(0, 500),
-    motivazione: String(pause.motivazione || ""),
-    content: String(pause.motivazione || ""),
-    createdAt: pause.createdAt,
-    fields: [
-      { name: "Periodo", value: `${pause.dataRichiesta || "?"} → ${pause.dataRitorno || "?"}` },
+        avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
+        preview: String(pause.motivazione || "").slice(0, 500),
+        motivazione: String(pause.motivazione || ""),
+        content: String(pause.motivazione || ""),
+        createdAt: pause.createdAt,
+        fields: [
+          { name: "Periodo", value: `${pause.dataRichiesta || "?"} → ${pause.dataRitorno || "?"}` },
       { name: "Ruolo richiesto", value: roleLabel },
-      { name: "Motivazione", value: String(pause.motivazione || "—") },
-      { name: "Stato", value: statusLabel },
-    ],
-    workflowFields: {
-      start: String(pause.dataRichiesta || ""),
-      end: String(pause.dataRitorno || ""),
+          { name: "Motivazione", value: String(pause.motivazione || "—") },
+          { name: "Stato", value: statusLabel },
+        ],
+        workflowFields: {
+          start: String(pause.dataRichiesta || ""),
+          end: String(pause.dataRitorno || ""),
       dataRichiesta: String(pause.dataRichiesta || ""),
       dataRitorno: String(pause.dataRitorno || ""),
       ruoloTrack: roleTrack,
       ruoloRichiesto: roleTrack,
       ruoloLabel: roleLabel,
-      phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
-      timing: getPauseTimingText(pause.dataRichiesta, pause.dataRitorno, today),
-      statusLabel,
-      giorniScalati: computePauseScaledDaysThisYear(pause, today, yearBounds.yearStart, yearBounds.yearEnd),
-    },
-  });
+          phase: getPausePhase(pause.dataRichiesta, pause.dataRitorno, today),
+          timing: getPauseTimingText(pause.dataRichiesta, pause.dataRitorno, today),
+          statusLabel,
+          giorniScalati: computePauseScaledDaysThisYear(pause, today, yearBounds.yearStart, yearBounds.yearEnd),
+        },
+      });
 }
 
 /** Se manca il doc workflow ma la pausa pending esiste ancora in DB, lo ricrea (per la chat). */
@@ -2418,15 +2423,24 @@ async function listStaffWorkflowForInbox(client, guild, viewerMember, queue, opt
     const appealSyncKey = `appeals:${guildId}`;
     if (!listStaffWorkflowForInbox.__syncAt) listStaffWorkflowForInbox.__syncAt = new Map();
     const lastAppeal = Number(listStaffWorkflowForInbox.__syncAt.get(appealSyncKey) || 0);
+    const listScope = String(opts.scope || "pending").toLowerCase();
     if (opts.forceSync || Date.now() - lastAppeal > INBOX_SYNC_MIN_MS) {
       listStaffWorkflowForInbox.__syncAt.set(appealSyncKey, Date.now());
-      void syncAppealsToWorkflowStore(guild, { scope: "all", maxPages: opts.forceSync ? 10 : 2 }).catch(() => 0);
-    }
-    if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
-    const lastAppealPrune = Number(listStaffWorkflowForInbox.__pruneAt.get(appealSyncKey) || 0);
-    if (opts.forceSync || Date.now() - lastAppealPrune > INBOX_PRUNE_MIN_MS) {
-      listStaffWorkflowForInbox.__pruneAt.set(appealSyncKey, Date.now());
-      void autoCloseObsoletePendingAppeals(guild, { limit: 30 }).catch(() => 0);
+      const syncPromise = syncAppealsToWorkflowStore(guild, {
+        scope: listScope === "pending" ? "pending" : "all",
+        maxPages: opts.forceSync ? 4 : 2,
+        skipSanctionCheck: Boolean(opts.forceSync),
+      }).catch(() => 0);
+      if (opts.forceSync) {
+        await Promise.race([
+          syncPromise,
+          new Promise((resolve) => {
+            setTimeout(resolve, 22000);
+          }),
+        ]);
+      } else {
+        void syncPromise;
+      }
     }
   }
 
@@ -2438,7 +2452,7 @@ async function listStaffWorkflowForInbox(client, guild, viewerMember, queue, opt
     if (opts.forceSync || Date.now() - last > INBOX_SYNC_MIN_MS) {
       listStaffWorkflowForInbox.__syncAt.set(pauseSyncKey, Date.now());
       void syncPauseWorkflowFieldsFromProfiles(guildId).catch(() => 0);
-      void syncPausesToWorkflowStore(client, guildId).catch(() => 0);
+    void syncPausesToWorkflowStore(client, guildId).catch(() => 0);
     }
   }
 
@@ -2461,8 +2475,37 @@ async function listStaffWorkflowForInbox(client, guild, viewerMember, queue, opt
     }
   }
 
-  const result = await listStaffWorkflowFromDb(client, guildId, queue, opts);
+  let result = await listStaffWorkflowFromDb(client, guildId, queue, opts);
   let items = result.items;
+
+  if (
+    q === "appelli" &&
+    guild &&
+    opts.forceSync &&
+    String(opts.scope || "pending").toLowerCase() === "pending"
+  ) {
+    if (!items.length) {
+      await syncAppealsToWorkflowStore(guild, {
+        scope: "pending",
+        maxPages: 6,
+        skipSanctionCheck: true,
+      }).catch(() => 0);
+    }
+    result = await listStaffWorkflowFromDb(client, guildId, queue, opts);
+    items = result.items;
+  }
+
+  // Prune appelli DOPO la lettura lista: altrimenti summary=1 e lista vuota (race).
+  if (q === "appelli" && guild) {
+    const appealSyncKey = `appeals:${guildId}`;
+    if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
+    const lastAppealPrune = Number(listStaffWorkflowForInbox.__pruneAt.get(appealSyncKey) || 0);
+    if (opts.forceSync || Date.now() - lastAppealPrune > INBOX_PRUNE_MIN_MS) {
+      listStaffWorkflowForInbox.__pruneAt.set(appealSyncKey, Date.now());
+      void autoCloseObsoletePendingAppeals(guild, { limit: 30 }).catch(() => 0);
+    }
+  }
+
   if (q === "pause" && guild) {
     let knownStaffIds = null;
     try {

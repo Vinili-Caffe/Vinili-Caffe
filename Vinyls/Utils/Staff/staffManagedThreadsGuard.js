@@ -69,12 +69,35 @@ function stripRoleMentionsFromContent(content, roleCollection) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+const DISCORD_MESSAGE_CONTENT_MAX = 2000;
+
+/** Prefissa l'autore e tronca sotto il limite Discord (2000). */
+function buildStaffThreadRepostContent(author, strippedBody) {
+  const mention = author?.toString?.() || (author?.id ? `<@${author.id}>` : "");
+  const body = String(strippedBody || "").trim();
+  if (!mention) {
+    return body.length <= DISCORD_MESSAGE_CONTENT_MAX
+      ? body || undefined
+      : `${body.slice(0, DISCORD_MESSAGE_CONTENT_MAX - 1)}…`;
+  }
+  if (!body) return mention;
+  const prefix = `${mention} `;
+  const maxBody = DISCORD_MESSAGE_CONTENT_MAX - prefix.length;
+  if (maxBody <= 0) return mention.slice(0, DISCORD_MESSAGE_CONTENT_MAX);
+  if (body.length <= maxBody) return `${prefix}${body}`;
+  if (maxBody <= 1) return `${prefix}…`.slice(0, DISCORD_MESSAGE_CONTENT_MAX);
+  return `${prefix}${body.slice(0, maxBody - 1)}…`;
+}
+
 function buildRoleMentionRepostPayload(message, content) {
   const attachments = [...(message.attachments?.values?.() || [])].map((item) => item.url).filter(Boolean);
   const stickers = [...(message.stickers?.values?.() || [])].map((item) => item.id).filter(Boolean);
   const embeds = [...(message.embeds || [])].filter((embed) => embed?.data || embed?.title || embed?.description);
+  const safeContent = String(content || "");
   const payload = {
-    content: content || undefined,
+    content: safeContent
+      ? safeContent.slice(0, DISCORD_MESSAGE_CONTENT_MAX) || undefined
+      : undefined,
     allowedMentions: { parse: [] },
   };
   if (attachments.length) payload.files = attachments;
@@ -110,9 +133,6 @@ async function pruneUnauthorizedStaffThreadMembers(thread, ctx, addedMembers = n
     if (!member || member.user?.bot) continue;
     const access = memberHasStaffThreadAccess(member, ctx.spec);
     if (access !== false) continue;
-    global.logger?.info?.(
-      `[STAFF THREAD GUARD] Rimozione ${userId} da thread ${thread.id} (${ctx.zone}/${ctx.spec?.key || "?"})`,
-    );
     await thread.members.remove(userId).catch(() => {});
   }
 }
@@ -138,9 +158,7 @@ async function handleStaffManagedThreadRoleMentionMessage(message) {
   }
 
   const stripped = stripRoleMentionsFromContent(message.content, message.mentions.roles);
-  const repostBody = stripped
-    ? `${message.author} ${stripped}`.trim()
-    : `${message.author}`;
+  const repostBody = buildStaffThreadRepostContent(message.author, stripped);
 
   await message.delete().catch(() => {});
 

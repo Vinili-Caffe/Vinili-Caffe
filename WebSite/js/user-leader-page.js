@@ -10,6 +10,14 @@
 
   function isProfileMode() {
     try {
+      var q = new URLSearchParams(window.location.search || "");
+      var id = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+      if (/^\d{17,20}$/.test(id)) return true;
+      var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
+      if (m) return true;
+      if (document.documentElement.classList.contains("vc-user-profile-route")) return true;
+    } catch (eUrl) {}
+    try {
       return Boolean(window.VCUserProfilePage && window.VCUserProfilePage.isProfileMode());
     } catch (e) {
       return false;
@@ -36,10 +44,11 @@
   function resolvedApiUrl() {
     var c = cfg();
     var local = String(c.apiUrlLocal || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
+    if (isLocalFrontendOrigin() && local && local !== "#" && local.indexOf("{{") < 0) return local;
     var api = String(c.apiUrl || "").trim();
+    if (!api || api === "#" || api.indexOf("{{") >= 0) return "/webhooks/site-users";
     try {
-      if (api && typeof window !== "undefined") {
+      if (typeof window !== "undefined") {
         var u = new URL(api, window.location.origin);
         var currentHost = String(window.location.hostname || "").replace(/^www\./i, "").toLowerCase();
         var apiHost = String(u.hostname || "").replace(/^www\./i, "").toLowerCase();
@@ -300,16 +309,80 @@
         return window.VCUserProfilePage.profilePublicUrl(id);
       }
     } catch (e) {}
-    return "/users/" + encodeURIComponent(id);
+    return "/user/?id=" + encodeURIComponent(id);
+  }
+
+  function prefetchProfileWarm(userId) {
+    var id = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(id)) return;
+    try {
+      if (window.__VC_PROFILE_WARM_IDS && window.__VC_PROFILE_WARM_IDS[id]) return;
+      if (!window.__VC_PROFILE_WARM_IDS) window.__VC_PROFILE_WARM_IDS = {};
+      window.__VC_PROFILE_WARM_IDS[id] = 1;
+    } catch (eMark) {}
+    try {
+      var apiBase = "";
+      try {
+        apiBase = String((window.__VC_USER_LEADER && window.__VC_USER_LEADER.apiUrl) || "").trim();
+      } catch (eApi) {}
+      if (!apiBase || apiBase === "#" || /\{\{/.test(apiBase)) apiBase = "/webhooks/site-users";
+      var prefetchUrl =
+        apiBase +
+        (apiBase.indexOf("?") >= 0 ? "&" : "?") +
+        "board=profile&userId=" +
+        encodeURIComponent(id) +
+        "&perPage=1";
+      var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+      var timer = window.setTimeout(function () {
+        try {
+          if (ctrl) ctrl.abort();
+        } catch (eAb) {}
+      }, 12000);
+      fetch(prefetchUrl, {
+        method: "GET",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store",
+        signal: ctrl ? ctrl.signal : undefined,
+        headers: { Accept: "application/json" },
+      })
+        .then(function (res) {
+          return res
+            .json()
+            .catch(function () {
+              return {};
+            })
+            .then(function (body) {
+              var payload = { httpOk: Boolean(res && res.ok), body: body || {} };
+              try {
+                if (payload.httpOk && payload.body && payload.body.ok) {
+                  var rec = JSON.stringify({ expireAt: Date.now() + 90000, value: payload });
+                  sessionStorage.setItem("vc:profilecache:" + prefetchUrl, rec);
+                }
+              } catch (eStore) {}
+              return payload;
+            });
+        })
+        .catch(function () {
+          return null;
+        })
+        .finally(function () {
+          try {
+            window.clearTimeout(timer);
+          } catch (eT) {}
+        });
+    } catch (ePref) {}
   }
 
   var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false, renderFingerprint: "" };
   var liveUsersPollTimer = null;
   var LIVE_USERS_POLL_MS = 45000;
-  var USERS_CACHE_TTL_MS = 45000;
-  var USERS_FETCH_TIMEOUT_MS = 55000;
+  var USERS_CACHE_TTL_MS = 60000;
+  var USERS_STALE_TTL_MS = 10 * 60 * 1000;
+  var USERS_FETCH_TIMEOUT_MS = 28000;
   var usersMemoryCache = new Map();
   var pendingScrollToCards = false;
+  var leaderPrefetchConsumed = false;
 
   function fetchWithTimeout(url, options, timeoutMs) {
     var ms = Math.max(1000, Number(timeoutMs) || USERS_FETCH_TIMEOUT_MS);
@@ -333,16 +406,26 @@
     return "vc:userscache:" + String(url || "");
   }
 
-  function readUsersSessionCache(key, now) {
+  function readUsersSessionCache(key, now, allowStale) {
     try {
       var raw = sessionStorage.getItem(key);
       if (!raw) return null;
       var parsed = JSON.parse(raw);
-      if (!parsed || !Number.isFinite(parsed.expireAt) || parsed.expireAt <= now) {
+      if (!parsed || !parsed.value) {
         sessionStorage.removeItem(key);
         return null;
       }
-      return parsed.value;
+      var exp = Number(parsed.expireAt);
+      if (!Number.isFinite(exp)) {
+        sessionStorage.removeItem(key);
+        return null;
+      }
+      if (exp > now) return { value: parsed.value, stale: false };
+      var staleUntil = Number(parsed.staleUntil);
+      if (!Number.isFinite(staleUntil)) staleUntil = exp + USERS_STALE_TTL_MS;
+      if (allowStale && staleUntil > now) return { value: parsed.value, stale: true };
+      sessionStorage.removeItem(key);
+      return null;
     } catch (e) {
       return null;
     }
@@ -350,11 +433,53 @@
 
   function writeUsersSessionCache(key, value, ttlMs, now) {
     try {
+      var ttl = Math.max(1, Number(ttlMs) || USERS_CACHE_TTL_MS);
       sessionStorage.setItem(
         key,
-        JSON.stringify({ expireAt: now + Math.max(1, Number(ttlMs) || USERS_CACHE_TTL_MS), value: value })
+        JSON.stringify({
+          expireAt: now + ttl,
+          staleUntil: now + ttl + USERS_STALE_TTL_MS,
+          value: value,
+        }),
       );
     } catch (e) {}
+  }
+
+  function takeLeaderPrefetch(url) {
+    try {
+      if (leaderPrefetchConsumed) return null;
+      var pref = window.__VC_LEADER_PREFETCH;
+      if (!pref || !pref.promise) return null;
+      var want = String(url || "");
+      var got = String(pref.url || "");
+      // Accetta prefetch se board/page combaciano (lite/perf possono differire).
+      function boardOf(u) {
+        try {
+          return new URL(u, window.location.origin).searchParams.get("board") || "level";
+        } catch (e) {
+          return "level";
+        }
+      }
+      function pageOf(u) {
+        try {
+          return new URL(u, window.location.origin).searchParams.get("page") || "1";
+        } catch (e) {
+          return "1";
+        }
+      }
+      if (boardOf(want) !== boardOf(got) || pageOf(want) !== pageOf(got)) return null;
+      leaderPrefetchConsumed = true;
+      try {
+        window.__VC_LEADER_PREFETCH = null;
+      } catch (eClear) {}
+      return Promise.resolve(pref.promise).then(function (out) {
+        if (out && typeof out.ok === "boolean") return out;
+        if (window.__VC_LEADER_PREFETCH_RESULT) return window.__VC_LEADER_PREFETCH_RESULT;
+        return out || { ok: false, status: 0, body: {} };
+      });
+    } catch (ePref) {
+      return null;
+    }
   }
 
   function cachedUsersFetch(url, opts) {
@@ -362,6 +487,8 @@
     var ttl = Math.max(1, Number((opts && opts.ttlMs) || USERS_CACHE_TTL_MS));
     var now = Date.now();
     var key = usersCacheKey(url);
+    var allowStale = Boolean(opts && opts.allowStale);
+    var onStale = opts && typeof opts.onStale === "function" ? opts.onStale : null;
 
     function networkOnce() {
       var headers = { Accept: "application/json" };
@@ -390,13 +517,28 @@
               .toLowerCase()
               .indexOf("abort") >= 0);
         if (!timedOut) throw err;
-        // Un retry automatico: spesso la 1ª richiesta è lenta (cold cache Discord/Mongo).
         try {
           var overlay = document.getElementById("vc-ul-loading");
           var sub = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
           if (sub) sub.textContent = "Ancora un momento, sto recuperando la classifica…";
         } catch (eSub) {}
         return networkOnce();
+      });
+    }
+
+    function storeFresh(payload) {
+      if (payload && payload.ok && payload.body && payload.body.ok) {
+        usersMemoryCache.set(key, { expireAt: now + ttl, value: payload });
+        writeUsersSessionCache(key, payload, ttl, now);
+      }
+      return payload;
+    }
+
+    var prefP = takeLeaderPrefetch(url);
+    if (prefP) {
+      return prefP.then(function (payload) {
+        storeFresh(payload);
+        return payload;
       });
     }
 
@@ -407,16 +549,17 @@
     if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now) {
       return Promise.resolve(mem.value);
     }
-    var sess = readUsersSessionCache(key, now);
-    if (sess) {
-      usersMemoryCache.set(key, { expireAt: now + ttl, value: sess });
-      return Promise.resolve(sess);
+    var sess = readUsersSessionCache(key, now, allowStale);
+    if (sess && !sess.stale) {
+      usersMemoryCache.set(key, { expireAt: now + ttl, value: sess.value });
+      return Promise.resolve(sess.value);
     }
-    return networkWithRetry().then(function (payload) {
-      usersMemoryCache.set(key, { expireAt: now + ttl, value: payload });
-      writeUsersSessionCache(key, payload, ttl, now);
-      return payload;
-    });
+    if (sess && sess.stale && onStale) {
+      try {
+        onStale(sess.value);
+      } catch (eStale) {}
+    }
+    return networkWithRetry().then(storeFresh);
   }
 
   function clearLeaderPending(opts) {
@@ -995,63 +1138,79 @@
       setLoading(true, state.page === 1 ? "Caricamento classifica" : "Aggiornamento classifica");
       setState("Caricamento…", false);
     }
-    cachedUsersFetch(url, { useCache: !state.searchUserId, ttlMs: USERS_CACHE_TTL_MS })
-      .then(function (out) {
-        if (!out || !out.ok || !out.body || out.body.ok !== true) {
-          var msg =
-            (out.body && (out.body.message || out.body.error)) ||
-            ("HTTP " + String(out.status || "") + " — dati non disponibili.");
-          setState(String(msg), true);
-          render({ rows: [], total: 0, totalPages: 1, board: state.board, loadError: true });
-          syncSearchUi();
-          return;
-        }
-        setState("", false);
-        var body = out.body;
-        if (state.searchUserId && body && Array.isArray(body.rows)) {
-          var want = String(state.searchUserId);
-          var orig = body.rows;
-          var filtered = orig.filter(function (r) {
-            return String(r.userId || "") === want;
-          });
-          if (filtered.length !== orig.length) {
-            body = Object.assign({}, body, {
-              rows: filtered,
-              total: filtered.length,
-              totalPages: 1,
-              page: 1,
-              search: true,
-              notFound: filtered.length === 0,
-            });
-          }
-        }
-        if (state.searchUserId && body) {
-          body = Object.assign({}, body, { totalPages: 1, page: 1 });
-          state.page = 1;
-        }
-        if (body.board) state.board = String(body.board);
-        applyAnimatedStats(body);
-        animateTopStats();
-        var fp = "";
-        try {
-          fp = JSON.stringify({
-            board: body.board,
-            page: body.page,
-            total: body.total,
-            rows: body.rows,
-          });
-        } catch (e) {
-          fp = "";
-        }
-        if (silent && fp && fp === state.renderFingerprint) {
-          syncSearchUi();
-          return;
-        }
-        state.renderFingerprint = fp;
-        render(body);
+    var paintedStale = false;
+    function applyPayload(out, fromSilent) {
+      if (!out || !out.ok || !out.body || out.body.ok !== true) {
+        if (fromSilent && paintedStale) return;
+        var msg =
+          (out && out.body && (out.body.message || out.body.error)) ||
+          ("HTTP " + String((out && out.status) || "") + " — dati non disponibili.");
+        setState(String(msg), true);
+        render({ rows: [], total: 0, totalPages: 1, board: state.board, loadError: true });
         syncSearchUi();
+        return;
+      }
+      setState("", false);
+      var body = out.body;
+      if (state.searchUserId && body && Array.isArray(body.rows)) {
+        var want = String(state.searchUserId);
+        var orig = body.rows;
+        var filtered = orig.filter(function (r) {
+          return String(r.userId || "") === want;
+        });
+        if (filtered.length !== orig.length) {
+          body = Object.assign({}, body, {
+            rows: filtered,
+            total: filtered.length,
+            totalPages: 1,
+            page: 1,
+            search: true,
+            notFound: filtered.length === 0,
+          });
+        }
+      }
+      if (state.searchUserId && body) {
+        body = Object.assign({}, body, { totalPages: 1, page: 1 });
+        state.page = 1;
+      }
+      if (body.board) state.board = String(body.board);
+      applyAnimatedStats(body);
+      animateTopStats();
+      var fp = "";
+      try {
+        fp = JSON.stringify({
+          board: body.board,
+          page: body.page,
+          total: body.total,
+          rows: body.rows,
+        });
+      } catch (e) {
+        fp = "";
+      }
+      if (fromSilent && fp && fp === state.renderFingerprint) {
+        syncSearchUi();
+        return;
+      }
+      state.renderFingerprint = fp;
+      render(body);
+      syncSearchUi();
+    }
+    cachedUsersFetch(url, {
+      useCache: !state.searchUserId,
+      ttlMs: USERS_CACHE_TTL_MS,
+      allowStale: !state.searchUserId && !silent,
+      onStale: function (stalePayload) {
+        if (!stalePayload || !stalePayload.body || stalePayload.body.ok !== true) return;
+        paintedStale = true;
+        applyPayload(stalePayload, false);
+        setLoading(false);
+      },
+    })
+      .then(function (out) {
+        applyPayload(out, silent || paintedStale);
       })
       .catch(function (err) {
+        if (paintedStale) return;
         var timedOut =
           err &&
           (err.name === "AbortError" ||
@@ -1183,6 +1342,36 @@
     }
   }
 
+  function initProfileWarmPrefetch() {
+    var root = document;
+    function fromLink(a) {
+      if (!a || !a.getAttribute) return "";
+      var href = String(a.getAttribute("href") || "");
+      var m = href.match(/[?&]id=(\d{17,20})/);
+      if (m) return m[1];
+      m = href.match(/\/users\/(\d{17,20})(?:\/|$)/);
+      return m ? m[1] : "";
+    }
+    root.addEventListener(
+      "pointerdown",
+      function (ev) {
+        var a = ev.target && ev.target.closest ? ev.target.closest("a.vc-ul-card-user, a[href*='/user/?id='], a[href*='/users/']") : null;
+        var id = fromLink(a);
+        if (id) prefetchProfileWarm(id);
+      },
+      true,
+    );
+    root.addEventListener(
+      "mouseover",
+      function (ev) {
+        var a = ev.target && ev.target.closest ? ev.target.closest("a.vc-ul-card-user") : null;
+        var id = fromLink(a);
+        if (id) prefetchProfileWarm(id);
+      },
+      true,
+    );
+  }
+
   function main() {
     if (isProfileMode()) {
       setLoading(false);
@@ -1191,6 +1380,7 @@
     initPager();
     initBoardTabs();
     initFilters();
+    initProfileWarmPrefetch();
     setFiltersOpen(false);
     setLoading(true, "Caricamento classifica");
     load();

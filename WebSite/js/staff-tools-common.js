@@ -10,7 +10,33 @@
 
   function cfgValueOrEmpty(v) {
     var s = String(v == null ? "" : v).trim();
-    return s && !/\{\{/.test(s) ? s : "";
+    return s && s !== "#" && !/\{\{/.test(s) ? s : "";
+  }
+
+  function isCoarseMobile() {
+    try {
+      return Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** Timeout fetch adattivo (mobile / rete lenta): evita falsi timeout a 20s. */
+  function resolveFetchTimeoutMs(preferred) {
+    var base = Math.max(8000, Number(preferred) || 45000);
+    try {
+      if (global.VcPerf && typeof global.VcPerf.fetchTimeouts === "function") {
+        return global.VcPerf.fetchTimeouts({ fetchTimeoutMs: base }).fetchTimeoutMs;
+      }
+    } catch (ePerf) {}
+    try {
+      var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      var et = String((conn && conn.effectiveType) || "").toLowerCase();
+      if (et === "slow-2g" || et === "2g") return Math.max(base, 55000);
+      if (et === "3g") return Math.max(base, 45000);
+    } catch (eConn) {}
+    if (isCoarseMobile()) return Math.max(base, 45000);
+    return Math.max(base, 30000);
   }
 
   function resolveApiUrl(cfgObj, fallbackPath) {
@@ -140,6 +166,13 @@
   }
 
   function showStaffToast(msg, isError, opts) {
+    // /notifications: nessun toast staff (Personali o Staff).
+    try {
+      if (document.body && document.body.classList.contains("vc-notifications-page")) {
+        hideStaffToast();
+        return;
+      }
+    } catch (eScopeToast) {}
     if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
       global.VcSiteToast.show(msg, isError, opts);
       return;
@@ -206,6 +239,7 @@
     }
     window.addEventListener("vc:staff-access-ok", run, { once: true });
     window.addEventListener("vc:access-ok", run, { once: true });
+    var earlyMs = isCoarseMobile() ? 1800 : 900;
     setTimeout(function () {
       if (
         window.__VC_ACCESS_OK ||
@@ -213,11 +247,14 @@
       ) {
         run();
       }
-    }, 400);
-    setTimeout(run, 20000);
+    }, earlyMs);
+    setTimeout(run, isCoarseMobile() ? 28000 : 22000);
   }
 
   function isStaffCinePage() {
+    try {
+      if (document.body && document.body.classList.contains("vc-notifications-page")) return false;
+    } catch (eNotif) {}
     var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
     if (p === "/staff") return true;
     if (
@@ -380,8 +417,7 @@
   function fetchJson(url, options) {
     var opts = options || {};
     var headers = Object.assign({ Authorization: "Bearer " + getToken() }, opts.headers || {});
-    var timeoutMs = Number(opts.timeoutMs);
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) timeoutMs = 20000;
+    var timeoutMs = resolveFetchTimeoutMs(opts.timeoutMs);
     var fetchOpts = {
       method: opts.method || "GET",
       headers: headers,
@@ -619,6 +655,8 @@
     showStaffToast: showStaffToast,
     hideStaffToast: hideStaffToast,
     fetchJson: fetchJson,
+    resolveFetchTimeoutMs: resolveFetchTimeoutMs,
+    isCoarseMobile: isCoarseMobile,
     formatAge: formatAge,
     defaultAvatarUrl: defaultAvatarUrl,
     userLabel: userLabel,

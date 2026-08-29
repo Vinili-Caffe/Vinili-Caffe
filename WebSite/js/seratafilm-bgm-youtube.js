@@ -14,6 +14,56 @@
   /** Dopo l’avvio film/spot la BGM non deve ripartire da sola. */
   var lockedOffForFilm = false;
   var volumeUiBound = false;
+  var seekUiBound = false;
+  var seekUiTimer = 0;
+  var seekDragging = false;
+
+  function seekBySeconds(deltaSec) {
+    if (!player || !playerReady) return;
+    try {
+      var cur = Number(player.getCurrentTime()) || 0;
+      var dur = Number(player.getDuration()) || 0;
+      var next = Math.max(0, cur + Number(deltaSec || 0));
+      if (dur > 0.5) next = Math.min(Math.max(0, dur - 0.35), next);
+      player.seekTo(next, true);
+      syncSeekSliderUi();
+    } catch (eSeek) {}
+  }
+
+  function seekToRatio(ratio01) {
+    if (!player || !playerReady) return;
+    try {
+      var dur = Number(player.getDuration()) || 0;
+      if (!(dur > 0.5)) return;
+      var next = Math.min(Math.max(0, dur - 0.35), Math.max(0, dur * Math.min(1, Math.max(0, Number(ratio01) || 0))));
+      player.seekTo(next, true);
+    } catch (eRatio) {}
+  }
+
+  function syncSeekSliderUi() {
+    if (seekDragging) return;
+    var seek = document.getElementById("vc-sf-music-seek");
+    if (!seek || !player || !playerReady) return;
+    try {
+      var dur = Number(player.getDuration()) || 0;
+      var cur = Number(player.getCurrentTime()) || 0;
+      if (!(dur > 0)) return;
+      seek.value = String(Math.round((cur / dur) * 1000));
+    } catch (eSync) {}
+  }
+
+  function startSeekUiLoop() {
+    if (seekUiTimer) return;
+    seekUiTimer = setInterval(syncSeekSliderUi, 500);
+  }
+
+  function stopSeekUiLoop() {
+    if (!seekUiTimer) return;
+    try {
+      clearInterval(seekUiTimer);
+    } catch (eCl) {}
+    seekUiTimer = 0;
+  }
 
   function isProjectionBlockingBgm() {
     try {
@@ -359,6 +409,24 @@
             updateMusicButtonUi();
           },
           onVolumeDelta: nudgeVolume,
+          onSeekForward: function (sec) {
+            seekBySeconds(Number(sec) || 10);
+          },
+          onSeekBackward: function (sec) {
+            seekBySeconds(-(Number(sec) || 10));
+          },
+          onSeekTo: function (details) {
+            if (!details) return;
+            if (Number.isFinite(Number(details.seekTime))) {
+              try {
+                player.seekTo(Number(details.seekTime), true);
+              } catch (eT) {}
+              return;
+            }
+            if (details.fastSeek == null && Number.isFinite(Number(details.seekRatio))) {
+              seekToRatio(Number(details.seekRatio));
+            }
+          },
         });
       }
     } catch (eMs) {}
@@ -368,6 +436,7 @@
     var existing = document.getElementById("vc-sf-music-player");
     if (existing) {
       syncVolumeSliderUi();
+      startSeekUiLoop();
       return existing;
     }
     var wrap = document.createElement("div");
@@ -391,6 +460,30 @@
     var label = document.createElement("span");
     label.className = "vc-bgm-player__label";
     label.textContent = "Musica Serata Film";
+
+    var seekRow = document.createElement("div");
+    seekRow.className = "vc-bgm-player__seek-row";
+    var seek = document.createElement("input");
+    seek.type = "range";
+    seek.id = "vc-sf-music-seek";
+    seek.className = "vc-bgm-player__range";
+    seek.min = "0";
+    seek.max = "1000";
+    seek.step = "1";
+    seek.value = "0";
+    seek.setAttribute("aria-label", "Posizione brano");
+    var fwd = document.createElement("button");
+    fwd.type = "button";
+    fwd.className = "vc-bgm-player__seek-btn";
+    fwd.setAttribute("aria-label", "Avanti 10 secondi");
+    fwd.title = "+10s";
+    var fwdIco = document.createElement("i");
+    fwdIco.className = "fa fa-forward";
+    fwdIco.setAttribute("aria-hidden", "true");
+    fwd.appendChild(fwdIco);
+    seekRow.appendChild(seek);
+    seekRow.appendChild(fwd);
+
     var row = document.createElement("div");
     row.className = "vc-bgm-player__slider-row";
     var icoLo = document.createElement("i");
@@ -411,6 +504,7 @@
     row.appendChild(range);
     row.appendChild(icoHi);
     meta.appendChild(label);
+    meta.appendChild(seekRow);
     meta.appendChild(row);
     wrap.appendChild(btn);
     wrap.appendChild(meta);
@@ -458,8 +552,45 @@
       },
       { passive: true },
     );
+
+    if (!seekUiBound) {
+      seekUiBound = true;
+      fwd.addEventListener("click", function (ev) {
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (eF) {}
+        seekBySeconds(10);
+        if (!started || mutedByUser) {
+          mutedByUser = false;
+          startFromUserGesture(true);
+        }
+      });
+      function onSeekPointerDown(ev) {
+        seekDragging = true;
+        try {
+          ev.stopPropagation();
+        } catch (eSp) {}
+      }
+      function onSeekPointerUp() {
+        seekDragging = false;
+        seekToRatio((Number(seek.value) || 0) / 1000);
+        syncSeekSliderUi();
+      }
+      seek.addEventListener("pointerdown", onSeekPointerDown);
+      seek.addEventListener("mousedown", onSeekPointerDown);
+      seek.addEventListener("touchstart", onSeekPointerDown, { passive: true });
+      seek.addEventListener("pointerup", onSeekPointerUp);
+      seek.addEventListener("change", onSeekPointerUp);
+      seek.addEventListener("input", function () {
+        if (!seekDragging) return;
+        seekToRatio((Number(seek.value) || 0) / 1000);
+      });
+    }
+
     volumeUiBound = true;
     syncVolumeSliderUi();
+    startSeekUiLoop();
     return wrap;
   }
 
@@ -512,6 +643,8 @@
           try {
             player.setVolume(Math.round(baseVol * 100));
           } catch (e6) {}
+          startSeekUiLoop();
+          syncSeekSliderUi();
         },
         onError: function (ev) {
           var code = ev && ev.data != null ? ev.data : "?";

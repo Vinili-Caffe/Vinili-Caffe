@@ -3549,6 +3549,8 @@ async function main() {
         : 0,
     },
     overrideIso: String(seratafilmEventRaw.overrideIso || seratafilmEventRaw.fixedIso || "").trim(),
+    // Path pubblico in config: in produzione nginx lo blocca; lo stream reale arriva da filmStreamUrl.
+    linkFilm: String(seratafilmEventRaw.linkFilm || "").trim(),
     hogwartsThemeVideoUrl: String(seratafilmEventRaw.hogwartsThemeVideoUrl || hogwartsIntroVideo).trim(),
     hogwartsEventWindow: {
       enabled: hogwartsEventRaw.enabled !== false,

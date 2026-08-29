@@ -6,6 +6,8 @@
   var liveProfilePollTimer = null;
   var LIVE_PROFILE_POLL_MS = 60000;
   var PROFILE_CACHE_TTL_MS = 90000;
+  var PROFILE_CACHE_LOCAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  var PROFILE_CACHE_LOCAL_PREFIX = "vc:profilecache-local:";
   var PROFILE_FETCH_TIMEOUT_MS = 20000;
   var PROFILE_FETCH_MAX_RETRIES = 2;
   var PROFILE_RANK_PREVIEW_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -16,6 +18,80 @@
   var lastRankPreviewLoadedAt = 0;
   var RANK_PREVIEW_RELOAD_MIN_MS = 5 * 60 * 1000;
   var profileBootGaveUp = false;
+  var profilePendingWatchdogTimer = null;
+  var profilePendingWatchdogAttempts = 0;
+  var profileMainInFlight = false;
+  var profileBootSettled = false;
+  /** Solo questo userId può aggiornare la shell community (blocca race peer/own). */
+  var lockedCommunityUserId = "";
+  var communityPaintSeq = 0;
+
+  function armProfilePendingWatchdog() {
+    if (profilePendingWatchdogTimer) return;
+    profilePendingWatchdogTimer = window.setTimeout(function () {
+      profilePendingWatchdogTimer = null;
+      try {
+        if (!document.documentElement.classList.contains("vc-user-profile-pending")) return;
+        if (profileInitialLoadDone || profileBootSettled) {
+          clearProfilePending();
+          clearProfileLoading();
+          return;
+        }
+        if (tryInstantProfileFromCache()) return;
+        profilePendingWatchdogAttempts += 1;
+        if (profilePendingWatchdogAttempts > 4) {
+          profileBootGaveUp = true;
+          try {
+            window.__VC_PROFILE_GAVE_UP = true;
+          } catch (eGave) {}
+          var stuckRoot = byId("vc-user-profile-view");
+          if (stuckRoot) {
+            renderError(stuckRoot, "Il caricamento del profilo non risponde. Premi Riprova.");
+          } else {
+            clearProfilePending();
+            clearProfileLoading();
+          }
+          return;
+        }
+        if (!parseProfileId()) {
+          clearProfilePending();
+          return;
+        }
+        // Non riavviare un fetch già in corso: su first boot cancellava la richiesta buona
+        // e lo splash restava fino al timeout (F5 poi era istantaneo grazie alla cache).
+        if (profileMainInFlight) {
+          armProfilePendingWatchdog();
+          return;
+        }
+        main({ force: false });
+        armProfilePendingWatchdog();
+      } catch (eWatch) {
+        clearProfilePending();
+      }
+    }, 4000);
+  }
+
+  function isCoarseMobileProfile() {
+    try {
+      if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) return true;
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+    } catch (eMob) {}
+    return false;
+  }
+
+  function profileFetchTimeoutMs() {
+    return isCoarseMobileProfile() ? 12000 : PROFILE_FETCH_TIMEOUT_MS;
+  }
+
+  function setProfilePageTitle(pageLabel) {
+    try {
+      if (window.VcPageTitle && typeof window.VcPageTitle.set === "function") {
+        window.VcPageTitle.set(pageLabel);
+        return;
+      }
+    } catch (eTitle) {}
+    document.title = siteName() + " | " + String(pageLabel || "Profilo");
+  }
 
   function isStandalonePwa() {
     try {
@@ -30,8 +106,10 @@
     return false;
   }
 
-  var PROFILE_BOOT_FAILSAFE_MS =
-    PROFILE_FETCH_TIMEOUT_MS * (PROFILE_FETCH_MAX_RETRIES + 1) + (isStandalonePwa() ? 12000 : 8000);
+  var PROFILE_BOOT_FAILSAFE_MS = Math.min(
+    profileFetchTimeoutMs() * (PROFILE_FETCH_MAX_RETRIES + 1) + (isStandalonePwa() ? 8000 : 5000),
+    isCoarseMobileProfile() ? 18000 : 24000,
+  );
 
   function byId(id) {
     return document.getElementById(id);
@@ -50,13 +128,20 @@
     }
   }
 
+  function isUsableApiUrl(raw) {
+    var api = String(raw || "").trim();
+    if (!api || api === "#" || api.indexOf("{{") >= 0) return false;
+    return true;
+  }
+
   function resolvedApiUrl() {
     var c = cfg();
     var local = String(c.apiUrlLocal || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
+    if (isLocalFrontendOrigin() && isUsableApiUrl(local)) return local;
     var api = String(c.apiUrl || "").trim();
+    if (!isUsableApiUrl(api)) return "/webhooks/site-users";
     try {
-      if (api && typeof window !== "undefined") {
+      if (typeof window !== "undefined") {
         var u = new URL(api, window.location.origin);
         var currentHost = String(window.location.hostname || "").replace(/^www\./i, "").toLowerCase();
         var apiHost = String(u.hostname || "").replace(/^www\./i, "").toLowerCase();
@@ -90,6 +175,27 @@
         JSON.stringify({ expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: value })
       );
     } catch (e) {}
+    try {
+      localStorage.setItem(
+        PROFILE_CACHE_LOCAL_PREFIX + key,
+        JSON.stringify({ expireAt: now + PROFILE_CACHE_LOCAL_TTL_MS, value: value })
+      );
+    } catch (eLocal) {}
+  }
+
+  function readLocalProfileCache(key, now) {
+    try {
+      var raw = localStorage.getItem(PROFILE_CACHE_LOCAL_PREFIX + key);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !Number.isFinite(parsed.expireAt) || parsed.expireAt <= now) {
+        localStorage.removeItem(PROFILE_CACHE_LOCAL_PREFIX + key);
+        return null;
+      }
+      return parsed.value;
+    } catch (e) {
+      return null;
+    }
   }
 
   function clearProfileSessionCaches() {
@@ -110,17 +216,32 @@
     } catch (eSess) {}
   }
 
-  function cachedJsonFetch(url, ttlMs) {
+  function cachedJsonFetch(url, ttlMs, opts) {
     var key = "vc:profilecache:" + String(url || "");
     var now = Date.now();
-    var mem = profileMemoryCache.get(key);
-    if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now) {
-      return Promise.resolve(mem.value);
-    }
-    var sess = readSessionCache(key, now);
-    if (sess) {
-      profileMemoryCache.set(key, { expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: sess });
-      return Promise.resolve(sess);
+    var bypass = Boolean(opts && opts.bypassCache);
+    if (!bypass) {
+      var mem = profileMemoryCache.get(key);
+      if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now) {
+        return Promise.resolve(mem.value);
+      }
+      var sess = readSessionCache(key, now);
+      if (sess) {
+        profileMemoryCache.set(key, { expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: sess });
+        return Promise.resolve(sess);
+      }
+      var local = readLocalProfileCache(key, now);
+      if (local) {
+        profileMemoryCache.set(key, { expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: local });
+        return Promise.resolve(local);
+      }
+    } else {
+      try {
+        profileMemoryCache.delete(key);
+      } catch (eMemDel) {}
+      try {
+        sessionStorage.removeItem(key);
+      } catch (eSessDel) {}
     }
     var fetchOpts = { credentials: "omit", cache: "no-store" };
     return fetch(url, fetchOpts)
@@ -307,15 +428,6 @@
         var bn = String(brand.textContent || "").replace(/\s+/g, " ").trim();
         if (bn && !isUnexpandedPlaceholder(bn)) return bn;
       }
-      var t = String(document.title || "").trim();
-      if (t.indexOf("|") > -1) {
-        var parts = t.split("|");
-        for (var i = 0; i < parts.length; i++) {
-          var piece = String(parts[i] || "").trim();
-          if (piece && !isUnexpandedPlaceholder(piece) && !/^\{\{/.test(piece)) return piece;
-        }
-      }
-      if (t && !isUnexpandedPlaceholder(t) && !/^\{\{/.test(t)) return t;
     } catch (e) {}
     return "Vinili & Caffè";
   }
@@ -333,7 +445,8 @@
 
   function profilePublicUrl(userId) {
     var id = String(userId || "").trim();
-    return id ? "/users/" + encodeURIComponent(id) : "/user";
+    // /user/?id= evita il redirect /users/:id → /user/?id= (doppio boot lento).
+    return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
   }
 
   function profileCustomizeUrl(userId) {
@@ -648,7 +761,7 @@
       });
   }
 
-  function fetchProfileBundle(userId) {
+  function fetchProfileBundle(userId, opts) {
     var url = buildApiUrl("profile", userId);
     if (!url) {
       return Promise.resolve({
@@ -676,9 +789,68 @@
       };
     }
 
-    var prefetch = null;
+    function emptyResult(timedOut) {
+      return {
+        ok: false,
+        notFound: false,
+        timedOut: Boolean(timedOut),
+        profile: null,
+        level: null,
+        weekly: null,
+        messages: null,
+        voice: null,
+      };
+    }
+
+    function directFetch() {
+      return cachedJsonFetch(url, PROFILE_CACHE_TTL_MS, opts)
+        .then(mapBody)
+        .catch(function () {
+          return emptyResult(false);
+        });
+    }
+
+    function firstUsableProfileResult(promises) {
+      return new Promise(function (resolve) {
+        var pending = promises.length;
+        var best = null;
+        if (!pending) {
+          resolve(emptyResult(false));
+          return;
+        }
+        promises.forEach(function (promiseLike) {
+          Promise.resolve(promiseLike)
+            .then(function (result) {
+              if (result && result.ok) {
+                resolve(result);
+                return;
+              }
+              if (result && !best) best = result;
+              pending -= 1;
+              if (pending <= 0) resolve(best || emptyResult(false));
+            })
+            .catch(function () {
+              pending -= 1;
+              if (pending <= 0) resolve(best || emptyResult(false));
+            });
+        });
+      });
+    }
+
+    var sources = [directFetch()];
     try {
-      prefetch = window.__VC_PROFILE_PREFETCH;
+      var readyPrefetch = window.__VC_PROFILE_PREFETCH_RESULT;
+      if (
+        readyPrefetch &&
+        readyPrefetch.httpOk &&
+        readyPrefetch.body &&
+        readyPrefetch.body.ok
+      ) {
+        sources.unshift(Promise.resolve(mapBody(readyPrefetch)));
+      }
+    } catch (eReadyPref) {}
+    try {
+      var prefetch = window.__VC_PROFILE_PREFETCH;
       if (
         prefetch &&
         String(prefetch.userId || "") === String(userId) &&
@@ -686,84 +858,27 @@
         typeof prefetch.promise.then === "function"
       ) {
         window.__VC_PROFILE_PREFETCH = null;
-        var fetchPromise = prefetch.promise
-          .then(function (out) {
-            return mapBody(out);
-          })
-          .catch(function () {
-            return cachedJsonFetch(url, PROFILE_CACHE_TTL_MS).then(mapBody);
-          });
-        return new Promise(function (resolve) {
-          var settled = false;
-          var timer = setTimeout(function () {
-            if (settled) return;
-            settled = true;
-            resolve({
-              ok: false,
-              notFound: false,
-              timedOut: true,
-              profile: null,
-              level: null,
-              weekly: null,
-              messages: null,
-              voice: null,
-            });
-          }, PROFILE_FETCH_TIMEOUT_MS);
-          fetchPromise
-            .then(function (result) {
-              if (settled) return;
-              settled = true;
-              clearTimeout(timer);
-              resolve(result);
+        sources.unshift(
+          prefetch.promise
+            .then(function (out) {
+              return mapBody(out);
             })
             .catch(function () {
-              if (settled) return;
-              settled = true;
-              clearTimeout(timer);
-              resolve({
-                ok: false,
-                notFound: false,
-                timedOut: true,
-                profile: null,
-                level: null,
-                weekly: null,
-                messages: null,
-                voice: null,
-              });
-            });
-        });
+              return emptyResult(false);
+            }),
+        );
       }
     } catch (ePref) {}
 
-    var fetchPromise = cachedJsonFetch(url, PROFILE_CACHE_TTL_MS)
-      .then(mapBody)
-      .catch(function () {
-        return {
-          ok: false,
-          notFound: false,
-          profile: null,
-          level: null,
-          weekly: null,
-          messages: null,
-          voice: null,
-        };
-      });
+    var fetchPromise = firstUsableProfileResult(sources);
+    var timeoutMs = profileFetchTimeoutMs();
     return new Promise(function (resolve) {
       var settled = false;
       var timer = setTimeout(function () {
         if (settled) return;
         settled = true;
-        resolve({
-          ok: false,
-          notFound: false,
-          timedOut: true,
-          profile: null,
-          level: null,
-          weekly: null,
-          messages: null,
-          voice: null,
-        });
-      }, PROFILE_FETCH_TIMEOUT_MS);
+        resolve(emptyResult(true));
+      }, timeoutMs);
       fetchPromise
         .then(function (result) {
           if (settled) return;
@@ -775,16 +890,7 @@
           if (settled) return;
           settled = true;
           clearTimeout(timer);
-          resolve({
-            ok: false,
-            notFound: false,
-            timedOut: true,
-            profile: null,
-            level: null,
-            weekly: null,
-            messages: null,
-            voice: null,
-          });
+          resolve(emptyResult(true));
         });
     });
   }
@@ -823,12 +929,64 @@
     } catch (eStyle) {}
   }
 
+  function unlockProfileChrome() {
+    clearProfilePending();
+    try {
+      document.documentElement.classList.remove("vc-page-cine-boot");
+      document.documentElement.classList.add("vc-page-cine-ready", "vc-user-profile-route");
+    } catch (eReady) {}
+    try {
+      if (document.body) {
+        document.body.classList.add("vc-user-profile-page", "vc-user-profile-route");
+      }
+    } catch (eBody) {}
+  }
+
+  function profileViewLooksReady(root) {
+    if (!root || root.hidden) return false;
+    if (root.querySelector(".vc-user-profile-hero, .vc-user-profile-notfound, .vc-user-profile-empty")) {
+      return true;
+    }
+    var staffPane = root.querySelector(".vc-user-profile-staff-pane");
+    if (
+      staffPane &&
+      !staffPane.hidden &&
+      staffPane.querySelector(".vc-user-profile-hero, .vc-staff-profile-panel, .vc-user-profile-shell")
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function profileViewLooksBroken(root) {
+    if (!root) return true;
+    if (root.hidden) return true;
+    if (profileViewLooksReady(root)) return false;
+    // Solo loader / vuoto / shell nascosta da tab staff stale.
+    var shell = root.querySelector(":scope > .vc-user-profile-shell");
+    var hasOnlyBoot = Boolean(root.querySelector("[data-vc-profile-boot]")) && !shell;
+    if (hasOnlyBoot) return true;
+    if (!root.innerHTML || !String(root.innerHTML).trim()) return true;
+    try {
+      var body = document.body;
+      var staffClass = body && body.classList.contains("vc-user-profile-staff-tab");
+      var pendingStaff = document.documentElement.classList.contains("vc-user-profile-staff-tab-pending");
+      if ((staffClass || pendingStaff) && shell && !root.querySelector(".vc-user-profile-staff-pane .vc-user-profile-hero, .vc-user-profile-staff-pane .vc-staff-profile-panel")) {
+        return true;
+      }
+    } catch (eBroken) {}
+    return !shell && !root.querySelector(".vc-user-profile-staff-pane");
+  }
+
   function clearProfileLoading() {
     var overlay = byId("vc-user-profile-loading");
     if (overlay) overlay.remove();
     try {
       var boots = document.querySelectorAll("[data-vc-profile-boot]");
       for (var i = 0; i < boots.length; i += 1) {
+        // Non toccare lo spinner del tab Staff (stesso look, altro marker).
+        if (boots[i].closest && boots[i].closest("[data-vc-profile-staff-pane]")) continue;
+        if (boots[i].getAttribute && boots[i].getAttribute("data-vc-staff-loading")) continue;
         boots[i].remove();
       }
     } catch (eBoot) {}
@@ -837,7 +995,10 @@
   function renderInlineLoading(root) {
     if (!root) return;
     root.hidden = false;
-    if (root.querySelector("[data-vc-profile-boot]")) return;
+    var existing = root.querySelector("[data-vc-profile-boot]");
+    if (existing && !(existing.closest && existing.closest("[data-vc-profile-staff-pane]"))) {
+      return;
+    }
     root.innerHTML =
       '<div class="vc-user-profile-loader vc-user-profile-boot vc-user-profile-boot--inline" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento profilo">' +
       '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
@@ -846,13 +1007,28 @@
       "</div>";
   }
 
+  function parseWantsStaffTab() {
+    try {
+      return (
+        String(new URLSearchParams(window.location.search || "").get("tab") || "")
+          .trim()
+          .toLowerCase() === "staff"
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
   function renderLoading(root) {
+    // Un solo boot anche su tab=staff (niente secondo spinner dopo).
     clearProfileLoading();
     renderInlineLoading(root);
   }
 
   function renderError(root, message) {
     clearProfileLoading();
+    profileBootSettled = true;
+    unlockProfileChrome();
     root.hidden = false;
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +
@@ -881,8 +1057,10 @@
 
   function renderEmpty(root, userId) {
     clearProfileLoading();
+    profileBootSettled = true;
+    unlockProfileChrome();
     if (window.VcPageTitle) window.VcPageTitle.set("Profilo");
-    else document.title = siteName() + " | Profilo";
+    else setProfilePageTitle("Profilo");
     root.hidden = false;
     root.innerHTML =
       '<section class="vc-user-profile-shell vc-user-profile-shell--notfound">' +
@@ -1001,7 +1179,40 @@
     if (hasPartnerManager) add("pm", "fa-handshake-o", "Partner Manager");
     if (hasStaffManager) add("manager", "fa-briefcase", "Manager");
 
-    if (includesAnyRole(names, ["high staff", "staff", "admin", "mod", "moderator", "helper", "community manager"])) {
+    var hasStaffDelMese =
+      hasRoleId(roles, "1442568895251611924") ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name.indexOf("staffer del mese") !== -1 || name.indexOf("staff del mese") !== -1;
+      });
+    if (hasStaffDelMese) add("sdm", "fa-trophy", "Staff del Mese");
+
+    var hasDirector =
+      hasRoleId(roles, "1502322782602530977") ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name === "director";
+      });
+    if (hasDirector) add("director", "fa-shield", "Director");
+
+    var hasHighStaff =
+      hasRoleId(roles, "1442568894349840435") ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name === "high staff" || name.indexOf("high staff") !== -1;
+      });
+    if (hasHighStaff) add("highstaff", "fa-shield", "High Staff");
+
+    var hasStaffRole =
+      hasRoleId(roles, "1442568910070349985") ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name === "staff";
+      });
+    if (hasStaffRole) add("staff", "fa-shield", "Staff");
+
+    if (
+      !hasDirector &&
+      !hasHighStaff &&
+      !hasStaffRole &&
+      includesAnyRole(names, ["admin", "mod", "moderator", "helper", "community manager"])
+    ) {
       add("staff", "fa-shield", "Staff");
     }
 
@@ -1104,9 +1315,44 @@
     );
   }
 
-  function renderProfile(root, userId, payload) {
+  function renderProfile(root, userId, payload, opts) {
+    opts = opts || {};
     clearProfileLoading();
     root.hidden = false;
+    var wantsStaffTab = false;
+    try {
+      wantsStaffTab =
+        String(new URLSearchParams(window.location.search || "").get("tab") || "")
+          .trim()
+          .toLowerCase() === "staff";
+    } catch (eTab) {
+      wantsStaffTab = false;
+    }
+    // Se stiamo dipingendo community per un peer, non preservare pane staff di altri.
+    if (opts.communityOnly) wantsStaffTab = false;
+    // Preserva il pane staff già in paint (prefetch): non farlo demolire dal render community.
+    // Solo se il pane appartiene allo stesso userId — altrimenti resta lo staffer sbagliato.
+    var savedStaffPane = null;
+    try {
+      var existingPane = root.querySelector("[data-vc-profile-staff-pane]");
+      if (existingPane && wantsStaffTab) {
+        var paneFor = String(existingPane.getAttribute("data-vc-staff-user") || "").trim();
+        if (paneFor && paneFor === String(userId)) {
+          savedStaffPane = existingPane.parentNode.removeChild(existingPane);
+        }
+      }
+    } catch (eSave) {
+      savedStaffPane = null;
+    }
+    // Non azzerare il tab Staff se l'URL lo richiede (prima spazzava pending e sembrava lentissimo).
+    if (!wantsStaffTab) {
+      try {
+        if (document.body) {
+          document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
+        }
+        document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
+      } catch (eTabClear) {}
+    }
     var level = payload.level || {};
     var weekly = payload.weekly || {};
     var messages = payload.messages || {};
@@ -1128,13 +1374,8 @@
     var customRole = customProfile && customProfile.role ? customProfile.role : null;
     var customSecondaryRole = customProfile && customProfile.secondaryRole ? customProfile.secondaryRole : null;
     var customVoice = customProfile && customProfile.voice ? customProfile.voice : null;
-    var rankCardTheme = profile.rankCard || {};
-    var avatarRing = String(rankCardTheme.ringColor || rankCardTheme.primaryTextColor || "").trim();
-    if (avatarRing && avatarRing.charAt(0) !== "#") avatarRing = "#" + avatarRing;
-    if (!/^#[0-9a-fA-F]{6}$/i.test(avatarRing)) avatarRing = "";
-    var avatarRingStyle = avatarRing
-      ? ' style="--vc-rank-ring:' + esc(avatarRing) + '"'
-      : "";
+    // Anello avatar profilo = palette sito (mocha), non i colori custom della rank card.
+    var avatarRingStyle = ' style="--vc-rank-ring:#e8c49c"';
     var multiplier = Number(
       (weekly && weekly.expMultiplier != null && weekly.expMultiplier !== "" ? weekly.expMultiplier : null) ||
         profile.expMultiplierResolved ||
@@ -1369,9 +1610,11 @@
         : "";
 
     if (window.VcPageTitle) window.VcPageTitle.set("Profilo");
-    else document.title = siteName() + " | Profilo";
+    else setProfilePageTitle("Profilo");
     root.innerHTML =
-      '<section class="vc-user-profile-shell">' +
+      '<section class="vc-user-profile-shell" data-vc-community-user="' +
+      esc(userId) +
+      '">' +
       '<section class="vc-user-profile-hero">' +
       '<div class="vc-user-profile-hero__head">' +
       '<div class="vc-user-profile-avatarwrap"' +
@@ -1503,8 +1746,39 @@
       rolesHtml +
       "</div></section>" +
       "</section>";
+    if (savedStaffPane) {
+      try {
+        root.appendChild(savedStaffPane);
+      } catch (eRe) {}
+    }
+    profileBootSettled = true;
+    unlockProfileChrome();
     clearProfilePending();
     if (viewerOwns) wireProfileCustomCreate(root);
+    if (opts.skipStaffSync) {
+      try {
+        if (
+          window.VCUserProfileStaffTab &&
+          typeof window.VCUserProfileStaffTab.paintCommunityChrome === "function"
+        ) {
+          window.VCUserProfileStaffTab.paintCommunityChrome(root, userId);
+        }
+      } catch (eChrome) {}
+      return;
+    }
+    try {
+      if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.sync === "function") {
+        window.VCUserProfileStaffTab.sync(userId, root);
+      }
+    } catch (eStaffTab) {}
+  }
+
+  function syncProfileStaffTab(userId, root) {
+    try {
+      if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.sync === "function") {
+        window.VCUserProfileStaffTab.sync(userId, root);
+      }
+    } catch (eStaffTab) {}
   }
 
   function releaseProfileRankObjectUrl() {
@@ -1513,6 +1787,17 @@
       window.URL.revokeObjectURL(profileRankObjectUrl);
     } catch (e) {}
     profileRankObjectUrl = "";
+  }
+
+  function communityShellUserId(root) {
+    try {
+      if (!root) root = byId("vc-user-profile-view");
+      if (!root) return "";
+      var shell = root.querySelector(":scope > .vc-user-profile-shell");
+      return shell ? String(shell.getAttribute("data-vc-community-user") || "").trim() : "";
+    } catch (e) {
+      return "";
+    }
   }
 
   function setRankCardPreviewReady(img, ready) {
@@ -1524,6 +1809,12 @@
     }
   }
 
+  function rankCardImgMatchesUser(img, userId) {
+    if (!img) return false;
+    var marked = String(img.getAttribute("data-vc-rank-for") || "").trim();
+    return Boolean(marked && marked === String(userId || "").trim());
+  }
+
   function loadProfileRankCardPreview(userId, options) {
     options = options || {};
     var force = Boolean(options.force);
@@ -1531,13 +1822,27 @@
     var status = byId("vc-user-rankcard-image-status");
     if (!img || !status) return;
     var uid = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(uid)) return;
+    // Durante lock community: niente rank di altri user.
+    if (lockedCommunityUserId && lockedCommunityUserId !== uid) return;
     var now = Date.now();
+    var markedFor = String(img.getAttribute("data-vc-rank-for") || "").trim();
+    if (uid && markedFor && markedFor !== uid) {
+      force = true;
+      try {
+        img.removeAttribute("src");
+      } catch (eClrSrc) {}
+      setRankCardPreviewReady(img, false);
+      lastRankPreviewUserId = "";
+      lastRankPreviewLoadedAt = 0;
+    }
     var wrapReady = Boolean(img.closest && img.closest(".vc-rank-editor-preview__imagewrap.is-ready"));
     var hasSrc = Boolean(img.getAttribute("src"));
     if (
       !force &&
       uid &&
       lastRankPreviewUserId === uid &&
+      rankCardImgMatchesUser(img, uid) &&
       hasSrc &&
       wrapReady &&
       now - lastRankPreviewLoadedAt < RANK_PREVIEW_RELOAD_MIN_MS
@@ -1551,11 +1856,16 @@
       status.className = "vc-rank-editor-preview__imagestatus is-error";
       return;
     }
+    try {
+      img.setAttribute("data-vc-rank-for", uid);
+    } catch (eMark) {}
     var myToken = ++profileRankRenderToken;
     function showImage(src, fromCache) {
       if (myToken !== profileRankRenderToken) return;
+      if (String(img.getAttribute("data-vc-rank-for") || "") !== uid) return;
       img.onload = function () {
         if (myToken !== profileRankRenderToken) return;
+        if (String(img.getAttribute("data-vc-rank-for") || "") !== uid) return;
         img.classList.remove("is-rendering");
         setRankCardPreviewReady(img, true);
         lastRankPreviewUserId = uid;
@@ -1566,6 +1876,7 @@
       };
       img.onerror = function () {
         if (myToken !== profileRankRenderToken) return;
+        if (String(img.getAttribute("data-vc-rank-for") || "") !== uid) return;
         img.classList.remove("is-rendering");
         if (fromCache && hasSrc) {
           setRankCardPreviewReady(img, true);
@@ -1592,7 +1903,6 @@
     if (cachedDataUrl) {
       releaseProfileRankObjectUrl();
       showImage(cachedDataUrl, true);
-      // soft refresh in background without blanking the card
     } else if (!hasSrc || force) {
       setRankCardPreviewReady(img, false);
       status.hidden = true;
@@ -1600,41 +1910,28 @@
       status.className = "vc-rank-editor-preview__imagestatus";
       img.classList.add("is-rendering");
     }
+    var directUrl = url + (force ? (url.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now() : "");
+    showImage(directUrl, false);
     fetch(url, { cache: "default", credentials: "omit" })
       .then(function (r) {
         if (!r.ok) throw new Error("http_" + r.status);
         return r.blob();
       })
       .then(function (blob) {
-        return blobToDataUrl(blob).then(function (dataUrl) {
-          return { blob: blob, dataUrl: dataUrl };
-        });
-      })
-      .then(function (out) {
         if (myToken !== profileRankRenderToken) return;
-        var blob = out && out.blob;
-        var dataUrl = out && out.dataUrl;
         if (!blob || !blob.size) throw new Error("empty");
-        var nextObjectUrl = window.URL.createObjectURL(blob);
-        var prevObjectUrl = profileRankObjectUrl;
-        profileRankObjectUrl = nextObjectUrl;
-        showImage(nextObjectUrl, false);
-        if (dataUrl) saveCachedProfileRankPreview(userId, dataUrl);
-        if (prevObjectUrl) {
-          try {
-            window.URL.revokeObjectURL(prevObjectUrl);
-          } catch (eRevoke) {}
+        if (blob.size < 380000) {
+          blobToDataUrl(blob)
+            .then(function (dataUrl) {
+              if (dataUrl) saveCachedProfileRankPreview(userId, dataUrl);
+            })
+            .catch(function () {});
         }
       })
       .catch(function () {
         if (myToken !== profileRankRenderToken) return;
+        if (img.getAttribute("src")) return;
         img.classList.remove("is-rendering");
-        if (img.getAttribute("src")) {
-          setRankCardPreviewReady(img, true);
-          status.hidden = true;
-          status.textContent = "";
-          return;
-        }
         setRankCardPreviewReady(img, false);
         status.hidden = false;
         status.textContent = "Anteprima non disponibile al momento.";
@@ -1650,6 +1947,18 @@
     var messages = result && result.messages ? result.messages : null;
     var voice = result && result.voice ? result.voice : null;
     var profile = (result && result.profile ? result.profile : {}) || {};
+
+    // Lock: mentre forziamo community di un peer, ignora paint di altri userId (race).
+    if (
+      lockedCommunityUserId &&
+      String(userId || "") !== lockedCommunityUserId &&
+      !(
+        document.body &&
+        document.body.classList.contains("vc-user-profile-staff-tab")
+      )
+    ) {
+      return false;
+    }
 
     if (result && result.notFound) {
       if (silent) return false;
@@ -1704,16 +2013,60 @@
 
     var viewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
     var nextSig = profileRenderSignature(userId, lastRenderedProfile.payload, viewerId);
-    var sameDom = silent && nextSig === lastProfileRenderSignature && root.querySelector("#vc-user-rankcard-image");
+    var rankImg = root.querySelector("#vc-user-rankcard-image");
+    var rankMismatch = Boolean(rankImg && !rankCardImgMatchesUser(rankImg, userId));
+    var shellUserNow = communityShellUserId(root);
+    var shellOk = shellUserNow === String(userId);
+
+    // Tab Staff attivo: aggiorna solo la cache in memoria, NON la shell community visibile.
+    // Altrimenti un fetch silent del peer aggiorna la rank card lasciando i dati del viewer.
+    var onStaffTab = Boolean(
+      document.body && document.body.classList.contains("vc-user-profile-staff-tab"),
+    );
+    if (onStaffTab && silent) {
+      lastProfileRenderSignature = nextSig;
+      profileInitialLoadDone = true;
+      profileBootSettled = true;
+      return true;
+    }
+
+    var sameDom =
+      silent && shellOk && nextSig === lastProfileRenderSignature && Boolean(rankImg);
     if (sameDom) {
       profileInitialLoadDone = true;
+      profileBootSettled = true;
+      if (rankMismatch || !rankImg.getAttribute("src")) {
+        loadProfileRankCardPreview(userId, { force: true });
+      }
       return true;
     }
     lastProfileRenderSignature = nextSig;
     try {
-      renderProfile(root, userId, lastRenderedProfile.payload);
+      var staffBusy =
+        parseWantsStaffTab() &&
+        onStaffTab &&
+        !root.querySelector(
+          ".vc-user-profile-staff-pane .vc-user-profile-hero, .vc-user-profile-staff-pane .vc-staff-profile-panel",
+        );
+      if (staffBusy && shellOk) {
+        profileInitialLoadDone = true;
+        profileBootSettled = true;
+        try {
+          if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.sync === "function") {
+            window.VCUserProfileStaffTab.sync(userId, root);
+          }
+        } catch (eStaffDefer) {}
+        return true;
+      }
+      renderProfile(root, userId, lastRenderedProfile.payload, {
+        skipStaffSync: Boolean(lockedCommunityUserId),
+        communityOnly: Boolean(lockedCommunityUserId),
+      });
       profileInitialLoadDone = true;
-      loadProfileRankCardPreview(userId, { force: !silent });
+      loadProfileRankCardPreview(userId, { force: true });
+      try {
+        document.documentElement.classList.remove("vc-user-profile-comm-switch");
+      } catch (eGate) {}
       return true;
     } catch (eRender) {
       if (!silent) {
@@ -1737,25 +2090,80 @@
       return mem.value;
     }
     var sess = readSessionCache(key, now);
-    if (!sess) return null;
-    profileMemoryCache.set(key, { expireAt: now + PROFILE_CACHE_TTL_MS, value: sess });
-    return sess;
+    if (sess) {
+      profileMemoryCache.set(key, { expireAt: now + PROFILE_CACHE_TTL_MS, value: sess });
+      return sess;
+    }
+    var local = readLocalProfileCache(key, now);
+    if (!local) return null;
+    profileMemoryCache.set(key, { expireAt: now + PROFILE_CACHE_TTL_MS, value: local });
+    return local;
+  }
+
+  function tryInstantProfileFromCache() {
+    var userId = parseProfileId();
+    if (!userId || profileInitialLoadDone) return false;
+    var root = byId("vc-user-profile-view");
+    if (!root) return false;
+    if (profileViewLooksReady(root)) {
+      profileInitialLoadDone = true;
+      profileBootSettled = true;
+      clearProfilePending();
+      clearProfileLoading();
+      unlockProfileChrome();
+      root.hidden = false;
+      return true;
+    }
+    var cachedOut = readCachedProfileBundle(userId);
+    var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
+    if (!(cachedOut && cachedOut.httpOk && cachedBody && cachedBody.ok && !cachedBody.notFound)) return false;
+    return applyProfileResult(
+      root,
+      userId,
+      {
+        ok: true,
+        notFound: false,
+        profile: cachedBody.profile || null,
+        level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : null,
+        weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : null,
+        messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : null,
+        voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : null,
+      },
+      false,
+    );
+  }
+
+  var profileMemberEnrichTimer = null;
+  function scheduleProfileMemberEnrich(userId) {
+    var id = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(id)) return;
+    try {
+      if (profileMemberEnrichTimer) window.clearTimeout(profileMemberEnrichTimer);
+    } catch (eClr) {}
+    profileMemberEnrichTimer = window.setTimeout(function () {
+      profileMemberEnrichTimer = null;
+      loadProfile({ silent: true, bypassCache: true });
+    }, 700);
   }
 
   function loadProfile(options) {
     options = options || {};
     var silent = Boolean(options.silent);
     var force = Boolean(options.force);
+    var bypassCache = Boolean(options.bypassCache);
     var allowRetry = options.retry !== false;
     var retryCount = Math.max(0, Number(options.retryCount) || 0);
-    if (profileBootGaveUp && !silent) {
-      return Promise.resolve();
+    if ((profileBootGaveUp || window.__VC_PROFILE_GAVE_UP) && !silent && !force) {
+      // Mai lasciare lo spinner forever: sblocca e riprova una volta.
+      profileBootGaveUp = false;
+      try {
+        window.__VC_PROFILE_GAVE_UP = false;
+      } catch (eGave) {}
+      options = Object.assign({}, options, { force: true });
+      force = true;
     }
-    if (window.__VC_PROFILE_GAVE_UP && !silent) {
-      profileBootGaveUp = true;
-      return Promise.resolve();
-    }
-    var userId = parseProfileId();
+    var overrideId = String(options.userId || "").trim();
+    var userId = /^\d{17,20}$/.test(overrideId) ? overrideId : parseProfileId();
     if (!userId) {
       if (!silent) clearProfilePending();
       return Promise.resolve();
@@ -1764,6 +2172,13 @@
     if (!root) {
       if (!silent) clearProfilePending();
       return Promise.resolve();
+    }
+
+    if (!silent) {
+      root.hidden = false;
+      try {
+        hideLeaderOnlySections();
+      } catch (eHideEarly) {}
     }
 
     if (!silent && force) {
@@ -1775,6 +2190,7 @@
       try {
         hideLeaderOnlySections();
       } catch (eHide) {}
+      var keepVisible = profileViewLooksReady(root);
       if (!force && retryCount === 0) {
         var cachedOut = readCachedProfileBundle(userId);
         var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
@@ -1793,15 +2209,16 @@
             },
             false,
           );
-        } else if (!profileInitialLoadDone) {
+        } else if (!profileInitialLoadDone && !keepVisible) {
           renderLoading(root);
         }
-      } else if (!profileInitialLoadDone) {
+      } else if (!profileInitialLoadDone && !keepVisible) {
+        // Non svuotare un profilo già in pagina (indietro / bfcache): evita flash e pagina bianca.
         renderLoading(root);
       }
     }
 
-    return fetchProfileBundle(userId)
+    return fetchProfileBundle(userId, bypassCache ? { bypassCache: true } : null)
       .then(function (result) {
         if (
           !silent &&
@@ -1819,10 +2236,14 @@
               retry: false,
               retryCount: retryCount + 1,
               force: true,
+              userId: userId,
             });
           });
         }
         var applied = applyProfileResult(root, userId, result, silent);
+        if (applied && !silent && !bypassCache) {
+          scheduleProfileMemberEnrich(userId);
+        }
         return applied;
       })
       .catch(function () {
@@ -1837,18 +2258,57 @@
               retry: false,
               retryCount: retryCount + 1,
               force: true,
+              userId: userId,
             });
           });
         }
         renderError(root);
         return false;
+      })
+      .finally(function () {
+        if (silent || !parseProfileId()) return;
+        if (profileInitialLoadDone || profileBootSettled) {
+          clearProfilePending();
+          clearProfileLoading();
+        } else {
+          // Mai lasciare overlay fullscreen se la promise è comunque terminata.
+          clearProfilePending();
+        }
+        try {
+          if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+        } catch (eLock) {}
       });
   }
 
-  function main(options) {
+  function dismissCommunityBootOverlay() {
     try {
-      return loadProfile(options || {});
+      var ul = byId("vc-ul-loading");
+      if (ul) ul.hidden = true;
+      document.documentElement.classList.remove("vc-user-leader-pending");
+      document.documentElement.classList.remove("vc-page-cine-boot");
+    } catch (eDismiss) {}
+  }
+
+  function main(options) {
+    var force = Boolean(options && options.force);
+    if (profileMainInFlight && !force) {
+      return Promise.resolve();
+    }
+    if (force) profileMainInFlight = false;
+    profileMainInFlight = true;
+    if (parseProfileId()) dismissCommunityBootOverlay();
+    armProfilePendingWatchdog();
+    try {
+      if (!(options && options.force) && tryInstantProfileFromCache()) {
+        return loadProfile({ silent: true }).finally(function () {
+          profileMainInFlight = false;
+        });
+      }
+      return loadProfile(options || {}).finally(function () {
+        profileMainInFlight = false;
+      });
     } catch (eMain) {
+      profileMainInFlight = false;
       try {
         var root = byId("vc-user-profile-view");
         if (root) renderError(root);
@@ -1884,6 +2344,70 @@
     }, LIVE_PROFILE_POLL_MS);
   }
 
+  function repairProfileAfterBack() {
+    var userId = parseProfileId();
+    if (!userId) return;
+    var root = byId("vc-user-profile-view");
+    if (!root) return;
+
+    profileBootGaveUp = false;
+    try {
+      window.__VC_PROFILE_GAVE_UP = false;
+    } catch (eGave) {}
+
+    unlockProfileChrome();
+    root.hidden = false;
+    try {
+      hideLeaderOnlySections();
+    } catch (eHide) {}
+    try {
+      if (typeof window.__vcRepairNotifDropdownPortal === "function") {
+        window.__vcRepairNotifDropdownPortal();
+      } else if (typeof window.__vcEnsureNotifDropdownInHeader === "function") {
+        window.__vcEnsureNotifDropdownInHeader(true);
+      }
+    } catch (eNotif) {}
+
+    try {
+      if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.repairAfterBack === "function") {
+        window.VCUserProfileStaffTab.repairAfterBack(root, userId);
+      }
+    } catch (eStaff) {}
+
+    var cachedOk =
+      lastRenderedProfile &&
+      String(lastRenderedProfile.userId) === String(userId) &&
+      lastRenderedProfile.payload;
+    var broken = profileViewLooksBroken(root);
+
+    if (cachedOk && broken) {
+      try {
+        lastRenderedProfile.root = root;
+        renderProfile(root, userId, lastRenderedProfile.payload);
+        profileInitialLoadDone = true;
+        loadProfileRankCardPreview(userId, { force: false });
+      } catch (eRepaint) {
+        profileInitialLoadDone = false;
+      }
+      loadProfile({ silent: true });
+      return;
+    }
+
+    if (!broken && profileViewLooksReady(root)) {
+      profileInitialLoadDone = true;
+      if (cachedOk) lastRenderedProfile.root = root;
+      try {
+        syncProfileStaffTab(userId, root);
+      } catch (eSync) {}
+      loadProfile({ silent: true });
+      return;
+    }
+
+    // Nessun DOM utilizzabile: ricarica senza wipe forzato se c'è cache sessione.
+    profileInitialLoadDone = false;
+    main({ force: false });
+  }
+
   window.addEventListener("vc-discord-profile", function (ev) {
     var prevViewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
     currentViewer = ev && ev.detail ? ev.detail.user || null : null;
@@ -1897,6 +2421,7 @@
     }
     lastProfileRenderSignature = sig;
     renderProfile(lastRenderedProfile.root, lastRenderedProfile.userId, lastRenderedProfile.payload);
+    syncProfileStaffTab(lastRenderedProfile.userId, lastRenderedProfile.root);
     loadProfileRankCardPreview(lastRenderedProfile.userId, { force: false });
   });
 
@@ -1934,20 +2459,187 @@
   startLiveProfilePolling();
 
   window.addEventListener("pageshow", function (ev) {
-    if (ev && ev.persisted && parseProfileId()) {
-      profileBootGaveUp = false;
-      profileInitialLoadDone = false;
-      clearProfileSessionCaches();
-      main({ force: true });
+    if (!parseProfileId()) return;
+    // Sempre su bfcache: non svuotare il profilo già in memoria.
+    if (ev && ev.persisted) {
+      repairProfileAfterBack();
+      return;
     }
+    // Su alcuni mobile il back non setta persisted: ripara solo se sembra pagina vuota/stale.
+    window.setTimeout(function () {
+      if (!parseProfileId()) return;
+      var r = byId("vc-user-profile-view");
+      if (!r) return;
+      var pending = false;
+      var staleStaff = false;
+      try {
+        pending = document.documentElement.classList.contains("vc-user-profile-pending");
+        staleStaff =
+          (document.body && document.body.classList.contains("vc-user-profile-staff-tab")) ||
+          document.documentElement.classList.contains("vc-user-profile-staff-tab-pending");
+      } catch (eCls) {}
+      if (pending && !profileInitialLoadDone) {
+        main({ force: false });
+        return;
+      }
+      if (pending) return;
+      if (staleStaff && profileViewLooksBroken(r)) {
+        repairProfileAfterBack();
+        return;
+      }
+      if (profileInitialLoadDone && profileViewLooksBroken(r)) {
+        repairProfileAfterBack();
+      }
+    }, 100);
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (!parseProfileId()) return;
+    try {
+      var root = byId("vc-user-profile-view");
+      if (root && profileViewLooksBroken(root)) repairProfileAfterBack();
+    } catch (eVis) {}
   });
 
   window.addEventListener("beforeunload", stopLiveProfilePolling);
+
+  window.addEventListener("vc:profile-id-changed", function (ev) {
+    var id = ev && ev.detail && ev.detail.userId ? String(ev.detail.userId) : "";
+    if (!/^\d{17,20}$/.test(id)) return;
+    if (!parseProfileId()) return;
+    loadProfile({ silent: true });
+  });
+
+  window.addEventListener("popstate", function () {
+    if (!parseProfileId()) return;
+    var id = parseProfileId();
+    if (
+      window.VCUserProfileStaffTab &&
+      typeof window.VCUserProfileStaffTab.sync === "function"
+    ) {
+      var root = byId("vc-user-profile-view");
+      window.VCUserProfileStaffTab.sync(id, root);
+    }
+    loadProfile({ silent: true });
+  });
 
   window.VCUserProfilePage = {
     isProfileMode: function () {
       return Boolean(parseProfileId());
     },
     profilePublicUrl: profilePublicUrl,
+    repairAfterBack: repairProfileAfterBack,
+    /** Assicura che la shell community in DOM sia del userId richiesto (peer → Community). */
+    ensureCommunityFor: function (userId, root, opts) {
+      var id = String(userId || "").trim();
+      if (!/^\d{17,20}$/.test(id)) return false;
+      if (!root) root = byId("vc-user-profile-view");
+      if (!root) return false;
+      opts = opts || {};
+      var wipe = Boolean(opts.wipe);
+
+      try {
+        document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
+        if (document.body) {
+          document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
+        }
+      } catch (eCls) {}
+
+      lockedCommunityUserId = id;
+      communityPaintSeq += 1;
+      var paintSeq = communityPaintSeq;
+
+      var shell = root.querySelector(":scope > .vc-user-profile-shell");
+      var shellUser = shell ? String(shell.getAttribute("data-vc-community-user") || "").trim() : "";
+      var shellStale = Boolean(shell && shell.getAttribute("data-vc-community-stale") === "1");
+      var heroIdOk = false;
+      try {
+        var idEl = shell && shell.querySelector(".vc-user-profile-id");
+        heroIdOk = Boolean(idEl && String(idEl.textContent || "").indexOf(id) !== -1);
+      } catch (eHero) {
+        heroIdOk = false;
+      }
+      var shellReallyOk = Boolean(shell && shellUser === id && !shellStale && heroIdOk);
+
+      if (shellReallyOk && !wipe) {
+        try {
+          shell.hidden = false;
+          shell.removeAttribute("data-vc-community-stale");
+          shell.setAttribute("aria-hidden", "false");
+          shell.style.removeProperty("display");
+          shell.style.removeProperty("visibility");
+        } catch (eShow) {}
+        loadProfileRankCardPreview(id, { force: true });
+        return true;
+      }
+
+      function paintFromPayload(payload) {
+        if (paintSeq !== communityPaintSeq) return false;
+        if (lockedCommunityUserId && lockedCommunityUserId !== id) return false;
+        lastProfileRenderSignature = "";
+        lastRenderedProfile = { root: root, userId: id, payload: payload };
+        // Invalida subito rank card di altri peer prima del paint.
+        profileRankRenderToken += 1;
+        lastRankPreviewUserId = "";
+        lastRankPreviewLoadedAt = 0;
+        renderProfile(root, id, payload, { skipStaffSync: true, communityOnly: true });
+        loadProfileRankCardPreview(id, { force: true });
+        try {
+          document.documentElement.classList.remove("vc-user-profile-comm-switch");
+        } catch (eGate) {}
+        return true;
+      }
+
+      // Solo se la cache in memoria è DAVVERO di questo userId.
+      if (
+        lastRenderedProfile &&
+        String(lastRenderedProfile.userId || "") === id &&
+        lastRenderedProfile.payload
+      ) {
+        try {
+          if (paintFromPayload(lastRenderedProfile.payload)) return true;
+        } catch (ePaint) {}
+      }
+
+      try {
+        var cachedOut = readCachedProfileBundle(id);
+        var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
+        if (cachedOut && cachedOut.httpOk && cachedBody && cachedBody.ok && !cachedBody.notFound) {
+          var payload = {
+            profile: cachedBody.profile || {},
+            level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : {},
+            weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : {},
+            messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : {},
+            voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : {},
+          };
+          if (paintFromPayload(payload)) return true;
+        }
+      } catch (eCache) {}
+
+      // Shell sbagliata: svuota subito (niente flash del peer precedente).
+      try {
+        lastProfileRenderSignature = "";
+        if (
+          lastRenderedProfile &&
+          String(lastRenderedProfile.userId || "") !== id
+        ) {
+          lastRenderedProfile = null;
+        }
+        profileRankRenderToken += 1;
+        lastRankPreviewUserId = "";
+        lastRankPreviewLoadedAt = 0;
+        renderLoading(root);
+      } catch (eLoad) {}
+
+      loadProfile({ silent: false, force: true, userId: id });
+      return false;
+    },
+    lockCommunityUser: function (userId) {
+      lockedCommunityUserId = String(userId || "").trim();
+    },
+    unlockCommunityUser: function () {
+      lockedCommunityUserId = "";
+    },
   };
 })();

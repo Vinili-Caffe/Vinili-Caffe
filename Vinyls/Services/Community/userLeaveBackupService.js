@@ -285,8 +285,14 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
         : current?.profile && typeof current.profile === "object"
           ? { ...current.profile }
           : null;
-    if (nextProfile && member && !member.premiumSinceTimestamp) {
-      delete nextProfile.serverBoostAnnouncedSlotCount;
+    if (nextProfile) {
+      // Nuovo ingresso: non riusare i flag announce del soggiorno precedente
+      // (altrimenti il welcome deferred non parte dopo restore ruoli ≤7gg).
+      delete nextProfile.joinAnnounceSentAt;
+      delete nextProfile.joinAnnouncePending;
+      if (member && !member.premiumSinceTimestamp) {
+        delete nextProfile.serverBoostAnnouncedSlotCount;
+      }
     }
     const nextModeration =
       payload?.moderation && typeof payload.moderation === "object"

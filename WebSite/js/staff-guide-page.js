@@ -14,7 +14,6 @@
   };
 
   var TAB_ICONS = {
-    "": "fa-book",
     regolamento: "fa-gavel",
     regole_staff: "fa-id-badge",
     limiti: "fa-calendar-check-o",
@@ -84,11 +83,11 @@
 
   function fetchSection(id) {
     var key = String(id || "").trim();
-    if (!key) {
-      return Promise.resolve(state.intro ? { id: "", label: state.intro.title || "Introduzione", html: state.intro.html || "" } : null);
-    }
+    if (!key) return Promise.resolve(null);
     if (state.cache[key]) return Promise.resolve(state.cache[key]);
-    return T.fetchJson(apiUrl(key)).then(function (out) {
+    return T.fetchJson(apiUrl(key), {
+      timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(45000) : 45000,
+    }).then(function (out) {
       if (!out.res.ok || !out.data || !out.data.ok || !out.data.section) {
         throw new Error((out.data && out.data.message) || "Sezione non disponibile.");
       }
@@ -100,11 +99,9 @@
   function renderTabs() {
     var root = T.byId("vc-staff-guide-tabs");
     if (!root) return;
-    var tabs = [{ id: "", label: "Introduzione" }].concat(
-      topLevelSections().map(function (s) {
-        return { id: s.id, label: s.label };
-      }),
-    );
+    var tabs = topLevelSections().map(function (s) {
+      return { id: s.id, label: s.label };
+    });
     root.innerHTML = "";
     tabs.forEach(function (tab) {
       var btn = document.createElement("button");
@@ -230,18 +227,7 @@
     var cards = [];
 
     if (!tabId) {
-      var intro = state.intro || {};
-      var introCard = makeCard({
-        id: "",
-        title: intro.title || "Introduzione",
-        tag: "Manuale",
-        html: intro.html || "",
-        open: true,
-      });
-      introCard._guideLoaded = true;
-      cards.push(introCard);
-      root.appendChild(introCard);
-      bindExclusiveOpen(cards);
+      root.innerHTML = '<p class="vc-regole-state">Seleziona una sezione della guida.</p>';
       return;
     }
 
@@ -297,11 +283,15 @@
     try {
       wanted = String(new URL(location.href).searchParams.get("section") || "").trim();
     } catch (e) {}
-    if (!wanted) return "";
-    var sec = findSection(wanted);
-    if (!sec) return "";
-    if (sec.parent) return sec.parent;
-    return sec.id;
+    if (wanted) {
+      var sec = findSection(wanted);
+      if (sec) {
+        if (sec.parent) return sec.parent;
+        return sec.id;
+      }
+    }
+    var tops = topLevelSections();
+    return tops.length ? tops[0].id : "";
   }
 
   function openWantedCard() {
@@ -329,7 +319,9 @@
     if (list) {
       list.innerHTML = '<p class="vc-regole-state">Caricamento guida\u2026</p>';
     }
-    T.fetchJson(apiUrl())
+    T.fetchJson(apiUrl(), {
+      timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(45000) : 45000,
+    })
       .then(function (out) {
         if (!out.res.ok || !out.data || !out.data.ok) {
           T.setStatus(
@@ -341,9 +333,9 @@
           return;
         }
         state.sections = out.data.sections || [];
-        state.intro = out.data.intro || null;
+        state.intro = null;
         state.cache = {};
-        if (!state.sections.length && !state.intro) {
+        if (!state.sections.length) {
           T.setStatus("vc-staff-guide-status", "Nessuna sezione disponibile.", true);
           if (list) list.innerHTML = "";
           return;

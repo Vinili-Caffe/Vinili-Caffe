@@ -92,17 +92,6 @@ async function buildWorkflowSummary(client, member, canManageHighStaff) {
     resoconti: 0,
   };
 
-  if (canManageHighStaff) {
-    summary.pause = await countPendingWorkflow(guild.id, "pause");
-  }
-  if (canReviewAppelli) {
-    summary.appelli = await countPendingWorkflow(guild.id, "appelli");
-  }
-
-  if (memberHasCandidatureReviewAccess(member, guild)) {
-    summary.candidature = await countPendingWorkflow(guild.id, "candidature");
-  }
-
   let resocontoWeekKey = "";
   try {
     const { getResocontoCycleWeekKey } = require("../../Services/Staff/weeklyStaffResocontoService");
@@ -110,9 +99,18 @@ async function buildWorkflowSummary(client, member, canManageHighStaff) {
   } catch {
     resocontoWeekKey = "";
   }
-  summary.resoconti = await countPendingWorkflow(guild.id, "resoconti", {
-    weekKey: resocontoWeekKey,
-  });
+
+  const canReviewCandidature = memberHasCandidatureReviewAccess(member, guild);
+  const [pauseN, appelliN, candidatureN, resocontiN] = await Promise.all([
+    canManageHighStaff ? countPendingWorkflow(guild.id, "pause") : Promise.resolve(0),
+    canReviewAppelli ? countPendingWorkflow(guild.id, "appelli") : Promise.resolve(0),
+    canReviewCandidature ? countPendingWorkflow(guild.id, "candidature") : Promise.resolve(0),
+    countPendingWorkflow(guild.id, "resoconti", { weekKey: resocontoWeekKey }),
+  ]);
+  summary.pause = pauseN;
+  summary.appelli = appelliN;
+  summary.candidature = candidatureN;
+  summary.resoconti = resocontiN;
 
   return {
     ok: true,
@@ -120,7 +118,7 @@ async function buildWorkflowSummary(client, member, canManageHighStaff) {
     summary,
     permissions: {
       highStaff: canManageHighStaff,
-      candidatureReview: memberHasCandidatureReviewAccess(member, guild),
+      candidatureReview: canReviewCandidature,
       appelliReview: canReviewAppelli,
       director: memberHasDirectorRole(member),
     },
@@ -285,10 +283,14 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
       return res.status(403).json({ ok: false, error: "forbidden", message: "Solo High Staff o Director." });
     }
 
-    const listOut = await listStaffWorkflowForInbox(client, guild, access.member, queue, {
-      ...listQuery,
-      forceSync,
-    });
+    const [listOut, summaryOut] = await Promise.all([
+      listStaffWorkflowForInbox(client, guild, access.member, queue, {
+        ...listQuery,
+        forceSync,
+      }),
+      // Badge pending insieme alla lista: evita round-trip summary lento su mobile.
+      buildWorkflowSummary(client, access.member, canManageHighStaff).catch(() => null),
+    ]);
     return res.status(200).json({
       ok: true,
       queue,
@@ -300,6 +302,9 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
       count: listOut.items.length,
       items: listOut.items,
       pagination: listOut.pagination,
+      ...(summaryOut?.ok && summaryOut.summary
+        ? { summary: summaryOut.summary, permissions: summaryOut.permissions }
+        : {}),
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-workflows GET:", err);

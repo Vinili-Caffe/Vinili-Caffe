@@ -122,7 +122,6 @@
   function showBoard() {
     revealShell();
     setHidden(byId("vc-hw-points-gate"), true);
-    setHidden(byId("vc-hw-points-school-board"), false);
     setHidden(byId("vc-hw-points-event-board"), false);
     render();
   }
@@ -202,7 +201,8 @@
   function parsePeriodDate(value, endOfDay) {
     var s = String(value || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-    var d = new Date(s + (endOfDay ? "T23:59:59.999" : "T00:00:00"));
+    // Fine anno = 21:00 (allineato a PERIOD_CLOSE_HOUR lato bot), non mezzanotte.
+    var d = new Date(s + (endOfDay ? "T21:00:00" : "T00:00:00"));
     var ms = d.getTime();
     return Number.isFinite(ms) ? ms : null;
   }
@@ -215,7 +215,7 @@
       if (!period || typeof period !== "object") continue;
       var start = parsePeriodDate(period.startDate, false);
       var end = parsePeriodDate(period.endDate, true);
-      if (Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end) return period;
+      if (Number.isFinite(start) && Number.isFinite(end) && now >= start && now < end) return period;
     }
     return null;
   }
@@ -245,6 +245,16 @@
     var grid = byId(ids.grid);
     if (!grid) return;
     var boardCfg = getBoardConfig(key);
+    var schoolSection = key === "schoolYear" ? byId("vc-hw-points-school-board") : null;
+    if (key === "schoolYear") {
+      var activeSchool = getActivePeriod(boardCfg.periods);
+      if (!activeSchool) {
+        setHidden(schoolSection, true);
+        grid.innerHTML = "";
+        return;
+      }
+      setHidden(schoolSection, false);
+    }
     var title = byId(ids.title);
     var subtitle = byId(ids.subtitle);
     if (title && boardCfg.title) title.textContent = String(boardCfg.title);

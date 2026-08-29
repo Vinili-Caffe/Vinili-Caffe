@@ -187,7 +187,7 @@
 
   function profileHref(userId) {
     var id = String(userId || "").trim();
-    return id ? "/users/" + encodeURIComponent(id) : "/user";
+    return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
   }
 
   function avatarUrl(row) {

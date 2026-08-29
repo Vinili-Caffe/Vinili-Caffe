@@ -266,7 +266,8 @@ async function handleSiteStaffSerataFilmPost(client, req, res) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const willAttend = body.willAttend !== false && body.willAttend !== "false" && body.willAttend !== 0;
     const guildId = String(IDs.guilds.main || "");
-    const result = await setSerataFilmWillAttend(guildId, String(access.member.id), willAttend);
+    const userId = String(access.member.id);
+    const result = await setSerataFilmWillAttend(guildId, userId, willAttend);
     if (!result?.ok) {
       return res.status(400).json({
         ok: false,
@@ -274,7 +275,11 @@ async function handleSiteStaffSerataFilmPost(client, req, res) {
         message: "Impossibile aggiornare la presenza.",
       });
     }
-    const doc = await ActivityUserProfile.findOne({ guildId, userId: String(access.member.id) })
+    try {
+      const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
+      clearStaffProfileCacheForUser(userId);
+    } catch (eCache) {}
+    const doc = await ActivityUserProfile.findOne({ guildId, userId })
       .select("staff")
       .lean()
       .catch(() => null);

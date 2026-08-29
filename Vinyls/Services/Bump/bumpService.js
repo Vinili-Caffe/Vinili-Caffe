@@ -4,6 +4,7 @@ const IDs = require("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands } = require("../../../shared/discord/dmPrivacyNotice");
 const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
+const { shouldSkipDiscordDmForActiveWebPush } = require("../../Utils/Web/siteNotifPrefs");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
@@ -964,6 +965,12 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
     await enqueueSiteInAppNotification(siteOpts).catch((err) => {
       global.logger?.warn?.("[VOTE REMINDER] site notification failed:", uid, err?.message || err);
     });
+
+    // Push web attiva → solo sito/OS push, niente DM Discord (né fallback in canale).
+    const skipDiscordForPush = await shouldSkipDiscordDmForActiveWebPush(gid, uid, siteOpts).catch(() => false);
+    if (skipDiscordForPush) {
+      return { ok: true, delivered: true, skippedOptOut: false, skippedDiscordForWebPush: true };
+    }
 
     const guild = await getClientGuildCached(client, gid);
     const member = guild ? await getGuildMemberCached(guild, uid) : null;

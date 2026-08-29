@@ -73,6 +73,24 @@ function normalizeKey(value, max = 512) {
   return s;
 }
 
+function pushUaFingerprint(uaRaw) {
+  const ua = String(uaRaw || "").trim();
+  if (!ua) return "empty";
+  let os = "os";
+  if (/iPhone|iPad|iPod/i.test(ua)) os = "ios";
+  else if (/Android/i.test(ua)) os = "android";
+  else if (/Windows/i.test(ua)) os = "win";
+  else if (/Macintosh/i.test(ua)) os = "mac";
+  else if (/Linux|X11/i.test(ua)) os = "linux";
+  let br = "br";
+  if (/Edg\//i.test(ua)) br = "edge";
+  else if (/Chrome\//i.test(ua) || /CriOS\//i.test(ua)) br = "chrome";
+  else if (/Firefox\//i.test(ua) || /FxiOS\//i.test(ua)) br = "firefox";
+  else if (/Safari\//i.test(ua)) br = "safari";
+  // Stesso OS+browser = stesso device (tab e PWA condividono la fingerprint).
+  return `${os}:${br}`;
+}
+
 async function upsertWebPushSubscription(userId, subscription, meta = {}) {
   const uid = normalizeUserId(userId);
   const endpoint = normalizeEndpoint(subscription?.endpoint);
@@ -118,6 +136,26 @@ async function upsertWebPushSubscription(userId, subscription, meta = {}) {
         userId: uid,
         pushUserAgent: userAgent,
         pushEndpoint: { $ne: endpoint },
+      }).catch(() => null);
+    }
+    // Anche con UA leggermente diversi (versione Chrome / display-mode): una sola
+    // subscription per fingerprint OS+browser, altrimenti doppia push OS.
+    const fp = pushUaFingerprint(userAgent);
+    const siblings = await SiteDocument.find({ docType: DOC, userId: uid })
+      .select("pushEndpoint pushUserAgent updatedAt createdAt")
+      .lean()
+      .catch(() => []);
+    const staleEndpoints = [];
+    for (const row of Array.isArray(siblings) ? siblings : []) {
+      const ep = normalizeEndpoint(row?.pushEndpoint);
+      if (!ep || ep === endpoint) continue;
+      if (pushUaFingerprint(row?.pushUserAgent) === fp) staleEndpoints.push(ep);
+    }
+    if (staleEndpoints.length) {
+      await SiteDocument.deleteMany({
+        docType: DOC,
+        userId: uid,
+        pushEndpoint: { $in: staleEndpoints },
       }).catch(() => null);
     }
     return { ok: true };
@@ -168,18 +206,28 @@ async function listSubscriptionsForUser(userId) {
     .lean()
     .catch(() => []);
   const list = Array.isArray(docs) ? docs : [];
-  // Stesso browser/UA = stesso device: una sola push (evita tab+PWA doppie).
-  const seenUa = new Set();
+  // Una sola push per fingerprint OS+browser (tab/PWA/Chrome update).
+  const seenFp = new Set();
   const out = [];
   for (const sub of list) {
-    const ua = String(sub?.pushUserAgent || "").trim();
-    if (ua) {
-      if (seenUa.has(ua)) continue;
-      seenUa.add(ua);
-    }
+    const fp = pushUaFingerprint(sub?.pushUserAgent);
+    if (seenFp.has(fp)) continue;
+    seenFp.add(fp);
     out.push(sub);
   }
   return out;
+}
+
+/** True se l'utente ha almeno una subscription web push salvata (VAPID ok). */
+async function userHasActiveWebPush(userId) {
+  const uid = normalizeUserId(userId);
+  if (!uid || !isPushEnabled()) return false;
+  try {
+    const hit = await SiteDocument.exists({ docType: DOC, userId: uid });
+    return Boolean(hit);
+  } catch {
+    return false;
+  }
 }
 
 function isMobilePushSubscription(sub) {
@@ -321,6 +369,8 @@ module.exports = {
   isPushEnabled,
   upsertWebPushSubscription,
   removeWebPushSubscription,
+  listSubscriptionsForUser,
+  userHasActiveWebPush,
   sendWebPushToUser,
   absoluteOpenUrl,
 };

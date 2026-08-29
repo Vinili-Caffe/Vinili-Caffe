@@ -36,7 +36,22 @@ const STAFF_ACTIVITY_LIMITS = {
 };
 /** Scambio limiti settimanali: 100 messaggi ↔ 1 ora (surplus di uno copre deficit dell'altro). */
 const STAFF_LIMITS_MSG_PER_HOUR_SWAP = 100;
+/** VP automatica: i limiti base vanno superati almeno del doppio (scambio msg↔ore incluso). */
+const STAFF_LIMITS_POSITIVE_MULTIPLIER = 2;
 
+function scaleStaffActivityLimits(limits, multiplier = 1) {
+  if (!limits) return null;
+  const m = Math.max(0, Number(multiplier) || 0);
+  return {
+    messages: Math.max(0, Number(limits.messages || 0) * m),
+    hours: Math.max(0, Number(limits.hours || 0) * m),
+  };
+}
+
+/**
+ * Valuta se messaggi/ore (con scambio 100 msg ↔ 1h) raggiungono i target in `limits`.
+ * Passa limits scalati (es. ×2) per il doppio richiesto dalla VP automatica.
+ */
 function evaluateStaffWeeklyLimitsWithSwap(weeklyMessages, weeklyVoiceHours, limits) {
   if (!limits) {
     return {
@@ -92,6 +107,14 @@ function evaluateStaffWeeklyLimitsWithSwap(weeklyMessages, weeklyVoiceHours, lim
     remainingMessages,
     remainingHours,
   };
+}
+
+function evaluateStaffWeeklyLimitsAtMultiplier(weeklyMessages, weeklyVoiceHours, limits, multiplier = 1) {
+  return evaluateStaffWeeklyLimitsWithSwap(
+    weeklyMessages,
+    weeklyVoiceHours,
+    scaleStaffActivityLimits(limits, multiplier),
+  );
 }
 
 function formatStaffLimitsSwapLine(limitsEval) {
@@ -895,22 +918,25 @@ function computeActivityGrade(roleId, weeklyMessages, weeklyVoiceHours) {
 
   const rawMsg = Math.max(0, Math.floor(toSafeNumber(weeklyMessages)));
   const rawHours = Math.max(0, toSafeNumber(weeklyVoiceHours));
-  const { effectiveMessages: msg, effectiveHours: hours } = evaluateStaffWeeklyLimitsWithSwap(
-    rawMsg,
-    rawHours,
-    limits,
-  );
-  const limMsg = limits.messages;
-  const limHours = limits.hours;
+  const limMsg = Number(limits.messages || 0);
+  const limHours = Number(limits.hours || 0);
 
-  if (msg >= limMsg * 3 && hours >= limHours * 3) return "Eccellente";
-  if (msg >= limMsg * 2 + 300 && hours >= limHours * 2 + 2) return "Ottimo";
-  if (msg >= limMsg * 2 && hours >= limHours * 2) return "Buono";
-  if (msg >= limMsg + 150 && hours >= limHours + 1.5) return "Discreto";
-  if (msg >= limMsg && hours >= limHours) return "Sufficiente";
+  // Ogni soglia valuta lo scambio msg↔ore contro QUEL target (non solo contro 1×).
+  const reaches = (targetMsg, targetHrs) =>
+    evaluateStaffWeeklyLimitsWithSwap(rawMsg, rawHours, {
+      messages: targetMsg,
+      hours: targetHrs,
+    }).reached;
 
-  const msgDelta = Math.max(0, limMsg - msg);
-  const hoursDelta = Math.max(0, limHours - hours);
+  if (reaches(limMsg * 3, limHours * 3)) return "Eccellente";
+  if (reaches(limMsg * 2 + 300, limHours * 2 + 2)) return "Ottimo";
+  if (reaches(limMsg * 2, limHours * 2)) return "Buono";
+  if (reaches(limMsg + 150, limHours + 1.5)) return "Discreto";
+  if (reaches(limMsg, limHours)) return "Sufficiente";
+
+  const baseEval = evaluateStaffWeeklyLimitsWithSwap(rawMsg, rawHours, limits);
+  const msgDelta = Math.max(0, Number(baseEval.remainingMessages || 0));
+  const hoursDelta = Math.max(0, Number(baseEval.remainingHours || 0));
   if (msgDelta <= STAFF_LIMITS_MSG_PER_HOUR_SWAP && hoursDelta <= 1) return "Insufficiente";
   return "Non classificato";
 }
@@ -1143,7 +1169,11 @@ function shouldSkipManualResocontoVp(staffDoc, resocontoWeekKey, staffRoleId, re
     return Boolean(
       findLogForReasonNeedlesSince(
         staffDoc,
-        ["limiti settimanali completati", "limiti settimanali rispettati"],
+        [
+          "limiti settimanali completati",
+          "limiti settimanali rispettati",
+          "limiti settimanali superati almeno del doppio",
+        ],
         "positive",
         since,
       ),
@@ -1246,6 +1276,7 @@ function buildStaffResocontoAzioneDisplay({
   activityGrade,
   behaviorGrade,
   reachedWeeklyLimits,
+  reachedDoubleWeeklyLimits,
   canEvaluateWeeklyLimits,
   metWeeklySanctionLimit,
   pexedInWeek = false,
@@ -1272,16 +1303,16 @@ function buildStaffResocontoAzioneDisplay({
 
   if (canEvaluateWeeklyLimits) {
     const limitsByBot = hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId);
-    if (reachedWeeklyLimits) {
-      pushPart(formatValutazioneLabel("positive", limitsByBot, "limiti settimanali completati"));
+    if (reachedDoubleWeeklyLimits) {
+      pushPart(formatValutazioneLabel("positive", limitsByBot, "limiti settimanali superati almeno del doppio"));
       if (!limitsByBot) {
         pushPendingManualAction(
           pendingManualActions,
           "vp",
-          "Limiti settimanali completati.",
+          "Limiti settimanali superati almeno del doppio.",
         );
       }
-    } else if (!inPauseDuringWeek) {
+    } else if (!reachedWeeklyLimits && !inPauseDuringWeek) {
       pushPart(formatValutazioneLabel("negative", limitsByBot, "limiti settimanali non raggiunti"));
       if (!limitsByBot) {
         pushPendingManualAction(
@@ -1806,7 +1837,7 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
     ? equivalentReasonNeedles
     : type === "negative"
       ? ["limiti settimanali non raggiunti", "limiti settimanali non rispettati"]
-      : ["limiti settimanali completati", "limiti settimanali rispettati"];
+      : ["limiti settimanali completati", "limiti settimanali rispettati", "limiti settimanali superati almeno del doppio"];
   const isWeeklyLimitsKey = keyStr.startsWith("weekly_limits:");
   const isWeeklySanzioniKey = keyStr.startsWith("weekly_sanzioni:");
   const isResocontoReviewerKey = keyStr.startsWith("resoconto_reviewer_task:");
@@ -2033,7 +2064,18 @@ async function applyWeeklyStaffAutoValutazioniForMember({
   const limitsEvaluation = limits
     ? evaluateStaffWeeklyLimitsWithSwap(weeklyMessages, weeklyVoiceHours, limits)
     : null;
+  const doubleLimitsEvaluation = limits
+    ? evaluateStaffWeeklyLimitsAtMultiplier(
+        weeklyMessages,
+        weeklyVoiceHours,
+        limits,
+        STAFF_LIMITS_POSITIVE_MULTIPLIER,
+      )
+    : null;
   const reachedWeeklyLimits = Boolean(canEvaluateWeeklyLimits && limitsEvaluation?.reached);
+  const reachedDoubleWeeklyLimits = Boolean(
+    canEvaluateWeeklyLimits && doubleLimitsEvaluation?.reached,
+  );
   const inPauseAtLeastOneDay = hadPauseAtLeastOneDayDuringWeek(
     staffDoc,
     weekStart,
@@ -2043,7 +2085,8 @@ async function applyWeeklyStaffAutoValutazioniForMember({
 
   let limitsResult = { ok: true, skipped: skipLimitAutovalutazione ? "skip_context" : "ineligible" };
   if (canEvaluateWeeklyLimits && !skipLimitAutovalutazione) {
-    const shouldApplyPositive = reachedWeeklyLimits;
+    // VP solo con almeno il doppio (scambio msg↔ore incluso). VN solo sotto il 1×.
+    const shouldApplyPositive = reachedDoubleWeeklyLimits;
     const shouldApplyNegative =
       !reachedWeeklyLimits && !inPauseAtLeastOneDay && !graceNewStaffRole;
     limitsResult = { ok: true, skipped: "pause_week" };
@@ -2053,7 +2096,12 @@ async function applyWeeklyStaffAutoValutazioniForMember({
         member,
         key: `weekly_limits:${resocontoWeekKey}:${staffRoleId}`,
         type: "positive",
-        reason: "Limiti settimanali completati.",
+        reason: "Limiti settimanali superati almeno del doppio.",
+        equivalentReasonNeedles: [
+          "limiti settimanali superati almeno del doppio",
+          "limiti settimanali completati",
+          "limiti settimanali rispettati",
+        ],
         force,
       }).catch((err) => {
         global.logger?.warn?.(
@@ -2081,6 +2129,8 @@ async function applyWeeklyStaffAutoValutazioniForMember({
       });
     } else if (!reachedWeeklyLimits && graceNewStaffRole) {
       limitsResult = { ok: true, skipped: "grace_new_role" };
+    } else if (reachedWeeklyLimits && !reachedDoubleWeeklyLimits) {
+      limitsResult = { ok: true, skipped: "below_double_limits" };
     }
   }
 
@@ -2671,7 +2721,18 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
       const limitsEvaluation = limits
         ? evaluateStaffWeeklyLimitsWithSwap(weeklyMessages, weeklyVoiceHours, limits)
         : null;
+      const doubleLimitsEvaluation = limits
+        ? evaluateStaffWeeklyLimitsAtMultiplier(
+            weeklyMessages,
+            weeklyVoiceHours,
+            limits,
+            STAFF_LIMITS_POSITIVE_MULTIPLIER,
+          )
+        : null;
       const reachedWeeklyLimits = Boolean(canEvaluateWeeklyLimits && limitsEvaluation?.reached);
+      const reachedDoubleWeeklyLimits = Boolean(
+        canEvaluateWeeklyLimits && doubleLimitsEvaluation?.reached,
+      );
       const endedPauseDuringWeek = didPauseEndDuringWeek(staffDoc, weekStart, weekEnd, "Staff");
       const inPauseDuringWeek = hadPauseAtLeastOneDayDuringWeek(staffDoc, weekStart, weekEnd, "Staff");
       const currentlyInPause = Boolean(
@@ -2725,6 +2786,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
         activityGrade,
         behaviorGrade,
         reachedWeeklyLimits,
+        reachedDoubleWeeklyLimits,
         canEvaluateWeeklyLimits,
         metWeeklySanctionLimit,
         pexedInWeek,
@@ -3473,7 +3535,18 @@ async function buildStaffResocontoApplyPlanForMember(guild, userId, staffRoleId)
   const limitsEvaluation = limits
     ? evaluateStaffWeeklyLimitsWithSwap(weeklyMessages, weeklyVoiceHours, limits)
     : null;
+  const doubleLimitsEvaluation = limits
+    ? evaluateStaffWeeklyLimitsAtMultiplier(
+        weeklyMessages,
+        weeklyVoiceHours,
+        limits,
+        STAFF_LIMITS_POSITIVE_MULTIPLIER,
+      )
+    : null;
   const reachedWeeklyLimits = Boolean(canEvaluateWeeklyLimits && limitsEvaluation?.reached);
+  const reachedDoubleWeeklyLimits = Boolean(
+    canEvaluateWeeklyLimits && doubleLimitsEvaluation?.reached,
+  );
   const activityGrade = overviewUnavailable
     ? "Non disponibile"
     : computeActivityGrade(staffRoleId, weeklyMessages, weeklyVoiceHours);
@@ -3499,6 +3572,7 @@ async function buildStaffResocontoApplyPlanForMember(guild, userId, staffRoleId)
     activityGrade,
     behaviorGrade,
     reachedWeeklyLimits,
+    reachedDoubleWeeklyLimits,
     canEvaluateWeeklyLimits,
     metWeeklySanctionLimit,
     pexedInWeek,
@@ -3530,6 +3604,9 @@ module.exports = {
   ensureWeeklyLimitAutoValutazione,
   STAFF_ACTIVITY_LIMITS,
   STAFF_LIMITS_MSG_PER_HOUR_SWAP,
+  STAFF_LIMITS_POSITIVE_MULTIPLIER,
   evaluateStaffWeeklyLimitsWithSwap,
+  evaluateStaffWeeklyLimitsAtMultiplier,
+  scaleStaffActivityLimits,
   STAFF_SANCTION_LIMITS,
 };

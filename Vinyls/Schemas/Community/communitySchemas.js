@@ -674,6 +674,11 @@ const activityUserProfileSchema = new Schema(
             cooldownUntil: { type: Date, default: null },
             lastRewardAt: { type: Date, default: null },
           },
+          /** Premi timed fine evento (VIP+/VIP/Donator 30g): house + memberTop. */
+          finaleRoleRewards: {
+            type: Schema.Types.Mixed,
+            default: () => ({}),
+          },
         },
       },
     },
@@ -698,6 +703,8 @@ activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1 });
 activityUserProfileSchema.index({ guildId: 1, staffPendingPurgeAt: 1 }, { sparse: true });
 activityUserProfileSchema.index({ guildId: 1, "profile.contestPrizes.finalePendingRoleRemovals": 1 }, { sparse: true });
+activityUserProfileSchema.index({ guildId: 1, "profile.events.hogwarts.finaleRoleRewards.house.expiresAt": 1 }, { sparse: true });
+activityUserProfileSchema.index({ guildId: 1, "profile.events.hogwarts.finaleRoleRewards.memberTop.expiresAt": 1 }, { sparse: true });
 activityUserProfileSchema.index({ "profile.muteRoleSnapshot.roleIds.0": 1 }, { sparse: true });
 activityUserProfileSchema.index({ guildId: 1, "profile.customPerksDiscordCleanup.runAt": 1 }, { sparse: true });
 
@@ -754,6 +761,7 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   HOGWARTS_REACT_PRESS: "hogwarts_react_press",
   HOGWARTS_EVENT_COMPLETION: "hogwarts_event_completion",
   HOGWARTS_SPELL_LIST_HUNT: "hogwarts_spell_list_hunt",
+  HOGWARTS_FINALE_CHAOS: "hogwarts_finale_chaos",
   COMMUNITY_FIRST_MESSAGE_DAILY: "community_first_message_daily",
   COMMUNITY_WELCOME_GREETING_EXP: "community_welcome_greeting_exp",
   COMMUNITY_WELCOME_SESSION: "community_welcome_session",
@@ -1021,6 +1029,10 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, dedupeKey: 1 },
   { unique: true, name: "hogwarts_spell_list_hunt_round_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SPELL_LIST_HUNT } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, name: "hogwarts_finale_chaos_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_FINALE_CHAOS } },
 );
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, dedupeKey: 1 },

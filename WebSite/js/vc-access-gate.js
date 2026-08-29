@@ -60,7 +60,8 @@
     { re: /^\/dashboard\/transcript(?:\/|$)/i, require: "public" },
     { re: /^\/dashboard\/profilo(?:\/|$)/i, require: "public" },
     { re: /^\/staff\/gestione(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
-    { re: /^\/staff\/punti-tolti(?:\/|$)/i, require: "pmOrHighStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/staff/" },
+    { re: /^\/staff\/punti-tolti(?:\/|$)/i, require: "pmOrHighStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/user/" },
+    { re: /^\/staff\/?$/i, require: "public" },
     { re: /^\/staff(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/dashboard(?:\/|$)/i, require: "highStaff", denyFallback: "/" },
     { re: /^\/seratafilm(?:\/|$)/i, require: "highStaff", loginUrl: "/seratafilm/accesso-richiesto/", denyFallback: "/" },
@@ -784,16 +785,19 @@
     var isSeratafilm = isSeratafilmPath(path);
 
     // Cache hit → reveal subito, senza ri-armare overlay o fetch.
+    // Seratafilm: ammetti dalla cache ma NON uscire — serve ancora filmStreamUrl dal webhook dedicato.
     if (needsStaffApi(need) && !needsDashboardApi(need, path)) {
       var cached = readJsonCache(STAFF_CACHE_KEY, token);
       if (cached && cached.ok) {
         admit(policy, normalizePerms(cached));
-        return;
-      }
-      var staleStaff = readJsonCacheStale(STAFF_CACHE_KEY, token, STAFF_CACHE_STALE_MS);
-      if (staleStaff && staleStaff.ok && (isStaffArea || isSeratafilm)) {
-        admit(policy, normalizePerms(staleStaff));
+        if (!isSeratafilm) return;
         revealedFromStale = true;
+      } else {
+        var staleStaff = readJsonCacheStale(STAFF_CACHE_KEY, token, STAFF_CACHE_STALE_MS);
+        if (staleStaff && staleStaff.ok && (isStaffArea || isSeratafilm)) {
+          admit(policy, normalizePerms(staleStaff));
+          revealedFromStale = true;
+        }
       }
     }
     if (needsDashboardApi(need, path)) {
@@ -823,6 +827,12 @@
       if (cSer && (cSer.apiUrl || cSer.apiUrlLocal)) {
         api = cfgUrl(cSer, "apiUrl", "apiUrlLocal", api);
       }
+      // Bake/deploy errati a volte lasciano /webhooks/seratafilm-access (404).
+      api = String(api || "").replace(
+        /\/webhooks\/seratafilm-access\/?$/i,
+        "/webhooks/site-seratafilm-access",
+      );
+      if (!api) api = "/webhooks/site-seratafilm-access";
     }
 
     if (!api) {

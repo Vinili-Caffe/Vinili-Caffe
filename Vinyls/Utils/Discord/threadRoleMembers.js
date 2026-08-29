@@ -310,4 +310,5 @@ module.exports = {
   addUserIdsToThread,
   resolveGuildMemberIds,
   memberListLooksComplete,
+  getFreshMemberIdSnapshot,
 };

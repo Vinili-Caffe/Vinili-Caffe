@@ -81,10 +81,8 @@
   function useLiteCanvas() {
     try {
       if (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()) return true;
-      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
-        /* mid: still lite canvas on heavy pages / PWA */
-        if (isLiteFxPage() || isStandalonePwa()) return true;
-      }
+      /* mid / PWA / finestre dedicate: canvas leggero di default (GPU). */
+      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) return true;
     } catch (ePerf) {}
     return isLiteFxPage() || isStandalonePwa();
   }
@@ -130,15 +128,37 @@
       if (window.__VC_CURSOR_TRAIL_INIT) return;
       if (document.documentElement.classList.contains("vc-cursor-trail-off")) return;
       try {
+        if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) return;
         if (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()) return;
       } catch (eLite) {}
+      if (isStandalonePwa()) return;
       if (document.querySelector('script[src*="vc-cursor-trail.js"]')) return;
       var s = document.createElement("script");
-      s.src = "/js/vc-cursor-trail.js?v=20260825cursorFx1";
+      s.src = "/js/vc-cursor-trail.js?v=20260829cinePerf2";
       s.defer = true;
       (document.head || document.documentElement).appendChild(s);
     } catch (eTrail) {}
   }
+
+  function uiChromeBusy() {
+    try {
+      var r = document.documentElement;
+      if (!r || !r.classList) return false;
+      return (
+        r.classList.contains("vc-mobile-nav-open") ||
+        r.classList.contains("vc-staff-stat-sheet-open") ||
+        r.classList.contains("vc-staff-manage-sheet-open") ||
+        r.classList.contains("vc-staff-datepicker-open") ||
+        r.classList.contains("vc-dialog-open") ||
+        r.classList.contains("vc-notif-sheet-open") ||
+        r.classList.contains("vc-dash-confirm-open")
+      );
+    } catch (eBusy) {
+      return false;
+    }
+  }
+
+  window.__vcUiChromeBusy = uiChromeBusy;
 
   function ensureSpotlightLayer(stage) {
     if (!stage) return null;
@@ -226,28 +246,64 @@
     );
   }
 
-  function isStaffCinePage() {
+  /** Staff tools with vinyl canvas background (public-style hero cards, no cine rewrite). */
+  function isStaffVinylPage() {
+    if (!isStaffRoute()) return false;
+    if (isStaffProfileHome()) return true;
+    if (isStaffInboxPage()) return true;
     var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
-    // /staff (profilo) vuole solo lo sfondo cine, non la card hero centrale.
-    if (p === "/staff" || isStaffProfileHome()) return false;
-    // Inbox: stessa logica (layout compatto sotto header; niente 100svh).
-    if (isStaffInboxPage()) return false;
     if (
       p === "/staff/guida" ||
       p === "/staff/pause" ||
       p === "/staff/gestione" ||
       p === "/staff/organico" ||
-      p === "/staff/punti-tolti"
+      p === "/staff/punti-tolti" ||
+      p === "/staff/ticket"
+    ) {
+      return true;
+    }
+    return Boolean(
+      document.body &&
+        (document.body.classList.contains("vc-staff-cine-page") ||
+          document.body.classList.contains("vc-staff-manage-page") ||
+          document.body.classList.contains("vc-staff-organico-page") ||
+          document.body.classList.contains("vc-staff-guide-page") ||
+          document.body.classList.contains("vc-staff-pause-page") ||
+          document.body.classList.contains("vc-staff-punti-tolti-page")),
+    );
+  }
+
+  /** Staff tool pages: same full-viewport cine hero as public polish pages. */
+  function isStaffCinePage() {
+    var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+    // Notifications embeds inbox without cine hero rewrite.
+    if (p === "/notifications" || (document.body && document.body.classList.contains("vc-notifications-page"))) {
+      return false;
+    }
+    if (p === "/staff" || isStaffProfileHome()) return false;
+    if (
+      p === "/staff/guida" ||
+      p === "/staff/pause" ||
+      p === "/staff/gestione" ||
+      p === "/staff/organico" ||
+      p === "/staff/punti-tolti" ||
+      p === "/staff/inbox" ||
+      p === "/staff/ticket"
     ) {
       return true;
     }
     return Boolean(
       (document.body &&
         (document.body.classList.contains("vc-staff-cine-page") ||
+          document.body.classList.contains("vc-staff-inbox-page") ||
           document.body.classList.contains("vc-staff-manage-page") ||
           document.body.classList.contains("vc-staff-organico-page") ||
-          document.body.classList.contains("vc-staff-guide-page"))) ||
-        (document.documentElement && document.documentElement.classList.contains("vc-staff-cine-route")),
+          document.body.classList.contains("vc-staff-guide-page") ||
+          document.body.classList.contains("vc-staff-pause-page") ||
+          document.body.classList.contains("vc-staff-punti-tolti-page"))) ||
+        (document.documentElement &&
+          (document.documentElement.classList.contains("vc-staff-cine-route") ||
+            document.documentElement.classList.contains("vc-staff-inbox-route"))),
     );
   }
 
@@ -258,10 +314,13 @@
 
   function skipScrollCuePage() {
     if (isEventoPage()) return true;
-    if (isStaffInboxPage()) return true;
+    // Staff cine pages: cue “scorri” come le pagine pubbliche.
+    if (isStaffCinePage()) return false;
     if (isStaffRoute() && !isStaffCinePage()) return true;
     var body = document.body;
     if (!body) return false;
+    // Notifiche: sfondo cine sì, cue/card no (come profilo).
+    if (body.classList.contains("vc-notifications-page")) return true;
     // Profilo staff: cine sì, cue “scorri” no (come /user/profilo).
     if (isStaffProfileHome() || body.classList.contains("vc-staff-profile-home")) return true;
     if (body.classList.contains("vc-user-profile-route") || body.classList.contains("vc-user-profile-page")) {
@@ -409,11 +468,19 @@
     ensureScrollCueFor(document.getElementById("intro"));
   }
 
+  function isSeratafilmRoute() {
+    try {
+      if (document.body && document.body.classList.contains("vc-seratafilm-page")) return true;
+    } catch (eB) {}
+    var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+    return p === "/seratafilm" || p.indexOf("/seratafilm/") === 0;
+  }
+
   function excludedPolishPath() {
     if (isStaffRoute() && !isStaffCinePage()) return true;
+    if (isSeratafilmRoute()) return true;
     var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
     if (p === "/") return true;
-    if (p === "/seratafilm" || p.indexOf("/seratafilm/") === 0) return true;
     if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) return true;
     return false;
   }
@@ -430,8 +497,15 @@
   }
 
   function shouldSkipPageCineHeroLayout() {
+    // Serata Film: layout proprietario (countdown/Hogwarts) — mai rewrite cine.
+    if (isSeratafilmRoute()) return true;
     // Evento Hogwarts: solo sfondo cine, layout pagine invariato.
     if (isEventoPage()) return true;
+    // Notifiche: cine background sì, niente hero-card a viewport + scroll cue (come profilo).
+    var body = document.body;
+    if (body && body.classList.contains("vc-notifications-page")) return true;
+    var path = String(location.pathname || "").replace(/\/+$/, "") || "/";
+    if (path === "/notifications") return true;
     // Staff tools: layout operativo — eccezione pagine cine (profilo/inbox/guida/pause/gestione).
     if (isStaffRoute() && !isStaffCinePage()) return true;
     if (isUserProfileRoute()) return true;
@@ -559,9 +633,8 @@
     for (var m = 0; m < mains.length; m++) {
       mains[m].classList.remove("vc-page-cine-main");
     }
-    // Staff cine pages keep the vinyl canvas; accesso-richiesto / redirect drop it.
-    // Profilo staff also keeps the canvas (flat layout, no hero card).
-    if (!isStaffCinePage() && !isStaffProfileHome()) {
+    // Staff cine/vinyl pages keep the canvas; accesso-richiesto / redirect drop it.
+    if (!isStaffCinePage() && !isStaffVinylPage()) {
       var stage = document.querySelector(".vc-home-cine");
       if (stage) {
         try {
@@ -588,8 +661,16 @@
         root.classList.contains("vc-custom-profile-pending") ||
         root.classList.contains("vc-user-profile-pending");
       if (!stillPending) {
+        var alreadyReady = root.classList.contains("vc-page-cine-ready");
         root.classList.add("vc-page-cine-ready");
         root.classList.remove("vc-page-cine-boot");
+        // Notifiche (e altre skip-hero) ascoltano l'evento: senza dispatch
+        // vc-notif-boot-personal resta opaco e la pagina sembra non caricare.
+        if (!alreadyReady) {
+          try {
+            document.dispatchEvent(new Event("vc:page-cine-ready"));
+          } catch (eReadyEvt) {}
+        }
       }
     }
     var heroes = document.querySelectorAll(".vc-page-cine-hero");
@@ -613,6 +694,10 @@
   function isHeroEl(el) {
     if (!el || !el.classList) return false;
     if (el.classList.contains("vc-user-profile-hero")) return false;
+    // /notifications: titolo flat in-page, non diventa cine-hero card.
+    if (el.classList.contains("vc-notify-hero") && document.body && document.body.classList.contains("vc-notifications-page")) {
+      return false;
+    }
     return (
       el.classList.contains("vc-support-page-hero") ||
       el.classList.contains("vc-notify-hero") ||
@@ -670,7 +755,12 @@
     var sib = hero.nextElementSibling;
     while (sib) {
       var next = sib.nextElementSibling;
-      if (sib !== contentWrap && sib.id !== "vc-page-content") {
+      if (
+        sib !== contentWrap &&
+        sib.id !== "vc-page-content" &&
+        sib.id !== "vc-notif-scope-dock" &&
+        !(sib.classList && sib.classList.contains("vc-notif-scope-dock"))
+      ) {
         contentWrap.appendChild(sib);
       }
       sib = next;
@@ -779,6 +869,7 @@
     if (hero.dataset.vcHomeHeroBuilt === "1") return;
 
     var cue = hero.querySelector(":scope > .vc-home-scrollcue");
+    var scopeDock = hero.querySelector(":scope > #vc-notif-scope-dock, :scope > .vc-notif-scope-dock");
     var panel = findHeroPanel(hero);
     var copyRoot = null;
 
@@ -794,6 +885,9 @@
       while (hero.firstChild) {
         var ch = hero.firstChild;
         if (ch.nodeType === 1 && ch.classList.contains("vc-home-scrollcue")) break;
+        if (ch.nodeType === 1 && (ch.id === "vc-notif-scope-dock" || ch.classList.contains("vc-notif-scope-dock"))) {
+          break;
+        }
         copyRoot.appendChild(ch);
       }
       if (!copyRoot.childNodes.length) return;
@@ -840,6 +934,7 @@
 
     hero.innerHTML = "";
     hero.appendChild(inner);
+    if (scopeDock) hero.appendChild(scopeDock);
     if (cue) hero.appendChild(cue);
 
     hero.dataset.vcHomeHeroBuilt = "1";
@@ -1193,7 +1288,9 @@
     // On Windows/Brave that media query is often wrongly true and killed the whole homepage feel.
     // Skip heavy pointer FX on coarse touch or lite perf tier (slow device/network).
     var skipHeavyFx =
-      coarse || (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite());
+      coarse ||
+      isStandalonePwa() ||
+      (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite());
     if (!skipHeavyFx) {
       initPanelTilt();
       initHomeExtraFx();
@@ -1689,12 +1786,20 @@
     window.__vcBootStaffCineLayout = bootStaffCineLayout;
   } catch (eBootExport) {}
 
+  /** Unwrap baked cine heroes — disabled: staff tools keep full cine like FAQ/wiki. */
+  function flattenStaffPublicHero() {
+    return;
+  }
+
   function boot() {
-    if (isStaffRoute() && !isStaffCinePage() && !isStaffProfileHome()) {
-      resetStaffPageCineLayout();
+    var body = document.body;
+    // Serata Film: mai canvas/hero cine — layout e tema Hogwarts restano proprietari.
+    if (isSeratafilmRoute()) {
+      try {
+        markPageCineReady(true);
+      } catch (eSf) {}
       return;
     }
-    var body = document.body;
     var home = Boolean(body && body.classList.contains("vc-body--home"));
     var polish = isPolishPage();
     if (!home && !polish) return;
@@ -1717,32 +1822,47 @@
       initHomeFx();
     } else if (polish) {
       var vote = Boolean(body && body.classList.contains("vc-vote-page"));
-      if (isStaffCinePage()) {
-        bootStaffCineLayout();
-        watchStaffCineLayout();
-      } else if (isStaffProfileHome() || isEventoPage()) {
-        // Profilo staff / evento: sfondo cine senza card hero centrale.
-        if (isStaffProfileHome()) resetStaffPageCineLayout();
-        else resetUsersPageCineLayout();
-      } else if (shouldSkipPageCineHeroLayout()) {
-        resetUsersPageCineLayout();
-      } else if (isUsersCommunityPage()) {
-        whenCommunityLeaderReady(function () {
+      try {
+        if (isStaffCinePage()) {
+          // Stile cine pieno (come FAQ/wiki): glass card centrata + primo viewport.
+          bootStaffCineLayout();
+          watchStaffCineLayout();
+        } else if (isStaffProfileHome()) {
+          resetStaffPageCineLayout();
+        } else if (isEventoPage()) {
+          resetUsersPageCineLayout();
+        } else if (shouldSkipPageCineHeroLayout()) {
+          resetUsersPageCineLayout();
+        } else if (isUsersCommunityPage()) {
+          whenCommunityLeaderReady(function () {
+            initPageHeroLayout({ force: true });
+            bindInnerHeroScrollFx();
+            snapScrollTopIfPristine();
+          });
+        } else {
           initPageHeroLayout({ force: true });
           bindInnerHeroScrollFx();
           snapScrollTopIfPristine();
-        });
-      } else {
-        initPageHeroLayout({ force: true });
-        bindInnerHeroScrollFx();
-        snapScrollTopIfPristine();
+        }
+      } catch (eHeroLayout) {
+        // Layout hero non deve bloccare il canvas cine (notifiche / pagine polish).
+        try {
+          markPageCineReady(true);
+        } catch (eReady) {}
       }
       try {
         document.documentElement.classList.add("vc-home-motion-ready");
       } catch (eInnerMotion) {}
-      if ((!shouldSkipPageCineHeroLayout() || isStaffCinePage()) && !vote && !isStaffProfileHome() && !isEventoPage()) {
-        initPolishHeroFx();
-        if (!isCoarse() && !(window.VcPerf && window.VcPerf.isLite && window.VcPerf.isLite())) initPanelTilt();
+      if (
+        (!shouldSkipPageCineHeroLayout() || isStaffCinePage()) &&
+        !vote &&
+        !isStaffProfileHome() &&
+        !isEventoPage()
+      ) {
+        try {
+          initPolishHeroFx();
+          if (!isCoarse() && !(window.VcPerf && window.VcPerf.isLite && window.VcPerf.isLite())) initPointerTilt();
+        } catch (eFx) {}
       }
     }
 
@@ -1760,6 +1880,8 @@
     var votePage = Boolean(body && body.classList.contains("vc-vote-page"));
     var skipPointerFx = Boolean(
       isCoarse() ||
+        isStandalonePwa() ||
+        (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) ||
         (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()),
     );
     if (!votePage && !skipPointerFx) {
@@ -1813,10 +1935,10 @@
     function resize() {
       var nextW = Math.max(1, window.innerWidth || 1);
       var nextH = Math.max(1, window.innerHeight || 1);
-      var dprCap = lite ? 1.15 : 1.6;
+      var dprCap = lite ? 1.05 : 1.25;
       try {
-        if (window.VcPerf && window.VcPerf.tier() === "mid") dprCap = Math.min(dprCap, 1.35);
-        if (window.VcPerf && window.VcPerf.isLite()) dprCap = 1.1;
+        if (window.VcPerf && window.VcPerf.tier() === "mid") dprCap = Math.min(dprCap, 1.1);
+        if (window.VcPerf && window.VcPerf.isLite()) dprCap = 1;
       } catch (eDpr) {}
       dpr = Math.min(dprCap, window.devicePixelRatio || 1);
       w = nextW;
@@ -1826,10 +1948,10 @@
       canvas.style.width = w + "px";
       canvas.style.height = h + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      var dustN = lite ? (coarse ? 10 : 18) : coarse ? 22 : 40;
+      var dustN = lite ? (coarse ? 0 : 8) : coarse ? 10 : 18;
       try {
-        if (window.VcPerf && window.VcPerf.isLite()) dustN = coarse ? 8 : 12;
-        else if (window.VcPerf && window.VcPerf.tier() === "mid") dustN = Math.min(dustN, coarse ? 16 : 28);
+        if (window.VcPerf && window.VcPerf.isLite()) dustN = 0;
+        else if (window.VcPerf && window.VcPerf.tier() === "mid") dustN = Math.min(dustN, coarse ? 0 : 10);
       } catch (eDust) {}
       spawnDust(dustN);
     }
@@ -1899,6 +2021,22 @@
     }
 
     var paintedOnce = false;
+    /* Cap FPS + idle freeze: full-viewport canvas at 60fps (even 24) stalls GPU
+       while the PWA/window is open; UI sheet animations then feel frozen.
+       Pause on blur, overlays, and after a short idle without input. */
+    var targetFps = lite ? 14 : 18;
+    try {
+      if (window.VcPerf && window.VcPerf.isLite()) targetFps = 10;
+      else if (window.VcPerf && window.VcPerf.tier() === "mid") targetFps = 12;
+    } catch (eFps) {}
+    var minFrameMs = 1000 / targetFps;
+    var lastFrameAt = 0;
+    var lastInputAt = performance.now();
+    var IDLE_FREEZE_MS = lite || coarse ? 1800 : 2800;
+    var vinylCache = null;
+    var vinylCacheR = 0;
+    var vinylCacheSize = 0;
+    var idleFrozen = false;
 
     function afterFirstPaint() {
       if (paintedOnce) return;
@@ -1914,9 +2052,64 @@
       markPageCineReady(true);
     }
 
-    function frame(now) {
-      raf = 0;
-      if (!running) return;
+    function ensureVinylCache(r) {
+      var need = Math.ceil(r * 2 + 8);
+      if (vinylCache && Math.abs(vinylCacheR - r) < 1.5 && vinylCacheSize >= need) return;
+      vinylCacheR = r;
+      vinylCacheSize = need;
+      vinylCache = document.createElement("canvas");
+      vinylCache.width = need;
+      vinylCache.height = need;
+      var vctx = vinylCache.getContext("2d");
+      if (!vctx) {
+        vinylCache = null;
+        return;
+      }
+      var prev = ctx;
+      /* reuse drawVinyl against offscreen ctx via temporary swap */
+      try {
+        ctx = vctx;
+        drawVinyl(need / 2, need / 2, r, 0, 1);
+      } finally {
+        ctx = prev;
+      }
+    }
+
+    function drawVinylCached(cx, cy, r, rot, alpha) {
+      ensureVinylCache(r);
+      if (!vinylCache) {
+        drawVinyl(cx, cy, r, rot, alpha);
+        return;
+      }
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(vinylCache, -vinylCache.width / 2, -vinylCache.height / 2);
+      ctx.restore();
+    }
+
+    function noteCineInput() {
+      lastInputAt = performance.now();
+      if (idleFrozen) {
+        idleFrozen = false;
+        try {
+          document.documentElement.classList.remove("vc-cine-idle");
+        } catch (eIdleOff) {}
+        start();
+      }
+    }
+
+    function pageWantsCine() {
+      if (document.hidden) return false;
+      try {
+        if (typeof document.hasFocus === "function" && !document.hasFocus()) return false;
+      } catch (eFocus) {}
+      if (uiChromeBusy()) return false;
+      return true;
+    }
+
+    function paintFrame(now, freezeAfter) {
       var t = (now - t0) / 1000;
       mx += (tx - mx) * 0.045;
       my += (ty - my) * 0.045;
@@ -1939,7 +2132,7 @@
       var cy = mobile ? h * 0.56 : h * (0.54 + (my - 0.5) * 0.03);
       var r = mobile ? Math.min(w * 0.84, h * 0.44) : Math.min(w, h) * 0.46;
       var alpha = mobile ? (lite ? 0.66 : 0.7) : lite ? 0.62 : 0.68;
-      drawVinyl(cx, cy, r, t * 0.18, alpha);
+      drawVinylCached(cx, cy, r, t * 0.18, alpha);
 
       var cupX = mobile ? w * 0.18 : w * 0.18;
       var cupY = mobile ? h * 0.78 : h * 0.78;
@@ -1951,14 +2144,16 @@
 
       for (var i = 0; i < dust.length; i++) {
         var p = dust[i];
-        p.y -= p.v * p.z * 0.16;
-        p.x += p.drift * p.z * 0.08;
-        if (p.y < -0.04) {
-          p.y = 1.04;
-          p.x = Math.random();
+        if (!freezeAfter) {
+          p.y -= p.v * p.z * 0.16;
+          p.x += p.drift * p.z * 0.08;
+          if (p.y < -0.04) {
+            p.y = 1.04;
+            p.x = Math.random();
+          }
+          if (p.x < -0.04) p.x = 1.04;
+          if (p.x > 1.04) p.x = -0.04;
         }
-        if (p.x < -0.04) p.x = 1.04;
-        if (p.x > 1.04) p.x = -0.04;
         ctx.beginPath();
         ctx.arc(p.x * w, p.y * h, p.s * p.z, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(243,226,208," + (0.12 + p.z * 0.28) + ")";
@@ -1972,13 +2167,40 @@
       ctx.fillRect(0, 0, w, h);
 
       afterFirstPaint();
+    }
+
+    function frame(now) {
+      raf = 0;
+      if (!running) return;
+      if (!pageWantsCine()) {
+        stop();
+        return;
+      }
+      if (now - lastInputAt >= IDLE_FREEZE_MS) {
+        paintFrame(now, true);
+        idleFrozen = true;
+        try {
+          document.documentElement.classList.add("vc-cine-idle");
+        } catch (eIdleOn) {}
+        stop();
+        return;
+      }
+      if (lastFrameAt && now - lastFrameAt < minFrameMs) {
+        raf = window.requestAnimationFrame(frame);
+        return;
+      }
+      lastFrameAt = now;
+      paintFrame(now, false);
       if (!raf) raf = window.requestAnimationFrame(frame);
     }
 
     function start() {
       if (running) return;
+      if (!pageWantsCine()) return;
+      if (idleFrozen && performance.now() - lastInputAt >= IDLE_FREEZE_MS) return;
       running = true;
-      t0 = performance.now();
+      lastFrameAt = 0;
+      if (!paintedOnce) t0 = performance.now();
       // Do not add vc-home-cine-live until afterFirstPaint — otherwise CSS vinyl
       // disappears before the canvas draws (common flash on slower phones).
       if (!raf) raf = window.requestAnimationFrame(frame);
@@ -1992,26 +2214,73 @@
       }
     }
 
+    function syncRunState() {
+      if (pageWantsCine()) {
+        if (performance.now() - lastInputAt < IDLE_FREEZE_MS) {
+          idleFrozen = false;
+          try {
+            document.documentElement.classList.remove("vc-cine-idle");
+          } catch (eIdleClr) {}
+          start();
+        }
+      } else stop();
+    }
+
     resize();
     start();
 
     window.addEventListener("resize", function () {
+      vinylCache = null;
+      vinylCacheR = 0;
+      noteCineInput();
       resize();
     });
-    document.addEventListener("visibilitychange", function () {
-      if (document.hidden) stop();
-      else start();
+    document.addEventListener("visibilitychange", syncRunState);
+    window.addEventListener("blur", syncRunState);
+    window.addEventListener("focus", function () {
+      noteCineInput();
+      syncRunState();
     });
+    window.addEventListener(
+      "pointerdown",
+      function () {
+        noteCineInput();
+      },
+      { passive: true },
+    );
+    window.addEventListener(
+      "keydown",
+      function () {
+        noteCineInput();
+      },
+      { passive: true },
+    );
+    window.addEventListener(
+      "scroll",
+      function () {
+        noteCineInput();
+      },
+      { passive: true },
+    );
     if (!coarse) {
       window.addEventListener(
         "pointermove",
         function (ev) {
+          noteCineInput();
           tx = ev.clientX / Math.max(1, w);
           ty = ev.clientY / Math.max(1, h);
         },
         { passive: true },
       );
     }
+    try {
+      if (typeof MutationObserver !== "undefined") {
+        var chromeObs = new MutationObserver(function () {
+          syncRunState();
+        });
+        chromeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+      }
+    } catch (eObs) {}
   }
 
   if (document.readyState === "loading") {

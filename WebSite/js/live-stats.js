@@ -1040,8 +1040,8 @@
   }
 
   /**
-   * Membri/boost: stessi valori della classifica (guild dal bot). Priorità a live-stats-extra.json
-   * (guildMemberCount / guildBoostCount); fallback invite Discord se mancano nel JSON.
+   * Membri/boost: priorità all’invite Discord (conteggi live ~ogni poll).
+   * live-stats-extra.json resta per staff/hover/pulse e fallback se l’invite fallisce.
    */
   function tick() {
     Promise.all([fetchExtraStatsJson(), refreshInvite().catch(function () {
@@ -1050,23 +1050,36 @@
       var extra = pair[0];
       var inv = pair[1];
       applyExtraStats(extra);
+      var invMem =
+        inv && inv.approximate_member_count != null && Number.isFinite(Number(inv.approximate_member_count))
+          ? Number(inv.approximate_member_count)
+          : null;
       var guildMem =
         extra && extra.guildMemberCount != null && Number.isFinite(Number(extra.guildMemberCount))
           ? Number(extra.guildMemberCount)
           : null;
-      if (guildMem != null) {
+      if (invMem != null) {
+        setText("members", invMem);
+      } else if (guildMem != null) {
         setText("members", guildMem);
-      } else if (inv && inv.approximate_member_count != null) {
-        setText("members", inv.approximate_member_count);
       }
+      var invBoost =
+        inv &&
+        inv.guild &&
+        inv.guild.premium_subscription_count != null &&
+        Number.isFinite(Number(inv.guild.premium_subscription_count))
+          ? Number(inv.guild.premium_subscription_count)
+          : null;
       var guildBoost =
         extra && extra.guildBoostCount != null && Number.isFinite(Number(extra.guildBoostCount))
           ? Number(extra.guildBoostCount)
           : null;
-      if (guildBoost != null) {
+      if (invBoost != null && guildBoost != null) {
+        setText("boosts", Math.max(invBoost, guildBoost));
+      } else if (invBoost != null) {
+        setText("boosts", invBoost);
+      } else if (guildBoost != null) {
         setText("boosts", guildBoost);
-      } else if (inv && inv.guild && inv.guild.premium_subscription_count != null) {
-        setText("boosts", inv.guild.premium_subscription_count);
       }
     });
   }

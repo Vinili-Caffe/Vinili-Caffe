@@ -1587,6 +1587,12 @@ async function quarantineExecutor(guild, executorId, reason) {
 
   if (!member.moderatable) return { applied: false, method: "not_moderatable" };
   const quarantineTimeoutMs = ANTINUKE_CONFIG.autoQuarantine.quarantineTimeoutMs || 0;
+  try {
+    const { captureMuteRoleSnapshot } = require("./mutedMirrorRoleService");
+    await captureMuteRoleSnapshot(member, { reason: "AntiNuke quarantine (pre-timeout)" });
+  } catch (err) {
+    global.logger?.warn?.("[antiNuke] pre-timeout snapshot:", userId, err?.message || err);
+  }
   const timeoutApplied = await member.timeout(quarantineTimeoutMs, reason).then(() => true).catch(() => false);
   if (timeoutApplied) {
     ensurePanicReport(getPanicState(guild?.id)).quarantinedUserIds.add(String(userId));

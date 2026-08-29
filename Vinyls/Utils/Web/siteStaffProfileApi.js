@@ -20,19 +20,27 @@ const {
   resolveStaffProfileKind,
   buildFullProfileRoleLabelForEmbed,
   buildStaffProfileRoleBadges,
+  appendStaffDelMeseBadge,
   resolveStaffProfileDisplayRoleId,
+  viewerIsFounder,
   PROFILE_FULL,
   PROFILE_PM_ONLY,
   PROFILE_PROSPECT,
 } = require("../Staff/staffProfilePanelRuntime");
 const { resolveSerataFilmAttendanceForWeek } = require("../Staff/serataFilmAttendanceUtils");
 const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../Staff/staffLegacyMerge");
+const { isHiddenManualStaffCareerReason } = require("../Staff/staffTrackHistory");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
+const { fetchWebsiteGuildMember, readCachedWebsiteMember } = require("./websiteGuildMemberFetch");
+const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi");
 
 const PROFILE_CACHE_TTL_MS = 120_000;
 const PROFILE_CACHE_MAX = 200;
 const profileCache = new Map();
-const PROFILE_PAYLOAD_VERSION = 6;
+const PROFILE_PAYLOAD_VERSION = 14;
+/** Soft caps: first paint staff come community. */
+const STAFF_MEMBER_SOFT_TIMEOUT_MS = 500;
+const STAFF_LEGACY_SOFT_TIMEOUT_MS = 350;
 
 function stripDiscordDecorations(text) {
   return String(text || "")
@@ -43,12 +51,20 @@ function stripDiscordDecorations(text) {
     .trim();
 }
 
-function profileCacheKey(userId) {
-  return `v${PROFILE_PAYLOAD_VERSION}:${String(IDs.guilds.main || "")}:${String(userId || "")}`;
+function profileCacheKey(viewerUserId, targetUserId) {
+  const guild = String(IDs.guilds.main || "");
+  const target = String(targetUserId || "").trim();
+  const viewer = String(viewerUserId || "").trim();
+  if (!target) return "";
+  if (viewer && viewer !== target) {
+    return `v${PROFILE_PAYLOAD_VERSION}:${guild}:${viewer}->${target}`;
+  }
+  return `v${PROFILE_PAYLOAD_VERSION}:${guild}:${target}`;
 }
 
-function readProfileCache(userId) {
-  const key = profileCacheKey(userId);
+function readProfileCache(viewerUserId, targetUserId) {
+  const key = profileCacheKey(viewerUserId, targetUserId);
+  if (!key) return null;
   const entry = profileCache.get(key);
   if (!entry || Number(entry.exp || 0) <= Date.now()) {
     profileCache.delete(key);
@@ -57,20 +73,29 @@ function readProfileCache(userId) {
   return entry.payload;
 }
 
-function writeProfileCache(userId, payload) {
+function writeProfileCache(viewerUserId, targetUserId, payload) {
+  const key = profileCacheKey(viewerUserId, targetUserId);
+  if (!key) return;
   if (profileCache.size >= PROFILE_CACHE_MAX) {
     const first = profileCache.keys().next().value;
     if (first) profileCache.delete(first);
   }
-  profileCache.set(profileCacheKey(userId), {
+  profileCache.set(key, {
     exp: Date.now() + PROFILE_CACHE_TTL_MS,
     payload,
   });
 }
 
 function clearStaffProfileCacheForUser(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
   try {
-    profileCache.delete(profileCacheKey(userId));
+    const prefix = `v${PROFILE_PAYLOAD_VERSION}:${String(IDs.guilds.main || "")}:`;
+    for (const key of profileCache.keys()) {
+      if (key === `${prefix}${uid}` || key.endsWith(`->${uid}`) || key.startsWith(`${prefix}${uid}->`)) {
+        profileCache.delete(key);
+      }
+    }
   } catch (e) {}
 }
 
@@ -86,6 +111,32 @@ function recentReasonLines(list, limit = 5) {
     if (text) out.push(text);
   }
   return out;
+}
+
+function indexedReasonLines(list, limit = 80) {
+  if (!Array.isArray(list) || !list.length) return [];
+  const out = [];
+  const start = Math.max(0, list.length - limit);
+  for (let i = start; i < list.length; i += 1) {
+    const raw = list[i];
+    const text =
+      typeof raw === "string"
+        ? stripDiscordDecorations(raw)
+        : stripDiscordDecorations(raw?.reason || raw?.text || raw?.motivo || "");
+    out.push({
+      id: i + 1,
+      text: text || `(voce #${i + 1})`,
+    });
+  }
+  return out.reverse();
+}
+
+function toIsoDay(date) {
+  if (!date || !(date instanceof Date) || !Number.isFinite(date.getTime())) return null;
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function resolvePauseSnapshot(staffObj, profileKind) {
@@ -157,7 +208,7 @@ function resolvePauseSnapshot(staffObj, profileKind) {
   };
 }
 
-function serializePauseHistory(staffObj, profileKind, limit = 8) {
+function serializePauseHistory(staffObj, profileKind, limit = 48) {
   const today = getTodayUtc();
   const allPauses = Array.isArray(staffObj?.pauses) ? staffObj.pauses : [];
   const pauses =
@@ -169,9 +220,12 @@ function serializePauseHistory(staffObj, profileKind, limit = 8) {
     .filter((p) => p && ["accepted", "pending", "cancelled", "rejected"].includes(String(p.status || "")))
     .map((p) => {
       const start = parseItalianDate(p.dataRichiesta);
+      const end = parseItalianDate(p.dataRitorno);
       return {
         start: String(p.dataRichiesta || "").trim(),
         end: String(p.dataRitorno || "").trim(),
+        startIso: toIsoDay(start),
+        endIso: toIsoDay(end),
         status: String(p.status || ""),
         statusLabel: getPauseStatusLabel(p, today),
         phase: getPausePhase(p.dataRichiesta, p.dataRitorno),
@@ -212,9 +266,107 @@ function roleNameFromId(guild, roleIdOrName) {
   return raw;
 }
 
+/** Canonical form for career dedupe (Mod ≈ Moderator, ID ≈ name). */
+function normalizeCareerRoleToken(value) {
+  let s = stripDiscordDecorations(String(value || ""))
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  if (!s) return "";
+  if (/^\d{16,22}$/.test(s)) {
+    const roles = IDs.roles || {};
+    for (const [key, val] of Object.entries(roles)) {
+      if (String(val) === s) {
+        s = humanizeRoleKey(key).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        break;
+      }
+    }
+  }
+  const aliases = {
+    mod: "moderator",
+    mods: "moderator",
+    moderator: "moderator",
+    "senior moderator": "senior moderator",
+    "sr moderator": "senior moderator",
+    srmod: "senior moderator",
+    "senior mod": "senior moderator",
+    helper: "helper",
+    "trial helper": "helper",
+    "partner manager": "partner manager",
+    pm: "partner manager",
+    director: "director",
+    admin: "admin",
+    manager: "manager",
+    founder: "founder",
+    member: "member",
+  };
+  if (aliases[s]) return aliases[s];
+  if (s.endsWith("s") && aliases[s.slice(0, -1)]) return aliases[s.slice(0, -1)];
+  return s;
+}
+
+function careerDayKey(iso) {
+  if (!iso) return "";
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Rome",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
+
+function preferCareerRow(a, b) {
+  const aLen = String(a?.newRole || "").length + String(a?.oldRole || "").length;
+  const bLen = String(b?.newRole || "").length + String(b?.oldRole || "").length;
+  if (bLen !== aLen) return bLen > aLen ? b : a;
+  return a;
+}
+
+function dedupeCareerHistoryRows(rows) {
+  const out = [];
+  const seen = new Map();
+  for (const row of rows) {
+    const day = careerDayKey(row?.dateIso);
+    const from = normalizeCareerRoleToken(row?.oldRole);
+    const to = normalizeCareerRoleToken(row?.newRole);
+    const reason = stripDiscordDecorations(row?.reason || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+    const key = `${day}|${from}|${to}|${reason}`;
+    if (!from && !to) {
+      out.push(row);
+      continue;
+    }
+    if (seen.has(key)) {
+      const idx = seen.get(key);
+      out[idx] = preferCareerRow(out[idx], row);
+      continue;
+    }
+    // Same day + same destination role + same reason (oldRole may differ as Member vs —).
+    const softKey = `${day}|*|${to}|${reason}`;
+    if (to && reason && seen.has(softKey)) {
+      const idx = seen.get(softKey);
+      out[idx] = preferCareerRow(out[idx], row);
+      continue;
+    }
+    seen.set(key, out.length);
+    if (to && reason) seen.set(softKey, out.length);
+    out.push(row);
+  }
+  return out;
+}
+
 function serializeRolesHistory(guild, staffObj, limit = 10) {
   const hist = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
-  return hist
+  const mapped = hist
+    .filter((row) => !isHiddenManualStaffCareerReason(row?.reason))
     .map((row) => {
       const d = row?.date ? new Date(row.date) : null;
       const iso = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
@@ -227,7 +379,8 @@ function serializeRolesHistory(guild, staffObj, limit = 10) {
         _sort: iso ? new Date(iso).getTime() : 0,
       };
     })
-    .sort((a, b) => b._sort - a._sort)
+    .sort((a, b) => b._sort - a._sort);
+  return dedupeCareerHistoryRows(mapped)
     .slice(0, limit)
     .map(({ _sort, ...rest }) => rest);
 }
@@ -259,7 +412,7 @@ function formatTenureLabel(iso) {
   }
 }
 
-const MODSTATS_BUDGET_MS = 8000;
+const MODSTATS_BUDGET_MS = 250;
 
 async function buildModstatsWithBudget(guildId, userId) {
   try {
@@ -302,20 +455,8 @@ async function resolveStaffProfileAvatarUrl(client, guild, member, user, userId)
 
   let avatarSubject = member;
   let targetUser = member?.user || user || null;
-  const userHasAvatar = Boolean(targetUser?.avatar);
-  const memberHasServerAvatar = Boolean(member?.avatar);
-  const userHasDisplayFn = typeof targetUser?.displayAvatarURL === "function";
 
-  if (!userHasAvatar && !userHasDisplayFn && client?.users?.fetch) {
-    targetUser = (await client.users.fetch(uid).catch(() => null)) || targetUser;
-  }
-
-  if (guild && !memberHasServerAvatar) {
-    const liveMember = guild.members?.cache?.get(uid) || (await guild.members.fetch(uid).catch(() => null));
-    if (liveMember?.avatar) avatarSubject = liveMember;
-    else if (liveMember?.user?.avatar && !targetUser?.avatar) targetUser = liveMember.user;
-  }
-
+  // Mai rifare members.fetch qui: è la causa tipica di loader lentissimi su Discord.
   const fromMember =
     avatarSubject?.avatar != null && avatarSubject.avatar !== ""
       ? userAvatarUrlDynamic(avatarSubject, { size: 256 })
@@ -328,7 +469,66 @@ async function resolveStaffProfileAvatarUrl(client, guild, member, user, userId)
   return discordDefaultAvatarUrl(targetUser || { id: uid }, { size: 256 });
 }
 
-async function buildStaffProfilePayloadForWeb(client, member, user) {
+function buildProspectPexOptions(viewerMember) {
+  const founder = viewerIsFounder(viewerMember);
+  const staffRoles = [
+    { action: "pex_helper", label: "Helper", hint: "Pex → Helper" },
+  ];
+  if (founder) {
+    staffRoles.push(
+      { action: "pex_mod", label: "Moderator", hint: "Pex → Moderator" },
+      { action: "pex_senior_moderator", label: "Senior Moderator", hint: "Pex → Senior Moderator" },
+      { action: "pex_director", label: "Director", hint: "Pex → Director" },
+      { action: "pex_admin", label: "Admin", hint: "Pex → Admin" },
+      { action: "pex_manager", label: "Manager", hint: "Pex → Manager" },
+    );
+  }
+  return {
+    staff: staffRoles.filter((r) => {
+      if (r.action === "pex_helper") return Boolean(IDs.roles?.Helper);
+      if (r.action === "pex_mod") return Boolean(IDs.roles?.Mod);
+      if (r.action === "pex_senior_moderator") return Boolean(IDs.roles?.SeniorModerator);
+      if (r.action === "pex_director") return Boolean(IDs.roles?.Director);
+      if (r.action === "pex_admin") return Boolean(IDs.roles?.Admin);
+      if (r.action === "pex_manager") return Boolean(IDs.roles?.Manager);
+      return false;
+    }),
+    pm: IDs.roles?.PartnerManager
+      ? { action: "pex_pm", label: "Partner Manager", hint: "Member → Partner Manager" }
+      : null,
+    viewerIsFounder: founder,
+  };
+}
+
+async function buildProspectProfilePayloadForWeb(client, member, user, viewerMember) {
+  const guildId = String(IDs.guilds.main || member?.guild?.id || "").trim();
+  const userId = String(member?.id || user?.id || "").trim();
+  if (!guildId || !userId) {
+    return { ok: false, status: 500, error: "no_guild", message: "Guild principale non configurata." };
+  }
+  const guild = member.guild || client.guilds.cache.get(guildId) || null;
+  let targetUser = member?.user || user || null;
+  if (!targetUser?.avatar && typeof targetUser?.displayAvatarURL !== "function" && client?.users?.fetch) {
+    targetUser = (await client.users.fetch(userId).catch(() => null)) || targetUser;
+  }
+  const username = accountUsername(targetUser) || accountUsername(member) || userId;
+  const displayName = memberDisplayName(member, targetUser) || username;
+  const avatarUrl = await resolveStaffProfileAvatarUrl(client, guild, member, targetUser, userId);
+  return {
+    ok: true,
+    prospect: true,
+    canProspectPex: true,
+    identity: {
+      userId,
+      username,
+      displayName,
+      avatarUrl,
+    },
+    pexOptions: buildProspectPexOptions(viewerMember),
+  };
+}
+
+async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
   const guildId = String(IDs.guilds.main || member?.guild?.id || "").trim();
   const userId = String(member?.id || user?.id || "").trim();
   if (!guildId || !userId) {
@@ -337,15 +537,15 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
 
   const guild = member.guild || client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   let targetUser = member?.user || user || null;
-  if (!targetUser?.avatar && typeof targetUser?.displayAvatarURL !== "function" && client?.users?.fetch) {
-    targetUser = (await client.users.fetch(userId).catch(() => null)) || targetUser;
-  }
+  // Niente users.fetch sincrono: avatar da cache member/user basta per il first paint.
   const username = accountUsername(targetUser) || accountUsername(member) || userId;
   const displayName = memberDisplayName(member, targetUser) || username;
-  const avatarUrl = await resolveStaffProfileAvatarUrl(client, guild, member, targetUser, userId);
 
   const profileKind = resolveStaffProfileKind(member);
   if (profileKind === PROFILE_PROSPECT) {
+    if (opts.allowProspectPex && opts.viewerMember) {
+      return buildProspectProfilePayloadForWeb(client, member, targetUser, opts.viewerMember);
+    }
     return {
       ok: false,
       status: 403,
@@ -353,6 +553,20 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
       message: "Non hai un profilo staff attivo.",
     };
   }
+
+  // Avvia subito le parti lente in parallelo (avatar sync + modstats soft + DB).
+  const showModstats = profileKind === PROFILE_FULL;
+  const avatarPromise = resolveStaffProfileAvatarUrl(client, guild, member, targetUser, userId);
+  const modstatsPromise = showModstats ? buildModstatsWithBudget(guildId, userId) : Promise.resolve(null);
+  const activityPromise = ActivityUserProfile.findOne({ guildId, userId })
+    .select("staff")
+    .lean()
+    .catch(() => null);
+  const legacyPromise = Promise.race([
+    loadLegacyStaffByUserIds(guildId, [userId]).catch(() => new Map()),
+    new Promise((resolve) => setTimeout(() => resolve(new Map()), STAFF_LEGACY_SOFT_TIMEOUT_MS)),
+  ]);
+  const dbPromise = Promise.all([activityPromise, legacyPromise]);
 
   const pmRoleId = String(IDs.roles.PartnerManager || "").trim();
   const isPm = Boolean(pmRoleId && member.roles?.cache?.has(pmRoleId));
@@ -374,6 +588,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
         roleId: pmRoleId || null,
       },
     ];
+    roleBadges = appendStaffDelMeseBadge(guild, member, roleBadges);
   } else {
     roleBadges = buildStaffProfileRoleBadges(guild, member);
     roleLabel = buildFullProfileRoleLabelForEmbed(guild, member);
@@ -391,9 +606,10 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
       ? displayRole.hexColor
       : "#d4a888";
 
-  const [doc, legacyMap] = await Promise.all([
-    ActivityUserProfile.findOne({ guildId, userId }).select("staff").lean().catch(() => null),
-    loadLegacyStaffByUserIds(guildId, [userId]),
+  const [[doc, legacyMap], avatarUrl, modstats] = await Promise.all([
+    dbPromise,
+    avatarPromise,
+    modstatsPromise,
   ]);
   const staff = mergeStaffEmbedded(doc?.staff || {}, legacyMap.get(userId) || null);
 
@@ -411,8 +627,6 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
   const warns = Math.max(0, Math.floor(Number(staff.warnCount || 0)));
 
   const tenureIso = resolveTenureIso(staff);
-  const showModstats = profileKind === PROFILE_FULL;
-  const modstats = showModstats ? await buildModstatsWithBudget(guildId, userId) : null;
 
   let serataFilm = null;
   if (profileKind === PROFILE_FULL) {
@@ -455,7 +669,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
         base: baseLimit,
         tradedBonus,
       },
-      history: serializePauseHistory(staff, profileKind, 8),
+      history: serializePauseHistory(staff, profileKind, 48),
       calendarPath: "/staff/pause/",
     },
     valutazioni: {
@@ -463,10 +677,13 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
       negative: neg,
       recentPositive: recentReasonLines(staff.positiveReasons, 5),
       recentNegative: recentReasonLines(staff.negativeReasons, 5),
+      positiveEntries: indexedReasonLines(staff.positiveReasons, 80),
+      negativeEntries: indexedReasonLines(staff.negativeReasons, 80),
     },
     warn: {
       count: warns,
       recent: recentReasonLines(staff.warnReasons, 5),
+      entries: indexedReasonLines(staff.warnReasons, 80),
     },
     partner: isPm
       ? (() => {
@@ -497,7 +714,8 @@ async function buildStaffProfilePayloadForWeb(client, member, user) {
 }
 
 /**
- * GET Bearer — profilo staff self-only (read-only, allineato a +profile Discord).
+ * GET Bearer — profilo staff (self o altro staff se viewer è staff).
+ * Query opzionale: ?userId= per profilo di un altro membro staff.
  */
 async function handleSiteStaffProfileGet(client, req, res) {
   try {
@@ -511,19 +729,96 @@ async function handleSiteStaffProfileGet(client, req, res) {
       });
     }
 
-    const userId = String(access.member?.id || access.user?.id || "").trim();
-    const cached = readProfileCache(userId);
+    const viewerUserId = String(access.member?.id || access.user?.id || "").trim();
+    const requestedUserId = String(req.query?.userId || req.query?.id || "").trim();
+    const targetUserId =
+      requestedUserId && /^\d{17,20}$/.test(requestedUserId) ? requestedUserId : viewerUserId;
+    const isSelf = targetUserId === viewerUserId;
+
+    const cached = readProfileCache(viewerUserId, targetUserId);
     if (cached) {
       res.setHeader("Cache-Control", "private, max-age=15");
       return res.status(200).json({ ...cached, cached: true });
     }
 
-    const payload = await buildStaffProfilePayloadForWeb(client, access.member, access.user);
+    let targetMember = access.member;
+    let targetUser = access.member?.user || access.user || null;
+    // Per isSelf il member arriva già dall'access: non rifetchare Discord.
+    // Per altri utenti: cache guild prima, poi fetch con timeout corto.
+    if (!isSelf) {
+      const guildId = String(IDs.guilds.main || access.member?.guild?.id || "").trim();
+      const guild =
+        access.member?.guild ||
+        client.guilds.cache.get(guildId) ||
+        (await client.guilds.fetch(guildId).catch(() => null));
+      if (!guild) {
+        return res.status(503).json({
+          ok: false,
+          error: "guild_unavailable",
+          message: "Server Discord temporaneamente non disponibile.",
+        });
+      }
+      const cachedMember =
+        guild.members.cache.get(targetUserId) || readCachedWebsiteMember(targetUserId) || null;
+      // Preferisci cache; altrimenti soft-timeout come profilo community.
+      if (cachedMember) {
+        targetMember = cachedMember;
+      } else {
+        targetMember = await Promise.race([
+          fetchWebsiteGuildMember(guild, targetUserId, {
+            timeoutMs: STAFF_MEMBER_SOFT_TIMEOUT_MS,
+            retry: false,
+          }).catch(() => null),
+          new Promise((resolve) => setTimeout(() => resolve(null), STAFF_MEMBER_SOFT_TIMEOUT_MS)),
+        ]);
+        // Warm in background per il refresh successivo (salta se già in negative-cache).
+        if (!targetMember) {
+          try {
+            const { isOnNegativeCache } = require("./websiteGuildMemberFetch");
+            if (!isOnNegativeCache(targetUserId)) {
+              fetchWebsiteGuildMember(guild, targetUserId, {
+                timeoutMs: 8_000,
+                retry: false,
+              }).catch(() => null);
+            }
+          } catch (_) {
+            fetchWebsiteGuildMember(guild, targetUserId, {
+              timeoutMs: 8_000,
+              retry: false,
+            }).catch(() => null);
+          }
+        }
+      }
+      if (!targetMember) {
+        return res.status(503).json({
+          ok: false,
+          error: "member_unavailable",
+          message: "Discord non risponde: riprova tra pochi secondi.",
+        });
+      }
+      targetUser = targetMember.user || null;
+    }
+
+    const payload = await buildStaffProfilePayloadForWeb(client, targetMember, targetUser, {
+      allowProspectPex: !isSelf && memberIsHighStaffEligible(access.member),
+      viewerMember: access.member,
+    });
     if (!payload.ok) {
       return res.status(Number(payload.status) || 403).json(payload);
     }
 
-    writeProfileCache(userId, payload);
+    if (!isSelf) {
+      payload.isSelf = false;
+      payload.viewerUserId = viewerUserId;
+      payload.targetUserId = targetUserId;
+      if (payload.serataFilm) payload.serataFilm.editable = false;
+    } else {
+      payload.isSelf = true;
+      payload.viewerUserId = viewerUserId;
+      payload.targetUserId = targetUserId;
+    }
+
+    writeProfileCache(viewerUserId, targetUserId, payload);
     res.setHeader("Cache-Control", "private, max-age=15");
     return res.status(200).json(payload);
   } catch (err) {

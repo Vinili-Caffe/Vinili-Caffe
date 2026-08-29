@@ -157,6 +157,34 @@
     }
   }
 
+  /** Nginx blocca gli MP4 pubblici della serata: serve solo /webhooks/site-seratafilm-film?st=… */
+  function isNginxBlockedPublicFilmUrl(url) {
+    var s = String(url || "").trim();
+    if (!s) return false;
+    try {
+      var path = new URL(s, window.location.href).pathname || "";
+      return /\/images\/evento-hogwarts\/streamingcommunityz(?:-web)?\.mp4$/i.test(path);
+    } catch (eBlk) {
+      return /streamingcommunityz(?:-web)?\.mp4/i.test(s);
+    }
+  }
+
+  function isProtectedFilmStreamUrl(url) {
+    var s = String(url || "").trim();
+    if (!s) return false;
+    try {
+      return /\/webhooks\/site-seratafilm-film/i.test(new URL(s, window.location.href).pathname || "");
+    } catch (eProt) {
+      return /\/webhooks\/site-seratafilm-film/i.test(s);
+    }
+  }
+
+  function usableInlineFilmUrl(url) {
+    if (!isInlineFilmUrl(url)) return false;
+    if (isNginxBlockedPublicFilmUrl(url)) return false;
+    return true;
+  }
+
   /** Cache-bust stabile per lo spot (versione asset pagina), senza ricaricare a ogni tick. */
   function withAdAssetVersion(url) {
     var ver = "";
@@ -1350,7 +1378,38 @@
   var filmStallWatchTimer = 0;
   var filmBootLoadingUntil = 0;
   var filmBufferReady = false;
-  var FILM_BOOT_LOADING_MIN_MS = 2800;
+  var FILM_BOOT_LOADING_MIN_MS = 450;
+
+  function setFilmRootStage(stage) {
+    var root = document.getElementById("vc-seratafilm-film");
+    if (!root) return;
+    var mode = String(stage || "idle");
+    root.classList.remove("is-preloading");
+    if (mode === "preload") {
+      root.hidden = false;
+      root.removeAttribute("hidden");
+      root.classList.add("is-preloading");
+      root.setAttribute("aria-hidden", "true");
+      return;
+    }
+    if (mode === "play") {
+      root.hidden = false;
+      root.removeAttribute("hidden");
+      root.setAttribute("aria-hidden", "false");
+      return;
+    }
+    root.hidden = true;
+    root.setAttribute("hidden", "");
+    root.setAttribute("aria-hidden", "true");
+  }
+
+  function pauseCompetingMediaForFilmPreload() {
+    try {
+      if (typeof window.__vcSeratafilmPauseHogwartsBg === "function") {
+        window.__vcSeratafilmPauseHogwartsBg();
+      }
+    } catch (eBg) {}
+  }
 
   function markFilmBufferReady() {
     filmBufferReady = true;
@@ -1364,11 +1423,15 @@
     video = video || document.getElementById("vc-seratafilm-film-video");
     if (!video) return;
     var minTimeOk = Date.now() >= filmBootLoadingUntil;
+    var bufferedEnd = 0;
+    try {
+      if (video.buffered && video.buffered.length) bufferedEnd = Number(video.buffered.end(0)) || 0;
+    } catch (eBuf) {}
     var bufferOk =
       filmBufferReady ||
-      Number(video.readyState) >= 3 ||
-      (Number(video.buffered && video.buffered.length ? video.buffered.end(0) : 0) > 1.5);
-    var playingFrame = !video.paused && Number(video.currentTime) > 0.08;
+      Number(video.readyState) >= 2 ||
+      bufferedEnd > 0.35;
+    var playingFrame = !video.paused && Number(video.currentTime) > 0.02;
     if (minTimeOk && (bufferOk || playingFrame)) {
       setFilmLoading(false);
     }
@@ -1505,14 +1568,14 @@
       maybeHideFilmLoading(video);
     });
     video.addEventListener("canplay", function () {
-      if (Number(video.readyState) >= 3) markFilmBufferReady();
-      else maybeHideFilmLoading(video);
+      markFilmBufferReady();
+      maybeHideFilmLoading(video);
     });
     video.addEventListener("canplaythrough", function () {
       markFilmBufferReady();
     });
     video.addEventListener("loadeddata", function () {
-      if (Number(video.readyState) >= 3) markFilmBufferReady();
+      if (Number(video.readyState) >= 2) markFilmBufferReady();
     });
     video.addEventListener("seeking", function () {
       if (!filmStarted || adBreakRunning) return;
@@ -1542,15 +1605,25 @@
     if (adCfg) preloadAdBreakVideo(adCfg.videoUrl);
     injectFilmPreloadLink(url);
     var preloadMode = resolveFilmPreloadMode(distanzaMs, forced);
+    if (preloadMode === "auto" && !filmStarted) {
+      setFilmRootStage("preload");
+      pauseCompetingMediaForFilmPreload();
+    }
     var cacheKey = url + "|" + preloadMode;
     if (video.dataset.vcSeratafilmPreloaded === cacheKey) return;
     video.dataset.vcSeratafilmPreloaded = cacheKey;
     video.preload = preloadMode;
+    video.playsInline = true;
     if (!sameMediaUrl(video.currentSrc || video.src, url)) {
       video.src = url;
       try {
         video.load();
       } catch (eL) {}
+    } else if (preloadMode === "auto") {
+      // Già stesso URL ma magari era in display:none: rilancia il download.
+      try {
+        if (Number(video.readyState) < 2) video.load();
+      } catch (eReload) {}
     }
   }
 
@@ -1588,6 +1661,7 @@
     }
     try {
       document.body.classList.remove("vc-seratafilm-final10", "vc-seratafilm-final-fullscreen");
+      document.documentElement.classList.remove("vc-seratafilm-final-fullscreen");
     } catch (eC) {}
     try {
       var fsRoot = document.getElementById("vc-seratafilm-fs-countdown");
@@ -1600,10 +1674,9 @@
       document.body.classList.add("vc-seratafilm-film-active");
       document.documentElement.classList.add("vc-seratafilm-film-active");
     } catch (eB) {}
-    root.hidden = false;
-    root.removeAttribute("hidden");
-    root.setAttribute("aria-hidden", "false");
-    setFilmLoading(true, "Buffering…");
+    pauseCompetingMediaForFilmPreload();
+    setFilmRootStage("play");
+    setFilmLoading(true, "Avvio proiezione…");
     video.playsInline = true;
     video.controls = true;
     video.preload = "auto";
@@ -1613,20 +1686,34 @@
     bindFilmStallWatch(video);
     var adCfgStart = resolveAdBreakConfig();
     if (adCfgStart) preloadAdBreakVideo(adCfgStart.videoUrl);
-    if (!sameMediaUrl(video.currentSrc || video.src, url)) {
+    var alreadySame = sameMediaUrl(video.currentSrc || video.src, url);
+    if (!alreadySame) {
       video.src = url;
       try {
         video.load();
       } catch (eV) {}
     }
+    // Non resettare a 0 se il preload ha già buffer: evita di buttare i dati scaricati.
     try {
-      video.currentTime = 0;
+      var curT = Number(video.currentTime) || 0;
+      if (!alreadySame || curT > 1.25) video.currentTime = 0;
     } catch (eT) {}
+    if (Number(video.readyState) >= 2) {
+      markFilmBufferReady();
+    }
     ensureFilmFullscreen(video);
     kickInlineFilmPlayback(video);
     video.addEventListener(
       "loadedmetadata",
       function () {
+        kickInlineFilmPlayback(video);
+      },
+      { once: true },
+    );
+    video.addEventListener(
+      "canplay",
+      function () {
+        markFilmBufferReady();
         kickInlineFilmPlayback(video);
       },
       { once: true },
@@ -1639,7 +1726,7 @@
       },
       { once: true },
     );
-    [150, 500, 1200, 2800].forEach(function (delayMs) {
+    [80, 220, 600, 1200].forEach(function (delayMs) {
       setTimeout(function () {
         maybeHideFilmLoading(video);
         kickInlineFilmPlayback(video);
@@ -1648,13 +1735,53 @@
   }
 
   function openFilm(forcePreload) {
-    var url = resolveFilmUrl(linkFilmUrl());
-    if (isInlineFilmUrl(url)) {
-      if (forcePreload) preloadInlineFilm(url, { forceAuto: true });
-      startInlineFilmPlayer(url);
-      return;
+    var openAttempt = 0;
+    var maxAttempts = 48; // ~12s @ 250ms — attende filmStreamUrl dal gate/prefetch
+    function attempt() {
+      var url = resolveFilmUrl(linkFilmUrl());
+      if (usableInlineFilmUrl(url)) {
+        if (forcePreload) preloadInlineFilm(url, { forceAuto: true });
+        startInlineFilmPlayer(url);
+        return;
+      }
+      if ((!url || isNginxBlockedPublicFilmUrl(url)) && openAttempt < maxAttempts) {
+        openAttempt += 1;
+        if (openAttempt === 1 || openAttempt % 8 === 0) {
+          try {
+            setFilmLoading(true, "Collegamento allo stream…");
+            var root = document.getElementById("vc-seratafilm-film");
+            if (root) {
+              root.hidden = false;
+              root.removeAttribute("hidden");
+              root.classList.remove("is-preloading");
+              root.setAttribute("aria-hidden", "false");
+            }
+            document.body.classList.add("vc-seratafilm-film-active");
+            document.documentElement.classList.add("vc-seratafilm-film-active");
+          } catch (eWait) {}
+        }
+        setTimeout(attempt, 250);
+        return;
+      }
+      if (url && !isNginxBlockedPublicFilmUrl(url) && !isInlineFilmUrl(url)) {
+        window.location.href = url;
+        return;
+      }
+      try {
+        setFilmLoading(true, "Stream non disponibile. Ricarica la pagina o contatta lo staff.");
+        document.body.classList.add("vc-seratafilm-film-active");
+        document.documentElement.classList.add("vc-seratafilm-film-active");
+        var rootFail = document.getElementById("vc-seratafilm-film");
+        if (rootFail) {
+          rootFail.hidden = false;
+          rootFail.removeAttribute("hidden");
+        }
+      } catch (eFail) {}
+      try {
+        console.warn("[seratafilm] openFilm: missing filmStreamUrl", url);
+      } catch (eLog) {}
     }
-    window.location.href = url;
+    attempt();
   }
 
   var countdownAudioEl = null;
@@ -1663,6 +1790,28 @@
   var countdownAudioArmTimer = 0;
   var countdownAudioFastGuardInterval = 0;
   var MAX_SET_TIMEOUT_MS = 2147483647;
+  var finalFullscreenScrollLockBound = false;
+
+  function onFinalFullscreenScrollBlock(e) {
+    try {
+      if (!document.body || !document.body.classList.contains("vc-seratafilm-final-fullscreen")) return;
+      e.preventDefault();
+    } catch (eLock) {}
+  }
+
+  function setFinalFullscreenUi(on) {
+    try {
+      document.body.classList.toggle("vc-seratafilm-final-fullscreen", !!on);
+      document.documentElement.classList.toggle("vc-seratafilm-final-fullscreen", !!on);
+    } catch (eFs) {}
+    if (on && !finalFullscreenScrollLockBound) {
+      finalFullscreenScrollLockBound = true;
+      try {
+        document.addEventListener("touchmove", onFinalFullscreenScrollBlock, { passive: false, capture: true });
+        document.addEventListener("wheel", onFinalFullscreenScrollBlock, { passive: false, capture: true });
+      } catch (eBind) {}
+    }
+  }
 
   function clearCountdownAudioArm() {
     if (countdownAudioArmTimer) {
@@ -1743,6 +1892,7 @@
     var keepFullscreen = Boolean(options && options.keepFullscreen);
     try {
       document.body.classList.remove("vc-seratafilm-final10", "vc-seratafilm-final-fullscreen");
+      document.documentElement.classList.remove("vc-seratafilm-final-fullscreen");
     } catch (eC) {}
     try {
       var fsRoot = document.getElementById("vc-seratafilm-fs-countdown");
@@ -1780,7 +1930,7 @@
     clearCountdownAudioFastGuard();
     try {
       document.body.classList.remove("vc-seratafilm-final10", "vc-seratafilm-final-fullscreen", "vc-seratafilm-film-active");
-      document.documentElement.classList.remove("vc-seratafilm-film-active");
+      document.documentElement.classList.remove("vc-seratafilm-final-fullscreen", "vc-seratafilm-film-active");
     } catch (eR) {}
     try {
       var filmRoot = document.getElementById("vc-seratafilm-film");
@@ -1821,7 +1971,7 @@
         // Keep FS if already active — exiting here burns the user gesture for play/FS.
         clearFinalCountdownUi({ keepFullscreen: true });
         var clickFilmUrl = currentFilmUrl();
-        if (isInlineFilmUrl(clickFilmUrl)) preloadInlineFilm(clickFilmUrl, { forceAuto: true });
+        if (usableInlineFilmUrl(clickFilmUrl)) preloadInlineFilm(clickFilmUrl, { forceAuto: true });
         openFilm(true);
       });
     }
@@ -1835,12 +1985,15 @@
         window.__vcSeratafilmBgmOnTick(distanza);
       }
 
-      if (isInlineFilmUrl(filmUrl)) {
-        if (distanza <= 180000) {
+      if (usableInlineFilmUrl(filmUrl)) {
+        if (distanza <= 600000) {
+          // Ultimi 10 minuti: preload aggressivo (container offscreen, non display:none).
           injectFilmPreloadLink(filmUrl);
           preloadInlineFilm(filmUrl, { forceAuto: true, distanzaMs: distanza });
-          var adCfgTick = resolveAdBreakConfig();
-          if (adCfgTick) preloadAdBreakVideo(adCfgTick.videoUrl);
+          if (distanza <= 180000) {
+            var adCfgTick = resolveAdBreakConfig();
+            if (adCfgTick) preloadAdBreakVideo(adCfgTick.videoUrl);
+          }
         } else if (distanza <= 7200000) {
           preloadInlineFilm(filmUrl, { distanzaMs: distanza });
         }
@@ -1903,9 +2056,7 @@
       var fsRoot = document.getElementById("vc-seratafilm-fs-countdown");
       var fsNum = document.getElementById("vc-seratafilm-fs-number");
       if (distanza <= 10000 && distanza > 0) {
-        try {
-          document.body.classList.add("vc-seratafilm-final-fullscreen");
-        } catch (eFsA) {}
+        setFinalFullscreenUi(true);
         if (fsRoot) fsRoot.setAttribute("aria-hidden", "false");
         if (fsNum) fsNum.textContent = String(Math.max(0, Math.ceil(distanza / 1000)));
         if (!fsRequested && playbackGestureArmed) {
@@ -1913,9 +2064,7 @@
           requestFilmFullscreen(null);
         }
       } else {
-        try {
-          document.body.classList.remove("vc-seratafilm-final-fullscreen");
-        } catch (eFsB) {}
+        setFinalFullscreenUi(false);
         if (fsRoot) fsRoot.setAttribute("aria-hidden", "true");
         if (distanza > 10000) {
           fsRequested = false;
@@ -1966,9 +2115,13 @@
   try {
     window.addEventListener("vc:access-ok", function () {
       var url = resolveFilmUrl(linkFilmUrl());
-      if (!isInlineFilmUrl(url)) return;
+      if (!usableInlineFilmUrl(url)) return;
       injectFilmPreloadLink(url);
       preloadInlineFilm(url, { forceAuto: true });
+      try {
+        var due = getFilmAtForCountdown(Date.now()) - Date.now();
+        if (due <= 0 && !filmStarted) openFilm(true);
+      } catch (eDue) {}
     });
   } catch (eAccessOk) {}
 })();

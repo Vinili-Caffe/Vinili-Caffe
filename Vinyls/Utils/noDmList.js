@@ -340,12 +340,23 @@ async function deliverUserDm(user, payload, options = {}) {
  * Invia un DM all'utente. Con bypassNoDm: true non applica il filtro no-dm (per moderazione, ticket, security, ecc.).
  * @param {import("discord.js").User} user
  * @param {import("discord.js").MessageCreateOptions} payload
- * @param {{ guildId?: string, bypassNoDm?: boolean, category?: string, client?: import("discord.js").Client, notifyOnPrivacyBlock?: boolean }} options - category: chiave categoria (bump, broadcast, invites, perks)
+ * @param {{ guildId?: string, bypassNoDm?: boolean, category?: string, client?: import("discord.js").Client, notifyOnPrivacyBlock?: boolean, skipIfWebPush?: boolean, webPushNotifMeta?: object }} options - category: chiave categoria (bump, broadcast, invites, perks); skipIfWebPush: evita DM se push sito attiva
  * @returns {Promise<import("discord.js").Message|null>} Il messaggio inviato o null
  */
 async function sendDm(user, payload, options = {}) {
   const { guildId, bypassNoDm = false, category = null } = options;
   if (!user?.send) return null;
+  if (options.skipIfWebPush) {
+    try {
+      const { shouldSkipDiscordDmForActiveWebPush } = require("./Web/siteNotifPrefs");
+      const skip = await shouldSkipDiscordDmForActiveWebPush(
+        guildId || IDs.guilds?.main,
+        user.id,
+        options.webPushNotifMeta || {},
+      );
+      if (skip) return null;
+    } catch (_) {}
+  }
   if (bypassNoDm) {
     return deliverUserDm(user, payload, options);
   }

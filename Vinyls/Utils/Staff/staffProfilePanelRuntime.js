@@ -213,6 +213,11 @@ function staffProfileRoleBadgeKind(roleId) {
   if (IDs.roles.Founder && id === String(IDs.roles.Founder)) return "founder";
   if (IDs.roles.Manager && id === String(IDs.roles.Manager)) return "manager";
   if (IDs.roles.PartnerManager && id === String(IDs.roles.PartnerManager)) return "pm";
+  if (IDs.roles.StafferDelMese && id === String(IDs.roles.StafferDelMese)) return "sdm";
+  if (IDs.roles.HighStaff && id === String(IDs.roles.HighStaff)) return "highstaff";
+  if (IDs.roles.Staff && id === String(IDs.roles.Staff)) return "staff";
+  if (IDs.roles.Director && id === String(IDs.roles.Director)) return "director";
+  if (IDs.roles.Admin && id === String(IDs.roles.Admin)) return "admin";
   return "staff";
 }
 
@@ -220,6 +225,10 @@ function staffProfileRoleBadgeIcon(kind) {
   if (kind === "founder") return "fa-star-o";
   if (kind === "manager") return "fa-briefcase";
   if (kind === "pm") return "fa-handshake-o";
+  if (kind === "sdm") return "fa-trophy";
+  if (kind === "highstaff") return "fa-shield";
+  if (kind === "director") return "fa-shield";
+  if (kind === "admin") return "fa-shield";
   return "fa-shield";
 }
 
@@ -228,37 +237,69 @@ function staffProfileRoleColorHex(role) {
   return "#d4a888";
 }
 
-/** Badge ruolo separati per profilo web (es. Founder + Partner Manager, non combinati). */
+function pushRoleBadgeIfMissing(badges, guild, roleId, fallbackLabel) {
+  const id = String(roleId || "").trim();
+  if (!id) return;
+  if (badges.some((b) => String(b?.roleId || "") === id)) return;
+  const discordRole = guild?.roles?.cache?.get(id) || null;
+  const kind = staffProfileRoleBadgeKind(id);
+  badges.push({
+    kind,
+    icon: staffProfileRoleBadgeIcon(kind),
+    label: discordRole?.name || fallbackLabel || "Staff",
+    color: staffProfileRoleColorHex(discordRole),
+    roleId: id,
+  });
+}
+
+/** Badge additivo: Staff del Mese se ha il ruolo dedicato (non sostituisce Founder/PM). */
+function appendStaffDelMeseBadge(guild, member, badges) {
+  const list = Array.isArray(badges) ? badges.slice() : [];
+  const sdmId = String(IDs.roles?.StafferDelMese || "").trim();
+  if (!sdmId || !member?.roles?.cache?.has(sdmId)) return list;
+  if (list.some((b) => String(b?.roleId || "") === sdmId || String(b?.kind || "") === "sdm")) return list;
+  const discordRole = guild?.roles?.cache?.get(sdmId) || null;
+  list.push({
+    kind: "sdm",
+    icon: "fa-trophy",
+    label: discordRole?.name || "Staff del Mese",
+    color: staffProfileRoleColorHex(discordRole) || "#f0c75e",
+    roleId: sdmId,
+  });
+  return list;
+}
+
+/**
+ * Badge ruolo profilo web.
+ * Un badge “primario” dalla ladder (Founder→Helper), poi sempre High Staff / Staff
+ * se presenti (come PM e Staff del Mese), così restano visibili insieme a Director ecc.
+ */
 function buildStaffProfileRoleBadges(guild, member) {
   if (!member?.roles?.cache || !guild?.roles?.cache) return [];
-  const pmId = String(IDs.roles.PartnerManager || "");
+  const pmId = String(IDs.roles.PartnerManager || "").trim();
+  const sdmId = String(IDs.roles?.StafferDelMese || "").trim();
+  const highStaffId = String(IDs.roles.HighStaff || "").trim();
+  const staffId = String(IDs.roles.Staff || "").trim();
   const badges = [];
   for (const roleId of STAFF_PROFILE_DISPLAY_ROLE_PRIORITY) {
-    if (!roleId || String(roleId) === pmId) continue;
-    if (member.roles.cache.has(roleId)) {
-      const discordRole = guild.roles.cache.get(roleId);
-      const kind = staffProfileRoleBadgeKind(roleId);
-      badges.push({
-        kind,
-        icon: staffProfileRoleBadgeIcon(kind),
-        label: discordRole?.name || "Staff",
-        color: staffProfileRoleColorHex(discordRole),
-        roleId: String(roleId),
-      });
+    const rid = String(roleId || "").trim();
+    if (!rid || rid === pmId || rid === sdmId || rid === highStaffId || rid === staffId) continue;
+    if (member.roles.cache.has(rid)) {
+      pushRoleBadgeIfMissing(badges, guild, rid, "Staff");
       break;
     }
   }
-  if (pmId && member.roles.cache.has(pmId)) {
-    const pmRole = guild.roles.cache.get(pmId);
-    badges.push({
-      kind: "pm",
-      icon: "fa-handshake-o",
-      label: pmRole?.name || "Partner Manager",
-      color: staffProfileRoleColorHex(pmRole),
-      roleId: pmId,
-    });
+  // Additive: sempre col ruolo Discord (anche se già c’è Director / Admin / …).
+  if (highStaffId && member.roles.cache.has(highStaffId)) {
+    pushRoleBadgeIfMissing(badges, guild, highStaffId, "High Staff");
   }
-  return badges;
+  if (staffId && member.roles.cache.has(staffId)) {
+    pushRoleBadgeIfMissing(badges, guild, staffId, "Staff");
+  }
+  if (pmId && member.roles.cache.has(pmId)) {
+    pushRoleBadgeIfMissing(badges, guild, pmId, "Partner Manager");
+  }
+  return appendStaffDelMeseBadge(guild, member, badges);
 }
 
 function hasDisplayTierStaffBeforePartnerManager(member) {
@@ -350,7 +391,7 @@ function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includ
     firstRowButtons.push(
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Partner Manager")
+        .setLabel("Pex → Partner Manager")
         .setEmoji("<:VC_PartnerManager:1494286911286808576>")
         .setStyle(ButtonStyle.Secondary),
     );
@@ -661,7 +702,7 @@ function buildHighStaffActionRows(
         new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec, sourceMessageId))
-            .setLabel("Pex Partner Manager")
+            .setLabel("Pex → Partner Manager")
             .setEmoji("<:VC_PartnerManager:1494286911286808576>")
             .setStyle(ButtonStyle.Success),
         ),
@@ -1025,7 +1066,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (sec === SECTION_HOME && profileKind === PROFILE_FULL && !usePartnersChatPmPanel && String(viewerId) !== tid && viewerCanFullDepex && !viewerIsHighStaff && !viewerIsDirector) {
     hsRows.push(new ActionRowBuilder().addComponents(new ButtonBuilder()
       .setCustomId(formatStaffHpButtonCustomId("depex_full", String(viewerId), tid, sec, sourceMessageId))
-      .setLabel("Depex completo")
+      .setLabel("Depex → Member")
       .setEmoji("<a:VC_Cross:1482532424570376253>")
       .setStyle(ButtonStyle.Danger)));
   }
@@ -1352,6 +1393,7 @@ module.exports = {
   resolveStaffProfileKind,
   buildFullProfileRoleLabelForEmbed,
   buildStaffProfileRoleBadges,
+  appendStaffDelMeseBadge,
   resolveStaffProfileDisplayRoleId,
   viewerCanUsePartnerPointsPanel,
   viewerIsCoordinatorOrAbove,

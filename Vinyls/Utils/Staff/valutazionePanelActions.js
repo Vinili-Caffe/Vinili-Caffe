@@ -860,8 +860,10 @@ async function runValutazionePositiveRemoveForPanel(guild, actorMember, staffUse
   }
 }
 
-async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUser, removeId, reason) {
+async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUser, removeId, reason, options = {}) {
   try {
+    const tradeCountRaw = Math.floor(Number(options?.positiveTradeCount || 0));
+    const tradeCount = Number.isFinite(tradeCountRaw) && tradeCountRaw > 0 ? tradeCountRaw : 0;
     const channel =
       (await resolveStaffValutazioniChannel(guild));
     const profileDoc = await ensureStaffProfileDoc(
@@ -869,15 +871,47 @@ async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUse
       guild.id,
       staffUser.id,
     );
+    const s = ensureStaff(profileDoc);
+    if (tradeCount > 0) {
+      const available = Array.isArray(s.positiveReasons) ? s.positiveReasons.length : 0;
+      if (available < tradeCount) {
+        return {
+          ok: false,
+          message: `<:VC_Attention:1482534443632558151> Servono **almeno ${tradeCount} valutazioni positive** per lo scambio (ne ha \`${available}\`).`,
+        };
+      }
+      const tradeReason = `Scambio: ${tradeCount} positive → rimozione valutazione negativa #${removeId}`;
+      await removeOldestPositiveValutazioni(
+        s,
+        tradeCount,
+        actorFromMember(actorMember),
+        staffUser,
+        channel,
+        guild,
+        tradeReason,
+        (finalPos) =>
+          `<:VC_OnlineStatus:1482527088912240650> Ora ${staffUser?.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
+      );
+    }
     const res = await valutazioneNegativeRemoveCore(
       profileDoc,
       staffUser,
       removeId,
-      reason,
+      reason ||
+        (tradeCount
+          ? `Scambio ${tradeCount} valutazioni positive → rimozione negativa #${removeId}`
+          : `Rimozione val − #${removeId}`),
       actorFromMember(actorMember),
       channel,
     );
-    return res.ok ? { ok: true } : { ok: false, message: res.message };
+    if (!res.ok) return { ok: false, message: res.message };
+    return {
+      ok: true,
+      tradedPositives: tradeCount,
+      message: tradeCount
+        ? `<a:VC_Verified:1482532479637127188> Valutazione negativa rimossa. Scambiate anche **${tradeCount}** positive.`
+        : null,
+    };
   } catch (err) {
     global.logger.error(err);
     return { ok: false, message: "<:vegax:1443934876440068179> Errore rimozione valutazione negativa." };

@@ -35,34 +35,58 @@
     }
   }
 
+  function ownedBadgeLabel(blockedReason) {
+    var r = String(blockedReason || "").trim();
+    if (!r) return "";
+    if (/vip/i.test(r)) return "VIP attivo";
+    if (/custom/i.test(r)) return "Custom attivo";
+    var m = r.match(/^Hai già\s+(?:il |la |l'|i )?(.+?)\.?$/i);
+    if (m && m[1]) return m[1].trim();
+    return r.replace(/\.$/, "");
+  }
+
+  function renderPointsMeta(tier) {
+    var hasDiscount = tier.discountActive && tier.baseCost > tier.cost;
+    var html =
+      '<span class="vc-staff-pm-shop__pts">' +
+      '<span class="vc-staff-pm-shop__pts-chip">' +
+      esc(tier.cost) +
+      " pt</span>";
+    if (hasDiscount) {
+      html += '<span class="vc-staff-pm-shop__pts-was">' + esc(tier.baseCost) + " pt</span>";
+    }
+    html += "</span>";
+    return html;
+  }
+
+  function buttonContent(tier) {
+    if (tier.blocked) {
+      return '<i class="fa fa-lock vc-staff-pm-shop__btn-ico" aria-hidden="true"></i> Bloccato';
+    }
+    if (tier.mode === "ticket") {
+      return '<i class="fa fa-ticket vc-staff-pm-shop__btn-ico" aria-hidden="true"></i> Apri ticket';
+    }
+    return '<i class="fa fa-gift vc-staff-pm-shop__btn-ico" aria-hidden="true"></i> Riscatta';
+  }
+
   function renderShopSection(shop, opts) {
     opts = opts || {};
+    var readOnly = Boolean(opts.readOnly);
     if (!shop || !Array.isArray(shop.tiers) || !shop.tiers.length) return "";
     var html =
       '<section class="vc-user-profile-block vc-staff-pm-shop" data-vc-pm-shop>' +
       '<div class="vc-user-profile-block__head">' +
       '<span class="vc-user-profile-block__title">Shop premi</span>' +
       "</div>";
-    if (shop.discountBanner) {
-      html += '<p class="vc-staff-pm-shop__banner">' + esc(shop.discountBanner) + "</p>";
-    }
     html += '<ul class="vc-staff-pm-shop__tiers">';
     shop.tiers.forEach(function (tier) {
-      var costHtml =
-        tier.discountActive && tier.baseCost > tier.cost
-          ? esc(tier.cost) + ' <span class="vc-staff-pm-shop__was">' + esc(tier.baseCost) + "</span>"
-          : esc(tier.cost);
-      var modeLabel = tier.blocked
-        ? "Bloccato"
-        : tier.mode === "ticket"
-          ? "Ticket HS"
-          : "Immediato";
       var disabled = tier.blocked || !tier.canAfford;
-      var btnLabel = tier.blocked
-        ? "Bloccato"
-        : tier.mode === "ticket"
-          ? "Apri ticket"
-          : "Riscatta";
+      var ownedBadge =
+        tier.blocked && tier.blockedReason
+          ? '<span class="vc-staff-pm-shop__owned-badge"><i class="fa fa-check vc-staff-pm-shop__owned-badge-ico" aria-hidden="true"></i>' +
+            esc(ownedBadgeLabel(tier.blockedReason)) +
+            "</span>"
+          : "";
       html +=
         '<li class="vc-staff-pm-shop__tier' +
         (tier.canAfford && !tier.blocked ? " is-affordable" : "") +
@@ -71,25 +95,27 @@
         '<div class="vc-staff-pm-shop__tier-main">' +
         '<p class="vc-staff-pm-shop__tier-reward"><strong>' +
         esc(tier.reward) +
-        "</strong></p>" +
+        "</strong>" +
+        ownedBadge +
+        "</p>" +
         '<p class="vc-staff-pm-shop__tier-meta">' +
-        costHtml +
-        " pt · " +
-        esc(modeLabel) +
-        (tier.blocked && tier.blockedReason
-          ? ' · <span class="vc-staff-pm-shop__blocked-why">' + esc(tier.blockedReason) + "</span>"
-          : "") +
+        renderPointsMeta(tier) +
         "</p></div>" +
-        '<button type="button" class="vc-staff-pm-shop__btn' +
-        (tier.blocked ? " is-blocked" : "") +
-        '" data-pm-shop-tier="' +
-        esc(tier.tier) +
-        '"' +
-        (disabled ? " disabled" : "") +
-        (tier.blocked && tier.blockedReason ? ' title="' + esc(tier.blockedReason) + '"' : "") +
-        ">" +
-        esc(btnLabel) +
-        "</button></li>";
+        (readOnly
+          ? ""
+          : '<button type="button" class="vc-staff-pm-shop__btn' +
+            (tier.blocked ? " is-blocked" : "") +
+            '" data-pm-shop-tier="' +
+            esc(tier.tier) +
+            '" data-pm-shop-mode="' +
+            esc(tier.mode || "ticket") +
+            '"' +
+            (disabled ? " disabled" : "") +
+            (tier.blocked && tier.blockedReason ? ' title="' + esc(tier.blockedReason) + '"' : "") +
+            ">" +
+            buttonContent(tier) +
+            "</button>") +
+        "</li>";
     });
     html += "</ul></section>";
     return html;
@@ -124,7 +150,7 @@
           return;
         }
         btn.disabled = true;
-        var isTicket = String(btn.textContent || "").toLowerCase().indexOf("ticket") !== -1;
+        var isTicket = btn.getAttribute("data-pm-shop-mode") === "ticket";
         setStatus(isTicket ? "Apertura ticket High Staff sul sito…" : "Elaborazione riscatto…", false);
         fetch(apiUrl, {
           method: "POST",

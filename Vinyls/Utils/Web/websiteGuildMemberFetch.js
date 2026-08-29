@@ -1,12 +1,21 @@
 const WEBSITE_MEMBER_FETCH_TIMEOUT_MS = 12_000;
 const WEBSITE_MEMBER_FETCH_RETRY_TIMEOUT_MS = 18_000;
 const WEBSITE_MEMBER_CACHE_TTL_MS = 120_000;
+/** Dopo un timeout Discord: non ritentare lo stesso user per un po' (evita loop site-api). */
+const WEBSITE_MEMBER_NEGATIVE_CACHE_TTL_MS = 90_000;
+/** Log warn per-user al massimo ogni N ms (non globale su tutti gli user). */
+const WEBSITE_MEMBER_TIMEOUT_LOG_COOLDOWN_MS = 5 * 60 * 1000;
+/** Sotto questa soglia è un soft-timeout di first-paint: non loggare come errore. */
+const WEBSITE_MEMBER_SOFT_TIMEOUT_LOG_MS = 2_000;
 
 /** @type {Map<string, { expires: number, member: object }>} */
 const websiteMemberResolveCache = new Map();
+/** @type {Map<string, number>} uid -> cooldownUntil */
+const websiteMemberNegativeCache = new Map();
+/** @type {Map<string, number>} uid -> lastLogAt */
+const memberFetchTimeoutLogAt = new Map();
 /** @type {Map<string, Promise<object|null>>} */
 const websiteMemberFetchInflight = new Map();
-let lastMemberFetchTimeoutLogAt = 0;
 
 function withTimeout(promise, timeoutMs, label) {
   let timer = null;
@@ -18,6 +27,14 @@ function withTimeout(promise, timeoutMs, label) {
   ]).finally(() => {
     if (timer) clearTimeout(timer);
   });
+}
+
+function pruneMapByExpiry(map, now = Date.now()) {
+  if (map.size <= 2_000) return;
+  for (const [k, v] of map) {
+    const exp = typeof v === "number" ? v : Number(v?.expires || 0);
+    if (!Number.isFinite(exp) || exp <= now) map.delete(k);
+  }
 }
 
 function readCachedWebsiteMember(userId) {
@@ -39,6 +56,23 @@ function writeCachedWebsiteMember(userId, member) {
     member,
     expires: Date.now() + WEBSITE_MEMBER_CACHE_TTL_MS,
   });
+  websiteMemberNegativeCache.delete(uid);
+}
+
+function isOnNegativeCache(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return false;
+  const until = Number(websiteMemberNegativeCache.get(uid) || 0);
+  if (until > Date.now()) return true;
+  if (until) websiteMemberNegativeCache.delete(uid);
+  return false;
+}
+
+function markNegativeCache(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
+  websiteMemberNegativeCache.set(uid, Date.now() + WEBSITE_MEMBER_NEGATIVE_CACHE_TTL_MS);
+  pruneMapByExpiry(websiteMemberNegativeCache);
 }
 
 function isUnknownMemberError(err) {
@@ -51,15 +85,20 @@ function isMemberFetchTimeoutError(err) {
   return /member_fetch_timeout/i.test(String(err?.message || err || ""));
 }
 
-function logMemberFetchTimeout(uid, attempt) {
+function logMemberFetchTimeout(uid, attempt, timeoutMs) {
+  const ms = Number(timeoutMs) || 0;
+  // Soft first-paint (es. 500ms staff profile): atteso, non spammare i log.
+  if (ms > 0 && ms <= WEBSITE_MEMBER_SOFT_TIMEOUT_LOG_MS) return;
   const now = Date.now();
-  // Evita spam: al massimo 1 riga ogni 20s.
-  if (now - lastMemberFetchTimeoutLogAt < 20_000) return;
-  lastMemberFetchTimeoutLogAt = now;
+  const prev = Number(memberFetchTimeoutLogAt.get(uid) || 0);
+  if (now - prev < WEBSITE_MEMBER_TIMEOUT_LOG_COOLDOWN_MS) return;
+  memberFetchTimeoutLogAt.set(uid, now);
+  pruneMapByExpiry(memberFetchTimeoutLogAt, now - WEBSITE_MEMBER_TIMEOUT_LOG_COOLDOWN_MS);
   global.logger?.warn?.(
     "[websiteGuildMemberFetch] member_fetch_timeout",
     `user=${uid}`,
     `attempt=${attempt}`,
+    `timeoutMs=${ms || "?"}`,
   );
 }
 
@@ -98,10 +137,10 @@ async function fetchMemberOnce(guild, uid, force, timeoutMs) {
 
 /**
  * Member fetch con dedupe concorrente + cache breve (staff/appelli/candidature).
- * Timeout Discord: 1 retry con budget più alto, poi riusa cache guild se presente.
+ * Se passi timeoutMs esplicito, viene rispettato (niente floor 4s / retry 18s).
  * @param {import("discord.js").Guild} guild
  * @param {string} userId
- * @param {{ force?: boolean, timeoutMs?: number }} [options]
+ * @param {{ force?: boolean, timeoutMs?: number, retry?: boolean }} [options]
  */
 async function fetchWebsiteGuildMember(guild, userId, options = {}) {
   const uid = String(userId || "").trim();
@@ -110,6 +149,8 @@ async function fetchWebsiteGuildMember(guild, userId, options = {}) {
   if (!options.force) {
     const cached = readCachedWebsiteMember(uid) || guild.members?.cache?.get?.(uid) || null;
     if (cached) return cached;
+    // Timeout recenti: non martellare Discord (evita log/loop continui).
+    if (isOnNegativeCache(uid)) return null;
   }
 
   const inflightKey = `${guild.id}:${uid}:${options.force ? "f" : "n"}`;
@@ -117,38 +158,48 @@ async function fetchWebsiteGuildMember(guild, userId, options = {}) {
   if (pending) return pending;
 
   const promise = (async () => {
-    const primaryTimeout = Math.max(4000, Number(options.timeoutMs) || WEBSITE_MEMBER_FETCH_TIMEOUT_MS);
+    const requested = Number(options.timeoutMs);
+    const hasExplicit = Number.isFinite(requested) && requested > 0;
+    // PRIMA: Math.max(4000, …) ignorava i timeout corti → loader da 20s+.
+    const primaryTimeout = hasExplicit
+      ? Math.max(600, requested)
+      : WEBSITE_MEMBER_FETCH_TIMEOUT_MS;
+    const doRetry =
+      options.retry === true || (!hasExplicit && options.retry !== false);
     try {
       let member = null;
       try {
         member = await fetchMemberOnce(guild, uid, Boolean(options.force), primaryTimeout);
       } catch (err) {
-        if (isUnknownMemberError(err)) return null;
+        if (isUnknownMemberError(err)) {
+          markNegativeCache(uid);
+          return null;
+        }
         if (!isMemberFetchTimeoutError(err)) throw err;
-        logMemberFetchTimeout(uid, 1);
-        // Retry soft (senza force) anche se il primo era force: meno carico Discord.
-        member = await fetchMemberOnce(
-          guild,
-          uid,
-          false,
-          Math.max(primaryTimeout, WEBSITE_MEMBER_FETCH_RETRY_TIMEOUT_MS),
-        ).catch((err2) => {
-          if (isUnknownMemberError(err2)) return null;
-          if (isMemberFetchTimeoutError(err2)) {
-            logMemberFetchTimeout(uid, 2);
-            return null;
-          }
-          throw err2;
-        });
+        markNegativeCache(uid);
+        logMemberFetchTimeout(uid, 1, primaryTimeout);
+        if (doRetry) {
+          const retryMs = Math.max(primaryTimeout, WEBSITE_MEMBER_FETCH_RETRY_TIMEOUT_MS);
+          member = await fetchMemberOnce(guild, uid, false, retryMs).catch((err2) => {
+            if (isUnknownMemberError(err2)) return null;
+            if (isMemberFetchTimeoutError(err2)) {
+              markNegativeCache(uid);
+              logMemberFetchTimeout(uid, 2, retryMs);
+              return null;
+            }
+            throw err2;
+          });
+        }
       }
       if (!member) {
         member = guild.members?.cache?.get?.(uid) || readCachedWebsiteMember(uid) || null;
       }
-      if (member) writeCachedWebsiteMember(uid, member);
-      if (!member) {
-        throw new Error("member_fetch_timeout");
+      if (member) {
+        writeCachedWebsiteMember(uid, member);
+        return member;
       }
-      return member;
+      // Timeout / miss: null (niente throw → niente retry a cascata dai caller).
+      return null;
     } finally {
       websiteMemberFetchInflight.delete(inflightKey);
     }
@@ -161,9 +212,11 @@ async function fetchWebsiteGuildMember(guild, userId, options = {}) {
 module.exports = {
   WEBSITE_MEMBER_FETCH_TIMEOUT_MS,
   WEBSITE_MEMBER_CACHE_TTL_MS,
+  WEBSITE_MEMBER_NEGATIVE_CACHE_TTL_MS,
   readCachedWebsiteMember,
   writeCachedWebsiteMember,
   ensureWebsiteGuild,
   fetchWebsiteGuildMember,
   isUnknownMemberError,
+  isOnNegativeCache,
 };

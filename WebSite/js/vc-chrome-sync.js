@@ -245,7 +245,6 @@
         setHandler("play", o.onPlay);
         setHandler("pause", o.onPause);
         setHandler("stop", o.onPause);
-        // Seek / track: usati come volume ± (i browser non espongono un handler volume).
         function bump(delta) {
           if (typeof o.onVolumeDelta === "function") {
             o.onVolumeDelta(delta);
@@ -254,18 +253,43 @@
           if (delta > 0 && typeof o.onPlay === "function") o.onPlay();
           if (delta < 0 && typeof o.onPause === "function") o.onPause();
         }
-        setHandler("seekforward", function () {
+        setHandler("seekforward", function (details) {
+          if (typeof o.onSeekForward === "function") {
+            var off = details && Number(details.seekOffset);
+            o.onSeekForward(Number.isFinite(off) && off > 0 ? off : 10);
+            return;
+          }
           bump(0.1);
         });
-        setHandler("seekbackward", function () {
+        setHandler("seekbackward", function (details) {
+          if (typeof o.onSeekBackward === "function") {
+            var offB = details && Number(details.seekOffset);
+            o.onSeekBackward(Number.isFinite(offB) && offB > 0 ? offB : 10);
+            return;
+          }
           bump(-0.1);
         });
         setHandler("nexttrack", function () {
+          if (typeof o.onSeekForward === "function") {
+            o.onSeekForward(10);
+            return;
+          }
           bump(0.1);
         });
         setHandler("previoustrack", function () {
+          if (typeof o.onSeekBackward === "function") {
+            o.onSeekBackward(10);
+            return;
+          }
           bump(-0.1);
         });
+        if (typeof o.onSeekTo === "function") {
+          setHandler("seekto", function (details) {
+            try {
+              o.onSeekTo(details || {});
+            } catch (eSeek) {}
+          });
+        }
         try {
           navigator.mediaSession.playbackState = o.playing ? "playing" : "paused";
         } catch (ePs) {}

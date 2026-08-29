@@ -189,6 +189,19 @@ async function buildSkipContext(guildId, userId) {
   return { mutedKinds, voteBlocked };
 }
 
+/**
+ * Se la push web è attiva e la notifica sito non è soft-filtrata, evita il DM Discord
+ * duplicato (stesso evento già in campanella + OS push).
+ */
+async function shouldSkipDiscordDmForActiveWebPush(guildId, userId, notifMeta = {}) {
+  const uid = String(userId || "").trim();
+  if (!uid) return false;
+  const soft = await shouldSkipSiteInAppNotif(guildId, uid, notifMeta).catch(() => false);
+  if (soft) return false;
+  const { userHasActiveWebPush } = require("./siteWebPushService");
+  return userHasActiveWebPush(uid).catch(() => false);
+}
+
 module.exports = {
   SITE_NOTIF_GROUPS,
   SITE_NOTIF_GROUP_KEYS,
@@ -202,4 +215,5 @@ module.exports = {
   inferVoteListingFromNotif,
   shouldSkipSiteInAppNotif,
   buildSkipContext,
+  shouldSkipDiscordDmForActiveWebPush,
 };

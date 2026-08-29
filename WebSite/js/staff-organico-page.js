@@ -97,48 +97,7 @@
   }
 
   function renderRoster() {
-    var list = T.byId("vc-staff-organico-roster");
-    if (!list) return;
-    if (state.loading && !state.loaded) {
-      list.innerHTML = '<p class="vc-staff-manage-empty">Caricamento team…</p>';
-      return;
-    }
-    if (state.error && !state.loaded) {
-      list.innerHTML = '<p class="vc-staff-manage-empty">' + T.esc(state.error) + "</p>";
-      return;
-    }
-    var html = "";
-    var shown = 0;
-    (state.sections || []).forEach(function (sec) {
-      var members = sec.members || [];
-      if (!members.length) return;
-      html +=
-        '<div class="vc-staff-manage-sec"><p class="vc-staff-manage-sec__title" style="--vc-staff-role-color:' +
-        T.esc(sec.color || "#d4a888") +
-        '">' +
-        T.esc(sec.roleLabel) +
-        " (" +
-        members.length +
-        ")</p><ul class=\"vc-staff-manage-list\">";
-      members.forEach(function (m) {
-        shown += 1;
-        var active = String(m.userId) === String(state.historyFilterUserId);
-        html +=
-          '<li><button type="button" class="vc-staff-manage-person' +
-          (active ? " is-active" : "") +
-          (m.onPause ? " is-paused" : "") +
-          '" data-user-id="' +
-          T.esc(m.userId) +
-          '">' +
-          T.avatarImgHtml(m.avatarUrl, m.userId, { width: 36, height: 36 }) +
-          "<span><strong>" +
-          T.esc(T.userLabel(m.displayName, m.userId)) +
-          "</strong></span></button></li>";
-      });
-      html += "</ul></div>";
-    });
-    if (!shown) html = '<p class="vc-staff-manage-empty">Nessun membro trovato.</p>';
-    list.innerHTML = html;
+    /* Staff list rimossa: resta solo la cronologia pex/depex. */
   }
 
   function historyKindCounts() {
@@ -225,7 +184,6 @@
     var head =
       '<header class="vc-staff-organico-hist__head">' +
       "<div><h2>Cronologia del team</h2>" +
-      '<p class="vc-staff-organico-hist__lead">Pex e depex del team. Per le azioni di gestione apri <a href="/staff/gestione/">Gestione</a>.</p>' +
       (counts.all
         ? '<p class="vc-staff-organico-hist__counts">' +
           T.esc(String(counts.pex)) +
@@ -392,19 +350,6 @@
   }
 
   function bind() {
-    var roster = T.byId("vc-staff-organico-roster");
-    if (roster) {
-      roster.addEventListener("click", function (ev) {
-        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-user-id]") : null;
-        if (!btn) return;
-        var uid = btn.getAttribute("data-user-id");
-        if (String(uid) === String(state.historyFilterUserId)) {
-          loadHistory("");
-          return;
-        }
-        loadHistory(uid);
-      });
-    }
     var history = T.byId("vc-staff-organico-history");
     if (history) {
       history.addEventListener("click", function (ev) {

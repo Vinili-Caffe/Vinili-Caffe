@@ -26,7 +26,7 @@
     </head>
 <body id="top" class="vc-seratafilm-page">
 <div id="vc-seratafilm-hogwarts-bg" class="vc-seratafilm-hogwarts-bg" hidden aria-hidden="true">
-  <video id="vc-seratafilm-hogwarts-bg-video" class="vc-seratafilm-hogwarts-bg__video" muted loop playsinline preload="none"></video>
+  <video id="vc-seratafilm-hogwarts-bg-video" class="vc-seratafilm-hogwarts-bg__video" muted autoplay loop playsinline preload="auto"></video>
   <div class="vc-seratafilm-hogwarts-bg__veil"></div>
   <div class="vc-seratafilm-hogwarts-bg__stars" aria-hidden="true"></div>
 </div>
@@ -91,6 +91,7 @@
             return;
           }
           var api = String((window.__VC_SERATAFILM_ACCESS && window.__VC_SERATAFILM_ACCESS.apiUrl) || "").trim();
+          api = api.replace(/\/webhooks\/seratafilm-access\/?$/i, "/webhooks/site-seratafilm-access");
           if (api && !/\{\{/.test(api)) {
             window.__vcSeratafilmAccessPrefetch = fetch(api, {
               method: "GET",

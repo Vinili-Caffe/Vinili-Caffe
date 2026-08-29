@@ -311,7 +311,7 @@ const SECTION_BUILDERS = {
     "<:VC_1:1482706338021642333> **Mettendo il link vanity o il sito nello status o nella bio, o mettendo una nostra GUILD TAGS**\n" +
     "<:VC_2:1482706376525611090> **Seguendo le pagine social**\n" +
     "<:VC_3:1482706404773990460> **Mettendo una recensione sul [nostro sito](https://www.viniliecaffe.it/recensioni)**\n" +
-    `<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+ \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà anche solo con un boost, se viene trasferito verrà rimossa anche la valutazione.__ Solo per i ruoli Supporter e Follower bisogna aprire un ticket **Perks** sul sito: ${siteWorkflowUrl("tickets")})**\n\n` +
+    `<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+** \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà anche solo con un boost, se viene trasferito verrà rimossa anche la valutazione.__ Solo per i ruoli Supporter e Follower bisogna aprire un ticket **Perks** sul sito: ${siteWorkflowUrl("tickets")})**\n\n` +
     "> L'<@&" +
     IDs.roles.HighStaff +
     "> può inoltre decidere di assegnare valutazioni extra a discrezione in base a comportamenti particolarmente virtuosi o dannosi per la community.",

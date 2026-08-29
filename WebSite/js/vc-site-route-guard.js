@@ -10,10 +10,11 @@
     "/staff/ticket": "/tickets/?view=staff",
     "/staff/tickets": "/tickets/?view=staff",
     "/staff/directory": "/staff/organico/",
-    "/staff/valutazioni": "/staff/",
-    "/staff/profilo": "/staff/",
-    "/staff/pm": "/staff/gestione/?tab=pm",
-    "/staff/moderazione": "/staff/gestione/",
+    "/staff/valutazioni": "/user/?tab=staff",
+    "/staff/profilo": "/user/?tab=staff",
+    "/staff/pm": "/staff/organico/",
+    "/staff/moderazione": "/staff/organico/",
+    "/staff/gestione": "/staff/organico/",
   };
 
   function normPath(pathname) {
@@ -107,7 +108,16 @@
 
   var aliases = mergeAliases();
   if (aliases[path]) {
-    go(aliases[path]);
+    var dest = aliases[path];
+    if (path === "/staff/gestione") {
+      try {
+        var uid = String(new URLSearchParams(window.location.search || "").get("userId") || "").trim();
+        if (/^\d{17,20}$/.test(uid)) {
+          dest = "/user/?id=" + encodeURIComponent(uid) + "&tab=staff&manage=1";
+        }
+      } catch (eGest) {}
+    }
+    go(dest);
     return;
   }
 

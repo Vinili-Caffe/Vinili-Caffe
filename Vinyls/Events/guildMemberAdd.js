@@ -1538,14 +1538,21 @@ async function joinWelcomeAlreadySent(channel, member, botId) {
   if (!member?.id) return false;
   const guildId = String(member.guild?.id || "");
   const userId = String(member.id);
+  const joined = Number(member.joinedTimestamp || 0);
   if (isMongoReady()) {
     const doc = await ActivityUserProfile.findOne({ guildId, userId })
       .select("profile.joinAnnounceSentAt")
       .lean()
       .catch(() => null);
-    if (doc?.profile?.joinAnnounceSentAt) return true;
+    const sentRaw = doc?.profile?.joinAnnounceSentAt;
+    if (sentRaw) {
+      const sentAt = new Date(sentRaw).getTime();
+      // Solo se il mark è di QUESTO ingresso (non del soggiorno precedente / leave backup).
+      if (Number.isFinite(sentAt) && sentAt > 0 && (!joined || sentAt >= joined - 5_000)) {
+        return true;
+      }
+    }
   }
-  const joined = Number(member.joinedTimestamp || 0);
   const sinceMs = joined || Date.now() - 7 * 24 * 60 * 60 * 1000;
   const inChannel = await welcomeAnnounceExistsForUser(channel, member, botId, sinceMs);
   if (inChannel) {
@@ -1869,8 +1876,12 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
       await maybeApplyVerificationTenureOnJoin(memberForTenure).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] verificationTenureOnJoin:", err?.message || err);
       });
+      // Dopo leave-backup restore i ruoli sono già su Discord: serve un fetch fresco
+      // altrimenti canAnnounce resta false e il welcome dipende solo dal deferred.
+      const preferFreshAfterRestore =
+        hadVerifyRole || String(member.guild?.id || "") === String(IDs.guilds?.main || "");
       const memberAfterVerifyJoin =
-        (hadVerifyRole
+        (preferFreshAfterRestore
           ? await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => null)
           : null) ||
         memberForTenure ||

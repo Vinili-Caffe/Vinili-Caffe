@@ -401,13 +401,15 @@
   }
 
   function applyThemeBackground() {
-    var youtubeId = resolveThemeYoutubeId();
-    if (youtubeId) {
-      showYoutubeBg(youtubeId);
-      return;
-    }
     var url = resolveThemeVideoUrl();
-    if (url) showHtml5Bg(url);
+    // Prefer always a local HTML5 file: YouTube embeds are slow and flash the player chrome.
+    if (!url || parseYoutubeVideoId(url)) {
+      url = "/images/evento-hogwarts/theme-bg.mp4";
+    }
+    try {
+      if (url.charAt(0) === "/") url = new URL(url, window.location.origin).href;
+    } catch (eAbs) {}
+    showHtml5Bg(url);
   }
 
   function applyHogwartsTheme() {
@@ -455,10 +457,44 @@
   }
 
   window.__vcSeratafilmApplyHogwartsTheme = applyHogwartsTheme;
+  window.__vcSeratafilmPauseHogwartsBg = pauseBgMedia;
+  window.__vcSeratafilmPlayHogwartsBg = playBgMedia;
+
+  function pageWantsThemeBg() {
+    if (document.hidden) return false;
+    try {
+      if (typeof document.hasFocus === "function" && !document.hasFocus()) return false;
+    } catch (eF) {}
+    try {
+      var b = document.body;
+      if (
+        b &&
+        (b.classList.contains("vc-seratafilm-film-active") ||
+          b.classList.contains("vc-seratafilm-ad-break-active") ||
+          b.classList.contains("vc-seratafilm-ad-spot-playing"))
+      ) {
+        return false;
+      }
+    } catch (eB) {}
+    return true;
+  }
+
+  function syncThemeBgRunState() {
+    if (!document.body || !document.body.classList.contains("vc-seratafilm-hogwarts-event")) return;
+    if (pageWantsThemeBg()) playBgMedia();
+    else pauseBgMedia();
+  }
+
+  function wireThemeFocusPause() {
+    document.addEventListener("visibilitychange", syncThemeBgRunState);
+    window.addEventListener("blur", syncThemeBgRunState);
+    window.addEventListener("focus", syncThemeBgRunState);
+  }
 
   function boot() {
     wireFilmPlayerSync();
     wireThemeResize();
+    wireThemeFocusPause();
   }
 
   if (document.readyState === "loading") {

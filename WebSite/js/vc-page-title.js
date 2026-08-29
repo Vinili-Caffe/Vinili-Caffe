@@ -41,6 +41,13 @@
       .trim();
   }
 
+  function isBrandLabel(label, brand) {
+    var t = String(label || "").trim();
+    if (!t) return true;
+    if (t === brand) return true;
+    return /^vinili(?:\s*&\s*caff[eè])?$/i.test(t);
+  }
+
   /** Sempre: "Brand | Pagina" (pipe, mai trattino). */
   function format(pageOrFull, brandOpt) {
     var brand = String(brandOpt || siteBrandName()).trim() || DEFAULT_BRAND;
@@ -53,11 +60,16 @@
     if (pipe >= 0) {
       left = cleaned.slice(0, pipe).trim();
       right = polishPageLabel(cleaned.slice(pipe + 1));
+      if (!right && !left) return brand;
+      if (isBrandLabel(right, brand) && !isBrandLabel(left, brand)) {
+        return brand + SEP + polishPageLabel(left);
+      }
       if (!right) return brand;
-      if (!left || /^vinili$/i.test(left) || /^vinili\s*&\s*caff[eè]$/i.test(left)) {
+      if (isBrandLabel(left, brand)) {
         return brand + SEP + right;
       }
-      return left + SEP + right;
+      // "Pagina | Pagina" o formato misto: preferisci la parte non-brand.
+      return brand + SEP + polishPageLabel(isBrandLabel(left, brand) ? right : left || right);
     }
 
     // "Brand - Pagina" / "Brand – Pagina" → pipe
@@ -65,7 +77,7 @@
     if (dash > 0) {
       left = cleaned.slice(0, dash).trim();
       right = polishPageLabel(cleaned.slice(dash).replace(/^\s+[-–—]\s+/, ""));
-      if (right && (/^vinili$/i.test(left) || /^vinili\s*&\s*caff[eè]$/i.test(left) || left === brand)) {
+      if (right && isBrandLabel(left, brand)) {
         return brand + SEP + right;
       }
     }
@@ -95,6 +107,7 @@
         global.document.title = want;
       }
     } catch (eSet) {}
+    syncOgTitle(want);
     return want;
   }
 

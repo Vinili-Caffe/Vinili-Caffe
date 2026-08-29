@@ -473,7 +473,7 @@ async function resolveSortedHouse(guildId, userId, eventKey) {
 }
 
 async function awardHousePoints(client, guildId, userId, amount) {
-  const base = safeInt(amount, 0, 0, 1000);
+  const base = safeInt(amount, 0, 0, 100000);
   if (base <= 0) return null;
   const { applyPetHousePointsBoost } = require("./hogwartsShopBoostsService");
   const petBoost = await applyPetHousePointsBoost(client, guildId, userId, base);
@@ -1192,6 +1192,11 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
   const rewardKey = reactPressRewardKey(c, messageId, uid);
   const eventCfg = resolveHogwartsEventConfig(client);
   const eventKey = normalizeId(eventCfg?.eventKey) || c.eventKey;
+  const rewardGaleoni = safeInt(doc.rawWebhook?.rewardGaleoni, c.rewardGaleoni, 0, 100000);
+  const rewardHousePoints = safeInt(doc.rawWebhook?.rewardHousePoints, c.rewardHousePoints, 0, 100000);
+  const finaleChaos = doc.rawWebhook?.finaleChaos && typeof doc.rawWebhook.finaleChaos === "object"
+    ? doc.rawWebhook.finaleChaos
+    : null;
 
   // Win vecchi (pre-flag): galeoni già in Gringott ⇒ solo marca i flag, niente re-award/re-announce.
   const galeoniAlreadyPaid = alreadyGranted
@@ -1216,10 +1221,10 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
       galeoni = await addGaleoni({
         guildId: gid,
         userId: uid,
-        amount: c.rewardGaleoni,
-        reason: "Premi la react",
+        amount: rewardGaleoni,
+        reason: finaleChaos ? "Finale chaos — Premi la react" : "Premi la react",
         actorId: "bot",
-        source: "premi_la_react",
+        source: finaleChaos ? "hogwarts_finale_chaos" : "premi_la_react",
         eventKey,
         rewardKey,
       });
@@ -1248,7 +1253,27 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
           .lean()
           .catch(() => null);
         if (houseLock) {
-          houseAward = await awardHousePoints(client, gid, uid, c.rewardHousePoints);
+          houseAward = await awardHousePoints(client, gid, uid, rewardHousePoints);
+        }
+
+        if (finaleChaos?.firstSlot && !doc.rawWebhook?.finaleBoostGranted) {
+          try {
+            const { grantFinaleChaosBoost } = require("./hogwartsFinaleChaosDayService");
+            await grantFinaleChaosBoost(client, {
+              guildId: gid,
+              userId: uid,
+              boostType: finaleChaos.boostType || "housePoints",
+              boostScope: finaleChaos.boostScope || "personal",
+              durationMs: finaleChaos.firstSlotBoostDurationMs || 3600000,
+              eventKey,
+            });
+            await SiteDocument.updateOne(
+              { _id: doc._id },
+              { $set: { "rawWebhook.finaleBoostGranted": true } },
+            ).catch(() => null);
+          } catch (err) {
+            global.logger?.warn?.("[PREMI LA REACT] finale boost:", err?.message || err);
+          }
         }
 
         await SiteDocument.updateOne(
@@ -1290,9 +1315,12 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
       const winnerName = member?.displayName || user?.username || "Utente";
       const clickerHouse = await resolveSortedHouse(gid, uid, eventKey);
       const rewardText = [
-        c.rewardGaleoni > 0 ? formatGaleoni(c.rewardGaleoni) : "",
-        (houseAward?.points || c.rewardHousePoints) > 0
-          ? `${houseAward?.points || c.rewardHousePoints} punti`
+        rewardGaleoni > 0 ? formatGaleoni(rewardGaleoni) : "",
+        (houseAward?.points || rewardHousePoints) > 0
+          ? `${houseAward?.points || rewardHousePoints} punti`
+          : "",
+        finaleChaos?.firstSlot
+          ? `boost 2× ${finaleChaos.boostType === "exp" ? "EXP" : "punti casa"} ${finaleChaos.boostScope === "house" ? "di casata" : "personale"} (1h, si somma)`
           : "",
       ]
         .filter(Boolean)
@@ -1568,6 +1596,7 @@ async function trySpawnReactPressOnCandidate(client, guild, c, chosen) {
     rewardGaleoni: c.rewardGaleoni,
     rewardHousePoints: c.rewardHousePoints,
     expiresAt,
+    ...(c.finaleChaos && typeof c.finaleChaos === "object" ? { finaleChaos: c.finaleChaos } : {}),
   };
   let doc;
   try {
@@ -1647,6 +1676,19 @@ async function announceReactPressSpawn(client, guild, c, message) {
   let roleId = normalizeId(c.pingRoleId);
   if (!roleId || roleId === eventsRoleId) roleId = resolveReactPressPingRoleId(client);
   const emoji = c.emoji || "⚡";
+  const durationMin = Math.max(1, Math.round(c.activeDurationMs / 60_000));
+  const chaos = c.finaleChaos && typeof c.finaleChaos === "object" ? c.finaleChaos : null;
+  const prizeBlock = chaos
+    ? [
+        "",
+        "**Premi:**",
+        `• **${formatGaleoni(c.rewardGaleoni)}**`,
+        `• **${c.rewardHousePoints} punti casa** (con multi animale / boost)`,
+        chaos.firstSlot
+          ? `• **Bonus 1° slot:** boost **2× ${chaos.boostType === "exp" ? "EXP" : "punti casa"} ${chaos.boostScope === "house" ? "di casata" : "personale"}** per 1 ora (si somma agli altri)`
+          : "",
+      ].filter(Boolean)
+    : [];
   const embed = new EmbedBuilder()
     .setColor(0xd4af37)
     .setTitle(`<:VC_harrypotters:1510941833222557696> Premi la react!`)
@@ -1655,7 +1697,8 @@ async function announceReactPressSpawn(client, guild, c, message) {
         `<:VC_Dobby:1510941838138413146> È stata messa la reaction **${emoji}** su un messaggio casuale in un **canale a caso** del server — **cercalo tu!**`,
         "",
         `<:VC_Owlcall:1510941826176126976> Solo utenti **smistati** possono partecipare!.`,
-        `<a:VC_pixeltime:1482535344103620771> Hai **${Math.max(1, Math.round(c.activeDurationMs / 60_000))} minuti** per trovarla.`,
+        `<a:VC_pixeltime:1482535344103620771> Hai **${durationMin} minuti** per trovarla.`,
+        ...prizeBlock,
       ].join("\n"),
     )
     .setTimestamp();
@@ -1986,4 +2029,53 @@ async function announceActiveReactPressRound(client) {
   return true;
 }
 
-module.exports = { announceActiveReactPressRound, getPremiLaReactConfig: cfg, handleReactPressReaction, isPremiLaReactEventEnded, recordReactPressCandidateMessage, runPremiLaReactTick, startReactPressEventLoop };
+async function spawnFinaleChaosReactPress(client, guild, opts = {}) {
+  const base = cfg(client);
+  const c = {
+    ...base,
+    eventKey: normalizeId(opts.eventKey) || `${base.eventKey}_finale_chaos`,
+    activeDurationMs: safeInt(opts.activeDurationMs, 15 * 60 * 1000, 60_000, 30 * 60_000),
+    hintBeforeExpiryMs: safeInt(opts.hintBeforeExpiryMs, 7.5 * 60 * 1000, 60_000, 20 * 60_000),
+    rewardGaleoni: safeInt(opts.rewardGaleoni, 1000, 0, 100000),
+    rewardHousePoints: safeInt(opts.rewardHousePoints, 500, 0, 100000),
+    pingRoleId: normalizeId(opts.pingRoleId || base.pingRoleId),
+    announceChannelId: normalizeId(opts.announceChannelId || base.announceChannelId || IDs.channels?.chat),
+    nightQuietStartHour: -1,
+    nightQuietEndHour: -1,
+    maxPerDay: 999,
+    minChatMessagesBetweenRounds: 0,
+    randomChannelSpawn: true,
+    finaleChaos: {
+      firstSlot: opts.firstSlot === true,
+      boostType: opts.boostType === "exp" ? "exp" : "housePoints",
+      boostScope: opts.boostScope === "house" ? "house" : "personal",
+      firstSlotBoostDurationMs: safeInt(opts.firstSlotBoostDurationMs, 3600000, 60_000, 24 * 3600000),
+      slotKey: normalizeId(opts.slotKey),
+      chaosEventKey: normalizeId(opts.chaosEventKey),
+    },
+  };
+  const gid = normalizeId(guild?.id);
+  if (!gid) return false;
+  return withReactPressSpawnLock(client, gid, async () => {
+    await expireOldChallenges(client, gid, c, { announce: false });
+    const live = await activeChallenge(gid);
+    if (live) {
+      await ensureActiveChallengeReaction(client, c, live);
+      await maybeAnnounceReactPressHint(client, c, live);
+      return false;
+    }
+    if (c.randomChannelSpawn) return spawnReactPressViaRandomChannel(client, guild, c);
+    return spawnReactPressViaCandidatePool(client, guild, c);
+  });
+}
+
+module.exports = {
+  announceActiveReactPressRound,
+  getPremiLaReactConfig: cfg,
+  handleReactPressReaction,
+  isPremiLaReactEventEnded,
+  recordReactPressCandidateMessage,
+  runPremiLaReactTick,
+  startReactPressEventLoop,
+  spawnFinaleChaosReactPress,
+};

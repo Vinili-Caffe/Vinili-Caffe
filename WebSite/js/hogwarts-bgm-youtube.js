@@ -19,6 +19,48 @@
   var shouldResumeAfterEmbeddedVideo = false;
   var detachFirst = null;
   var volumeUiBound = false;
+  var seekUiBound = false;
+  var seekUiTimer = 0;
+  var seekDragging = false;
+
+  function seekBySeconds(deltaSec) {
+    if (!player || !playerReady) return;
+    try {
+      var cur = Number(player.getCurrentTime()) || 0;
+      var dur = Number(player.getDuration()) || 0;
+      var next = Math.max(0, cur + Number(deltaSec || 0));
+      if (dur > 0.5) next = Math.min(Math.max(0, dur - 0.35), next);
+      player.seekTo(next, true);
+      syncSeekSliderUi();
+    } catch (eSeek) {}
+  }
+
+  function seekToRatio(ratio01) {
+    if (!player || !playerReady) return;
+    try {
+      var dur = Number(player.getDuration()) || 0;
+      if (!(dur > 0.5)) return;
+      var next = Math.min(Math.max(0, dur - 0.35), Math.max(0, dur * Math.min(1, Math.max(0, Number(ratio01) || 0))));
+      player.seekTo(next, true);
+    } catch (eRatio) {}
+  }
+
+  function syncSeekSliderUi() {
+    if (seekDragging) return;
+    var seek = document.getElementById("vc-hw-music-seek");
+    if (!seek || !player || !playerReady) return;
+    try {
+      var dur = Number(player.getDuration()) || 0;
+      var cur = Number(player.getCurrentTime()) || 0;
+      if (!(dur > 0)) return;
+      seek.value = String(Math.round((cur / dur) * 1000));
+    } catch (eSync) {}
+  }
+
+  function startSeekUiLoop() {
+    if (seekUiTimer) return;
+    seekUiTimer = setInterval(syncSeekSliderUi, 500);
+  }
 
   function youtubePublicCfg() {
     try {
@@ -155,10 +197,92 @@
     } catch (eAv) {}
   }
 
+  function ensureSeekControls(meta) {
+    if (!meta) return;
+    if (document.getElementById("vc-hw-music-seek")) {
+      bindSeekUi();
+      startSeekUiLoop();
+      return;
+    }
+    var seekRow = document.createElement("div");
+    seekRow.className = "vc-bgm-player__seek-row";
+    var seek = document.createElement("input");
+    seek.type = "range";
+    seek.id = "vc-hw-music-seek";
+    seek.className = "vc-bgm-player__range";
+    seek.min = "0";
+    seek.max = "1000";
+    seek.step = "1";
+    seek.value = "0";
+    seek.setAttribute("aria-label", "Posizione brano");
+    var fwd = document.createElement("button");
+    fwd.type = "button";
+    fwd.id = "vc-hw-music-seek-fwd";
+    fwd.className = "vc-bgm-player__seek-btn";
+    fwd.setAttribute("aria-label", "Avanti 10 secondi");
+    fwd.title = "+10s";
+    var fwdIco = document.createElement("i");
+    fwdIco.className = "fa fa-forward";
+    fwdIco.setAttribute("aria-hidden", "true");
+    fwd.appendChild(fwdIco);
+    seekRow.appendChild(seek);
+    seekRow.appendChild(fwd);
+    var volRow = meta.querySelector(".vc-bgm-player__slider-row");
+    if (volRow) meta.insertBefore(seekRow, volRow);
+    else meta.appendChild(seekRow);
+    bindSeekUi();
+    startSeekUiLoop();
+  }
+
+  function bindSeekUi() {
+    if (seekUiBound) return;
+    var seek = document.getElementById("vc-hw-music-seek");
+    var fwd = document.getElementById("vc-hw-music-seek-fwd");
+    if (!seek) return;
+    seekUiBound = true;
+    if (fwd) {
+      fwd.addEventListener("click", function (ev) {
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (eF) {}
+        seekBySeconds(10);
+        if (!isAudiblePlaying()) {
+          rememberBgmEnabled(true);
+          mutedByUser = false;
+          hideHint();
+          detachFirstPointer();
+          playAudible(true);
+        }
+      });
+    }
+    function onSeekPointerDown(ev) {
+      seekDragging = true;
+      try {
+        ev.stopPropagation();
+      } catch (eSp) {}
+    }
+    function onSeekPointerUp() {
+      seekDragging = false;
+      seekToRatio((Number(seek.value) || 0) / 1000);
+      syncSeekSliderUi();
+    }
+    seek.addEventListener("pointerdown", onSeekPointerDown);
+    seek.addEventListener("mousedown", onSeekPointerDown);
+    seek.addEventListener("touchstart", onSeekPointerDown, { passive: true });
+    seek.addEventListener("pointerup", onSeekPointerUp);
+    seek.addEventListener("change", onSeekPointerUp);
+    seek.addEventListener("input", function () {
+      if (!seekDragging) return;
+      seekToRatio((Number(seek.value) || 0) / 1000);
+    });
+  }
+
   function ensurePlayerShell() {
     var existing = document.getElementById("vc-hw-music-player");
     if (existing) {
       syncVolumeSliderUi();
+      ensureSeekControls(existing.querySelector(".vc-bgm-player__meta"));
       return existing;
     }
     var btn = document.getElementById("vc-hw-music-btn");
@@ -208,6 +332,7 @@
     row.appendChild(icoHi);
     meta.appendChild(label);
     meta.appendChild(row);
+    ensureSeekControls(meta);
 
     btn.parentNode.insertBefore(wrap, btn);
     wrap.appendChild(btn);
@@ -342,6 +467,24 @@
             updateMusicButtonUi();
           },
           onVolumeDelta: nudgeVolume,
+          onSeekForward: function (sec) {
+            seekBySeconds(Number(sec) || 10);
+          },
+          onSeekBackward: function (sec) {
+            seekBySeconds(-(Number(sec) || 10));
+          },
+          onSeekTo: function (details) {
+            if (!details) return;
+            if (Number.isFinite(Number(details.seekTime))) {
+              try {
+                player.seekTo(Number(details.seekTime), true);
+              } catch (eT) {}
+              return;
+            }
+            if (details.fastSeek == null && Number.isFinite(Number(details.seekRatio))) {
+              seekToRatio(Number(details.seekRatio));
+            }
+          },
         });
       }
     } catch (eMs) {}
@@ -606,6 +749,8 @@
           try {
             applyPlayerVolume();
           } catch (eV) {}
+          startSeekUiLoop();
+          syncSeekSliderUi();
         },
         onError: function (ev) {
           booting = false;

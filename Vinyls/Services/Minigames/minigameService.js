@@ -7406,6 +7406,7 @@ function attachHogwartsHouseChannelMeta(game, cfg) {
 }
 
 function isHogwartsPodiumWinMode(cfg, gameType, game = null) {
+  if (game?.finaleChaos || cfg?.finaleChaos) return false;
   if (game?.hogwartsHouseChannel?.singleWinner || cfg?.hogwartsHouseChannelMeta?.singleWinner) return false;
   if (!cfg?.hogwartsEventLive) return false;
   const type = String(gameType || "").trim();
@@ -8352,11 +8353,13 @@ async function requeueGameType(client, cfg, gameType) {
   await saveRotationState(client, cfg);
 }
 
-async function scheduleMinuteHint(client, hintChannelId, durationMs, channelId) {
+async function scheduleMinuteHint(client, hintChannelId, durationMs, channelId, hintBeforeExpiryMs = 60 * 1000) {
   if (!hintChannelId || !durationMs || durationMs <= 60 * 1000) return null;
   const mainChannel = await getChannelCached(client, channelId);
   if (!mainChannel) return null;
-  const delay = durationMs - 60 * 1000;
+  const beforeMs = Math.max(60 * 1000, Math.min(durationMs - 30 * 1000, Math.floor(Number(hintBeforeExpiryMs) || 60 * 1000)));
+  const delay = durationMs - beforeMs;
+  if (delay < 5 * 1000) return null;
   const timer = setTimeout(async () => {
     await sendMinigameMessage(mainChannel, { embeds: [buildMinuteHintEmbed(hintChannelId)] })
       .catch(() => { });
@@ -11202,25 +11205,58 @@ async function startFindScrollGame(client, cfg) {
   const roleId = cfg.roleId;
   await sendMinigameRolePing(mainChannel, cfg, roleId);
 
+  const finaleChaos = cfg?.findScroll?.finaleChaos && typeof cfg.findScroll.finaleChaos === "object"
+    ? cfg.findScroll.finaleChaos
+    : null;
   const attachment = buildPromptImageAttachment("Trova la pergamena", ["Cerca la pergamena nascosta in un canale del server.", "Clicca il pulsante quando la trovi!"], "find_scroll", "", client, false);
-  const introEmbed = buildFindScrollEmbed(rewardExp, durationMs);
+  let introEmbed;
+  if (finaleChaos) {
+    const minutes = Math.max(1, Math.round(durationMs / 60000));
+    const boostLine = finaleChaos.firstSlot
+      ? `\n<a:VC_Events:1482706144953897223> **Bonus 1° slot:** boost **2× ${finaleChaos.boostType === "exp" ? "EXP" : "punti casa"} ${finaleChaos.boostScope === "house" ? "di casata" : "personale"}** per **1 ora** (si somma agli altri).`
+      : "";
+    introEmbed = new EmbedBuilder()
+      .setColor(MINIGAME_EMBED_COLOR)
+      .setTitle("Caccia alle pergamene <a:VC_Exclamation:1482534702077444217>")
+      .setDescription(
+        [
+          "Una **pergamena** è nascosta in un canale a caso: trovala e premi il bottone!",
+          `> <a:VC_pixeltime:1482535344103620771> Hai **${minutes} minuti**.`,
+          "> <a:VC_Winner:1482535294757507255> Vince **il primo** che la raccoglie.",
+          "",
+          "**Premi:**",
+          `• **${Number(finaleChaos.rewardGaleoni) || 0} galeoni**`,
+          `• **${Number(finaleChaos.rewardHousePoints) || 0} punti casa** (con multi animale / boost)`,
+          boostLine,
+        ].filter(Boolean).join("\n"),
+      );
+  } else {
+    introEmbed = buildFindScrollEmbed(rewardExp, durationMs);
+  }
   if (attachment) introEmbed.setImage(`attachment://${attachment.name}`);
   const mainMessage = await sendMinigameMessage(mainChannel, { embeds: [introEmbed], files: attachment ? [attachment] : [] }).catch(() => null);
 
   const customId = `minigame_findscroll:${Date.now()}`;
   const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(customId).setLabel("Raccogli la pergamena!").setStyle(ButtonStyle.Primary));
-  const gameMessage = await sendMinigameMessage(targetChannel, { embeds: [buildFindScrollButtonEmbed(rewardExp, durationMs)], components: [row] }).catch((err) => {
+  const buttonEmbed = finaleChaos
+    ? new EmbedBuilder()
+      .setColor(MINIGAME_EMBED_COLOR)
+      .setTitle("Hai trovato la pergamena <a:VC_Exclamation:1482534702077444217>")
+      .setDescription("Clicca il bottone per raccogliere la pergamena e reclamare i premi!")
+    : buildFindScrollButtonEmbed(rewardExp, durationMs);
+  const gameMessage = await sendMinigameMessage(targetChannel, { embeds: [buttonEmbed], components: [row] }).catch((err) => {
     global.logger?.error?.("[MINIGAMES] FindScroll: send to target channel failed", { channelId: targetChannel.id, channelName: targetChannel.name, err: err?.message || err });
     return null;
   });
   if (!gameMessage) return false;
 
   const timeout = scheduleFindMinigameTimeout(client, cfg, channelId, mainChannel, customId, durationMs, buildTimeoutFindScrollEmbed);
-  const hintTimeout = await scheduleMinuteHint(client, targetChannel.id, durationMs, channelId);
+  const hintBefore = finaleChaos?.hintBeforeExpiryMs || 60 * 1000;
+  const hintTimeout = await scheduleMinuteHint(client, targetChannel.id, durationMs, channelId, hintBefore);
 
   activeGames.set(channelId, {
     type: "findScroll",
-    rewardExp,
+    rewardExp: finaleChaos ? 0 : rewardExp,
     startedAt: Date.now(),
     endsAt: Date.now() + durationMs,
     timeout,
@@ -11229,23 +11265,67 @@ async function startFindScrollGame(client, cfg) {
     messageId: gameMessage?.id || null,
     mainMessageId: mainMessage?.id || null,
     customId,
+    ...(finaleChaos
+      ? {
+          finaleChaos: {
+            ...finaleChaos,
+            requiredWinners: Math.max(1, Number(finaleChaos.requiredWinners) || 1),
+            winnerIds: Array.isArray(finaleChaos.winnerIds) ? finaleChaos.winnerIds : [],
+          },
+        }
+      : {}),
   });
 
   await saveActiveGame(client, cfg, {
     type: "findScroll",
-    rewardExp,
+    rewardExp: finaleChaos ? 0 : rewardExp,
     startedAt: new Date(),
     endsAt: new Date(Date.now() + durationMs),
     targetChannelId: targetChannel.id,
     gameMessageId: gameMessage?.id || null,
     mainMessageId: mainMessage?.id || null,
     customId,
+    ...(finaleChaos ? { target: JSON.stringify({ finaleChaos }) } : {}),
   });
 
   stampMinigameBurrobirraApplies(channelId, client);
   markSent(channelId);
 
   return true;
+}
+
+async function startFinaleChaosFindScroll(client, opts = {}) {
+  const base = getConfig(client);
+  if (!base?.channelId) return false;
+  if (activeGames.has(base.channelId)) return false;
+  const durationMs = Math.max(60_000, Math.floor(Number(opts.durationMs) || 900000));
+  const cfg = {
+    ...base,
+    roleId: opts.pingRoleId || base.roleId,
+    channelId: opts.announceChannelId || base.channelId,
+    finaleChaos: true,
+    findScroll: {
+      ...(base.findScroll && typeof base.findScroll === "object" ? base.findScroll : {}),
+      eventLive: true,
+      unlocked: true,
+      durationMs,
+      rewardExp: 0,
+      finaleChaos: {
+        firstSlot: opts.firstSlot === true,
+        boostType: opts.boostType === "exp" ? "exp" : "housePoints",
+        boostScope: opts.boostScope === "house" ? "house" : "personal",
+        firstSlotBoostDurationMs: Math.max(60_000, Math.floor(Number(opts.firstSlotBoostDurationMs) || 3600000)),
+        rewardGaleoni: Math.max(0, Math.floor(Number(opts.rewardGaleoni) || 1000)),
+        rewardHousePoints: Math.max(0, Math.floor(Number(opts.rewardHousePoints) || 500)),
+        hintBeforeExpiryMs: Math.max(60_000, Math.floor(Number(opts.hintBeforeExpiryMs) || 450000)),
+        slotKey: String(opts.slotKey || "").trim(),
+        chaosEventKey: String(opts.chaosEventKey || "").trim(),
+        requiredWinners: 1,
+        winnerIds: [],
+      },
+    },
+  };
+  return startFindScrollGame(client, cfg);
 }
 
 function normalizeHogwartsMemorySequence(value) {
@@ -14420,6 +14500,118 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
     }
     return;
   }
+
+  // Finale chaos — Caccia alle pergamene: un solo vincitore.
+  if (game?.finaleChaos && game?.type === "findScroll") {
+    const chaos = game.finaleChaos;
+    const required = Math.max(1, Number(chaos.requiredWinners) || 1);
+    const uid = String(interaction.user.id || "").trim();
+    const winners = Array.isArray(chaos.winnerIds) ? chaos.winnerIds.map(String) : [];
+    if (winners.includes(uid)) {
+      await interaction.reply({
+        content: "<a:VC_Alert:1482706673176150077> Hai già raccolto questa pergamena.",
+        flags: 1 << 6,
+      }).catch(() => { });
+      return;
+    }
+    if (winners.length >= required) {
+      await interaction.reply({
+        content: "<:cancel:1461730653677551691> Round già completato.",
+        flags: 1 << 6,
+      }).catch(() => { });
+      return;
+    }
+
+    const lockKey = `finale_scroll:${cfg.channelId}`;
+    if (channelWinClosing.has(lockKey) || channelWinClosing.has(String(cfg.channelId || ""))) {
+      await interaction.reply({
+        content: "<:cancel:1461730653677551691> Qualcun altro sta reclamando… riprova.",
+        flags: 1 << 6,
+      }).catch(() => { });
+      return;
+    }
+    channelWinClosing.add(lockKey);
+    try {
+      const live = activeGames.get(cfg.channelId);
+      if (!live || live.customId !== game.customId || !live.finaleChaos) {
+        await interaction.reply({
+          content: "<:cancel:1461730653677551691> Partita già conclusa.",
+          flags: 1 << 6,
+        }).catch(() => { });
+        return;
+      }
+      const liveWinners = Array.isArray(live.finaleChaos.winnerIds) ? live.finaleChaos.winnerIds.map(String) : [];
+      if (liveWinners.includes(uid) || liveWinners.length >= required) {
+        await interaction.reply({
+          content: liveWinners.includes(uid)
+            ? "<a:VC_Alert:1482706673176150077> Hai già raccolto questa pergamena."
+            : "<:cancel:1461730653677551691> Round già completato.",
+          flags: 1 << 6,
+        }).catch(() => { });
+        return;
+      }
+      liveWinners.push(uid);
+      live.finaleChaos.winnerIds = liveWinners;
+      activeGames.set(cfg.channelId, live);
+
+      const { grantFinaleChaosWinRewards } = require("../Community/hogwartsFinaleChaosDayService");
+      const { formatGaleoni } = require("../Community/gringottService");
+      const rewards = await grantFinaleChaosWinRewards(client, {
+        guildId: interaction.guild.id,
+        userIds: [uid],
+        c: {
+          rewardGaleoni: Number(chaos.rewardGaleoni) || 1000,
+          rewardHousePoints: Number(chaos.rewardHousePoints) || 500,
+          firstSlotBoostDurationMs: Number(chaos.firstSlotBoostDurationMs) || 3600000,
+          eventKey: String(chaos.chaosEventKey || "hogwarts_finale_chaos"),
+        },
+        rewardKeyPrefix: `${chaos.chaosEventKey || "finale"}:${chaos.slotKey || game.customId || "scroll"}:findScroll`,
+        reason: `Finale chaos — Caccia alle pergamene ${chaos.slotKey || ""}`,
+        firstSlot: chaos.firstSlot === true,
+        boostType: chaos.boostType || "housePoints",
+        boostScope: chaos.boostScope || "personal",
+      });
+      const award = rewards[0];
+      const mainChannel = await getChannelCached(client, cfg.channelId);
+      const embed = new EmbedBuilder()
+        .setColor(MINIGAME_EMBED_COLOR)
+        .setTitle("Caccia alle pergamene — vittoria!")
+        .setDescription(
+          [
+            `<@${uid}> ha trovato la pergamena!`,
+            "",
+            `**${formatGaleoni(Number(chaos.rewardGaleoni) || 1000)}**`,
+            `**${award?.house?.points || chaos.rewardHousePoints || 500} punti casa**`,
+            chaos.firstSlot
+              ? `Boost attivo: **2× ${chaos.boostType === "exp" ? "EXP" : "punti casa"} ${chaos.boostScope === "house" ? "di casata" : "personale"}** per 1 ora (si somma)`
+              : "",
+          ].filter(Boolean).join("\n"),
+        );
+      if (mainChannel) {
+        await sendMinigameMessage(mainChannel, { embeds: [embed] }).catch(() => { });
+      }
+      await interaction.reply({
+        content: "<a:VC_Events:1482706144953897223> Hai vinto!",
+        flags: 1 << 6,
+      }).catch(() => { });
+
+      try {
+        const channel = interaction.channel;
+        const msg = await channel.messages.fetch(live.messageId || game.messageId).catch(() => null);
+        if (msg) await msg.delete().catch(() => { });
+      } catch (err) {
+        warnMinigame(err);
+      }
+      if (live.timeout) clearTimeout(live.timeout);
+      if (live.hintTimeout) clearTimeout(live.hintTimeout);
+      clearHogwartsPodiumChannel(channelId);
+      await clearActiveGame(client, winCfg).catch(() => { });
+    } finally {
+      channelWinClosing.delete(lockKey);
+    }
+    return;
+  }
+
   const closed = await beginMinigameWinClose(client, winCfg, game);
   if (!closed) {
     await interaction.reply({
@@ -16452,4 +16644,4 @@ async function handleMinigameVoiceState(oldState, newState, client) {
   return handleFindBotVoiceWin(client, guild, member, active.game, active.cfg);
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe };
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startFinaleChaosFindScroll };

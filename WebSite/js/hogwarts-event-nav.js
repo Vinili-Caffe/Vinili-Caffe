@@ -137,8 +137,23 @@
       .catch(function () {});
   }
 
+  function stripStaffFromEventNav() {
+    try {
+      var nodes = document.querySelectorAll(
+        "header [data-vc-staff-tools-nav], header .vc-snav-details--staff, nav.vc-header-snav [data-vc-staff-tools-nav], nav.vc-header-snav .vc-snav-details--staff",
+      );
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+      }
+    } catch (eStrip) {}
+  }
+
   function boot() {
     syncPotionsLinksVisible();
+    stripStaffFromEventNav();
+    window.setTimeout(stripStaffFromEventNav, 200);
+    window.setTimeout(stripStaffFromEventNav, 1000);
     if (!previewMode()) return;
     var nodes = document.querySelectorAll("[data-vc-event-nav-id]");
     for (var i = 0; i < nodes.length; i++) {

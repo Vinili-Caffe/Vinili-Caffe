@@ -14,6 +14,24 @@ const TRACK_KINDS = new Set([
   "warn_rm",
 ]);
 
+/**
+ * Nasconde dalla carriera i pex/depex automatici per ruoli messi/tolti a mano
+ * (es. "Ruolo staff aggiunto manualmente.").
+ */
+function isHiddenManualStaffCareerReason(reason) {
+  const r = String(reason || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!r) return false;
+  if (!/\bmanualmente\b/.test(r)) return false;
+  // aggiunto / aggunto (typo) / rimosso
+  if (/\b(aggiunt[oa]|aggunto|rimoss[oa])\b/.test(r)) return true;
+  return /\bruolo\b/.test(r);
+}
+
 function actorLabelFromUser(userOrMember, fallbackId = "") {
   try {
     const u = userOrMember?.user || userOrMember;
@@ -99,6 +117,8 @@ function buildStaffTrackTimeline(guild, staff, { limit = 400 } = {}) {
 
   const push = (row) => {
     if (!row) return;
+    const kind = String(row.kind || "").toLowerCase();
+    if ((kind === "pex" || kind === "depex") && isHiddenManualStaffCareerReason(row.reason)) return;
     const fp = fingerprint(row);
     if (seen.has(fp)) return;
     seen.add(fp);
@@ -177,6 +197,36 @@ function buildStaffTrackTimeline(guild, staff, { limit = 400 } = {}) {
   pushValLogs(staff?.positiveValutazioni, "val_pos");
   pushValLogs(staff?.negativeValutazioni, "val_neg");
 
+  // Legacy warnReasons (stringhe) se non già presenti in trackHistory.
+  const existingWarnText = new Set(
+    items
+      .filter((r) => r && (r.kind === "warn" || r.kind === "warn_rm"))
+      .map((r) => String(r.reason || "").trim().slice(0, 120).toLowerCase())
+      .filter(Boolean),
+  );
+  const warnReasons = Array.isArray(staff?.warnReasons) ? staff.warnReasons : [];
+  for (let i = warnReasons.length - 1; i >= 0; i -= 1) {
+    const raw = warnReasons[i];
+    const reason =
+      typeof raw === "string"
+        ? stripDiscordDecorations(raw)
+        : stripDiscordDecorations(raw?.reason || raw?.text || raw?.motivo || "");
+    const key = String(reason || "").trim().slice(0, 120).toLowerCase();
+    if (key && existingWarnText.has(key)) continue;
+    if (key) existingWarnText.add(key);
+    push({
+      kind: "warn",
+      reason: reason || null,
+      date: null,
+      actorId: String(raw?.actorId || "").trim() || null,
+      actorName: String(raw?.actorName || "").trim() || null,
+      from: null,
+      to: null,
+      entryId: i + 1,
+      source: "warn",
+    });
+  }
+
   items.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
   return items.slice(0, Math.max(1, Math.min(800, Number(limit) || 400)));
 }
@@ -186,5 +236,6 @@ module.exports = {
   actorLabelFromUser,
   appendStaffTrackHistory,
   buildStaffTrackTimeline,
+  isHiddenManualStaffCareerReason,
   normalizeTrackEntry,
 };

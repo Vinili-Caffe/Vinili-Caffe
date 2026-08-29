@@ -288,6 +288,9 @@
           root.classList.add("vc-notif-dropdown-open");
         } catch (e0) {}
         portalNotifDropdownToBody(dd, true);
+        try {
+          if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+        } catch (eLock) {}
         if (!dd.querySelector(".vc-notif-mobile-backdrop")) {
           var bd = document.createElement("div");
           bd.className = "vc-notif-mobile-backdrop";
@@ -345,6 +348,13 @@
       foot.appendChild(seeAll);
       seeAll.addEventListener("click", function (ev) {
         ev.preventDefault();
+        try {
+          if (typeof window.__vcRepairNotifDropdownPortal === "function") {
+            window.__vcRepairNotifDropdownPortal();
+          } else if (dd) {
+            dd.removeAttribute("open");
+          }
+        } catch (ePrep) {}
         try {
           window.location.href = new URL("/notifications/", window.location.origin).toString();
         } catch (eNav) {

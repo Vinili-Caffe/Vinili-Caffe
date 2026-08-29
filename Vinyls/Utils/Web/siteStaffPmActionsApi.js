@@ -81,6 +81,7 @@ async function handleSiteStaffPmActionsPost(client, req, res) {
       }
       const userId = String(body.userId || "").trim();
       const amount = Number.parseInt(String(body.amount ?? "1"), 10);
+      const reason = String(body.reason || body.motivo || "").trim().slice(0, 400);
       if (!/^\d{16,20}$/.test(userId)) {
         return res.status(400).json({ ok: false, error: "invalid_user", message: "Utente non valido." });
       }
@@ -101,10 +102,59 @@ async function handleSiteStaffPmActionsPost(client, req, res) {
         return res.status(400).json({ ok: false, error: "failed", message: "Operazione non riuscita." });
       }
       const points = resolvePartnerPointsShown(updated.staff);
+      let pointsRemovedLogged = false;
+      if (action === "points_remove") {
+        try {
+          const { logPmPointsRemoved } = require("../Partner/pmPointsRemovedStore");
+          const { getPartnershipLogChannelIds } = require("../Partner/partnershipConfigResolver");
+          const { isDiscordStaffChannelPostsEnabled } = require("./discordWorkflowUiGate");
+          const channelIds = getPartnershipLogChannelIds(guild.id);
+          const hardFallback = isDiscordStaffChannelPostsEnabled()
+            ? String(IDs.channels?.puntiTolti || "").trim()
+            : "";
+          let mirrorChannel = null;
+          if (isDiscordStaffChannelPostsEnabled()) {
+            for (const cid of [channelIds.primary, channelIds.fallback, hardFallback]) {
+              if (!cid) continue;
+              mirrorChannel = guild.channels.cache.get(cid) || null;
+              if (mirrorChannel?.isTextBased?.()) break;
+              mirrorChannel = null;
+            }
+          }
+          const removedAmount = Math.max(
+            0,
+            Math.floor(Number(updated._partnerPointsRemoved ?? amount) || 0),
+          );
+          const ruleText = reason || "Punti rimossi da High Staff (sito)";
+          const mention = `<@${userId}>`;
+          const logLines = [
+            `<:VC_PartnerManager:1494286911286808576> ${mention}`,
+            `<:VC_reason:1478517122929004544> ${ruleText}`,
+            `<:VC_Dot:1482532364222595303> −${removedAmount} punti (sito)`,
+          ];
+          const entry = await logPmPointsRemoved({
+            guild,
+            pmUserId: userId,
+            rule: ruleText,
+            actorUserId: String(access.member?.id || ""),
+            status: "logged",
+            source: "site_hs_manual",
+            mirrorChannel,
+            mirrorContent: logLines.join("\n"),
+          });
+          pointsRemovedLogged = Boolean(entry);
+        } catch (logErr) {
+          global.logger?.warn?.(
+            "[WEBHOOK] site-staff-pm-actions punti tolti log failed:",
+            logErr?.message || logErr,
+          );
+        }
+      }
       return res.status(200).json({
         ok: true,
         message: formatPartnerPointsChange(action === "points_add" ? "add" : "remove", amount),
         points,
+        pointsRemovedLogged,
       });
     }
 

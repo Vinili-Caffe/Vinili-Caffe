@@ -227,7 +227,9 @@ async function notifyStaffWarn(opts = {}) {
           ? `${staffName} ha 2 warn staff: serve decidere se applicare un depex ora (Discord o Gestione).`
           : `${staffName} ha raggiunto ${warnCount} warn staff${isAutoFromNegatives ? " (da valutazioni negative)" : ""}.`,
         kind: "mod",
-        openUrl: needsDepexDecision ? "/staff/gestione/" : "/staff/",
+        openUrl: needsDepexDecision
+          ? `/user/?id=${encodeURIComponent(staffUserId)}&tab=staff&manage=1`
+          : "/staff/",
         dedupeKey: needsDepexDecision ? `warn-depex-prompt:${staffUserId}:${warnCount}` : `warn-hs:${staffUserId}:${warnCount}`,
       },
       [staffUserId],

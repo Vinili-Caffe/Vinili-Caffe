@@ -725,6 +725,22 @@
     "eventsRoleId": "1507000390493798511",
     "leaderboardChannelId": "1481660281032675510"
   },
+  "hogwartsFinaleChaosDay": {
+    "enabled": true,
+    "eventKey": "hogwarts_finale_chaos_20260831",
+    "startDate": "2026-08-31T00:00:00",
+    "endDate": "2026-09-01T00:00:00",
+    "slotMinutes": [0, 20, 40],
+    "activeDurationMs": 900000,
+    "hintBeforeExpiryMs": 450000,
+    "minChatMessagesBetweenSpawns": 8,
+    "rewardGaleoni": 1000,
+    "rewardHousePoints": 500,
+    "firstSlotBoostDurationMs": 3600000,
+    "forbiddenBookCount": 5,
+    "games": ["reactPress", "forbiddenSection", "findScroll"],
+    "pingRoleId": "1507000390493798511"
+  },
   "hogwartsPotions": {
     "enabled": true,
     "startDate": "2026-08-24T12:00:00",

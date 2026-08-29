@@ -20,12 +20,12 @@
   var HISTORY_KIND_LABEL = {
     pex: "Pex",
     depex: "Depex",
-    val_pos: "Val +",
-    val_neg: "Val −",
-    warn: "Warn",
-    val_pos_rm: "Val + rimossa",
-    val_neg_rm: "Val − rimossa",
-    warn_rm: "Warn rimosso",
+    val_pos: "Valutazione positiva",
+    val_neg: "Valutazione negativa",
+    warn: "Warn staff",
+    val_pos_rm: "Valutazione positiva rimossa",
+    val_neg_rm: "Valutazione negativa rimossa",
+    warn_rm: "Warn staff rimosso",
   };
 
   function isViewingSelf() {
@@ -201,28 +201,54 @@
 
   function historyRowsForMember(m) {
     if (!m) return [];
-    if (Array.isArray(m.trackHistory) && m.trackHistory.length) return m.trackHistory;
-    var legacy = Array.isArray(m.rolesHistory) ? m.rolesHistory : [];
-    return legacy.map(function (r) {
-      return {
-        kind: r.kind || "pex",
-        from: r.from,
-        to: r.to,
-        reason: r.reason,
-        date: r.date,
-        actorId: r.actorId || null,
-        actorName: r.actorName || null,
-        entryId: null,
-      };
-    });
+    var rows =
+      Array.isArray(m.trackHistory) && m.trackHistory.length
+        ? m.trackHistory.slice()
+        : (Array.isArray(m.rolesHistory) ? m.rolesHistory : []).map(function (r) {
+            return {
+              kind: r.kind || "pex",
+              from: r.from,
+              to: r.to,
+              reason: r.reason,
+              date: r.date,
+              actorId: r.actorId || null,
+              actorName: r.actorName || null,
+              entryId: null,
+            };
+          });
+    // In gestione modal: solo val+/val−/warn (pex/depex restano solo sui bottoni).
+    if (state._modalMode) {
+      rows = rows.filter(function (r) {
+        var k = String((r && r.kind) || "").toLowerCase();
+        return (
+          k === "val_pos" ||
+          k === "val_neg" ||
+          k === "warn" ||
+          k === "val_pos_rm" ||
+          k === "val_neg_rm" ||
+          k === "warn_rm"
+        );
+      });
+    }
+    return rows;
+  }
+
+  function historyEntryIdPart(r) {
+    var id = Number(r && r.entryId);
+    if (!Number.isFinite(id) || id <= 0) return "";
+    return "#" + T.esc(String(Math.floor(id))) + " \u00B7 ";
   }
 
   function historyMainLine(r) {
     var kind = String(r.kind || "").toLowerCase();
+    var idPart = historyEntryIdPart(r);
     if (kind === "pex" || kind === "depex") {
       return T.esc(r.from || "—") + " \u2192 " + T.esc(r.to || "—");
     }
-    var idPart = r.entryId ? "#" + T.esc(String(r.entryId)) + " \u00B7 " : "";
+    var reason = String(r.reason || "").trim();
+    if (reason && (kind.indexOf("val_") === 0 || kind.indexOf("warn") === 0)) {
+      return idPart + T.esc(reason);
+    }
     return idPart + T.esc(historyKindLabel(kind));
   }
 
@@ -266,7 +292,9 @@
 
   function historyHtml(rows, page) {
     if (!rows || !rows.length) {
-      return '<p class="vc-staff-manage-empty">Nessuna variazione registrata.</p>';
+      return state._modalMode
+        ? '<p class="vc-staff-manage-empty">Nessuna valutazione o warn registrato.</p>'
+        : '<p class="vc-staff-manage-empty">Nessuna variazione registrata.</p>';
     }
     var pages = Math.max(1, Math.ceil(rows.length / HISTORY_PAGE_SIZE));
     var cur = Math.min(pages, Math.max(1, Number(page) || 1));
@@ -276,6 +304,10 @@
       '<ul class="vc-staff-manage-history">' +
       slice
         .map(function (r) {
+          var kind = String(r.kind || "").toLowerCase();
+          var reason = String(r.reason || "").trim();
+          var reasonIsMain =
+            Boolean(reason) && (kind.indexOf("val_") === 0 || kind.indexOf("warn") === 0);
           return (
             '<li class="vc-staff-manage-history__item is-' +
             T.esc(String(r.kind || "event").replace(/_/g, "-")) +
@@ -284,7 +316,7 @@
             "</span><strong>" +
             historyMainLine(r) +
             "</strong>" +
-            (r.reason ? "<span>" + T.esc(r.reason) + "</span>" : "") +
+            (reason && !reasonIsMain ? "<span>" + T.esc(reason) + "</span>" : "") +
             '<em class="vc-staff-manage-history__meta">' +
             historyActorLine(r) +
             (r.date ? " \u00B7 " + T.esc(String(r.date).slice(0, 10)) : "") +
@@ -466,146 +498,216 @@
     );
   }
 
-  function renderPmOnlyDetail(m) {
-    var p = m.partner || {};
-    var html = memberHeadHtml(m) + readOnlyBannerHtml();
-    html +=
-      '<p class="vc-staff-manage-pm-lead">Scheda Partner Manager con punti, partnership e attività recenti.</p>' +
-      '<div class="vc-staff-profile-stats">' +
-      '<div class="vc-staff-profile-stat"><p class="vc-staff-profile-stat__value">' +
-      T.esc(p.pointsSpendable || 0) +
-      '</p><p class="vc-staff-profile-stat__label">Punti spendibili</p></div>' +
-      '<div class="vc-staff-profile-stat"><p class="vc-staff-profile-stat__value">' +
-      T.esc(p.pointsEarned || 0) +
-      '</p><p class="vc-staff-profile-stat__label">Partnership</p></div>' +
-      '<div class="vc-staff-profile-stat"><p class="vc-staff-profile-stat__value">' +
-      T.esc(p.partnerCount || 0) +
-      '</p><p class="vc-staff-profile-stat__label">Server partner</p></div></div>';
-    html +=
-      '<p class="vc-staff-manage-pm-meta">' +
-      T.esc(p.redeemSpend || 0) +
-      " punti già riscattati · " +
-      T.esc(p.pointsEarned || 0) +
-      " guadagnati · " +
-      T.esc(p.pointsSpendable || 0) +
-      " spendibili</p>";
-    html += pauseSectionHtml(m);
-    if (!state.readOnly) {
-      html +=
-        '<section class="vc-staff-manage-actions"><h3>Azioni PM</h3>' +
-        '<div class="vc-staff-manage-action-grid">' +
-        actionBtn("pex", "Pex Helper", !m.canPexProspect) +
-        actionBtn("depex_pm", "Depex PM", !m.canDepexPm, true) +
-        "</div>";
-      if (!state.pmManageOnly) {
-        html +=
-          '<div class="vc-staff-manage-pm-points">' +
-          '<label><span>Punti partnership</span><input id="vc-staff-manage-pm-points-amt" type="number" min="1" max="500" value="1" /></label>' +
-          '<div class="vc-staff-manage-action-grid">' +
-          '<button type="button" class="vc-staff-manage-act" data-pm-points-action="points_add">Aggiungi punti</button>' +
-          '<button type="button" class="vc-staff-manage-act vc-staff-manage-act--danger" data-pm-points-action="points_remove">Rimuovi punti</button>' +
-          "</div></div>";
-      } else {
-        html +=
-          '<p class="vc-staff-manage-pm-meta">Punti: ' +
-          T.esc(p.pointsSpendable || 0) +
-          " spendibili (modifica riservata all'High Staff).</p>";
+  function askReasonThenConfirm(opts) {
+    opts = opts || {};
+    return T.prompt({
+      title: opts.title || "Motivo",
+      message: opts.message || "Inserisci il motivo, poi conferma l\u2019azione.",
+      label: "Motivo",
+      placeholder: "Descrivi il motivo (min. 3 caratteri)\u2026",
+      defaultValue: "",
+      confirmLabel: opts.continueLabel || "Continua",
+      cancelLabel: "Annulla",
+      danger: Boolean(opts.danger),
+      icon: opts.icon || "fa-pencil",
+      multiline: true,
+      maxLength: 500,
+    }).then(function (raw) {
+      if (raw == null) return null;
+      var reason = String(raw || "").trim();
+      if (reason.length < 3) {
+        return T.alert({
+          title: "Motivo troppo corto",
+          message: "Serve un motivo di almeno 3 caratteri.",
+          icon: "fa-exclamation-circle",
+        }).then(function () {
+          return null;
+        });
       }
-      html +=
-        '<label class="vc-staff-manage-reason"><span>Motivo</span>' +
-        '<textarea id="vc-staff-manage-reason" rows="2" maxlength="500" placeholder="Descrivi il motivo dell\u2019azione\u2026"></textarea></label>' +
-        '<p id="vc-staff-manage-action-status" class="vc-staff-manage-action-status" role="status" hidden></p>' +
-        "</section>";
+      return T.confirm({
+        title: opts.confirmTitle || opts.title || "Conferma",
+        message:
+          (opts.confirmMessage || "Confermi l\u2019operazione?") +
+          "\n\nMotivo: " +
+          reason,
+        confirmLabel: opts.confirmLabel || "Conferma",
+        cancelLabel: "Annulla",
+        danger: Boolean(opts.danger),
+        icon: opts.icon || "fa-check",
+      }).then(function (ok) {
+        return ok ? reason : null;
+      });
+    });
+  }
+
+  function forgeRoleLabel(m) {
+    if (!m) return "Staff";
+    var ladder = String(m.ladderRoleLabel || "").trim();
+    if (ladder) return ladder;
+    var raw = String(m.displayRoleLabel || "").trim();
+    // Togli il badge generico "Staff" dal titolo (resta il grado vero).
+    raw = raw
+      .replace(/\s*&\s*Staff\b/gi, "")
+      .replace(/\bStaff\s*&\s*/gi, "")
+      .replace(/^Staff$/i, "")
+      .trim();
+    return raw || "Staff";
+  }
+
+  function chooseCareerAction(hub) {
+    var m = state.member;
+    if (!m || state.readOnly || state.busy) return Promise.resolve(null);
+    var D = window.VcDialog;
+    var chooseFn =
+      D && typeof D.choose === "function"
+        ? function (o) {
+            return D.choose(o);
+          }
+        : null;
+    var arrow = " → ";
+    var pexDest = String(m.pexTargetLabel || "").trim() || "Ruolo nuovo";
+    var depexDest = String(m.depexTargetLabel || "").trim() || "Ruolo nuovo";
+    var memberDest = String(m.memberRoleLabel || "").trim() || "Member";
+    var isPm = Boolean(m.isPm);
+    var choices = [];
+    if (hub === "pex") {
+      if (m.canPex || m.canPexProspect) {
+        choices.push({ id: "pex", label: "Pex" + arrow + pexDest });
+      }
+      // Solo se non è già Partner Manager.
+      if (m.canPexPm && !isPm) {
+        choices.push({ id: "pex_pm", label: memberDest + arrow + "Partner Manager" });
+      }
+      if (!choices.length) {
+        setActionStatus("Nessuna opzione di pex disponibile.", true);
+        return Promise.resolve(null);
+      }
+      if (choices.length === 1) return Promise.resolve(choices[0].id);
+      if (!chooseFn) return Promise.resolve(choices[0].id);
+      return chooseFn({
+        title: "Pex",
+        message: "Scegli il tipo di promozione.",
+        cancelLabel: "Annulla",
+        icon: "fa-arrow-up",
+        danger: false,
+        choices: choices,
+      });
     }
+    if (hub === "depex") {
+      if (m.canDepexLadder) {
+        choices.push({ id: "depex", label: "Depex" + arrow + depexDest });
+      }
+      // Solo se è già Partner Manager.
+      if (m.canDepexPm && isPm) {
+        choices.push({ id: "depex_pm", label: "Partner Manager" + arrow + memberDest, danger: true });
+      }
+      if (m.canDepexFull !== false) {
+        choices.push({ id: "depex_full", label: "Depex" + arrow + memberDest, danger: true });
+      }
+      if (!choices.length) {
+        setActionStatus("Nessuna opzione di depex disponibile.", true);
+        return Promise.resolve(null);
+      }
+      if (choices.length === 1) return Promise.resolve(choices[0].id);
+      if (!chooseFn) return Promise.resolve(choices[0].id);
+      return chooseFn({
+        title: "Depex",
+        message: "Scegli il tipo di depex.",
+        cancelLabel: "Annulla",
+        icon: "fa-arrow-down",
+        danger: true,
+        choices: choices,
+      });
+    }
+    return Promise.resolve(hub);
+  }
+
+  function renderCareerForge(m) {
+    var roleLabel = forgeRoleLabel(m);
+    var canAct = !state.readOnly;
+    var isPm = Boolean(m.isPm);
+    var canPexHub = Boolean(m.canPex || m.canPexProspect || (m.canPexPm && !isPm));
+    var canDepexHub = Boolean(
+      m.canDepexLadder || (m.canDepexPm && isPm) || m.canDepexFull !== false,
+    );
+    var html =
+      '<section class="vc-staff-rank-forge" aria-label="Gestione carriera">' +
+      '<div class="vc-staff-rank-forge__badge">' +
+      '<span class="vc-staff-rank-forge__kicker">Ruolo attuale</span>' +
+      "<strong>" +
+      T.esc(roleLabel) +
+      "</strong>" +
+      (m.isPm ? '<em class="vc-staff-rank-forge__pm">Partner Manager</em>' : "") +
+      "</div>";
+
+    if (!canAct) {
+      html +=
+        '<p class="vc-staff-manage-readonly" role="status">Consultazione: nessun permesso di modifica carriera.</p>';
+    } else {
+      html +=
+        '<div class="vc-staff-rank-forge__rail">' +
+        '<button type="button" class="vc-staff-rank-forge__card is-up" data-career-hub="pex"' +
+        (canPexHub ? "" : " disabled") +
+        ">" +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-arrow-up"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Pex</span>' +
+        '<span class="vc-staff-rank-forge__hint">Scegli tipo di promozione</span></button>' +
+        '<button type="button" class="vc-staff-rank-forge__card is-down" data-career-hub="depex"' +
+        (canDepexHub ? "" : " disabled") +
+        ">" +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-arrow-down"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Depex</span>' +
+        '<span class="vc-staff-rank-forge__hint">Scegli tipo di depex</span></button>' +
+        "</div>";
+    }
+
     html +=
-      "<section><h3>Cronologia partnership</h3>" + partnerActionsHtml(p.recentActions) + "</section>";
-    html +=
-      '<section class="vc-staff-manage-history-sec"><h3>Cronologia pex / depex / val / warn</h3>' +
-      historyHtml(historyRowsForMember(m), state.historyPage) +
+      '<p id="vc-staff-manage-action-status" class="vc-staff-manage-action-status" role="status" hidden></p>' +
       "</section>";
     return html;
   }
 
-  function renderStaffDetail(m) {
-    var html = memberHeadHtml(m) + readOnlyBannerHtml();
-    html +=
-      '<div class="vc-staff-profile-stats">' +
-      '<div class="vc-staff-profile-stat"><p class="vc-staff-profile-stat__value">' +
-      T.esc(m.valutazioni.positive) +
-      '</p><p class="vc-staff-profile-stat__label">Val +</p></div>' +
-      '<div class="vc-staff-profile-stat"><p class="vc-staff-profile-stat__value">' +
-      T.esc(m.valutazioni.negative) +
-      '</p><p class="vc-staff-profile-stat__label">Val −</p></div>' +
-      '<div class="vc-staff-profile-stat"><p class="vc-staff-profile-stat__value">' +
-      T.esc(m.warn.count) +
-      '</p><p class="vc-staff-profile-stat__label">Warn</p></div></div>';
-    if (!state.readOnly) {
+  function renderPmOnlyDetail(m) {
+    var html = readOnlyBannerHtml() + renderCareerForge(m);
+    if (m.partner) {
       html +=
-        '<section class="vc-staff-manage-actions"><h3>Azioni</h3>' +
-        '<div class="vc-staff-manage-action-grid">' +
-        actionBtn("pex", "Pex", !m.canPex && !m.canPexProspect) +
-        actionBtn("depex", "Depex", !m.canDepexLadder) +
-        actionBtn("depex_pm", "Depex PM", !m.canDepexPm) +
-        actionBtn("depex_full", "Depex completo", false, true) +
-        actionBtn("val_pos", "Val +", false) +
-        actionBtn("val_neg", "Val −", false) +
-        actionBtn("warn_add", "Warn", false, true) +
-        "</div>";
-      if (m.isPm && m.partner) {
-        html +=
-          '<div class="vc-staff-manage-pm-points">' +
-          '<p class="vc-staff-manage-pm-meta">PM: ' +
-          T.esc(m.partner.pointsSpendable || 0) +
-          " punti spendibili · " +
-          T.esc(m.partner.partnerCount || 0) +
-          " partnership</p>";
-        if (!state.pmManageOnly) {
-          html +=
-            '<label><span>Modifica punti</span><input id="vc-staff-manage-pm-points-amt" type="number" min="1" max="500" value="1" /></label>' +
-            '<div class="vc-staff-manage-action-grid">' +
-            '<button type="button" class="vc-staff-manage-act" data-pm-points-action="points_add">Aggiungi punti</button>' +
-            '<button type="button" class="vc-staff-manage-act vc-staff-manage-act--danger" data-pm-points-action="points_remove">Rimuovi punti</button>' +
-            "</div>";
-        } else {
-          html +=
-            '<p class="vc-staff-manage-pm-meta">Modifica punti riservata all\'High Staff.</p>';
-        }
-        html += "</div>";
-      }
-      html +=
-        '<label class="vc-staff-manage-reason"><span>Motivo</span>' +
-        '<textarea id="vc-staff-manage-reason" rows="2" maxlength="500" placeholder="Descrivi il motivo dell\u2019azione\u2026"></textarea></label>' +
-        '<p id="vc-staff-manage-action-status" class="vc-staff-manage-action-status" role="status" hidden></p>' +
-        "</section>";
-    } else if (m.isPm && m.partner) {
-      html +=
-        '<p class="vc-staff-manage-pm-meta">PM: ' +
+        '<p class="vc-staff-manage-pm-meta">' +
         T.esc(m.partner.pointsSpendable || 0) +
         " punti spendibili · " +
         T.esc(m.partner.partnerCount || 0) +
         " partnership</p>";
     }
     html +=
-      '<div class="vc-staff-manage-cols">' +
-      '<section><h3>Val +</h3>' +
-      entriesHtml((m.valutazioni && m.valutazioni.positiveEntries) || [], "val_pos_rm") +
-      "</section>" +
-      "<section><h3>Val −</h3>" +
-      entriesHtml((m.valutazioni && m.valutazioni.negativeEntries) || [], "val_neg_rm") +
-      "</section>" +
-      "<section><h3>Warn</h3>" +
-      entriesHtml((m.warn && m.warn.entries) || [], "warn_rm") +
-      "</section></div>";
-    html +=
-      '<section class="vc-staff-manage-history-sec"><h3>Cronologia pex / depex / val / warn</h3>' +
+      '<section class="vc-staff-manage-history-sec"><h3>Cronologia valutazioni</h3>' +
       historyHtml(historyRowsForMember(m), state.historyPage) +
       "</section>";
-    html += pauseSectionHtml(m);
     return html;
   }
 
+  function renderStaffDetail(m) {
+    var html = readOnlyBannerHtml() + renderCareerForge(m);
+    if (m.isPm && m.partner) {
+      html +=
+        '<p class="vc-staff-manage-pm-meta">PM · ' +
+        T.esc(m.partner.pointsSpendable || 0) +
+        " punti spendibili · " +
+        T.esc(m.partner.partnerCount || 0) +
+        " partnership</p>";
+    }
+    html +=
+      '<section class="vc-staff-manage-history-sec"><h3>Cronologia valutazioni</h3>' +
+      historyHtml(historyRowsForMember(m), state.historyPage) +
+      "</section>";
+    return html;
+  }
+
+  function detailPanel() {
+    if (state._detailPanel) return state._detailPanel;
+    return T.byId("vc-staff-manage-detail");
+  }
+
   function renderDetail() {
-    var panel = T.byId("vc-staff-manage-detail");
+    var panel = detailPanel();
     if (!panel) return;
     var m = state.member;
     if (!m) {
@@ -680,6 +782,7 @@
             state.member = memberOut.data.member || state.member;
             renderRoster();
             renderDetail();
+            notifyModalUpdated();
           }
         });
       })
@@ -697,35 +800,47 @@
     el.classList.toggle("is-error", Boolean(isError));
   }
 
-  function selectMember(userId) {
+  function selectMember(userId, opts) {
+    opts = opts || {};
     state.selectedId = String(userId || "");
     state.historyPage = 1;
-    setUrlUser(state.selectedId);
-    renderRoster();
+    if (!opts.modal && !state._modalMode) setUrlUser(state.selectedId);
+    if (!state._modalMode) renderRoster();
     if (!state.selectedId) {
       state.member = null;
       renderDetail();
-      return;
+      return Promise.resolve();
     }
-    T.fetchJson(apiUrl(state.selectedId))
+    return T.fetchJson(apiUrl(state.selectedId))
       .then(function (out) {
         if (!out.res.ok || !out.data || !out.data.ok) {
-          T.setStatus(
-            "vc-staff-manage-status",
-            (out.data && out.data.message) || "Impossibile caricare il membro.",
-            true,
-          );
-          return;
+          if (!state._modalMode) {
+            T.setStatus(
+              "vc-staff-manage-status",
+              (out.data && out.data.message) || "Impossibile caricare il membro.",
+              true,
+            );
+          }
+          return Promise.reject(out);
         }
         if (out.data.sections) state.sections = out.data.sections;
         state.member = out.data.member || null;
+        state.pmManageOnly = Boolean(out.data.pmManageOnly);
+        state.readOnly = Boolean(out.data.readOnly) || out.data.canManage === false;
+        state.selfService = Boolean(out.data.selfService) || state.readOnly;
+        state.canManage = Boolean(out.data.canManage) && !state.readOnly;
+        state.viewerId = String(
+          (out.data.viewer && (out.data.viewer.userId || out.data.viewer.id)) || "",
+        ).trim();
         state.historyPage = 1;
-        renderRoster();
+        if (!state._modalMode) renderRoster();
         renderDetail();
-        T.setStatus("vc-staff-manage-status", "", false);
+        if (!state._modalMode) T.setStatus("vc-staff-manage-status", "", false);
+        return out.data;
       })
-      .catch(function () {
-        T.setStatus("vc-staff-manage-status", "Errore di rete.", true);
+      .catch(function (err) {
+        if (!state._modalMode) T.setStatus("vc-staff-manage-status", "Errore di rete.", true);
+        return Promise.reject(err);
       });
   }
 
@@ -789,6 +904,11 @@
           state.member = out.data.member || state.member;
           setPauseStatus(out.data.message || "Pausa aggiornata.", false);
           return T.fetchJson(apiUrl()).then(function (rosterOut) {
+            if (state._modalMode) {
+              renderDetail();
+              notifyModalUpdated();
+              return;
+            }
             if (rosterOut.data && rosterOut.data.ok && rosterOut.data.sections) {
               state.sections = rosterOut.data.sections;
               renderRoster();
@@ -817,8 +937,9 @@
       if (memberOut.data && memberOut.data.ok) {
         if (memberOut.data.sections) state.sections = memberOut.data.sections;
         state.member = memberOut.data.member || state.member;
-        renderRoster();
+        if (!state._modalMode) renderRoster();
         renderDetail();
+        notifyModalUpdated();
       }
     });
   }
@@ -883,12 +1004,14 @@
           setActionStatus(out.data.message || "Scambio completato.", false);
           return Promise.all([
             refreshSelectedMember(),
-            T.fetchJson(apiUrl()).then(function (rosterOut) {
-              if (rosterOut.data && rosterOut.data.ok && rosterOut.data.sections) {
-                state.sections = rosterOut.data.sections;
-                renderRoster();
-              }
-            }),
+            state._modalMode
+              ? Promise.resolve()
+              : T.fetchJson(apiUrl()).then(function (rosterOut) {
+                  if (rosterOut.data && rosterOut.data.ok && rosterOut.data.sections) {
+                    state.sections = rosterOut.data.sections;
+                    renderRoster();
+                  }
+                }),
           ]);
         })
         .catch(function () {
@@ -960,44 +1083,53 @@
       return;
     }
     if (state.busy || !state.selectedId) return;
+    extra = extra || {};
     var reasonEl = T.byId("vc-staff-manage-reason");
-    var reason = reasonEl ? String(reasonEl.value || "").trim() : "";
+    var reason = reasonEl ? String(reasonEl.value || "").trim() : String(extra.reason || "").trim();
     var needsReason = action.indexOf("_rm") === -1;
-    if (needsReason && reason.length < 3) {
-      setActionStatus("Inserisci un motivo (almeno 3 caratteri).", true);
-      return;
-    }
-    var confirmOpts = null;
-    if (!(extra && extra.skipConfirm)) {
-      if (action === "depex_full") {
-        confirmOpts = {
-          title: "Depex completo",
-          message: "Confermi il depex completo di questo membro?",
-          confirmLabel: "Depex completo",
-          cancelLabel: "Annulla",
-          danger: true,
-          icon: "fa-exclamation-triangle",
-        };
-      } else if (action === "warn_add") {
-        confirmOpts = {
-          title: "Warn staff",
-          message: "Confermi il warn staff?",
-          confirmLabel: "Assegna warn",
-          cancelLabel: "Annulla",
-          danger: true,
-          icon: "fa-exclamation-triangle",
-        };
-      }
-    }
 
-    var run = function () {
+    var labels = {
+      pex: { title: "Pex staff", msg: "Confermi il pex di un grado?", danger: false, icon: "fa-arrow-up" },
+      pex_pm: {
+        title: "Member → Partner Manager",
+        msg: "Assegnare il ruolo Partner Manager?",
+        danger: false,
+        icon: "fa-handshake-o",
+      },
+      depex: { title: "Depex staff", msg: "Confermi il depex di un grado?", danger: true, icon: "fa-arrow-down" },
+      depex_pm: {
+        title: "Partner Manager → Member",
+        msg: "Rimuovere il ruolo Partner Manager?",
+        danger: true,
+        icon: "fa-handshake-o",
+      },
+      depex_full: {
+        title: "Depex → Member",
+        msg: "Rimuovere tutto lo staff da questo membro?",
+        danger: true,
+        icon: "fa-bolt",
+      },
+    };
+    var meta = labels[action] || { title: "Azione", msg: "Confermi?", danger: false, icon: "fa-check" };
+    try {
+      var m = state.member || {};
+      var arrow = " → ";
+      var memberDest = String(m.memberRoleLabel || "").trim() || "Member";
+      if (action === "pex" && m.pexTargetLabel) meta.title = "Pex" + arrow + String(m.pexTargetLabel).trim();
+      if (action === "depex" && m.depexTargetLabel) meta.title = "Depex" + arrow + String(m.depexTargetLabel).trim();
+      if (action === "depex_full" && m.memberRoleLabel) meta.title = "Depex" + arrow + String(m.memberRoleLabel).trim();
+      if (action === "pex_pm") meta.title = memberDest + arrow + "Partner Manager";
+      if (action === "depex_pm") meta.title = "Partner Manager" + arrow + memberDest;
+    } catch (eTitle) {}
+
+    var run = function (finalReason) {
       state.busy = true;
       setActionStatus("Esecuzione in corso\u2026", false);
       var body = Object.assign(
         {
           action: action,
           userId: state.selectedId,
-          reason: reason || undefined,
+          reason: finalReason || undefined,
         },
         extra || {},
       );
@@ -1016,12 +1148,13 @@
           state.member = out.data.member || state.member;
           setActionStatus(out.data.message || "Operazione completata.", false);
           if (reasonEl) reasonEl.value = "";
-          return T.fetchJson(apiUrl()).then(function (rosterOut) {
-            if (rosterOut.data && rosterOut.data.ok && rosterOut.data.sections) {
-              state.sections = rosterOut.data.sections;
-              renderRoster();
+          return T.fetchJson(apiUrl(state.selectedId)).then(function (memberOut) {
+            if (memberOut.data && memberOut.data.ok) {
+              if (memberOut.data.sections) state.sections = memberOut.data.sections;
+              state.member = memberOut.data.member || state.member;
             }
             renderDetail();
+            notifyModalUpdated();
           });
         })
         .catch(function () {
@@ -1030,13 +1163,52 @@
         });
     };
 
-    if (confirmOpts) {
-      T.confirm(confirmOpts).then(function (ok) {
-        if (ok) run();
+    if (extra.skipConfirm) {
+      if (needsReason && reason.length < 3) {
+        setActionStatus("Inserisci un motivo (almeno 3 caratteri).", true);
+        return;
+      }
+      run(reason);
+      return;
+    }
+
+    if (needsReason) {
+      askReasonThenConfirm({
+        title: meta.title,
+        message: meta.msg + " Inserisci il motivo.",
+        confirmTitle: meta.title,
+        confirmMessage: meta.msg,
+        confirmLabel: "Conferma",
+        danger: meta.danger,
+        icon: meta.icon,
+      }).then(function (okReason) {
+        if (okReason) run(okReason);
       });
       return;
     }
-    run();
+
+    T.confirm({
+      title: meta.title,
+      message: meta.msg,
+      confirmLabel: "Conferma",
+      cancelLabel: "Annulla",
+      danger: meta.danger,
+      icon: meta.icon,
+    }).then(function (ok) {
+      if (ok) run(reason);
+    });
+  }
+
+  function notifyModalUpdated() {
+    if (!state._modalMode) return;
+    try {
+      if (
+        window.VCStaffManagePanel &&
+        typeof window.VCStaffManagePanel.onMemberUpdated === "function"
+      ) {
+        window.VCStaffManagePanel.onMemberUpdated(state.member);
+      }
+    } catch (eN) {}
   }
 
   function bind() {
@@ -1048,9 +1220,10 @@
         selectMember(btn.getAttribute("data-user-id"));
       });
     }
-    var detail = T.byId("vc-staff-manage-detail");
-    if (detail) {
-      detail.addEventListener("click", function (ev) {
+    document.addEventListener("click", function manageDetailClick(ev) {
+      var detailRoot =
+        ev.target && ev.target.closest ? ev.target.closest(".vc-staff-manage-detail") : null;
+      if (!detailRoot) return;
         var histBtn =
           ev.target && ev.target.closest ? ev.target.closest("[data-hist-page]") : null;
         if (histBtn && !histBtn.disabled) {
@@ -1059,6 +1232,13 @@
             state.historyPage = nextPage;
             renderDetail();
           }
+          return;
+        }
+        var hub = ev.target && ev.target.closest ? ev.target.closest("[data-career-hub]") : null;
+        if (hub && !hub.disabled) {
+          chooseCareerAction(hub.getAttribute("data-career-hub")).then(function (action) {
+            if (action) postAction(action);
+          });
           return;
         }
         var act = ev.target && ev.target.closest ? ev.target.closest("[data-action]") : null;
@@ -1119,7 +1299,6 @@
           }
         }
       });
-    }
   }
 
   var loadInflight = null;
@@ -1315,8 +1494,68 @@
     setManageTab(selectedTabFromUrl(), { loadStaff: false });
   }
 
+  var panelBound = false;
+
+  function ensurePanelBound() {
+    if (panelBound) return;
+    try {
+      bind();
+      panelBound = true;
+    } catch (eBind) {
+      try {
+        console.error("[staff-manage] bind failed", eBind);
+      } catch (eLog) {}
+      throw eBind;
+    }
+  }
+
+  window.VCStaffManagePanel = {
+    openMember: function (userId, panelEl) {
+      state._modalMode = true;
+      state._detailPanel = panelEl || null;
+      state.historyPage = 1;
+      var panel = detailPanel();
+      if (panel) {
+        panel.innerHTML =
+          '<div class="vc-staff-manage-modal-loading" role="status">' +
+          '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
+          "<p>Caricamento scheda gestione\u2026</p></div>";
+      }
+      try {
+        ensurePanelBound();
+      } catch (eBind2) {
+        if (panel) {
+          panel.innerHTML =
+            '<div class="vc-staff-manage-modal-error"><p>Errore inizializzazione gestione. Ricarica la pagina.</p></div>';
+        }
+        return Promise.reject(eBind2);
+      }
+      return selectMember(userId, { modal: true }).catch(function (out) {
+        if (panel) {
+          var msg =
+            (out && out.data && out.data.message) ||
+            (out && out.res && out.res.status === 403
+              ? "Non hai permessi per gestire questo profilo."
+              : "Impossibile caricare la scheda.");
+          panel.innerHTML =
+            '<div class="vc-staff-manage-modal-error">' +
+            "<p>" +
+            T.esc(msg) +
+            "</p></div>";
+        }
+        return Promise.reject(out);
+      });
+    },
+    closeModal: function () {
+      state._modalMode = false;
+      state._detailPanel = null;
+    },
+    onMemberUpdated: null,
+  };
+
   T.bootPage(function () {
-    bind();
+    ensurePanelBound();
+    if (!T.byId("vc-staff-manage")) return;
     bindTabs();
     T.registerPtrRefresh(function () {
       load({ force: true });

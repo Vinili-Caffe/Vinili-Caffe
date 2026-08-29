@@ -121,18 +121,6 @@
     );
   }
 
-  function recentHtml(items, emptyText) {
-    if (!items || !items.length) {
-      if (!emptyText) return "";
-      return '<li class="vc-staff-profile-line vc-staff-profile-line--empty">' + esc(emptyText) + "</li>";
-    }
-    return items
-      .map(function (line) {
-        return '<li class="vc-staff-profile-line">' + esc(line) + "</li>";
-      })
-      .join("");
-  }
-
   function modPeriodHtml(title, pack) {
     pack = pack || {};
     function row(label, value) {
@@ -228,6 +216,100 @@
     );
   }
 
+  function normalizeCareerRoleToken(value) {
+    var s = String(value == null ? "" : value)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    if (!s) return "";
+    var aliases = {
+      mod: "moderator",
+      mods: "moderator",
+      moderator: "moderator",
+      "senior moderator": "senior moderator",
+      "sr moderator": "senior moderator",
+      srmod: "senior moderator",
+      "senior mod": "senior moderator",
+      helper: "helper",
+      "trial helper": "helper",
+      "partner manager": "partner manager",
+      pm: "partner manager",
+      director: "director",
+      admin: "admin",
+      manager: "manager",
+      founder: "founder",
+      member: "member",
+    };
+    if (aliases[s]) return aliases[s];
+    if (s.charAt(s.length - 1) === "s" && aliases[s.slice(0, -1)]) return aliases[s.slice(0, -1)];
+    return s;
+  }
+
+  function careerDayKey(iso) {
+    if (!iso) return "";
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Rome",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(iso));
+    } catch (e) {
+      return String(iso).slice(0, 10);
+    }
+  }
+
+  function preferCareerRow(a, b) {
+    var aLen =
+      String(a && a.newRole != null ? a.newRole : "").length +
+      String(a && a.oldRole != null ? a.oldRole : "").length;
+    var bLen =
+      String(b && b.newRole != null ? b.newRole : "").length +
+      String(b && b.oldRole != null ? b.oldRole : "").length;
+    if (bLen !== aLen) return bLen > aLen ? b : a;
+    return a;
+  }
+
+  function dedupeCareerRows(rows) {
+    if (window.VCStaffProfileRender && typeof window.VCStaffProfileRender.dedupeCareerRows === "function") {
+      return window.VCStaffProfileRender.dedupeCareerRows(rows);
+    }
+    if (!Array.isArray(rows) || !rows.length) return [];
+    var out = [];
+    var seen = Object.create(null);
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i];
+      if (!row) continue;
+      var day = careerDayKey(row.dateIso || row.date || "");
+      var from = normalizeCareerRoleToken(row.oldRole);
+      var to = normalizeCareerRoleToken(row.newRole);
+      var reason = String(row.reason || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+      var key = day + "|" + from + "|" + to + "|" + reason;
+      if (!from && !to) {
+        out.push(row);
+        continue;
+      }
+      if (Object.prototype.hasOwnProperty.call(seen, key)) {
+        out[seen[key]] = preferCareerRow(out[seen[key]], row);
+        continue;
+      }
+      var softKey = day + "|*|" + to + "|" + reason;
+      if (to && reason && Object.prototype.hasOwnProperty.call(seen, softKey)) {
+        out[seen[softKey]] = preferCareerRow(out[seen[softKey]], row);
+        continue;
+      }
+      seen[key] = out.length;
+      if (to && reason) seen[softKey] = out.length;
+      out.push(row);
+    }
+    return out;
+  }
+
   function renderPayload(payload) {
     var root = byId("vc-staff-profile");
     if (!root || !payload || !payload.ok) return;
@@ -246,16 +328,12 @@
     var sf = payload.serataFilm;
 
     var stats = [];
-    stats.push(statCard(quota.remaining != null ? quota.remaining : "\u2014", "Pause"));
-    stats.push(statCard(val.positive != null ? val.positive : 0, "Val +"));
-    stats.push(statCard(val.negative != null ? val.negative : 0, "Val −"));
-    stats.push(statCard(warn.count != null ? warn.count : 0, "Warn"));
-    if (partner) {
-      stats.push(statCard(partner.points != null ? partner.points : 0, "Punti PM"));
-      stats.push(statCard(partner.partnerCount != null ? partner.partnerCount : 0, "Partner"));
-    }
+    stats.push(statCard(quota.remaining != null ? quota.remaining : "\u2014", "Giorni di pausa rimanenti"));
+    stats.push(statCard(val.positive != null ? val.positive : 0, "Valutazioni Positive"));
+    stats.push(statCard(val.negative != null ? val.negative : 0, "Valutazioni Negative"));
+    stats.push(statCard(warn.count != null ? warn.count : 0, "Warn Staff"));
     if (mod && mod.all) {
-      stats.push(statCard(mod.all.total || 0, "Sanzioni"));
+      stats.push(statCard(mod.all.total || 0, "Sanzioni All-Time"));
     }
 
     var pauseRows = history.length
@@ -281,7 +359,7 @@
       : '<li class="vc-staff-profile-line vc-staff-profile-line--empty">Nessuna pausa recente.</li>';
 
     var roleRows = rolesHistory.length
-      ? rolesHistory
+      ? dedupeCareerRows(rolesHistory)
           .map(function (row) {
             return (
               '<li class="vc-staff-profile-line vc-staff-profile-line--row">' +
@@ -301,18 +379,6 @@
           })
           .join("")
       : '<li class="vc-staff-profile-line vc-staff-profile-line--empty">Nessuna variazione.</li>';
-
-    var valRecent = []
-      .concat(
-        (val.recentPositive || []).map(function (t) {
-          return "+ " + t;
-        }),
-        (val.recentNegative || []).map(function (t) {
-          return "− " + t;
-        }),
-      )
-      .slice(0, 6);
-    var warnRecent = Array.isArray(warn.recent) ? warn.recent.slice(0, 4) : [];
 
     var roleColor = String(role.color || "#d4a888").trim() || "#d4a888";
     var profileAvatarUrl = resolveProfileAvatarUrl(id);
@@ -359,12 +425,8 @@
       "</div></section>";
 
     if (sf) {
-      var canOpenSerata =
-        (window.__VC_STAFF_PERMS &&
-          (window.__VC_STAFF_PERMS.isHighStaff ||
-            window.__VC_STAFF_PERMS.canManage ||
-            window.__VC_STAFF_PERMS.highStaff)) ||
-        false;
+      var perms = window.__VC_STAFF_PERMS || {};
+      var canOpenSerata = Boolean(perms.isHighStaff || perms.canManage || perms.highStaff);
       var sfPresent = Boolean(sf.willAttend);
       html +=
         '<section class="vc-user-profile-block vc-staff-sf-block">' +
@@ -389,9 +451,10 @@
             '" data-sf="present" aria-pressed="' +
             (sfPresent ? "true" : "false") +
             '">Presente</button></div>'
-          : '<span class="vc-staff-sf-bar__locked">Chiuso</span>') +
+          : "") +
         (canOpenSerata
-          ? '<a class="vc-staff-sf-bar__link" href="/seratafilm/" target="_blank" rel="noopener noreferrer">Apri pagina</a>'
+          ? '<a class="vc-staff-sf-bar__cta" href="/seratafilm/" target="_blank" rel="noopener noreferrer">' +
+            '<i class="fa fa-film" aria-hidden="true"></i><span>Apri Serata Film</span></a>'
           : "") +
         "</div></div></section>";
     }
@@ -410,29 +473,32 @@
       "</ul></section>";
 
     html +=
-      '<section class="vc-user-profile-block">' +
+      '<section class="vc-user-profile-block vc-staff-career-block">' +
       '<div class="vc-user-profile-block__head">' +
-      '<span class="vc-user-profile-block__title">Feedback</span>' +
+      '<span class="vc-user-profile-block__title">Carriera</span>' +
+      '<a class="vc-user-profile-customize" href="/staff/organico/" title="Organico staff"><i class="fa fa-users" aria-hidden="true"></i></a>' +
       "</div>" +
-      (valRecent.length || warnRecent.length
-        ? '<ul class="vc-staff-profile-lines vc-staff-profile-lines--feedback">' +
-          recentHtml(valRecent, "") +
-          (warnRecent.length
-            ? warnRecent
-                .map(function (line) {
-                  return '<li class="vc-staff-profile-line vc-staff-profile-line--warn">Warn · ' + esc(line) + "</li>";
-                })
-                .join("")
-            : "") +
-          "</ul>"
-        : '<p class="vc-user-profile-block__sub">Nessuna motivazione recente.</p>') +
-      "</section>";
+      '<ul class="vc-staff-profile-lines">' +
+      roleRows +
+      "</ul></section>";
 
     if (partner) {
+      var canOpenPuntiTolti = Boolean(
+        (window.__VC_STAFF_PERMS &&
+          (window.__VC_STAFF_PERMS.isPm ||
+            window.__VC_STAFF_PERMS.pm ||
+            window.__VC_STAFF_PERMS.isHighStaff ||
+            window.__VC_STAFF_PERMS.canManage ||
+            window.__VC_STAFF_PERMS.highStaff)) ||
+          false,
+      );
       html +=
         '<section class="vc-user-profile-block">' +
         '<div class="vc-user-profile-block__head">' +
         '<span class="vc-user-profile-block__title">Partner Manager</span>' +
+        (canOpenPuntiTolti
+          ? '<a class="vc-user-profile-customize" href="/staff/punti-tolti/" title="Punti tolti PM"><i class="fa fa-minus-circle" aria-hidden="true"></i></a>'
+          : "") +
         "</div>" +
         '<div class="vc-user-profile-grid3">' +
         '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Spesi in shop</span><span class="vc-user-profile-mini__value">' +
@@ -461,15 +527,6 @@
         modPeriodHtml("Totale", mod.all) +
         "</div></section>";
     }
-
-    html +=
-      '<section class="vc-user-profile-block">' +
-      '<div class="vc-user-profile-block__head">' +
-      '<span class="vc-user-profile-block__title">Carriera</span>' +
-      "</div>" +
-      '<ul class="vc-staff-profile-lines">' +
-      roleRows +
-      "</ul></section>";
 
     html += "</section>";
 

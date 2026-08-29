@@ -9,8 +9,9 @@
     "/staff/directory": "/staff/organico/",
     "/staff/valutazioni": "/staff/",
     "/staff/profilo": "/staff/",
-    "/staff/pm": "/staff/gestione/?tab=pm",
-    "/staff/moderazione": "/staff/gestione/",
+    "/staff/pm": "/staff/organico/",
+    "/staff/moderazione": "/staff/organico/",
+    "/staff/gestione": "/staff/organico/",
   };
 
   function normPath(pathname) {
@@ -71,7 +72,16 @@
     var path = normPath(window.location.pathname);
     var alias = ALIASES[path];
     if (alias) {
-      go(alias);
+      var dest = alias;
+      if (path === "/staff/gestione") {
+        try {
+          var uid = String(new URLSearchParams(window.location.search || "").get("userId") || "").trim();
+          if (/^\d{17,20}$/.test(uid)) {
+            dest = "/user/?id=" + encodeURIComponent(uid) + "&tab=staff&manage=1";
+          }
+        } catch (eGest) {}
+      }
+      go(dest);
       return;
     }
 

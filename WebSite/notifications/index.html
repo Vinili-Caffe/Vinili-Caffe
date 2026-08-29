@@ -26,9 +26,51 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=optional" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="stylesheet" href="../css/vc-landing.css?v=20260826cssBust2" />
+    <link rel="stylesheet" href="../css/vc-landing.css?v=20260828notifPersonal2" />
     <script src="../js/vc-auth-pending.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../js/vc-page-cine-boot.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <style id="vc-notif-boot-personal-css">html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-pane-staff,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page .vc-notif-staff-inbox,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-staff-inbox,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-staff-inbox-list{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important}html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-scope-dock{display:none!important}html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-pane-personal{visibility:hidden!important;opacity:0!important;pointer-events:none!important}</style>
+    <script>
+      (function () {
+        try {
+          // Early staff solo con deep link esplicito (?view=staff). Default = Personali.
+          var sp = new URLSearchParams(location.search || "");
+          var view = String(sp.get("view") || sp.get("tab") || "").toLowerCase();
+          if (view !== "staff") {
+            window.__VC_NOTIF_EARLY_STAFF = false;
+            document.documentElement.classList.add("vc-notif-boot-personal");
+            return;
+          }
+          var token = "";
+          try {
+            token = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+          } catch (e1) {}
+          var staffOk = false;
+          if (token) {
+            var fp = token.slice(0, 24);
+            try {
+              var menu = JSON.parse(sessionStorage.getItem("vc_menu_staff_v1") || "null");
+              if (menu && menu.allowed && menu.fp === fp && Date.now() - Number(menu.at || 0) < 300000) {
+                staffOk = true;
+              }
+            } catch (e2) {}
+            try {
+              var gate = JSON.parse(
+                sessionStorage.getItem("vc_staff_access_ok_v2") ||
+                  localStorage.getItem("vc_staff_access_ok_v2_local") ||
+                  "null",
+              );
+              if (gate && gate.ok === true && Number(gate.exp || 0) > Date.now()) staffOk = true;
+            } catch (e3) {}
+          }
+          if (staffOk) {
+            document.documentElement.classList.add("vc-notif-early-staff");
+            window.__VC_NOTIF_EARLY_STAFF = true;
+            window.__VC_STAFF_MENU_ALLOWED = true;
+          }
+        } catch (eEarly) {}
+      })();
+    </script>
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
   <body id="top" class="vc-body vc-notifications-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
@@ -68,6 +110,13 @@
               href="{{SITE_URL}}"
               aria-label="Vai alla homepage"
               >{{SITE_NAME}}</a>
+            <div class="vc-lang-dropdown" id="vc-lang-dropdown">
+              <button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language"><span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>
+              <div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">
+                <button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>
+                <button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>
+              </div>
+            </div>
           </div>
           <nav
             class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
@@ -160,64 +209,84 @@
       </div>
     </header>
 
-    <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
-      <section class="vc-notify-hero w-full">
-        <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div class="min-w-0 flex-1">
-            <h1 class="text-4xl font-extrabold tracking-tight text-white" data-i18n="notif.title">Notifiche</h1>
-            <p id="vc-notify-subtitle" class="mt-2 text-sm text-slate-300">Tutte lette - 0 totali</p>
-          </div>
+    <main class="vc-notifications-main relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
+      <h1 id="vc-notify-hero-heading" class="vc-visually-hidden" data-i18n="notif.title">Notifiche</h1>
+
+      <div id="vc-notif-scope-dock" class="vc-notif-scope-dock vc-notif-scope-dock--content" hidden>
+        <div id="vc-notif-scope-tabs" class="vc-notif-scope-bar" role="tablist" aria-label="Ambito notifiche">
+          <button type="button" role="tab" id="vc-notif-tab-personal" data-scope="personal" class="vc-notif-scope-bar__btn" aria-selected="false" aria-controls="vc-notif-pane-personal"><i class="fa fa-bell" aria-hidden="true"></i><span>Personali</span></button>
+          <button type="button" role="tab" id="vc-notif-tab-staff" data-scope="staff" class="vc-notif-scope-bar__btn" aria-selected="false" aria-controls="vc-notif-pane-staff"><i class="fa fa-shield" aria-hidden="true"></i><span>Staff</span></button>
         </div>
-      </section>
+      </div>
 
-      <section class="vc-stat-strip mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <article class="vc-notify-stat vc-notify-stat--a">
-          <p class="vc-notify-stat-label" data-i18n="notifPage.statTotal">Totali</p>
-          <p class="vc-notify-stat-value" id="vc-stat-total" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</p>
-        </article>
-        <article class="vc-notify-stat vc-notify-stat--b">
-          <p class="vc-notify-stat-label" data-i18n="notifPage.unreadLabel">Non lette</p>
-          <p class="vc-notify-stat-value" id="vc-stat-unread" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</p>
-        </article>
-        <article class="vc-notify-stat vc-notify-stat--c">
-          <p class="vc-notify-stat-label" data-i18n="notifPage.statRead">Lette</p>
-          <p class="vc-notify-stat-value" id="vc-stat-read" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</p>
-        </article>
-        <article class="vc-notify-stat vc-notify-stat--d vc-notify-stat--clickable" id="vc-stat-filtered-card" role="button" tabindex="0" aria-pressed="false" title="Mostra solo le notifiche filtrate">
-          <p class="vc-notify-stat-label" data-i18n="notifPage.statFiltered">Filtrate</p>
-          <p class="vc-notify-stat-value" id="vc-stat-filtered" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</p>
-        </article>
-      </section>
+      <div id="vc-notif-pane-personal" class="mt-6" hidden>
+        <p id="vc-notify-subtitle" class="vc-visually-hidden" aria-live="polite">Tutte lette - 0 totali</p>
+        <div id="vc-stat-total" hidden data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</div>
+        <div id="vc-stat-unread" hidden data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</div>
+        <div id="vc-stat-read" hidden data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</div>
+        <div id="vc-stat-filtered" hidden data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</div>
+        <div id="vc-stat-filtered-card" hidden aria-hidden="true"></div>
 
-      <section class="vc-notify-toolbar mt-8 flex flex-wrap items-center justify-between gap-3">
-        <div class="vc-notify-filter-bar inline-flex flex-wrap items-center gap-2 rounded-xl p-1.5">
-          <button id="vc-filter-all" type="button" class="vc-notify-filter-btn vc-notify-filter-btn--on"><i class="fa fa-bell-o" aria-hidden="true"></i> <span data-i18n="notifPage.filterAll">Tutte</span></button>
-          <button id="vc-filter-unread" type="button" class="vc-notify-filter-btn"><i class="fa fa-dot-circle-o" aria-hidden="true"></i> <span data-i18n="notifPage.unreadLabel">Non lette</span></button>
-          <button id="vc-filter-filtered" type="button" class="vc-notify-filter-btn"><i class="fa fa-filter" aria-hidden="true"></i> <span data-i18n="notifPage.filterFiltered">Filtrate</span></button>
-          <div class="vc-notif-prefs" id="vc-notif-prefs">
-            <button type="button" id="vc-notif-prefs-btn" class="vc-notify-filter-btn" aria-expanded="false" aria-controls="vc-notif-prefs-panel">
-              <i class="fa fa-sliders" aria-hidden="true"></i> Filtri
-            </button>
-            <div id="vc-notif-prefs-panel" class="vc-notif-prefs__panel" hidden role="dialog" aria-label="Filtri notifiche">
-              <p id="vc-notif-prefs-status" class="vc-notif-prefs__status" hidden></p>
-              <div id="vc-notif-prefs-body"></div>
-              <div class="vc-notif-prefs__foot">
-                <button type="button" id="vc-notif-prefs-all-on">Attiva tutto</button>
-                <button type="button" id="vc-notif-prefs-all-off">Disattiva tutto</button>
+        <section class="vc-notify-toolbar mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div class="vc-notify-filter-bar inline-flex flex-wrap items-center gap-2 rounded-xl p-1.5">
+            <button id="vc-filter-all" type="button" class="vc-notify-filter-btn vc-notify-filter-btn--on"><i class="fa fa-bell-o" aria-hidden="true"></i> <span data-i18n="notifPage.filterAll">Tutte</span></button>
+            <button id="vc-filter-unread" type="button" class="vc-notify-filter-btn"><i class="fa fa-dot-circle-o" aria-hidden="true"></i> <span data-i18n="notifPage.unreadLabel">Non lette</span></button>
+            <button id="vc-filter-filtered" type="button" class="vc-notify-filter-btn"><i class="fa fa-filter" aria-hidden="true"></i> <span data-i18n="notifPage.filterFiltered">Filtrate</span></button>
+            <div class="vc-notif-prefs" id="vc-notif-prefs">
+              <button type="button" id="vc-notif-prefs-btn" class="vc-notify-filter-btn" aria-expanded="false" aria-controls="vc-notif-prefs-panel">
+                <i class="fa fa-sliders" aria-hidden="true"></i> Filtri
+              </button>
+              <div id="vc-notif-prefs-panel" class="vc-notif-prefs__panel" hidden role="dialog" aria-label="Filtri notifiche">
+                <p id="vc-notif-prefs-status" class="vc-notif-prefs__status" hidden></p>
+                <div id="vc-notif-prefs-body"></div>
+                <div class="vc-notif-prefs__foot">
+                  <button type="button" id="vc-notif-prefs-all-on">Attiva tutto</button>
+                  <button type="button" id="vc-notif-prefs-all-off">Disattiva tutto</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <button id="vc-notify-clear-all-page" type="button" class="vc-notify-clear-btn"><i class="fa fa-trash-o" aria-hidden="true"></i> <span data-i18n="notifPage.clearAllLabel">Elimina tutte le notifiche</span></button>
-      </section>
+          <button id="vc-notify-clear-all-page" type="button" class="vc-notify-clear-btn"><i class="fa fa-trash-o" aria-hidden="true"></i> <span data-i18n="notifPage.clearAllLabel">Elimina tutte le notifiche</span></button>
+        </section>
 
-      <section class="mt-5">
-        <div id="vc-notify-empty" class="vc-notify-empty" hidden>
-          <i class="fa fa-bell-slash-o" aria-hidden="true"></i>
-          <p data-i18n="notifPage.emptyText">Nessuna notifica da mostrare.</p>
+        <section class="mt-5">
+          <div id="vc-notify-empty" class="vc-notify-empty" hidden>
+            <i class="fa fa-bell-slash-o" aria-hidden="true"></i>
+            <p data-i18n="notifPage.emptyText">Nessuna notifica da mostrare.</p>
+          </div>
+          <ul id="vc-notify-list" class="space-y-3" role="list"></ul>
+        </section>
+      </div>
+
+      <div id="vc-notif-pane-staff" class="mt-6" hidden>
+        <div id="vc-notif-staff-gate" class="vc-notif-staff-gate" hidden>
+          <p class="vc-notif-staff-gate__msg">Accesso staff non disponibile.</p>
         </div>
-        <ul id="vc-notify-list" class="space-y-3" role="list"></ul>
-      </section>
+        <div id="vc-staff-inbox" class="vc-staff-inbox vc-notif-staff-inbox">
+          <section class="vc-notify-toolbar flex flex-wrap items-center justify-between gap-3">
+            <div id="vc-staff-inbox-tabs" class="vc-notify-filter-bar inline-flex flex-wrap items-center gap-2 rounded-xl p-1.5 vc-staff-inbox-tabs-bar"></div>
+          </section>
+          <section class="vc-notify-toolbar mt-4 flex flex-wrap items-center gap-3">
+            <div class="vc-staff-inbox-toolbar__filters flex flex-wrap items-end gap-3">
+              <div id="vc-staff-inbox-scope" class="vc-staff-inbox-filter-group" aria-label="Filtro stato"></div>
+              <div id="vc-staff-inbox-filters" class="vc-staff-inbox-filter-group" aria-label="Filtro categoria"></div>
+            </div>
+            <div id="vc-staff-inbox-week" class="vc-staff-inbox-week" hidden aria-label="Settimana resoconti"></div>
+          </section>
+          <section class="mt-5">
+            <div id="vc-staff-inbox-list" class="vc-staff-inbox-list is-loading" aria-busy="true">
+              <div class="vc-staff-inbox-loading" role="status" aria-live="polite">
+                <div class="vc-staff-inbox-loading__head">
+                  <span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>
+                  <p>Caricamento inbox…</p>
+                </div>
+              </div>
+            </div>
+            <div id="vc-staff-inbox-pagination" class="vc-staff-inbox-pagination mt-4" hidden aria-label="Paginazione elenco"></div>
+            <div id="vc-staff-inbox-detail" class="vc-staff-inbox-detail mt-5" hidden></div>
+          </section>
+        </div>
+      </div>
     </main>
 
   <footer class="vc-premium-footer" aria-label="Footer" data-i18n-attr="aria-label:footer.aria">
@@ -286,7 +355,7 @@
           </div>
         </div>
         <div class="vc-premium-footer__legal">
-          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">Â© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
           <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
             <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
             <span aria-hidden="true"></span>
@@ -314,16 +383,30 @@
         apiUrl: "/webhooks/site-profile-extras",
         apiUrlLocal: ""
       };
+      window.__VC_STAFF_ACCESS = {
+        apiUrl: "{{STAFF_ACCESS_API_URL}}",
+        apiUrlLocal: "{{STAFF_ACCESS_API_URL_LOCAL}}",
+      };
+      window.__VC_STAFF_WORKFLOWS = {
+        apiUrl: "/webhooks/site-staff-workflows",
+        apiUrlLocal: "{{STAFF_ACCESS_API_URL_LOCAL}}",
+      };
+      window.__VC_STAFF_WORKFLOW_CHAT = {
+        apiUrl: "/webhooks/site-staff-workflow-chat",
+        apiUrlLocal: "{{STAFF_ACCESS_API_URL_LOCAL}}",
+      };
+      window.__VC_STAFF_INBOX_EMBED = true;
     </script>
     <script src="../js/vc-i18n.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="../js/vc-i18n-pages.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="../js/vc-i18n-pages-extra.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="../js/vc-i18n-locales.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-    <script src="../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}" defer></script>  <script src="../js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="../js/discord-auth.js?v=20260828notifFlat13" defer></script>  <script src="../js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
 <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
     <script src="../js/vc-landing.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-    <script src="../js/notifications-page.js?v=20260827filtNotif1" defer></script>
+    <script src="../js/notifications-page.js?v=20260828notifBoot1" defer></script>
+    <script src="../js/notifications-staff-tab.js?v=20260829inboxClip1" defer></script>
     <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-    <script src="/js/vc-home-cine.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+    <script src="/js/vc-home-cine.js?v=20260828notifFlat13" defer></script>
 </body>
 </html>

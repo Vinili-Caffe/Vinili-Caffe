@@ -136,16 +136,20 @@ async function remindUser(client, guild, sortingDoc, c, eventKey, slotKey) {
       ? `${normalizeId(eventKey) || "hogwarts"}:potions:avail:${nextAtMs}`
       : slotKey;
 
+  const siteNotifMeta = {
+    title: "Pozioni disponibili",
+    body: "Puoi tornare in aula pozioni: il minigioco da 12 ore è pronto.",
+    kind: "info",
+    openUrl,
+    dedupeKey,
+  };
+
   let siteOk = false;
   try {
     siteOk = (await enqueueSiteInAppNotification({
       guildId: guild.id,
       userId,
-      title: "Pozioni disponibili",
-      body: "Puoi tornare in aula pozioni: il minigioco da 12 ore è pronto.",
-      kind: "info",
-      openUrl,
-      dedupeKey,
+      ...siteNotifMeta,
       dedupeWindowMs: c.cooldownMs,
     })) === true;
   } catch (err) {
@@ -163,7 +167,12 @@ async function remindUser(client, guild, sortingDoc, c, eventKey, slotKey) {
           embeds: [embed],
           components,
         },
-        { guildId: guild.id, category: c.reminderDmCategory },
+        {
+          guildId: guild.id,
+          category: c.reminderDmCategory,
+          skipIfWebPush: true,
+          webPushNotifMeta: siteNotifMeta,
+        },
       );
       dmOk = Boolean(sent);
     } catch (err) {

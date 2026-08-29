@@ -252,12 +252,14 @@
   }
 
   function phaseLabel(phase) {
+    if (phase === "cancelled") return "Annullata";
     if (phase === "planned") return "Programmata";
     if (phase === "ended") return "Finita";
     return "In corso";
   }
   
   function phaseLabelCurrent(phase) {
+    if (phase === "cancelled") return "Stato: annullata";
     if (phase === "planned") return "Stato: programmata";
     if (phase === "ended") return "Stato: finita";
     return "Stato: in corso";
@@ -432,16 +434,22 @@
     if (!list) return;
     var pauses = (state.payload && state.payload.pauses) || [];
     if (!pauses.length) {
-      list.innerHTML = '<p class="vc-staff-pause-list__empty">Nessuna pausa accettata in questo mese.</p>';
+      list.innerHTML = '<p class="vc-staff-pause-list__empty">Nessuna pausa in questo mese.</p>';
       afterRenderLayout();
       return;
     }
     var html = "";
     for (var i = 0; i < pauses.length; i += 1) {
       var p = pauses[i];
+      var cancelled = Boolean(p.cancelled) || String(p.status || "") === "cancelled" || String(p.phase || "") === "cancelled";
+      var phase = cancelled ? "cancelled" : p.phase || "active";
+      var statusText = cancelled
+        ? "Stato: annullata"
+        : phaseLabelCurrent(phase);
       html +=
         '<article class="vc-staff-pause-list__item vc-staff-pause-list__item--' +
-        esc(p.phase || "active") +
+        esc(phase) +
+        (cancelled ? " is-cancelled" : "") +
         '">' +
         '<div class="vc-staff-pause-list__bookmark" aria-hidden="true"></div>' +
         '<div class="vc-staff-pause-list__body">' +
@@ -454,7 +462,7 @@
         esc(p.end) +
         "</p>" +
         '<p class="vc-staff-pause-list__phase">' +
-        esc(phaseLabelCurrent(p.phase)) +
+        esc(statusText) +
         (p.ruolo ? " \u00B7 " + esc(p.ruolo) : "") +
         "</p>" +
         (p.motivazione
@@ -805,12 +813,16 @@
     var start = byId("vc-staff-request-start");
     var end = byId("vc-staff-request-end");
     if (start) {
-      if (minStart) start.min = minStart;
+      if (minStart) start.setAttribute("min", minStart);
       if (!start.value && minStart) start.value = minStart;
+      var startWrap = start.closest ? start.closest(".vc-staff-datefield") : null;
+      if (startWrap) syncDatefieldLabel(startWrap, start.value);
     }
     if (end) {
-      if (minStart) end.min = minStart;
+      if (minStart) end.setAttribute("min", minStart);
       if (start && start.value && (!end.value || end.value < start.value)) end.value = start.value;
+      var endWrap = end.closest ? end.closest(".vc-staff-datefield") : null;
+      if (endWrap) syncDatefieldLabel(endWrap, end.value);
     }
     renderRolePills(state.me.roleChoices || []);
     syncPendingChatPanel(state.me.pendingRequest || null);
@@ -945,6 +957,266 @@
   }
 
   var requestFormWired = false;
+  var activeDatePopover = null;
+
+  function isoToDisplayIt(iso) {
+    var m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return "";
+    return m[3] + "/" + m[2] + "/" + m[1];
+  }
+
+  function closeDarkDatePopover() {
+    if (activeDatePopover && activeDatePopover.parentNode) {
+      activeDatePopover.parentNode.removeChild(activeDatePopover);
+    }
+    activeDatePopover = null;
+    document.removeEventListener("mousedown", onDarkDateOutside, true);
+    window.removeEventListener("resize", closeDarkDatePopover, true);
+    window.removeEventListener("scroll", onDarkDateScrollClose, true);
+    var bg = document.getElementById("vc-staff-datepicker-backdrop");
+    if (bg) {
+      bg.hidden = true;
+      bg.setAttribute("hidden", "");
+    }
+    try {
+      document.documentElement.classList.remove("vc-staff-datepicker-open");
+    } catch (eRm) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      else if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eUnpin) {}
+  }
+
+  function onDarkDateScrollClose() {
+    if (activeDatePopover && activeDatePopover.classList.contains("is-sheet")) return;
+    closeDarkDatePopover();
+  }
+
+  function onDarkDateOutside(ev) {
+    if (!activeDatePopover) return;
+    if (activeDatePopover.contains(ev.target)) return;
+    if (ev.target && ev.target.closest && ev.target.closest(".vc-staff-datefield")) return;
+    if (ev.target && ev.target.id === "vc-staff-datepicker-backdrop") return;
+    closeDarkDatePopover();
+  }
+
+  function isMobileDateSheet() {
+    try {
+      return window.matchMedia && window.matchMedia("(max-width: 639.98px), (pointer: coarse) and (max-width: 900px)").matches;
+    } catch (eM) {
+      return (window.innerWidth || 900) < 640;
+    }
+  }
+
+  function ensureDateSheetBackdrop() {
+    var bg = document.getElementById("vc-staff-datepicker-backdrop");
+    if (bg) return bg;
+    bg = document.createElement("button");
+    bg.type = "button";
+    bg.id = "vc-staff-datepicker-backdrop";
+    bg.className = "vc-staff-datepicker-backdrop";
+    bg.setAttribute("aria-label", "Chiudi calendario");
+    bg.addEventListener("click", function () {
+      closeDarkDatePopover();
+    });
+    document.body.appendChild(bg);
+    return bg;
+  }
+
+  function placeDarkDatePopover(pop, anchorBtn) {
+    var vw = window.innerWidth || document.documentElement.clientWidth || 360;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 640;
+    if (isMobileDateSheet()) {
+      pop.classList.add("is-sheet");
+      var bg = ensureDateSheetBackdrop();
+      bg.hidden = false;
+      bg.removeAttribute("hidden");
+      try {
+        document.documentElement.classList.add("vc-staff-datepicker-open");
+      } catch (eCl) {}
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+        else if (typeof window.__vcPinPageScroll === "function") window.__vcPinPageScroll();
+      } catch (ePin) {}
+      pop.style.position = "fixed";
+      pop.style.left = "50%";
+      pop.style.right = "auto";
+      pop.style.top = "auto";
+      pop.style.bottom = "max(0.65rem, env(safe-area-inset-bottom, 0px))";
+      pop.style.width = "min(22.5rem, calc(100vw - 1.1rem))";
+      pop.style.maxWidth = "calc(100vw - 1.1rem)";
+      pop.style.transform = "translateX(-50%)";
+      pop.style.zIndex = "2147483002";
+      return;
+    }
+    pop.classList.remove("is-sheet");
+    pop.style.transform = "";
+    var rect = anchorBtn.getBoundingClientRect();
+    var width = Math.min(17.5 * 16, Math.max(15 * 16, rect.width));
+    // stima compatta: nav + dows + ~6 righe + footer
+    var estH = 15.5 * 16;
+    var gap = 6;
+    var left = Math.min(Math.max(8, rect.left), Math.max(8, vw - width - 8));
+    var top = rect.bottom + gap;
+    if (top + estH > vh - 8 && rect.top - gap - estH > 8) {
+      top = Math.max(8, rect.top - gap - estH);
+      pop.classList.add("is-above");
+    } else {
+      pop.classList.remove("is-above");
+      top = Math.min(top, Math.max(8, vh - estH - 8));
+    }
+    pop.style.position = "fixed";
+    pop.style.left = Math.round(left) + "px";
+    pop.style.top = Math.round(top) + "px";
+    pop.style.width = Math.round(width) + "px";
+    pop.style.right = "auto";
+    pop.style.bottom = "auto";
+    pop.style.zIndex = "2147483002";
+  }
+
+  function openDarkDatePopover(fieldWrap, hiddenInput, minIso) {
+    closeDarkDatePopover();
+    var current = String(hiddenInput.value || minIso || "").trim();
+    var parts = current.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    var viewY = parts ? Number(parts[1]) : state.year || new Date().getFullYear();
+    var viewM = parts ? Number(parts[2]) : state.month || new Date().getMonth() + 1;
+    var selected = current;
+    var anchorBtn = fieldWrap.querySelector(".vc-staff-datefield__btn") || fieldWrap;
+
+    var pop = document.createElement("div");
+    pop.className = "vc-staff-datepicker";
+    pop.setAttribute("role", "dialog");
+    pop.setAttribute("aria-label", "Scegli data");
+
+    function paint() {
+      var days = new Date(Date.UTC(viewY, viewM, 0)).getUTCDate();
+      var firstDow = new Date(Date.UTC(viewY, viewM - 1, 1)).getUTCDay();
+      var mondayFirst = (firstDow + 6) % 7;
+      var html =
+        '<div class="vc-staff-datepicker__nav">' +
+        '<button type="button" class="vc-staff-datepicker__navbtn" data-dp-nav="-1" aria-label="Mese precedente"><i class="fa fa-chevron-left"></i></button>' +
+        '<span class="vc-staff-datepicker__title">' +
+        esc(MONTH_NAMES[viewM - 1] + " " + viewY) +
+        "</span>" +
+        '<button type="button" class="vc-staff-datepicker__navbtn" data-dp-nav="1" aria-label="Mese successivo"><i class="fa fa-chevron-right"></i></button>' +
+        "</div>" +
+        '<div class="vc-staff-datepicker__dows" aria-hidden="true">' +
+        "<span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>" +
+        '<div class="vc-staff-datepicker__grid">';
+      var i;
+      for (i = 0; i < mondayFirst; i += 1) {
+        html += '<span class="vc-staff-datepicker__cell is-empty"></span>';
+      }
+      for (var d = 1; d <= days; d += 1) {
+        var iso = isoDay(viewY, viewM, d);
+        var disabled = minIso && iso < minIso;
+        var cls = "vc-staff-datepicker__cell";
+        if (iso === selected) cls += " is-selected";
+        if (disabled) cls += " is-disabled";
+        html +=
+          '<button type="button" class="' +
+          cls +
+          '" data-dp-day="' +
+          esc(iso) +
+          '"' +
+          (disabled ? " disabled" : "") +
+          ">" +
+          d +
+          "</button>";
+      }
+      html += "</div>";
+      html +=
+        '<div class="vc-staff-datepicker__footer">' +
+        '<button type="button" class="vc-staff-datepicker__link" data-dp-clear>Cancella</button>' +
+        '<button type="button" class="vc-staff-datepicker__link" data-dp-today>Oggi</button>' +
+        "</div>";
+      pop.innerHTML = html;
+      placeDarkDatePopover(pop, anchorBtn);
+    }
+
+    paint();
+    document.body.appendChild(pop);
+    activeDatePopover = pop;
+    placeDarkDatePopover(pop, anchorBtn);
+    document.addEventListener("mousedown", onDarkDateOutside, true);
+    window.addEventListener("resize", closeDarkDatePopover, true);
+    window.addEventListener("scroll", onDarkDateScrollClose, true);
+
+    pop.addEventListener("click", function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target.closest("[data-dp-nav],[data-dp-day],[data-dp-clear],[data-dp-today]") : null;
+      if (!t) return;
+      if (t.hasAttribute("data-dp-nav")) {
+        var delta = Number(t.getAttribute("data-dp-nav") || "0");
+        viewM += delta;
+        while (viewM < 1) {
+          viewM += 12;
+          viewY -= 1;
+        }
+        while (viewM > 12) {
+          viewM -= 12;
+          viewY += 1;
+        }
+        paint();
+        return;
+      }
+      if (t.hasAttribute("data-dp-clear")) {
+        hiddenInput.value = "";
+        syncDatefieldLabel(fieldWrap, "");
+        closeDarkDatePopover();
+        hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+        return;
+      }
+      if (t.hasAttribute("data-dp-today")) {
+        var now = new Date();
+        var todayIso = isoDay(now.getFullYear(), now.getMonth() + 1, now.getDate());
+        if (minIso && todayIso < minIso) return;
+        hiddenInput.value = todayIso;
+        syncDatefieldLabel(fieldWrap, todayIso);
+        closeDarkDatePopover();
+        hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+        return;
+      }
+      if (t.hasAttribute("data-dp-day")) {
+        var day = t.getAttribute("data-dp-day");
+        if (!day || t.disabled) return;
+        hiddenInput.value = day;
+        syncDatefieldLabel(fieldWrap, day);
+        closeDarkDatePopover();
+        hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+  }
+
+  function syncDatefieldLabel(wrap, iso) {
+    var label = wrap.querySelector(".vc-staff-datefield__value");
+    if (!label) return;
+    var text = isoToDisplayIt(iso);
+    label.textContent = text || "Scegli data";
+    label.classList.toggle("is-placeholder", !text);
+  }
+
+  function enhanceDateInput(input) {
+    if (!input || input.getAttribute("data-vc-dark-date") === "1") return;
+    input.setAttribute("data-vc-dark-date", "1");
+    var wrap = document.createElement("div");
+    wrap.className = "vc-staff-datefield";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.type = "hidden";
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "vc-staff-datefield__btn";
+    btn.innerHTML =
+      '<span class="vc-staff-datefield__value is-placeholder">Scegli data</span>' +
+      '<i class="fa fa-calendar" aria-hidden="true"></i>';
+    wrap.appendChild(btn);
+    syncDatefieldLabel(wrap, input.value);
+    btn.addEventListener("click", function () {
+      var minIso = String(input.getAttribute("min") || (state.me && state.me.minStartIso) || "").trim();
+      openDarkDatePopover(wrap, input, minIso);
+    });
+  }
+
   function wireRequestForm() {
     if (requestFormWired) return;
     requestFormWired = true;
@@ -965,10 +1237,16 @@
         if (count) count.textContent = String(reasonEl.value.length);
       });
     }
+    if (start) enhanceDateInput(start);
+    if (end) enhanceDateInput(end);
     if (start) {
       start.addEventListener("change", function () {
-        if (end && start.value && (!end.value || end.value < start.value)) end.value = start.value;
-        if (end && start.value) end.min = start.value;
+        if (end && start.value && (!end.value || end.value < start.value)) {
+          end.value = start.value;
+          var endWrap = end.closest ? end.closest(".vc-staff-datefield") : null;
+          if (endWrap) syncDatefieldLabel(endWrap, end.value);
+        }
+        if (end && start.value) end.setAttribute("min", start.value);
       });
     }
   }

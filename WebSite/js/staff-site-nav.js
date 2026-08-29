@@ -1,13 +1,94 @@
 /**
  * Navbar staff = navbar sito (Vinili & Caffè) + menu Area staff
- * (Profilo / Guida / Pause / Inbox / Gestione / Serata Film se HS).
- * Attiva su body.vc-staff-area dopo vc:staff-access-ok.
+ * (Guida; Inbox in /notifications/?view=staff;
+ * Organico / Punti tolti dal profilo. Su mobile/tablet Area staff è nascosto.)
+ * Organico → dal profilo staff card Carriera;
+ * Punti tolti PM e Pause/Serata Film solo dal profilo staff).
+ * Attiva su body.vc-staff-area o quando l'utente è staff (dropdown globale).
  */
 (function () {
   "use strict";
 
   function perms() {
     return (window.__VC_STAFF_PERMS && typeof window.__VC_STAFF_PERMS === "object" && window.__VC_STAFF_PERMS) || {};
+  }
+
+  function isStaffNavContext() {
+    if (!document.body) return false;
+    if (document.body.classList.contains("vc-staff-area")) return true;
+    return window.__VC_STAFF_MENU_ALLOWED === true;
+  }
+
+  /** Navbar dedicate (Hogwarts /evento): non iniettare Area staff nel centro. */
+  function isSpecializedSiteNav(snav) {
+    try {
+      var raw = String(location.pathname || "/").toLowerCase();
+      var p = raw.replace(/\/+$/, "") || "/";
+      if (p === "/evento" || p.indexOf("/evento/") === 0 || raw.indexOf("/evento/") === 0 || raw === "/evento/") {
+        return true;
+      }
+      if (document.body) {
+        if (document.body.classList.contains("vc-hw-page")) return true;
+        if (document.body.classList.contains("vc-hw-points-page")) return true;
+        if (document.body.classList.contains("vc-hw-hub-page")) return true;
+      }
+      if (!snav) return false;
+      if (snav.querySelector && snav.querySelector(".vc-snav-item--event")) return true;
+      var label = String(snav.getAttribute("aria-label") || "").toLowerCase();
+      if (label.indexOf("evento") >= 0 || label.indexOf("hogwarts") >= 0) return true;
+    } catch (eSpec) {}
+    return false;
+  }
+
+  function isEventDedicatedNavPage() {
+    try {
+      var raw = String(location.pathname || "/").toLowerCase();
+      var p = raw.replace(/\/+$/, "") || "/";
+      if (p === "/evento" || p.indexOf("/evento/") === 0 || raw.indexOf("/evento/") === 0) return true;
+      if (document.body && document.body.classList.contains("vc-hw-page")) return true;
+    } catch (eEv) {}
+    return isSpecializedSiteNav(document.querySelector("nav.vc-header-snav"));
+  }
+
+  function stripStaffMenuFromSnav(snav) {
+    if (!snav) return;
+    try {
+      var nodes = snav.querySelectorAll(
+        "[data-vc-staff-tools-nav], .vc-snav-details--staff, a.vc-snav-item[href*='/staff/'], a.vc-snav-row[href*='/staff/']",
+      );
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+      }
+    } catch (eStripStaff) {}
+  }
+
+  function readCachedDiscordUserId() {
+    try {
+      var t = localStorage.getItem("vc_discord_access_token");
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (!t || (exp && Date.now() >= exp)) return "";
+      var fp = exp + "|" + String(t).slice(0, 32);
+      var raw = sessionStorage.getItem("vc_discord_me_cache_v1");
+      if (!raw) return "";
+      var o = JSON.parse(raw);
+      if (!o || o.v !== 1 || !o.user || String(o.fp || "") !== fp) return "";
+      if (Date.now() - Number(o.at || 0) > 180000) return "";
+      var uid = String(o.user.id || "").trim();
+      return /^\d{17,20}$/.test(uid) ? uid : "";
+    } catch (eCache) {
+      return "";
+    }
+  }
+
+  function profileStaffHref() {
+    try {
+      var p = window.__VC_DISCORD_PROFILE;
+      var id = p && p.id ? String(p.id) : "";
+      if (!/^\d{17,20}$/.test(id)) id = readCachedDiscordUserId();
+      if (/^\d{17,20}$/.test(id)) return "/user/?id=" + encodeURIComponent(id) + "&tab=staff";
+    } catch (e) {}
+    return "/user/?tab=staff";
   }
 
   function pathName() {
@@ -62,29 +143,91 @@
     brand.setAttribute("aria-label", "Vai alla homepage");
   }
 
+  function stripLegacyStaffNavRows(root) {
+    try {
+      var scope = root || document;
+      var links = scope.querySelectorAll(
+        'a.vc-snav-row[href*="/staff/inbox"], a.vc-snav-row[href*="/staff/punti-tolti"], a.vc-snav-row[href*="/staff/organico"], a.vc-snav-row[href*="/staff/gestione"], a.vc-snav-item[href*="/staff/gestione"], a[href*="/staff/inbox"], a[href*="/staff/punti-tolti"], a[href*="/staff/organico"], a[href*="/staff/gestione"]',
+      );
+      for (var i = 0; i < links.length; i++) {
+        var a = links[i];
+        // Solo navbar / drawer Area staff — non i link nel profilo staff.
+        var inStaffMenu = a.closest
+          ? a.closest(
+              "[data-vc-staff-tools-nav], .vc-snav-details--staff, .vc-header-snav, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, header",
+            )
+          : null;
+        if (!inStaffMenu) continue;
+        if (a.closest && a.closest(".vc-staff-pm-pt-btn, .vc-staff-pm-pt-link, .vc-user-profile, #vc-user-profile-view")) {
+          continue;
+        }
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }
+      // Rimuovi anche summary/link etichettati Gestione nei menu staff.
+      var rows = scope.querySelectorAll(
+        "[data-vc-staff-tools-nav] a.vc-snav-row, .vc-snav-details--staff a.vc-snav-row, .vc-header-snav a.vc-snav-item, #vc-mobile-nav-drawer a.vc-mobile-nav-tile",
+      );
+      for (var j = 0; j < rows.length; j++) {
+        var el = rows[j];
+        var lab = String(el.textContent || "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        var href = String(el.getAttribute("href") || "").toLowerCase();
+        if (lab === "gestione" || lab === "gestione staff" || href.indexOf("/staff/gestione") >= 0) {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }
+      }
+      // Details vuoti o intestati «Gestione» (vecchie navbar).
+      var details = scope.querySelectorAll("header details.vc-snav-details, .vc-header-snav details.vc-snav-details");
+      for (var d = 0; d < details.length; d++) {
+        var det = details[d];
+        var sum = det.querySelector(".vc-snav-summary span, .vc-snav-summary");
+        var title = sum ? String(sum.textContent || "").replace(/\s+/g, " ").trim().toLowerCase() : "";
+        var panelRows = det.querySelectorAll(".vc-snav-panel a.vc-snav-row, a.vc-snav-row");
+        if (title === "gestione" || title === "gestione staff") {
+          if (det.parentNode) det.parentNode.removeChild(det);
+          continue;
+        }
+        if (
+          (det.classList.contains("vc-snav-details--staff") || det.hasAttribute("data-vc-staff-tools-nav")) &&
+          panelRows.length === 0
+        ) {
+          // keep staff block even if empty — inject will refill Guida
+        }
+      }
+    } catch (eStrip) {}
+  }
+
   function injectStaffMenu(header) {
     var shell = header.querySelector(".vc-nav-shell");
     if (!shell) return;
 
     var bar = shell.querySelector(".vc-header-bar") || shell;
+    var snav = bar.querySelector("nav.vc-header-snav");
+    // Su /evento (e hub Hogwarts) la snav centrale è dedicata: non mischiare Area staff.
+    // Check path/body PRIMA di qualsiasi insert (anche se snav ancora assente).
+    if (isSpecializedSiteNav(snav) || isEventDedicatedNavPage()) {
+      stripStaffMenuFromSnav(snav);
+      var stray = header.querySelectorAll("[data-vc-staff-tools-nav], .vc-snav-details--staff");
+      for (var s = 0; s < stray.length; s++) {
+        var node = stray[s];
+        if (node && node.parentNode) node.parentNode.removeChild(node);
+      }
+      stripLegacyStaffNavRows(header);
+      watchEventNavStaffStrip(header);
+      return;
+    }
+
     var p = perms();
-    var canManage = Boolean(p.isHighStaff || p.canManage);
-    var canPmPoints = Boolean(canManage || p.isPm || p.canViewPmPointsRemoved || p.canManagePm);
-    var canGestione = Boolean(p.ok);
-    var canOrganico = Boolean(p.ok);
-    var canInbox = Boolean(p.ok);
+    var staffOk = Boolean(p.ok) || window.__VC_STAFF_MENU_ALLOWED === true;
+    // Link base sempre visibili per chi ha Area staff (anche se payload perms ancora in arrivo).
+    // Inbox → /notifications/?view=staff ; Organico / Punti tolti PM → solo dal profilo staff.
     var html =
       '<details class="vc-snav-details vc-snav-details--staff" data-vc-staff-tools-nav>' +
       '<summary class="vc-snav-summary"><span>Area staff</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>' +
       '<div class="vc-snav-panel">' +
-      row("/staff/", "id-card-o", "Profilo", true) +
       row("/staff/guida/", "book", "Guida", true) +
-      row("/staff/pause/", "calendar", "Pause", true) +
-      row("/staff/punti-tolti/", "minus-circle", "Punti tolti PM", canPmPoints) +
-      row("/staff/inbox/", "inbox", "Inbox", canInbox) +
-      row("/staff/organico/", "users", "Organico", canOrganico) +
-      row("/staff/gestione/", "sliders", "Gestione", canGestione) +
-      row("/seratafilm/", "film", "Serata Film", canManage) +
       "</div></details>";
 
     var existing = header.querySelector("[data-vc-staff-tools-nav]");
@@ -93,12 +236,13 @@
       wrap.innerHTML = html;
       var next = wrap.firstElementChild;
       if (next && existing.parentNode) existing.parentNode.replaceChild(next, existing);
+      stripLegacyStaffNavRows(header);
       return;
     }
 
-    var snav = bar.querySelector("nav.vc-header-snav");
     if (snav) {
       snav.insertAdjacentHTML("beforeend", html);
+      stripLegacyStaffNavRows(header);
       return;
     }
 
@@ -114,6 +258,32 @@
     } else {
       bar.appendChild(nav);
     }
+    stripLegacyStaffNavRows(header);
+  }
+
+  function watchEventNavStaffStrip(header) {
+    try {
+      if (!header || header.getAttribute("data-vc-evento-staff-strip") === "1") return;
+      if (!isEventDedicatedNavPage() && !isSpecializedSiteNav(header.querySelector("nav.vc-header-snav"))) return;
+      header.setAttribute("data-vc-evento-staff-strip", "1");
+      var kill = function () {
+        var nodes = header.querySelectorAll("[data-vc-staff-tools-nav], .vc-snav-details--staff");
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          if (el && el.parentNode) el.parentNode.removeChild(el);
+        }
+        stripStaffMenuFromSnav(header.querySelector("nav.vc-header-snav"));
+      };
+      kill();
+      var mo = new MutationObserver(function () {
+        kill();
+      });
+      mo.observe(header, { childList: true, subtree: true });
+      window.setTimeout(kill, 0);
+      window.setTimeout(kill, 250);
+      window.setTimeout(kill, 1000);
+      window.setTimeout(kill, 3000);
+    } catch (eWatch) {}
   }
 
   function ensureNotifSlot(header) {
@@ -187,28 +357,63 @@
     var actions = document.getElementById("header-quick-actions");
     if (!actions) return;
 
-    if (!document.getElementById("vc-header-promo-btn")) {
-      var btn = document.createElement("a");
-      btn.id = "vc-header-promo-btn";
-      btn.className = "vc-header-promo-btn vc-header-promo-btn--candidature";
-      btn.href = "/candidature";
+    function resolvePromoMode(cfg) {
+      try {
+        var event = cfg && cfg.event;
+        if (!event || event.enabled === false || event.previewMode === true) return "candidature";
+        var start = Number(event.startMs);
+        var end = Number(event.endMs);
+        if (!Number.isFinite(start)) {
+          var sd = String(event.sortingStartDate || event.startDate || "").trim();
+          start = new Date(sd.indexOf("T") >= 0 ? sd : sd + "T00:00:00").getTime();
+        }
+        if (!Number.isFinite(end)) {
+          var ed = String(event.endDate || "").trim();
+          end = new Date(ed.indexOf("T") >= 0 ? ed : ed + "T23:59:59.999").getTime();
+        }
+        var now = Date.now();
+        if (Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end) return "event";
+      } catch (eMode) {}
+      return "candidature";
+    }
+
+    var cfg = window.__VC_HEADER_PROMO || {};
+    var mode = resolvePromoMode(cfg);
+    var isEvent = mode === "event";
+    var btn = document.getElementById("vc-header-promo-btn");
+    var needPaint =
+      !btn ||
+      (isEvent && !btn.classList.contains("vc-header-promo-btn--event")) ||
+      (!isEvent && !btn.classList.contains("vc-header-promo-btn--candidature"));
+    if (needPaint) {
+      if (!btn) {
+        btn = document.createElement("a");
+        btn.id = "vc-header-promo-btn";
+        var notif = actions.querySelector("#vc-notif-dropdown");
+        if (notif) actions.insertBefore(btn, notif);
+        else actions.insertAdjacentElement("afterbegin", btn);
+      }
+      btn.className = "vc-header-promo-btn " + (isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature");
+      btn.href = isEvent ? cfg.eventUrl || "/evento" : cfg.candidatureUrl || "/candidature";
+      btn.hidden = false;
+      btn.removeAttribute("aria-hidden");
       btn.innerHTML =
         '<span class="vc-header-promo-btn__dot" aria-hidden="true"></span>' +
         '<span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track">' +
-        '<span class="vc-header-promo-btn__unit"><span class="vc-header-promo-btn__label">Candidature</span>' +
-        '<span class="vc-header-promo-btn__badge">APERTE</span></span></span></span>';
-      var notif = actions.querySelector("#vc-notif-dropdown");
-      if (notif) actions.insertBefore(btn, notif);
-      else actions.insertAdjacentElement("afterbegin", btn);
+        '<span class="vc-header-promo-btn__unit"><span class="vc-header-promo-btn__label">' +
+        (isEvent ? "Evento" : "Candidature") +
+        '</span><span class="vc-header-promo-btn__badge">' +
+        (isEvent ? "ATTIVO" : "APERTE") +
+        "</span></span></span></span>";
     }
 
     normalizeHeaderQuickActionsOrder(actions);
 
     if (!document.querySelector('script[src*="vc-header-promo.js"]')) {
       var s = document.createElement("script");
-      s.src = "/js/vc-header-promo.js?v=20260825staffPromo1";
-      s.defer = true;
-      (document.body || document.documentElement).appendChild(s);
+      s.src = "/js/vc-header-promo.js?v=20260827staffPromoFix1";
+      s.async = false;
+      (document.head || document.body || document.documentElement).appendChild(s);
     } else {
       try {
         window.dispatchEvent(new CustomEvent("vc:langchange"));
@@ -332,9 +537,21 @@
             var href2 = el2.getAttribute("href");
             if (href2) {
               var labEl = el2.querySelector("span");
+              var labMain = labEl ? String(labEl.textContent || "").trim() : String(el2.textContent || "").trim();
+              var labMainNorm = labMain.replace(/\s+/g, " ").trim().toLowerCase();
+              if (
+                String(href2).toLowerCase().indexOf("/staff/gestione") >= 0 ||
+                labMainNorm === "gestione" ||
+                labMainNorm === "gestione staff" ||
+                labMainNorm === "area staff" ||
+                labMainNorm === "staff area"
+              ) {
+                i += 1;
+                continue;
+              }
               mainItems.push({
                 href: href2,
-                label: labEl ? String(labEl.textContent || "").trim() : String(el2.textContent || "").trim(),
+                label: labMain,
                 icon: iconFromEl(el2),
                 active:
                   el2.classList.contains("is-active") ||
@@ -352,16 +569,72 @@
         if (el.tagName === "DETAILS" && el.classList.contains("vc-snav-details")) {
           var sum = el.querySelector(".vc-snav-summary span, .vc-snav-summary");
           var title = sum ? String(sum.textContent || "").trim() : "Menu";
+          // Area staff / Gestione: niente sezione hamburger, ma promuovi Guida.
+          var titleNorm = title.replace(/\s+/g, " ").trim().toLowerCase();
+          var isStaffBlock =
+            /^area\s*staff$/.test(titleNorm) ||
+            titleNorm === "staff area" ||
+            titleNorm === "staff" ||
+            titleNorm === "gestione" ||
+            titleNorm === "gestione staff" ||
+            (el.classList && el.classList.contains("vc-snav-details--staff")) ||
+            el.hasAttribute("data-vc-staff-tools-nav");
+          if (isStaffBlock) {
+            var guideItems = [];
+            var guideRows = el.querySelectorAll(".vc-snav-panel .vc-snav-row");
+            for (var gr = 0; gr < guideRows.length; gr += 1) {
+              var grow = guideRows[gr];
+              var ghref = grow.getAttribute("href");
+              if (!ghref) continue;
+              if (String(ghref).toLowerCase().indexOf("/staff/gestione") >= 0) continue;
+              var glabEl = grow.querySelector("span:not(.vc-snav-row-ico)");
+              var glab = glabEl ? String(glabEl.textContent || "").trim() : String(grow.textContent || "").trim();
+              var glabNorm = glab.replace(/\s+/g, " ").trim().toLowerCase();
+              if (glabNorm === "gestione" || glabNorm === "gestione staff" || glabNorm === "area staff") continue;
+              if (
+                String(ghref).toLowerCase().indexOf("/staff/guida") >= 0 ||
+                glabNorm === "guida" ||
+                glabNorm === "guida staff"
+              ) {
+                guideItems.push({
+                  href: ghref,
+                  label: glab || "Guida",
+                  icon: iconFromEl(grow),
+                  active:
+                    grow.classList.contains("is-active") ||
+                    grow.classList.contains("vc-snav-row--active") ||
+                    grow.getAttribute("aria-current") === "page" ||
+                    isActive(ghref),
+                });
+              }
+            }
+            if (!guideItems.length) {
+              guideItems.push({
+                href: "/staff/guida/",
+                label: "Guida",
+                icon: "fa-book",
+                active: isActive("/staff/guida/"),
+              });
+            }
+            addSection("Staff", guideItems);
+            filled += guideItems.length;
+            i += 1;
+            continue;
+          }
           var rows = el.querySelectorAll(".vc-snav-panel .vc-snav-row");
           var detailItems = [];
           for (var r = 0; r < rows.length; r += 1) {
             var row = rows[r];
             var href = row.getAttribute("href");
             if (!href) continue;
+            if (String(href).toLowerCase().indexOf("/staff/gestione") >= 0) continue;
             var lab = row.querySelector("span:not(.vc-snav-row-ico)");
+            var labTxt = lab ? String(lab.textContent || "").trim() : String(row.textContent || "").trim();
+            var labNorm = labTxt.replace(/\s+/g, " ").trim().toLowerCase();
+            if (labNorm === "gestione" || labNorm === "gestione staff" || labNorm === "area staff") continue;
             detailItems.push({
               href: href,
-              label: lab ? String(lab.textContent || "").trim() : String(row.textContent || "").trim(),
+              label: labTxt,
               icon: iconFromEl(row),
               active:
                 row.classList.contains("is-active") ||
@@ -378,35 +651,32 @@
     }
 
     if (filled < 1) {
-      var p = perms();
-      var canManage = Boolean(p.isHighStaff || p.canManage);
-      var canPmPoints = Boolean(canManage || p.isPm || p.canViewPmPointsRemoved || p.canManagePm);
       addSection("Principale", [
         { href: "/", label: "Home", icon: "fa-home" },
         { href: "/wiki/", label: "Wiki", icon: "fa-map-o" },
         { href: "/sponsor/", label: "Sponsor", icon: "fa-handshake-o" },
       ]);
-      var staffItems = [
-        { href: "/staff/", label: "Profilo", icon: "fa-id-card-o" },
-        { href: "/staff/guida/", label: "Guida", icon: "fa-book" },
-        { href: "/staff/pause/", label: "Pause", icon: "fa-calendar" },
-        { href: "/staff/inbox/", label: "Inbox", icon: "fa-inbox" },
-        { href: "/staff/organico/", label: "Organico", icon: "fa-users" },
-        { href: "/staff/gestione/", label: "Gestione", icon: "fa-sliders" },
-      ];
-      if (canPmPoints) {
-        staffItems.splice(3, 0, {
-          href: "/staff/punti-tolti/",
-          label: "Punti tolti PM",
-          icon: "fa-minus-circle",
-        });
-      }
-      if (canManage) {
-        staffItems.push({ href: "/seratafilm/", label: "Serata Film", icon: "fa-film" });
-      }
-      addSection("Area staff", staffItems);
       filled = 1;
     }
+
+    try {
+      if (!isEventDedicatedNavPage() && !gridRoot.querySelector('a[href*="/staff/guida"]')) {
+        var staffOk =
+          window.__VC_STAFF_MENU_ALLOWED === true ||
+          Boolean(perms().ok) ||
+          Boolean(document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
+        if (staffOk) {
+          addSection("Staff", [
+            {
+              href: "/staff/guida/",
+              label: "Guida",
+              icon: "fa-book",
+              active: isActive("/staff/guida/"),
+            },
+          ]);
+        }
+      }
+    } catch (eGuide) {}
 
     try {
       var brand = document.getElementById("vc-mobile-nav-drawer-brand");
@@ -695,11 +965,16 @@
   }
 
   function upgrade() {
-    if (!document.body || !document.body.classList.contains("vc-staff-area")) return;
+    if (!isStaffNavContext()) return;
     var header = document.querySelector("body > .vc-staff-app > header, body > header, .vc-staff-app header");
     if (!header) return;
     ensureSiteBrand(header);
     injectStaffMenu(header);
+    stripLegacyStaffNavRows(header);
+    stripLegacyStaffNavRows(document);
+    if (isEventDedicatedNavPage()) {
+      watchEventNavStaffStrip(header);
+    }
     ensureNotifSlot(header);
     ensureHeaderPromo();
     try {
@@ -720,16 +995,29 @@
   }
 
   function scheduleStaffNavBoot() {
-    if (!document.body || !document.body.classList.contains("vc-staff-area")) return;
     function run() {
+      if (!isStaffNavContext()) return false;
       boot();
+      return true;
     }
-    run();
-    window.setTimeout(run, 0);
-    window.setTimeout(run, 120);
-    window.setTimeout(run, 480);
+    if (run()) return;
+    // Prefetch/access possono arrivare prima del body o dello script: ritenta.
+    var tries = 0;
+    var timer = window.setInterval(function () {
+      tries += 1;
+      if (run() || tries > 40) window.clearInterval(timer);
+    }, 100);
   }
 
-  window.addEventListener("vc:staff-access-ok", boot);
-  scheduleStaffNavBoot();
+  window.addEventListener("vc:staff-access-ok", function () {
+    boot();
+  });
+  window.addEventListener("vc-discord-profile", function () {
+    if (window.__VC_STAFF_MENU_ALLOWED) boot();
+  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleStaffNavBoot);
+  } else {
+    scheduleStaffNavBoot();
+  }
 })();

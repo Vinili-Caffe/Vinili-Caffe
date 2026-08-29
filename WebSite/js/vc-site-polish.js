@@ -62,8 +62,12 @@
   function pickRiseNodes() {
     var root = document.querySelector("main") || document.querySelector(".vc-page");
     if (!root) return [];
+    // /notifications: layout flat come profilo — niente card wrapper sui pane.
+    if (document.body && document.body.classList.contains("vc-notifications-page")) {
+      return [];
+    }
     var found = root.querySelectorAll(
-      ":scope > section, :scope > article, :scope > div, #vc-page-content > section, #vc-page-content > article, #vc-page-content > div, #vc-page-content section, #vc-page-content article, .vc-page-cine-body > section, .vc-page-cine-body > article, .vc-page-cine-card, .vc-home-deck, .vc-home-deck__cell, .vc-home-feature, .vc-home-highlights, .vc-home-highlight-card, .vc-home-linkpanel, .vc-home-storycard, #stats .vc-stat-strip, .vc-glass, .vc-support-page-hero, .vc-notify-hero, .vc-notify-stat, .vc-notify-row, .vc-support-donate-role, .vc-support-donate-roles, .vc-support-hero-pillar-row, .vc-faq-item, .vc-faq-group, .vc-reviews-section, .vc-reviews-card, .vc-reviews-formcard, .vc-staff-block, .vc-staff-hub-card, .vc-staff-hero, .vc-hw-window, .vc-hw-notice, .vc-hw-hero, .vc-hw-choice, .vc-unban-before-card, .vc-unmute-before-card, .vc-candidature-card, .vc-legal-card, .vc-sponsor-card, .vc-sponsor-embed, .vc-wiki-cmd-shell, .vc-cmd-grp, .vc-perks-card, .vc-user-profile-hero, .vc-user-profile-block, .vc-wt-board, .vc-auth-required-card, .vc-ul-card, .vc-role-card, .vc-regole-hero-card"
+      ":scope > section, :scope > article, :scope > div, #vc-page-content > section, #vc-page-content > article, #vc-page-content > div, #vc-page-content section, #vc-page-content article, .vc-page-cine-body > section, .vc-page-cine-body > article, .vc-page-cine-card, .vc-home-deck, .vc-home-deck__cell, .vc-home-feature, .vc-home-highlights, .vc-home-highlight-card, .vc-home-linkpanel, .vc-home-storycard, #stats .vc-stat-strip, .vc-glass, .vc-support-page-hero, .vc-notify-hero, .vc-notify-stat, .vc-support-donate-role, .vc-support-donate-roles, .vc-support-hero-pillar-row, .vc-faq-item, .vc-faq-group, .vc-reviews-section, .vc-reviews-card, .vc-reviews-formcard, .vc-staff-block, .vc-staff-hub-card, .vc-staff-hero, .vc-hw-window, .vc-hw-notice, .vc-hw-hero, .vc-hw-choice, .vc-unban-before-card, .vc-unmute-before-card, .vc-candidature-card, .vc-legal-card, .vc-sponsor-card, .vc-sponsor-embed, .vc-wiki-cmd-shell, .vc-cmd-grp, .vc-perks-card, .vc-user-profile-hero, .vc-user-profile-block, .vc-wt-board, .vc-auth-required-card, .vc-ul-card, .vc-role-card, .vc-regole-hero-card"
     );
     var list = [];
     for (var i = 0; i < found.length; i++) {
@@ -111,6 +115,8 @@
 
   function decorateFxCard(el) {
     if (!el || skipChrome(el)) return;
+    /* Notify rows over cine canvas: home-panel transparent chrome = continuous flash on Chromium. */
+    if (el.classList && el.classList.contains("vc-notify-row")) return;
     if (el.closest && el.closest(".vc-page-cine-hero, .vc-wt-board, dialog")) return;
     if (
       el.id === "vc-page-content" ||
@@ -189,7 +195,7 @@
     var root = document.querySelector("main") || document.querySelector(".vc-page");
     if (!root) return [];
     var found = root.querySelectorAll(
-      ".vc-page-cine-card, .vc-home-deck__cell, .vc-home-highlight-card, .vc-home-linkpanel, .vc-home-storycard, #stats .vc-stat-cell, .vc-notify-stat, .vc-notify-row, .vc-role-card, .vc-ul-card, .vc-legal-card, .vc-faq-group, .vc-reviews-card, .vc-reviews-formcard, .vc-staff-block, .vc-staff-hub-card, .vc-sponsor-card, .vc-sponsor-embed, .vc-wiki-cmd-shell, .vc-perks-card, .vc-candidature-card, .vc-unban-before-card, .vc-unmute-before-card, .vc-auth-required-card, .vc-regole-card, .vc-support-donate-role, .vc-vote-live-card, .vc-vote-live-statbox, .vc-user-profile-block, .vc-cmd-grp"
+      ".vc-page-cine-card, .vc-home-deck__cell, .vc-home-highlight-card, .vc-home-linkpanel, .vc-home-storycard, #stats .vc-stat-cell, .vc-notify-stat, .vc-role-card, .vc-ul-card, .vc-legal-card, .vc-faq-group, .vc-reviews-card, .vc-reviews-formcard, .vc-staff-block, .vc-staff-hub-card, .vc-sponsor-card, .vc-sponsor-embed, .vc-wiki-cmd-shell, .vc-perks-card, .vc-candidature-card, .vc-unban-before-card, .vc-unmute-before-card, .vc-auth-required-card, .vc-regole-card, .vc-support-donate-role, .vc-vote-live-card, .vc-vote-live-statbox, .vc-user-profile-block, .vc-cmd-grp"
     );
     var list = [];
     for (var i = 0; i < found.length; i++) {
@@ -259,7 +265,10 @@
 
   function undressEl(el) {
     if (!el || !el.classList) return;
-    el.classList.remove("vc-home-panel", "vc-fx-card", "is-tilting");
+    el.classList.remove("vc-home-panel", "vc-fx-card", "is-tilting", "vc-home-rise", "is-in");
+    try {
+      el.style.removeProperty("--vc-rise-delay");
+    } catch (eDelay) {}
     try {
       var sheens = el.querySelectorAll(":scope > .vc-fx-sheen");
       for (var s = 0; s < sheens.length; s++) sheens[s].remove();
@@ -279,6 +288,16 @@
         ".vc-reviews-grid",
         "#vc-regole-list",
         "#wiki-comandi-panel",
+        "#vc-notif-pane-personal",
+        "#vc-notif-pane-staff",
+        "#vc-notif-scope-dock",
+        "#vc-staff-inbox",
+        ".vc-notif-staff-inbox",
+        ".vc-notif-page-head",
+        "body.vc-notifications-page main > div",
+        "body.vc-notifications-page main > section",
+        "body.vc-notifications-page #vc-page-content > div",
+        "body.vc-notifications-page #vc-page-content > section",
         ".vc-home-panel:has(#vc-roles-grid)",
         ".vc-fx-card:has(#vc-roles-grid)",
         ".vc-home-panel:has(#vc-ul-grid)",
@@ -299,6 +318,10 @@
         ".vc-fx-card:has(.vc-notify-stat)",
         ".vc-home-panel:has(.vc-notify-row)",
         ".vc-fx-card:has(.vc-notify-row)",
+        ".vc-home-panel:has(.vc-staff-inbox)",
+        ".vc-fx-card:has(.vc-staff-inbox)",
+        ".vc-home-panel:has(.vc-notif-staff-inbox)",
+        ".vc-fx-card:has(.vc-notif-staff-inbox)",
         ".vc-home-panel:has(.vc-roles-search)",
         ".vc-fx-card:has(.vc-roles-search)",
         ".vc-home-panel:has(.vc-faq-group)",
@@ -349,6 +372,10 @@
 
   function initRise() {
     undressLayoutWrappers();
+    try {
+      var staleNotify = document.querySelectorAll(".vc-notify-row.vc-home-panel, .vc-notify-row.vc-fx-card, .vc-notify-row.vc-home-rise");
+      for (var sn = 0; sn < staleNotify.length; sn++) undressEl(staleNotify[sn]);
+    } catch (eNotifyUndress) {}
     var nodes = pickRiseNodes();
     var seen = [];
     function seenHas(el) {
@@ -406,7 +433,7 @@
       if (document.querySelector('script[src*="vc-home-cine"]')) return;
     } catch (e0) {}
     var s = document.createElement("script");
-    s.src = "/js/vc-home-cine.js?v=20260822staffui";
+    s.src = "/js/vc-home-cine.js?v=20260829cinePerf2";
     s.defer = true;
     (document.body || document.documentElement).appendChild(s);
   }

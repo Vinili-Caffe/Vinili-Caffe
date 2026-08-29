@@ -139,6 +139,9 @@
     tracking = false;
     armed = false;
     pullY = 0;
+    try {
+      window.__vcPtrTracking = false;
+    } catch (eTrack) {}
     clearWatchdog();
     if (animate) snapBack();
     else if (root) {
@@ -153,6 +156,9 @@
     armed = false;
     pullY = 0;
     refreshing = false;
+    try {
+      window.__vcPtrTracking = false;
+    } catch (eTrack) {}
     clearWatchdog();
     if (reloadTimer) {
       window.clearTimeout(reloadTimer);
@@ -167,6 +173,9 @@
 
   function shouldIgnoreStart(target) {
     if (refreshing) return true;
+    try {
+      if (document.documentElement.classList.contains("vc-mobile-nav-open")) return true;
+    } catch (eNav) {}
     if (document.body && document.body.classList.contains("vc-mobile-nav-open")) return true;
     var dialog = document.getElementById("vc-site-dialog");
     if (dialog && !dialog.hasAttribute("hidden")) return true;
@@ -326,6 +335,9 @@
     startY = t.clientY;
     startX = t.clientX;
     pullY = 0;
+    try {
+      window.__vcPtrTracking = true;
+    } catch (eTrack) {}
     armWatchdog();
     if (holdMax) window.clearTimeout(holdMax);
     // Non abortire se già armati (soglia raggiunta): altrimenti rilascio dopo 2s = zero refresh.
@@ -411,6 +423,57 @@
     return false;
   }
 
+  function watchDeferClear() {
+    if (window.__vcPtrDeferMo) return;
+    window.__vcPtrDeferMo = true;
+    try {
+      var mo = new MutationObserver(function () {
+        if (!window.__vcPtrListenersBound && !shouldDeferPtr()) tryInitPtrIfNeeded();
+      });
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    } catch (eMo) {}
+  }
+
+  function repairPtrAfterNavigation() {
+    resetPtrUi();
+    try {
+      var drawer = document.getElementById("vc-mobile-nav-drawer");
+      var navOpen = drawer && drawer.classList.contains("vc-mobile-nav-drawer--open");
+      if (!navOpen) {
+        document.documentElement.classList.remove("vc-mobile-nav-open");
+        if (document.body) document.body.classList.remove("vc-mobile-nav-open");
+      }
+    } catch (eNav) {}
+    try {
+      if (typeof window.__vcRepairNotifDropdownPortal === "function") {
+        window.__vcRepairNotifDropdownPortal();
+      }
+    } catch (eNotif) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") {
+        window.__vcSyncLoaderScrollLock();
+      } else if (typeof window.__vcUnpinPageScroll === "function") {
+        window.__vcUnpinPageScroll();
+      }
+    } catch (eScroll) {}
+    tryInitPtrIfNeeded();
+  }
+
+  function tryInitPtrIfNeeded() {
+    if (window.__vcPtrListenersBound) return;
+    if (!isTouchUi() && !(Number(navigator.maxTouchPoints || 0) > 0)) return;
+    if (shouldDeferPtr()) {
+      watchDeferClear();
+      return;
+    }
+    reducedMotion = prefersReduced();
+    injectCss();
+    document.documentElement.classList.add("vc-ptr-ready");
+    ensureRoot();
+    showJustReloaded();
+    bindPtrListeners();
+  }
+
   function bindPtrListeners() {
     if (window.__vcPtrListenersBound) return;
     window.__vcPtrListenersBound = true;
@@ -439,51 +502,38 @@
     window.addEventListener("pagehide", function () {
       resetPtrUi();
     });
-    window.addEventListener("pageshow", function (ev) {
-      if (ev && ev.persisted) resetPtrUi();
+    window.addEventListener("pageshow", function () {
+      repairPtrAfterNavigation();
     });
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden") abortPull(false);
+      else if (document.visibilityState === "visible") repairPtrAfterNavigation();
     });
   }
 
   function initPtr() {
     if (window.__vcPtrListenersBound) return;
-    // Touch / pen / hybrid: non solo (pointer: coarse), così funziona anche su
-    // tablet/desktop touch e PWA Brave che a volte riportano pointer fine.
     if (!isTouchUi() && !(Number(navigator.maxTouchPoints || 0) > 0)) return;
     if (shouldDeferPtr()) {
-      window.addEventListener("vc:staff-access-ok", initPtr, { once: true });
-      window.addEventListener("vc:access-ok", initPtr, { once: true });
-      window.addEventListener("vc-dashboard-access", initPtr, { once: true });
+      watchDeferClear();
+      window.addEventListener("vc:staff-access-ok", tryInitPtrIfNeeded, { once: true });
+      window.addEventListener("vc:access-ok", tryInitPtrIfNeeded, { once: true });
+      window.addEventListener("vc-dashboard-access", tryInitPtrIfNeeded, { once: true });
+      window.setTimeout(tryInitPtrIfNeeded, 400);
+      window.setTimeout(tryInitPtrIfNeeded, 2500);
       window.setTimeout(function () {
-        if (!window.__vcPtrListenersBound && !shouldDeferPtr()) initPtr();
-      }, 400);
-      window.setTimeout(function () {
-        if (!window.__vcPtrListenersBound && !shouldDeferPtr()) initPtr();
-      }, 2500);
-      // Ultima chance: dopo il gate staff a volte la classe pending resta stale.
-      window.setTimeout(function () {
-        if (window.__vcPtrListenersBound) return;
-        try {
-          if (document.documentElement.classList.contains("vc-staff-app-revealed")) {
-            reducedMotion = prefersReduced();
-            injectCss();
-            document.documentElement.classList.add("vc-ptr-ready");
-            ensureRoot();
-            showJustReloaded();
-            bindPtrListeners();
-          }
-        } catch (eLate) {}
+        if (!window.__vcPtrListenersBound && !shouldDeferPtr()) tryInitPtrIfNeeded();
+        else if (!window.__vcPtrListenersBound) {
+          try {
+            if (document.documentElement.classList.contains("vc-staff-app-revealed")) {
+              tryInitPtrIfNeeded();
+            }
+          } catch (eLate) {}
+        }
       }, 5000);
       return;
     }
-    reducedMotion = prefersReduced();
-    injectCss();
-    document.documentElement.classList.add("vc-ptr-ready");
-    ensureRoot();
-    showJustReloaded();
-    bindPtrListeners();
+    tryInitPtrIfNeeded();
   }
 
   if (document.readyState === "loading") {

@@ -21,6 +21,8 @@ const {
 const ACCESS_CACHE_TTL_MS = 180_000;
 const ACCESS_CACHE_MAX = 400;
 const accessCache = new Map();
+/** Coalesce concurrent assertWebsiteStaffAccess for the same Bearer (cold boot race). */
+const accessInflight = new Map();
 
 function normalizeHeaderSecret(raw) {
   if (raw == null) return "";
@@ -191,6 +193,20 @@ async function assertWebsiteStaffAccess(client, accessToken) {
     };
   }
 
+  const cacheKey = accessCacheKey(token);
+  const existing = accessInflight.get(cacheKey);
+  if (existing) return existing;
+
+  const run = doAssertWebsiteStaffAccess(client, token);
+  accessInflight.set(cacheKey, run);
+  try {
+    return await run;
+  } finally {
+    if (accessInflight.get(cacheKey) === run) accessInflight.delete(cacheKey);
+  }
+}
+
+async function doAssertWebsiteStaffAccess(client, token) {
   const cached = readCachedAccess(token);
   if (cached && cached.ok === false) {
     if (!isTransientAccessDeny(cached)) {

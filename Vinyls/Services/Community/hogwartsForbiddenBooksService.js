@@ -205,6 +205,13 @@ async function getForbiddenClosure(guildId, dedupeKey, round = null) {
 }
 
 async function resolveForbiddenRoundRuntime(client, nowMs = Date.now()) {
+  try {
+    const chaosSvc = require("./hogwartsFinaleChaosDayService");
+    const chaos = await chaosSvc.resolveFinaleChaosForbiddenRuntime(client, nowMs);
+    if (chaos) return chaos;
+  } catch (err) {
+    global.logger?.warn?.("[FORBIDDEN BOOKS] finale chaos runtime:", err?.message || err);
+  }
   const cfg = resolveHogwartsEventConfig(client);
   const guildId = String(client?.config?.mainGuildId || "").trim();
   const { startMs, endMs } = resolveForbiddenBooksSchedule(client);

@@ -7,7 +7,7 @@
     <meta charset="utf-8" />
     <title>{{SITE_NAME}} | Organico Staff</title>
     <script src="/js/vc-page-title.js?v=20260825pageTitle1"></script>
-    <meta name="description" content="Organico del team, Staff del Mese e cronologia delle variazioni." />
+    <meta name="description" content="Cronologia pex e depex dello staff e premio Staff del Mese." />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta property="og:type" content="website" />
@@ -19,60 +19,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../../css/tw-build.css?v=20260824organicoCine1" />
-    <link rel="stylesheet" href="../../css/vc-landing.css?v=20260826cssBust2" />
-    <link rel="stylesheet" href="../../css/staff-pause.css?v=20260827orgCine1" />
-    <style id="vc-organico-cine-lock">
-html.vc-staff-cine-route body.vc-staff-organico-page.vc-page-cine-layout main.vc-page-cine-main,
-html.vc-staff-route body.vc-staff-organico-page.vc-page-cine-layout main.vc-page-cine-main {
-  max-width: none !important;
-  width: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-}
-html.vc-staff-cine-route body.vc-staff-organico-page.vc-page-cine-layout #vc-page-intro.vc-page-cine-hero,
-html.vc-staff-route body.vc-staff-organico-page.vc-page-cine-layout #vc-page-intro.vc-page-cine-hero,
-html.vc-staff-cine-route body.vc-staff-organico-page.vc-page-cine-layout .vc-page-cine-hero.vc-support-page-hero {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
-  width: 100% !important;
-  min-height: 100vh !important;
-  min-height: 100svh !important;
-  min-height: 100dvh !important;
-  margin: 0 !important;
-  padding:
-    max(6.5rem, calc(env(safe-area-inset-top, 0px) + 5.5rem))
-    max(1rem, env(safe-area-inset-right, 0px))
-    5.5rem
-    max(1rem, env(safe-area-inset-left, 0px)) !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  filter: none !important;
-  overflow: visible !important;
-}
-html.vc-staff-cine-route body.vc-staff-organico-page.vc-page-cine-layout #vc-page-intro .vc-hero-head {
-  width: min(100%, 56rem) !important;
-  max-width: 56rem !important;
-}
-html.vc-staff-cine-route body.vc-staff-organico-page.vc-page-cine-layout #vc-page-content,
-html.vc-staff-route body.vc-staff-organico-page.vc-page-cine-layout #vc-page-content {
-  width: min(100%, 72rem) !important;
-  max-width: 72rem !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-  padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
-  padding-right: max(1rem, env(safe-area-inset-right, 0px)) !important;
-  padding-top: 0.5rem !important;
-  padding-bottom: 2.5rem !important;
-}
-    </style>
+    <link rel="stylesheet" href="../../css/vc-landing.css?v=20260829sheetHeadClear1" />
+    <link rel="stylesheet" href="../../css/staff-pause.css?v=20260829sheetHeadClear1" />
     <style id="vc-anti-fouc-css">html,body{background:#100c09}</style>
     <style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed{background:transparent!important;background-color:transparent!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass{background:#140f0c!important;background-color:#140f0c!important;border-radius:1rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 10px 28px rgba(0,0,0,.35)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}</style>
     <style id="vc-staff-cine-boot-css">
@@ -133,6 +81,13 @@ html.vc-staff-route body.vc-staff-organico-page.vc-page-cine-layout #vc-page-con
             <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
               <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" /></a>
               <a class="vc-header-site-name min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white sm:text-xs" href="{{SITE_URL}}" aria-label="Vai alla homepage"><span class="text-emerald-300">{{SITE_NAME}}</span></a>
+              <div class="vc-lang-dropdown" id="vc-lang-dropdown">
+                <button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language"><span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>
+                <div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">
+                  <button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>
+                  <button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>
+                </div>
+              </div>
             </div>
             <nav class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2" aria-label="Collegamenti rapidi">
               <a class="vc-snav-item" href="{{WIKI_URL}}"><i class="fa fa-map-o" aria-hidden="true"></i><span>Wiki</span></a>
@@ -175,62 +130,50 @@ html.vc-staff-route body.vc-staff-organico-page.vc-page-cine-layout #vc-page-con
         </div>
       </header>
 
-    <main class="relative z-10 vc-page-cine-main">
+        <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
       <section
         id="vc-page-intro"
-        class="vc-support-page-hero vc-regole-hero-card vc-page-cine-hero vc-home-cine-hero"
+        class="vc-support-page-hero vc-regole-hero-card mb-8 sm:mb-10"
         aria-labelledby="vc-staff-organico-hero-heading"
-        data-vc-home-hero-built="1"
-        data-vc-aside-moved="1"
       >
-        <div class="relative z-10 mx-auto w-full px-4 pb-0 pt-2 text-center vc-page-cine-hero__inner">
-          <div class="vc-hero-head vc-glass mx-auto text-center vc-hero-head--has-aside">
-            <div class="vc-page-cine-hero-copy mx-auto w-full text-center">
-              <p class="vc-hero-kicker text-xs font-semibold uppercase tracking-[0.28em] text-[rgba(212,168,136,0.78)]">
-                <a class="vc-staff-hero__crumb" href="/staff/">Profilo</a> &middot; Organico
-              </p>
-              <h1 id="vc-staff-organico-hero-heading" class="vc-brand-glow mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Organico <span class="text-[#ead4c0]">staff</span>
-              </h1>
-              <p class="vc-hero-about mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl mx-auto">
-                Team per posizione, premio mensile e storico di promozioni e uscite.
-              </p>
+        <div class="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-center">
+          <div class="max-w-3xl">
+            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
+              <i class="fa fa-users"></i>
             </div>
-            <div class="vc-page-cine-aside-inline">
-              <div class="grid gap-4">
-                <div class="rounded-[1.6rem] border border-white/10 bg-slate-950/25 p-5">
-                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,136,0.78)]">Come funziona</p>
-                  <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-100/90 text-left">
-                    <li class="flex items-center gap-3">
-                      <i class="fa fa-search shrink-0 text-[#d4a888]" aria-hidden="true"></i>
-                      <span>Seleziona un membro per vedere il suo storico.</span>
-                    </li>
-                    <li class="flex items-center gap-3">
-                      <i class="fa fa-star shrink-0 text-[#d4a888]" aria-hidden="true"></i>
-                      <span>In alto trovi lo Staff del Mese.</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[rgba(212,168,136,0.78)]">
+              <a class="vc-staff-hero__crumb" href="/user/?tab=staff">Profilo</a> &middot; Organico
+            </p>
+            <h1 id="vc-staff-organico-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+              Organico <span class="text-[#ead4c0]">staff</span>
+            </h1>
+            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
+              Cronologia delle promozioni e dei depex dello staff.
+            </p>
+          </div>
+          <div class="grid gap-4">
+            <div class="rounded-[1.6rem] border border-white/10 bg-slate-950/25 p-5 backdrop-blur">
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[rgba(212,168,136,0.78)]">Come funziona</p>
+              <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-100/90">
+                <li class="flex items-center gap-3">
+                  <i class="fa fa-exchange shrink-0 text-[#d4a888]" aria-hidden="true"></i>
+                  <span>Filtra per Pex o Depex con i tab in alto.</span>
+                </li>
+                <li class="flex items-center gap-3">
+                  <i class="fa fa-star shrink-0 text-[#d4a888]" aria-hidden="true"></i>
+                  <span>In alto trovi lo Staff del Mese.</span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
-        <a class="vc-home-scrollcue" href="#vc-page-content" aria-label="Scorri per continuare a leggere" data-vc-scroll-cue="1">
-          <span class="vc-home-scrollcue__label">Scorri per continuare</span>
-          <span class="vc-home-scrollcue__chev" aria-hidden="true"><span></span><span></span></span>
-        </a>
       </section>
 
-      <div id="vc-page-content" class="vc-page-cine-body">
-        <aside id="vc-staff-organico-sdm" class="vc-staff-organico-sdm" hidden aria-label="Staff del Mese"></aside>
+      <aside id="vc-staff-organico-sdm" class="vc-staff-organico-sdm" hidden aria-label="Staff del Mese"></aside>
 
-        <div id="vc-staff-organico-board" class="vc-staff-manage-board vc-home-panel vc-fx-card vc-page-cine-card rounded-[1.6rem] p-4 sm:p-5" hidden>
-        <div id="vc-staff-organico" class="vc-staff-manage vc-staff-organico-board">
-          <aside class="vc-staff-manage-side">
-            <div id="vc-staff-organico-roster" class="vc-staff-manage-roster"></div>
-          </aside>
-          <article id="vc-staff-organico-history" class="vc-staff-manage-detail vc-staff-organico-history" aria-label="Cronologia del team"></article>
-        </div>
+      <div id="vc-staff-organico-board" class="vc-staff-manage-board vc-staff-organico-board--history-only vc-home-panel vc-fx-card vc-page-cine-card rounded-[1.6rem] p-4 sm:p-5" hidden>
+        <div id="vc-staff-organico" class="vc-staff-manage vc-staff-organico-board vc-staff-organico-board--history-only">
+          <article id="vc-staff-organico-history" class="vc-staff-manage-detail vc-staff-organico-history" aria-label="Cronologia pex e depex"></article>
         </div>
       </div>
     </main>
@@ -257,9 +200,9 @@ html.vc-staff-route body.vc-staff-organico-page.vc-page-cine-layout #vc-page-con
     <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
     <script src="/js/vc-dialog.js?v=20260826dialog1" defer></script>
     <script src="../../js/staff-tools-common.js?v=20260827orgCine1" defer></script>
-    <script src="../../js/staff-site-nav.js?v=20260826cssBust2" defer></script>
-    <script src="../../js/vc-home-cine.js?v=20260827orgCine1" defer></script>
-    <script src="../../js/staff-organico-page.js?v=20260827orgCine1" defer></script>
+    <script src="../../js/staff-site-nav.js?v=20260827staffNavClean1" defer></script>
+    <script src="../../js/vc-home-cine.js?v=20260827staffPublic1" defer></script>
+    <script src="../../js/staff-organico-page.js?v=20260829organicoHistOnly1" defer></script>
     <script src="/js/vc-cursor-trail.js?v=20260825cursorFx1" defer></script>
     <script src="/js/vc-ptr.js?v=20260827orgCine1" defer></script>
   </body>

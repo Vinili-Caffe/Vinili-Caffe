@@ -73,6 +73,83 @@ async function fetchDiscordMe(accessToken) {
   }
 }
 
+/** OAuth guild member (ruoli) senza passare dal bot gateway — veloce quando members.fetch va in timeout. */
+async function fetchOAuthGuildMemberJson(accessToken, guildId, timeoutMs = 2500) {
+  const token = String(accessToken || "").trim();
+  const gid = String(guildId || "").trim();
+  if (!token || !gid) return null;
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = setTimeout(() => {
+    try {
+      ctrl?.abort?.();
+    } catch (_) {}
+  }, Math.max(600, Number(timeoutMs) || 2500));
+  try {
+    const res = await fetch(`https://discord.com/api/v10/users/@me/guilds/${gid}/member`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+      signal: ctrl ? ctrl.signal : undefined,
+    });
+    if (!res.ok) return null;
+    return await res.json().catch(() => null);
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function synthMemberFromOAuth(guild, meJson, oauthMember) {
+  const userId = String(meJson?.id || oauthMember?.user?.id || "").trim();
+  if (!userId) return null;
+  const roleIds = Array.isArray(oauthMember?.roles)
+    ? oauthMember.roles.map(String).filter(Boolean)
+    : [];
+  const roleSet = new Set(roleIds);
+  const username = String(meJson?.username || oauthMember?.user?.username || "user").trim() || "user";
+  const displayName =
+    String(oauthMember?.nick || meJson?.global_name || meJson?.globalName || username).trim() ||
+    username;
+  const avatarHash = String(meJson?.avatar || oauthMember?.user?.avatar || "").trim() || null;
+  const memberAvatarHash = String(oauthMember?.avatar || "").trim() || null;
+  const user = {
+    id: userId,
+    username,
+    globalName: displayName,
+    avatar: avatarHash,
+    displayAvatarURL: (opts = {}) => {
+      const size = Number(opts.size) || 128;
+      if (avatarHash) {
+        const animated = avatarHash.startsWith("a_");
+        const ext = opts.extension || (opts.forceStatic ? "png" : animated ? "gif" : "webp");
+        return `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.${ext}?size=${size}`;
+      }
+      return `https://cdn.discordapp.com/embed/avatars/0.png`;
+    },
+  };
+  return {
+    id: userId,
+    guild: guild || null,
+    avatar: memberAvatarHash,
+    displayName,
+    user,
+    roles: {
+      cache: {
+        has: (id) => roleSet.has(String(id || "")),
+        keys: function* keys() {
+          yield* roleSet.values();
+        },
+        get size() {
+          return roleSet.size;
+        },
+      },
+    },
+    _vcFromOAuth: true,
+  };
+}
+
 function cooldownTypeKey(type) {
   return type === "partnermanager" ? "partnermanager" : "helper";
 }
@@ -954,11 +1031,23 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 401, error: "missing_token", message: "Token mancante." };
   }
 
+  const guildId = String(IDs.guilds?.main || "").trim();
+  if (!guildId) {
+    return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
+  }
+
+  // Cold path veloce: /@me + OAuth member in parallelo (niente attesa del bot gateway).
+  const oauthPromise = fetchOAuthGuildMemberJson(token, guildId, 3500);
   let meJson;
   try {
     const meRes = await fetchDiscordMe(token);
     if (!meRes.ok) {
-      return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
+      return {
+        ok: false,
+        status: 401,
+        error: "invalid_token",
+        message: "Sessione Discord non valida o scaduta: effettua di nuovo il login.",
+      };
     }
     meJson = await meRes.json();
   } catch (err) {
@@ -971,22 +1060,29 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
   }
 
-  const guildId = String(IDs.guilds?.main || "").trim();
-  if (!guildId) {
-    return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
+  // Guild: budget corto — serve solo come contenitore; i ruoli arrivano da OAuth.
+  const guild = await ensureWebsiteGuild(client, guildId, 2500);
+
+  let member = null;
+  if (guild) {
+    member = guild.members.cache.get(userId) || readCachedWebsiteMember(userId) || null;
+  } else {
+    member = readCachedWebsiteMember(userId) || null;
   }
 
-  const guild = await ensureWebsiteGuild(client, guildId, WEBSITE_AUTH_TIMEOUT_MS);
-  if (!guild) {
-    return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
-  }
-
-  let member = guild.members.cache.get(userId) || readCachedWebsiteMember(userId) || null;
+  // Preferisci subito OAuth (spesso già pronto) prima di eventuali bot fetch.
   if (!member) {
+    const oauthJson = await oauthPromise;
+    if (oauthJson) {
+      member = synthMemberFromOAuth(guild, meJson, oauthJson);
+    }
+  }
+
+  // Ultimo tentativo: bot fetch (con un retry breve) solo se OAuth non ha dato ruoli.
+  if (!member && guild) {
     try {
-      member = await fetchWebsiteGuildMember(guild, userId);
+      member = await fetchWebsiteGuildMember(guild, userId, { timeoutMs: 1400, retry: false });
     } catch (err) {
-      const msg = String(err?.message || err || "");
       if (isUnknownMemberError(err)) {
         return {
           ok: false,
@@ -996,31 +1092,40 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
           userId,
         };
       }
-      // Timeout Discord: già loggato (rate-limited) in websiteGuildMemberFetch.
+      const msg = String(err?.message || err || "");
       if (!/member_fetch_timeout/i.test(msg)) {
         global.logger?.warn?.("[candidature-site] member fetch failed:", msg || err);
       }
-      return {
-        ok: false,
-        status: 503,
-        error: "member_fetch_failed",
-        message: "Verifica temporaneamente non disponibile. Riprova tra poco.",
-        userId,
-      };
+      member = null;
     }
   }
+
+  if (!member) {
+    const oauthJson = await oauthPromise;
+    if (oauthJson) member = synthMemberFromOAuth(guild, meJson, oauthJson);
+  }
+
+  if (!member && guild) {
+    try {
+      await new Promise((r) => setTimeout(r, 250));
+      member = await fetchWebsiteGuildMember(guild, userId, { timeoutMs: 1800, retry: false });
+    } catch (_) {
+      member = null;
+    }
+  }
+
   if (!member) {
     return {
       ok: false,
-      status: 403,
-      error: "not_in_guild",
-      message: "Non sei nel server Discord: entra prima con lo stesso account con cui hai fatto login.",
+      status: 503,
+      error: "member_fetch_failed",
+      message: "Verifica temporaneamente non disponibile. Riprova tra poco.",
       userId,
     };
   }
   writeCachedWebsiteMember(userId, member);
 
-  return { ok: true, userId, member, guild };
+  return { ok: true, userId, member, guild: guild || member.guild || null };
 }
 
 /**

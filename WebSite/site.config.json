@@ -103,7 +103,7 @@
         { "label": "4° anno", "range": "13 - 26 luglio 2026", "startDate": "2026-07-13", "endDate": "2026-07-26" },
         { "label": "5° anno", "range": "27 luglio - 9 agosto 2026", "startDate": "2026-07-27", "endDate": "2026-08-09" },
         { "label": "6° anno", "range": "10 - 23 agosto 2026", "startDate": "2026-08-10", "endDate": "2026-08-23" },
-        { "label": "7° anno", "range": "24 - 31 agosto 2026", "startDate": "2026-08-24", "endDate": "2026-08-31" }
+        { "label": "7° anno", "range": "24 - 30 agosto 2026", "startDate": "2026-08-24", "endDate": "2026-08-30" }
       ],
       "gryffindor": 0,
       "ravenclaw": 0,
@@ -139,7 +139,7 @@
     "recurring": { "weekday": 6, "hour": 21, "minute": 0 },
     "overrideIso": "",
     "linkFilm": "/images/evento-hogwarts/streamingcommunityz-web.mp4",
-    "hogwartsThemeVideoUrl": "https://www.youtube.com/watch?v=YrAA02NlyNE",
+    "hogwartsThemeVideoUrl": "/images/evento-hogwarts/theme-bg.mp4",
     "filmTitle": "Harry Potter e i Doni della Morte - Parte 2",
     "adBreak": {
       "enabled": true,

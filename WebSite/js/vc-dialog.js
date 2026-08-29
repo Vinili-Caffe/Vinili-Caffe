@@ -88,6 +88,13 @@
       root.classList.remove("is-open");
       root.setAttribute("hidden", "");
     }
+    try {
+      document.documentElement.classList.remove("vc-dialog-open");
+    } catch (eCls) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      else if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eUnpin) {}
     var resolve = pending && pending.resolve;
     var kind = pending && pending.kind;
     pending = null;
@@ -235,7 +242,19 @@
         }
       };
       document.addEventListener("keydown", keyHandler, true);
+      // Sempre in cima allo stack (es. sheet gestione z-index 121000).
+      try {
+        if (root.parentNode !== document.body) document.body.appendChild(root);
+        else document.body.appendChild(root);
+      } catch (eTop) {}
       root.removeAttribute("hidden");
+      try {
+        document.documentElement.classList.add("vc-dialog-open");
+      } catch (eOpenCls) {}
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+        else if (typeof window.__vcPinPageScroll === "function") window.__vcPinPageScroll();
+      } catch (ePin) {}
       requestAnimationFrame(function () {
         root.classList.add("is-open");
         if (kind === "prompt") {
@@ -270,7 +289,8 @@
   }
 
   function chooseDialog(opts) {
-    return openDialog(Object.assign({}, opts || {}, { kind: "choose", danger: true }));
+    opts = opts || {};
+    return openDialog(Object.assign({}, opts, { kind: "choose", danger: opts.danger === true }));
   }
 
   function promptDialog(opts) {

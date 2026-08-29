@@ -1579,6 +1579,19 @@ async function handleHogwartsForbiddenBooksClaim(client, req, res) {
         { new: true },
       ).lean().catch(() => doc);
     }
+    if (runtime?.mode === "finale_chaos" && progress.completed && !participant.previewViewer) {
+      try {
+        const { tryAutoWinFinaleChaosForbidden } = require("../../Services/Community/hogwartsFinaleChaosDayService");
+        await tryAutoWinFinaleChaosForbidden(client, {
+          guildId: resolved.guild.id,
+          userId: resolved.userId,
+          houseId,
+          runtime,
+        });
+      } catch (err) {
+        global.logger?.warn?.("[WEBHOOK] finale chaos forbidden auto-win:", err?.message || err);
+      }
+    }
     const closure = await getForbiddenClosure(resolved.guild.id, dedupeKey, runtime?.round);
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({

@@ -66,16 +66,17 @@
     var root = T.byId("vc-staff-pt-toolbar");
     if (!root) return;
     root.innerHTML =
-      '<div class="vc-staff-inbox-toolbar vc-staff-pt-toolbar__inner">' +
-      '<div class="vc-staff-inbox-toolbar__filters">' +
-      '<div class="vc-staff-inbox-filter-group__seg" role="group" aria-label="Filtro elenco">' +
-      '<button type="button" class="vc-staff-inbox-filter-btn' +
+      '<div class="vc-staff-pt-board__toolbar">' +
+      '<div class="vc-staff-pt-seg" role="group" aria-label="Filtro elenco">' +
+      '<button type="button" class="vc-staff-pt-seg__btn' +
       (!state.pendingOnly ? " is-active" : "") +
       '" data-pt-filter="all">Tutti</button>' +
-      '<button type="button" class="vc-staff-inbox-filter-btn' +
+      '<button type="button" class="vc-staff-pt-seg__btn' +
       (state.pendingOnly ? " is-active" : "") +
       '" data-pt-filter="pending">In attesa</button>' +
-      "</div></div></div>";
+      "</div>" +
+      '<p class="vc-staff-pt-board__hint">Conferma o nega le segnalazioni in attesa prima di chiudere il turno.</p>' +
+      "</div>";
     root.querySelectorAll("[data-pt-filter]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var next = btn.getAttribute("data-pt-filter") === "pending";
@@ -90,10 +91,11 @@
   function ensureListHost() {
     var panel = T.byId("vc-staff-pt-panel");
     if (!panel) return null;
+    panel.classList.add("vc-staff-pt-board");
     if (!T.byId("vc-staff-pt-list")) {
       panel.innerHTML =
         '<div id="vc-staff-pt-list" class="vc-staff-pt-list" aria-live="polite"></div>' +
-        '<div id="vc-staff-pt-pagination" class="vc-staff-inbox-pagination mt-4" hidden></div>';
+        '<div id="vc-staff-pt-pagination" class="vc-staff-pt-pager" hidden></div>';
     }
     return T.byId("vc-staff-pt-list");
   }
@@ -106,19 +108,19 @@
         ? "1 voce"
         : count + " voci" + (state.page > 1 || state.hasMore ? " · pagina " + state.page : "");
     return (
-      '<div class="vc-staff-inbox-pagination__info">' +
+      '<div class="vc-staff-pt-pager__info">' +
       T.esc(info) +
       "</div>" +
-      '<div class="vc-staff-inbox-pagination__nav">' +
-      '<button type="button" class="vc-staff-inbox-page-btn" data-pt-page="prev"' +
+      '<div class="vc-staff-pt-pager__nav">' +
+      '<button type="button" class="vc-staff-pt-pager__btn" data-pt-page="prev"' +
       (state.page <= 1 ? " disabled" : "") +
-      ">\u2190 Prec</button>" +
-      '<span class="vc-staff-inbox-pagination__label">Pagina ' +
+      ">\u2190 Precedente</button>" +
+      '<span class="vc-staff-pt-pager__page">Pagina ' +
       state.page +
       "</span>" +
-      '<button type="button" class="vc-staff-inbox-page-btn" data-pt-page="next"' +
+      '<button type="button" class="vc-staff-pt-pager__btn" data-pt-page="next"' +
       (!state.hasMore ? " disabled" : "") +
-      ">Succ \u2192</button>" +
+      ">Successiva \u2192</button>" +
       "</div>"
     );
   }
@@ -164,9 +166,16 @@
     if (!list) return;
     if (!state.items.length) {
       list.innerHTML =
-        '<p class="vc-staff-tools-empty">' +
-        (state.pendingOnly ? "Nessuna segnalazione in attesa." : "Nessuna voce trovata.") +
-        "</p>";
+        '<div class="vc-staff-pt-empty" role="status">' +
+        '<i class="fa fa-inbox vc-staff-pt-empty__ico" aria-hidden="true"></i>' +
+        '<p class="vc-staff-pt-empty__title">' +
+        (state.pendingOnly ? "Nessuna segnalazione in attesa" : "Nessuna voce trovata") +
+        "</p>" +
+        '<p class="vc-staff-pt-empty__text">' +
+        (state.pendingOnly
+          ? "Quando arriva una nuova segnalazione partnership comparirà qui."
+          : "Prova a cambiare filtro o riprova più tardi.") +
+        "</p></div>";
       renderPagination();
       return;
     }
@@ -174,11 +183,13 @@
     state.items.forEach(function (item) {
       var pm = item.pm || {};
       html +=
-        '<article class="vc-staff-pt-card" data-pt-id="' +
+        '<article class="vc-staff-pt-card' +
+        (item.status === "pending" ? " is-pending" : "") +
+        '" data-pt-id="' +
         T.esc(item.messageId) +
         '">' +
         '<div class="vc-staff-pt-card__head">' +
-        T.avatarImgHtml(pm.avatarUrl, pm.userId, { width: 40, height: 40, className: "vc-staff-pt-card__avatar" }) +
+        T.avatarImgHtml(pm.avatarUrl, pm.userId, { width: 44, height: 44, className: "vc-staff-pt-card__avatar" }) +
         '<div class="vc-staff-pt-card__who"><strong>' +
         T.esc(T.userLabel(pm.displayName, pm.userId, "PM")) +
         '</strong><span class="vc-staff-pt-card__when">' +
@@ -194,35 +205,39 @@
         '<div class="vc-staff-pt-card__meta">';
       if (item.reporter) {
         html +=
-          '<span>Segnalato da <strong>' + T.esc(T.userLabel(item.reporter.displayName, item.reporter.userId)) + "</strong></span>";
+          '<span>Segnalato da <strong>' +
+          T.esc(T.userLabel(item.reporter.displayName, item.reporter.userId)) +
+          "</strong></span>";
       } else if (item.actor) {
         html +=
-          '<span>Rimosso da <strong>' + T.esc(T.userLabel(item.actor.displayName, item.actor.userId)) + "</strong></span>";
+          '<span>Rimosso da <strong>' +
+          T.esc(T.userLabel(item.actor.displayName, item.actor.userId)) +
+          "</strong></span>";
       }
       if (item.invite) {
-        html += '<span>Invite: <code>' + T.esc(item.invite) + "</code></span>";
+        html += "<span>Invite: <code>" + T.esc(item.invite) + "</code></span>";
       }
       html += '</div><div class="vc-staff-pt-card__links">';
       if (item.messageLink) {
         html +=
-          '<a class="vc-staff-profile-section__link" href="' +
+          '<a class="vc-staff-pt-card__link" href="' +
           T.esc(item.messageLink) +
-          '" target="_blank" rel="noopener noreferrer">Messaggio partnership</a>';
+          '" target="_blank" rel="noopener noreferrer"><i class="fa fa-external-link" aria-hidden="true"></i> Messaggio partnership</a>';
       }
       if (item.discordMessageUrl) {
         html +=
-          '<a class="vc-staff-profile-section__link" href="' +
+          '<a class="vc-staff-pt-card__link" href="' +
           T.esc(item.discordMessageUrl) +
-          '" target="_blank" rel="noopener noreferrer">Vai al messaggio</a>';
+          '" target="_blank" rel="noopener noreferrer"><i class="fa fa-comments-o" aria-hidden="true"></i> Vai al messaggio</a>';
       }
       html += "</div>";
       if (state.canReview && item.canReview && item.status === "pending") {
         html +=
-          '<div class="vc-staff-inbox-actions vc-staff-pt-card__actions">' +
-          '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--no" data-pt-deny="' +
+          '<div class="vc-staff-pt-card__actions">' +
+          '<button type="button" class="vc-staff-pt-btn vc-staff-pt-btn--deny" data-pt-deny="' +
           T.esc(item.messageId) +
-          '">Nega segnalazione</button>' +
-          '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--ok" data-pt-confirm="' +
+          '">Nega</button>' +
+          '<button type="button" class="vc-staff-pt-btn vc-staff-pt-btn--ok" data-pt-confirm="' +
           T.esc(item.messageId) +
           '">Conferma rimozione</button></div>';
       }

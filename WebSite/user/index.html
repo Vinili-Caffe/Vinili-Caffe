@@ -10,7 +10,7 @@
   {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
   <meta charset="utf-8" />
   <title>{{USER_PAGE_TITLE}}</title>
-    <script src="/js/vc-page-title.js?v=20260825pageTitle1"></script>
+    <script src="/js/vc-page-title.js?v=20260828pageTitle2"></script>
   <meta name="description" content="{{USER_META_DESCRIPTION}}" />
   <meta name="author" content="{{SITE_NAME}}" />
   <meta name="robots" content="index, follow" />
@@ -31,9 +31,39 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
     crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-  <link rel="stylesheet" href="../css/vc-landing.css?v=20260827userFix1" />
+  <link rel="stylesheet" href="../css/vc-landing.css?v=20260829peerNoFlash1" />
   <script>
     (function () {
+      function profileRouteEarlyAssets() {
+        try {
+          var q = new URLSearchParams(window.location.search || "");
+          var fromQuery = String(q.get("id") || q.get("userId") || "").trim();
+          var onProfile = /^\d{17,20}$/.test(fromQuery) || /^\/users?\/\d{17,20}\/?$/i.test(String(window.location.pathname || ""));
+          if (!onProfile) return;
+          var ver = "20260829peerNoFlash1";
+          if (!document.querySelector('link[data-vc-staff-prof-css="1"]')) {
+            var link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = "/css/staff-pause.css?v=" + ver;
+            link.setAttribute("data-vc-staff-prof-css", "1");
+            document.head.appendChild(link);
+          } else {
+            try {
+              document.querySelector('link[data-vc-staff-prof-css="1"]').href = "/css/staff-pause.css?v=" + ver;
+            } catch (eHref) {}
+          }
+          ["staff-profile-render.js", "staff-pm-shop-ui.js"].forEach(function (file) {
+            var attr = 'data-vc-preload-' + file;
+            if (document.querySelector("script[" + attr + "]")) return;
+            var s = document.createElement("script");
+            s.src = "/js/" + file + "?v=" + ver;
+            s.defer = true;
+            s.setAttribute(attr, "1");
+            document.head.appendChild(s);
+          });
+        } catch (eEarly) {}
+      }
+      profileRouteEarlyAssets();
       function maybeRedirectPersonalizzaPath() {
         try {
           var m = String(window.location.pathname || "").match(/^\/user\/(\d{17,20})\/personalizza\/?$/);
@@ -56,10 +86,60 @@
         } catch (e) {}
         return "";
       }
+      function readRedirectUserId() {
+        try {
+          var t = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+          var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+          if (!t || (exp && Date.now() >= exp)) return "";
+          var fp = exp + "|" + t.slice(0, 32);
+          var raw = sessionStorage.getItem("vc_discord_me_cache_v1");
+          if (raw) {
+            var o = JSON.parse(raw);
+            if (o && o.v === 1 && o.user && String(o.fp || "") === fp) {
+              var uid = String(o.user.id || "").trim();
+              if (/^\d{17,20}$/.test(uid)) return uid;
+            }
+          }
+          var uidRaw = localStorage.getItem("vc_discord_uid_v1");
+          if (uidRaw) {
+            var uo = JSON.parse(uidRaw);
+            if (uo && String(uo.fp || "") === fp && /^\d{17,20}$/.test(String(uo.uid || ""))) return String(uo.uid);
+          }
+        } catch (eUid) {}
+        return "";
+      }
+      function tryRedirectOwnProfileFromCache() {
+        try {
+          // Solo /user/?tab=staff senza id → profilo staff proprio.
+          // /user (community) NON deve mai diventare profilo automatico.
+          if (profileIdFromUrl()) return false;
+          var q = new URLSearchParams(window.location.search || "");
+          if (String(q.get("tab") || "").toLowerCase() !== "staff") return false;
+          var uid = readRedirectUserId();
+          if (!uid) return false;
+          window.location.replace("/user/?id=" + encodeURIComponent(uid) + "&tab=staff");
+          return true;
+        } catch (eRedir) {}
+        return false;
+      }
+      if (tryRedirectOwnProfileFromCache()) return;
       if (profileIdFromUrl()) {
+        document.documentElement.classList.remove("vc-page-cine-boot");
+        document.documentElement.classList.remove("vc-user-leader-pending");
         document.documentElement.classList.add("vc-user-profile-pending");
         document.documentElement.classList.add("vc-user-profile-route");
         document.documentElement.classList.add("vc-page-cine-ready");
+        try {
+          document.title = "Vinili & Caffè | Profilo";
+          var ogTitleEarly = document.querySelector('meta[property="og:title"]');
+          if (ogTitleEarly) ogTitleEarly.setAttribute("content", "Vinili & Caffè | Profilo");
+        } catch (eTitleEarly) {}
+        try {
+          document.addEventListener("DOMContentLoaded", function () {
+            var view = document.getElementById("vc-user-profile-view");
+            if (view) view.hidden = false;
+          }, { once: true });
+        } catch (eViewEarly) {}
         try {
           // Prefetch API subito (non aspetta vc-landing.js / deferred).
           var pid = profileIdFromUrl();
@@ -67,8 +147,25 @@
           try {
             apiBase = String((window.__VC_USER_LEADER && window.__VC_USER_LEADER.apiUrl) || "").trim();
           } catch (eApi) {}
-          if (!apiBase || /\{\{/.test(apiBase)) apiBase = "/webhooks/site-users";
-          var prefetchUrl = apiBase + (apiBase.indexOf("?") >= 0 ? "&" : "?") + "board=profile&userId=" + encodeURIComponent(pid);
+          if (!apiBase || apiBase === "#" || /\{\{/.test(apiBase)) apiBase = "/webhooks/site-users";
+          var prefetchUrl = apiBase + (apiBase.indexOf("?") >= 0 ? "&" : "?") + "board=profile&userId=" + encodeURIComponent(pid) + "&perPage=1";
+          var prefetchCtrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+          var prefetchTimer = window.setTimeout(function () {
+            try {
+              if (prefetchCtrl) prefetchCtrl.abort();
+            } catch (eAbort) {}
+          }, 14000);
+          function storePrefetchPayload(payload) {
+            try {
+              if (!(payload && payload.httpOk && payload.body && payload.body.ok)) return;
+              var rec = JSON.stringify({ expireAt: Date.now() + 90000, value: payload });
+              sessionStorage.setItem("vc:profilecache:" + prefetchUrl, rec);
+              localStorage.setItem(
+                "vc:profilecache-local:vc:profilecache:" + prefetchUrl,
+                JSON.stringify({ expireAt: Date.now() + 7 * 24 * 60 * 60 * 1000, value: payload }),
+              );
+            } catch (eStore) {}
+          }
           window.__VC_PROFILE_PREFETCH = {
             userId: pid,
             promise: fetch(prefetchUrl, {
@@ -76,6 +173,7 @@
               mode: "cors",
               credentials: "omit",
               cache: "no-store",
+              signal: prefetchCtrl ? prefetchCtrl.signal : undefined,
               headers: { Accept: "application/json" },
             })
               .then(function (res) {
@@ -85,13 +183,151 @@
                     return {};
                   })
                   .then(function (body) {
-                    return { httpOk: Boolean(res && res.ok), body: body || {} };
+                    var payload = { httpOk: Boolean(res && res.ok), body: body || {} };
+                    storePrefetchPayload(payload);
+                    window.__VC_PROFILE_PREFETCH_RESULT = payload;
+                    return payload;
                   });
               })
               .catch(function () {
                 return { httpOk: false, body: {} };
+              })
+              .finally(function () {
+                try {
+                  window.clearTimeout(prefetchTimer);
+                } catch (eT) {}
               }),
           };
+          try {
+            var oauthToken = "";
+            try {
+              oauthToken = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+              var oauthExp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+              if (oauthExp && Date.now() >= oauthExp) oauthToken = "";
+            } catch (eTok) {}
+            if (oauthToken) {
+              function earlyInjectStaffNav() {
+                try {
+                  if (document.querySelector('script[data-vc-staff-site-nav="1"]')) return;
+                  window.__VC_STAFF_MENU_ALLOWED = true;
+                  window.__vcStaffSiteNavRequested = true;
+                  var sn = document.createElement("script");
+                  sn.src = "/js/staff-site-nav.js?v=20260828organicoCareer1";
+                  sn.async = false;
+                  sn.setAttribute("data-vc-staff-site-nav", "1");
+                  (document.head || document.documentElement).appendChild(sn);
+                } catch (eInj) {}
+              }
+              try {
+                var menuRaw = sessionStorage.getItem("vc_menu_staff_v1");
+                var gateRaw =
+                  sessionStorage.getItem("vc_staff_access_ok_v2") ||
+                  localStorage.getItem("vc_staff_access_ok_v2_local");
+                var menuOk = false;
+                if (menuRaw) {
+                  var menuData = JSON.parse(menuRaw);
+                  var exp = String(localStorage.getItem("vc_discord_expires_at") || "");
+                  var fp = exp + "|" + String(oauthToken).slice(0, 32);
+                  menuOk = Boolean(
+                    menuData &&
+                      menuData.allowed &&
+                      String(menuData.fp || "") === fp &&
+                      Date.now() - Number(menuData.at || 0) < 300000,
+                  );
+                  if (menuOk && menuData.payload) window.__VC_STAFF_PERMS = menuData.payload;
+                }
+                var gateOk = false;
+                if (gateRaw) {
+                  var gateData = JSON.parse(gateRaw);
+                  gateOk = Boolean(gateData && gateData.ok === true && Number(gateData.exp || 0) > Date.now());
+                }
+                if (menuOk || gateOk) earlyInjectStaffNav();
+              } catch (eCacheNav) {}
+              var staffApi = "/webhooks/site-staff-profile";
+              var staffUrl =
+                staffApi + (staffApi.indexOf("?") >= 0 ? "&" : "?") + "userId=" + encodeURIComponent(pid);
+              window.__VC_STAFF_PROFILE_PREFETCH = {
+                userId: pid,
+                promise: fetch(staffUrl, {
+                  method: "GET",
+                  mode: "cors",
+                  credentials: "omit",
+                  cache: "no-store",
+                  headers: { Authorization: "Bearer " + oauthToken, Accept: "application/json" },
+                })
+                  .then(function (res) {
+                    return res
+                      .json()
+                      .catch(function () {
+                        return {};
+                      })
+                      .then(function (body) {
+                        var out = { res: res, data: body || {} };
+                        try {
+                          if (out.res && out.res.ok && out.data && out.data.ok) {
+                            window.__VC_STAFF_PROFILE_PREFETCH_RESULT = { userId: pid, out: out };
+                            try {
+                              sessionStorage.setItem(
+                                "vc_staff_prof_cache_v1",
+                                JSON.stringify({ userId: String(pid), at: Date.now(), data: out.data }),
+                              );
+                            } catch (eSess) {}
+                          }
+                        } catch (eStore) {}
+                        return out;
+                      });
+                  })
+                  .catch(function () {
+                    return { res: { ok: false, status: 0 }, data: {} };
+                  }),
+              };
+              window.__VC_STAFF_ACCESS_PREFETCH = fetch("/webhooks/site-staff-access", {
+                method: "GET",
+                mode: "cors",
+                credentials: "omit",
+                cache: "no-store",
+                headers: { Authorization: "Bearer " + oauthToken, Accept: "application/json" },
+              })
+                .then(function (res) {
+                  return res
+                    .json()
+                    .catch(function () {
+                      return {};
+                    })
+                    .then(function (body) {
+                      if (res && res.ok && body && body.ok) {
+                        try {
+                          window.__VC_STAFF_PERMS = body;
+                          window.__VC_STAFF_MENU_ALLOWED = true;
+                          earlyInjectStaffNav();
+                          try {
+                            sessionStorage.setItem(
+                              "vc_menu_staff_v1",
+                              JSON.stringify({
+                                allowed: true,
+                                payload: body,
+                                fp:
+                                  String(localStorage.getItem("vc_discord_expires_at") || "") +
+                                  "|" +
+                                  String(oauthToken).slice(0, 32),
+                                at: Date.now(),
+                              }),
+                            );
+                          } catch (eWrite) {}
+                        } catch (ePerm) {}
+                      }
+                      return body;
+                    });
+                })
+                .catch(function () {
+                  return null;
+                });
+            }
+            var qTab = new URLSearchParams(window.location.search || "");
+            if (String(qTab.get("tab") || "").toLowerCase() === "staff" && oauthToken) {
+              document.documentElement.classList.add("vc-user-profile-staff-tab-pending");
+            }
+          } catch (eStaffPrefetch) {}
         } catch (ePrefetch) {}
         try {
           document.addEventListener("DOMContentLoaded", function () {
@@ -104,7 +340,7 @@
         } catch (eDom) {}
         // Failsafe indipendente dallo script esterno (solo se il boot resta bloccato davvero).
         try {
-          var failMs = 72000;
+          var failMs = 16000;
           window.setTimeout(function () {
             try {
               var root = document.documentElement;
@@ -138,6 +374,84 @@
       } else {
         document.documentElement.classList.add("vc-user-leader-pending");
         document.documentElement.classList.add("vc-page-cine-boot");
+        try {
+          // Prefetch classifica subito (non aspetta user-leader-page.js deferred).
+          var apiBaseLb = "";
+          try {
+            apiBaseLb = String((window.__VC_USER_LEADER && window.__VC_USER_LEADER.apiUrl) || "").trim();
+          } catch (eApiLb) {}
+          if (!apiBaseLb || apiBaseLb === "#" || /\{\{/.test(apiBaseLb)) apiBaseLb = "/webhooks/site-users";
+          var perPageLb = 9;
+          try {
+            if (window.VcPerf && typeof window.VcPerf.leaderboardPerPage === "function") {
+              perPageLb = window.VcPerf.leaderboardPerPage(9);
+            }
+          } catch (ePerfLb) {}
+          var prefetchUrlLb =
+            apiBaseLb +
+            (apiBaseLb.indexOf("?") >= 0 ? "&" : "?") +
+            "page=1&perPage=" +
+            encodeURIComponent(String(perPageLb)) +
+            "&board=level";
+          try {
+            if (window.VcPerf && typeof window.VcPerf.apiQuery === "function") {
+              var pqLb = window.VcPerf.apiQuery({});
+              if (pqLb.lite) prefetchUrlLb += "&lite=1";
+              if (pqLb.perf) prefetchUrlLb += "&perf=" + encodeURIComponent(String(pqLb.perf));
+            }
+          } catch (ePq) {}
+          var prefetchCtrlLb = typeof AbortController !== "undefined" ? new AbortController() : null;
+          var prefetchTimerLb = window.setTimeout(function () {
+            try {
+              if (prefetchCtrlLb) prefetchCtrlLb.abort();
+            } catch (eAbortLb) {}
+          }, 22000);
+          function storeLeaderPrefetch(payload) {
+            try {
+              if (!(payload && payload.ok && payload.body && payload.body.ok)) return;
+              var rec = JSON.stringify({
+                expireAt: Date.now() + 60000,
+                staleUntil: Date.now() + 10 * 60 * 1000,
+                value: payload,
+              });
+              sessionStorage.setItem("vc:userscache:" + prefetchUrlLb, rec);
+            } catch (eStoreLb) {}
+          }
+          window.__VC_LEADER_PREFETCH = {
+            url: prefetchUrlLb,
+            board: "level",
+            page: 1,
+            promise: fetch(prefetchUrlLb, {
+              method: "GET",
+              mode: "cors",
+              credentials: "omit",
+              cache: "no-store",
+              signal: prefetchCtrlLb ? prefetchCtrlLb.signal : undefined,
+              headers: { Accept: "application/json" },
+            })
+              .then(function (res) {
+                return res
+                  .json()
+                  .catch(function () {
+                    return {};
+                  })
+                  .then(function (body) {
+                    var payload = { ok: Boolean(res && res.ok), status: res ? res.status : 0, body: body || {} };
+                    storeLeaderPrefetch(payload);
+                    window.__VC_LEADER_PREFETCH_RESULT = payload;
+                    return payload;
+                  });
+              })
+              .catch(function () {
+                return { ok: false, status: 0, body: {} };
+              })
+              .finally(function () {
+                try {
+                  window.clearTimeout(prefetchTimerLb);
+                } catch (eTLb) {}
+              }),
+          };
+        } catch (eLbPref) {}
       }
     })();
   </script>
@@ -151,6 +465,13 @@
     html.vc-user-profile-pending #vc-user-profile-view,
     html.vc-user-profile-pending #vc-user-profile-view[hidden] {
       display: block !important;
+    }
+
+    html.vc-user-profile-pending #vc-ul-loading,
+    html.vc-user-profile-pending #vc-ul-loading[hidden] {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
     }
 
     html.vc-user-profile-pending .vc-user-profile-boot,
@@ -495,24 +816,82 @@
       aria-label="Paginazione classifica" hidden></nav>
   </main>
 
-  <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
-    <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
-      <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
-{{FOOTER_SOCIAL_LEFT}}
-        <a
-          class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-          href="{{SITE_URL}}">{{SITE_NAME}}</a>
-{{FOOTER_SOCIAL_RIGHT}}
+  <footer class="vc-premium-footer" aria-label="Footer" data-i18n-attr="aria-label:footer.aria">
+    <div class="vc-premium-footer__card">
+      <div class="vc-premium-footer__outer">
+        <div class="vc-premium-footer__inner">
+          <div class="vc-premium-footer__grid">
+            <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
+              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}">
+                <span class="vc-premium-footer__logo" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                    <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="vc-premium-footer__wordmark">{{SITE_NAME}}</span>
+              </a>
+              <p class="vc-premium-footer__desc" data-i18n="footer.desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+              <div class="vc-premium-footer__socials" aria-label="Social" data-i18n-attr="aria-label:footer.social">
+                <a class="vc-premium-footer__social" href="{{INSTAGRAM_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 5.4A17 17 0 0 0 15.2 4l-.2.4a13 13 0 0 1 3.2 1.6 10.8 10.8 0 0 0-4-1.2 11.2 11.2 0 0 0-4.4.2A10.8 10.8 0 0 0 5.8 6a13 13 0 0 1 3.3-1.6L8.9 4a17 17 0 0 0-4.4 1.4C1.8 9.4 1 13.3 1.4 17.2A17 17 0 0 0 6.6 20l1.1-1.5c-.6-.2-1.2-.5-1.8-.9l.4-.3c3.4 1.6 7.2 1.6 10.6 0l.4.3c-.6.4-1.2.7-1.8.9l1.1 1.5a17 17 0 0 0 5.2-2.8c.5-4.5-.8-8.4-2.3-11.8ZM8.8 15.1c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="{{TIKTOK_URL}}" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4v9.1a4.4 4.4 0 1 1-4.4-4.4c.35 0 .7.04 1.03.12v2.55a1.9 1.9 0 1 0 1.03 1.68V4h2.34Zm0 0c.4 2.15 1.74 3.43 3.7 3.84v2.42c-1.52-.08-2.8-.56-3.7-1.36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+              </div>
+            </section>
+            <nav class="vc-premium-footer__col" aria-label="Community" data-i18n-attr="aria-label:footer.community">
+              <h4 data-i18n="footer.community">Community</h4>
+              <ul>
+                <li><a href="{{SITE_URL}}" data-i18n="footer.home">Home</a></li>
+                <li><a href="{{USER_PAGE_URL}}" data-i18n="footer.users">Users</a></li>
+                <li><a href="{{RUOLI_PAGE_URL}}" data-i18n="footer.roles">Ruoli</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Scopri" data-i18n-attr="aria-label:footer.discover">
+              <h4 data-i18n="footer.discover">Scopri</h4>
+              <ul>
+                <li><a href="{{WIKI_URL}}" data-i18n="footer.wiki">Wiki</a></li>
+                <li><a href="{{COMMUNITY_RULES_URL}}" data-i18n="footer.rules">Regole</a></li>
+                <li><a href="{{FAQ_URL}}" data-i18n="footer.faq">FAQ</a></li>
+                <li><a href="{{SPONSOR_URL}}" data-i18n="footer.sponsor">Sponsor</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Supporta" data-i18n-attr="aria-label:footer.support">
+              <h4 data-i18n="footer.support">Supporta</h4>
+              <ul>
+                <li><a href="{{PERKS_URL}}" data-i18n="footer.perks">Perks</a></li>
+                <li><a href="{{VOTE_URL}}" data-i18n="footer.vote">Vota</a></li>
+                <li><a href="{{REVIEWS_PAGE_URL}}" data-i18n="footer.reviews">Recensioni</a></li>
+                <li><a href="{{DONATIONS_URL}}" data-i18n="footer.donations">Donazioni</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Richieste" data-i18n-attr="aria-label:footer.requests">
+              <h4 data-i18n="footer.requests">Richieste</h4>
+              <ul>
+                <li><a href="{{RICHIESTE_UNBAN_URL}}" data-i18n="footer.appeals">Appelli</a></li>
+                <li><a href="{{RICHIESTE_CANDIDATURE_URL}}" data-i18n="footer.applications">Candidature</a></li>
+                <li><a href="{{RICHIESTE_SUGGERIMENTI_URL}}" data-i18n="footer.suggestions">Suggerimenti</a></li>
+                <li><a href="{{TICKETS_PAGE_URL}}" data-i18n="footer.tickets">Tickets</a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+        <div class="vc-premium-footer__legal">
+          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+          <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+            <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
+            <span aria-hidden="true"></span>
+            <a href="{{PRIVACY_URL}}" data-i18n="footer.privacy">Privacy Policy</a>
+            <span aria-hidden="true"></span>
+            <a href="{{COOKIE_POLICY_URL}}" data-i18n="footer.cookies">Cookie Policy</a>
+          </nav>
+        </div>
       </div>
-      <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
-        <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
-        <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
-        <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
-      </nav>
-      <p class="max-w-xl text-sm leading-relaxed text-slate-400">
-        © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
-        <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
-      </p>
     </div>
   </footer>
 
@@ -535,17 +914,59 @@
       apiUrl: "/webhooks/site-custom-profile",
       apiUrlLocal: "",
     };
+    window.__VC_STAFF_PROFILE = {
+      apiUrl: "{{STAFF_PROFILE_API_URL}}",
+      apiUrlLocal: "{{STAFF_PROFILE_API_URL_LOCAL}}",
+    };
+    window.__VC_STAFF_SERATAFILM = {
+      apiUrl: "/webhooks/site-staff-seratafilm",
+      apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-staff-seratafilm",
+    };
+    window.__VC_STAFF_PM_SHOP = {
+      apiUrl: "{{STAFF_PM_SHOP_API_URL}}",
+      apiUrlLocal: "{{STAFF_PM_SHOP_API_URL_LOCAL}}",
+    };
+    window.__VC_STAFF_ACCESS = {
+      apiUrl: "{{STAFF_ACCESS_API_URL}}",
+      apiUrlLocal: "{{STAFF_ACCESS_API_URL_LOCAL}}",
+    };
+    window.__VC_STAFF_MANAGE = {
+      apiUrl: "{{STAFF_MANAGE_API_URL}}",
+      apiUrlLocal: "{{STAFF_MANAGE_API_URL_LOCAL}}",
+    };
+    window.__VC_STAFF_PM_ACTIONS = {
+      apiUrl: "/webhooks/site-staff-pm-actions",
+      apiUrlLocal: "",
+    };
+    window.__VC_STAFF_VALTRADE = {
+      apiUrl: "/webhooks/site-staff-valtrade",
+      apiUrlLocal: "",
+    };
   </script>
-  <script src="../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}" defer></script>
+  <script src="../js/staff-manage-modal.js?v=20260829pmPexLbl1" defer></script>
+  <script src="../js/discord-auth.js?v=20260828organicoCareer1" defer></script>
   <script src="../js/vc-mini-pager.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-  <script src="../js/user-profile-page.js?v=20260823userProfFast1" defer></script>
+    <script src="../js/staff-profile-render.js?v=20260829pmPexLbl1" defer></script>
+  <script src="../js/user-profile-staff-tab.js?v=20260829peerNoFlash1" defer></script>
+  <script src="../js/user-profile-page.js?v=20260829peerNoFlash1" defer></script>
   <script>
     (function () {
+      function profileIdFromUrlNow() {
+        try {
+          var q = new URLSearchParams(window.location.search || "");
+          var fromQuery = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+          if (/^\d{17,20}$/.test(fromQuery)) return fromQuery;
+          var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
+          if (m) return m[1];
+        } catch (e) {}
+        return "";
+      }
       try {
+        if (profileIdFromUrlNow()) return;
         if (document.documentElement.classList.contains("vc-user-profile-route")) return;
       } catch (e) {}
       var s = document.createElement("script");
-      s.src = "../js/user-leader-page.js?v={{BUILD_ASSET_VERSION}}";
+      s.src = "../js/user-leader-page.js?v=20260829leaderFast1";
       s.defer = true;
       document.body.appendChild(s);
     })();

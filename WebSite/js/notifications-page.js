@@ -918,6 +918,83 @@
     saveStored(merged);
     return beforeSig !== buildNotifyPageSignature(merged, filteredRows(merged).length);
   }
+  function readCachedDiscordUser(token) {
+    if (!token) return null;
+    try {
+      var raw = sessionStorage.getItem("vc_discord_me_cache_v1");
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      if (!o || !o.user || !normalizeUserId(o.user.id)) return null;
+      var age = Date.now() - Number(o.at || 0);
+      if (!Number.isFinite(age) || age < 0 || age > 180000) return null;
+      var fp = String(o.fp || "");
+      var tokPart = String(token).slice(0, 32);
+      if (!fp || fp.indexOf(tokPart) < 0) return null;
+      return o.user;
+    } catch (eCache) {
+      return null;
+    }
+  }
+
+  function resolveCurrentUserEarly() {
+    if (window.__VC_DISCORD_PROFILE && normalizeUserId(window.__VC_DISCORD_PROFILE.id)) {
+      setCurrentUser(window.__VC_DISCORD_PROFILE);
+      return Boolean(currentUserId);
+    }
+    var token = getDiscordAccessToken();
+    var cached = readCachedDiscordUser(token);
+    if (cached) {
+      setCurrentUser(cached);
+      return Boolean(currentUserId);
+    }
+    return Boolean(currentUserId);
+  }
+
+  function waitForNotifSession(maxMs) {
+    var cap = Number(maxMs);
+    if (!Number.isFinite(cap) || cap <= 0) cap = 3600;
+    return new Promise(function (resolve) {
+      if (resolveCurrentUserEarly() && getDiscordAccessToken()) {
+        resolve(true);
+        return;
+      }
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        window.removeEventListener("vc-discord-profile", onProfile);
+        resolve(Boolean(getDiscordAccessToken() && resolveCurrentUserEarly()));
+      }
+      function onProfile(ev) {
+        setCurrentUser(ev && ev.detail ? ev.detail.user : null);
+        finish();
+      }
+      window.addEventListener("vc-discord-profile", onProfile);
+      (function poll() {
+        if (done) return;
+        if (getDiscordAccessToken() && resolveCurrentUserEarly()) {
+          finish();
+          return;
+        }
+        cap -= 120;
+        if (cap <= 0) {
+          finish();
+          return;
+        }
+        window.setTimeout(poll, 120);
+      })();
+    });
+  }
+
+  function bootNotifList() {
+    resolveCurrentUserEarly();
+    renderList();
+    waitForNotifSession().then(function (ok) {
+      if (!ok) return;
+      syncSiteNotificationsFromServer();
+    });
+  }
+
   function syncSiteNotificationsFromServer() {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
@@ -1115,7 +1192,8 @@
   }
 
   function init() {
-    setCurrentUser(window.__VC_DISCORD_PROFILE || null);
+    resolveCurrentUserEarly();
+    setCurrentUser(window.__VC_DISCORD_PROFILE || (currentUserId ? { id: currentUserId } : null));
     var allBtn = byId("vc-filter-all");
     var unreadBtn = byId("vc-filter-unread");
     var filteredBtn = byId("vc-filter-filtered");
@@ -1162,8 +1240,7 @@
     }
 
     flushPendingLoginNotification();
-    syncSiteNotificationsFromServer();
-    renderList();
+    bootNotifList();
     initNotifPrefs();
   }
 

@@ -18,8 +18,13 @@ const {
   runProfileStaffWarnAdd,
   runProfileStaffWarnRemove,
   runProspectStaffPex,
+  runProspectStaffPexToPartnerManager,
   getHighestLadderRole,
+  getNextLadderRoleId,
+  peekDepexLadderTargetRoleId,
 } = require("../Staff/staffPanelActions");
+const { viewerIsFounder } = require("../Staff/staffProfilePanelRuntime");
+const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
 const {
   runValutazionePositiveAddForPanel,
   runValutazioneNegativeAddForPanel,
@@ -38,7 +43,7 @@ const {
 const {
   memberIsResocontoPmReviewer,
 } = require("../Ticket/ticketPartnershipStaffRoles");
-const { buildStaffTrackTimeline } = require("../Staff/staffTrackHistory");
+const { buildStaffTrackTimeline, isHiddenManualStaffCareerReason } = require("../Staff/staffTrackHistory");
 const {
   getTodayUtc,
   getCurrentYearBoundsUtc,
@@ -60,6 +65,13 @@ const { loadStaffTrackStatsByUserIds } = require("../Staff/staffLegacyMerge");
 
 const MANAGE_ACTIONS = new Set([
   "pex",
+  "pex_pm",
+  "pex_helper",
+  "pex_mod",
+  "pex_senior_moderator",
+  "pex_director",
+  "pex_admin",
+  "pex_manager",
   "depex",
   "depex_pm",
   "depex_full",
@@ -75,7 +87,32 @@ const MANAGE_ACTIONS = new Set([
 ]);
 
 const PAUSE_MANAGE_ACTIONS = new Set(["pause_accept", "pause_reject", "pause_cancel"]);
-const PM_GESTORE_MANAGE_ACTIONS = new Set(["pex", "depex_pm", "pause_accept", "pause_reject", "pause_cancel"]);
+const PM_GESTORE_MANAGE_ACTIONS = new Set([
+  "pex",
+  "pex_pm",
+  "pex_helper",
+  "depex_pm",
+  "pause_accept",
+  "pause_reject",
+  "pause_cancel",
+]);
+
+const FOUNDER_ONLY_PROSPECT_PEX = new Set([
+  "pex_mod",
+  "pex_senior_moderator",
+  "pex_director",
+  "pex_admin",
+  "pex_manager",
+]);
+
+const PROSPECT_PEX_ROLE_BY_ACTION = {
+  pex_helper: () => IDs.roles?.Helper,
+  pex_mod: () => IDs.roles?.Mod,
+  pex_senior_moderator: () => IDs.roles?.SeniorModerator,
+  pex_director: () => IDs.roles?.Director,
+  pex_admin: () => IDs.roles?.Admin,
+  pex_manager: () => IDs.roles?.Manager,
+};
 
 function cleanActionMessage(msg) {
   return stripDiscordDecorations(msg) || "Operazione non riuscita.";
@@ -211,15 +248,111 @@ async function collectRecentPartnerActionsForUser(guildId, userId, limit = 16) {
   return items.slice(0, limit).map((item, idx) => serializeOnePartnerAction(item.action, idx + 1));
 }
 
+function normalizeCareerRoleToken(value) {
+  let s = stripDiscordDecorations(String(value || ""))
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  if (!s) return "";
+  if (/^\d{16,22}$/.test(s)) {
+    const roles = IDs.roles || {};
+    for (const [key, val] of Object.entries(roles)) {
+      if (String(val) === s) {
+        s = humanizeRoleKey(key).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        break;
+      }
+    }
+  }
+  const aliases = {
+    mod: "moderator",
+    mods: "moderator",
+    moderator: "moderator",
+    "senior moderator": "senior moderator",
+    "sr moderator": "senior moderator",
+    srmod: "senior moderator",
+    "senior mod": "senior moderator",
+    helper: "helper",
+    "trial helper": "helper",
+    "partner manager": "partner manager",
+    pm: "partner manager",
+    director: "director",
+    admin: "admin",
+    manager: "manager",
+    founder: "founder",
+    member: "member",
+  };
+  if (aliases[s]) return aliases[s];
+  if (s.endsWith("s") && aliases[s.slice(0, -1)]) return aliases[s.slice(0, -1)];
+  return s;
+}
+
+function careerDayKey(iso) {
+  if (!iso) return "";
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Rome",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
+
+function preferCareerManageRow(a, b) {
+  const aLen = String(a?.to || "").length + String(a?.from || "").length;
+  const bLen = String(b?.to || "").length + String(b?.from || "").length;
+  if (bLen !== aLen) return bLen > aLen ? b : a;
+  return a;
+}
+
+function dedupeCareerManageRows(rows) {
+  const out = [];
+  const seen = new Map();
+  for (const row of rows) {
+    const day = careerDayKey(row?.date);
+    const from = normalizeCareerRoleToken(row?.from);
+    const to = normalizeCareerRoleToken(row?.to);
+    const reason = stripDiscordDecorations(row?.reason || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+    const key = `${day}|${from}|${to}|${reason}`;
+    if (!from && !to) {
+      out.push(row);
+      continue;
+    }
+    if (seen.has(key)) {
+      const idx = seen.get(key);
+      out[idx] = preferCareerManageRow(out[idx], row);
+      continue;
+    }
+    const softKey = `${day}|*|${to}|${reason}`;
+    if (to && reason && seen.has(softKey)) {
+      const idx = seen.get(softKey);
+      out[idx] = preferCareerManageRow(out[idx], row);
+      continue;
+    }
+    seen.set(key, out.length);
+    if (to && reason) seen.set(softKey, out.length);
+    out.push(row);
+  }
+  return out;
+}
+
 function serializeRolesHistory(guild, hist, limit = 12) {
   if (!Array.isArray(hist) || !hist.length) return [];
-  const out = [];
-  for (let i = hist.length - 1; i >= 0 && out.length < limit; i -= 1) {
+  const mapped = [];
+  for (let i = hist.length - 1; i >= 0; i -= 1) {
     const row = hist[i];
     if (!row) continue;
+    if (isHiddenManualStaffCareerReason(row.reason)) continue;
     const oldName = roleNameFromId(guild, row.oldRole);
     const newName = roleNameFromId(guild, row.newRole);
-    out.push({
+    mapped.push({
       from: oldName,
       to: newName,
       reason: stripDiscordDecorations(row.reason || "") || null,
@@ -229,7 +362,7 @@ function serializeRolesHistory(guild, hist, limit = 12) {
       actorName: String(row.actorName || "").trim() || null,
     });
   }
-  return out;
+  return dedupeCareerManageRows(mapped).slice(0, limit);
 }
 
 async function buildRoster(client) {
@@ -359,6 +492,23 @@ async function buildMemberDetail(guild, targetMember, pausedSet) {
   const ladderRole = ladderRoleId ? guild.roles.cache.get(ladderRoleId) : null;
   const profileKind = resolveStaffProfileKind(targetMember);
   const isPmOnly = profileKind === "pm_only";
+  const roleName = (roleId) => {
+    const id = String(roleId || "").trim();
+    if (!id) return null;
+    const role = guild.roles.cache.get(id);
+    const raw = role ? stripDiscordDecorations(role.name) || role.name : null;
+    return raw || null;
+  };
+  let pexTargetRoleId = null;
+  if (ladderRoleId) pexTargetRoleId = getNextLadderRoleId(ladderRoleId);
+  else if (isPmOnly && memberIsPm(targetMember)) pexTargetRoleId = IDs.roles?.Helper || null;
+  const depexTargetRoleId = ladderRoleId ? peekDepexLadderTargetRoleId(ladderRoleId) : null;
+  const memberRoleLabel = roleName(IDs.roles?.Member) || "Member";
+  const pexTargetLabel = roleName(pexTargetRoleId) || (pexTargetRoleId ? "Ruolo nuovo" : null);
+  const depexTargetLabel =
+    depexTargetRoleId === "" || depexTargetRoleId === String(IDs.roles?.Member || "")
+      ? memberRoleLabel
+      : roleName(depexTargetRoleId) || (depexTargetRoleId != null ? memberRoleLabel : null);
 
   let partnerPointsSpendable = Math.max(0, Math.floor(Number(resolvePartnerPointsShown(staff) || 0)));
   let partnerPointsEarned = Math.max(
@@ -392,10 +542,20 @@ async function buildMemberDetail(guild, targetMember, pausedSet) {
     onPause: Boolean(pausedSet?.has?.(uid)),
     ladderRoleId,
     ladderRoleLabel: ladderRole ? stripDiscordDecorations(ladderRole.name) || ladderRole.name : null,
-    canPex: Boolean(ladderRoleId),
+    pexTargetRoleId: pexTargetRoleId || null,
+    pexTargetLabel,
+    depexTargetRoleId:
+      depexTargetRoleId === ""
+        ? String(IDs.roles?.Member || "") || null
+        : depexTargetRoleId || null,
+    depexTargetLabel,
+    memberRoleLabel,
+    canPex: Boolean(ladderRoleId && pexTargetRoleId),
     canPexProspect: isPmOnly && memberIsPm(targetMember),
+    canPexPm: !memberIsPm(targetMember),
     canDepexLadder: Boolean(ladderRoleId),
     canDepexPm: memberIsPm(targetMember),
+    canDepexFull: Boolean(ladderRoleId) || memberIsPm(targetMember) || memberHasStaffRole(targetMember),
     valutazioni: {
       positive: Math.max(0, Math.floor(Number(staff.positiveCount || 0))),
       negative: Math.max(0, Math.floor(Number(staff.negativeCount || 0))),
@@ -631,7 +791,11 @@ async function handleSiteStaffManagePost(client, req, res) {
         message: "Come gestore PM puoi gestire solo i Partner Manager.",
       });
     }
-    if (!memberHasStaffRole(targetMember) && !memberIsPm(targetMember) && action !== "pex") {
+    const isProspectPexAction =
+      action === "pex" ||
+      action === "pex_pm" ||
+      Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action);
+    if (!memberHasStaffRole(targetMember) && !memberIsPm(targetMember) && !isProspectPexAction) {
       return res.status(400).json({
         ok: false,
         error: "not_staff",
@@ -646,15 +810,6 @@ async function handleSiteStaffManagePost(client, req, res) {
     if (action === "pex") {
       if (getHighestLadderRole(targetMember)) {
         result = await runProfileStaffPex(guild, client, targetUser, actorUser, reason);
-      } else if (memberIsPm(targetMember)) {
-        result = await runProspectStaffPex(
-          guild,
-          client,
-          targetUser,
-          actorUser,
-          reason,
-          String(IDs.roles?.Helper || ""),
-        );
       } else {
         result = await runProspectStaffPex(
           guild,
@@ -664,6 +819,29 @@ async function handleSiteStaffManagePost(client, req, res) {
           reason,
           String(IDs.roles?.Helper || ""),
         );
+      }
+    } else if (action === "pex_pm") {
+      result = await runProspectStaffPexToPartnerManager(guild, client, targetUser, actorUser, reason);
+    } else if (Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action)) {
+      if (FOUNDER_ONLY_PROSPECT_PEX.has(action) && !viewerIsFounder(access.member)) {
+        return res.status(403).json({
+          ok: false,
+          error: "forbidden",
+          message: "Solo i Founder possono pexare direttamente a questo ruolo.",
+        });
+      }
+      const roleId = String(PROSPECT_PEX_ROLE_BY_ACTION[action]() || "").trim();
+      if (!roleId) {
+        return res.status(500).json({
+          ok: false,
+          error: "role_missing",
+          message: "Ruolo non configurato.",
+        });
+      }
+      if (getHighestLadderRole(targetMember)) {
+        result = await runProfileStaffPex(guild, client, targetUser, actorUser, reason);
+      } else {
+        result = await runProspectStaffPex(guild, client, targetUser, actorUser, reason, roleId);
       }
     } else if (action === "depex") {
       result = await runProfileStaffDepex(guild, client, targetUser, actorUser, reason, "ladder");
@@ -684,12 +862,19 @@ async function handleSiteStaffManagePost(client, req, res) {
         reason || `Rimozione val + #${removeId} dal sito`,
       );
     } else if (action === "val_neg_rm") {
+      const tradeRawNeg = Math.floor(Number(body.positiveTradeCount || body.tradePos || 0));
+      const positiveTradeCountNeg =
+        Number.isFinite(tradeRawNeg) && tradeRawNeg > 0 ? tradeRawNeg : 0;
       result = await runValutazioneNegativeRemoveForPanel(
         guild,
         access.member,
         targetUser,
         removeId,
-        reason || `Rimozione val − #${removeId} dal sito`,
+        reason ||
+          (positiveTradeCountNeg
+            ? `Scambio ${positiveTradeCountNeg} valutazioni positive → rimozione negativa #${removeId}`
+            : `Rimozione val − #${removeId} dal sito`),
+        { positiveTradeCount: positiveTradeCountNeg },
       );
     } else if (action === "warn_add") {
       result = await runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reason);
@@ -745,8 +930,17 @@ async function handleSiteStaffManagePost(client, req, res) {
       });
     }
 
-    if (action === "pex" || action.startsWith("depex") || PAUSE_MANAGE_ACTIONS.has(action)) {
+    if (
+      action === "pex" ||
+      action === "pex_pm" ||
+      Object.prototype.hasOwnProperty.call(PROSPECT_PEX_ROLE_BY_ACTION, action) ||
+      action.startsWith("depex") ||
+      PAUSE_MANAGE_ACTIONS.has(action)
+    ) {
       invalidateStaffRosterCache();
+      try {
+        clearStaffProfileCacheForUser(targetId);
+      } catch (_) {}
     }
 
     const paused = await getStaffListPausedUserIds(guildId);

@@ -8,7 +8,7 @@ const HOGWARTS_HOUSE_POINT_PERIODS = Object.freeze([
   { key: "2026-07-13_2026-07-26", start: "2026-07-13", end: "2026-07-26", label: "4° anno", rangeLabel: "13 – 26 luglio 2026" },
   { key: "2026-07-27_2026-08-09", start: "2026-07-27", end: "2026-08-09", label: "5° anno", rangeLabel: "27 luglio – 9 agosto 2026" },
   { key: "2026-08-10_2026-08-23", start: "2026-08-10", end: "2026-08-23", label: "6° anno", rangeLabel: "10 – 23 agosto 2026" },
-  { key: "2026-08-24_2026-08-31", start: "2026-08-24", end: "2026-08-31", label: "7° anno", rangeLabel: "24 – 31 agosto 2026" },
+  { key: "2026-08-24_2026-08-30", start: "2026-08-24", end: "2026-08-30", label: "7° anno", rangeLabel: "24 – 30 agosto 2026" },
 ]);
 const PERIOD_END_DATES = new Set(HOGWARTS_HOUSE_POINT_PERIODS.map((p) => p.end));
 

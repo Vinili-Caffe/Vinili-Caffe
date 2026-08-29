@@ -12,6 +12,9 @@ const {
   MS_PER_DAY,
   getMemberPauseRoleChoices,
   normalizePauseRoleChoice,
+  formatPauseRoleLabelForMessage,
+  getMemberRoleLabel,
+  getPauseStatusLabel,
   PAUSE_ROLE_STAFF,
   PAUSE_ROLE_PM,
   PAUSE_ROLE_BOTH,
@@ -96,9 +99,17 @@ function stripDiscordDecorations(text) {
     .trim();
 }
 
-function roleChoiceLabel(choice) {
+function roleChoiceLabel(choice, member) {
   if (choice === PAUSE_ROLE_PM) return "Partner Manager";
   if (choice === PAUSE_ROLE_BOTH) return "Entrambi";
+  try {
+    const labeled = formatPauseRoleLabelForMessage(member?.guild || null, PAUSE_ROLE_STAFF, member);
+    if (labeled && !/^(staff)$/i.test(String(labeled).trim())) return labeled;
+  } catch (_) {}
+  try {
+    const ranked = getMemberRoleLabel(member);
+    if (ranked && !/^(staff)$/i.test(String(ranked).trim())) return ranked;
+  } catch (_) {}
   return "Staff";
 }
 
@@ -109,7 +120,7 @@ function buildRequestMeta(member) {
     canRequest,
     roleChoices: roleChoices.map((value) => ({
       value,
-      label: roleChoiceLabel(value),
+      label: roleChoiceLabel(value, member),
     })),
     needsRolePick: roleChoices.length > 1,
     minStartIso: tomorrowIsoUtc(),
@@ -192,9 +203,30 @@ function serializePause(doc, pause, guild, today, identityMap = null) {
   const identity = resolveMemberDisplay(guild, userId, identityMap);
   const startRaw = String(pause?.dataRichiesta || "").trim();
   const endRaw = String(pause?.dataRitorno || "").trim();
-  const phase = getPausePhase(startRaw, endRaw, today);
   const status = String(pause?.status || "").trim() || "pending";
-  const dayKeys = expandPauseDayKeys(startRaw, endRaw);
+  const cancelled = status === "cancelled" || status === "canceled";
+  const phase = cancelled ? "cancelled" : getPausePhase(startRaw, endRaw, today);
+  const dayKeys = cancelled ? [] : expandPauseDayKeys(startRaw, endRaw);
+  const member = guild?.members?.cache?.get?.(userId) || null;
+  const trackRaw = String(pause?.ruolo || pause?.ruoloRichiesto || "").trim();
+  let ruoloLabel = "";
+  try {
+    ruoloLabel = formatPauseRoleLabelForMessage(guild, trackRaw || PAUSE_ROLE_STAFF, member);
+  } catch (_) {
+    ruoloLabel = "";
+  }
+  if (!ruoloLabel || /^(staff)$/i.test(ruoloLabel)) {
+    try {
+      ruoloLabel = getMemberRoleLabel(member) || trackRaw || "Staff";
+    } catch (_) {
+      ruoloLabel = trackRaw || "Staff";
+    }
+  }
+  ruoloLabel = String(ruoloLabel || "")
+    .replace(/<a?:[^:]+:\d+>/gi, "")
+    .replace(/^[\s༄✦✧★☆◆◇•·❖✵]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
   return {
     id: String(pause?._id || ""),
     userId,
@@ -207,9 +239,12 @@ function serializePause(doc, pause, guild, today, identityMap = null) {
     endIso: toIsoDay(parseItalianDate(endRaw)),
     dayKeys,
     motivazione: String(pause?.motivazione || "").trim(),
-    ruolo: String(pause?.ruolo || pause?.ruoloRichiesto || "").trim(),
+    ruolo: ruoloLabel || trackRaw || "Staff",
+    ruoloTrack: trackRaw || null,
     status,
+    statusLabel: cancelled ? "Annullata" : getPauseStatusLabel(pause, today),
     phase,
+    cancelled,
   };
 }
 
@@ -348,7 +383,7 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
 
   const [docs, workflowDocs] = await Promise.all([
     ActivityUserProfile.find(
-      { guildId, "staff.pauses.status": "accepted" },
+      { guildId, "staff.pauses.status": { $in: ["accepted", "cancelled"] } },
       { userId: 1, "staff.pauses": 1 },
     )
       .lean()
@@ -375,8 +410,11 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
 
   for (const doc of docs || []) {
     const all = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
-    const accepted = all.filter((p) => p && String(p.status || "") === "accepted");
-    const inMonth = filterPausesByMonth(accepted, y, m);
+    const kept = all.filter((p) => {
+      const s = String(p?.status || "");
+      return s === "accepted" || s === "cancelled";
+    });
+    const inMonth = filterPausesByMonth(kept, y, m);
     for (const pause of inMonth) {
       const key = `${String(doc.userId || "")}:${String(pause?._id || "")}`;
       if (seenPauseKeys.has(key)) continue;
@@ -438,6 +476,9 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
     .filter(({ doc, pause }) => {
       const uid = String(doc?.userId || "").trim();
       if (!uid) return false;
+      const st = String(pause?.status || "");
+      // Annullate: resta in elenco anche se l'utente non è più staff.
+      if (st === "cancelled" || st === "canceled") return true;
       const member = guild?.members?.cache?.get?.(uid) || null;
       const ruolo = pause?.ruoloRichiesto || pause?.ruolo || "Staff";
       if (member) return calendarMemberEligible(member, ruolo);
@@ -447,6 +488,7 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
     .map(({ doc, pause }) => serializePause(doc, pause, guild, today, identityMap));
 
   pauses.sort((a, b) => {
+    if (Boolean(a.cancelled) !== Boolean(b.cancelled)) return a.cancelled ? 1 : -1;
     const as = String(a.startIso || "");
     const bs = String(b.startIso || "");
     if (as !== bs) return as < bs ? -1 : 1;
@@ -455,6 +497,7 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
 
   const days = {};
   for (const pause of pauses) {
+    if (pause.cancelled) continue;
     for (const key of pause.dayKeys || []) {
       const [ky, km] = key.split("-").map(Number);
       if (ky !== y || km !== m) continue;
@@ -589,7 +632,7 @@ async function handleSiteStaffPausePost(client, req, res) {
           ok: false,
           error: "role_required",
           message: "Scegli per quale ruolo vuoi chiedere la pausa.",
-          roleChoices: roleChoices.map((value) => ({ value, label: roleChoiceLabel(value) })),
+          roleChoices: roleChoices.map((value) => ({ value, label: roleChoiceLabel(value, member) })),
         });
       }
     } else {

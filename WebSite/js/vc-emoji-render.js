@@ -68,9 +68,26 @@
     }
   }
 
+  function ensureEmojiSizeCss() {
+    if (document.getElementById("vc-emoji-size-css")) return;
+    var style = document.createElement("style");
+    style.id = "vc-emoji-size-css";
+    style.textContent =
+      "img.vc-emoji,img.vc-twemoji,img.vc-discord-emoji,img.vc-staff-guide-emoji{" +
+      "height:1.25em!important;width:1.25em!important;" +
+      "max-width:1.35em!important;max-height:1.35em!important;" +
+      "margin:0 .08em!important;padding:0!important;" +
+      "display:inline-block!important;vertical-align:-.22em!important;" +
+      "object-fit:contain!important;flex:0 0 auto!important;" +
+      "border-radius:0!important;box-shadow:none!important;" +
+      "background:transparent!important}";
+    (document.head || document.documentElement).appendChild(style);
+  }
+
   function parseTwemoji(root) {
     if (!root || !window.twemoji || typeof window.twemoji.parse !== "function") return;
     try {
+      ensureEmojiSizeCss();
       window.twemoji.parse(root, {
         base: TWEMOJI_BASE,
         folder: "svg",
@@ -86,6 +103,7 @@
   function enhance(root) {
     root = root || document.body;
     if (!root) return;
+    ensureEmojiSizeCss();
     sanitizeTextNodes(root);
     parseTwemoji(root);
   }

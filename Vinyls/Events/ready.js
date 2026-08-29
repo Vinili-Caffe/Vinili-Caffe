@@ -31,6 +31,7 @@ const { startHogwartsSpellListHuntLoop } = require("../Services/Community/hogwar
 const { startHogwartsSpellListHuntEndLoop } = require("../Services/Community/hogwartsSpellListHuntEndService");
 const { startPotionReminderLoop } = require("../Services/Community/hogwartsPotionReminderService");
 const { startHogwartsEventEndLoop } = require("../Services/Community/hogwartsEventEndService");
+const { startHogwartsFinaleChaosDayLoop } = require("../Services/Community/hogwartsFinaleChaosDayService");
 const { startConsumableBoostExpiryLoop } = require("../Services/Community/hogwartsConsumableBoostsService");
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
@@ -1245,6 +1246,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[HOGWARTS SPELL LIST HUNT END] Failed to start leaderboard loop", () => startHogwartsSpellListHuntEndLoop(client)],
     ["[HOGWARTS POTIONS] Failed to start reminder loop", () => startPotionReminderLoop(client)],
     ["[HOGWARTS EVENT END] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
+    ["[HOGWARTS FINALE CHAOS] Failed to start loop", () => startHogwartsFinaleChaosDayLoop(client)],
     ["[HOGWARTS CONSUMABLE BOOST EXPIRY] Failed to start loop", () => startConsumableBoostExpiryLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],

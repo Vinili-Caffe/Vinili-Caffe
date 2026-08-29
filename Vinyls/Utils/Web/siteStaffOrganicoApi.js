@@ -4,6 +4,7 @@ const { STAFF_LADDER_KEYS_HIGH_TO_LOW, staffLadderRoleIds } = require("../Staff/
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const { identityFromMember, stripDiscordDecorations } = require("./siteStaffRosterCache");
 const { buildRoster } = require("./siteStaffManageApi");
+const { isHiddenManualStaffCareerReason } = require("../Staff/staffTrackHistory");
 const {
   resolveWebUserIdentitiesBatch,
   identityFallback,
@@ -391,6 +392,7 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
 
     for (const row of mergeUserHistoryRows(doc)) {
       if (!row) continue;
+      if (isHiddenManualStaffCareerReason(row.reason)) continue;
       const storedKind = row.kind === "pex" || row.kind === "depex" ? row.kind : null;
       const kind = storedKind || classifyPexDepexKind(row.oldRole, row.newRole, guild);
       if (!kind) continue;

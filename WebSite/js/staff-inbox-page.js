@@ -43,6 +43,95 @@
   var lastQueueLoadFailed = false;
   var initialLoadPromise = null;
   var loadQueueCoalesce = null;
+  var pendingListRetryTimer = null;
+  var pendingListRetryCount = 0;
+  var PENDING_LIST_RETRY_MAX = 5;
+  /** Seq del boot in corso: niente abort da retry interni (mobile primo avvio). */
+  var bootLoadSeq = 0;
+  var mobileAppealFixAttempts = 0;
+  var MOBILE_APPEAL_FIX_MAX = 4;
+  var appealFixWaitCount = 0;
+  var skeletonWatchdogTimer = null;
+  var SKELETON_WATCHDOG_MS = 8500;
+  /** Tab già caricate vuote nonostante summary>0 (evita loop / badge fantasma). */
+  var emptyLoadedTabs = Object.create(null);
+  var SUMMARY_CACHE_KEY = "vc_inbox_summary_v1";
+  var SUMMARY_CACHE_LOCAL_KEY = "vc_inbox_summary_local_v1";
+  var SUMMARY_CACHE_TTL_MS = 90000;
+  var SUMMARY_CACHE_LOCAL_TTL_MS = 300000;
+  var inboxBooting = false;
+
+  function inboxLoadBusy() {
+    return Boolean(loadInFlightNonQuiet);
+  }
+
+  function clearSkeletonWatchdog() {
+    if (skeletonWatchdogTimer) {
+      clearTimeout(skeletonWatchdogTimer);
+      skeletonWatchdogTimer = null;
+    }
+  }
+
+  function forceReleaseStuckInboxLoad() {
+    loadInFlightNonQuiet = false;
+    bootLoadSeq = 0;
+    loadQueueCoalesce = null;
+    clearLoadWatchdog();
+    clearSkeletonWatchdog();
+    try {
+      if (loadAbortCtrl) loadAbortCtrl.abort();
+    } catch (eAbort) {}
+    loadAbortCtrl = null;
+  }
+
+  function forceAppealSyncLoad(reason) {
+    if (!isStaffScopeActive()) return;
+    if (state.items && state.items.length) return;
+    delete emptyLoadedTabs.appelli;
+    pendingListRetryCount = 0;
+    if (state.tab !== "appelli" || state.scope !== "pending") {
+      if (canAccessTab("appelli") && appealPendingInSummary()) {
+        state.tab = "appelli";
+        state.scope = "pending";
+        state.page = 1;
+        renderTabs();
+        syncUrlState();
+      }
+    }
+    forceReleaseStuckInboxLoad();
+    return loadQueue({
+      soft: Boolean(state.items.length),
+      sync: true,
+      _userIntent: true,
+      _internal: true,
+      _mobileAppealFix: true,
+      _skeletonWatchdog: Boolean(reason),
+      _noSkeleton: true,
+    }).catch(function () {
+      finishQueueLoad(loadSeq, { force: true });
+    });
+  }
+
+  function armSkeletonWatchdog() {
+    clearSkeletonWatchdog();
+    if (!(T.isCoarseMobile && T.isCoarseMobile())) return;
+    if (!isStaffScopeActive()) return;
+    if (state.tab !== "appelli" || state.scope !== "pending") return;
+    if (!appealPendingInSummary()) return;
+    skeletonWatchdogTimer = window.setTimeout(function () {
+      skeletonWatchdogTimer = null;
+      if (state.items && state.items.length) return;
+      if (!listEmptyDespitePending()) return;
+      forceAppealSyncLoad(true);
+    }, SKELETON_WATCHDOG_MS);
+  }
+
+  function endNonQuietQueueLoad(seq, opts) {
+    opts = opts || {};
+    if (seq !== loadSeq) return;
+    loadInFlightNonQuiet = false;
+    finishQueueLoad(seq, opts);
+  }
 
   var STATUS_LABELS = {
     pending: "In attesa",
@@ -129,6 +218,303 @@
     syncUrlState();
   }
 
+  /** Al primo load: se la tab corrente è vuota, apri la prima con richieste in attesa. */
+  function pickBestTabFromSummary(opts) {
+    opts = opts || {};
+    if (!permissionsReady()) return;
+    if (!state.summary || typeof state.summary !== "object") return;
+    ensureAccessibleTab();
+    var skipEmpty = Boolean(opts.skipEmpty);
+    function tabHasPending(id) {
+      if (!canAccessTab(id)) return false;
+      if (skipEmpty && emptyLoadedTabs[id]) return false;
+      return Number(state.summary[id] || 0) > 0;
+    }
+    if (tabHasPending(state.tab)) return;
+    for (var i = 0; i < TABS.length; i += 1) {
+      var t = TABS[i];
+      if (!tabHasPending(t.id)) continue;
+      state.tab = t.id;
+      state.filter = "";
+      state.week = "";
+      state.weeks = [];
+      state.page = 1;
+      syncUrlState();
+      return;
+    }
+  }
+
+  function listEmptyDespitePending() {
+    if (state.items && state.items.length) return false;
+    if (state.scope !== "pending") return false;
+    if (!state.summary || typeof state.summary !== "object") return false;
+    // Solo la tab corrente: se un'altra coda ha badge pending non bloccare
+    // "Caricamento appelli…" all'infinito mentre quella tab è già vuota ok.
+    return Number(state.summary[state.tab] || 0) > 0 && !emptyLoadedTabs[state.tab];
+  }
+
+  function markTabConfirmedEmpty(tabId) {
+    var id = String(tabId || state.tab || "").trim();
+    if (!id) return;
+    emptyLoadedTabs[id] = true;
+    if (state.summary && typeof state.summary === "object" && Number(state.summary[id] || 0) > 0) {
+      state.summary[id] = 0;
+      try {
+        sessionStorage.setItem(
+          SUMMARY_CACHE_KEY,
+          JSON.stringify({ summary: state.summary, permissions: state.permissions, at: Date.now() }),
+        );
+      } catch (eCache) {}
+      renderTabs();
+    }
+  }
+
+  function appealPendingInSummary() {
+    return Boolean(state.summary && Number(state.summary.appelli || 0) > 0);
+  }
+
+  function isStaleEmptyAppealPrefetch(out, requestedTab, requestedScope) {
+    if (String(requestedTab || "") !== "appelli") return false;
+    if (String(requestedScope || "pending") !== "pending") return false;
+    if (!out || !out.data || !out.data.ok) return false;
+    if (out._staleEmpty) return true;
+    var items = out.data.items || [];
+    if (items.length) return false;
+    var sum = out.data.summary || state.summary;
+    return Number((sum && sum.appelli) || 0) > 0;
+  }
+
+  function needsMobileAppealReload() {
+    if (!(T.isCoarseMobile && T.isCoarseMobile())) return false;
+    if (!isStaffScopeActive()) return false;
+    if (state.tab !== "appelli" || state.scope !== "pending") return false;
+    if (state.items && state.items.length) return false;
+    if (!appealPendingInSummary()) return false;
+    if (mobileAppealFixAttempts >= MOBILE_APPEAL_FIX_MAX) return false;
+    return true;
+  }
+
+  function armMobileAppealBootFix(delayMs) {
+    if (!needsMobileAppealReload()) return;
+    window.setTimeout(function () {
+      if (!needsMobileAppealReload()) return;
+      if (inboxLoadBusy()) {
+        appealFixWaitCount += 1;
+        if (appealFixWaitCount > 20) {
+          appealFixWaitCount = 0;
+          forceAppealSyncLoad(true);
+          return;
+        }
+        armMobileAppealBootFix(450);
+        return;
+      }
+      appealFixWaitCount = 0;
+      mobileAppealFixAttempts += 1;
+      delete emptyLoadedTabs.appelli;
+      pendingListRetryCount = 0;
+      loadQueue({
+        soft: Boolean(state.items.length),
+        sync: true,
+        _userIntent: true,
+        _internal: true,
+        _mobileAppealFix: true,
+        _noSkeleton: true,
+      }).catch(function () {});
+    }, Math.max(300, Number(delayMs) || 900));
+  }
+
+  function scheduleMobileAppealBootGuarantee() {
+    if (!(T.isCoarseMobile && T.isCoarseMobile())) return;
+    if (!isStaffScopeActive()) return;
+    [500, 1600, 3200].forEach(function (ms) {
+      window.setTimeout(function () {
+        if (!isStaffScopeActive()) return;
+        if (state.items && state.items.length) return;
+        if (!appealPendingInSummary()) return;
+        if (state.tab !== "appelli" || state.scope !== "pending") {
+          pickBestTabFromSummary();
+          renderTabs();
+        }
+        armMobileAppealBootFix(0);
+      }, ms);
+    });
+  }
+
+  function waitForAppealPrefetch(maxMs) {
+    return new Promise(function (resolve) {
+      try {
+        var pf = window.__VC_INBOX_QUEUE_PREFETCH;
+        if (!pf || !pf.promise || String(pf.tab || "") !== "appelli") {
+          resolve(false);
+          return;
+        }
+        var cap = Math.max(1200, Number(maxMs) || 12000);
+        var done = false;
+        function finish(ok) {
+          if (done) return;
+          done = true;
+          resolve(Boolean(ok));
+        }
+        var timer = window.setTimeout(function () {
+          finish(false);
+        }, cap);
+        Promise.resolve(pf.promise)
+          .then(function () {
+            window.clearTimeout(timer);
+            finish(true);
+          })
+          .catch(function () {
+            window.clearTimeout(timer);
+            finish(false);
+          });
+      } catch (eWait) {
+        resolve(false);
+      }
+    });
+  }
+
+  function shouldAwaitAppealPrefetchBeforeBoot() {
+    if (!(T.isCoarseMobile && T.isCoarseMobile())) return false;
+    if (!appealPendingInSummary()) return false;
+    try {
+      var pf = window.__VC_INBOX_QUEUE_PREFETCH;
+      return Boolean(pf && pf.promise && String(pf.tab || "") === "appelli");
+    } catch (ePf) {
+      return false;
+    }
+  }
+
+  function runBootQueueLoad() {
+    function afterBootQueue() {
+      if (needsMobileAppealReload()) armMobileAppealBootFix(400);
+      scheduleMobileAppealBootGuarantee();
+    }
+    armSkeletonWatchdog();
+    return loadQueue({ soft: false, _boot: true, sync: true }).then(afterBootQueue);
+  }
+
+  function consumeQueuePrefetch(requestedTab, requestedScope, requestedPage) {
+    // Primo boot mobile: riusa il warm prefetch da Personali (dopo ok resta disabilitato).
+    if (T.isCoarseMobile && T.isCoarseMobile() && initialQueueLoaded) return null;
+    try {
+      var pf = window.__VC_INBOX_QUEUE_PREFETCH;
+      if (!pf || !pf.promise) return null;
+      if (String(pf.tab || "") !== String(requestedTab || "")) return null;
+      if (String(pf.scope || "pending") !== String(requestedScope || "pending")) return null;
+      if (Number(requestedPage || 1) !== Number(pf.page || 1)) return null;
+      if (Date.now() - Number(pf.at || 0) > 120000) return null;
+      return Promise.resolve(pf.promise).then(function (out) {
+        if (!out || !out.res) return null;
+        if (isStaleEmptyAppealPrefetch(out, requestedTab, requestedScope)) return null;
+        window.__VC_INBOX_QUEUE_PREFETCH = null;
+        return out;
+      });
+    } catch (ePf) {
+      return null;
+    }
+  }
+
+  function reconcileStalePendingSummary() {
+    if (!state.summary || typeof state.summary !== "object") return;
+    var touched = false;
+    TABS.forEach(function (t) {
+      if (!canAccessTab(t.id)) return;
+      if (Number(state.summary[t.id] || 0) > 0) {
+        state.summary[t.id] = 0;
+        emptyLoadedTabs[t.id] = true;
+        touched = true;
+      }
+    });
+    if (touched) {
+      try {
+        sessionStorage.setItem(
+          SUMMARY_CACHE_KEY,
+          JSON.stringify({ summary: state.summary, permissions: state.permissions, at: Date.now() }),
+        );
+      } catch (eCache) {}
+      renderTabs();
+    }
+  }
+
+  function schedulePendingListRetry() {
+    if (pendingListRetryTimer || !isStaffScopeActive()) return;
+    if (inboxLoadBusy()) return;
+    // Primo avvio mobile: lascia finire il boot (PTR funziona perché parte dopo).
+    if (!initialQueueLoaded || bootLoadSeq) return;
+    if (pendingListRetryCount >= PENDING_LIST_RETRY_MAX) {
+      reconcileStalePendingSummary();
+      finishQueueLoad(loadSeq, { force: true });
+      return;
+    }
+    pendingListRetryTimer = window.setTimeout(function () {
+      pendingListRetryTimer = null;
+      if (!listEmptyDespitePending() || inboxLoadBusy()) return;
+      pendingListRetryCount += 1;
+      loadQueue({ soft: true, _internal: true, sync: true, _emptyRetry: true }).catch(function () {});
+    }, 650);
+  }
+
+  function waitForDiscordToken() {
+    if (T.getToken()) return Promise.resolve(true);
+    var mobile = T.isCoarseMobile && T.isCoarseMobile();
+    var cap = mobile ? 3200 : 1400;
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        window.removeEventListener("vc-discord-profile", onProfile);
+        resolve(Boolean(T.getToken()));
+      }
+      function onProfile() {
+        finish();
+      }
+      window.addEventListener("vc-discord-profile", onProfile);
+      (function poll() {
+        if (done) return;
+        if (T.getToken()) {
+          finish();
+          return;
+        }
+        cap -= 120;
+        if (cap <= 0) {
+          finish();
+          return;
+        }
+        window.setTimeout(poll, 120);
+      })();
+    });
+  }
+
+  function finalizeVisibleQueueLoad(seq, quiet) {
+    if (!quiet && seq === loadSeq) {
+      if (inboxBooting) hideInboxBootScreen();
+      endNonQuietQueueLoad(seq);
+    }
+  }
+
+  function isInboxEmbed() {
+    try {
+      if (window.__VC_STAFF_INBOX_EMBED) return true;
+      if (document.body && document.body.classList.contains("vc-notifications-page")) return true;
+    } catch (eEmb) {}
+    return false;
+  }
+
+  function isStaffScopeActive() {
+    if (!isInboxEmbed()) return true;
+    try {
+      // Solo il body class (settato dallo switcher) conta: non usare ?tab= / ?view=
+      // altrimenti un deep-link o URL sporco fa partire la coda su Personali → toast.
+      if (document.body && document.body.classList.contains("vc-notif-scope-staff")) return true;
+    } catch (eScope) {}
+    return false;
+  }
+
+  function inboxTabQueryKey() {
+    return isInboxEmbed() ? "inbox" : "tab";
+  }
+
   function readUrlState() {
     try {
       var params = new URLSearchParams(location.search);
@@ -147,8 +533,11 @@
 
   function syncUrlState() {
     try {
+      // Embed su Personali: non toccare l'URL (niente view=staff / inbox=…).
+      if (isInboxEmbed() && !isStaffScopeActive()) return;
       var u = new URL(location.href);
-      u.searchParams.set("tab", state.tab);
+      var tabKey = inboxTabQueryKey();
+      u.searchParams.set(tabKey, state.tab);
       u.searchParams.set("scope", state.scope);
       if (state.filter) u.searchParams.set("filter", state.filter);
       else u.searchParams.delete("filter");
@@ -156,6 +545,20 @@
       else u.searchParams.delete("week");
       if (state.page > 1) u.searchParams.set("page", String(state.page));
       else u.searchParams.delete("page");
+      if (isInboxEmbed()) {
+        u.searchParams.set("view", "staff");
+        // Never overwrite notifications switcher with inbox category on ?tab=
+        var legacyTab = String(u.searchParams.get("tab") || "").trim().toLowerCase();
+        if (
+          legacyTab === "staff" ||
+          legacyTab === "personal" ||
+          TABS.some(function (t) {
+            return t.id === legacyTab;
+          })
+        ) {
+          u.searchParams.delete("tab");
+        }
+      }
       history.replaceState({}, "", u.pathname + u.search);
     } catch (eSync) {}
   }
@@ -586,6 +989,18 @@
   initWorkflowChat();
 
   function inboxNotify(msg, isError, opts) {
+    // Embed /notifications: mai toast di coda (anche su Staff) — solo stato inline.
+    if (isInboxEmbed()) {
+      try {
+        T.hideStaffToast();
+      } catch (eHide) {}
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") {
+          window.VcSiteToast.hide();
+        }
+      } catch (eSite) {}
+      return;
+    }
     if (!msg) {
       T.hideStaffToast();
       return;
@@ -595,11 +1010,28 @@
 
   function currentTab() {
     try {
-      var q = String(new URLSearchParams(location.search).get("tab") || "").trim();
-      if (TABS.some(function (t) {
-        return t.id === q;
-      })) {
+      var params = new URLSearchParams(location.search);
+      var key = inboxTabQueryKey();
+      var q = String(params.get(key) || "").trim();
+      // Ignore notifications switcher values if they leaked into the inbox key.
+      if (q === "staff" || q === "personal") q = "";
+      if (
+        TABS.some(function (t) {
+          return t.id === q;
+        })
+      ) {
         return q;
+      }
+      // Embed legacy: never treat notifications ?tab=staff as an inbox category.
+      if (!isInboxEmbed()) {
+        var legacy = String(params.get("tab") || "").trim();
+        if (
+          TABS.some(function (t) {
+            return t.id === legacy;
+          })
+        ) {
+          return legacy;
+        }
       }
     } catch (e) {}
     return firstAccessibleTab();
@@ -626,15 +1058,7 @@
     state.weeks = [];
     state.items = [];
     state.pagination = null;
-    try {
-      var u = new URL(location.href);
-      u.searchParams.set("tab", tab);
-      u.searchParams.set("scope", state.scope);
-      u.searchParams.delete("filter");
-      u.searchParams.delete("week");
-      u.searchParams.delete("page");
-      history.replaceState({}, "", u.pathname + u.search);
-    } catch (e3) {}
+    syncUrlState();
     showInboxLoading("skeleton");
     loadQueue();
   }
@@ -763,17 +1187,26 @@
       return;
     }
     root.hidden = false;
+    var embed = isInboxEmbed();
+    var segClass = embed
+      ? "vc-staff-inbox-filter-group__seg vc-notify-filter-bar"
+      : "vc-staff-inbox-filter-group__seg";
     root.innerHTML =
       '<span class="vc-staff-inbox-filter-group__label">' +
       T.esc(queueFilterGroupLabel()) +
       "</span>" +
-      '<div class="vc-staff-inbox-filter-group__seg" role="group">' +
+      '<div class="' +
+      segClass +
+      '" role="group">' +
       options
         .map(function (opt) {
           var active = String(state.filter || "") === String(opt.id || "");
+          var btnClass = embed
+            ? "vc-notify-filter-btn" + (active ? " vc-notify-filter-btn--on is-active" : "")
+            : "vc-staff-inbox-filter-btn" + (active ? " is-active" : "");
           return (
-            '<button type="button" class="vc-staff-inbox-filter-btn' +
-            (active ? " is-active" : "") +
+            '<button type="button" class="' +
+            btnClass +
             '" data-filter="' +
             T.esc(opt.id || "") +
             '">' +
@@ -907,17 +1340,39 @@
     });
   }
 
+  function filterBtnClass(active) {
+    if (isInboxEmbed()) {
+      return (
+        "vc-notify-filter-btn" +
+        (active ? " vc-notify-filter-btn--on is-active" : "")
+      );
+    }
+    return "vc-staff-inbox-scope-btn" + (active ? " is-active" : "");
+  }
+
   function renderScopeToggle() {
     var root = T.byId("vc-staff-inbox-scope");
     if (!root) return;
+    var embed = isInboxEmbed();
+    var segClass = embed
+      ? "vc-staff-inbox-filter-group__seg vc-notify-filter-bar"
+      : "vc-staff-inbox-filter-group__seg";
+    var pendingCls = embed
+      ? filterBtnClass(state.scope === "pending")
+      : "vc-staff-inbox-scope-btn" + (state.scope === "pending" ? " is-active" : "");
+    var allCls = embed
+      ? filterBtnClass(state.scope === "all")
+      : "vc-staff-inbox-scope-btn" + (state.scope === "all" ? " is-active" : "");
     root.innerHTML =
       '<span class="vc-staff-inbox-filter-group__label">Stato</span>' +
-      '<div class="vc-staff-inbox-filter-group__seg" role="group">' +
-      '<button type="button" class="vc-staff-inbox-scope-btn' +
-      (state.scope === "pending" ? " is-active" : "") +
+      '<div class="' +
+      segClass +
+      '" role="group">' +
+      '<button type="button" class="' +
+      pendingCls +
       '" data-scope="pending">In attesa</button>' +
-      '<button type="button" class="vc-staff-inbox-scope-btn' +
-      (state.scope === "all" ? " is-active" : "") +
+      '<button type="button" class="' +
+      allCls +
       '" data-scope="all">Anche chiuse</button>' +
       "</div>";
     root.querySelectorAll("[data-scope]").forEach(function (btn) {
@@ -932,14 +1387,25 @@
   function renderTabs() {
     var root = T.byId("vc-staff-inbox-tabs");
     if (!root) return;
+    var embed = isInboxEmbed();
+    if (embed) {
+      root.className =
+        "vc-notify-filter-bar inline-flex flex-wrap items-center gap-2 rounded-xl p-1.5 vc-staff-inbox-tabs-bar";
+    } else {
+      root.className = "vc-staff-tools-tabs";
+    }
     root.innerHTML = TABS.filter(function (t) {
       return canAccessTab(t.id);
     })
       .map(function (t) {
       var count = state.summary && state.summary[t.id] != null ? Number(state.summary[t.id]) : 0;
+      var active = state.tab === t.id;
+      var btnClass = embed
+        ? "vc-notify-filter-btn" + (active ? " vc-notify-filter-btn--on is-active" : "")
+        : "vc-staff-tools-tab" + (active ? " is-active" : "");
       return (
-        '<button type="button" class="vc-staff-tools-tab' +
-        (state.tab === t.id ? " is-active" : "") +
+        '<button type="button" class="' +
+        btnClass +
         '" data-tab="' +
         T.esc(t.id) +
         '">' +
@@ -1944,21 +2410,61 @@
     });
   }
 
+  function notifyBadgeClass(item) {
+    var key = String((item && item.status) || "pending").toLowerCase();
+    if (key === "accepted") return "is-ok";
+    if (key === "rejected") return "is-no";
+    if (key === "pending") return "is-pending";
+    return "";
+  }
+
   function renderList() {
     var root = T.byId("vc-staff-inbox-list");
     if (!root) return;
     if (!state.items.length) {
-      root.innerHTML =
-        '<p class="vc-staff-tools-empty">' +
-        (state.scope === "pending"
-          ? "Nessuna voce in attesa con i filtri selezionati."
-          : "Nessuna voce trovata con i filtri selezionati.") +
-        "</p>";
+      if (listEmptyDespitePending()) {
+        if (inboxLoadBusy()) {
+          root.hidden = false;
+          root.classList.add("is-loading");
+          root.classList.remove("is-refreshing");
+          root.innerHTML = inboxLoadingSkeletonHtml();
+          schedulePendingListRetry();
+          return;
+        }
+        // Load terminato ma badge pending: niente skeleton infinito su mobile.
+        schedulePendingListRetry();
+        if (pendingListRetryCount >= PENDING_LIST_RETRY_MAX) {
+          markTabConfirmedEmpty(state.tab);
+        } else {
+          root.hidden = false;
+          root.classList.remove("is-loading", "is-refreshing");
+          root.innerHTML = inboxEmptyBoxHtml(
+            "Lista in aggiornamento. " +
+              '<button type="button" class="vc-staff-inbox-reload-btn" id="vc-staff-inbox-reload-pending">Ricarica</button>',
+            "fa-refresh",
+          );
+          var reloadBtn = T.byId("vc-staff-inbox-reload-pending");
+          if (reloadBtn) {
+            reloadBtn.addEventListener("click", function () {
+              pendingListRetryCount = 0;
+              delete emptyLoadedTabs[state.tab];
+              loadQueue({ soft: false, sync: true, _userIntent: true }).catch(function () {});
+            });
+          }
+          return;
+        }
+      }
+      root.hidden = false;
+      root.classList.remove("is-loading", "is-refreshing");
+      root.innerHTML = inboxEmptyBoxHtml(T.esc(inboxEmptyMessage()), "fa-inbox");
       if (state.detail || state.selectedKey || state.detailLoading) clearDetailState();
       return;
     }
+    var embed = isInboxEmbed();
     root.innerHTML =
-      '<ul class="vc-staff-inbox-items">' +
+      '<ul class="vc-staff-inbox-items' +
+      (embed ? " space-y-3" : "") +
+      '">' +
       state.items
         .map(function (item) {
           var title = itemTitle(item);
@@ -1973,6 +2479,35 @@
           var preview = truncatePreview(previewSource, state.tab === "resoconti" ? 180 : 130);
           var key = itemKey(item);
           var selected = state.selectedKey && state.selectedKey === key;
+          var meta = cardMeta(item);
+          if (embed) {
+            var typeBit = typeBadge(item);
+            return (
+              '<li class="vc-notify-row vc-notify-row--link vc-staff-inbox-item' +
+              (selected ? " is-selected" : "") +
+              '" data-item-key="' +
+              T.esc(key) +
+              '" tabindex="0" role="button">' +
+              '<span class="vc-notify-row-icon">' +
+              T.avatarImgHtml(item.avatarUrl, item.userId, { width: 44, height: 44 }) +
+              "</span>" +
+              '<div class="vc-notify-row-main">' +
+              '<p class="vc-notify-row-title">' +
+              T.esc(title) +
+              (typeBit ? " " + typeBit : "") +
+              "</p>" +
+              (preview
+                ? '<p class="vc-notify-row-desc">' + formatDiscordHtml(preview) + "</p>"
+                : "") +
+              (meta ? '<p class="vc-notify-row-meta">' + T.esc(meta) + "</p>" : "") +
+              "</div>" +
+              '<span class="vc-notify-row-badge ' +
+              notifyBadgeClass(item) +
+              '">' +
+              T.esc(statusLabel(item)) +
+              "</span></li>"
+            );
+          }
           return (
             '<li class="vc-staff-inbox-item vc-staff-inbox-item--card' +
             (selected ? " is-selected" : "") +
@@ -1994,9 +2529,7 @@
             '">' +
             T.esc(statusLabel(item)) +
             "</span></div>" +
-            (cardMeta(item)
-              ? '<p class="vc-staff-inbox-item__meta">' + T.esc(cardMeta(item)) + "</p>"
-              : "") +
+            (meta ? '<p class="vc-staff-inbox-item__meta">' + T.esc(meta) + "</p>" : "") +
             (preview
               ? '<p class="vc-staff-inbox-item__preview">' +
                 formatDiscordHtml(preview) +
@@ -2008,7 +2541,7 @@
         .join("") +
       "</ul>";
 
-    root.querySelectorAll(".vc-staff-inbox-item--card").forEach(function (card) {
+    root.querySelectorAll(".vc-staff-inbox-item").forEach(function (card) {
       function openCard() {
         var key = card.getAttribute("data-item-key");
         var item = state.items.find(function (it) {
@@ -2044,7 +2577,38 @@
 
   function closeDetail() {
     clearDetailState();
+    repairInboxAfterBack();
     renderList();
+  }
+
+  function repairInboxAfterBack() {
+    var layout = T.byId("vc-staff-inbox");
+    if (layout) {
+      layout.classList.remove("has-detail");
+      layout.hidden = false;
+    }
+    var listPanel = layout && layout.querySelector ? layout.querySelector(".vc-staff-inbox-list-panel") : null;
+    if (listPanel) {
+      listPanel.hidden = false;
+      listPanel.removeAttribute("hidden");
+    }
+    var list = T.byId("vc-staff-inbox-list");
+    if (list) {
+      list.hidden = false;
+      list.removeAttribute("hidden");
+      clearInboxLoading();
+    }
+    try {
+      window.scrollTo(0, 0);
+    } catch (eScroll) {}
+    if (
+      listEmptyDespitePending() &&
+      isStaffScopeActive() &&
+      !inboxLoadBusy() &&
+      !initialLoadPromise
+    ) {
+      loadQueue({ soft: Boolean(state.items.length), _internal: true, sync: true }).catch(function () {});
+    }
   }
 
   /** Ripara campi spezzati su `:` interno emoji: name=`<:Foo` value=`123> resto`. */
@@ -2281,7 +2845,7 @@
     if (state.tab === "pause") {
       url += "&userId=" + encodeURIComponent(listItem.userId || "");
     }
-    T.fetchJson(url, { timeoutMs: 8000 })
+    T.fetchJson(url, { timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(25000) : 25000 })
       .then(function (out) {
         if (seq !== detailSeq || state.selectedKey !== key) return;
         state.detailLoading = false;
@@ -2401,41 +2965,154 @@
     renderTabs();
   }
 
+  function ensureInboxBootEl() {
+    return null;
+  }
+
+  function inboxBootLoadingHtml() {
+    return (
+      '<div class="vc-staff-inbox-loading" role="status" aria-live="polite">' +
+      '<div class="vc-staff-inbox-loading__head">' +
+      '<span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>' +
+      "<p>Caricamento inbox\u2026</p>" +
+      "</div></div>"
+    );
+  }
+
+  function showInboxBootScreen() {
+    var panel = T.byId("vc-staff-inbox");
+    if (!panel) return;
+    inboxBooting = true;
+    panel.classList.add("is-booting");
+    panel.hidden = false;
+    var list = T.byId("vc-staff-inbox-list");
+    if (!list) return;
+    state.items = [];
+    state.pagination = null;
+    list.hidden = false;
+    list.classList.remove("is-refreshing");
+    list.classList.add("is-loading");
+    list.innerHTML = inboxBootLoadingHtml();
+  }
+
+  function hideInboxBootScreen() {
+    inboxBooting = false;
+    var panel = T.byId("vc-staff-inbox");
+    if (panel) panel.classList.remove("is-booting");
+    var boot = T.byId("vc-staff-inbox-boot");
+    if (boot) boot.remove();
+  }
+
+  function prepareBootTab() {
+    emptyLoadedTabs = Object.create(null);
+    pickBestTabFromSummary();
+    var anyPending = false;
+    for (var i = 0; i < TABS.length; i += 1) {
+      var tid = TABS[i].id;
+      if (!canAccessTab(tid)) continue;
+      if (Number(state.summary && state.summary[tid] || 0) > 0) {
+        anyPending = true;
+        break;
+      }
+    }
+    if (anyPending) state.scope = "pending";
+    renderTabs();
+    renderScopeToggle();
+    renderQueueFilters();
+    syncUrlState();
+  }
+
+  function applySummaryPayload(data) {
+    if (!data || !data.summary || typeof data.summary !== "object") return false;
+    state.summary = data.summary;
+    if (data.permissions) {
+      var p = data.permissions;
+      state.permissions = {
+        isHighStaff: Boolean(p.highStaff || p.isHighStaff),
+        canManage: Boolean(p.highStaff || p.canManage),
+        isPm: Boolean(p.isPm),
+        candidatureReview: Boolean(p.candidatureReview),
+        appelliReview: Boolean(p.appelliReview),
+        director: Boolean(p.director),
+      };
+    }
+    try {
+      var cachePayload = {
+        summary: state.summary,
+        permissions: data.permissions || null,
+        at: Date.now(),
+      };
+      sessionStorage.setItem(SUMMARY_CACHE_KEY, JSON.stringify(cachePayload));
+      localStorage.setItem(SUMMARY_CACHE_LOCAL_KEY, JSON.stringify(cachePayload));
+    } catch (eCache) {}
+    ensureAccessibleTab();
+    renderTabs();
+    return true;
+  }
+
+  function readCachedSummaryPayload() {
+    try {
+      var pref = window.__VC_INBOX_SUMMARY_PREFETCH;
+      if (pref && pref.summary) return pref;
+      var now = Date.now();
+      try {
+        var raw = sessionStorage.getItem(SUMMARY_CACHE_KEY);
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.summary && now - Number(parsed.at || 0) <= SUMMARY_CACHE_TTL_MS) return parsed;
+        }
+      } catch (eS) {}
+      try {
+        var rawLocal = localStorage.getItem(SUMMARY_CACHE_LOCAL_KEY);
+        if (rawLocal) {
+          var parsedLocal = JSON.parse(rawLocal);
+          if (parsedLocal && parsedLocal.summary && now - Number(parsedLocal.at || 0) <= SUMMARY_CACHE_LOCAL_TTL_MS) {
+            return parsedLocal;
+          }
+        }
+      } catch (eL) {}
+      return null;
+    } catch (eRead) {
+      return null;
+    }
+  }
+
+  function applyInstantSummary() {
+    var cached = readCachedSummaryPayload();
+    if (!cached) return false;
+    return applySummaryPayload(cached);
+  }
+
+  function waitForPermissionsFast() {
+    seedPermissionsFromGate();
+    if (permissionsReady()) return Promise.resolve();
+    var cap = T.isCoarseMobile && T.isCoarseMobile() ? 120 : 80;
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        window.removeEventListener("vc:staff-access-ok", finish);
+        seedPermissionsFromGate();
+        resolve();
+      }
+      window.addEventListener("vc:staff-access-ok", finish);
+      window.setTimeout(finish, cap);
+    });
+  }
+
   function loadInitialData() {
     if (initialLoadPromise) return initialLoadPromise;
-    initialLoadPromise = Promise.resolve()
-      .then(function () {
-        // Su telefono i permessi gate arrivano dopo: aspetta un attimo prima di
-        // partire sulla tab default "pause" (che richiede High Staff).
-        if (permissionsReady()) return;
-        return new Promise(function (resolve) {
-          var done = false;
-          function finish() {
-            if (done) return;
-            done = true;
-            window.removeEventListener("vc:staff-access-ok", finish);
-            resolve();
-          }
-          window.addEventListener("vc:staff-access-ok", finish);
-          window.setTimeout(finish, 1200);
-        });
-      })
+    showInboxBootScreen();
+    initialLoadPromise = waitForPermissionsFast()
       .then(function () {
         seedPermissionsFromGate();
         ensureAccessibleTab();
-        renderTabs();
-        return loadSummary();
-      })
-      .catch(function () {})
-      .then(function () {
-        ensureAccessibleTab();
-        renderTabs();
-        renderScopeToggle();
-        renderQueueFilters();
-        return loadQueue({ soft: Boolean(state.items.length), _internal: true });
+        applyInstantSummary();
+        prepareBootTab();
+        return runBootQueueLoad();
       })
       .finally(function () {
-        // Rilascia dopo un tick così access-ok ravvicinati riusano la stessa promise.
         window.setTimeout(function () {
           initialLoadPromise = null;
         }, 0);
@@ -2444,15 +3121,10 @@
   }
   function loadSummary() {
     return T.fetchJson(apiBase() + (apiBase().indexOf("?") >= 0 ? "&" : "?") + "queue=summary", {
-      timeoutMs: 30000,
+      timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(12000) : 12000,
     })
       .then(function (out) {
-        if (out.data && out.data.ok && out.data.summary) {
-          state.summary = out.data.summary;
-          if (out.data.permissions) state.permissions = out.data.permissions;
-          ensureAccessibleTab();
-          renderTabs();
-        }
+        if (out.data && out.data.ok) applySummaryPayload(out.data);
       })
       .catch(function () {});
   }
@@ -2474,13 +3146,28 @@
       "<p>Caricamento " +
       T.esc(tabLabel(state.tab).toLowerCase()) +
       "\u2026</p>" +
-      "</div>" +
-      '<div class="vc-staff-inbox-loading__skel" aria-hidden="true">' +
-      '<div class="vc-staff-inbox-loading__card"></div>' +
-      '<div class="vc-staff-inbox-loading__card"></div>' +
-      '<div class="vc-staff-inbox-loading__card"></div>' +
       "</div></div>"
     );
+  }
+
+  function inboxEmptyBoxHtml(messageHtml, iconClass) {
+    var ic = String(iconClass || "fa-inbox").trim() || "fa-inbox";
+    return (
+      '<div class="vc-notify-empty vc-staff-inbox-empty" role="status">' +
+      '<i class="fa ' +
+      T.esc(ic) +
+      '" aria-hidden="true"></i>' +
+      "<p>" +
+      messageHtml +
+      "</p></div>"
+    );
+  }
+
+  function inboxEmptyMessage() {
+    if (state.scope === "pending") {
+      return "Nessuna richiesta in attesa con i filtri selezionati.";
+    }
+    return "Nessuna richiesta trovata con i filtri selezionati.";
   }
 
   function clearInboxLoading() {
@@ -2497,6 +3184,8 @@
       clearInboxLoading();
       return;
     }
+
+    if (inboxBooting) return;
 
     if (mode === "soft" && state.items.length) {
       list.classList.add("is-refreshing");
@@ -2541,21 +3230,53 @@
     }
   }
 
+  function chainQueueLoad(seq, nextOpts) {
+    // Handoff silenzioso: non chiamare renderList/finishQueueLoad tra un fetch e l'altro,
+    // altrimenti summary cache + lista vuota = skeleton infinito al primo avvio (mobile).
+    if (!nextOpts.quiet && seq === loadSeq) {
+      loadInFlightNonQuiet = false;
+      clearLoadWatchdog();
+    }
+    return loadQueue(nextOpts);
+  }
+
   function armLoadWatchdog(seq) {
     clearLoadWatchdog();
+    var capMs =
+      state.tab === "appelli" && T.isCoarseMobile && T.isCoarseMobile()
+        ? 14000
+        : T.isCoarseMobile && T.isCoarseMobile()
+          ? 22000
+          : 28000;
     loadWatchdogTimer = setTimeout(function () {
       loadWatchdogTimer = null;
       if (seq !== loadSeq) return;
       var list = T.byId("vc-staff-inbox-list");
       if (!list || !list.querySelector(".vc-staff-inbox-loading")) return;
-      finishQueueLoad(seq, { force: true, message: "Caricamento troppo lento. Tocca Ricarica o cambia filtro." });
-    }, 28000);
+      loadInFlightNonQuiet = false;
+      lastQueueLoadFailed = true;
+      if (state.tab === "appelli" && !initialQueueLoaded) {
+        loadQueue({ soft: false, _internal: true, sync: true, _boot: true, _userIntent: true }).catch(function () {
+          finishQueueLoad(loadSeq, {
+            force: true,
+            message: "Caricamento appelli troppo lento. Tocca Ricarica o cambia filtro.",
+          });
+        });
+        return;
+      }
+      finishQueueLoad(seq, {
+        force: true,
+        message: "Caricamento troppo lento. Tocca Ricarica o cambia filtro.",
+      });
+    }, capMs);
   }
 
   function finishQueueLoad(seq, opts) {
     opts = opts || {};
+    if (inboxBooting && (initialQueueLoaded || opts.force)) hideInboxBootScreen();
     if (!opts.force && seq !== loadSeq) return;
     if (seq === loadSeq) clearLoadWatchdog();
+    clearSkeletonWatchdog();
     var list = T.byId("vc-staff-inbox-list");
     if (!list) return;
     clearInboxLoading();
@@ -2564,10 +3285,10 @@
     try {
       renderList();
     } catch (eRender) {
-      list.innerHTML =
-        '<p class="vc-staff-tools-empty">' +
-        T.esc(opts.message || "Errore visualizzazione elenco. Ricarica la pagina.") +
-        "</p>";
+      list.innerHTML = inboxEmptyBoxHtml(
+        T.esc(opts.message || "Errore visualizzazione elenco. Ricarica la pagina."),
+        "fa-exclamation-circle",
+      );
     }
     if (opts.message) inboxNotify(opts.message, true);
   }
@@ -2578,8 +3299,10 @@
     } catch (eRender) {
       var list = T.byId("vc-staff-inbox-list");
       if (list) {
-        list.innerHTML =
-          '<p class="vc-staff-tools-empty">Errore visualizzazione elenco. Ricarica la pagina.</p>';
+        list.innerHTML = inboxEmptyBoxHtml(
+          "Errore visualizzazione elenco. Ricarica la pagina.",
+          "fa-exclamation-circle",
+        );
       }
       inboxNotify("Errore visualizzazione elenco.", true);
     }
@@ -2589,6 +3312,11 @@
     opts = opts || {};
     var quiet = Boolean(opts.quiet);
     var soft = Boolean(opts.soft);
+    // Embed: niente fetch/toast mentre sei su Personali.
+    if (isInboxEmbed() && !isStaffScopeActive()) {
+      T.hideStaffToast();
+      return Promise.resolve();
+    }
     // Refresh silenziosi non devono abortire il primo caricamento visibile (tipico su cellulare).
     if (quiet && loadInFlightNonQuiet) {
       return Promise.resolve();
@@ -2609,12 +3337,50 @@
       return loadQueueCoalesce;
     }
     var seq = (loadSeq += 1);
-    if (loadAbortCtrl) {
+    // Solo i boot esterni concorrenti riusano la promise in corso.
+    // Retry interni (_waitedPerms, cambio tab, empty-retry) devono proseguire, altrimenti deadlock.
+    var keepPriorLoad =
+      !opts._internal &&
+      !opts._retried &&
+      !opts._retryCount &&
+      !opts._waitedPerms &&
+      !opts._waitedToken &&
+      !opts._emptyRetry &&
+      !opts._appealRetry &&
+      !opts.sync &&
+      !opts._switchedEmptyTab &&
+      !opts._boot &&
+      !opts._switchedBootTab &&
+      loadInFlightNonQuiet &&
+      !quiet &&
+      !initialQueueLoaded &&
+      loadAbortCtrl;
+    if (loadAbortCtrl && !keepPriorLoad) {
+      if (bootLoadSeq && bootLoadSeq !== seq && !opts._userIntent && loadQueueCoalesce) {
+        return loadQueueCoalesce;
+      }
+      if (
+        !initialQueueLoaded &&
+        loadInFlightNonQuiet &&
+        opts._internal &&
+        !opts._userIntent &&
+        !opts._emptyRetry &&
+        !opts._appealRetry &&
+        !opts.sync &&
+        !opts._boot &&
+        loadQueueCoalesce
+      ) {
+        return loadQueueCoalesce;
+      }
       try {
         loadAbortCtrl.abort();
       } catch (eAbort) {}
     }
+    if (keepPriorLoad && loadQueueCoalesce) {
+      return loadQueueCoalesce;
+    }
     loadAbortCtrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    if (!quiet && opts._boot) bootLoadSeq = seq;
     if (!quiet) {
       loadInFlightNonQuiet = true;
       armLoadWatchdog(seq);
@@ -2625,8 +3391,13 @@
     renderScopeToggle();
     renderQueueFilters();
     renderWeekNav();
-    if (!quiet) {
+    if (!quiet && !opts._noSkeleton && !inboxBooting) {
       showInboxLoading(soft || state.items.length ? "soft" : "skeleton");
+      if (state.tab === "appelli" && state.scope === "pending" && appealPendingInSummary()) {
+        armSkeletonWatchdog();
+      }
+      T.hideStaffToast();
+    } else if (!quiet) {
       T.hideStaffToast();
     }
 
@@ -2640,20 +3411,15 @@
       .then(function () {
         if (!canAccessTab(requestedTab)) {
           if (!permissionsReady() && !opts._waitedPerms) {
-            return new Promise(function (resolve) {
-              window.setTimeout(resolve, 700);
-            }).then(function () {
-              seedPermissionsFromGate();
-              ensureAccessibleTab();
-              return loadQueue(
-                Object.assign({}, opts, {
-                  _waitedPerms: true,
-                  _internal: true,
-                  quiet: quiet,
-                  soft: soft,
-                }),
-              );
-            });
+            seedPermissionsFromGate();
+            return loadQueue(
+              Object.assign({}, opts, {
+                _waitedPerms: true,
+                _internal: true,
+                quiet: quiet,
+                soft: soft,
+              }),
+            );
           }
           ensureAccessibleTab();
           if (state.tab !== requestedTab) {
@@ -2661,8 +3427,7 @@
               Object.assign({}, opts, { _internal: true, quiet: quiet, soft: soft }),
             );
           }
-          if (!quiet) loadInFlightNonQuiet = false;
-          finishQueueLoad(seq);
+          if (!quiet) endNonQuietQueueLoad(seq);
           if (!quiet) {
             lastQueueLoadFailed = true;
             inboxNotify("Non hai i permessi per aprire questa categoria.", true);
@@ -2677,9 +3442,15 @@
 
         if (!T.getToken()) {
           if (!opts._waitedToken) {
-            return new Promise(function (resolve) {
-              window.setTimeout(resolve, 800);
-            }).then(function () {
+            return waitForDiscordToken().then(function (hasToken) {
+              if (!hasToken) {
+                if (!quiet) endNonQuietQueueLoad(seq);
+                if (!quiet) {
+                  lastQueueLoadFailed = true;
+                  inboxNotify("Accedi per continuare.", true);
+                }
+                return;
+              }
               return loadQueue(
                 Object.assign({}, opts, {
                   _waitedToken: true,
@@ -2690,8 +3461,7 @@
               );
             });
           }
-          if (!quiet) loadInFlightNonQuiet = false;
-          finishQueueLoad(seq);
+          if (!quiet) endNonQuietQueueLoad(seq);
           if (!quiet) {
             lastQueueLoadFailed = true;
             inboxNotify("Accedi per continuare.", true);
@@ -2714,18 +3484,33 @@
         if (requestedTab === "resoconti" && requestedWeek) {
           url += "&week=" + encodeURIComponent(requestedWeek);
         }
-        if (opts.sync && requestedTab !== "summary") {
+        if (opts.sync || (requestedTab === "appelli" && requestedScope === "pending")) {
           url += "&sync=1";
         }
 
-        return T.fetchJson(url, {
-          timeoutMs: 45000,
+        var prefetched = consumeQueuePrefetch(requestedTab, requestedScope, requestedPage);
+        var fetchOpts = {
+          timeoutMs:
+            requestedTab === "appelli" && T.isCoarseMobile && T.isCoarseMobile()
+              ? T.resolveFetchTimeoutMs
+                ? T.resolveFetchTimeoutMs(22000)
+                : 22000
+              : T.resolveFetchTimeoutMs
+                ? T.resolveFetchTimeoutMs(45000)
+                : 45000,
           signal: loadAbortCtrl ? loadAbortCtrl.signal : null,
-        }).then(function (out) {
+        };
+        var fetchPromise = prefetched
+          ? prefetched.then(function (out) {
+              if (out && out.res) return out;
+              return T.fetchJson(url, fetchOpts);
+            })
+          : T.fetchJson(url, fetchOpts);
+
+        return fetchPromise.then(function (out) {
           if (seq !== loadSeq) return;
           var errCode = out && out.data ? String(out.data.error || "").toLowerCase() : "";
           if (errCode === "aborted") {
-            // Abort inatteso sull'ultima richiesta: ritenta invece di lasciare lo skeleton.
             if (!quiet && !opts._retried) {
               return loadQueue(
                 Object.assign({}, opts, {
@@ -2735,6 +3520,7 @@
                 }),
               );
             }
+            if (!quiet) endNonQuietQueueLoad(seq);
             return;
           }
           var tabChanged =
@@ -2744,13 +3530,11 @@
             state.week !== requestedWeek ||
             state.page !== requestedPage;
           if (tabChanged) {
-            if (!quiet && seq === loadSeq) loadInFlightNonQuiet = false;
-            finishQueueLoad(seq);
-            if (!quiet) loadQueue({ quiet: true, soft: true, _internal: true });
+            if (!quiet) {
+              return chainQueueLoad(seq, { quiet: false, soft: true, _internal: true });
+            }
             return;
           }
-          if (!quiet && seq === loadSeq) loadInFlightNonQuiet = false;
-          finishQueueLoad(seq);
           if (!out.res.ok || !out.data || !out.data.ok) {
             var timedOut = errCode === "timeout";
             var unauthorized =
@@ -2774,6 +3558,7 @@
                 );
               });
             }
+            if (!quiet) endNonQuietQueueLoad(seq);
             if (!quiet) {
               lastQueueLoadFailed = true;
               var loadMsg =
@@ -2798,6 +3583,11 @@
           }
           lastQueueLoadFailed = false;
           initialQueueLoaded = true;
+          pendingListRetryCount = 0;
+          clearSkeletonWatchdog();
+          appealFixWaitCount = 0;
+          if (out.data.summary) applySummaryPayload(out.data);
+          // Imposta items PRIMA di togliere lo skeleton: altrimenti flash/empty sticky su mobile.
           state.items = mergeIncomingWorkflowItems(out.data.items || []);
           state.pagination = out.data.pagination || null;
           if (state.pagination && state.pagination.page) state.page = state.pagination.page;
@@ -2809,13 +3599,106 @@
             state.weeks = [];
             state.week = "";
           }
+          if (requestedScope === "pending" && state.summary && state.page <= 1 && state.items.length > 0) {
+            delete emptyLoadedTabs[requestedTab];
+            renderTabs();
+          }
           if (!quiet) T.hideStaffToast();
-          safeRenderList();
           renderPagination();
           renderWeekNav();
           syncDetailWithList();
           var panel = T.byId("vc-staff-inbox");
           if (panel) panel.hidden = false;
+          if (!state.summary && out.data.summary) applySummaryPayload(out.data);
+          if (opts._boot && out.data.summary) {
+            var bootPrevTab = state.tab;
+            pickBestTabFromSummary();
+            renderTabs();
+            if (state.tab !== bootPrevTab && !opts._switchedBootTab && !quiet) {
+              syncUrlState();
+              return chainQueueLoad(seq, {
+                soft: true,
+                _internal: true,
+                _boot: true,
+                _switchedBootTab: true,
+              });
+            }
+          }
+          var summaryCount =
+            state.summary && state.summary[requestedTab] != null
+              ? Number(state.summary[requestedTab]) || 0
+              : 0;
+          if (
+            !quiet &&
+            requestedScope === "pending" &&
+            !state.items.length &&
+            summaryCount > 0 &&
+            !opts._emptyRetry &&
+            !opts.sync
+          ) {
+            return chainQueueLoad(
+              seq,
+              Object.assign({}, opts, {
+                _emptyRetry: true,
+                _internal: true,
+                sync: true,
+                soft: true,
+              }),
+            );
+          }
+          if (
+            !quiet &&
+            requestedTab === "appelli" &&
+            requestedScope === "pending" &&
+            !state.items.length &&
+            summaryCount > 0 &&
+            Number(opts._appealRetry || 0) < 6
+          ) {
+            var appealTry = Number(opts._appealRetry || 0) + 1;
+            return new Promise(function (resolve) {
+              window.setTimeout(resolve, 400 + appealTry * 600);
+            }).then(function () {
+              return chainQueueLoad(
+                seq,
+                Object.assign({}, opts, {
+                  _appealRetry: appealTry,
+                  _internal: true,
+                  sync: true,
+                  soft: true,
+                }),
+              );
+            });
+          }
+          if (
+            !quiet &&
+            requestedScope === "pending" &&
+            !state.items.length &&
+            summaryCount > 0 &&
+            (opts._emptyRetry || opts.sync) &&
+            !opts._switchedEmptyTab &&
+            !(
+              requestedTab === "appelli" &&
+              (opts._boot || opts._mobileAppealFix || (T.isCoarseMobile && T.isCoarseMobile()))
+            )
+          ) {
+            emptyLoadedTabs[requestedTab] = true;
+            markTabConfirmedEmpty(requestedTab);
+            var prevTab = state.tab;
+            pickBestTabFromSummary({ skipEmpty: true });
+            renderTabs();
+            if (state.tab !== prevTab) {
+              return chainQueueLoad(seq, {
+                soft: true,
+                _internal: true,
+                _switchedEmptyTab: true,
+              });
+            }
+          }
+          finalizeVisibleQueueLoad(seq, quiet);
+          if (!quiet && opts._boot && needsMobileAppealReload()) {
+            armMobileAppealBootFix(600);
+            scheduleMobileAppealBootGuarantee();
+          }
         });
       })
       .catch(function (err) {
@@ -2824,21 +3707,25 @@
           err &&
           (err.name === "AbortError" || String(err.message || "").toLowerCase().indexOf("abort") >= 0);
         if (aborted) {
-          if (!quiet && !opts._retried) {
+          var abortRetry = Number(opts._abortRetry || 0);
+          var abortCap = opts._boot && !initialQueueLoaded ? 3 : 1;
+          if (!quiet && abortRetry < abortCap) {
             return loadQueue(
               Object.assign({}, opts, {
                 _retried: true,
+                _abortRetry: abortRetry + 1,
                 _internal: true,
                 soft: soft || state.items.length > 0,
               }),
             );
           }
+          if (!quiet) endNonQuietQueueLoad(seq);
           return;
         }
-        if (!quiet && seq === loadSeq) loadInFlightNonQuiet = false;
-        finishQueueLoad(seq);
         var retryCount = Number(opts._retryCount || 0);
         if (!quiet && retryCount < 3) {
+          loadInFlightNonQuiet = true;
+          armLoadWatchdog(seq);
           return new Promise(function (resolve) {
             window.setTimeout(resolve, 450 * (retryCount + 1));
           }).then(function () {
@@ -2852,6 +3739,7 @@
             );
           });
         }
+        endNonQuietQueueLoad(seq);
         if (!quiet) {
           lastQueueLoadFailed = true;
           inboxNotify("Errore di rete. Controlla la connessione e riprova.", true);
@@ -2867,7 +3755,14 @@
       })
       .finally(function () {
         if (!quiet && seq === loadSeq) {
+          if (bootLoadSeq === seq) bootLoadSeq = 0;
           loadQueueCoalesce = null;
+        } else if (!quiet && seq !== loadSeq) {
+          window.setTimeout(function () {
+            if (loadSeq !== seq && !loadQueueCoalesce) {
+              loadInFlightNonQuiet = false;
+            }
+          }, 0);
         }
       });
 
@@ -2876,24 +3771,49 @@
   }
 
   function init() {
-    if (initStarted) return;
-    initStarted = true;
-    if (!T.getToken()) {
-      inboxNotify("Accedi per continuare.", true);
+    if (initStarted) {
+      if (isInboxEmbed() && isStaffScopeActive() && (lastQueueLoadFailed || !initialQueueLoaded)) {
+        loadInitialData().catch(function () {});
+      }
       return;
     }
+    if (isInboxEmbed() && !isStaffScopeActive()) {
+      // Aspetta il tab Staff: evita toast “coda” su Personali.
+      return;
+    }
+    initStarted = true;
     readUrlState();
     seedPermissionsFromGate();
     ensureAccessibleTab();
     renderTabs();
     renderScopeToggle();
     renderQueueFilters();
-    showInboxLoading("skeleton");
+    if (!T.getToken()) {
+      showInboxBootScreen();
+      initStarted = false;
+      var tokenWait = T.isCoarseMobile && T.isCoarseMobile() ? 1200 : 800;
+      window.setTimeout(function () {
+        if (isStaffScopeActive()) T.whenDiscordSessionReady(init, tokenWait);
+      }, 200);
+      return;
+    }
+    renderScopeToggle();
+    renderQueueFilters();
+    showInboxBootScreen();
     loadInitialData()
       .then(function () {
         connectInboxWebSocket();
+        scheduleMobileAppealBootGuarantee();
+        // Solo se il primo load è fallito davvero: niente retry su lista vuota ok.
+        if (lastQueueLoadFailed) {
+          window.setTimeout(function () {
+            if (!isStaffScopeActive() || initialQueueLoaded) return;
+            loadQueue({ soft: Boolean(state.items.length), _internal: true }).catch(function () {});
+          }, 900);
+        }
       })
       .catch(function () {
+        hideInboxBootScreen();
         finishQueueLoad(loadSeq, { force: true });
         loadInFlightNonQuiet = false;
         lastQueueLoadFailed = true;
@@ -2909,39 +3829,124 @@
   }
 
   function ensureInboxCineLayout() {
+    try {
+      if (window.__VC_STAFF_INBOX_EMBED) return;
+      if (document.body && document.body.classList.contains("vc-notifications-page")) return;
+    } catch (eEmbed) {}
     if (typeof window.__vcPageHeroLayout === "function") {
       window.__vcPageHeroLayout({ force: true });
     }
   }
 
   function onStaffAccessReady() {
+    if (isInboxEmbed() && !isStaffScopeActive()) {
+      T.hideStaffToast();
+      return;
+    }
     ensureInboxCineLayout();
     seedPermissionsFromGate();
     ensureAccessibleTab();
     renderTabs();
-    if (initialLoadPromise || loadInFlightNonQuiet) {
-      var pending = initialLoadPromise || loadQueueCoalesce;
-      if (pending && typeof pending.then === "function") {
-        pending.then(function () {
-          if (lastQueueLoadFailed || !initialQueueLoaded) {
-            loadInitialData().catch(function () {});
-          }
-        });
-      }
+    if (!initStarted) {
+      T.whenDiscordSessionReady(init, 800);
       return;
     }
-    if (lastQueueLoadFailed || !initialQueueLoaded) {
+    if (initialLoadPromise || loadInFlightNonQuiet) {
+      return;
+    }
+    if (lastQueueLoadFailed) {
       loadInitialData().catch(function () {});
     }
   }
 
+  try {
+    window.VCStaffInboxEmbed = {
+      boot: function () {
+        T.hideStaffToast();
+        if (isInboxEmbed() && !isStaffScopeActive()) return;
+        if (initStarted) {
+          if (lastQueueLoadFailed || !initialQueueLoaded) {
+            if (!initialLoadPromise) loadInitialData().catch(function () {});
+            return;
+          }
+          if (needsMobileAppealReload()) {
+            armMobileAppealBootFix(500);
+          }
+          // Coda già ok: ripingere (bfcache / switch tab).
+          safeRenderList();
+          return;
+        }
+        T.whenDiscordSessionReady(init, T.isCoarseMobile && T.isCoarseMobile() ? 1400 : 600);
+      },
+    };
+  } catch (eExport) {}
+
   T.bootPage(function () {
     ensureInboxCineLayout();
-    window.addEventListener("vc:staff-access-ok", onStaffAccessReady);
-    T.registerPtrRefresh(function () {
-      if (loadInFlightNonQuiet) return Promise.resolve();
-      return loadInitialData();
+    window.addEventListener("pageshow", function (ev) {
+      if (isInboxEmbed() && !isStaffScopeActive()) return;
+      seedPermissionsFromGate();
+      repairInboxAfterBack();
+      if ((!initialQueueLoaded || lastQueueLoadFailed) && !inboxLoadBusy()) {
+        loadQueue({ soft: Boolean(state.items.length), _internal: true }).catch(function () {});
+      } else {
+        safeRenderList();
+      }
     });
-    T.whenDiscordSessionReady(init, 3500);
+    window.addEventListener("vc-discord-profile", function () {
+      if (!isStaffScopeActive()) return;
+      if (!initStarted) {
+        T.whenDiscordSessionReady(init, T.isCoarseMobile && T.isCoarseMobile() ? 1200 : 800);
+        return;
+      }
+      if ((!initialQueueLoaded || lastQueueLoadFailed) && !inboxLoadBusy() && !initialLoadPromise) {
+        loadInitialData().catch(function () {});
+        return;
+      }
+      if (state.items.length || !listEmptyDespitePending()) return;
+      if (inboxLoadBusy()) return;
+      loadQueue({ soft: true, _internal: true, sync: true, _emptyRetry: true }).catch(function () {});
+    });
+    window.addEventListener("vc:staff-access-ok", onStaffAccessReady);
+    window.addEventListener("vc:inbox-summary-ready", function (ev) {
+      try {
+        var d = ev && ev.detail;
+        if (!d || !d.summary || !isStaffScopeActive()) return;
+        applySummaryPayload(d);
+        if (inboxBooting) prepareBootTab();
+      } catch (eSumEv) {}
+    });
+    window.addEventListener("vc:notif-scope", function (ev) {
+      var next = ev && ev.detail ? ev.detail.scope : "";
+      if (next === "personal") {
+        T.hideStaffToast();
+        return;
+      }
+      if (next === "staff" && !initStarted) {
+        T.whenDiscordSessionReady(init, T.isCoarseMobile && T.isCoarseMobile() ? 1400 : 600);
+      } else if (next === "staff" && (lastQueueLoadFailed || !initialQueueLoaded)) {
+        if (!initialLoadPromise) {
+          emptyLoadedTabs = Object.create(null);
+          mobileAppealFixAttempts = 0;
+          loadInitialData().catch(function () {});
+        }
+      } else if (next === "staff") {
+        safeRenderList();
+      }
+    });
+    T.registerPtrRefresh(function () {
+      if (!isStaffScopeActive()) return Promise.resolve();
+      if (loadInFlightNonQuiet) return Promise.resolve();
+      return loadQueue({
+        soft: Boolean(state.items.length),
+        _internal: true,
+        sync: state.tab === "appelli" || state.scope === "pending",
+      }).then(function () {
+        return loadSummary().catch(function () {});
+      });
+    });
+    if (isStaffScopeActive()) {
+      T.whenDiscordSessionReady(init, 800);
+    }
   });
 })();
