@@ -248,6 +248,24 @@
     }
     if (document.body) apply();
     else document.addEventListener("DOMContentLoaded", apply);
+    // siteSweep1: non lasciare login nascosto per sempre se discord-auth non arriva.
+    setTimeout(function () {
+      try {
+        if (!document.documentElement.classList.contains("vc-auth-session-pending")) return;
+        if (window.__VC_DISCORD_PROFILE) {
+          document.documentElement.classList.remove("vc-auth-session-pending");
+          return;
+        }
+        document.documentElement.classList.remove("vc-auth-session-pending");
+      } catch (eAuthFs) {}
+    }, 2500);
+  }
+
+  function isCoarseMobile() {
+    try {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+    } catch (e) {}
+    return Number(navigator.maxTouchPoints || 0) > 0;
   }
 
   function isBlockingSessionVerifyPage() {
@@ -258,6 +276,8 @@
       try {
         if (navigator.standalone) return false;
       } catch (eIos) {}
+      // Telefono: mai overlay full-screen / touch-action:none (lag gesture ~2s).
+      if (isCoarseMobile()) return false;
       if (!window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY) return false;
       var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
       if (p.indexOf("/dashboard") === 0) return true;
@@ -305,14 +325,18 @@
       style.textContent =
         "html.vc-session-verify-pending,html.vc-session-verify-pending body{" +
         "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
-        "overscroll-behavior:none!important;height:100%!important;max-height:100dvh!important;touch-action:none}" +
-        "html.vc-session-verify-pending body{position:fixed!important;inset:0!important;width:100%!important}" +
+        "overscroll-behavior:none!important;}" +
         "html.vc-session-verify-pending .vc-reviews-gate," +
         "html.vc-session-verify-pending .vc-auth-required-card{" +
         "visibility:hidden!important;pointer-events:none!important;}" +
         "html.vc-session-verify-pending #discord-login-btn," +
         "html.vc-session-verify-pending button[data-vc-discord-login]{" +
-        "visibility:hidden!important;}";
+        "visibility:hidden!important;}" +
+        "@media (pointer:coarse),(max-width:920px){" +
+        "html.vc-session-verify-pending,html.vc-session-verify-pending body{" +
+        "overflow:auto!important;touch-action:manipulation!important;position:static!important;height:auto!important;max-height:none!important}" +
+        ".vc-session-verify-overlay{display:none!important;pointer-events:none!important}" +
+        "}";
       document.head.appendChild(style);
     } catch (eCss) {}
   }
@@ -377,7 +401,7 @@
       } catch (eFs) {
         clearSessionPendingUi();
       }
-    }, 1000);
+    }, 280);
   }
 
   function armSessionPendingUi() {

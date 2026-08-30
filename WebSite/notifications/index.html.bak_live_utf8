@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html class="vc-site-polish vc-page-cine-boot" lang="it">
+  <head>
+    <style id="vc-anti-fouc-css">html,body{background:#100c09}</style><style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed,body.vc-dashboard-page>header,body.vc-vote-page>header,body.vc-body--home>header{background:transparent!important;background-color:transparent!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass,body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled{background:#140f0c!important;background-color:#140f0c!important;border-radius:1rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 10px 28px rgba(0,0,0,.35)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;transition:none!important;animation:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}</style>
+    <style id="vc-page-cine-boot-css">html.vc-site-polish.vc-page-cine-boot,html.vc-site-polish.vc-page-cine-boot body{background:#100c09!important}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready){overflow:hidden!important;overscroll-behavior:none!important}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{content:"";position:fixed;inset:0;z-index:2147483000;background-color:#100c09;background-image:radial-gradient(ellipse 92% 74% at 50% 38%,rgba(232,196,156,.14) 0%,rgba(28,20,14,.94) 52%,#0a0706 100%);pointer-events:none}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main,html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header{position:relative;z-index:2147483001;visibility:visible!important;opacity:1!important}</style>
+<noscript><style>html.vc-page-cine-boot body.vc-body>main,html.vc-page-cine-boot body.vc-body>footer{opacity:1!important;visibility:visible!important}</style></noscript>
+
+
+    <meta charset="utf-8" />
+    <title>Vinili & Caffè | Notifiche</title>
+    <script src="/js/vc-page-title.js?v=20260825pageTitle1"></script>
+    <meta name="description" content="Visualizza tutte le notifiche del tuo account Vinili & Caffè." />
+    <meta name="author" content="Vinili & Caffè" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/cormorant/cormorant-garamond-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/inter/inter-latin.woff2" crossorigin />
+    <link rel="stylesheet" href="/css/vc-fonts.css?v=1787825917428" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Vinili & Caffè | Notifiche" />
+    <meta property="og:description" content="Visualizza tutte le notifiche del tuo account Vinili & Caffè." />
+    <meta property="og:url" content="https://www.viniliecaffe.it/faq/notifications/" />
+    <meta property="og:image" content="https://www.viniliecaffe.it/og.gif?v=oggif1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=optional" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="../css/tw-build.css?v=1787825917428" />
+    <link rel="stylesheet" href="../css/vc-landing.css?v=20260830utf8Fix1" />
+    <script src="../js/vc-auth-pending.js?v=1787825917428"></script>
+    <script src="../js/vc-page-cine-boot.js?v=1787825917428"></script>
+    <style id="vc-notif-boot-personal-css">html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-pane-staff,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page .vc-notif-staff-inbox,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-staff-inbox,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-staff-inbox-list{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important}html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-scope-dock{display:none!important}html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-pane-personal{visibility:hidden!important;opacity:0!important;pointer-events:none!important}</style>
+    <script>
+      (function () {
+        try {
+          // Early staff solo con deep link esplicito (?view=staff). Default = Personali.
+          var sp = new URLSearchParams(location.search || "");
+          var view = String(sp.get("view") || sp.get("tab") || "").toLowerCase();
+          if (view !== "staff") {
+            window.__VC_NOTIF_EARLY_STAFF = false;
+            document.documentElement.classList.add("vc-notif-boot-personal");
+            return;
+          }
+          var token = "";
+          try {
+            token = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+          } catch (e1) {}
+          var staffOk = false;
+          if (token) {
+            var fp = token.slice(0, 24);
+            try {
+              var menu = JSON.parse(sessionStorage.getItem("vc_menu_staff_v1") || "null");
+              if (menu && menu.allowed && menu.fp === fp && Date.now() - Number(menu.at || 0) < 300000) {
+                staffOk = true;
+              }
+            } catch (e2) {}
+            try {
+              var gate = JSON.parse(
+                sessionStorage.getItem("vc_staff_access_ok_v2") ||
+                  localStorage.getItem("vc_staff_access_ok_v2_local") ||
+                  "null",
+              );
+              if (gate && gate.ok === true && Number(gate.exp || 0) > Date.now()) staffOk = true;
+            } catch (e3) {}
+          }
+          if (staffOk) {
+            document.documentElement.classList.add("vc-notif-early-staff");
+            window.__VC_NOTIF_EARLY_STAFF = true;
+            window.__VC_STAFF_MENU_ALLOWED = true;
+          }
+        } catch (eEarly) {}
+      })();
+    </script>
+    <link rel="icon" href="/favicon.ico?v=20260830notifLogo1" />
+  </head>
+  <body id="top" class="vc-body vc-notifications-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-home-cine" aria-hidden="true">
+      <canvas class="vc-home-cine__canvas"></canvas>
+      <div class="vc-home-cine__veil"></div>
+      <div class="vc-home-cine__grain"></div>
+    </div>
+
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-nav-shell rounded-2xl mx-auto flex flex-col gap-0 overflow-visible border border-white/[0.08] bg-[#140f0c] shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
+        <div
+          class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5"
+        >
+          <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
+            <a
+              class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
+              href="https://discord.gg/viniliecaffe"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Entra su Discord"
+              ><img
+                src="https://cdn.discordapp.com/icons/1329080093599076474/a_152fffe587276d12887237d53390e495.gif?size=256"
+                width="40"
+                height="40"
+                class="vc-header-logo-img"
+                alt=""
+                loading="eager"
+                decoding="async"
+            /></a>
+            <a
+              class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+              href="https://www.viniliecaffe.it/faq/"
+              aria-label="Vai alla homepage"
+              >Vinili & Caffè</a>
+            <div class="vc-lang-dropdown" id="vc-lang-dropdown">
+              <button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language"><span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>
+              <div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">
+                <button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>
+                <button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>
+              </div>
+            </div>
+          </div>
+          <nav
+            class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
+            aria-label="Collegamenti rapidi"
+          >
+            <a class="vc-snav-item" href="/wiki/"
+              ><i class="fa fa-map-o" aria-hidden="true"></i><span>Wiki</span></a>
+            <a class="vc-snav-item" href="/sponsor/"
+              ><i class="fa fa-handshake-o" aria-hidden="true"></i><span>Sponsor</span></a>
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block"
+              aria-hidden="true"></span>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Supporta</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="/vote/" data-vc-loading="vote"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
+                <a class="vc-snav-row" href="/recensioni/"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
+                <a class="vc-snav-row" href="/donazioni/"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-snav-row" href="/perks/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
+              </div>
+            </details>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="https://www.viniliecaffe.it/faq/user/"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
+                <a class="vc-snav-row" href="/ruoli/"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
+                <a class="vc-snav-row" href="/regole/"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
+                <a class="vc-snav-row" href="/faq/"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
+              </div>
+            </details>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="/unban/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
+                <a class="vc-snav-row" href="/candidature/"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
+                <a class="vc-snav-row" href="/suggerimenti/"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
+              </div>
+            </details>
+          </nav>
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
+            <details class="vc-notif-dropdown" id="vc-notif-dropdown">
+              <summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"
+                ><i class="fa fa-bell-o" aria-hidden="true"></i>
+                <span class="vc-notif-badge" id="vc-notif-badge" hidden aria-live="polite">0</span></summary>
+              <div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">
+                <div class="vc-notif-panel-head">
+                  <div class="vc-notif-panel-head-start">
+                    <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
+                    <div class="vc-notif-panel-head-text">
+                      <span class="vc-notif-panel-title">Notifiche</span>
+                      <span class="vc-notif-panel-sub" id="vc-notif-unread-sub">0 non lette</span>
+                    </div>
+                  </div>
+                  <div class="vc-notif-panel-head-actions">
+                    <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
+                      aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-body">
+                  <div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap">
+                    <div class="vc-notif-empty">
+                      <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
+                      <p class="vc-notif-empty-title">Nessuna notifica</p>
+                      <p class="vc-notif-empty-sub">Sei tutto aggiornato!</p>
+                    </div>
+                  </div>
+                  <div class="vc-notif-list-wrap" id="vc-notif-list-wrap">
+                    <ul class="vc-notif-list" id="vc-notif-list" role="list"></ul>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
+                  <a href="https://www.viniliecaffe.it/faq/notifications/" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche
+                    <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
+                </div>
+              </div>
+            </details>
+            <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
+            <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
+            <div class="header-login-state" id="discord-login-state" hidden></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="vc-notifications-main relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
+      <h1 id="vc-notify-hero-heading" class="vc-visually-hidden" data-i18n="notif.title">Notifiche</h1>
+
+      <div id="vc-notif-scope-dock" class="vc-notif-scope-dock vc-notif-scope-dock--content" hidden>
+        <div id="vc-notif-scope-tabs" class="vc-notif-scope-bar" role="tablist" aria-label="Ambito notifiche">
+          <button type="button" role="tab" id="vc-notif-tab-personal" data-scope="personal" class="vc-notif-scope-bar__btn" aria-selected="false" aria-controls="vc-notif-pane-personal"><i class="fa fa-bell" aria-hidden="true"></i><span>Personali</span></button>
+          <button type="button" role="tab" id="vc-notif-tab-staff" data-scope="staff" class="vc-notif-scope-bar__btn" aria-selected="false" aria-controls="vc-notif-pane-staff"><i class="fa fa-shield" aria-hidden="true"></i><span>Staff</span></button>
+        </div>
+      </div>
+
+      <div id="vc-notif-pane-personal" class="mt-6" hidden>
+        <p id="vc-notify-subtitle" class="vc-visually-hidden" aria-live="polite">Tutte lette - 0 totali</p>
+        <div id="vc-stat-total" hidden data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</div>
+        <div id="vc-stat-unread" hidden data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</div>
+        <div id="vc-stat-read" hidden data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</div>
+        <div id="vc-stat-filtered" hidden data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">0</div>
+        <div id="vc-stat-filtered-card" hidden aria-hidden="true"></div>
+
+        <section class="vc-notify-toolbar mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div class="vc-notify-filter-bar inline-flex flex-wrap items-center gap-2 rounded-xl p-1.5">
+            <button id="vc-filter-all" type="button" class="vc-notify-filter-btn vc-notify-filter-btn--on"><i class="fa fa-bell-o" aria-hidden="true"></i> <span data-i18n="notifPage.filterAll">Tutte</span></button>
+            <button id="vc-filter-unread" type="button" class="vc-notify-filter-btn"><i class="fa fa-dot-circle-o" aria-hidden="true"></i> <span data-i18n="notifPage.unreadLabel">Non lette</span></button>
+            <button id="vc-filter-filtered" type="button" class="vc-notify-filter-btn"><i class="fa fa-filter" aria-hidden="true"></i> <span data-i18n="notifPage.filterFiltered">Filtrate</span></button>
+            <div class="vc-notif-prefs" id="vc-notif-prefs">
+              <button type="button" id="vc-notif-prefs-btn" class="vc-notify-filter-btn" aria-expanded="false" aria-controls="vc-notif-prefs-panel">
+                <i class="fa fa-sliders" aria-hidden="true"></i> Filtri
+              </button>
+              <div id="vc-notif-prefs-panel" class="vc-notif-prefs__panel" hidden role="dialog" aria-label="Filtri notifiche">
+                <p id="vc-notif-prefs-status" class="vc-notif-prefs__status" hidden></p>
+                <div id="vc-notif-prefs-body"></div>
+                <div class="vc-notif-prefs__foot">
+                  <button type="button" id="vc-notif-prefs-all-on">Attiva tutto</button>
+                  <button type="button" id="vc-notif-prefs-all-off">Disattiva tutto</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button id="vc-notify-clear-all-page" type="button" class="vc-notify-clear-btn"><i class="fa fa-trash-o" aria-hidden="true"></i> <span data-i18n="notifPage.clearAllLabel">Elimina tutte le notifiche</span></button>
+        </section>
+
+        <section class="mt-5">
+          <div id="vc-notify-empty" class="vc-notify-empty" hidden>
+            <i class="fa fa-bell-slash-o" aria-hidden="true"></i>
+            <p data-i18n="notifPage.emptyText">Nessuna notifica da mostrare.</p>
+          </div>
+          <ul id="vc-notify-list" class="space-y-3" role="list"></ul>
+        </section>
+      </div>
+
+      <div id="vc-notif-pane-staff" class="mt-6" hidden>
+        <div id="vc-notif-staff-gate" class="vc-notif-staff-gate" hidden>
+          <p class="vc-notif-staff-gate__msg">Accesso staff non disponibile.</p>
+        </div>
+        <div id="vc-staff-inbox" class="vc-staff-inbox vc-notif-staff-inbox">
+          <section class="vc-notify-toolbar flex flex-wrap items-center justify-between gap-3">
+            <div id="vc-staff-inbox-tabs" class="vc-notify-filter-bar inline-flex flex-wrap items-center gap-2 rounded-xl p-1.5 vc-staff-inbox-tabs-bar"></div>
+          </section>
+          <section class="vc-notify-toolbar mt-4 flex flex-wrap items-center gap-3">
+            <div class="vc-staff-inbox-toolbar__filters flex flex-wrap items-end gap-3">
+              <div id="vc-staff-inbox-scope" class="vc-staff-inbox-filter-group" aria-label="Filtro stato"></div>
+              <div id="vc-staff-inbox-filters" class="vc-staff-inbox-filter-group" aria-label="Filtro categoria"></div>
+            </div>
+            <div id="vc-staff-inbox-week" class="vc-staff-inbox-week" hidden aria-label="Settimana resoconti"></div>
+          </section>
+          <section class="mt-5">
+            <div id="vc-staff-inbox-list" class="vc-staff-inbox-list is-loading" aria-busy="true">
+              <div class="vc-staff-inbox-loading" role="status" aria-live="polite">
+                <div class="vc-staff-inbox-loading__head">
+                  <span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>
+                  <p>Caricamento inbox…</p>
+                </div>
+              </div>
+            </div>
+            <div id="vc-staff-inbox-pagination" class="vc-staff-inbox-pagination mt-4" hidden aria-label="Paginazione elenco"></div>
+            <div id="vc-staff-inbox-detail" class="vc-staff-inbox-detail mt-5" hidden></div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+  <footer class="vc-premium-footer" aria-label="Footer" data-i18n-attr="aria-label:footer.aria">
+    <div class="vc-premium-footer__card">
+      <div class="vc-premium-footer__outer">
+        <div class="vc-premium-footer__inner">
+          <div class="vc-premium-footer__grid">
+            <section class="vc-premium-footer__brand" aria-label="Vinili & Caffè">
+              <a class="vc-premium-footer__logo-row" href="https://www.viniliecaffe.it/faq/">
+                <span class="vc-premium-footer__logo" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                    <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="vc-premium-footer__wordmark">Vinili & Caffè</span>
+              </a>
+              <p class="vc-premium-footer__desc" data-i18n="footer.desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+              <div class="vc-premium-footer__socials" aria-label="Social" data-i18n-attr="aria-label:footer.social">
+                <a class="vc-premium-footer__social" href="https://www.instagram.com/viniliecaffe/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="https://discord.gg/viniliecaffe" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 5.4A17 17 0 0 0 15.2 4l-.2.4a13 13 0 0 1 3.2 1.6 10.8 10.8 0 0 0-4-1.2 11.2 11.2 0 0 0-4.4.2A10.8 10.8 0 0 0 5.8 6a13 13 0 0 1 3.3-1.6L8.9 4a17 17 0 0 0-4.4 1.4C1.8 9.4 1 13.3 1.4 17.2A17 17 0 0 0 6.6 20l1.1-1.5c-.6-.2-1.2-.5-1.8-.9l.4-.3c3.4 1.6 7.2 1.6 10.6 0l.4.3c-.6.4-1.2.7-1.8.9l1.1 1.5a17 17 0 0 0 5.2-2.8c.5-4.5-.8-8.4-2.3-11.8ZM8.8 15.1c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="https://www.tiktok.com/@viniliecaffe" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4v9.1a4.4 4.4 0 1 1-4.4-4.4c.35 0 .7.04 1.03.12v2.55a1.9 1.9 0 1 0 1.03 1.68V4h2.34Zm0 0c.4 2.15 1.74 3.43 3.7 3.84v2.42c-1.52-.08-2.8-.56-3.7-1.36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+              </div>
+            </section>
+            <nav class="vc-premium-footer__col" aria-label="Community" data-i18n-attr="aria-label:footer.community">
+              <h4 data-i18n="footer.community">Community</h4>
+              <ul>
+                <li><a href="https://www.viniliecaffe.it/faq/" data-i18n="footer.home">Home</a></li>
+                <li><a href="https://www.viniliecaffe.it/faq/user/" data-i18n="footer.users">Users</a></li>
+                <li><a href="/ruoli/" data-i18n="footer.roles">Ruoli</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Scopri" data-i18n-attr="aria-label:footer.discover">
+              <h4 data-i18n="footer.discover">Scopri</h4>
+              <ul>
+                <li><a href="/wiki/" data-i18n="footer.wiki">Wiki</a></li>
+                <li><a href="/regole/" data-i18n="footer.rules">Regole</a></li>
+                <li><a href="/faq/" data-i18n="footer.faq">FAQ</a></li>
+                <li><a href="/sponsor/" data-i18n="footer.sponsor">Sponsor</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Supporta" data-i18n-attr="aria-label:footer.support">
+              <h4 data-i18n="footer.support">Supporta</h4>
+              <ul>
+                <li><a href="/perks/" data-i18n="footer.perks">Perks</a></li>
+                <li><a href="/vote/" data-i18n="footer.vote">Vota</a></li>
+                <li><a href="/recensioni/" data-i18n="footer.reviews">Recensioni</a></li>
+                <li><a href="/donazioni/" data-i18n="footer.donations">Donazioni</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Richieste" data-i18n-attr="aria-label:footer.requests">
+              <h4 data-i18n="footer.requests">Richieste</h4>
+              <ul>
+                <li><a href="/unban/" data-i18n="footer.appeals">Appelli</a></li>
+                <li><a href="/candidature/" data-i18n="footer.applications">Candidature</a></li>
+                <li><a href="/suggerimenti/" data-i18n="footer.suggestions">Suggerimenti</a></li>
+                <li><a href="/tickets/" data-i18n="footer.tickets">Tickets</a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+        <div class="vc-premium-footer__legal">
+          <p><a class="vc-footer-copy-link" href="https://www.viniliecaffe.it/copyright">© 2026 Vinili & Caffè. All rights reserved.</a></p>
+          <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+            <a href="/terms/" data-i18n="footer.terms">Termini di Servizio</a>
+            <span aria-hidden="true"></span>
+            <a href="/dati/" data-i18n="footer.privacy">Privacy Policy</a>
+            <span aria-hidden="true"></span>
+            <a href="/cookie/" data-i18n="footer.cookies">Cookie Policy</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+
+    <script>
+      window.__VC_AUTH = {
+        clientId: "1329118940110127204",
+        redirectUri: "https://www.viniliecaffe.it/",
+        homeUrl: "https://www.viniliecaffe.it/faq/",
+      };
+      window.__VC_SITE_NOTIFS = {
+        apiUrl: "/webhooks/site-notifications",
+        apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-notifications",
+      };
+      window.__VC_PROFILE_EXTRAS = {
+        apiUrl: "/webhooks/site-profile-extras",
+        apiUrlLocal: ""
+      };
+      window.__VC_STAFF_ACCESS = {
+        apiUrl: "/webhooks/site-staff-access",
+        apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-staff-access",
+      };
+      window.__VC_STAFF_WORKFLOWS = {
+        apiUrl: "/webhooks/site-staff-workflows",
+        apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-staff-access",
+      };
+      window.__VC_STAFF_PM_POINTS_REMOVED = {
+        apiUrl: "/webhooks/site-staff-pm-points-removed",
+        apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-staff-access",
+      };
+      window.__VC_STAFF_WORKFLOW_CHAT = {
+        apiUrl: "/webhooks/site-staff-workflow-chat",
+        apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-staff-access",
+      };
+      window.__VC_STAFF_INBOX_EMBED = true;
+    </script>
+    <script src="../js/vc-i18n.js?v=1787825917428" defer></script>
+    <script src="../js/vc-i18n-pages.js?v=1787825917428" defer></script>
+    <script src="../js/vc-i18n-pages-extra.js?v=1787825917428" defer></script>
+    <script src="../js/vc-i18n-locales.js?v=1787825917428" defer></script>
+    <script src="../js/discord-auth.js?v=20260828notifFlat13" defer></script>  <script src="../js/vc-cursor-trail.js?v=1787825917428" defer></script>
+<script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
+    <script src="../js/vc-landing.js?v=20260830mobileLag3" defer></script>
+    <script src="../js/notifications-page.js?v=20260828notifBoot1" defer></script>
+    <script src="../js/notifications-staff-tab.js?v=20260830inboxUi1" defer></script>
+    <script src="/js/vc-ptr.js?v=20260830mobileLag3" defer></script>
+    <script src="/js/vc-home-cine.js?v=20260828notifFlat13" defer></script>
+</body>
+</html>

@@ -83,7 +83,7 @@
       var disabled = tier.blocked || !tier.canAfford;
       var ownedBadge =
         tier.blocked && tier.blockedReason
-          ? '<span class="vc-staff-pm-shop__owned-badge"><i class="fa fa-check vc-staff-pm-shop__owned-badge-ico" aria-hidden="true"></i>' +
+          ? '<span class="vc-staff-pm-shop__owned-badge"><span class="vc-staff-pm-shop__owned-badge-ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
             esc(ownedBadgeLabel(tier.blockedReason)) +
             "</span>"
           : "";

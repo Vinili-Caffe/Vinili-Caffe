@@ -150,6 +150,10 @@ async function handleSiteStaffPmActionsPost(client, req, res) {
           );
         }
       }
+      try {
+        const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
+        clearStaffProfileCacheForUser(userId);
+      } catch (_) {}
       return res.status(200).json({
         ok: true,
         message: formatPartnerPointsChange(action === "points_add" ? "add" : "remove", amount),

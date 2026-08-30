@@ -7,8 +7,11 @@
   padding: 0.85rem;
   border-radius: 0.85rem;
   border: 1px solid rgba(212, 168, 136, 0.18);
-  background: rgba(12, 9, 7, 0.55);
+  background: rgba(14, 10, 8, 0.94);
   min-height: 14rem;
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 
 .vc-wfc-head {
@@ -162,22 +165,26 @@
 
 .vc-wfc-msg {
   display: grid;
-  grid-template-columns: 2rem 1fr;
+  grid-template-columns: 2rem minmax(0, 1fr);
   gap: 0.55rem;
   align-items: flex-start;
   position: relative;
 }
 
+/* Niente direction:rtl: spezzava/tagliava gli avatar (foto “tagliata”). */
 .vc-wfc-msg.is-mine {
-  direction: rtl;
+  grid-template-columns: minmax(0, 1fr) 2rem;
 }
 
-.vc-wfc-msg.is-mine .vc-wfc-msg__bubble,
-.vc-wfc-msg.is-mine .vc-wfc-msg__meta,
-.vc-wfc-msg.is-mine .vc-wfc-msg__text,
-.vc-wfc-msg.is-mine .vc-wfc-reactions {
-  direction: ltr;
-  text-align: left;
+.vc-wfc-msg.is-mine .vc-wfc-msg__av {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.vc-wfc-msg.is-mine .vc-wfc-msg__bubble {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: stretch;
 }
 
 .vc-wfc-msg__av {
@@ -187,13 +194,27 @@
   border-radius: 999px;
   overflow: hidden;
   flex-shrink: 0;
+  background: rgba(20, 14, 10, 0.9);
+  isolation: isolate;
 }
 
-.vc-wfc-msg__av img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.vc-wfc-msg__av img,
+#vc-staff-inbox .vc-wfc-msg__av img.vc-wfc-avatar,
+#vc-staff-inbox .vc-wfc-msg__av img[data-vc-avatar],
+#vc-staff-inbox-detail .vc-wfc-msg__av img.vc-wfc-avatar,
+#vc-staff-inbox-detail .vc-wfc-msg__av img[data-vc-avatar],
+.vc-wfc .vc-wfc-msg__av img.vc-wfc-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  display: block !important;
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
 }
 
 .vc-wfc-msg__bubble {

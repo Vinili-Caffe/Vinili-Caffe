@@ -143,9 +143,10 @@ function weekKeyFromDate(input) {
 function formatWeekLabel(weekKey) {
   const raw = String(weekKey || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw || "Settimana";
+  // weekKey = domenica di chiusura del ciclo resoconti → label lunedì → domenica.
   const [y, m, d] = raw.split("-").map((n) => Number(n));
-  const start = new Date(Date.UTC(y, m - 1, d));
-  const end = new Date(Date.UTC(y, m - 1, d + 6));
+  const end = new Date(Date.UTC(y, m - 1, d));
+  const start = new Date(Date.UTC(y, m - 1, d - 6));
   const fmt = (dt) =>
     `${String(dt.getUTCDate()).padStart(2, "0")}/${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
   return `${fmt(start)} – ${fmt(end)}/${String(end.getUTCFullYear()).slice(2)}`;
@@ -2716,7 +2717,7 @@ async function persistResocontoWorkflowFromPayload(guild, payload = {}) {
     preview: rawBody.slice(0, 400),
     content: rawBody,
     createdAt,
-    weekKey: weekKeyFromDate(createdAt),
+    weekKey: String(payload.weekKey || weekKeyFromDate(createdAt) || "").trim(),
     displayName: fromMember.displayName || subject.displayName || "",
     avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
   });

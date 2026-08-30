@@ -20,13 +20,14 @@ const {
   resolveStaffProfileKind,
   buildFullProfileRoleLabelForEmbed,
   buildStaffProfileRoleBadges,
-  appendStaffDelMeseBadge,
   resolveStaffProfileDisplayRoleId,
   viewerIsFounder,
+  targetIsFounder,
   PROFILE_FULL,
   PROFILE_PM_ONLY,
   PROFILE_PROSPECT,
 } = require("../Staff/staffProfilePanelRuntime");
+const { applyPronounGenderToTextForMember } = require("../Community/pronounGenderUtils");
 const { resolveSerataFilmAttendanceForWeek } = require("../Staff/serataFilmAttendanceUtils");
 const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../Staff/staffLegacyMerge");
 const { isHiddenManualStaffCareerReason } = require("../Staff/staffTrackHistory");
@@ -37,7 +38,7 @@ const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi");
 const PROFILE_CACHE_TTL_MS = 120_000;
 const PROFILE_CACHE_MAX = 200;
 const profileCache = new Map();
-const PROFILE_PAYLOAD_VERSION = 14;
+const PROFILE_PAYLOAD_VERSION = 20;
 /** Soft caps: first paint staff come community. */
 const STAFF_MEMBER_SOFT_TIMEOUT_MS = 500;
 const STAFF_LEGACY_SOFT_TIMEOUT_MS = 350;
@@ -193,7 +194,7 @@ function resolvePauseSnapshot(staffObj, profileKind) {
   if (recentlyReturned) {
     return {
       phase: "recently_returned",
-      statusLine: `Rientrato il ${String(recentlyReturned.dataRitorno || "").trim()}`,
+      statusLine: `Rientrato/a il ${String(recentlyReturned.dataRitorno || "").trim()}`,
       start: String(recentlyReturned.dataRichiesta || "").trim() || null,
       end: String(recentlyReturned.dataRitorno || "").trim() || null,
       motivazione: null,
@@ -328,6 +329,79 @@ function preferCareerRow(a, b) {
   return a;
 }
 
+/** Ruoli ladder staff (ingresso carriera = da fuori → uno di questi). */
+function isOnStaffCareerLadder(token) {
+  if (!token) return false;
+  if (token === "member" || token === "community") return false;
+  const ladder = new Set([
+    "helper",
+    "partner manager",
+    "moderator",
+    "senior moderator",
+    "director",
+    "admin",
+    "manager",
+    "founder",
+  ]);
+  return ladder.has(token);
+}
+
+/** true se oldRole non è già nella ladder staff (ingresso da Member / fuori organico). */
+function isOutsideStaffCareerLadder(token) {
+  return !isOnStaffCareerLadder(token);
+}
+
+/**
+ * Tiene solo l'ultimo stint on-ladder (dal rientro/ingresso attuale).
+ * - Nuovo stint = ingresso da fuori ladder, oppure rientro dopo un'uscita.
+ * - Se uscito e non più in organico → lista vuota (niente carriera "vecchia").
+ * - Mostra TUTTO il percorso di quello stint (Member→Helper→Mod→…), non solo l'ultimo ruolo.
+ */
+function sliceToLatestCareerStart(rows, opts = {}) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  const stillActive = Boolean(opts.stillActive);
+  const chrono = rows.slice().sort((a, b) => (a._sort || 0) - (b._sort || 0));
+  let startIdx = 0;
+  let found = false;
+  let onLadder = false;
+  for (let i = 0; i < chrono.length; i += 1) {
+    const to = normalizeCareerRoleToken(chrono[i]?.newRole);
+    const from = normalizeCareerRoleToken(chrono[i]?.oldRole);
+    const toOn = isOnStaffCareerLadder(to);
+    const fromOutside = isOutsideStaffCareerLadder(from);
+    if (toOn && (fromOutside || !onLadder)) {
+      startIdx = i;
+      found = true;
+      onLadder = true;
+      continue;
+    }
+    if (onLadder && !toOn) {
+      onLadder = false;
+    }
+  }
+  if (!found) {
+    if (!stillActive) return [];
+    startIdx = 0;
+  } else if (!onLadder && !stillActive) {
+    // Depex → Member / fuori organico: non mostrare la carriera interrotta.
+    return [];
+  }
+
+  let endExclusive = chrono.length;
+  // Mai mostrare uscite → Member / fuori ladder in coda allo stint.
+  while (
+    endExclusive > startIdx &&
+    !isOnStaffCareerLadder(normalizeCareerRoleToken(chrono[endExclusive - 1]?.newRole))
+  ) {
+    endExclusive -= 1;
+  }
+  if (endExclusive <= startIdx) {
+    return [];
+  }
+
+  return chrono.slice(startIdx, endExclusive).sort((a, b) => (b._sort || 0) - (a._sort || 0));
+}
+
 function dedupeCareerHistoryRows(rows) {
   const out = [];
   const seen = new Map();
@@ -363,7 +437,8 @@ function dedupeCareerHistoryRows(rows) {
   return out;
 }
 
-function serializeRolesHistory(guild, staffObj, limit = 10) {
+function serializeRolesHistory(guild, staffObj, limit = 20, opts = {}) {
+  const stillActive = Boolean(opts.stillActive);
   const hist = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
   const mapped = hist
     .filter((row) => !isHiddenManualStaffCareerReason(row?.reason))
@@ -380,17 +455,41 @@ function serializeRolesHistory(guild, staffObj, limit = 10) {
       };
     })
     .sort((a, b) => b._sort - a._sort);
-  return dedupeCareerHistoryRows(mapped)
+  // Solo ultimo stint intero (Member→…→ruolo attuale). currentRole non restringe più.
+  const currentCareer = sliceToLatestCareerStart(mapped, { stillActive });
+  return dedupeCareerHistoryRows(currentCareer)
     .slice(0, limit)
     .map(({ _sort, ...rest }) => rest);
 }
 
 function resolveTenureIso(staffObj) {
   const hist = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
+  const mapped = hist
+    .filter((row) => !isHiddenManualStaffCareerReason(row?.reason))
+    .map((row) => {
+      const d = row?.date ? new Date(row.date) : null;
+      const iso = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
+      return {
+        oldRole: String(row?.oldRole || ""),
+        newRole: String(row?.newRole || ""),
+        _sort: iso ? new Date(iso).getTime() : 0,
+        _iso: iso,
+      };
+    });
+  // Per tenure: normalizza anche ID ruolo → token via normalizeCareerRoleToken (alias ID).
+  const withNames = mapped.map((row) => ({
+    ...row,
+    oldRole: normalizeCareerRoleToken(row.oldRole) || row.oldRole,
+    newRole: normalizeCareerRoleToken(row.newRole) || row.newRole,
+  }));
+  const current = sliceToLatestCareerStart(withNames, { stillActive: true });
+  if (!current.length) return null;
+  // current è newest-first: la tenure è la riga più vecchia della carriera corrente.
   let earliest = null;
-  for (const row of hist) {
-    const d = row?.date ? new Date(row.date) : null;
-    if (!d || !Number.isFinite(d.getTime())) continue;
+  for (const row of current) {
+    if (!row?._iso) continue;
+    const d = new Date(row._iso);
+    if (!Number.isFinite(d.getTime())) continue;
     if (!earliest || d < earliest) earliest = d;
   }
   return earliest ? earliest.toISOString() : null;
@@ -570,6 +669,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
 
   const pmRoleId = String(IDs.roles.PartnerManager || "").trim();
   const isPm = Boolean(pmRoleId && member.roles?.cache?.has(pmRoleId));
+  const isFounder = targetIsFounder(member);
   const displayRoleId = resolveStaffProfileDisplayRoleId(member);
   const displayRole = displayRoleId ? guild?.roles?.cache?.get(displayRoleId) : null;
   let roleLabel = "—";
@@ -588,7 +688,6 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
         roleId: pmRoleId || null,
       },
     ];
-    roleBadges = appendStaffDelMeseBadge(guild, member, roleBadges);
   } else {
     roleBadges = buildStaffProfileRoleBadges(guild, member);
     roleLabel = buildFullProfileRoleLabelForEmbed(guild, member);
@@ -621,6 +720,9 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
   const usedDays = Math.max(0, computeConsumedPauseDays(staff.pauses));
   const remainingDays = Math.max(0, maxDays - usedDays);
   const pauseSnap = resolvePauseSnapshot(staff, profileKind);
+  if (pauseSnap?.statusLine) {
+    pauseSnap.statusLine = applyPronounGenderToTextForMember(pauseSnap.statusLine, member);
+  }
 
   const pos = Math.max(0, Math.floor(Number(staff.positiveCount || 0)));
   const neg = Math.max(0, Math.floor(Number(staff.negativeCount || 0)));
@@ -656,6 +758,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
       badges: roleBadges,
       kind: profileKind === PROFILE_PM_ONLY ? "pm_only" : "full",
       isPm,
+      isFounder,
       color: roleColor,
       roleId: displayRoleId || null,
     },
@@ -708,7 +811,13 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
             label: formatTenureLabel(tenureIso),
           }
         : null,
-      rolesHistory: serializeRolesHistory(guild, staff, 10),
+      rolesHistory: serializeRolesHistory(guild, staff, 20, {
+        stillActive: profileKind === PROFILE_FULL || profileKind === PROFILE_PM_ONLY,
+      }),
+      currentRole:
+        profileKind === PROFILE_PM_ONLY
+          ? displayRole?.name || guild?.roles?.cache?.get(pmRoleId)?.name || "Partner Manager"
+          : displayRole?.name || roleLabel || null,
     },
   };
 }
@@ -734,8 +843,14 @@ async function handleSiteStaffProfileGet(client, req, res) {
     const targetUserId =
       requestedUserId && /^\d{17,20}$/.test(requestedUserId) ? requestedUserId : viewerUserId;
     const isSelf = targetUserId === viewerUserId;
+    const wantFresh =
+      String(req.query?.fresh || req.query?.nocache || "").trim() === "1" ||
+      String(req.query?.fresh || req.query?.nocache || "").trim().toLowerCase() === "true";
+    if (wantFresh) {
+      clearStaffProfileCacheForUser(targetUserId);
+    }
 
-    const cached = readProfileCache(viewerUserId, targetUserId);
+    const cached = wantFresh ? null : readProfileCache(viewerUserId, targetUserId);
     if (cached) {
       res.setHeader("Cache-Control", "private, max-age=15");
       return res.status(200).json({ ...cached, cached: true });

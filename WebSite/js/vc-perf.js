@@ -6,7 +6,8 @@
 (function (global) {
   if (global.VcPerf && global.VcPerf.__ready) return;
 
-  var STORAGE_KEY = "vc_perf_tier_pref_v1";
+  /* v3: telefono non viene più spinto a mid (look “migliora” / full). */
+  var STORAGE_KEY = "vc_perf_tier_pref_v3";
   var lastTier = "";
 
   function conn() {
@@ -68,19 +69,14 @@
   }
 
   function detectAutoTier() {
+    // phoneUltra1: default FULL ovunque (PC + telefono). Lite solo casi estremi.
     if (saveDataOn()) return "lite";
     var et = effectiveType();
     if (et === "slow-2g" || et === "2g") return "lite";
     var mem = deviceMemoryGb();
     if (mem > 0 && mem <= 2) return "lite";
-    var cores = cpuCores();
-    if (cores > 0 && cores <= 2 && mem > 0 && mem <= 4) return "lite";
     var dl = downlinkMbps();
-    if (dl >= 0 && dl > 0 && dl < 1.2) return "lite";
-    if (et === "3g") return "mid";
-    if (dl >= 0 && dl > 0 && dl < 3.5) return "mid";
-    if (mem > 0 && mem <= 4) return "mid";
-    if (cores > 0 && cores <= 4) return "mid";
+    if (dl >= 0 && dl > 0 && dl < 0.7) return "lite";
     return "full";
   }
 

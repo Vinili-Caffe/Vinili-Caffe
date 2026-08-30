@@ -2,6 +2,7 @@
  * Chat pratica workflow (inbox staff + richiedente pausa / candidatura / appelli).
  * Emoji, risposte, allegati, reazioni — stile ticket web.
  * Pause: soggetto sempre incluso. Candidature/appelli: solo se invitato (finestre).
+ * chatFix1: retry/token wait + remount-safe boot.
  */
 (function (global) {
   "use strict";
@@ -300,7 +301,9 @@
           }
           var mine = String(m.authorId || "") === String(state.profileId || "");
           var userLabel = String(c("userKindLabel") || "Richiedente");
-          var kindLabel = kind === "user" ? userLabel : "Staff";
+          var roleLabel = String(m.authorRoleLabel || "").trim();
+          var kindLabel =
+            kind === "user" ? userLabel : roleLabel || String(c("staffKindLabel") || "").trim() || "Staff";
           return (
             '<li class="vc-wfc-msg' +
             (mine ? " is-mine" : "") +
@@ -309,7 +312,11 @@
             esc(m.id) +
             '">' +
             '<span class="vc-wfc-msg__av">' +
-            avatarHtml(m.authorAvatarUrl, m.authorId, { width: 28, height: 28 }) +
+            avatarHtml(m.authorAvatarUrl, m.authorId, {
+              width: 28,
+              height: 28,
+              className: "vc-wfc-avatar",
+            }) +
             "</span>" +
             '<div class="vc-wfc-msg__bubble">' +
             messageActionsHtml(m, !state.canSend) +
@@ -845,16 +852,97 @@
     }, 12000);
   }
 
+  function chatErrorMessage(out) {
+    var data = out && out.data && typeof out.data === "object" ? out.data : null;
+    var msg = data && data.message ? String(data.message).trim() : "";
+    if (msg) return msg;
+    var err = data && data.error ? String(data.error).trim().toLowerCase() : "";
+    var st = Number(out && out.res && out.res.status) || 0;
+    if (err === "aborted") return "";
+    if (err === "missing_token" || err === "invalid_token" || st === 401) {
+      return "Sessione non pronta. Ricarica o riapri il dettaglio.";
+    }
+    if (err === "not_found" || st === 404) return "Pratica non trovata per la chat.";
+    if (err === "timeout" || err === "oauth_timeout" || st === 408 || st === 504) {
+      return "Chat lenta a rispondere. Riprova tra un attimo.";
+    }
+    if (st >= 500) return "Servizio chat temporaneamente non disponibile.";
+    return "Chat non disponibile.";
+  }
+
+  function waitForChatToken(maxMs) {
+    function tok() {
+      var fn = c("getToken");
+      return fn ? String(fn() || "").trim() : "";
+    }
+    if (tok()) return Promise.resolve(true);
+    var left = Math.max(400, Number(maxMs) || 2500);
+    return new Promise(function (resolve) {
+      (function poll() {
+        if (tok()) {
+          resolve(true);
+          return;
+        }
+        left -= 120;
+        if (left <= 0) {
+          resolve(Boolean(tok()));
+          return;
+        }
+        window.setTimeout(poll, 120);
+      })();
+    });
+  }
+
   function loadMessages(dedupeKey, opts) {
     opts = opts || {};
     var seq = state.seq;
     var url = apiBase() + "?dedupeKey=" + encodeURIComponent(dedupeKey);
-    return fetchJson(url, { timeoutMs: 8000 })
+    var start = Promise.resolve();
+    if (!opts.silent && !opts._skippedTokenWait) {
+      start = waitForChatToken(2800);
+    }
+    return start
+      .then(function () {
+        if (seq !== state.seq || state.dedupeKey !== dedupeKey) return null;
+        return fetchJson(url, { timeoutMs: opts._retried ? 14000 : 10000 });
+      })
       .then(function (out) {
+        if (!out) return;
         if (seq !== state.seq || state.dedupeKey !== dedupeKey) return;
         if (!out.res.ok || !out.data || !out.data.ok) {
+          var err = String((out.data && out.data.error) || "").toLowerCase();
+          var st = Number(out.res && out.res.status) || 0;
+          var canRetry =
+            !opts.silent &&
+            !opts._retried &&
+            (err === "aborted" ||
+              err === "timeout" ||
+              err === "oauth_timeout" ||
+              err === "missing_token" ||
+              err === "not_found" ||
+              st === 401 ||
+              st === 404 ||
+              st === 408 ||
+              st === 502 ||
+              st === 503 ||
+              st === 504 ||
+              !out.data ||
+              !Object.keys(out.data || {}).length);
+          if (canRetry) {
+            return new Promise(function (resolve) {
+              window.setTimeout(resolve, err === "not_found" || st === 404 ? 500 : 350);
+            }).then(function () {
+              if (seq !== state.seq || state.dedupeKey !== dedupeKey) return;
+              return loadMessages(
+                dedupeKey,
+                Object.assign({}, opts, { _retried: true, _skippedTokenWait: true }),
+              );
+            });
+          }
           if (!opts.silent) {
-            state.error = (out.data && out.data.message) || "Chat non disponibile.";
+            var mapped = chatErrorMessage(out);
+            if (!mapped && err === "aborted") return;
+            state.error = mapped || "Chat non disponibile.";
             state.loading = false;
             refreshDom();
           }
@@ -874,6 +962,12 @@
       })
       .catch(function () {
         if (seq !== state.seq || state.dedupeKey !== dedupeKey) return;
+        if (!opts.silent && !opts._retried) {
+          return loadMessages(
+            dedupeKey,
+            Object.assign({}, opts, { _retried: true, _skippedTokenWait: true }),
+          );
+        }
         if (!opts.silent) {
           state.loading = false;
           state.error = "Errore di rete sulla chat.";
@@ -935,13 +1029,19 @@
     }
     state.profileId = c("getProfileId") ? String(c("getProfileId")() || "") : "";
     var sameKey = state.dedupeKey === key;
-    if (sameKey && byId("vc-wfc-root")) {
+    var root = byId("vc-wfc-root");
+    if (sameKey && root) {
       bindComposer();
-      if (!state.messages.length && !state.loading) loadMessages(key);
+      // chatFix1: se errore/vuoto dopo re-render dettaglio, ritenta senza teardown.
+      if ((!state.messages.length && !state.loading) || state.error) {
+        state.error = "";
+        state.loading = true;
+        loadMessages(key);
+      }
       return;
     }
     if (sameKey && (state.messages.length || state.loading)) {
-      refreshDom();
+      // DOM sostituito dal parent: non abortire il fetch in corso.
       bindComposer();
       return;
     }
@@ -949,6 +1049,7 @@
     state.dedupeKey = key;
     state.tab = tab || "";
     state.loading = true;
+    state.error = "";
     state.canSend = String(item.status || "").toLowerCase() === "pending";
     bindComposer();
     loadMessages(key);

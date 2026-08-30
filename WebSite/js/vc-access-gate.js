@@ -18,9 +18,9 @@
   var DASH_CACHE_KEY = "vc_dash_access_ok_v1";
   var DASH_CACHE_TTL_MS = 120000;
   var FETCH_TIMEOUT_MS = 12000;
-  var FAILSAFE_MS = 35000;
+  var FAILSAFE_MS = 12000;
   var SERATAFILM_FETCH_TIMEOUT_MS = 8000;
-  var SERATAFILM_FAILSAFE_MS = 14000;
+  var SERATAFILM_FAILSAFE_MS = 10000;
   var STAFF_VERIFY_ATTEMPTS = 3;
   var STAFF_TOKEN_WAIT_MS = 6000;
 
@@ -41,11 +41,11 @@
       var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
       var et = String((conn && conn.effectiveType) || "").toLowerCase();
       if (et === "slow-2g" || et === "2g") {
-        fetchTimeoutMs = Math.max(fetchTimeoutMs, 24000);
-        failsafeMs = Math.max(failsafeMs, 48000);
-      } else if (et === "3g") {
         fetchTimeoutMs = Math.max(fetchTimeoutMs, 18000);
-        failsafeMs = Math.max(failsafeMs, 42000);
+        failsafeMs = Math.max(failsafeMs, 20000);
+      } else if (et === "3g") {
+        fetchTimeoutMs = Math.max(fetchTimeoutMs, 15000);
+        failsafeMs = Math.max(failsafeMs, 16000);
       }
     } catch (eConn) {}
     return { fetchTimeoutMs: fetchTimeoutMs, failsafeMs: failsafeMs };
@@ -61,6 +61,7 @@
     { re: /^\/dashboard\/profilo(?:\/|$)/i, require: "public" },
     { re: /^\/staff\/gestione(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/staff\/punti-tolti(?:\/|$)/i, require: "pmOrHighStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/user/" },
+    // Punti tolti vive nell'inbox: il gate sulla vecchia URL lascia passare, poi redirect client.
     { re: /^\/staff\/?$/i, require: "public" },
     { re: /^\/staff(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/dashboard(?:\/|$)/i, require: "highStaff", denyFallback: "/" },

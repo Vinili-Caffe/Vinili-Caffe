@@ -249,7 +249,6 @@ async function publishHogwartsHouseActivityReport(client, options = {}) {
   const dedupeKey = `${eventCfg.eventKey}_${closingPeriod?.key || "manual"}_activity_report`;
   const existing = await findReportMarker(guild.id, dedupeKey);
   if (existing?.status === "completed" && !options.forcePublish) {
-    global.logger?.info?.("[HOGWARTS HOUSE ACTIVITY] Publish skipped: già pubblicato.", dedupeKey);
     return;
   }
   const collected = await collectHogwartsBiweeklyActivityRows(guild, now, eventCfg.eventKey);
@@ -259,11 +258,16 @@ async function publishHogwartsHouseActivityReport(client, options = {}) {
   }
   const buckets = buildHouseActivityStats(collected.users);
   const embed = buildReportEmbed({ closingPeriod, buckets, eventCfg, guild });
+  const shortWeek =
+    Number(collected?.periodEndMs) > 0 &&
+    Number(collected?.periodStartMs) > 0 &&
+    Number(collected.periodEndMs) - Number(collected.periodStartMs) <= 8 * 24 * 60 * 60 * 1000;
+  const spanText = shortWeek ? "in questa settimana" : "nelle ultime 2 settimane";
   const payload = {
     content: `
 <a:VC_Winner:1482535294757507255> **Report attività casate**.
 
-<a:VC_Arrow:1482706699365257397> Ecco quale casa è stata più attiva nelle ultime 2 settimane e chi ha spinto di più per ogni casa.
+<a:VC_Arrow:1482706699365257397> Ecco quale casa è stata più attiva ${spanText} e chi ha spinto di più per ogni casa.
 _ _`,
     embeds: [embed],
   };

@@ -381,12 +381,18 @@ async function buildRoster(client) {
     for (const m of sec.members) userIds.push(m.userId);
   }
   const guildId = String(roster.guildId || IDs.guilds.main || "");
-  const statsByUser = await loadStaffTrackStatsByUserIds(guildId, userIds);
+  const { getStaffListNewBadgeRoleIdsByUser } = require("../Community/staffListUtils");
+  const [statsByUser, newBadgeByUser] = await Promise.all([
+    loadStaffTrackStatsByUserIds(guildId, userIds),
+    getStaffListNewBadgeRoleIdsByUser(guildId).catch(() => new Map()),
+  ]);
   for (const sec of sections) {
     for (const m of sec.members) {
       const s = statsByUser.get(m.userId) || { positive: 0, negative: 0, warn: 0, pauses: [] };
       const isPmOnly = String(m.profileKind || "").toLowerCase() === "pm_only";
       m.isPmOnly = isPmOnly;
+      m.isNew = Boolean(newBadgeByUser?.has?.(String(m.userId)));
+      m.onPause = Boolean(m.onPause);
       if (isPmOnly) {
         m.positive = 0;
         m.negative = 0;
@@ -753,7 +759,12 @@ async function handleSiteStaffManagePost(client, req, res) {
       return res.status(400).json({
         ok: false,
         error: "self",
-        message: "Non puoi usare queste azioni su te stesso.",
+        message:
+          action === "warn_rm"
+            ? "Non puoi toglierti i warn da solo: serve High Staff."
+            : action === "val_neg_rm"
+              ? "Sul tuo profilo puoi togliere una val − solo con Compensa 3+ (scambio obbligatorio)."
+              : "Non puoi usare queste azioni su te stesso.",
       });
     }
 
@@ -930,6 +941,11 @@ async function handleSiteStaffManagePost(client, req, res) {
       });
     }
 
+    // Sempre: dopo qualsiasi azione il profilo web deve rifare fetch fresco.
+    try {
+      clearStaffProfileCacheForUser(targetId);
+    } catch (_) {}
+
     if (
       action === "pex" ||
       action === "pex_pm" ||
@@ -938,9 +954,6 @@ async function handleSiteStaffManagePost(client, req, res) {
       PAUSE_MANAGE_ACTIONS.has(action)
     ) {
       invalidateStaffRosterCache();
-      try {
-        clearStaffProfileCacheForUser(targetId);
-      } catch (_) {}
     }
 
     const paused = await getStaffListPausedUserIds(guildId);

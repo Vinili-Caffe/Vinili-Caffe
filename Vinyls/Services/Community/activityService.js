@@ -207,6 +207,49 @@ function getLastNHourKeys(hours) {
   return keys;
 }
 
+/** Hour keys (Rome) from startInclusive to endExclusive, capped to now. */
+function getHourKeysBetween(startDate, endDate) {
+  const startMs = new Date(startDate).getTime();
+  let endMs = new Date(endDate).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return getLastNHourKeys(24 * 7);
+  endMs = Math.min(endMs, Date.now());
+  if (endMs <= startMs) return [];
+  const keys = [];
+  let t = Math.floor(startMs / 3_600_000) * 3_600_000;
+  const hardCap = 24 * 10;
+  while (t < endMs && keys.length < hardCap) {
+    keys.push(getHourKey(new Date(t)));
+    t += 3_600_000;
+  }
+  return keys;
+}
+
+function getDayKeysBetween(startDate, endDate) {
+  const startMs = new Date(startDate).getTime();
+  let endMs = new Date(endDate).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return getLastNDaysKeys(7);
+  endMs = Math.min(endMs, Date.now());
+  if (endMs <= startMs) return [];
+  const keys = [];
+  let t = startMs;
+  const hardCap = 14;
+  while (t < endMs && keys.length < hardCap) {
+    keys.push(getDayKey(new Date(t)));
+    t += DAY_MS;
+  }
+  // unique preserving order
+  return Array.from(new Set(keys));
+}
+
+function secondsOverlappingRange(startedAt, rangeStartMs, rangeEndMs, nowMs = Date.now()) {
+  const start = startedAt instanceof Date ? startedAt.getTime() : new Date(startedAt).getTime();
+  if (!Number.isFinite(start)) return 0;
+  const from = Math.max(start, rangeStartMs);
+  const to = Math.min(nowMs, rangeEndMs);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return 0;
+  return Math.max(0, Math.floor((to - from) / 1000));
+}
+
 function chunkArray(items = [], size = 500) {
   const out = [];
   for (let i = 0; i < items.length; i += size) {
@@ -1684,20 +1727,25 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     options?.includeVoiceChannelIds instanceof Set && options.includeVoiceChannelIds.size > 0
       ? options.includeVoiceChannelIds
       : null;
+  const rangeStartMs = options?.rangeStart ? new Date(options.rangeStart).getTime() : NaN;
+  const rangeEndMs = options?.rangeEnd ? new Date(options.rangeEnd).getTime() : NaN;
+  const useRange = Number.isFinite(rangeStartMs) && Number.isFinite(rangeEndMs) && rangeEndMs > rangeStartMs;
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
-  const cacheKey = `user:${guildId}:${userId}:${safeLookback}`;
+  const cacheKey = useRange
+    ? `user:${guildId}:${userId}:range:${rangeStartMs}:${rangeEndMs}:${includeText ? "t" : ""}:${includeVoice ? "v" : ""}:${exclude ? "x" : ""}`
+    : `user:${guildId}:${userId}:${safeLookback}`;
   const cached = getOverviewStatsCache(cacheKey);
   if (cached) return cached;
   await maybeAwaitHourlyBackfillForGuild(guildId);
   const lookbackKey = `d${safeLookback}`;
   const hourKeys1 = getLastNHourKeys(24);
-  const hourKeys7 = getLastNHourKeys(24 * 7);
+  const hourKeys7 = useRange ? getHourKeysBetween(rangeStartMs, rangeEndMs) : getLastNHourKeys(24 * 7);
   const hourKeys14 = getLastNHourKeys(24 * 14);
   const hourKeys21 = getLastNHourKeys(24 * 21);
   const hourKeys30 = getLastNHourKeys(24 * 30);
-  const hourKeysLookback = getLastNHourKeys(24 * safeLookback);
+  const hourKeysLookback = useRange ? hourKeys7 : getLastNHourKeys(24 * safeLookback);
   const allHourKeys = Array.from(new Set([...hourKeys1, ...hourKeys7, ...hourKeys14, ...hourKeys21, ...hourKeys30, ...hourKeysLookback,]),);
-  const dayKeysLookback = getLastNDaysKeys(safeLookback);
+  const dayKeysLookback = useRange ? getDayKeysBetween(rangeStartMs, rangeEndMs) : getLastNDaysKeys(safeLookback);
 
   const [userRows, guildRows14, liveDoc, liveGuildSessions] = await Promise.all([
     loadHourlyRows(guildId, allHourKeys, userId),
@@ -1732,11 +1780,15 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     );
     if (!skipLiveVoice) {
       const add1 = secondsInLastNDays(startedAt, 1, nowMs);
-      const add7 = secondsInLastNDays(startedAt, 7, nowMs);
+      const add7 = useRange
+        ? secondsOverlappingRange(startedAt, rangeStartMs, rangeEndMs, nowMs)
+        : secondsInLastNDays(startedAt, 7, nowMs);
       const add14 = secondsInLastNDays(startedAt, 14, nowMs);
       const add21 = secondsInLastNDays(startedAt, 21, nowMs);
       const add30 = secondsInLastNDays(startedAt, 30, nowMs);
-      const addLookback = secondsInLastNDays(startedAt, safeLookback, nowMs);
+      const addLookback = useRange
+        ? add7
+        : secondsInLastNDays(startedAt, safeLookback, nowMs);
       agg1.voiceSeconds += add1;
       agg7.voiceSeconds += add7;
       agg14.voiceSeconds += add14;

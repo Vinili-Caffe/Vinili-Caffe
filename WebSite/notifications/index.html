@@ -26,7 +26,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=optional" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="stylesheet" href="../css/vc-landing.css?v=20260828notifPersonal2" />
+    <link rel="stylesheet" href="../css/vc-landing.css?v=20260830notifBellHide1" />
     <script src="../js/vc-auth-pending.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../js/vc-page-cine-boot.js?v={{BUILD_ASSET_VERSION}}"></script>
     <style id="vc-notif-boot-personal-css">html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-pane-staff,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page .vc-notif-staff-inbox,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-staff-inbox,html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-staff-inbox-list{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important}html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-scope-dock{display:none!important}html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-pane-personal{visibility:hidden!important;opacity:0!important;pointer-events:none!important}</style>
@@ -355,7 +355,7 @@
           </div>
         </div>
         <div class="vc-premium-footer__legal">
-          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">Â© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">&copy; {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
           <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
             <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
             <span aria-hidden="true"></span>
@@ -391,6 +391,10 @@
         apiUrl: "/webhooks/site-staff-workflows",
         apiUrlLocal: "{{STAFF_ACCESS_API_URL_LOCAL}}",
       };
+      window.__VC_STAFF_PM_POINTS_REMOVED = {
+        apiUrl: "/webhooks/site-staff-pm-points-removed",
+        apiUrlLocal: "{{STAFF_ACCESS_API_URL_LOCAL}}",
+      };
       window.__VC_STAFF_WORKFLOW_CHAT = {
         apiUrl: "/webhooks/site-staff-workflow-chat",
         apiUrlLocal: "{{STAFF_ACCESS_API_URL_LOCAL}}",
@@ -405,7 +409,7 @@
 <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
     <script src="../js/vc-landing.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="../js/notifications-page.js?v=20260828notifBoot1" defer></script>
-    <script src="../js/notifications-staff-tab.js?v=20260829inboxClip1" defer></script>
+    <script src="../js/notifications-staff-tab.js?v=20260830inboxStuck1" defer></script>
     <script src="/js/vc-ptr.js?v={{BUILD_ASSET_VERSION}}" defer></script>
     <script src="/js/vc-home-cine.js?v=20260828notifFlat13" defer></script>
 </body>

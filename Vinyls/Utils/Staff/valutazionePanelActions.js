@@ -22,6 +22,14 @@ const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBrandi
 
 const VALUTAZIONE_EMBED_COLOR = TENANT_EMBED_COLOR;
 
+function clearWebStaffProfileCache(userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,22}$/.test(uid)) return;
+  try {
+    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(uid);
+  } catch (_) {}
+}
+
 /** Mention sicura: `${user}` può diventare "[object Object]" se manca il prototype Discord.js. */
 function formatStaffMention(userLike) {
   const id = String(userLike?.id || userLike?.user?.id || "").trim();
@@ -433,6 +441,7 @@ async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, 
       sectionId: counts.sectionCount,
     }).catch(() => 0);
   } catch (_) {}
+  clearWebStaffProfileCache(userId);
   return { message, ok: true };
 }
 
@@ -476,6 +485,7 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
   );
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
+  clearWebStaffProfileCache(staffUser?.id);
   return { ok: true };
 }
 
@@ -624,6 +634,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
       }).catch(() => 0);
     }
   } catch (_) {}
+  clearWebStaffProfileCache(staffUser?.id);
   return { message, warnResult, ok: true };
 }
 
@@ -667,6 +678,7 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
   );
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
+  clearWebStaffProfileCache(staffUser?.id);
   return { ok: true };
 }
 
@@ -988,6 +1000,7 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, 
     )
     .setColor(VALUTAZIONE_EMBED_COLOR);
   await sendChannelEmbed(channel, { embeds: [summary] });
+  clearWebStaffProfileCache(staffUser?.id);
   return { ok: true };
 }
 
@@ -1038,6 +1051,7 @@ async function valutazionePosForPauseTradeCore(profileDoc, staffUser, positiveCo
     )
     .setColor(VALUTAZIONE_EMBED_COLOR);
   await sendChannelEmbed(channel, { embeds: [summary] });
+  clearWebStaffProfileCache(staffUser?.id);
   return { ok: true, pauseBonusTotal: s.valPosTradedPauseBonusDays };
 }
 

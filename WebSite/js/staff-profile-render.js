@@ -65,6 +65,81 @@
     return a;
   }
 
+  function careerRowSortMs(row) {
+    var iso = row && (row.dateIso || row.date);
+    if (!iso) return 0;
+    var t = new Date(iso).getTime();
+    return Number.isFinite(t) ? t : 0;
+  }
+
+  function isOnStaffCareerLadder(token) {
+    if (!token) return false;
+    if (token === "member" || token === "community") return false;
+    var ladder = {
+      helper: 1,
+      "partner manager": 1,
+      moderator: 1,
+      "senior moderator": 1,
+      director: 1,
+      admin: 1,
+      manager: 1,
+      founder: 1,
+    };
+    return !!ladder[token];
+  }
+
+  function isOutsideStaffCareerLadder(token) {
+    return !isOnStaffCareerLadder(token);
+  }
+
+  /** Ultimo stint on-ladder intero (Member→Helper→…).
+   *  Vuota se uscito e non più in organico; niente carriere precedenti dopo depex. */
+  function sliceToLatestCareer(rows, opts) {
+    opts = opts || {};
+    var stillActive = Boolean(opts.stillActive);
+    if (!Array.isArray(rows) || !rows.length) return [];
+    var chrono = rows.slice().sort(function (a, b) {
+      return careerRowSortMs(a) - careerRowSortMs(b);
+    });
+    var start = 0;
+    var found = false;
+    var onLadder = false;
+    for (var i = 0; i < chrono.length; i += 1) {
+      var to = normalizeCareerRoleToken(chrono[i].newRole);
+      var from = normalizeCareerRoleToken(chrono[i].oldRole);
+      var toOn = isOnStaffCareerLadder(to);
+      var fromOutside = isOutsideStaffCareerLadder(from);
+      if (toOn && (fromOutside || !onLadder)) {
+        start = i;
+        found = true;
+        onLadder = true;
+        continue;
+      }
+      if (onLadder && !toOn) {
+        onLadder = false;
+      }
+    }
+    if (!found) {
+      if (!stillActive) return [];
+      start = 0;
+    } else if (!onLadder && !stillActive) {
+      return [];
+    }
+
+    var endExclusive = chrono.length;
+    while (
+      endExclusive > start &&
+      !isOnStaffCareerLadder(normalizeCareerRoleToken(chrono[endExclusive - 1].newRole))
+    ) {
+      endExclusive -= 1;
+    }
+    if (endExclusive <= start) return [];
+
+    return chrono.slice(start, endExclusive).sort(function (a, b) {
+      return careerRowSortMs(b) - careerRowSortMs(a);
+    });
+  }
+
   function dedupeCareerRows(rows) {
     if (!Array.isArray(rows) || !rows.length) return [];
     var out = [];
@@ -191,7 +266,7 @@
         {
           kind: "staff",
           icon: "fa-shield",
-          label: role.label,
+          label: compactStaffListRoleLabel(role.label) || role.label,
           color: role.color || "#d4a888",
         },
       ];
@@ -221,6 +296,21 @@
         .join("") +
       "</div>"
     );
+  }
+
+  function roleLooksFounder(role) {
+    if (!role) return false;
+    if (role.isFounder === true) return true;
+    if (String(role.kind || "").toLowerCase() === "founder") return true;
+    var label = normalizeCareerRoleToken(role.label || "");
+    if (label === "founder") return true;
+    var badges = Array.isArray(role.badges) ? role.badges : [];
+    for (var i = 0; i < badges.length; i += 1) {
+      var b = badges[i] || {};
+      if (String(b.kind || "").toLowerCase() === "founder") return true;
+      if (normalizeCareerRoleToken(b.label || "") === "founder") return true;
+    }
+    return false;
   }
 
   function renderPayloadHtml(payload, opts) {
@@ -255,6 +345,8 @@
     }
 
     var isSelf = payload.isSelf !== false && opts.isSelf !== false;
+    var pmOnly = String(role.kind || "").toLowerCase() === "pm_only";
+    var isFounder = roleLooksFounder(role);
 
     var id = payload.identity || {};
     var pause = payload.pause || {};
@@ -269,32 +361,45 @@
     var sf = payload.serataFilm;
 
     var stats = [];
-    stats.push(
-      statCard(quota.remaining != null ? quota.remaining : "\u2014", "Giorni di pausa rimanenti", {
-        action: "pause",
-        title: "Apri mini calendario pause",
-      }),
-    );
-    stats.push(
-      statCard(val.positive != null ? val.positive : 0, "Valutazioni Positive", {
-        action: "val-pos",
-        title: "Lista valutazioni positive",
-      }),
-    );
-    stats.push(
-      statCard(val.negative != null ? val.negative : 0, "Valutazioni Negative", {
-        action: "val-neg",
-        title: "Lista valutazioni negative",
-      }),
-    );
-    stats.push(
-      statCard(warn.count != null ? warn.count : 0, "Warn Staff", {
-        action: "warn",
-        title: "Lista warn staff",
-      }),
-    );
-    if (mod && mod.all) {
-      stats.push(statCard(mod.all.total || 0, "Sanzioni All-Time"));
+    var canManagePmPointsTop = canWriteStaffManage();
+    var showPmTopStats = Boolean(partner) && (pmOnly || isFounder);
+    if (!isFounder) {
+      stats.push(
+        statCard(quota.remaining != null ? quota.remaining : "\u2014", "Giorni di pausa rimanenti", {
+          action: "pause",
+          title: "Apri mini calendario pause",
+        }),
+      );
+    }
+    // Founder: no val/warn/pause. PM-only o founder+PM: metriche PM al posto di val/warn.
+    if (showPmTopStats) {
+      stats.push(statCard(partner.redeemSpend != null ? partner.redeemSpend : 0, "Spesi in shop"));
+      stats.push(
+        statCard(partner.points != null ? partner.points : 0, "Punti PM", {
+          action: "pm-points",
+          title: canManagePmPointsTop ? "Gestisci punti PM" : "Punti PM",
+        }),
+      );
+      stats.push(statCard(partner.partnerCount != null ? partner.partnerCount : 0, "Partner"));
+    } else if (!pmOnly && !isFounder) {
+      stats.push(
+        statCard(val.positive != null ? val.positive : 0, "Valutazioni Positive", {
+          action: "val-pos",
+          title: "Lista valutazioni positive",
+        }),
+      );
+      stats.push(
+        statCard(val.negative != null ? val.negative : 0, "Valutazioni Negative", {
+          action: "val-neg",
+          title: "Lista valutazioni negative",
+        }),
+      );
+      stats.push(
+        statCard(warn.count != null ? warn.count : 0, "Warn Staff", {
+          action: "warn",
+          title: "Lista warn staff",
+        }),
+      );
     }
 
     var pauseRows = history.length
@@ -327,8 +432,24 @@
           .join("")
       : '<li class="vc-staff-profile-line vc-staff-profile-line--empty">Nessuna pausa recente.</li>';
 
-    var roleRows = rolesHistory.length
-      ? dedupeCareerRows(rolesHistory)
+    var roleKind = String(role.kind || "").toLowerCase();
+    var stillActiveCareer = roleKind === "full" || roleKind === "pm_only";
+    var currentCareerRole =
+      (career && career.currentRole) ||
+      (roleKind === "pm_only" ? "Partner Manager" : "") ||
+      (role && role.label) ||
+      (Array.isArray(role.badges) && role.badges[0] && role.badges[0].label) ||
+      "";
+    var careerRows = rolesHistory.length
+      ? dedupeCareerRows(
+          sliceToLatestCareer(rolesHistory, {
+            stillActive: stillActiveCareer,
+            currentRole: currentCareerRole,
+          }),
+        )
+      : [];
+    var roleRows = careerRows.length
+      ? careerRows
           .map(function (row) {
             return (
               '<li class="vc-staff-profile-line vc-staff-profile-line--row">' +
@@ -347,7 +468,7 @@
             );
           })
           .join("")
-      : '<li class="vc-staff-profile-line vc-staff-profile-line--empty">Nessuna variazione.</li>';
+      : "";
 
     var roleColor = String(role.color || "#d4a888").trim() || "#d4a888";
     var profileAvatarUrl = resolveProfileAvatarUrl(id);
@@ -368,6 +489,10 @@
 
     var neighbors = (opts && opts.neighbors) || payload.neighbors || null;
     var manageHtml = manageBtnHtml(payload, isSelf);
+    var perms = global.__VC_STAFF_PERMS || {};
+    var canOpenSerata = Boolean(perms.isHighStaff || perms.canManage || perms.highStaff);
+    var sfUnderHtml = sf ? sfUnderManageHtml(sf, { isSelf: isSelf, canOpenSerata: canOpenSerata }) : "";
+    var toolsInner = (manageHtml || "") + (sfUnderHtml || "");
 
     var html = '<section class="vc-user-profile-shell vc-staff-profile-panel">';
 
@@ -391,8 +516,8 @@
         ? '<p class="vc-user-profile-id">ID: ' + esc(String(id.userId || id.id)) + "</p>"
         : "") +
       "</div>" +
-      (manageHtml
-        ? '<div class="vc-user-profile-hero__tools">' + manageHtml + "</div>"
+      (toolsInner
+        ? '<div class="vc-user-profile-hero__tools">' + toolsInner + "</div>"
         : "") +
       "</div>" +
       buildRoleBadgesHtml(role) +
@@ -405,91 +530,56 @@
       payload.__vcStaffNeighbors = neighbors;
     } catch (eN) {}
 
-    var perms = global.__VC_STAFF_PERMS || {};
-    var canOpenSerata = Boolean(perms.isHighStaff || perms.canManage || perms.highStaff);
-    var canOpenPuntiTolti = Boolean(
-      perms.isPm || perms.pm || perms.isHighStaff || perms.canManage || perms.highStaff,
-    );
-
-    if (sf) {
-      var sfPresent = Boolean(sf.willAttend);
-      var sfEditable = Boolean(isSelf && sf.editable);
+    if (!isFounder) {
       html +=
-        '<section class="vc-user-profile-block vc-staff-sf-block">' +
-        '<div class="vc-staff-sf-bar' +
-        (sfPresent ? " is-present" : " is-absent") +
-        '">' +
-        '<div class="vc-staff-sf-bar__copy">' +
-        '<span class="vc-staff-sf-bar__kicker">Serata film</span>' +
-        '<span class="vc-staff-sf-bar__status">' +
-        (sfPresent ? "Presente" : "Assente") +
-        "</span></div>" +
-        '<div class="vc-staff-sf-bar__actions">' +
-        (sfEditable
-          ? '<div class="vc-staff-sf-seg" role="group" aria-label="Presenza Serata Film">' +
-            '<button type="button" class="vc-staff-sf-seg__btn' +
-            (!sfPresent ? " is-active" : "") +
-            '" data-sf="absent" aria-pressed="' +
-            (!sfPresent ? "true" : "false") +
-            '">Assente</button>' +
-            '<button type="button" class="vc-staff-sf-seg__btn' +
-            (sfPresent ? " is-active" : "") +
-            '" data-sf="present" aria-pressed="' +
-            (sfPresent ? "true" : "false") +
-            '">Presente</button></div>'
-          : "") +
-        (canOpenSerata
-          ? '<a class="vc-staff-sf-bar__cta" href="/seratafilm/" target="_blank" rel="noopener noreferrer">' +
-            '<i class="fa fa-film" aria-hidden="true"></i><span>Apri Serata Film</span></a>'
-          : "") +
-        "</div></div></section>";
+        '<section class="vc-user-profile-block">' +
+        '<div class="vc-user-profile-block__head">' +
+        '<span class="vc-user-profile-block__title">Pause</span>' +
+        '<a class="vc-user-profile-customize" href="/staff/pause/" title="Calendario pause"><i class="fa fa-calendar" aria-hidden="true"></i></a>' +
+        "</div>" +
+        '<p class="vc-user-profile-block__sub">' +
+        esc(pause.statusLine || "Nessuna pausa in corso") +
+        "</p>" +
+        '<ul class="vc-staff-profile-lines">' +
+        pauseRows +
+        "</ul></section>";
+
+      // Carriera = solo stint corrente intero; nascosta dopo depex → Member.
+      if (roleRows) {
+        html +=
+          '<section class="vc-user-profile-block vc-staff-career-block">' +
+          '<div class="vc-user-profile-block__head">' +
+          '<span class="vc-user-profile-block__title">Carriera</span>' +
+          '<a class="vc-user-profile-customize" href="/staff/organico/" title="Organico staff"><i class="fa fa-users" aria-hidden="true"></i></a>' +
+          "</div>" +
+          '<ul class="vc-staff-profile-lines">' +
+          roleRows +
+          "</ul></section>";
+      }
     }
 
-    html +=
-      '<section class="vc-user-profile-block">' +
-      '<div class="vc-user-profile-block__head">' +
-      '<span class="vc-user-profile-block__title">Pause</span>' +
-      '<a class="vc-user-profile-customize" href="/staff/pause/" title="Calendario pause"><i class="fa fa-calendar" aria-hidden="true"></i></a>' +
-      "</div>" +
-      '<p class="vc-user-profile-block__sub">' +
-      esc(pause.statusLine || "Nessuna pausa in corso") +
-      "</p>" +
-      '<ul class="vc-staff-profile-lines">' +
-      pauseRows +
-      "</ul></section>";
-
-    html +=
-      '<section class="vc-user-profile-block vc-staff-career-block">' +
-      '<div class="vc-user-profile-block__head">' +
-      '<span class="vc-user-profile-block__title">Carriera</span>' +
-      '<a class="vc-user-profile-customize" href="/staff/organico/" title="Organico staff"><i class="fa fa-users" aria-hidden="true"></i></a>' +
-      "</div>" +
-      '<ul class="vc-staff-profile-lines">' +
-      roleRows +
-      "</ul></section>";
-
-    if (partner) {
+    // Founder: niente blocco PM / shop (le metriche PM stanno già in alto se isPm).
+    if (partner && !isFounder) {
       var canManagePmPoints = canWriteStaffManage();
-      html +=
-        '<section class="vc-user-profile-block vc-staff-pm-block">' +
-        '<div class="vc-user-profile-block__head">' +
-        '<span class="vc-user-profile-block__title">Partner Manager</span>' +
-        (canOpenPuntiTolti
-          ? '<a class="vc-user-profile-customize" href="/staff/punti-tolti/" title="Punti tolti PM"><i class="fa fa-minus-circle" aria-hidden="true"></i></a>'
-          : "") +
-        "</div>" +
-        '<div class="vc-user-profile-grid3">' +
-        '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Spesi in shop</span><span class="vc-user-profile-mini__value">' +
-        esc(partner.redeemSpend || 0) +
-        "</span></div>" +
-        '<article class="vc-user-profile-mini vc-user-profile-mini--action" data-vc-stat="pm-points" role="button" tabindex="0" title="' +
-        (canManagePmPoints ? "Gestisci punti PM" : "Punti PM") +
-        '"><span class="vc-user-profile-mini__label">Punti PM</span><span class="vc-user-profile-mini__value">' +
-        esc(partner.points != null ? partner.points : 0) +
-        "</span></article>" +
-        '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Partner</span><span class="vc-user-profile-mini__value">' +
-        esc(partner.partnerCount != null ? partner.partnerCount : 0) +
-        "</span></div></div></section>";
+      if (!pmOnly) {
+        html +=
+          '<section class="vc-user-profile-block vc-staff-pm-block">' +
+          '<div class="vc-user-profile-block__head">' +
+          '<span class="vc-user-profile-block__title">Partner Manager</span>' +
+          "</div>" +
+          '<div class="vc-user-profile-grid3">' +
+          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Spesi in shop</span><span class="vc-user-profile-mini__value">' +
+          esc(partner.redeemSpend || 0) +
+          "</span></div>" +
+          '<article class="vc-user-profile-mini vc-user-profile-mini--action" data-vc-stat="pm-points" role="button" tabindex="0" title="' +
+          (canManagePmPoints ? "Gestisci punti PM" : "Punti PM") +
+          '"><span class="vc-user-profile-mini__label">Punti PM</span><span class="vc-user-profile-mini__value">' +
+          esc(partner.points != null ? partner.points : 0) +
+          "</span></article>" +
+          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Partner</span><span class="vc-user-profile-mini__value">' +
+          esc(partner.partnerCount != null ? partner.partnerCount : 0) +
+          "</span></div></div></section>";
+      }
       if (partner.shop && global.VCStaffPmShop) {
         html += global.VCStaffPmShop.renderShopSection(partner.shop, { readOnly: !isSelf });
       }
@@ -1145,6 +1235,25 @@
     return Boolean(p.canManage || p.isHighStaff || p.highStaff);
   }
 
+  function isOwnStaffProfile(payload) {
+    if (payload && payload.isSelf === true) return true;
+    if (payload && payload.isSelf === false) return false;
+    var target = targetUserIdFromPayload(payload);
+    if (!target) return false;
+    try {
+      var sess = global.__VC_DISCORD_PROFILE;
+      if (sess && String(sess.id || "") === target) return true;
+    } catch (e0) {}
+    try {
+      var raw = global.localStorage.getItem("vc_discord_user");
+      if (raw) {
+        var u = JSON.parse(raw);
+        if (u && String(u.id || "") === target) return true;
+      }
+    } catch (e1) {}
+    return false;
+  }
+
   function manageApiBase() {
     var c = global.__VC_STAFF_MANAGE || {};
     var local = String(c.apiUrlLocal || "").trim();
@@ -1334,8 +1443,11 @@
     return "";
   }
 
-  function sheetActionBarHtml(kind) {
+  function sheetActionBarHtml(kind, opts) {
+    opts = opts || {};
     if (!canWriteStaffManage()) return "";
+    // Sul proprio profilo non si assegnano val/warn da soli (solo compensazione negative).
+    if (opts.isSelf && (kind === "val-neg" || kind === "warn" || kind === "val-pos")) return "";
     var add = kindToAddAction(kind);
     if (!add) return "";
     var label =
@@ -1360,6 +1472,7 @@
 
   function pauseTradeHtml(payload) {
     if (!canWriteStaffManage()) return "";
+    if (String(((payload || {}).role || {}).kind || "").toLowerCase() === "pm_only") return "";
     var pos = Number(
       (((payload || {}).valutazioni || {}).positive != null
         ? payload.valutazioni.positive
@@ -1398,7 +1511,7 @@
       "</div>";
     if (!canWrite) {
       html +=
-        '<p class="vc-staff-stat-sheet__hint"><a href="/staff/punti-tolti/">Apri pagina Punti tolti</a></p></div>';
+        '<p class="vc-staff-stat-sheet__hint"><a href="/notifications/?view=staff&inbox=punti-tolti">Apri Punti tolti nell\u2019inbox</a></p></div>';
       return html;
     }
     html +=
@@ -1421,7 +1534,23 @@
     opts = opts || {};
     var meta = reasonListKindMeta(kind);
     var canWrite = Boolean(opts.canWrite);
+    var isSelf = Boolean(opts.isSelf);
     var rmAction = kindToRmAction(kind);
+    var pos = Number(
+      (((opts.payload || {}).valutazioni || {}).positive != null
+        ? opts.payload.valutazioni.positive
+        : 0) || 0,
+    );
+    // Self: solo compensazione obbligatoria 3 val + → 1 val − (niente rimozione libera, niente warn).
+    var canTradeNeg =
+      kind === "val-neg" &&
+      pos >= 3 &&
+      (canWrite || isSelf);
+    var canTradeWarn = canWrite && !isSelf && kind === "warn" && pos >= 1;
+    var canFreeRm =
+      canWrite &&
+      Boolean(rmAction) &&
+      !(isSelf && (kind === "val-neg" || kind === "warn"));
     var listPart = "";
     if (!entries.length) {
       listPart =
@@ -1435,6 +1564,40 @@
         esc(meta.empty) +
         "</p></div>";
     } else {
+      var tradeHint = "";
+      if (kind === "val-neg" && (canWrite || isSelf)) {
+        if (!canTradeNeg) {
+          tradeHint =
+            '<p class="vc-staff-stat-sheet__trade-hint">' +
+            (isSelf
+              ? "Per togliere una val − da soli serve lo scambio obbligatorio di <b>3</b> val + (ora: "
+              : "Compensa con scambio: servono almeno <b>3</b> val + (ora: ") +
+            esc(String(pos)) +
+            ").</p>";
+        } else {
+          tradeHint =
+            '<p class="vc-staff-stat-sheet__trade-hint">Val + disponibili: <b>' +
+            esc(String(pos)) +
+            "</b>. Usa <b>Compensa 3+</b> sulla voce" +
+            (isSelf ? " (rimozione libera non consentita sul proprio profilo)." : ", oppure Rimuovi.") +
+            "</p>";
+        }
+      } else if (kind === "warn" && canWrite && !isSelf) {
+        if (!canTradeWarn) {
+          tradeHint =
+            '<p class="vc-staff-stat-sheet__trade-hint">Scambio val + \u2192 warn: serve almeno <b>1</b> val + (ora: ' +
+            esc(String(pos)) +
+            ").</p>";
+        } else {
+          tradeHint =
+            '<p class="vc-staff-stat-sheet__trade-hint">Val + disponibili: <b>' +
+            esc(String(pos)) +
+            "</b>. Usa Compensa / Scambia sulla voce, oppure Rimuovi.</p>";
+        }
+      } else if (kind === "warn" && isSelf) {
+        tradeHint =
+          '<p class="vc-staff-stat-sheet__trade-hint">I warn staff <b>non</b> si possono togliere da soli: serve High Staff.</p>';
+      }
       listPart =
         '<div class="vc-staff-stat-sheet__summary is-' +
         meta.tone +
@@ -1449,12 +1612,46 @@
         '<span class="vc-staff-stat-sheet__summary-label">' +
         (entries.length === 1 ? "voce in elenco" : "voci in elenco") +
         "</span></div></div>" +
+        tradeHint +
         '<ul class="vc-staff-stat-sheet__list is-' +
         meta.tone +
         '">' +
         entries
           .map(function (row, idx) {
             var id = row.id != null ? row.id : idx + 1;
+            var acts = "";
+            if (canTradeNeg || canTradeWarn || canFreeRm) {
+              acts = '<span class="vc-staff-stat-sheet__acts">';
+              if (canTradeNeg) {
+                acts +=
+                  '<button type="button" class="vc-staff-stat-sheet__trade" data-stat-act="neg_trade" data-rm-id="' +
+                  esc(String(id)) +
+                  '" title="Scambia 3 val + per rimuovere questa val \u2212">Compensa 3+</button>';
+              }
+              if (canTradeWarn) {
+                acts +=
+                  '<button type="button" class="vc-staff-stat-sheet__trade" data-stat-act="warn_trade" data-rm-id="' +
+                  esc(String(id)) +
+                  '" title="Scambia val + per rimuovere questo warn">Scambia val +</button>';
+              }
+              if (canFreeRm) {
+                acts +=
+                  '<button type="button" class="vc-staff-stat-sheet__rm" data-stat-act="' +
+                  esc(rmAction) +
+                  '" data-rm-id="' +
+                  esc(String(id)) +
+                  '" aria-label="' +
+                  esc(
+                    kind === "warn"
+                      ? "Rimuovi warn staff"
+                      : kind === "val-neg"
+                        ? "Rimuovi valutazione negativa"
+                        : "Rimuovi valutazione positiva",
+                  ) +
+                  '">Rimuovi</button>';
+              }
+              acts += "</span>";
+            }
             return (
               '<li class="vc-staff-stat-sheet__item is-reason is-' +
               meta.tone +
@@ -1469,28 +1666,14 @@
               '<span class="vc-staff-stat-sheet__item-main">' +
               esc(row.text || "") +
               "</span></div>" +
-              (canWrite && rmAction
-                ? '<button type="button" class="vc-staff-stat-sheet__rm" data-stat-act="' +
-                  esc(rmAction) +
-                  '" data-rm-id="' +
-                  esc(String(id)) +
-                  '" aria-label="' +
-                  esc(
-                    kind === "warn"
-                      ? "Rimuovi warn staff"
-                      : kind === "val-neg"
-                        ? "Rimuovi valutazione negativa"
-                        : "Rimuovi valutazione positiva",
-                  ) +
-                  '">Rimuovi</button>'
-                : "") +
+              acts +
               "</li>"
             );
           })
           .join("") +
         "</ul>";
     }
-    return sheetActionBarHtml(kind) + listPart;
+    return sheetActionBarHtml(kind, { isSelf: isSelf }) + listPart;
   }
 
   function openStatSheet(payload, kind, root) {
@@ -1500,6 +1683,7 @@
     var pauseHistoryRef = [];
     var toneClass = "";
     var canWrite = canWriteStaffManage();
+    var isSelf = isOwnStaffProfile(payload);
     if (kind === "pause") {
       title = "Calendario pause";
       toneClass = " is-pause-sheet";
@@ -1517,6 +1701,8 @@
       toneClass = " is-" + meta.tone + "-sheet";
       body = buildReasonListHtml(kind, reasonEntriesFromPayload(payload, kind), {
         canWrite: canWrite,
+        isSelf: isSelf,
+        payload: payload,
       });
     }
 
@@ -1698,7 +1884,11 @@
           if (root && root.__vcStaffPayload && root.__vcStaffPayload.partner) {
             root.__vcStaffPayload.partner.points = out.data.points;
           }
-          var mini = root ? root.querySelector('[data-vc-stat="pm-points"] .vc-user-profile-mini__value') : null;
+          var mini = root
+            ? root.querySelector(
+                '[data-vc-stat="pm-points"] .vc-user-profile-mini__value, [data-vc-stat="pm-points"] .vc-user-profile-stat__value',
+              )
+            : null;
           if (mini && out.data.points != null) mini.textContent = String(out.data.points);
           if (statusEl) {
             statusEl.classList.remove("is-error");
@@ -1781,6 +1971,129 @@
       return;
     }
 
+    if (action === "neg_trade" || action === "warn_trade") {
+      var tradeId = Number(btn.getAttribute("data-rm-id") || 0);
+      if (!Number.isInteger(tradeId) || tradeId < 1) {
+        dlgAlert({ message: "ID voce non valido." });
+        return;
+      }
+      var viewingSelf = isOwnStaffProfile(payload);
+      if (action === "warn_trade" && (viewingSelf || !canWriteStaffManage())) {
+        dlgAlert({
+          message: viewingSelf
+            ? "Non puoi toglierti i warn da solo: serve High Staff."
+            : "Solo High Staff pu\u00f2 scambiare val + per rimuovere un warn.",
+        });
+        return;
+      }
+      if (action === "neg_trade" && !viewingSelf && !canWriteStaffManage()) {
+        dlgAlert({ message: "Non autorizzato." });
+        return;
+      }
+      var posAvail = Number(
+        (((payload || {}).valutazioni || {}).positive != null ? payload.valutazioni.positive : 0) || 0,
+      );
+      ensureActionDialogs()
+        .then(function () {
+          if (action === "neg_trade") {
+            if (posAvail < 3) {
+              return dlgAlert({
+                message: "Servono almeno 3 val + per compensare (ora: " + posAvail + ").",
+              }).then(function () {
+                return null;
+              });
+            }
+            return dlgConfirm({
+              title: "Compensa val −",
+              message: "Scambiare 3 val + per rimuovere la val − #" + tradeId + "?",
+              confirmLabel: "Compensa",
+              cancelLabel: "Annulla",
+              icon: "fa-exchange",
+            }).then(function (ok) {
+              return ok ? { mode: "neg_trade", negativeId: tradeId } : null;
+            });
+          }
+          return dlgPrompt({
+            title: "Scambia val + → warn",
+            message:
+              "Quante val + usare per togliere il warn #" + tradeId + "? Disponibili: " + posAvail + ".",
+            label: "Val + da scambiare",
+            placeholder: "es. 1",
+            defaultValue: String(Math.min(Math.max(1, posAvail), 10) || 1),
+            confirmLabel: "Continua",
+            cancelLabel: "Annulla",
+            maxLength: 3,
+            icon: "fa-exchange",
+          }).then(function (raw) {
+            if (raw == null) return null;
+            var n = Math.floor(Number(String(raw).trim()));
+            if (!Number.isInteger(n) || n < 1) {
+              return dlgAlert({ message: "Numero val + non valido." }).then(function () {
+                return null;
+              });
+            }
+            if (n > posAvail) {
+              return dlgAlert({
+                message: "Non ci sono abbastanza val + (ne ha " + posAvail + ").",
+              }).then(function () {
+                return null;
+              });
+            }
+            return dlgConfirm({
+              title: "Conferma scambio warn",
+              message: "Scambiare " + n + " val + e rimuovere il warn #" + tradeId + "?",
+              confirmLabel: "Scambia",
+              cancelLabel: "Annulla",
+              danger: true,
+              icon: "fa-exchange",
+            }).then(function (ok) {
+              return ok
+                ? {
+                    mode: "warn_rm",
+                    removeId: tradeId,
+                    positiveTradeCount: n,
+                    reason: "Scambio " + n + " val + → rimozione warn #" + tradeId,
+                  }
+                : null;
+            });
+          });
+        })
+        .then(function (pack) {
+          if (!pack) return;
+          btn.disabled = true;
+          var post =
+            pack.mode === "neg_trade"
+              ? postValTradeAction({
+                  action: "neg_trade",
+                  userId: uid,
+                  negativeId: pack.negativeId,
+                })
+              : postManageAction({
+                  action: "warn_rm",
+                  userId: uid,
+                  removeId: pack.removeId,
+                  positiveTradeCount: pack.positiveTradeCount,
+                  reason: pack.reason,
+                });
+          return post.then(function (out) {
+            btn.disabled = false;
+            if (!out.res.ok || !out.data || !out.data.ok) {
+              return dlgAlert({
+                title: "Operazione non riuscita",
+                message: (out.data && out.data.message) || "Scambio non riuscito.",
+              });
+            }
+            closeStatSheet();
+            if (typeof reload === "function") reload();
+          });
+        })
+        .catch(function () {
+          btn.disabled = false;
+          dlgAlert({ message: "Errore di rete." });
+        });
+      return;
+    }
+
     var isRm = action.indexOf("_rm") >= 0;
     var rmId = Number(btn.getAttribute("data-rm-id") || 0);
     var titles = {
@@ -1829,6 +2142,21 @@
     };
     var meta = titles[action];
     if (!meta) return;
+
+    var viewingSelfRm = isOwnStaffProfile(payload);
+    if (viewingSelfRm && (action === "val_neg_rm" || action === "warn_rm")) {
+      dlgAlert({
+        message:
+          action === "warn_rm"
+            ? "Non puoi toglierti i warn da solo: serve High Staff."
+            : "Sul tuo profilo puoi togliere una val − solo con Compensa 3+ (scambio obbligatorio).",
+      });
+      return;
+    }
+    if (!canWriteStaffManage()) {
+      dlgAlert({ message: "Solo High Staff pu\u00f2 eseguire questa azione." });
+      return;
+    }
 
     var wantsOptionalTrade = action === "warn_rm" || action === "val_neg_rm";
     var tradeKindLabel = action === "warn_rm" ? "warn staff" : "valutazione negativa";
@@ -1944,6 +2272,260 @@
       esc(label) +
       "</span></button></div>"
     );
+  }
+
+  function staffListPickerHtml() {
+    return (
+      '<div id="vc-staff-list-dock" class="vc-staff-list-dock">' +
+      '<button type="button" class="vc-staff-list-fab" data-vc-staff-list-toggle aria-expanded="false" aria-haspopup="true" title="Lista staff" aria-label="Lista staff">' +
+      '<span class="vc-staff-list-fab__ico" aria-hidden="true"><i class="fa fa-users"></i></span>' +
+      '<span class="vc-staff-list-fab__label">Lista staff</span></button>' +
+      '<div class="vc-staff-list-pop" data-vc-staff-list-pop hidden>' +
+      '<p class="vc-staff-list-pop__kicker">Organico</p>' +
+      '<ul class="vc-staff-list-pop__list" data-vc-staff-list-ul>' +
+      '<li class="vc-staff-list-pop__empty">Caricamento\u2026</li>' +
+      "</ul></div></div>"
+    );
+  }
+
+  function compactStaffListRoleLabel(raw) {
+    var s = String(raw == null ? "" : raw).trim();
+    if (!s) return "";
+    var parts = s.split(/\s*&\s*/);
+    var keep = [];
+    for (var i = 0; i < parts.length; i += 1) {
+      var part = String(parts[i] || "").trim();
+      if (!part) continue;
+      // Togli decorazioni iniziali (es. ≈) per classificare Staff / High Staff / SDM.
+      var core = part.replace(/^[^A-Za-z0-9]+/, "").replace(/\s+/g, " ").trim();
+      var low = core.toLowerCase();
+      if (
+        low === "staff" ||
+        low === "high staff" ||
+        low === "highstaff" ||
+        low === "staffer del mese" ||
+        low === "staff del mese" ||
+        low.indexOf("staffer del mese") !== -1 ||
+        low.indexOf("staff del mese") !== -1
+      ) {
+        continue;
+      }
+      keep.push(part);
+    }
+    return keep.join(" & ");
+  }
+
+  function fillStaffListPop(people, currentUserId) {
+    var dock = global.document.getElementById("vc-staff-list-dock");
+    if (!dock) return;
+    var ul = dock.querySelector("[data-vc-staff-list-ul]");
+    if (!ul) return;
+    var cur = String(currentUserId || "").trim();
+    var list = Array.isArray(people) ? people : [];
+    if (!list.length) {
+      ul.innerHTML = '<li class="vc-staff-list-pop__empty">Nessuno in organico.</li>';
+      return;
+    }
+    ul.innerHTML = list
+      .map(function (p) {
+        var id = String((p && p.userId) || "").trim();
+        if (!id) return "";
+        var name = String((p && p.displayName) || id).trim() || id;
+        var role = compactStaffListRoleLabel((p && p.roleLabel) || "");
+        var avatar = String((p && p.avatarUrl) || "").trim();
+        var isCur = id === cur;
+        var chips = "";
+        if (p && p.isNew) {
+          chips +=
+            '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--new" title="Nuovo in staff">Nuovo</span>';
+        }
+        if (p && p.onPause) {
+          chips +=
+            '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--pause" title="In pausa">Pausa</span>';
+        }
+        var avHtml = avatar
+          ? '<img src="' +
+            esc(avatar) +
+            '" alt="" width="22" height="22" loading="lazy" decoding="async" onerror="this.onerror=null;this.remove()" />'
+          : '<i class="fa fa-user" aria-hidden="true"></i>';
+        return (
+          '<li class="vc-staff-list-pop__item' +
+          (isCur ? " is-current" : "") +
+          (p && p.onPause ? " is-paused" : "") +
+          '">' +
+          '<button type="button" class="vc-staff-list-pop__btn" data-vc-staff-list-go="' +
+          esc(id) +
+          '"' +
+          (isCur ? ' disabled aria-current="page"' : "") +
+          ">" +
+          '<span class="vc-staff-list-pop__av" aria-hidden="true">' +
+          avHtml +
+          "</span>" +
+          '<span class="vc-staff-list-pop__meta">' +
+          '<span class="vc-staff-list-pop__name-row">' +
+          '<span class="vc-staff-list-pop__name">' +
+          esc(name) +
+          "</span>" +
+          (chips ? '<span class="vc-staff-list-pop__chips">' + chips + "</span>" : "") +
+          "</span>" +
+          (role ? '<span class="vc-staff-list-pop__role">' + esc(role) + "</span>" : "") +
+          "</span></button></li>"
+        );
+      })
+      .join("");
+  }
+
+  function setStaffListOpen(dock, open) {
+    if (!dock) return;
+    var btn = dock.querySelector("[data-vc-staff-list-toggle]");
+    var pop = dock.querySelector("[data-vc-staff-list-pop]");
+    if (!btn || !pop) return;
+    if (open) {
+      pop.hidden = false;
+      dock.classList.add("is-open");
+      btn.setAttribute("aria-expanded", "true");
+    } else {
+      pop.hidden = true;
+      dock.classList.remove("is-open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function unmountStaffListDock() {
+    var dock = global.document.getElementById("vc-staff-list-dock");
+    if (dock && dock.parentNode) dock.parentNode.removeChild(dock);
+    try {
+      global.document.documentElement.classList.remove("vc-staff-list-dock-on");
+    } catch (e) {}
+  }
+
+  function mountStaffListDock(hooks) {
+    hooks = hooks || {};
+    var doc = global.document;
+    if (!doc || !doc.body) return null;
+    var dock = doc.getElementById("vc-staff-list-dock");
+    if (!dock) {
+      var wrap = doc.createElement("div");
+      wrap.innerHTML = staffListPickerHtml();
+      dock = wrap.firstChild;
+      doc.body.appendChild(dock);
+    }
+    dock.__vcStaffListHooks = hooks;
+    dock.__vcStaffListCurrentId = String(hooks.currentUserId || "").trim();
+
+    function loadAndFill() {
+      var h = dock.__vcStaffListHooks || {};
+      var p = typeof h.getStaffList === "function" ? h.getStaffList() : Promise.resolve([]);
+      return Promise.resolve(p)
+        .then(function (people) {
+          fillStaffListPop(people || [], dock.__vcStaffListCurrentId || "");
+        })
+        .catch(function () {
+          fillStaffListPop([], dock.__vcStaffListCurrentId || "");
+        });
+    }
+
+    dock.__vcStaffListLoad = loadAndFill;
+    loadAndFill();
+
+    if (dock.getAttribute("data-vc-staff-list-bound") !== "1") {
+      dock.setAttribute("data-vc-staff-list-bound", "1");
+
+      dock.addEventListener("click", function (ev) {
+        var toggle = ev.target && ev.target.closest ? ev.target.closest("[data-vc-staff-list-toggle]") : null;
+        if (toggle && dock.contains(toggle)) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          var open = !dock.classList.contains("is-open");
+          setStaffListOpen(dock, open);
+          if (open) loadAndFill();
+          return;
+        }
+        var go = ev.target && ev.target.closest ? ev.target.closest("[data-vc-staff-list-go]") : null;
+        if (!go || !dock.contains(go) || go.disabled) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        var uid = String(go.getAttribute("data-vc-staff-list-go") || "").trim();
+        if (!/^\d{17,20}$/.test(uid)) return;
+        setStaffListOpen(dock, false);
+        var h = dock.__vcStaffListHooks || {};
+        if (typeof h.onPeerNavigate === "function") h.onPeerNavigate(uid);
+      });
+
+      doc.addEventListener(
+        "click",
+        function (ev) {
+          if (!dock.classList.contains("is-open")) return;
+          if (ev.target && dock.contains(ev.target)) return;
+          setStaffListOpen(dock, false);
+        },
+        true,
+      );
+
+      doc.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape") setStaffListOpen(dock, false);
+      });
+    }
+
+    try {
+      doc.documentElement.classList.add("vc-staff-list-dock-on");
+    } catch (eOn) {}
+    return dock;
+  }
+
+  function syncStaffListDock(hooks) {
+    hooks = hooks || {};
+    var show = Boolean(hooks.visible);
+    if (!show) {
+      unmountStaffListDock();
+      return null;
+    }
+    return mountStaffListDock(hooks);
+  }
+
+  function sfMiniHtml() {
+    return "";
+  }
+
+  function sfUnderManageHtml(sf, opts) {
+    if (!sf) return "";
+    opts = opts || {};
+    var present = Boolean(sf.willAttend);
+    var editable = Boolean(opts.isSelf && sf.editable);
+    var canOpen = Boolean(opts.canOpenSerata);
+    return (
+      '<div class="vc-staff-sf-under' +
+      (present ? " is-present" : " is-absent") +
+      '" data-vc-sf-under="1">' +
+      '<div class="vc-staff-sf-under__copy">' +
+      '<span class="vc-staff-sf-under__kicker">Serata film</span>' +
+      '<span class="vc-staff-sf-under__status">' +
+      (present ? "Presente" : "Assente") +
+      "</span></div>" +
+      '<div class="vc-staff-sf-under__actions">' +
+      (editable
+        ? '<div class="vc-staff-sf-seg" role="group" aria-label="Presenza Serata Film">' +
+          '<button type="button" class="vc-staff-sf-seg__btn' +
+          (!present ? " is-active" : "") +
+          '" data-sf="absent" aria-pressed="' +
+          (!present ? "true" : "false") +
+          '">Assente</button>' +
+          '<button type="button" class="vc-staff-sf-seg__btn' +
+          (present ? " is-active" : "") +
+          '" data-sf="present" aria-pressed="' +
+          (present ? "true" : "false") +
+          '">Presente</button></div>'
+        : "") +
+      (canOpen
+        ? '<a class="vc-staff-sf-under__cta" href="/seratafilm/" target="_blank" rel="noopener noreferrer" title="Apri Serata Film">' +
+          '<i class="fa fa-film" aria-hidden="true"></i><span>Apri</span></a>'
+        : "") +
+      "</div></div>"
+    );
+  }
+
+  function bindStaffListPicker() {
+    /* legacy no-op: lista staff è il dock fisso */
   }
 
   function unmountStaffPeerDock() {
@@ -2135,7 +2717,13 @@
     bindManageButton(root, payload, hooks);
     bindPeerNav(root, payload, hooks);
 
-    if (partner && partner.shop && global.VCStaffPmShop && isSelf) {
+    if (
+      partner &&
+      partner.shop &&
+      global.VCStaffPmShop &&
+      isSelf &&
+      !roleLooksFounder(payload.role || {})
+    ) {
       global.VCStaffPmShop.bindShop(root, {
         onReload: hooks.onReload || function () {},
         setStatus: hooks.setStatus || function () {},
@@ -2170,12 +2758,17 @@
   global.VCStaffProfileRender = {
     esc: esc,
     dedupeCareerRows: dedupeCareerRows,
+    sliceToLatestCareer: sliceToLatestCareer,
     renderPayloadHtml: renderPayloadHtml,
     renderInto: renderInto,
     bindInteractions: bindInteractions,
     resolveProfileAvatarUrl: resolveProfileAvatarUrl,
     mountStaffPeerDock: mountStaffPeerDock,
     unmountStaffPeerDock: unmountStaffPeerDock,
+    mountStaffListDock: mountStaffListDock,
+    unmountStaffListDock: unmountStaffListDock,
+    syncStaffListDock: syncStaffListDock,
+    fillStaffListPop: fillStaffListPop,
     runProspectPexFlow: runProspectPexFlow,
   };
 })(typeof window !== "undefined" ? window : globalThis);

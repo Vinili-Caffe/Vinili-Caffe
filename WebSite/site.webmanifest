@@ -1,9 +1,9 @@
 {
-  "id": "/?app=vinili-caffe-v8",
+  "id": "/?app=vinili-caffe-v9",
   "name": "‌",
   "short_name": "Vinili & Caffè",
   "description": "Community Discord Vinili & Caffè",
-  "start_url": "/?app=vinili-caffe-v8",
+  "start_url": "/?app=vinili-caffe-v9",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
@@ -11,8 +11,8 @@
     "client_mode": ["navigate-existing", "auto"]
   },
   "handle_links": "preferred",
-  "background_color": "#120e0b",
-  "theme_color": "#140f0c",
+  "background_color": "#100c09",
+  "theme_color": "#100c09",
   "icons": [
     {
       "src": "/images/pwa-icon-192-v6.png?v=20260825pwa8",

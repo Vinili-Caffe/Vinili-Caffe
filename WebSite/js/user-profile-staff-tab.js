@@ -4,8 +4,8 @@
 (function (global) {
   "use strict";
 
-  var ASSET_VER = "20260829peerNoFlash1";
-  var STAFF_ROSTER_CACHE_KEY = "vc_staff_roster_ids_v1";
+  var ASSET_VER = "20260830selfNeg1";
+  var STAFF_ROSTER_CACHE_KEY = "vc_staff_roster_v2";
   var STAFF_ROSTER_CACHE_TTL_MS = 10 * 60 * 1000;
   var sfPostBusy = false;
   var PROBE_TIMEOUT_MS = 6000;
@@ -26,6 +26,7 @@
     probeDone: false,
     probeInFlight: null,
     rosterIds: null,
+    rosterPeople: null,
     rosterInFlight: null,
   };
 
@@ -244,12 +245,14 @@
     return base;
   }
 
-  function profileApiUrl(userId) {
+  function profileApiUrl(userId, opts) {
     var base = profileApiBase();
     var id = String(userId || "").trim();
     if (!id) return base;
     var sep = base.indexOf("?") >= 0 ? "&" : "?";
-    return base + sep + "userId=" + encodeURIComponent(id);
+    var url = base + sep + "userId=" + encodeURIComponent(id);
+    if (opts && opts.fresh) url += "&fresh=1";
+    return url;
   }
 
   function parseActiveTabFromUrl() {
@@ -289,32 +292,65 @@
       var parsed = JSON.parse(raw);
       if (!parsed || !Array.isArray(parsed.ids) || !parsed.ids.length) return null;
       if (Date.now() - Number(parsed.ts || 0) > STAFF_ROSTER_CACHE_TTL_MS) return null;
-      return parsed.ids.map(String).filter(function (id) {
+      var ids = parsed.ids.map(String).filter(function (id) {
         return /^\d{17,20}$/.test(id);
       });
+      if (!ids.length) return null;
+      if (Array.isArray(parsed.people) && parsed.people.length) {
+        state.rosterPeople = parsed.people
+          .map(function (p) {
+            if (!p) return null;
+            var id = String(p.userId || "").trim();
+            if (!/^\d{17,20}$/.test(id)) return null;
+            return {
+              userId: id,
+              displayName: String(p.displayName || id).trim() || id,
+              avatarUrl: String(p.avatarUrl || "").trim(),
+              roleLabel: String(p.roleLabel || "").trim(),
+              onPause: Boolean(p.onPause),
+              isNew: Boolean(p.isNew),
+            };
+          })
+          .filter(Boolean);
+      }
+      return ids;
     } catch (e) {
       return null;
     }
   }
 
-  function writeRosterCache(ids) {
+  function writeRosterCache(ids, people) {
     try {
       global.sessionStorage.setItem(
         STAFF_ROSTER_CACHE_KEY,
-        JSON.stringify({ ts: Date.now(), ids: ids || [] }),
+        JSON.stringify({ ts: Date.now(), ids: ids || [], people: people || [] }),
       );
     } catch (eW) {}
   }
 
   function flattenRosterIds(sections) {
+    return flattenRosterPeople(sections).map(function (p) {
+      return p.userId;
+    });
+  }
+
+  function flattenRosterPeople(sections) {
     var out = [];
     var seen = {};
     (sections || []).forEach(function (sec) {
+      var roleLabel = String((sec && (sec.roleLabel || sec.title || sec.label)) || "").trim();
       (sec.members || []).forEach(function (m) {
         var id = String((m && m.userId) || "").trim();
         if (!/^\d{17,20}$/.test(id) || seen[id]) return;
         seen[id] = true;
-        out.push(id);
+        out.push({
+          userId: id,
+          displayName: String((m && (m.displayName || m.username)) || id).trim() || id,
+          avatarUrl: String((m && m.avatarUrl) || "").trim(),
+          roleLabel: String((m && m.displayRoleLabel) || roleLabel || "").trim(),
+          onPause: Boolean(m && m.onPause),
+          isNew: Boolean(m && m.isNew),
+        });
       });
     });
     return out;
@@ -343,12 +379,15 @@
       })
       .then(function (out) {
         state.rosterInFlight = null;
-        var ids =
-          out && out.res && out.res.ok && out.data && out.data.ok
-            ? flattenRosterIds(out.data.sections)
-            : [];
+        var sections =
+          out && out.res && out.res.ok && out.data && out.data.ok ? out.data.sections : [];
+        var people = flattenRosterPeople(sections);
+        var ids = people.map(function (p) {
+          return p.userId;
+        });
+        state.rosterPeople = people;
         state.rosterIds = ids;
-        if (ids.length) writeRosterCache(ids);
+        if (ids.length) writeRosterCache(ids, people);
         return ids;
       })
       .catch(function () {
@@ -356,6 +395,21 @@
         return state.rosterIds || [];
       });
     return state.rosterInFlight;
+  }
+
+  function ensureStaffPeople() {
+    return ensureStaffRoster().then(function () {
+      if (state.rosterPeople && state.rosterPeople.length) return state.rosterPeople;
+      // Cache solo-id senza people: forza un refresh organico.
+      state.rosterIds = null;
+      state.rosterInFlight = null;
+      try {
+        global.sessionStorage.removeItem(STAFF_ROSTER_CACHE_KEY);
+      } catch (eRm) {}
+      return ensureStaffRoster().then(function () {
+        return state.rosterPeople || [];
+      });
+    });
   }
 
   function neighborsFor(userId, ids) {
@@ -423,6 +477,7 @@
     if (!mayShow && !mayPex) {
       bar.hidden = true;
       bar.innerHTML = "";
+      syncStaffListDockForTab(userId);
       return;
     }
     // Prospect: niente switch Community|Staff — solo CTA Pex per High Staff.
@@ -439,6 +494,7 @@
           openProspectPexFromCommunity(root, userId);
         });
       }
+      syncStaffListDockForTab(userId);
       return;
     }
     bar.hidden = false;
@@ -471,6 +527,23 @@
         ev.preventDefault();
         switchTab(root, userId, tab);
       });
+    });
+    syncStaffListDockForTab(userId);
+  }
+
+  function syncStaffListDockForTab(userId) {
+    if (!global.VCStaffProfileRender || typeof global.VCStaffProfileRender.syncStaffListDock !== "function") {
+      return;
+    }
+    global.VCStaffProfileRender.syncStaffListDock({
+      visible: state.activeTab === "staff" && viewerMaySeeStaffTab(userId),
+      currentUserId: userId,
+      getStaffList: function () {
+        return ensureStaffPeople();
+      },
+      onPeerNavigate: function (peerId) {
+        navigateStaffPeer(peerId);
+      },
     });
   }
 
@@ -640,12 +713,31 @@
     } catch (e) {}
   }
 
+  function clearSessionStaffCache(userId) {
+    try {
+      var raw = global.sessionStorage.getItem(STAFF_SESSION_CACHE_KEY);
+      if (!raw) return;
+      if (!userId) {
+        global.sessionStorage.removeItem(STAFF_SESSION_CACHE_KEY);
+        return;
+      }
+      var o = JSON.parse(raw);
+      if (o && String(o.userId || "") === String(userId || "")) {
+        global.sessionStorage.removeItem(STAFF_SESSION_CACHE_KEY);
+      }
+    } catch (e) {
+      try {
+        global.sessionStorage.removeItem(STAFF_SESSION_CACHE_KEY);
+      } catch (e2) {}
+    }
+  }
+
   function isTransientStaffFail(out) {
     var status = out && out.res ? Number(out.res.status || 0) : 0;
     return status === 0 || status === 408 || status === 502 || status === 503 || status === 504;
   }
 
-  function fetchStaffProfileOnce(userId, timeoutMs) {
+  function fetchStaffProfileOnce(userId, timeoutMs, opts) {
     var token = getToken();
     if (!token) {
       return Promise.resolve({ res: { status: 401, ok: false }, data: { ok: false, message: "Accedi per continuare." } });
@@ -657,7 +749,8 @@
         String(readyPref.userId || "") === String(userId || "") &&
         readyPref.out &&
         readyPref.out.res &&
-        readyPref.out.data
+        readyPref.out.data &&
+        !(opts && opts.fresh)
       ) {
         global.__VC_STAFF_PROFILE_PREFETCH_RESULT = null;
         return Promise.resolve(readyPref.out);
@@ -665,7 +758,7 @@
     } catch (eReady) {}
     var pref = global.__VC_STAFF_PROFILE_PREFETCH;
     // Cold boot: riusa la prefetch una sola volta (se fallisce non restiamo bloccati sul 503).
-    if (pref && String(pref.userId || "") === String(userId || "") && pref.promise) {
+    if (pref && String(pref.userId || "") === String(userId || "") && pref.promise && !(opts && opts.fresh)) {
       var p = pref.promise;
       try {
         global.__VC_STAFF_PROFILE_PREFETCH = null;
@@ -674,7 +767,7 @@
         return out || { res: { ok: false, status: 0 }, data: {} };
       });
     }
-    var url = profileApiUrl(userId);
+    var url = profileApiUrl(userId, opts);
     var ms = Math.max(2500, Number(timeoutMs) || PROBE_TIMEOUT_MS);
     var T = global.VCStaffTools;
     if (T && T.fetchJson) {
@@ -720,16 +813,16 @@
       });
   }
 
-  function fetchStaffProfile(userId, timeoutMs, retriesLeft) {
+  function fetchStaffProfile(userId, timeoutMs, retriesLeft, opts) {
     var left = retriesLeft == null ? STAFF_FETCH_RETRIES : Number(retriesLeft);
     if (!(left >= 0)) left = 0;
-    return fetchStaffProfileOnce(userId, timeoutMs).then(function (out) {
+    return fetchStaffProfileOnce(userId, timeoutMs, opts).then(function (out) {
       var data = (out && out.data) || {};
       var ok = Boolean(out && out.res && out.res.ok && data.ok);
       if (ok || left <= 0 || !isTransientStaffFail(out)) return out;
       return new Promise(function (resolve) {
         global.setTimeout(function () {
-          resolve(fetchStaffProfile(userId, timeoutMs, left - 1));
+          resolve(fetchStaffProfile(userId, timeoutMs, left - 1, opts));
         }, STAFF_RETRY_GAP_MS);
       });
     });
@@ -810,22 +903,29 @@
     setBodyTabClass(isStaff ? "staff" : "community");
   }
 
-  function waitForStaffRender(maxMs) {
+  function waitForStaffRender(maxMs, opts) {
+    opts = opts || {};
+    var needShop = Boolean(opts.needShop);
     maxMs = Math.max(400, Number(maxMs) || 4000);
     return new Promise(function (resolve) {
-      if (global.VCStaffProfileRender) {
+      function ready() {
+        if (!global.VCStaffProfileRender) return false;
+        if (needShop && !global.VCStaffPmShop) return false;
+        return true;
+      }
+      if (ready()) {
         resolve(true);
         return;
       }
       ensureStaffAssets();
       var started = Date.now();
       (function tick() {
-        if (global.VCStaffProfileRender) {
+        if (ready()) {
           resolve(true);
           return;
         }
         if (Date.now() - started >= maxMs) {
-          resolve(false);
+          resolve(Boolean(global.VCStaffProfileRender));
           return;
         }
         global.setTimeout(tick, 40);
@@ -853,14 +953,15 @@
       return Modal.open(userId, {
         displayName: name,
         onUpdated: function () {
-          loadStaffTab(root, userId, { force: true });
+          loadStaffTab(root, userId, { force: true, quiet: true });
         },
       });
     });
   }
 
   function renderStaffPanel(root, userId, payload) {
-    return waitForStaffRender().then(function (ready) {
+    var needShop = Boolean(payload && payload.partner && payload.partner.shop);
+    return waitForStaffRender(5000, { needShop: needShop }).then(function (ready) {
       var cachedRoster = state.rosterIds || readRosterCache() || [];
       var pane = ensureStaffPane(root);
       var panel = pane.querySelector("#vc-user-profile-staff-panel") || byId("vc-user-profile-staff-panel");
@@ -892,6 +993,9 @@
             onPeerNavigate: function (peerId) {
               navigateStaffPeer(peerId);
             },
+            getStaffList: function () {
+              return ensureStaffPeople();
+            },
             setStatus: function () {},
             onSerataFilm: function (willAttend, panelRoot) {
               postSerataFilm(willAttend, panelRoot, function (ok) {
@@ -920,6 +1024,9 @@
         state.staffLoaded = true;
         clearStaffTabPending();
         try {
+          renderSwitcher(root, userId);
+        } catch (eSw) {}
+        try {
           var deadBoots = root.querySelectorAll("[data-vc-profile-boot]");
           for (var di = 0; di < deadBoots.length; di += 1) deadBoots[di].remove();
         } catch (eDead) {}
@@ -943,6 +1050,13 @@
                 },
               });
             }
+            if (
+              global.VCStaffProfileRender &&
+              typeof global.VCStaffProfileRender.fillStaffListPop === "function"
+            ) {
+              global.VCStaffProfileRender.fillStaffListPop(state.rosterPeople || [], userId);
+            }
+            syncStaffListDockForTab(userId);
           } catch (eDock) {}
         });
       } catch (eRender) {
@@ -972,12 +1086,14 @@
 
   function applySerataFilmUi(root, willAttend) {
     if (!root) return;
-    var bar = root.querySelector(".vc-staff-sf-bar");
+    var bar = root.querySelector(".vc-staff-sf-under, .vc-staff-sf-mini, .vc-staff-sf-bar");
     if (!bar) return;
     var present = Boolean(willAttend);
     bar.classList.toggle("is-present", present);
     bar.classList.toggle("is-absent", !present);
-    var status = bar.querySelector(".vc-staff-sf-bar__status");
+    var status = bar.querySelector(
+      ".vc-staff-sf-under__status, .vc-staff-sf-mini__status, .vc-staff-sf-bar__status",
+    );
     if (status) status.textContent = present ? "Presente" : "Assente";
     bar.querySelectorAll("[data-sf]").forEach(function (btn) {
       var isPresentBtn = btn.getAttribute("data-sf") === "present";
@@ -1074,7 +1190,9 @@
     }
     state.staffLoading = true;
     state.staffLoaded = false;
+    state.cachedStaffPayload = null;
 
+    if (opts.force) clearSessionStaffCache(userId);
     var sessionHit = !opts.force ? readSessionStaffCache(userId) : null;
     if (sessionHit && !sessionHit.prospect) {
       try {
@@ -1096,7 +1214,7 @@
       // Paint istantaneo dal cache sessione (come F5 caldo), poi refresh quiet.
       return renderStaffPanel(root, userId, sessionHit).then(function () {
         state.staffLoading = false;
-        return fetchStaffProfile(userId, PROBE_TIMEOUT_MS).then(function (out) {
+        return fetchStaffProfile(userId, PROBE_TIMEOUT_MS, null, { fresh: Boolean(opts.force) }).then(function (out) {
           var data = (out && out.data) || {};
           var ok = Boolean(out && out.res && out.res.ok && data.ok);
           if (!ok) return;
@@ -1110,7 +1228,7 @@
     var useCached = !opts.force && state.cachedStaffPayload && state.cachedStaffPayload.ok;
     var req = useCached
       ? Promise.resolve({ res: { ok: true, status: 200 }, data: state.cachedStaffPayload })
-      : fetchStaffProfile(userId, PROBE_TIMEOUT_MS);
+      : fetchStaffProfile(userId, PROBE_TIMEOUT_MS, null, { fresh: Boolean(opts.force) });
     return req
       .then(function (out) {
         state.staffLoading = false;
@@ -1186,9 +1304,10 @@
     }
   }
 
-  function showCommunity(root) {
+  function showCommunity(root, userId) {
     state.activeTab = "community";
-    var tid = String(state.targetUserId || "").trim();
+    var tid = String(userId || state.targetUserId || "").trim();
+    if (/^\d{17,20}$/.test(tid)) state.targetUserId = tid;
     if (!root) root = byId("vc-user-profile-view");
 
     try {
@@ -1231,7 +1350,7 @@
     } catch (eHero) {
       heroOk = false;
     }
-    var mismatch = !shell || shellUser !== tid || !heroOk;
+    var mismatch = !shell || shellUser !== tid || !heroOk || shell.getAttribute("data-vc-community-stale") === "1";
 
     // Prima del wipe: ricorda che questo target aveva lo staff (per lo switcher).
     var keepStaffSwitch =
@@ -1280,27 +1399,55 @@
       renderSwitcher(root, tid);
     } catch (eSw2) {}
 
-    // Togli il gate switch quando la shell è del target (o al prossimo paint).
-    try {
-      var shellNow = root.querySelector(":scope > .vc-user-profile-shell");
-      var okNow =
-        shellNow &&
-        String(shellNow.getAttribute("data-vc-community-user") || "") === tid &&
-        String((shellNow.querySelector(".vc-user-profile-id") || {}).textContent || "").indexOf(tid) !==
-          -1;
-      if (okNow) document.documentElement.classList.remove("vc-user-profile-comm-switch");
-      else {
-        // Loader ancora su: togli il gate dopo un tick così non resta bloccato.
-        global.setTimeout(function () {
-          try {
-            document.documentElement.classList.remove("vc-user-profile-comm-switch");
-          } catch (eClr) {}
-        }, 50);
-      }
-    } catch (eGate) {
+    // Togli il gate SOLO se la shell è del target (niente failsafe 50ms → flash viewer).
+    function clearCommSwitchIfReady() {
       try {
-        document.documentElement.classList.remove("vc-user-profile-comm-switch");
-      } catch (eClr2) {}
+        var shellNow = root.querySelector(":scope > .vc-user-profile-shell");
+        var okNow =
+          shellNow &&
+          String(shellNow.getAttribute("data-vc-community-user") || "") === tid &&
+          String(shellNow.getAttribute("data-vc-community-stale") || "") !== "1" &&
+          String((shellNow.querySelector(".vc-user-profile-id") || {}).textContent || "").indexOf(tid) !==
+            -1;
+        var hasLoader = Boolean(
+          root.querySelector(
+            ":scope > .vc-user-profile-loader, :scope > [data-vc-profile-boot]",
+          ),
+        );
+        if (okNow) {
+          document.documentElement.classList.remove("vc-user-profile-comm-switch");
+          return true;
+        }
+        // Loader a pieno schermo: togli gate (CSS mostra comunque il loader).
+        if (hasLoader && !shellNow) {
+          document.documentElement.classList.remove("vc-user-profile-comm-switch");
+          return true;
+        }
+      } catch (eGate) {}
+      return false;
+    }
+    if (!clearCommSwitchIfReady()) {
+      var gateTries = 0;
+      var gateTimer = global.setInterval(function () {
+        gateTries += 1;
+        if (clearCommSwitchIfReady() || gateTries > 40) {
+          try {
+            global.clearInterval(gateTimer);
+          } catch (eClrT) {}
+          // Ultima spiaggia: se dopo ~4s c'è solo loader, sblocca; mai svelare shell stale.
+          if (gateTries > 40) {
+            try {
+              var stale = root.querySelector(":scope > .vc-user-profile-shell");
+              var staleUser = stale
+                ? String(stale.getAttribute("data-vc-community-user") || "").trim()
+                : "";
+              if (!stale || staleUser === tid) {
+                document.documentElement.classList.remove("vc-user-profile-comm-switch");
+              }
+            } catch (eFinal) {}
+          }
+        }
+      }, 100);
     }
   }
 
@@ -1353,7 +1500,7 @@
       global.history.replaceState(null, "", url);
     } catch (eHist) {}
     if (state.activeTab === "staff") showStaff(root, userId);
-    else showCommunity(root);
+    else showCommunity(root, userId);
   }
 
   function maybeRedirectOwnStaffTab() {
@@ -1379,7 +1526,7 @@
           global.history.replaceState(null, "", profileUrl(userId, "community"));
         } catch (eH) {}
       }
-      showCommunity(root);
+      showCommunity(root, userId);
       renderSwitcher(root, userId);
       clearStaffTabPending();
       return;
@@ -1399,7 +1546,7 @@
       if (state.activeTab === "staff" && state.probeDone && !targetIsRealStaff()) {
         state.activeTab = "community";
       }
-      if (state.activeTab !== "staff") showCommunity(root);
+      if (state.activeTab !== "staff") showCommunity(root, userId);
       renderSwitcher(root, userId);
     }
     // Togli pending solo quando il contenuto staff è in pagina (o non serve).
@@ -1647,7 +1794,7 @@
       try {
         global.document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
       } catch (ePend) {}
-      showCommunity(root);
+      showCommunity(root, id);
       renderSwitcher(root, id);
       return;
     }

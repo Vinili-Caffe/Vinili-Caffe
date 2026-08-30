@@ -7,6 +7,7 @@ const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM, getValPosTradedPauseBonusDays } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
+const { applyPronounGenderToTextForMember } = require("../Community/pronounGenderUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji");
 const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("./partnerPointsDisplayUtils");
 const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel, partnerManagerCanAffordReward, getPartnerRewardPointCost } = require("./partnerPointsUtils");
@@ -456,7 +457,8 @@ function getStaffPauseLine(staffDoc, opts = {}) {
     .filter((x) => x.end < today && x.end >= sevenDaysAgo)
     .sort((a, b) => b.end.getTime() - a.end.getTime());
   if (recentlyReturned.length) {
-    return `Rientrato il **${recentlyReturned[0].p.dataRitorno}**`;
+    const line = `Rientrato/a il **${recentlyReturned[0].p.dataRitorno}**`;
+    return opts.member ? applyPronounGenderToTextForMember(line, opts.member) : line;
   }
   return "Nessuna pausa in corso <a:VC_Cross:1482532424570376253>";
 }
@@ -1116,7 +1118,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   }
 
   if ((profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) && sec === SECTION_HOME) {
-    const pauseShort = getStaffPauseLine(s, { pmOnly: true });
+    const pauseShort = getStaffPauseLine(s, { pmOnly: true, member });
     const punti = partnerPtsTotal;
     const spendable = partnerPtsForRedeem;
     const redeemed = Math.max(0, Math.floor(Number(s?.partnerRedeemSpend || 0)));
@@ -1287,7 +1289,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     };
   }
 
-  const pauseShort = getStaffPauseLine(s);
+  const pauseShort = getStaffPauseLine(s, { member });
   let viewerName = "";
   try {
     const viewerMember = await guild.members.fetch(String(viewerId));

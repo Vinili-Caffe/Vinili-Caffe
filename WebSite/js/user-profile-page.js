@@ -944,7 +944,13 @@
 
   function profileViewLooksReady(root) {
     if (!root || root.hidden) return false;
-    if (root.querySelector(".vc-user-profile-hero, .vc-user-profile-notfound, .vc-user-profile-empty")) {
+    var shell = root.querySelector(":scope > .vc-user-profile-shell");
+    if (
+      shell &&
+      shell.querySelector(
+        ".vc-user-profile-hero, .vc-user-profile-notfound, .vc-user-profile-empty",
+      )
+    ) {
       return true;
     }
     var staffPane = root.querySelector(".vc-user-profile-staff-pane");
@@ -956,6 +962,27 @@
       return true;
     }
     return false;
+  }
+
+  /** Solo shell community (ignora hero staff) — usato per wipe Staff→Community. */
+  function communityShellLooksReadyFor(root, userId) {
+    if (!root) return false;
+    var want = String(userId || "").trim();
+    var shell = root.querySelector(":scope > .vc-user-profile-shell");
+    if (!shell) return false;
+    if (shell.getAttribute("data-vc-community-stale") === "1") return false;
+    var shellUser = String(shell.getAttribute("data-vc-community-user") || "").trim();
+    if (want && shellUser !== want) return false;
+    if (!shell.querySelector(".vc-user-profile-hero, .vc-user-profile-notfound, .vc-user-profile-empty")) {
+      return false;
+    }
+    if (!want) return true;
+    try {
+      var idEl = shell.querySelector(".vc-user-profile-id");
+      return Boolean(idEl && String(idEl.textContent || "").indexOf(want) !== -1);
+    } catch (eId) {
+      return false;
+    }
   }
 
   function profileViewLooksBroken(root) {
@@ -992,13 +1019,18 @@
     } catch (eBoot) {}
   }
 
-  function renderInlineLoading(root) {
+  function renderInlineLoading(root, opts) {
     if (!root) return;
+    opts = opts || {};
+    var force = Boolean(opts.force);
     root.hidden = false;
-    var existing = root.querySelector("[data-vc-profile-boot]");
-    if (existing && !(existing.closest && existing.closest("[data-vc-profile-staff-pane]"))) {
-      return;
+    if (!force) {
+      var existing = root.querySelector("[data-vc-profile-boot]");
+      if (existing && !(existing.closest && existing.closest("[data-vc-profile-staff-pane]"))) {
+        return;
+      }
     }
+    // Wipe sempre: altrimenti Staff→Community lascia la shell del viewer sotto un boot stale.
     root.innerHTML =
       '<div class="vc-user-profile-loader vc-user-profile-boot vc-user-profile-boot--inline" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento profilo">' +
       '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
@@ -1019,10 +1051,10 @@
     }
   }
 
-  function renderLoading(root) {
+  function renderLoading(root, opts) {
     // Un solo boot anche su tab=staff (niente secondo spinner dopo).
     clearProfileLoading();
-    renderInlineLoading(root);
+    renderInlineLoading(root, opts);
   }
 
   function renderError(root, message) {
@@ -2191,6 +2223,9 @@
         hideLeaderOnlySections();
       } catch (eHide) {}
       var keepVisible = profileViewLooksReady(root);
+      if (lockedCommunityUserId) {
+        keepVisible = communityShellLooksReadyFor(root, lockedCommunityUserId);
+      }
       if (!force && retryCount === 0) {
         var cachedOut = readCachedProfileBundle(userId);
         var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
@@ -2539,13 +2574,6 @@
       opts = opts || {};
       var wipe = Boolean(opts.wipe);
 
-      try {
-        document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
-        if (document.body) {
-          document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
-        }
-      } catch (eCls) {}
-
       lockedCommunityUserId = id;
       communityPaintSeq += 1;
       var paintSeq = communityPaintSeq;
@@ -2564,6 +2592,12 @@
 
       if (shellReallyOk && !wipe) {
         try {
+          document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
+          if (document.body) {
+            document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
+          }
+        } catch (eClsOk) {}
+        try {
           shell.hidden = false;
           shell.removeAttribute("data-vc-community-stale");
           shell.setAttribute("aria-hidden", "false");
@@ -2571,6 +2605,9 @@
           shell.style.removeProperty("visibility");
         } catch (eShow) {}
         loadProfileRankCardPreview(id, { force: true });
+        try {
+          document.documentElement.classList.remove("vc-user-profile-comm-switch");
+        } catch (eGateOk) {}
         return true;
       }
 
@@ -2617,7 +2654,7 @@
         }
       } catch (eCache) {}
 
-      // Shell sbagliata: svuota subito (niente flash del peer precedente).
+      // Shell sbagliata: wipe FORZATO (niente early-return su boot stale → flash viewer).
       try {
         lastProfileRenderSignature = "";
         if (
@@ -2629,8 +2666,17 @@
         profileRankRenderToken += 1;
         lastRankPreviewUserId = "";
         lastRankPreviewLoadedAt = 0;
-        renderLoading(root);
+        profileInitialLoadDone = false;
+        renderLoading(root, { force: true });
       } catch (eLoad) {}
+
+      // Solo ora togli staff-tab: la community è già loader (o dati giusti).
+      try {
+        document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
+        if (document.body) {
+          document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
+        }
+      } catch (eCls) {}
 
       loadProfile({ silent: false, force: true, userId: id });
       return false;

@@ -903,11 +903,7 @@ function buildResocontoOverrideRows(payload, messageId) {
   if (base.kind === "s") {
     return [
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(mk("px")).setLabel("Pex").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(mk("dp")).setLabel("Depex").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId(mk("vp")).setLabel("Valutazione +").setStyle(ButtonStyle.Primary),
-      ),
-      new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(mk("vn")).setLabel("Valutazione -").setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(mk("nl")).setLabel("Nulla").setStyle(ButtonStyle.Secondary),
       ),
@@ -916,7 +912,6 @@ function buildResocontoOverrideRows(payload, messageId) {
   if (base.kind === "p") {
     return [
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(mk("dp")).setLabel("Depex").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId(mk("rc")).setLabel("Richiamo").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId(mk("nl")).setLabel("Nulla").setStyle(ButtonStyle.Secondary),
       ),
@@ -1206,14 +1201,11 @@ function resolveResocontoChannelId(channelId) {
 function buildWebResocontoAlternatives(kind) {
   if (String(kind || "") === "p") {
     return [
-      { actionKey: "dp", label: "Depex" },
       { actionKey: "rc", label: "Richiamo" },
       { actionKey: "nl", label: "Nulla" },
     ];
   }
   return [
-    { actionKey: "px", label: "Pex" },
-    { actionKey: "dp", label: "Depex" },
     { actionKey: "vp", label: "Valutazione +" },
     { actionKey: "vn", label: "Valutazione -" },
     { actionKey: "nl", label: "Nulla" },
@@ -1264,6 +1256,14 @@ async function decideResocontoFromWeb(guild, actorMember, opts = {}) {
   }
   if (kind !== "s" && kind !== "p") {
     return { ok: false, status: 400, error: "bad_kind", message: "Tipo resoconto non valido." };
+  }
+  if (overrideActionKey === "px" || overrideActionKey === "dp" || proposedActionKey === "px" || proposedActionKey === "dp") {
+    return {
+      ok: false,
+      status: 400,
+      error: "pex_depex_disabled",
+      message: "I resoconti non possono suggerire né applicare Pex/Depex.",
+    };
   }
 
   const accessPayload = { kind, userId, roleId: kind === "s" ? roleId : null };

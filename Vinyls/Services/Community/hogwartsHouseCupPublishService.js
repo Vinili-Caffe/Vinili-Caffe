@@ -105,9 +105,11 @@ function isHogwartsEventLive(client) {
 }
 
 function shouldPublishHogwartsBiweeklySunday(now = new Date(), eventStartMs) {
+  const endMs = getLastSunday12BoundaryMsAtOrBefore(now);
+  // Chiusura ufficiale anno scolastico (anche il 7° anno da 1 settimana).
+  if (periodEndingOnDate(romeDateKeyFromMs(endMs))) return true;
   const start = Number(eventStartMs);
   if (!Number.isFinite(start)) return false;
-  const endMs = getLastSunday12BoundaryMsAtOrBefore(now);
   const anchorMs = getLastSunday12BoundaryMsAtOrBefore(new Date(start));
   const daysSince = Math.floor((endMs - anchorMs) / (24 * 60 * 60 * 1000));
   if (daysSince < 14) return false;

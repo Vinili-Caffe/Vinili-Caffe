@@ -8,19 +8,19 @@ html.vc-staff-route body.vc-staff-area {
     linear-gradient(180deg, #120d09 0%, #1a120d 38%, #0b0806 100%) !important;
 }
 
-/* Pagine cine staff: niente gradiente â€œvinileâ€, solo canvas cine (come inbox). */
+/* Pagine cine staff: niente gradiente “vinile”, solo canvas cine (come inbox). */
 html.vc-staff-route body.vc-staff-area.vc-staff-cine-page,
 html.vc-staff-cine-route body.vc-staff-cine-page,
 html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page,
 html.vc-staff-inbox-route body.vc-staff-inbox-page {
   background-color: #100c09 !important;
   background-image: none !important;
-  /* Android Chrome: overflow-x:hidden senza overflow-y esplicito puÃ² bloccare lo scroll. */
+  /* Android Chrome: overflow-x:hidden senza overflow-y esplicito può bloccare lo scroll. */
   overflow-x: hidden !important;
   overflow-y: auto !important;
 }
 
-/* Canvas live: body trasparente cosÃ¬ il vinile si vede (come FAQ/wiki). */
+/* Canvas live: body trasparente così il vinile si vede (come FAQ/wiki). */
 html.vc-site-polish.vc-home-cine-live.vc-staff-route body.vc-staff-area.vc-staff-cine-page,
 html.vc-site-polish.vc-home-cine-live.vc-staff-cine-route body.vc-staff-cine-page,
 html.vc-site-polish.vc-home-cine-live.vc-staff-route body.vc-staff-area.vc-staff-inbox-page,
@@ -32,7 +32,7 @@ html.vc-site-polish.vc-home-cine-live body.vc-notifications-page.vc-notif-scope-
   background-image: none !important;
 }
 
-/* Dopo il gate: ripristina scroll pagina (Android spesso resta â€œlockedâ€ dal position:fixed). */
+/* Dopo il gate: ripristina scroll pagina (Android spesso resta “locked” dal position:fixed). */
 html.vc-staff-app-revealed:not(.vc-staff-denied-open),
 html.vc-staff-app-revealed:not(.vc-staff-denied-open) body.vc-staff-area {
   position: static !important;
@@ -321,7 +321,7 @@ html.vc-site-polish body.vc-staff-area .vc-staff-hero:not(.vc-page-cine-hero) {
 }
 
 
-/* Verifica/denied staff: niente scroll della pagina sotto lâ€™overlay. */
+/* Verifica/denied staff: niente scroll della pagina sotto l'overlay. */
 html.vc-staff-access-pending:not(.vc-staff-app-revealed),
 html.vc-staff-access-pending:not(.vc-staff-app-revealed) body,
 html.vc-staff-denied-open,
@@ -1069,7 +1069,7 @@ html.vc-staff-route body.vc-staff-area header.fixed {
   background: #3a2a20;
 }
 
-/* â€”â€” Richiedi pausa â€”â€” */
+/* —— Richiedi pausa —— */
 .vc-staff-request {
   margin: 0 0 1rem;
   border-radius: 1.15rem;
@@ -1363,7 +1363,7 @@ html.vc-staff-route body.vc-staff-area header.fixed {
   }
 }
 
-/* â€”â€” Staff profile â€”â€” */
+/* —— Staff profile —— */
 .vc-staff-profile-status {
   margin: 0 0 1rem;
   font-size: 0.9rem;
@@ -2062,7 +2062,7 @@ html.vc-staff-route body.vc-staff-profile-home .vc-home-scrollcue {
   display: none !important;
 }
 
-/* Legacy staff profile blocks â€” niente card esterna. */
+/* Legacy staff profile blocks — niente card esterna. */
 body.vc-staff-profile-home #vc-staff-profile.vc-staff-profile,
 body.vc-staff-profile-home .vc-staff-profile.vc-staff-panel,
 body.vc-staff-profile-home .vc-staff-profile.vc-home-panel,
@@ -2391,7 +2391,7 @@ body.vc-staff-profile-home main.vc-page-cine-main {
   background: rgba(212, 168, 136, 0.12);
 }
 
-/* â€”â€” Guida staff (layout stile FAQ) â€”â€” */
+/* —— Guida staff (layout stile FAQ) —— */
 body.vc-staff-guide-page .vc-regole-tabs {
   margin-bottom: 1rem;
 }
@@ -2546,7 +2546,7 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
   color: #e8dfd4;
 }
 
-/* â€”â€” Dashboard hub â€”â€” */
+/* —— Dashboard hub —— */
 .vc-staff-dash {
   margin-top: 0.35rem;
 }
@@ -2723,8 +2723,8 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
     linear-gradient(160deg, rgba(52, 34, 24, 0.95), rgba(16, 11, 9, 0.96));
 }
 
-/* â€”â€” Gestione console â€”â€” */
-/* display:grid batte lo UA di [hidden] â†’ tab Staff restava visibile su PM. */
+/* —— Gestione console —— */
+/* display:grid batte lo UA di [hidden] → tab Staff restava visibile su PM. */
 .vc-staff-manage[hidden],
 .vc-staff-tools[hidden],
 .vc-staff-panel[hidden],
@@ -3648,7 +3648,7 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
   background: rgba(20, 15, 12, 0.65);
 }
 
-/* display:inline-flex batte lo UA di [hidden] â†’ cerchietto fantasma a destra */
+/* display:inline-flex batte lo UA di [hidden] → cerchietto fantasma a destra */
 .vc-staff-inbox-week[hidden],
 #vc-staff-inbox-week[hidden] {
   display: none !important;
@@ -3883,7 +3883,7 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
   white-space: nowrap;
 }
 
-/* Staff inbox: gradient staff (blob + scroll â†’ regole complete in fondo file). */
+/* Staff inbox: gradient staff (blob + scroll → regole complete in fondo file). */
 html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page {
   background-color: #100c09 !important;
   background-image:
@@ -3904,7 +3904,7 @@ html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page {
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* â€”â€” Inbox: stesso linguaggio di Gestione (chrome + lista | dettaglio) â€”â€” */
+/* —— Inbox: stesso linguaggio di Gestione (chrome + lista | dettaglio) —— */
 .vc-staff-inbox {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -4227,7 +4227,7 @@ html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page {
     overflow: hidden;
   }
 
-  /* Lista: flex fill (non height:100%), cosÃ¬ resta sotto la paginazione e scrolla. */
+  /* Lista: flex fill (non height:100%), così resta sotto la paginazione e scrolla. */
   .vc-staff-inbox.has-detail #vc-staff-inbox-list {
     flex: 1 1 auto;
     height: auto !important;
@@ -4307,7 +4307,7 @@ html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page {
 .vc-staff-avatar-wrap img,
 .vc-staff-avatar-wrap .vc-staff-avatar,
 #vc-staff-inbox .vc-staff-avatar,
-#vc-staff-inbox img[data-vc-avatar]:not(.vc-discord-emoji),
+#vc-staff-inbox img[data-vc-avatar]:not(.vc-discord-emoji):not(.vc-staff-pt-card__avatar),
 #vc-staff-inbox-list .vc-staff-avatar-wrap img,
 #vc-staff-inbox-detail .vc-staff-avatar-wrap img {
   width: 100% !important;
@@ -4633,7 +4633,7 @@ a.vc-staff-pm-pt-btn .fa,
   opacity: 0.9;
 }
 
-/* â€”â€” Punti tolti PM: board sotto l'hero â€”â€” */
+/* — Punti tolti PM: board sotto l'hero / embed inbox — */
 body.vc-staff-punti-tolti-page #vc-staff-pt-toolbar {
   margin-bottom: 0.85rem;
 }
@@ -4647,6 +4647,25 @@ body.vc-staff-punti-tolti-page #vc-staff-pt-panel.vc-staff-pt-board {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.vc-staff-pt-inbox-host,
+.vc-staff-pt-embed {
+  display: block;
+  width: 100%;
+}
+
+body.vc-notifications-page .vc-staff-pt-inbox-host .vc-staff-pt-board,
+body.vc-notifications-page .vc-staff-pt-embed .vc-staff-pt-board {
+  margin-top: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.vc-notifications-page .vc-staff-pt-board__toolbar {
+  margin-bottom: 0.75rem;
 }
 
 .vc-staff-pt-board__toolbar {
@@ -4737,6 +4756,74 @@ body.vc-staff-punti-tolti-page #vc-staff-pt-panel.vc-staff-pt-board {
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+#vc-staff-inbox .vc-staff-pt-card__avatar,
+#vc-staff-inbox-list .vc-staff-pt-card__avatar,
+.vc-staff-pt-inbox-host .vc-staff-pt-card__avatar,
+.vc-staff-pt-embed .vc-staff-pt-card__avatar {
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  min-width: 2.75rem !important;
+  min-height: 2.75rem !important;
+  max-width: 2.75rem !important;
+  max-height: 2.75rem !important;
+  border-radius: 999px !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+/* Board toolbar stile Punti tolti per filtri inbox */
+.vc-staff-inbox-board-toolbar,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filters.vc-staff-inbox-board-toolbar,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filters {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 0.75rem 1.1rem !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0.85rem 1rem !important;
+  border-radius: 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background:
+    linear-gradient(165deg, rgba(28, 20, 15, 0.88), rgba(12, 9, 7, 0.92)) !important;
+  box-shadow: none !important;
+}
+
+.vc-staff-inbox-board-toolbar__hint,
+body.vc-notifications-page .vc-staff-inbox-board-toolbar__hint {
+  margin: 0 !important;
+  flex: 1 1 14rem !important;
+  font-size: 0.82rem !important;
+  line-height: 1.45 !important;
+  color: rgba(226, 232, 240, 0.62) !important;
+}
+
+.vc-staff-inbox-filter-group--board,
+body.vc-notifications-page .vc-staff-inbox-filter-group.vc-staff-inbox-filter-group--board,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group--board {
+  display: contents !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: auto !important;
+  gap: 0 !important;
+}
+
+/* display:flex !important sui filtri bucava [hidden] → doppia barra su Punti tolti */
+body.vc-notifications-page .vc-staff-inbox-filter-group[hidden],
+body.vc-notifications-page #vc-staff-inbox-scope[hidden],
+body.vc-notifications-page #vc-staff-inbox-filters[hidden],
+body.vc-notifications-page .vc-staff-inbox-toolbar__filters[hidden],
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filters[hidden] {
+  display: none !important;
 }
 
 .vc-staff-pt-card__who {
@@ -5090,7 +5177,7 @@ body.vc-staff-punti-tolti-page #vc-staff-pt-panel.vc-staff-pt-board {
 }
 
 /* ============================================================================
- * Staff Inbox â€” page-cine come FAQ/wiki (card hero + scroll cue, board sotto).
+ * Staff Inbox — page-cine come FAQ/wiki (card hero + scroll cue, board sotto).
  * Blobs/canvas fixed: mai nel flow del documento.
  * ========================================================================== */
 html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page,
@@ -5513,7 +5600,7 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page .vc-staff-inbox.has-detail .v
   min-height: 2.6rem;
 }
 
-/* Workflow chat (inbox + richieste utente) â€” stile Discord/ticket */
+/* Workflow chat (inbox + richieste utente) — stile Discord/ticket */
 .vc-wfc {
   display: flex;
   flex-direction: column;
@@ -6235,7 +6322,7 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page > header.fixed::before {
   display: none !important;
 }
 
-/* â€”â€” Staff cine condiviso (gestione / pause / guida / profilo / organico) = layout inbox â€”â€” */
+/* —— Staff cine condiviso (gestione / pause / guida / profilo / organico) = layout inbox —— */
 html.vc-staff-route body.vc-staff-area.vc-staff-cine-page .vc-home-cine,
 html.vc-staff-cine-route body.vc-staff-cine-page .vc-home-cine {
   display: block !important;
@@ -6453,7 +6540,7 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico
   overflow: hidden !important;
 }
 
-/* Mobile: no nested tiny panes â€” roster capped, detail/history grow with page scroll.
+/* Mobile: no nested tiny panes — roster capped, detail/history grow with page scroll.
    (flex:1 + min-height:0 inside height:auto collapses the cronologia list.) */
 @media (max-width: 900px) {
   html.vc-staff-route body.vc-staff-area.vc-staff-manage-page .vc-staff-manage-board,
@@ -6472,7 +6559,7 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico
 
   html.vc-staff-route body.vc-staff-area.vc-staff-manage-page .vc-staff-manage-side,
   html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-manage-side {
-    /* Telefono: lista staff ampia (prima 16rem â†’ troppo piccola). */
+    /* Telefono: lista staff ampia (prima 16rem → troppo piccola). */
     max-height: min(78vh, 36rem);
     min-height: 20rem;
   }
@@ -6520,7 +6607,7 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico
   }
 }
 
-/* Organico staff â€” Staff del Mese + board */
+/* Organico staff — Staff del Mese + board */
 .vc-staff-organico-sdm {
   margin: 0 0 1.15rem;
 }
@@ -6841,7 +6928,7 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
   color: rgba(248, 239, 230, 0.45);
 }
 
-/* PM shop â€” profilo / hub */
+/* PM shop — profilo / hub */
 .vc-staff-pm-shop__tiers {
   list-style: none;
   margin: 0.85rem 0 0;
@@ -6904,9 +6991,28 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
   justify-content: center;
   width: 0.95rem;
   height: 0.95rem;
+  flex: 0 0 0.95rem;
   border-radius: 999px;
   background: rgba(251, 191, 36, 0.22);
+  line-height: 1;
+}
+
+.vc-staff-pm-shop__owned-badge-ico .fa,
+.vc-staff-pm-shop__owned-badge-ico i {
+  display: block;
+  margin: 0;
+  padding: 0;
   font-size: 0.52rem;
+  line-height: 1;
+  width: auto;
+  height: auto;
+  transform: none;
+}
+
+.vc-staff-pm-shop__owned-badge-ico .fa::before,
+.vc-staff-pm-shop__owned-badge-ico i::before {
+  display: block;
+  margin: 0;
   line-height: 1;
 }
 
@@ -7053,7 +7159,7 @@ html.vc-staff-route body.vc-staff-area:not(.vc-page-cine-layout) > main > .vc-st
   box-sizing: border-box !important;
 }
 
-/* â€”â€” Gestione staff: CTA profilo + modale sheet â€”â€” */
+/* —— Gestione staff: CTA profilo + modale sheet —— */
 html.vc-staff-manage-sheet-open,
 html.vc-staff-manage-sheet-open body,
 html.vc-staff-datepicker-open,
@@ -7086,12 +7192,392 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
   flex-shrink: 0;
   align-self: flex-start;
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  max-width: min(100%, 22rem);
+}
+
+.vc-staff-sf-under {
+  width: min(100%, 21.5rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(120deg, rgba(212, 168, 136, 0.12), transparent 55%),
+    rgba(16, 11, 9, 0.88);
+}
+
+.vc-staff-sf-under.is-present {
+  border-color: rgba(110, 170, 100, 0.35);
+  background:
+    linear-gradient(120deg, rgba(90, 140, 70, 0.18), transparent 55%),
+    rgba(16, 11, 9, 0.88);
+}
+
+.vc-staff-sf-under.is-absent {
+  border-color: rgba(200, 110, 90, 0.38);
+  background:
+    linear-gradient(120deg, rgba(160, 70, 55, 0.2), transparent 55%),
+    rgba(16, 11, 9, 0.88);
+}
+
+.vc-staff-sf-under__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.vc-staff-sf-under__kicker {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(232, 201, 168, 0.78);
+}
+
+.vc-staff-sf-under__status {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: #fff6ee;
+}
+
+.vc-staff-sf-under.is-present .vc-staff-sf-under__status {
+  color: #c8e8a8;
+}
+
+.vc-staff-sf-under.is-absent .vc-staff-sf-under__status {
+  color: #f0b8a8;
+}
+
+.vc-staff-sf-under__actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
 }
 
-.vc-staff-profile-hero {
-  position: relative;
+.vc-staff-sf-under .vc-staff-sf-seg__btn {
+  font-size: 0.76rem;
+  padding: 0.34rem 0.55rem;
+}
+
+.vc-staff-sf-under.is-present .vc-staff-sf-seg__btn.is-active {
+  background: rgba(110, 170, 100, 0.35);
+  color: #e8f5d8;
+}
+
+.vc-staff-sf-under.is-absent .vc-staff-sf-seg__btn.is-active {
+  background: rgba(200, 110, 90, 0.35);
+  color: #fde8e0;
+}
+
+.vc-staff-sf-under__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: #e8c9a8;
+  color: #1a120e;
+  text-decoration: none;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.vc-staff-sf-under__cta:hover,
+.vc-staff-sf-under__cta:focus-visible {
+  filter: brightness(1.05);
+  outline: none;
+}
+
+.vc-staff-list-dock {
+  position: fixed;
+  left: max(0.75rem, env(safe-area-inset-left, 0px));
+  bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+  top: auto;
+  z-index: 10480 !important;
+  display: none;
+  pointer-events: none;
+}
+
+body.vc-user-profile-staff-tab .vc-staff-list-dock,
+html.vc-staff-list-dock-on .vc-staff-list-dock {
+  display: block;
+}
+
+.vc-staff-list-dock .vc-staff-list-fab,
+.vc-staff-list-dock .vc-staff-list-pop {
+  pointer-events: auto;
+}
+
+/* Evita sovrapposizione con Live/VOD Kick reopen (stesso angolo). */
+body.vc-user-profile-staff-tab:has(#vc-kick-pip-reopen:not([hidden])) .vc-staff-list-dock {
+  bottom: max(3.65rem, calc(env(safe-area-inset-bottom, 0px) + 2.85rem));
+}
+
+.vc-staff-list-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-height: 2.05rem;
+  padding: 0 0.78rem 0 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 201, 168, 0.42);
+  background: linear-gradient(135deg, rgba(18, 13, 10, 0.96), rgba(48, 32, 22, 0.78));
+  color: #f3e2cf;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42), 0 0 18px rgba(232, 201, 168, 0.12);
+}
+
+.vc-staff-list-fab:hover,
+.vc-staff-list-fab:focus-visible,
+.vc-staff-list-dock.is-open .vc-staff-list-fab {
+  border-color: rgba(232, 201, 168, 0.62);
+  background: linear-gradient(135deg, rgba(28, 20, 14, 0.98), rgba(72, 48, 32, 0.86));
+  outline: none;
+}
+
+.vc-staff-list-fab__ico {
+  display: inline-flex;
+  width: 1.05rem;
+  justify-content: center;
+  opacity: 0.95;
+}
+
+.vc-staff-list-fab__label {
+  white-space: nowrap;
+}
+
+.vc-staff-list-dock .vc-staff-list-pop {
+  position: absolute;
+  bottom: calc(100% + 0.45rem);
+  top: auto;
+  left: 0;
+  width: min(17rem, calc(100vw - 1.5rem));
+  max-height: min(22rem, 60vh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0.55rem 0.5rem 0.5rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(14, 10, 8, 0.97);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+  isolation: isolate;
+}
+
+.vc-staff-list-dock .vc-staff-list-pop[hidden] {
+  display: none !important;
+}
+
+.vc-staff-list-pop__kicker {
+  margin: 0 0.3rem 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(232, 201, 168, 0.72);
+}
+
+.vc-staff-list-pop__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+  max-height: min(18.5rem, 54vh);
+  overscroll-behavior: contain;
+}
+
+.vc-staff-list-pop__empty {
+  margin: 0;
+  padding: 0.55rem 0.45rem;
+  font-size: 0.78rem;
+  color: rgba(245, 235, 224, 0.55);
+}
+
+.vc-staff-list-pop__item {
+  margin: 0;
+}
+
+.vc-staff-list-pop__btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.42rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #fff6ee;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vc-staff-list-pop__btn:hover:not(:disabled),
+.vc-staff-list-pop__btn:focus-visible:not(:disabled) {
+  background: rgba(232, 201, 168, 0.12);
+  outline: none;
+}
+
+.vc-staff-list-pop__btn:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.vc-staff-list-pop__item.is-current .vc-staff-list-pop__btn {
+  background: rgba(232, 201, 168, 0.1);
+}
+
+.vc-staff-list-pop__av {
+  flex-shrink: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(232, 201, 168, 0.8);
+  font-size: 0.65rem;
+}
+
+.vc-staff-list-pop__av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vc-staff-list-pop__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.vc-staff-list-pop__name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vc-staff-list-pop__name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.vc-staff-list-pop__chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.vc-staff-list-pop__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.06rem 0.32rem;
+  border-radius: 999px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.vc-staff-list-pop__chip--new {
+  color: #1a120c;
+  background: rgba(232, 201, 168, 0.92);
+}
+
+.vc-staff-list-pop__chip--pause {
+  color: #f3e6d4;
+  background: rgba(120, 88, 54, 0.85);
+  border: 1px solid rgba(232, 201, 168, 0.28);
+}
+
+.vc-staff-list-pop__item.is-paused .vc-staff-list-pop__name {
+  opacity: 0.88;
+}
+
+.vc-staff-manage-person__name {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.vc-staff-manage-person__name .vc-staff-list-pop__chip {
+  font-size: 0.58rem;
+}
+
+.vc-staff-list-pop__role {
+  font-size: 0.62rem;
+  color: rgba(232, 201, 168, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.vc-staff-stat-sheet-open .vc-staff-list-dock,
+html.vc-staff-manage-sheet-open .vc-staff-list-dock,
+html.vc-notif-sheet-open .vc-staff-list-dock,
+html.vc-notif-overlay-active .vc-staff-list-dock {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .vc-staff-list-fab__label {
+    display: none;
+  }
+  .vc-staff-list-fab {
+    width: 2.35rem;
+    height: 2.35rem;
+    padding: 0;
+    justify-content: center;
+  }
+  .vc-user-profile-hero__head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .vc-user-profile-hero__copy {
+    flex: 1 1 0;
+    min-width: min(11rem, 52vw);
+  }
+  .vc-user-profile-hero__tools {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    align-items: stretch;
+    align-self: stretch;
+  }
+  .vc-staff-sf-under {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* legacy absolute wrap (non usato) */
+.vc-staff-list-wrap {
+  display: none !important;
 }
 
 /* Fixed buttons only — mai un layer full-viewport (su iOS fa scorrere la pagina dietro gli sheet). */
@@ -7225,7 +7711,7 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
     width: 2.75rem !important;
     height: 2.75rem !important;
     font-size: 1rem !important;
-    /* still viewport vertical center â€” follow scroll */
+    /* still viewport vertical center — follow scroll */
     top: 50% !important;
     bottom: auto !important;
   }
@@ -7257,6 +7743,15 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
 
 .vc-staff-manage-cta--hero {
   padding: 0.55rem 0.85rem;
+}
+
+a.vc-staff-manage-cta {
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+a.vc-staff-manage-cta:hover {
+  color: rgba(250, 238, 220, 0.98);
 }
 
 @media (max-width: 640px) {
@@ -7380,6 +7875,7 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
 
 .vc-staff-manage-sheet__head {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.85rem;
@@ -7427,10 +7923,25 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
 }
 
 .vc-staff-manage-sheet__body {
-  overflow: auto;
-  overscroll-behavior: contain;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding: 0.85rem 1rem 1.35rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 168, 136, 0.45) transparent;
+}
+
+.vc-staff-manage-sheet__body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.vc-staff-manage-sheet__body::-webkit-scrollbar-thumb {
+  background: rgba(212, 168, 136, 0.4);
+  border-radius: 999px;
 }
 
 .vc-staff-manage-detail--modal {
@@ -7438,7 +7949,11 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
   background: transparent;
   box-shadow: none;
   padding: 0;
-  max-height: none;
+  max-height: none !important;
+  height: auto !important;
+  /* Un solo scroller: lo sheet__body. Il detail non deve rubare lo scroll. */
+  overflow: visible !important;
+  display: block;
 }
 
 .vc-staff-manage-detail--modal .vc-staff-manage-detail__head {
@@ -7502,18 +8017,26 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
   color: rgba(212, 168, 136, 0.82);
   margin-bottom: 0.35rem;
 }
-.vc-staff-rank-forge__badge strong {
-  display: block;
+.vc-staff-rank-forge__roles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.75rem;
+}
+.vc-staff-rank-forge__badge strong,
+.vc-staff-rank-forge__roles strong {
+  display: inline;
   font-size: 1.35rem;
   font-weight: 800;
   color: rgba(250, 238, 222, 0.98);
 }
 .vc-staff-rank-forge__pm {
-  display: inline-block;
-  margin-top: 0.35rem;
+  display: inline;
+  margin: 0;
   font-style: normal;
-  font-size: 0.78rem;
-  color: rgba(212, 168, 136, 0.9);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgba(212, 168, 136, 0.95);
 }
 .vc-staff-rank-forge__rail {
   display: grid;
@@ -7740,6 +8263,46 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
   font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
+}
+.vc-staff-stat-sheet__acts {
+  margin-left: auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.vc-staff-stat-sheet__acts .vc-staff-stat-sheet__rm {
+  margin-left: 0;
+}
+.vc-staff-stat-sheet__trade {
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(212, 168, 136, 0.4);
+  background: rgba(40, 30, 18, 0.75);
+  color: rgba(247, 220, 180, 0.95);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.vc-staff-stat-sheet__trade:hover {
+  border-color: rgba(232, 201, 168, 0.62);
+  background: rgba(55, 40, 22, 0.88);
+}
+.vc-staff-stat-sheet__trade-hint {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(212, 168, 136, 0.22);
+  background: rgba(18, 12, 8, 0.55);
+  color: rgba(245, 230, 210, 0.82);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.vc-staff-stat-sheet__trade-hint b {
+  color: rgba(247, 220, 180, 0.98);
+  font-weight: 700;
 }
 .vc-staff-stat-sheet__item.is-reason {
   display: flex;
@@ -8260,4 +8823,61 @@ html.vc-staff-datepicker-open body {
   color: rgba(232, 196, 156, 0.95);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* staffProfMobile1 — telefono: Serata Film sotto avatar+nome, no colonna 1-char */
+@media (max-width: 720px), ((pointer: coarse) and (max-width: 980px)) {
+  body.vc-user-profile-page .vc-user-profile-hero__head,
+  .vc-staff-profile-hero .vc-user-profile-hero__head,
+  .vc-user-profile-hero .vc-user-profile-hero__head {
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    gap: 0.7rem 0.85rem;
+  }
+  body.vc-user-profile-page .vc-user-profile-avatarwrap,
+  .vc-staff-profile-hero .vc-user-profile-avatarwrap {
+    width: 4.75rem;
+    height: 4.75rem;
+  }
+  body.vc-user-profile-page .vc-user-profile-hero__copy,
+  .vc-staff-profile-hero .vc-user-profile-hero__copy,
+  .vc-user-profile-hero .vc-user-profile-hero__copy {
+    flex: 1 1 0 !important;
+    min-width: min(12rem, 55vw) !important;
+    max-width: 100%;
+  }
+  body.vc-user-profile-page .vc-user-profile-name,
+  .vc-staff-profile-hero .vc-user-profile-name {
+    font-size: clamp(1.28rem, 5.6vw, 1.75rem);
+    line-height: 1.2;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+  }
+  body.vc-user-profile-page .vc-user-profile-handle,
+  body.vc-user-profile-page .vc-user-profile-id,
+  .vc-staff-profile-hero .vc-user-profile-handle,
+  .vc-staff-profile-hero .vc-user-profile-id {
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+  }
+  body.vc-user-profile-page .vc-user-profile-hero__tools,
+  .vc-staff-profile-hero .vc-user-profile-hero__tools,
+  .vc-user-profile-hero .vc-user-profile-hero__tools {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    align-items: stretch !important;
+    align-self: stretch !important;
+  }
+  body.vc-user-profile-page .vc-staff-sf-under,
+  .vc-staff-profile-hero .vc-staff-sf-under,
+  .vc-user-profile-hero .vc-staff-sf-under {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  body.vc-user-profile-page .vc-user-profile-hero {
+    padding-left: max(0.85rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.85rem, env(safe-area-inset-right, 0px));
+  }
 }

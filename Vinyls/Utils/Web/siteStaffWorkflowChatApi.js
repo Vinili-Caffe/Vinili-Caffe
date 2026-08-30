@@ -22,6 +22,8 @@ const {
   accountUsername,
 } = require("../Discord/guildDiscordIdentity");
 const { buildSiteLinkRow, subjectWorkflowChatPath } = require("./discordWorkflowUiGate");
+const { resolveStaffProfileDisplayRoleId } = require("../Staff/staffProfilePanelRuntime");
+const { stripDiscordDecorations } = require("./siteStaffRosterCache");
 const {
   notifyWorkflowSubjectInvited,
   notifyWorkflowSubjectRemoved,
@@ -125,10 +127,53 @@ async function loadAuthorAvatarOverrides(client, docs) {
   return out;
 }
 
+async function loadAuthorRoleOverrides(guild, docs) {
+  const out = new Map();
+  const need = new Set();
+  for (const d of docs || []) {
+    const id = String(d?.authorId || "").trim();
+    if (!id || id === "system") continue;
+    if (String(d?.authorKind || "staff").toLowerCase() !== "staff") continue;
+    if (String(d?.authorRoleLabel || "").trim()) continue;
+    need.add(id);
+  }
+  if (!need.size || !guild?.members) return out;
+  await Promise.all(
+    [...need].map(async (uid) => {
+      try {
+        const member =
+          guild.members.cache.get(uid) || (await guild.members.fetch(uid).catch(() => null));
+        if (!member) return;
+        const label = authorRoleLabelForMember(member, "staff");
+        if (label) out.set(uid, label);
+      } catch (_) {}
+    }),
+  );
+  return out;
+}
+
 function displayNameForMember(member) {
   return String(
     member?.displayName || member?.user?.globalName || member?.user?.username || accountUsername(member?.user) || "",
   ).trim();
+}
+
+function authorRoleLabelForMember(member, authorKind) {
+  const kind = String(authorKind || "").toLowerCase();
+  if (kind === "system") return "Sistema";
+  if (kind === "user") return "";
+  try {
+    const roleId = resolveStaffProfileDisplayRoleId(member);
+    if (roleId) {
+      const role =
+        member?.roles?.cache?.get?.(String(roleId)) ||
+        member?.guild?.roles?.cache?.get?.(String(roleId)) ||
+        null;
+      const cleaned = stripDiscordDecorations(role?.name || "") || String(role?.name || "").trim();
+      if (cleaned) return cleaned.slice(0, 48);
+    }
+  } catch (_) {}
+  return "Staff";
 }
 
 function extForMime(mime) {
@@ -260,7 +305,7 @@ function replyPreview(content) {
   return plain.length > 120 ? `${plain.slice(0, 117)}…` : plain;
 }
 
-function serializeMessage(doc, replyMap, avatarOverrides) {
+function serializeMessage(doc, replyMap, avatarOverrides, roleOverrides) {
   const replyToId = doc?.replyToId ? String(doc.replyToId) : null;
   const replyDoc = replyToId && replyMap ? replyMap.get(replyToId) : null;
   const authorId = String(doc?.authorId || "");
@@ -271,6 +316,10 @@ function serializeMessage(doc, replyMap, avatarOverrides) {
   if (!authorAvatarUrl && authorId && authorId !== "system") {
     authorAvatarUrl = discordDefaultAvatarUrl({ id: authorId }, { size: 128 });
   }
+  let authorRoleLabel = String(doc?.authorRoleLabel || "").trim();
+  if (!authorRoleLabel && roleOverrides && roleOverrides.get(authorId)) {
+    authorRoleLabel = String(roleOverrides.get(authorId) || "").trim();
+  }
   return {
     id: String(doc?._id || ""),
     dedupeKey: String(doc?.dedupeKey || ""),
@@ -279,6 +328,7 @@ function serializeMessage(doc, replyMap, avatarOverrides) {
     authorId,
     authorName: String(doc?.authorName || ""),
     authorAvatarUrl,
+    authorRoleLabel,
     authorKind: String(doc?.authorKind || "staff"),
     content: String(doc?.content || ""),
     imageUrls: Array.isArray(doc?.imageUrls) ? doc.imageUrls.map(String) : [],
@@ -524,6 +574,58 @@ async function ensurePauseWorkflowFromKey(client, guildId, dedupeKey) {
   }
 }
 
+/** Appelli/candidature: se manca il doc DB, ricostruisci da Discord (altrimenti chat → 404). */
+async function ensureInviteQueueWorkflowFromKey(client, guildId, dedupeKey, queue) {
+  const q = String(queue || "").trim().toLowerCase();
+  const key = String(dedupeKey || "").trim();
+  const parts = key.split(":");
+  if (parts[0] !== q || !parts[1]) return null;
+  const messageId = String(parts[1] || "").trim();
+  if (!/^\d{16,22}$/.test(messageId)) return null;
+  try {
+    const guild = await resolveMainGuild(client);
+    if (!guild || String(guild.id) !== String(guildId || "")) return null;
+    if (q === "appelli") {
+      const { getAppealDetail } = require("./siteStaffAppealsRuntime");
+      const { persistAppealWorkflowFromPayload } = require("./siteStaffWorkflowStore");
+      const live = await getAppealDetail(guild, messageId).catch(() => null);
+      if (!live?.userId) return null;
+      await persistAppealWorkflowFromPayload(guild, {
+        messageId,
+        channelId: live.channelId,
+        userId: live.userId,
+        kind: live.kind,
+        status: live.status || "pending",
+        title: live.title,
+        body: live.body,
+        createdAt: live.createdAt,
+        displayName: live.displayName || "",
+        avatarUrl: live.avatarUrl || "",
+      }).catch(() => null);
+    } else if (q === "candidature") {
+      const { getCandidatureApplicationDetail } = require("../../Events/interaction/candidatureApplicationHandlers");
+      const { persistCandidatureWorkflowFromPayload } = require("./siteStaffWorkflowStore");
+      const live = await getCandidatureApplicationDetail(guild, messageId).catch(() => null);
+      if (!live?.userId) return null;
+      await persistCandidatureWorkflowFromPayload(guild, {
+        messageId,
+        channelId: live.channelId,
+        userId: live.userId,
+        type: live.type,
+        status: live.status || "pending",
+        title: live.title,
+        body: live.body,
+        createdAt: live.createdAt,
+      }).catch(() => null);
+    } else {
+      return null;
+    }
+    return await loadWorkflowDoc(guildId, key);
+  } catch {
+    return null;
+  }
+}
+
 function emitChatEvent(type, payload) {
   try {
     broadcastSiteRealtime({
@@ -666,9 +768,12 @@ async function resolveWorkflowChatAccess(client, accessToken, dedupeKey) {
     return { ok: false, status: 400, error: "bad_key", message: "Pratica non valida." };
   }
 
-  const workflow =
+  let workflow =
     (await loadWorkflowDoc(guild.id, key)) ||
     (queue === "pause" ? await ensurePauseWorkflowFromKey(client, guild.id, key) : null);
+  if (!workflow && (queue === "appelli" || queue === "candidature")) {
+    workflow = await ensureInviteQueueWorkflowFromKey(client, guild.id, key, queue);
+  }
   if (!workflow) {
     return { ok: false, status: 404, error: "not_found", message: "Pratica non trovata." };
   }
@@ -780,6 +885,7 @@ async function handleSiteStaffWorkflowChatGet(client, req, res) {
 
     const replyMap = new Map(visible.map((d) => [String(d._id), d]));
     const avatarOverrides = await loadAuthorAvatarOverrides(client, visible);
+    const roleOverrides = await loadAuthorRoleOverrides(access.guild, visible);
     const subjectChatMeta = serializeSubjectChatMeta(access.subjectChat, {
       inviteOnly: access.inviteOnly,
       status: access.status,
@@ -797,7 +903,7 @@ async function handleSiteStaffWorkflowChatGet(client, req, res) {
       subjectUserId: access.subjectUserId,
       subjectChat: subjectChatMeta,
       maxImages: MAX_IMAGES,
-      messages: visible.map((d) => serializeMessage(d, replyMap, avatarOverrides)),
+      messages: visible.map((d) => serializeMessage(d, replyMap, avatarOverrides, roleOverrides)),
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat GET:", err);
@@ -829,6 +935,7 @@ async function handleSiteStaffWorkflowChatPost(client, req, res) {
     }
 
     const authorAvatarUrl = await resolveAuthorAvatarUrl(client, access.member);
+    const authorRoleLabel = authorRoleLabelForMember(access.member, access.authorKind);
 
     let replyToId = null;
     const rawReply = String(body.replyToId || body.replyTo || "").trim();
@@ -852,6 +959,7 @@ async function handleSiteStaffWorkflowChatPost(client, req, res) {
       authorId,
       authorName: displayNameForMember(access.member),
       authorAvatarUrl,
+      authorRoleLabel,
       authorKind: access.authorKind,
       content: content || (imageUrls.length ? " " : ""),
       imageUrls,

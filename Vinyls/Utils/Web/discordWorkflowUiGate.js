@@ -88,7 +88,7 @@ const WORKFLOW_SITE_PATHS = {
   staff: "/staff/",
   organico: "/staff/organico/",
   gestione: "/staff/organico/",
-  puntiTolti: "/staff/punti-tolti/",
+  puntiTolti: "/notifications/?view=staff&inbox=punti-tolti",
   guida: "/staff/guida/",
   tickets: "/tickets/",
   ticketsStaff: "/staff/ticket/",

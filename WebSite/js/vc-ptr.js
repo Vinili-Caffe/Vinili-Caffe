@@ -135,10 +135,25 @@
     }, 480);
   }
 
+  var moveBound = false;
+
+  function bindActiveMove() {
+    if (moveBound) return;
+    moveBound = true;
+    document.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
+  }
+
+  function unbindActiveMove() {
+    if (!moveBound) return;
+    moveBound = false;
+    document.removeEventListener("touchmove", onTouchMove, { capture: true });
+  }
+
   function abortPull(animate) {
     tracking = false;
     armed = false;
     pullY = 0;
+    unbindActiveMove();
     try {
       window.__vcPtrTracking = false;
     } catch (eTrack) {}
@@ -156,6 +171,7 @@
     armed = false;
     pullY = 0;
     refreshing = false;
+    unbindActiveMove();
     try {
       window.__vcPtrTracking = false;
     } catch (eTrack) {}
@@ -175,6 +191,10 @@
     if (refreshing) return true;
     try {
       if (document.documentElement.classList.contains("vc-mobile-nav-open")) return true;
+      if (document.documentElement.classList.contains("vc-staff-manage-sheet-open")) return true;
+      if (document.documentElement.classList.contains("vc-staff-stat-sheet-open")) return true;
+      if (document.documentElement.classList.contains("vc-dialog-open")) return true;
+      if (document.documentElement.classList.contains("vc-notif-sheet-open")) return true;
     } catch (eNav) {}
     if (document.body && document.body.classList.contains("vc-mobile-nav-open")) return true;
     var dialog = document.getElementById("vc-site-dialog");
@@ -190,6 +210,22 @@
       // Solo campi editabili / widget drag: NON ignorare header, link e button
       // (le pagine staff sono piene di bottoni e altrimenti il PTR non parte quasi mai).
       if (node.closest("input, textarea, select, [contenteditable='true'], [role='slider'], .vc-no-ptr")) {
+        return true;
+      }
+      // ptrFirstTap1: hamburger / chrome header — altrimenti touchend stopImmediate
+      // lascia touchmove non-passive appeso e congela tutta la PWA.
+      if (
+        node.closest(
+          "#vc-mobile-nav-toggle, #vc-mobile-nav-close, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, .vc-mobile-nav-tile, header .vc-icon-btn, header button, header summary, #header-quick-actions",
+        )
+      ) {
+        return true;
+      }
+      if (
+        node.closest(
+          ".vc-staff-manage-sheet, .vc-staff-stat-sheet, .vc-dialog, .vc-dash-confirm, .vc-notif-panel",
+        )
+      ) {
         return true;
       }
     }
@@ -335,6 +371,9 @@
     startY = t.clientY;
     startX = t.clientX;
     pullY = 0;
+    // ptrFirstTap1: NON bindare touchmove non-passive al touchstart.
+    // Se il target fa stopImmediatePropagation sul touchend (hamburger),
+    // il listener restava appeso e congelava tutta la PWA dopo il primo tap.
     try {
       window.__vcPtrTracking = true;
     } catch (eTrack) {}
@@ -345,6 +384,24 @@
       holdMax = 0;
       if (tracking && !refreshing && !armed) abortPull(true);
     }, 10000);
+  }
+
+  function onTouchMoveProbe(ev) {
+    if (!tracking || moveBound || refreshing || !ev.touches || ev.touches.length !== 1) return;
+    var t = ev.touches[0];
+    var dy = t.clientY - startY;
+    var dx = t.clientX - startX;
+    if (Math.abs(dx) > Math.abs(dy) + 10) {
+      abortPull(false);
+      return;
+    }
+    if (dy <= 4) return;
+    if (!canPullFrom(ev.target) && pullY < 8) {
+      abortPull(false);
+      return;
+    }
+    bindActiveMove();
+    onTouchMove(ev);
   }
 
   function onTouchMove(ev) {
@@ -371,8 +428,12 @@
   }
 
   function onTouchEnd() {
-    if (!tracking) return;
+    if (!tracking && !moveBound) return;
     tracking = false;
+    unbindActiveMove();
+    try {
+      window.__vcPtrTracking = false;
+    } catch (eTrackEnd) {}
     clearWatchdog();
     if (armed && pullY >= THRESHOLD * 0.86) {
       suppressClickUntil = Date.now() + 450;
@@ -477,10 +538,13 @@
   function bindPtrListeners() {
     if (window.__vcPtrListenersBound) return;
     window.__vcPtrListenersBound = true;
+    // touchmove non-passive solo on-demand (bindActiveMove): altrimenti lagga tutto lo scroll mobile.
     document.addEventListener("touchstart", onTouchStart, { passive: true });
-    document.addEventListener("touchmove", onTouchMove, { passive: false });
-    document.addEventListener("touchend", onTouchEnd, { passive: true });
-    document.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    // Probe passive: attiva non-passive solo dopo vero pull verso il basso.
+    document.addEventListener("touchmove", onTouchMoveProbe, { passive: true, capture: true });
+    // capture:true — altrimenti hamburger stopImmediatePropagation salta touchend e lascia PTR appeso.
+    document.addEventListener("touchend", onTouchEnd, { passive: true, capture: true });
+    document.addEventListener("touchcancel", onTouchEnd, { passive: true, capture: true });
     document.addEventListener(
       "click",
       function (ev) {

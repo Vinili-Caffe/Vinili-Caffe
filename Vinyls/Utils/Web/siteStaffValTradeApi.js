@@ -47,6 +47,17 @@ async function handleSiteStaffValTradePost(client, req, res) {
     if (!isSelf && !isHighStaff) {
       return res.status(403).json({ ok: false, error: "forbidden", message: "Non autorizzato." });
     }
+    // Self-service: solo compensazione 3 val+ → 1 val−. Niente scambi warn / pausa.
+    if (isSelf && action !== "neg_trade") {
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+        message:
+          action === "pos_pause_trade"
+            ? "Solo High Staff può convertire val + in giorni pausa."
+            : "Sul tuo profilo puoi solo compensare una val − con 3 val +.",
+      });
+    }
 
     let result = null;
     if (action === "neg_trade") {
@@ -79,6 +90,12 @@ async function handleSiteStaffValTradePost(client, req, res) {
     }
 
     const ok = Boolean(result?.ok);
+    if (ok) {
+      try {
+        const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
+        clearStaffProfileCacheForUser(targetId);
+      } catch (_) {}
+    }
     return res.status(ok ? 200 : 400).json({
       ok,
       message: stripDiscordDecorations(result?.message) || (ok ? "Scambio completato." : "Operazione non riuscita."),

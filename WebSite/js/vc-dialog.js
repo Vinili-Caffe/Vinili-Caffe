@@ -99,10 +99,13 @@
     var kind = pending && pending.kind;
     pending = null;
     if (typeof resolve !== "function") return;
-    if (kind === "confirm") resolve(value === true);
-    else if (kind === "alert") resolve(true);
-    else if (kind === "prompt") resolve(value == null ? null : String(value));
-    else resolve(value == null || value === false ? null : value);
+    // Differisci: permette di aprire subito un altro dialog (scambio dopo rimozione).
+    Promise.resolve().then(function () {
+      if (kind === "confirm") resolve(value === true);
+      else if (kind === "alert") resolve(true);
+      else if (kind === "prompt") resolve(value == null ? null : String(value));
+      else resolve(value == null || value === false ? null : value);
+    });
   }
 
   function openDialog(opts) {

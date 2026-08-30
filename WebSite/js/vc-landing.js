@@ -2,7 +2,7 @@
   try {
     if (!window.VcPerf || !window.VcPerf.__ready) {
       var s = document.createElement("script");
-      s.src = "/js/vc-perf.js?v=20260827perfAdapt1";
+      s.src = "/js/vc-perf.js?v=20260830ptrFirstTap1";
       s.async = false;
       (document.head || document.documentElement).appendChild(s);
     } else if (typeof window.VcPerf.apply === "function") {
@@ -51,6 +51,43 @@
     } catch (e) {}
   }
 
+  function markWantHome() {
+    var payload = JSON.stringify({ t: Date.now() });
+    try {
+      sessionStorage.setItem(WANT_HOME_KEY, "1");
+    } catch (eS) {}
+    try {
+      localStorage.setItem(WANT_HOME_KEY, payload);
+    } catch (eL) {}
+    saveResume("/");
+  }
+
+  function consumeWantHome() {
+    var hit = false;
+    try {
+      if (sessionStorage.getItem(WANT_HOME_KEY) === "1") {
+        sessionStorage.removeItem(WANT_HOME_KEY);
+        hit = true;
+      }
+    } catch (eS) {}
+    try {
+      var raw = localStorage.getItem(WANT_HOME_KEY);
+      if (raw) {
+        localStorage.removeItem(WANT_HOME_KEY);
+        var data = null;
+        try {
+          data = JSON.parse(raw);
+        } catch (eP) {
+          data = null;
+        }
+        var at = Number(data && data.t) || 0;
+        // brandHome1: flag recente (60s) = click esplicito su Home, non ripristinare.
+        if (!at || Date.now() - at < 60000) hit = true;
+      }
+    } catch (eL) {}
+    return hit;
+  }
+
   function isVotePlatformHref(href) {
     try {
       var u = new URL(String(href || ""), window.location.href);
@@ -61,16 +98,86 @@
     }
   }
 
+  function isSiteHost(hostname) {
+    var h = String(hostname || "").toLowerCase();
+    if (!h) return false;
+    if (h === "viniliecaffe.it" || h.endsWith(".viniliecaffe.it")) return true;
+    if (h === "viniliecaffe.gg" || h.endsWith(".viniliecaffe.gg")) return true;
+    try {
+      if (h === String(window.location.hostname || "").toLowerCase()) return true;
+    } catch (e) {}
+    return false;
+  }
+
   function isHomeHref(href) {
     try {
-      var u = new URL(String(href || ""), window.location.origin);
-      if (u.origin !== window.location.origin) return false;
+      var u = new URL(String(href || ""), window.location.href);
+      if (!isSiteHost(u.hostname)) return false;
       var p = String(u.pathname || "/").replace(/\/+$/, "") || "/";
       return p === "/";
     } catch (e) {
       return false;
     }
   }
+
+  function siteHomeHref() {
+    try {
+      if (window.__VC_AUTH && window.__VC_AUTH.homeUrl) {
+        var hu = new URL(String(window.__VC_AUTH.homeUrl), window.location.href);
+        if (isSiteHost(hu.hostname)) {
+          return hu.origin + "/";
+        }
+      }
+    } catch (e0) {}
+    try {
+      return window.location.origin + "/";
+    } catch (e1) {
+      return "/";
+    }
+  }
+
+  /** siteUrlFaq1: bake corrotti mettevano SITE_URL=/faq sul brand — forza homepage. */
+  function repairBrokenHomeLinks() {
+    try {
+      if (window.__VC_AUTH && window.__VC_AUTH.homeUrl) {
+        var badHome = String(window.__VC_AUTH.homeUrl || "");
+        var cleaned = badHome.replace(/\?.*$/, "").replace(/#.*$/, "");
+        if (/\/faq\/?$/i.test(cleaned)) {
+          try {
+            window.__VC_AUTH.homeUrl = window.location.origin + "/";
+          } catch (eFix) {
+            window.__VC_AUTH.homeUrl = "/";
+          }
+        }
+      }
+    } catch (eAuth) {}
+    var home = siteHomeHref();
+    var nodes = document.querySelectorAll(
+      'a.vc-header-site-name, a[aria-label="Vai alla homepage"], .vc-premium-footer__logo-row, a[data-i18n="footer.home"]'
+    );
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i];
+      try {
+        var href = a.getAttribute("href") || "";
+        var u = new URL(href, window.location.href);
+        if (!isSiteHost(u.hostname) && href.charAt(0) !== "/") continue;
+        var p = String(u.pathname || "/").replace(/\/+$/, "") || "/";
+        if (p === "/faq") {
+          a.setAttribute("href", home);
+        }
+      } catch (eA) {}
+    }
+  }
+
+  try {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", repairBrokenHomeLinks);
+    } else {
+      repairBrokenHomeLinks();
+    }
+    window.addEventListener("pageshow", repairBrokenHomeLinks);
+  } catch (eRep) {}
+
 
   var PENDING_NAV_CACHE = "vc-pending-nav-v1";
   var PENDING_NAV_URL = "/__vc/pending-nav";
@@ -122,19 +229,37 @@
       var search = String(window.location.search || "");
       if (/[?&]code=/.test(search) || /[?&]state=/.test(search)) return false;
     } catch (eQ) {}
+    // Click su "Vinili & Caffè" / Home: resta in home (non ripristinare /faq ecc.).
+    if (consumeWantHome()) {
+      saveResume("/");
+      return false;
+    }
+    // Navigazione interna verso / (referrer same-site): non hijackare.
     try {
-      if (sessionStorage.getItem(WANT_HOME_KEY) === "1") {
-        sessionStorage.removeItem(WANT_HOME_KEY);
-        saveResume("/");
-        return false;
+      if (document.referrer) {
+        var ref = new URL(document.referrer);
+        if (isSiteHost(ref.hostname)) {
+          var refPath = safeResumePath(
+            String(ref.pathname || "/").replace(/\/index\.html$/i, "") || "/"
+          );
+          if (refPath && refPath !== "/") {
+            saveResume("/");
+            return false;
+          }
+        }
       }
-    } catch (eH) {}
+    } catch (eRef) {}
     try {
       var data = JSON.parse(localStorage.getItem(RESUME_KEY) || "null");
       var path = safeResumePath(data && data.p);
       var at = Number(data && data.t) || 0;
       if (!path || path === "/" || Date.now() - at > 2 * 60 * 60 * 1000) return false;
       if (path === here) return false;
+      try {
+        document.documentElement.style.background = "#100c09";
+        document.documentElement.style.colorScheme = "dark";
+        if (document.body) document.body.style.background = "#100c09";
+      } catch (ePaint) {}
       window.location.replace(path);
       return true;
     } catch (eR) {}
@@ -211,10 +336,7 @@
         }
       }
       if (isHomeHref(href)) {
-        try {
-          sessionStorage.setItem(WANT_HOME_KEY, "1");
-        } catch (eW) {}
-        saveResume("/");
+        markWantHome();
       }
     },
     true
@@ -222,6 +344,20 @@
 
   window.addEventListener("pagehide", function () {
     if (!isStandalonePwa()) return;
+    // Se stiamo andando in Home, non riscrivere il resume con /faq/ (race pagehide).
+    try {
+      if (sessionStorage.getItem(WANT_HOME_KEY) === "1") {
+        saveResume("/");
+        return;
+      }
+    } catch (eW) {}
+    try {
+      var raw = localStorage.getItem(WANT_HOME_KEY);
+      if (raw) {
+        saveResume("/");
+        return;
+      }
+    } catch (eL) {}
     if (currentPath() === "/vote/" || currentPath() === "/vote") saveResume("/vote/");
     else saveResume(currentPath());
   });
@@ -498,15 +634,8 @@
   }
 
   function showTransitionOverlay(kind) {
-    var ov = ensureTransitionOverlay();
-    if (!ov) return;
-    setTransitionOverlayContent(ov, kind || "page");
-    ov.classList.remove("vc-page-transition--on");
-    void ov.offsetHeight;
-    ov.classList.add("vc-page-transition--on");
-    try {
-      if (typeof window.__vcHideNotifsForLoader === "function") window.__vcHideNotifsForLoader();
-    } catch (eHide) {}
+    // snappyMotion1: niente overlay full-screen su navigazione (mobile + desktop).
+    return;
   }
 
   try {
@@ -1108,7 +1237,7 @@
 
   function readDuration(node) {
     var ms = Number(node.getAttribute("data-vc-count-duration"));
-    if (!Number.isFinite(ms) || ms <= 0) return 900;
+    if (!Number.isFinite(ms) || ms <= 0) return 320;
     return ms;
   }
 
@@ -1292,21 +1421,60 @@
   function isBlockingLoaderVisible() {
     try {
       var root = document.documentElement;
-      if (root.classList.contains("vc-session-verify-pending")) return true;
+      var coarse = false;
+      try {
+        coarse =
+          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+          Number(navigator.maxTouchPoints || 0) > 0;
+      } catch (eC) {}
+      // Su telefono non congelare gesture per session-verify (overlay spesso fantasma).
+      if (!coarse && root.classList.contains("vc-session-verify-pending")) return true;
       if (root.classList.contains("vc-dash-access-pending")) return true;
       if (root.classList.contains("vc-user-leader-pending")) return true;
       if (root.classList.contains("vc-user-profile-pending")) return true;
     } catch (e0) {}
     var tr = document.getElementById("vc-page-transition");
-    if (tr && tr.classList.contains("vc-page-transition--on")) return true;
-    var ov = document.querySelector(".vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)");
-    if (ov) return true;
+    if (tr && tr.classList.contains("vc-page-transition--on")) {
+      try {
+        var trCs = window.getComputedStyle(tr);
+        if (trCs && trCs.display !== "none" && trCs.visibility !== "hidden" && trCs.pointerEvents !== "none") {
+          return true;
+        }
+      } catch (eTrVis) {
+        return true;
+      }
+    }
+    try {
+      var coarse2 =
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        Number(navigator.maxTouchPoints || 0) > 0;
+      if (!coarse2) {
+        var ov = document.querySelector(".vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)");
+        if (ov) return true;
+      }
+    } catch (eOv) {}
+    // Solo overlay caricamento full-page (non gate login/auth).
     if (document.querySelector(".vc-ul-loading:not([hidden])")) return true;
     if (document.querySelector("#vc-rank-customize-loading:not([hidden])")) return true;
-    if (document.getElementById("vc-user-profile-loading")) return true;
-    if (document.querySelector("body > .vc-user-profile-loader")) return true;
-    if (document.querySelector("#vc-user-profile-view:not([hidden]) .vc-user-profile-loader")) return true;
-    if (document.querySelector(".vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--dismissed)")) return true;
+    var profileLoading = document.getElementById("vc-user-profile-loading");
+    if (profileLoading && !profileLoading.hidden && !profileLoading.hasAttribute("hidden")) return true;
+    if (document.querySelector("body > .vc-user-profile-loader:not([hidden])")) return true;
+    // Solo loader community/boot a livello root — NON quello del tab Staff (altrimenti
+    // resta touchmove non-passive e lagga tutta la pagina da telefono).
+    try {
+      var view = document.getElementById("vc-user-profile-view");
+      if (view && !view.hidden) {
+        var loaders = view.querySelectorAll(":scope > .vc-user-profile-loader, :scope > [data-vc-profile-boot]");
+        for (var li = 0; li < loaders.length; li += 1) {
+          var L = loaders[li];
+          if (L.hidden || L.hasAttribute("hidden")) continue;
+          if (L.closest && L.closest("[data-vc-profile-staff-pane], .vc-user-profile-staff-pane")) continue;
+          return true;
+        }
+      }
+    } catch (eLoad) {}
+    // Gate login: soft — NON congelare body come un loader (rompe scroll/PWA).
+    // Lo scroll lock per gate resta gestito dal CSS del gate stesso se serve.
     return false;
   }
 
@@ -1332,6 +1500,7 @@
   var loaderScrollListenersBound = false;
   var scrollPinned = false;
   var scrollPinSavedY = 0;
+  var scrollPinSoft = false;
 
   function pageScrollY() {
     try {
@@ -1354,8 +1523,17 @@
       if (root.classList.contains("vc-mobile-nav-open")) return true;
       if (root.classList.contains("vc-user-leader-pending")) return true;
       if (root.classList.contains("vc-user-profile-pending")) return true;
-      if (root.classList.contains("vc-session-verify-pending")) return true;
-      if (root.classList.contains("vc-notif-sheet-open")) return true;
+      try {
+        var coarseFreeze =
+          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+          Number(navigator.maxTouchPoints || 0) > 0;
+        if (!coarseFreeze && root.classList.contains("vc-session-verify-pending")) return true;
+      } catch (eSesF) {}
+      // notifUnpin1: classe fantasma senza <details open> non deve congelare la pagina.
+      if (root.classList.contains("vc-notif-sheet-open")) {
+        var ddFrozen = document.getElementById("vc-notif-dropdown");
+        if (ddFrozen && (ddFrozen.open || ddFrozen.hasAttribute("open"))) return true;
+      }
       if (root.classList.contains("vc-staff-stat-sheet-open")) return true;
       if (root.classList.contains("vc-staff-manage-sheet-open")) return true;
       if (root.classList.contains("vc-staff-datepicker-open")) return true;
@@ -1370,17 +1548,58 @@
     return false;
   }
 
-  function pinPageScroll() {
+  function isCoarsePointerDevice() {
+    try {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+    } catch (e0) {}
+    try {
+      if (
+        window.matchMedia &&
+        window.matchMedia("(hover: none)").matches &&
+        Number(navigator.maxTouchPoints || 0) > 0
+      ) {
+        return true;
+      }
+    } catch (e1) {}
+    return Number(navigator.maxTouchPoints || 0) > 0;
+  }
+
+  function isStandalonePwaLocal() {
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+    } catch (e0) {}
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
+    } catch (e1) {}
+    return Boolean(navigator.standalone);
+  }
+
+  function pinPageScroll(opts) {
     var body = document.body;
     if (!body) return;
+    opts = opts || {};
+    // soft = sheet/notif: blocca lo scroll della pagina ma NON touch-action:none
+    // (altrimenti iOS non scrolla il contenuto interno dello sheet → tutto “lento/bloccato”).
+    // pwaHardFreeze1: su telefono/PWA MAI touch-action:none inline (uccide TUTTI i tap).
+    var soft = Boolean(opts.soft);
+    try {
+      if (isCoarsePointerDevice() || isStandalonePwaLocal()) soft = true;
+    } catch (eSoftForce) {
+      soft = true;
+    }
     if (!scrollPinned) {
       scrollPinSavedY = pageScrollY();
       scrollPinned = true;
     }
+    scrollPinSoft = soft;
     try {
       document.documentElement.style.setProperty("overflow", "hidden", "important");
       document.documentElement.style.setProperty("overscroll-behavior", "none", "important");
-      document.documentElement.style.setProperty("touch-action", "none", "important");
+      if (soft) {
+        document.documentElement.style.removeProperty("touch-action");
+      } else {
+        document.documentElement.style.setProperty("touch-action", "none", "important");
+      }
       body.style.setProperty("position", "fixed", "important");
       body.style.setProperty("left", "0", "important");
       body.style.setProperty("right", "0", "important");
@@ -1388,7 +1607,11 @@
       body.style.setProperty("top", "-" + scrollPinSavedY + "px", "important");
       body.style.setProperty("overflow", "hidden", "important");
       body.style.setProperty("overscroll-behavior", "none", "important");
-      body.style.setProperty("touch-action", "none", "important");
+      if (soft) {
+        body.style.setProperty("touch-action", "pan-y", "important");
+      } else {
+        body.style.setProperty("touch-action", "none", "important");
+      }
     } catch (ePin) {}
   }
 
@@ -1397,6 +1620,7 @@
     var body = document.body;
     var y = scrollPinSavedY;
     scrollPinned = false;
+    scrollPinSoft = false;
     scrollPinSavedY = 0;
     try {
       document.documentElement.style.removeProperty("overflow");
@@ -1444,7 +1668,7 @@
         // Lascia scorrere il contenuto interno degli sheet/dialog.
         if (
           t.closest(
-            ".vc-staff-stat-sheet__body, .vc-staff-manage-sheet__body, .vc-staff-datepicker.is-sheet, .vc-notif-panel-body, .vc-notif-list, .vc-dialog__text, .vc-dialog__field, .vc-dash-confirm__text, .vc-mobile-nav-drawer__scroll",
+            ".vc-staff-stat-sheet__body, .vc-staff-manage-sheet__panel, .vc-staff-manage-sheet__body, .vc-staff-datepicker.is-sheet, .vc-notif-panel-body, .vc-notif-list, .vc-dialog__text, .vc-dialog__field, .vc-dash-confirm__text, .vc-mobile-nav-drawer__scroll",
           )
         ) {
           return;
@@ -1463,18 +1687,65 @@
     } catch (ePrev) {}
   }
 
-  function bindLoaderScrollGuards() {
-    if (loaderScrollListenersBound) return;
-    loaderScrollListenersBound = true;
-    var opts = { capture: true, passive: false };
+  var loaderScrollGuardOpts = { capture: true, passive: false };
+
+  function bindLoaderScrollGuards(enable) {
+    // Su telefono i listener touchmove non-passive congelano TUTTI i click (3–10s).
     try {
-      document.addEventListener("wheel", blockLoaderScroll, opts);
-      document.addEventListener("touchmove", blockLoaderScroll, opts);
-    } catch (eBind) {}
+      if (isCoarsePointerDevice() || isStandalonePwaLocal()) enable = false;
+    } catch (eCoarseBind) {
+      enable = false;
+    }
+    var want = Boolean(enable);
+    if (want === loaderScrollListenersBound) return;
+    try {
+      if (want) {
+        document.addEventListener("wheel", blockLoaderScroll, loaderScrollGuardOpts);
+        document.addEventListener("touchmove", blockLoaderScroll, loaderScrollGuardOpts);
+        loaderScrollListenersBound = true;
+      } else {
+        document.removeEventListener("wheel", blockLoaderScroll, loaderScrollGuardOpts);
+        document.removeEventListener("touchmove", blockLoaderScroll, loaderScrollGuardOpts);
+        loaderScrollListenersBound = false;
+      }
+    } catch (eBind) {
+      loaderScrollListenersBound = want;
+    }
+  }
+
+  function needNonPassiveScrollGuards() {
+    // Non-passive touchmove lagga lo scroll mobile: usalo SOLO per overlay full-page /
+    // lock veri. Per sheet staff/notif basta pinPageScroll (overflow/fixed), senza
+    // preventDefault globale su ogni touchmove.
+    try {
+      if (isBlockingLoaderVisible()) return true;
+      if (isLoaderScrollLocked()) return true;
+      var root = document.documentElement;
+      if (root.classList.contains("vc-dialog-open")) return true;
+      if (root.classList.contains("vc-dash-confirm-open")) return true;
+      // vc-mobile-nav-open: NON usare touchmove non-passive / touch-action:none
+      // (rompe i tap sulle voci del menu su telefono).
+      // Mai non-passive touchmove per sola session-verify su telefono.
+      try {
+        var coarseGuard =
+          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+          Number(navigator.maxTouchPoints || 0) > 0;
+        if (!coarseGuard && root.classList.contains("vc-session-verify-pending")) return true;
+      } catch (eSes) {}
+      if (root.classList.contains("vc-dash-access-pending")) return true;
+      if (root.classList.contains("vc-rank-customize-pending")) return true;
+    } catch (eNeed) {}
+    try {
+      if (document.querySelector(".vc-dialog.is-open, #vc-site-dialog.is-open:not([hidden]), .vc-dash-confirm.is-open")) {
+        return true;
+      }
+    } catch (eDlg) {}
+    return false;
   }
 
   var lastScrollLockFrozen = null;
   var lastScrollLockOverlay = null;
+  var lastScrollLockNeedGuards = null;
 
   function syncLoaderScrollLock() {
     var frozen = false;
@@ -1485,19 +1756,55 @@
     try {
       on = isBlockingLoaderVisible();
     } catch (eVis2) {}
+    var needGuards = false;
+    try {
+      needGuards = needNonPassiveScrollGuards();
+    } catch (eNeed2) {
+      needGuards = Boolean(on);
+    }
 
     // Always reconcile pin state — re-apply styles even if already pinned (iOS can drop them).
-    if (frozen) pinPageScroll();
+    // Soft pin per sheet/notif (needGuards=false): overflow lock senza touch-action:none.
+    // Menu hamburger: soft SEMPRE — touch-action:none sul body uccide i tap sui tile (Android/iOS).
+    // pwaHardFreeze1: telefono/PWA soft SEMPRE (anche con loader): hard pin = freeze totale.
+    var softPin = !needGuards;
+    try {
+      if (document.documentElement.classList.contains("vc-mobile-nav-open")) softPin = true;
+    } catch (eSoftNav) {}
+    try {
+      if (isCoarsePointerDevice() || isStandalonePwaLocal()) softPin = true;
+    } catch (eSoftPhone) {
+      softPin = true;
+    }
+    if (frozen) pinPageScroll({ soft: softPin });
     else if (scrollPinned) unpinPageScroll();
 
-    if (frozen === lastScrollLockFrozen && on === lastScrollLockOverlay) return;
+    // touchmove non-passive SOLO mentre serve (come vc-ptr): altrimenti lagga tutto lo scroll mobile.
+    // Mai per il menu hamburger (i tile devono restare cliccabili).
+    var guardsForBind = needGuards;
+    try {
+      if (document.documentElement.classList.contains("vc-mobile-nav-open")) guardsForBind = false;
+    } catch (eGuardNav) {}
+    try {
+      if (isCoarsePointerDevice() || isStandalonePwaLocal()) guardsForBind = false;
+    } catch (eGuardPhone) {
+      guardsForBind = false;
+    }
+    bindLoaderScrollGuards(guardsForBind);
+
+    if (
+      frozen === lastScrollLockFrozen &&
+      on === lastScrollLockOverlay &&
+      needGuards === lastScrollLockNeedGuards
+    ) {
+      return;
+    }
     lastScrollLockFrozen = frozen;
     lastScrollLockOverlay = on;
+    lastScrollLockNeedGuards = needGuards;
     try {
       document.documentElement.classList.toggle("vc-loading-scroll-lock", on);
     } catch (eLock) {}
-    // Bind touch/wheel guards also when a sheet freezes the page (iOS can still scroll with overflow:hidden alone).
-    if (on || frozen || isLoaderScrollLocked()) bindLoaderScrollGuards();
     if (wasPageLoaderVisible && !on) resetScrollAfterOverlay();
     wasPageLoaderVisible = on;
     if (on) {
@@ -1518,7 +1825,7 @@
     loaderScrollLockMoTimer = setTimeout(function () {
       loaderScrollLockMoTimer = 0;
       syncLoaderScrollLock();
-    }, 0);
+    }, 48);
   }
 
   try {
@@ -1571,12 +1878,21 @@
       scheduleLoaderScrollLock();
     });
     loaderClassMo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    if (document.body) {
+    // Su telefono NON osservare subtree del body: ogni rebuild menu/DOM
+    // rieseguiva syncLoaderScrollLock e bloccava i tap.
+    var coarseMo = false;
+    try {
+      coarseMo =
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        Number(navigator.maxTouchPoints || 0) > 0;
+    } catch (eMoC) {}
+    if (!coarseMo && document.body) {
+      // homeFreeze1: NON osservare class sul subtree (ogni is-in/rise esplodeva syncLoader).
       loaderClassMo.observe(document.body, {
         subtree: true,
         childList: true,
         attributes: true,
-        attributeFilter: ["hidden", "class"],
+        attributeFilter: ["hidden"],
       });
     }
     syncLoaderScrollLock();
@@ -3986,6 +4302,10 @@
     try {
       syncGlobalNotifOverlayClass();
     } catch (eSync) {}
+    // notifUnpin1: repair toglie le classi ma senza sync il body resta position:fixed.
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eLockRepair) {}
   }
 
   try {
@@ -4098,6 +4418,10 @@
         if (!dd.open) ensureNotifDropdownInHeader(true);
       }
       syncGlobalNotifOverlayClass();
+      // notifUnpin1: anche in CHIUSURA va ripristinato lo scroll (prima solo all'open).
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      } catch (eLockClose) {}
     } finally {
       notifPortalSyncing = false;
     }
@@ -5836,7 +6160,8 @@
     if (d) d.removeAttribute("open");
   }
 
-  function closeDrawer() {
+  function closeDrawer(opts) {
+    opts = opts || {};
     if (!drawer) return;
     drawer.classList.remove("vc-mobile-nav-drawer--open");
     drawer.setAttribute("aria-hidden", "true");
@@ -5856,12 +6181,45 @@
       document.removeEventListener("keydown", onEscapeDrawer);
       onEscapeDrawer = null;
     }
-    if (focusPrev && typeof focusPrev.focus === "function") {
+    // Mai ripristinare il focus sull'hamburger mentre si naviga: su telefono
+    // focus() durante il click annulla la navigazione del <a href>.
+    if (!opts.skipFocusRestore && focusPrev && typeof focusPrev.focus === "function") {
       try {
         focusPrev.focus();
       } catch (e1) {}
     }
     focusPrev = null;
+  }
+
+  /** Click su tile menu: chiudi drawer e naviga in modo affidabile su touch. */
+  function onMobileNavTileClick(ev, a) {
+    if (!a) return;
+    focusPrev = null;
+    var hrefAttr = String(a.getAttribute("href") || "").trim();
+    var abs = "";
+    try {
+      abs = a.href || hrefAttr;
+    } catch (eHref) {
+      abs = hrefAttr;
+    }
+    try {
+      closeDrawer({ skipFocusRestore: true });
+    } catch (eClose) {}
+    if (!hrefAttr || hrefAttr.charAt(0) === "#") return;
+    if (ev && (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey)) return;
+    if (ev && typeof ev.button === "number" && ev.button !== 0) return;
+    var target = String(a.getAttribute("target") || "").toLowerCase();
+    if (target === "_blank") return;
+    try {
+      if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+    } catch (ePrev) {}
+    try {
+      window.location.assign(abs);
+    } catch (eAssign) {
+      try {
+        window.location.href = abs;
+      } catch (eHref2) {}
+    }
   }
 
   function openDrawer() {
@@ -5873,12 +6231,7 @@
         window.__vcEnsureNotifDropdownInHeader(true);
       }
     } catch (eNotifOpen) {}
-    try {
-      rebuildGrid();
-    } catch (eGrid) {}
-    try {
-      syncDrawerFooter();
-    } catch (eFoot) {}
+    // Apri SUBITO: rebuild griglia/footer dopo il paint (prima bloccava 1–3s al tap).
     drawer.classList.add("vc-mobile-nav-drawer--open");
     drawer.setAttribute("aria-hidden", "false");
     if (toggle) toggle.setAttribute("aria-expanded", "true");
@@ -5886,9 +6239,6 @@
     try {
       document.documentElement.classList.add(BODY_OPEN_CLASS);
     } catch (e2) {}
-    try {
-      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-    } catch (eSyncOpen) {}
     onEscapeDrawer = function (ev) {
       if (ev.key === "Escape") {
         ev.preventDefault();
@@ -5904,6 +6254,17 @@
         } catch (e3) {}
       });
     }
+    window.requestAnimationFrame(function () {
+      try {
+        rebuildGrid();
+      } catch (eGrid) {}
+      try {
+        syncDrawerFooter();
+      } catch (eFoot) {}
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      } catch (eSyncOpen) {}
+    });
   }
 
   function mobileAvatarUrl(u) {
@@ -6019,6 +6380,9 @@
       prof.setAttribute("aria-label", i18nLabel("auth.profile", "Profilo"));
       prof.title = i18nLabel("auth.profile", "Profilo");
       prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i>';
+      prof.addEventListener("click", function (ev) {
+        onMobileNavTileClick(ev, prof);
+      });
       actions.appendChild(prof);
       if (isDashboardNavAllowed()) {
         var dash = document.createElement("a");
@@ -6029,8 +6393,8 @@
         dash.title = i18nLabel("auth.dashboard", "Dashboard");
         dash.setAttribute("data-vc-mobile-dashboard", "1");
         dash.innerHTML = '<i class="fa fa-server" aria-hidden="true"></i>';
-        dash.addEventListener("click", function () {
-          closeDrawer();
+        dash.addEventListener("click", function (ev) {
+          onMobileNavTileClick(ev, dash);
         });
         actions.appendChild(dash);
         actions.classList.add("is-trio");
@@ -6175,8 +6539,8 @@
       a.innerHTML =
         '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-book"></i></span>' +
         '<span class="vc-mobile-nav-tile-label">Guida</span>';
-      a.addEventListener("click", function () {
-        closeDrawer();
+      a.addEventListener("click", function (ev) {
+        onMobileNavTileClick(ev, a);
       });
       tile = a;
     }
@@ -6282,8 +6646,8 @@
     lab.textContent = i18nLabel("auth.dashboard", "Dashboard");
     a.appendChild(ico);
     a.appendChild(lab);
-    a.addEventListener("click", function () {
-      closeDrawer();
+    a.addEventListener("click", function (ev) {
+      onMobileNavTileClick(ev, a);
     });
     return a;
   }
@@ -6328,8 +6692,8 @@
     lab.textContent = i18nLabel("auth.staffArea", "Area Staff");
     a.appendChild(ico);
     a.appendChild(lab);
-    a.addEventListener("click", function () {
-      closeDrawer();
+    a.addEventListener("click", function (ev) {
+      onMobileNavTileClick(ev, a);
     });
     return a;
   }
@@ -6382,8 +6746,8 @@
     a.appendChild(ico);
     a.appendChild(lab);
     markTileActive(a, row);
-    a.addEventListener("click", function () {
-      closeDrawer();
+    a.addEventListener("click", function (ev) {
+      onMobileNavTileClick(ev, a);
     });
     return a;
   }
@@ -6410,8 +6774,8 @@
     a.appendChild(ico);
     a.appendChild(lab);
     markTileActive(a, item);
-    a.addEventListener("click", function () {
-      closeDrawer();
+    a.addEventListener("click", function (ev) {
+      onMobileNavTileClick(ev, a);
     });
     return a;
   }
@@ -6632,7 +6996,7 @@
     else openDrawer();
     if (ev) {
       ev.__vcMobileNavHandled = true;
-      if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
+      // ptrFirstTap1: niente stopImmediatePropagation — altrimenti PTR non riceve touchend.
     }
     if (ev && (ev.type === "touchend" || ev.type === "pointerup")) lastToggleTouchAt = Date.now();
     return true;
@@ -7364,7 +7728,7 @@ function vcPageAssetVer() {
     if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
   } catch (e0) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-site-polish.js?v=20260827notifFlat6";
+  s.src = "/js/vc-site-polish.js?v=20260830ptrFirstTap1";
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();
@@ -7723,5 +8087,218 @@ function vcPageAssetVer() {
       if (handlers) bind(root, handlers, opts);
     },
   };
+})();
+
+/* pwaBlack1/siteSweep1/homeFreeze1: recovery leggero — niente storm su homepage Brave */
+(function () {
+  if (window.__vcPwaBlackRecover) return;
+  window.__vcPwaBlackRecover = true;
+  var lastRecoverAt = 0;
+  var recovering = false;
+
+  function forceReveal() {
+    try {
+      var nodes = document.querySelectorAll(".vc-home-rise:not(.is-in)");
+      var n = Math.min(nodes.length, 80);
+      for (var i = 0; i < n; i++) nodes[i].classList.add("is-in");
+    } catch (e0) {}
+  }
+
+  function clearPhoneHasFreezeGhosts() {
+    // Solo overlay/boot fantasma che attivano :has() → touch-action:none su telefono.
+    try {
+      var tr = document.getElementById("vc-page-transition");
+      if (tr) {
+        var trCs = window.getComputedStyle(tr);
+        if (!trCs || trCs.display === "none" || trCs.visibility === "hidden" || trCs.pointerEvents === "none") {
+          tr.classList.remove("vc-page-transition--on");
+        }
+      }
+    } catch (eTr) {}
+    try {
+      var sov = document.getElementById("vc-session-verify-overlay");
+      if (sov) {
+        var sovCs = window.getComputedStyle(sov);
+        if (!sovCs || sovCs.display === "none" || sovCs.visibility === "hidden" || sovCs.pointerEvents === "none") {
+          sov.classList.add("vc-session-verify-overlay--hidden");
+          if (sov.parentNode) sov.parentNode.removeChild(sov);
+          document.documentElement.classList.remove("vc-session-verify-pending");
+        }
+      }
+    } catch (eSov) {}
+    try {
+      var boots = document.querySelectorAll(
+        "#vc-user-profile-view .vc-user-profile-boot, #vc-user-profile-view > .vc-user-profile-loader, #vc-user-profile-view > [data-vc-profile-boot]",
+      );
+      for (var bi = 0; bi < boots.length; bi++) {
+        var boot = boots[bi];
+        var br = boot.getBoundingClientRect();
+        if (br.width < 8 && br.height < 8) {
+          boot.hidden = true;
+          boot.setAttribute("hidden", "");
+        }
+      }
+    } catch (eBoot) {}
+    // pwaHardFreeze1: togli touch-action:none / body fixed residui da pin hard.
+    try {
+      var coarseOrPwa = false;
+      try {
+        coarseOrPwa =
+          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+          (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+          Boolean(navigator.standalone) ||
+          Number(navigator.maxTouchPoints || 0) > 0;
+      } catch (eDet) {
+        coarseOrPwa = true;
+      }
+      if (coarseOrPwa) {
+        document.documentElement.style.removeProperty("touch-action");
+        if (document.body) {
+          document.body.style.removeProperty("touch-action");
+        }
+        try {
+          if (typeof window.__vcUnpinPageScroll === "function") {
+            // Se non c'è overlay vero, sblocca; altrimenti re-pin soft.
+            var root = document.documentElement;
+            var ddLive = document.getElementById("vc-notif-dropdown");
+            var notifReallyOpen = Boolean(
+              ddLive && (ddLive.open || ddLive.hasAttribute("open")) && root.classList.contains("vc-notif-sheet-open"),
+            );
+            if (root.classList.contains("vc-notif-sheet-open") && !notifReallyOpen) {
+              try {
+                root.classList.remove("vc-notif-sheet-open", "vc-notif-dropdown-open", "vc-notif-overlay-active");
+              } catch (eGhostSheet) {}
+            }
+            var mustLock =
+              root.classList.contains("vc-mobile-nav-open") ||
+              notifReallyOpen ||
+              root.classList.contains("vc-dialog-open") ||
+              root.classList.contains("vc-staff-manage-sheet-open") ||
+              root.classList.contains("vc-staff-stat-sheet-open");
+            if (mustLock && typeof window.__vcPinPageScroll === "function") {
+              window.__vcPinPageScroll({ soft: true });
+            } else if (!mustLock) {
+              window.__vcUnpinPageScroll();
+            }
+          }
+        } catch (ePinApi) {}
+      }
+    } catch (eUnfreeze) {}
+  }
+
+  function forceHideStuckLoaders() {
+    clearPhoneHasFreezeGhosts();
+    try {
+      var loaders = document.querySelectorAll(".vc-ul-loading:not([hidden])");
+      for (var i = 0; i < loaders.length; i++) {
+        var el = loaders[i];
+        if (el.classList.contains("vc-reviews-gate")) continue;
+        el.hidden = true;
+        el.setAttribute("hidden", "");
+      }
+    } catch (eL) {}
+    try {
+      document.documentElement.classList.remove("vc-loading-scroll-lock");
+      document.documentElement.classList.remove("vc-user-leader-pending");
+      document.documentElement.classList.remove("vc-user-profile-pending");
+      document.documentElement.classList.add("vc-page-cine-ready");
+      document.documentElement.classList.remove("vc-page-cine-boot");
+    } catch (eCls) {}
+    try {
+      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eU) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eS) {}
+  }
+
+  function pageLooksHealthy() {
+    try {
+      var root = document.documentElement;
+      if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) return false;
+      if (root.classList.contains("vc-loading-scroll-lock")) return false;
+      if (document.querySelector(".vc-ul-loading:not([hidden])")) return false;
+      if (document.querySelector(".vc-home-rise:not(.is-in)")) return false;
+      return root.classList.contains("vc-page-cine-ready") || root.classList.contains("vc-home-motion-ready");
+    } catch (eH) {
+      return false;
+    }
+  }
+
+  function recover(force) {
+    if (recovering) return;
+    var now = Date.now();
+    if (!force && now - lastRecoverAt < 4000) return;
+    if (!force && pageLooksHealthy()) {
+      lastRecoverAt = now;
+      return;
+    }
+    recovering = true;
+    lastRecoverAt = now;
+    try {
+      var root = document.documentElement;
+      root.classList.add("vc-page-cine-ready");
+      root.classList.add("vc-home-motion-ready");
+      root.classList.remove("vc-page-cine-boot");
+    } catch (e1) {}
+    forceReveal();
+    clearPhoneHasFreezeGhosts();
+    try {
+      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (e2) {}
+    try {
+      var body = document.body;
+      if (body && body.style && body.style.position === "fixed") {
+        var loading = document.querySelector(".vc-ul-loading:not([hidden])");
+        if (!loading) {
+          body.style.removeProperty("position");
+          body.style.removeProperty("top");
+          body.style.removeProperty("left");
+          body.style.removeProperty("right");
+          body.style.removeProperty("width");
+          body.style.removeProperty("overflow");
+          body.style.removeProperty("inset");
+        }
+      }
+    } catch (e3) {}
+    recovering = false;
+  }
+
+  function arm() {
+    recover(true);
+    window.setTimeout(function () {
+      recover(false);
+    }, 1200);
+    window.setTimeout(clearPhoneHasFreezeGhosts, 400);
+    window.setTimeout(clearPhoneHasFreezeGhosts, 1800);
+    window.setTimeout(forceHideStuckLoaders, 8000);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", arm);
+  } else {
+    arm();
+  }
+  window.addEventListener("pageshow", function (ev) {
+    recover(Boolean(ev && ev.persisted));
+    clearPhoneHasFreezeGhosts();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") {
+      recover(true);
+      clearPhoneHasFreezeGhosts();
+    }
+  });
+  window.addEventListener("focus", function () {
+    try {
+      var stand =
+        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+        Boolean(navigator.standalone);
+      if (stand) {
+        recover(true);
+        clearPhoneHasFreezeGhosts();
+      }
+    } catch (eFocusRec) {}
+  });
 })();
 

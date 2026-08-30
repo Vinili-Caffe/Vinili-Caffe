@@ -8,6 +8,7 @@
     timer: null,
     loadSeq: 0,
     loading: false,
+    bootBound: false,
   };
 
   function byId(id) {
@@ -103,7 +104,14 @@
     var el = byId("vc-hw-loading");
     if (!el) return;
     if (show) {
-      el.style.display = "";
+      try {
+        document.documentElement.classList.remove("vc-hw-loading-done");
+      } catch (e0) {}
+      try {
+        el.style.removeProperty("display");
+      } catch (e1) {
+        el.style.display = "";
+      }
       return;
     }
     try {
@@ -237,7 +245,12 @@
       var left = next - Date.now();
       if (left <= 0) {
         setHidden(el, true);
-        loadPotions();
+        if (state.timer) {
+          window.clearInterval(state.timer);
+          state.timer = null;
+        }
+        // Soft refresh: niente secondo overlay a tutto schermo.
+        loadPotions(0, { quiet: true });
         return;
       }
       el.textContent = "Prossima prova tra " + formatDuration(left);
@@ -306,10 +319,12 @@
     renderGame();
   }
 
-  function loadPotions(attempt) {
+  function loadPotions(attempt, opts) {
     var tryNo = Number(attempt) || 0;
+    opts = opts || {};
+    var quiet = Boolean(opts.quiet);
     setHidden(byId("vc-hw-potions-app"), false);
-    if (tryNo === 0) showToast("", "");
+    if (tryNo === 0 && !quiet) showToast("", "");
     if (redirectIfLockedWithoutPreview()) return;
     if (!getToken()) {
       showLoading(false);
@@ -323,7 +338,8 @@
       state.loadSeq += 1;
     }
     var seq = state.loadSeq;
-    showLoading(true);
+    // Overlay full-page solo al cold boot (mai se UI già pronta / quiet refresh).
+    if (!quiet && !state.data) showLoading(true);
     if (tryNo > 0) {
       showToast("Connessione instabile. Riprovo…", "pending");
     }
@@ -346,7 +362,7 @@
               : 400 + tryNo * 500;
           window.setTimeout(function () {
             if (seq !== state.loadSeq) return;
-            loadPotions(tryNo + 1);
+            loadPotions(tryNo + 1, opts);
           }, waitMs);
           return;
         }
@@ -422,6 +438,8 @@
   }
 
   function init() {
+    if (state.bootBound) return;
+    state.bootBound = true;
     bind();
     var started = false;
     function start() {
@@ -429,6 +447,12 @@
       started = true;
       loadPotions(0);
     }
+    // Un solo cold boot. Il profilo Discord recupera solo un boot fallito (niente 2° overlay).
+    window.addEventListener("vc-discord-profile", function onProfile() {
+      if (state.loading || state.data) return;
+      if (!getToken()) return;
+      loadPotions(0);
+    });
     if (window.__VC_DISCORD_PROFILE || getToken()) {
       start();
       return;
@@ -438,11 +462,6 @@
     window.setTimeout(start, 1600);
   }
 
-  window.addEventListener("vc-discord-profile", function () {
-    // Evita di ricalcare sopra un load già in corso / riuscito allo stesso boot.
-    if (state.loading || state.data) return;
-    loadPotions(0);
-  });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();

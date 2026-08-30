@@ -81,10 +81,10 @@
   function useLiteCanvas() {
     try {
       if (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()) return true;
-      /* mid / PWA / finestre dedicate: canvas leggero di default (GPU). */
-      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) return true;
     } catch (ePerf) {}
-    return isLiteFxPage() || isStandalonePwa();
+    /* phoneSnap1: CSS resta full; canvas telefono/PWA leggero (GPU libera per i tap). */
+    if (isCoarse() || isStandalonePwa()) return true;
+    return isLiteFxPage();
   }
 
   function isStandalonePwa() {
@@ -117,9 +117,18 @@
 
   function isCoarse() {
     try {
-      return window.matchMedia("(pointer: coarse)").matches;
-    } catch (e) {
+      if (window.matchMedia("(pointer: coarse)").matches) return true;
+      if (
+        window.matchMedia("(hover: none)").matches &&
+        Number(navigator.maxTouchPoints || 0) > 0
+      ) {
+        return true;
+      }
+    } catch (e) {}
+    try {
       return Number(navigator.maxTouchPoints || 0) > 0;
+    } catch (e2) {
+      return false;
     }
   }
 
@@ -579,7 +588,7 @@
           // Non aggiungere vc-home-cine-live qui: body trasparente su canvas non disegnato
           // fa sparire l'atmosfera (bug "cine che va e viene").
           markPageCineReady(true);
-        }, 1400);
+        }, 320);
       }
       return;
     }
@@ -1031,7 +1040,7 @@
     var riseBits = [];
     for (var h = 0; h < bits.length; h++) {
       if (!isVisibleEl(bits[h])) continue;
-      markRise(bits[h], 80 + riseBits.length * 90);
+      markRise(bits[h], 0);
       riseBits.push(bits[h]);
     }
 
@@ -1040,11 +1049,7 @@
       if (revealed) return;
       revealed = true;
       for (var i = 0; i < riseBits.length; i++) {
-        (function (idx, el) {
-          window.setTimeout(function () {
-            el.classList.add("is-in");
-          }, idx * 90);
-        })(i, riseBits[i]);
+        riseBits[i].classList.add("is-in");
       }
     }
 
@@ -1222,8 +1227,10 @@
   }
 
   function initHomeFx() {
-    var reduced = prefersReduced();
     var coarse = isCoarse();
+    /* Non usare prefers-reduced-motion per "instant": su Windows/Brave è spesso true
+       e toglieva rise/stagger della homepage e delle pagine polish. */
+    var instant = false;
 
     try {
       document.documentElement.classList.add("vc-home-motion-ready");
@@ -1233,30 +1240,46 @@
       "#intro .vc-hero-kicker, #intro .vc-brand-glow, #intro .vc-hero-about, #intro .vc-hero-head a.vc-header-pill"
     );
     for (var h = 0; h < heroBits.length; h++) {
-      markRise(heroBits[h], 40 + h * 40);
-      heroBits[h].classList.add("is-in");
+      markRise(heroBits[h], instant ? 0 : 50 + h * 70);
+      if (instant) {
+        heroBits[h].classList.add("is-in");
+      } else {
+        (function (el, delay) {
+          window.requestAnimationFrame(function () {
+            window.setTimeout(function () {
+              try {
+                el.classList.add("is-in");
+              } catch (eIn) {}
+            }, delay);
+          });
+        })(heroBits[h], 50 + h * 70);
+      }
     }
 
     var panels = document.querySelectorAll(
       "#stats .vc-stat-strip, .vc-home-deck, .vc-home-feature, .vc-home-index"
     );
     for (var p = 0; p < panels.length; p++) {
-      markRise(panels[p], 40);
+      markRise(panels[p], instant ? 0 : 120 + p * 90);
+      if (instant) panels[p].classList.add("is-in");
     }
 
     var cells = document.querySelectorAll(".vc-home-deck__cell");
     for (var c = 0; c < cells.length; c++) {
-      markRise(cells[c], 50 + c * 40);
+      markRise(cells[c], instant ? 0 : 160 + c * 45);
+      if (instant) cells[c].classList.add("is-in");
     }
 
     var pills = document.querySelectorAll(".vc-home-feature__pills a");
     for (var i = 0; i < pills.length; i++) {
-      markRise(pills[i], 40 + i * 24);
+      markRise(pills[i], instant ? 0 : 180 + i * 35);
+      if (instant) pills[i].classList.add("is-in");
     }
 
     var cols = document.querySelectorAll(".vc-home-index__col");
     for (var k = 0; k < cols.length; k++) {
-      markRise(cols[k], 40 + k * 32);
+      markRise(cols[k], instant ? 0 : 200 + k * 55);
+      if (instant) cols[k].classList.add("is-in");
     }
 
     var riseNodes = document.querySelectorAll(".vc-home-rise:not(.is-in)");
@@ -1279,18 +1302,32 @@
             io.unobserve(entries[e].target);
           }
         },
-        { root: null, rootMargin: "0px 0px -6% 0px", threshold: 0.08 }
+        { root: null, rootMargin: "140px 0px", threshold: 0.01 }
       );
       for (var n = 0; n < riseNodes.length; n++) io.observe(riseNodes[n]);
     }
 
+    // Failsafe anti-schermata nera (PWA): rise opacity:0 senza is-in.
+    window.setTimeout(function () {
+      try {
+        var stale = document.querySelectorAll(".vc-home-rise:not(.is-in)");
+        for (var s = 0; s < stale.length; s++) stale[s].classList.add("is-in");
+      } catch (eStale) {}
+    }, 1100);
+    window.setTimeout(function () {
+      try {
+        var stale2 = document.querySelectorAll(".vc-home-rise:not(.is-in)");
+        for (var s2 = 0; s2 < stale2.length; s2++) stale2[s2].classList.add("is-in");
+      } catch (eStale2) {}
+    }, 2600);
+
     // Extra FX: do NOT gate on prefers-reduced-motion.
     // On Windows/Brave that media query is often wrongly true and killed the whole homepage feel.
-    // Skip heavy pointer FX on coarse touch or lite perf tier (slow device/network).
+    // Skip heavy pointer FX on coarse touch / PWA / lite only (mid desktop keeps tilt).
     var skipHeavyFx =
       coarse ||
       isStandalonePwa() ||
-      (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite());
+      (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite());
     if (!skipHeavyFx) {
       initPanelTilt();
       initHomeExtraFx();
@@ -1495,15 +1532,15 @@
       // height at the scroll threshold and makes the scrollbar oscillate forever.
       section.classList.remove("is-collapsed");
 
-      if (!prefersReduced()) {
-        var shift = coarse ? Math.min(24, y * 0.1) : Math.min(48, y * 0.18);
-        var opacity = Math.max(coarse ? 0.55 : 0.35, 1 - y / (coarse ? 680 : 520));
-        card.style.transition = "none";
-        card.style.transform = "translate3d(0," + shift.toFixed(1) + "px,0)";
-        card.style.opacity = String(opacity);
-      }
+      // Non gate su prefers-reduced-motion: su Windows/Brave è spesso true a torto
+      // e toglieva parallax/cue su tutte le pagine cine (anche desktop).
+      var shift = coarse ? Math.min(24, y * 0.1) : Math.min(48, y * 0.18);
+      var opacity = Math.max(coarse ? 0.55 : 0.35, 1 - y / (coarse ? 680 : 520));
+      card.style.transition = "none";
+      card.style.transform = "translate3d(0," + shift.toFixed(1) + "px,0)";
+      card.style.opacity = String(opacity);
 
-      if (cue && !prefersReduced()) {
+      if (cue) {
         var cueOpacity = Math.max(0, 1 - y / 220);
         cue.style.transition = "none";
         cue.style.opacity = String(cueOpacity);
@@ -1867,9 +1904,29 @@
     }
 
     if (isAuditBot()) {
+      // Probe/Lighthouse: niente loop RAF, ma un paint + live class (no canvas 300x150 morto).
       try {
-        document.documentElement.classList.add("vc-home-cine-live");
+        document.documentElement.classList.add("vc-home-motion-ready");
       } catch (eAuditLive) {}
+      try {
+        var stageA = ensureStage();
+        var canvasA = stageA && stageA.querySelector(".vc-home-cine__canvas");
+        if (canvasA && canvasA.getContext) {
+          var ctxA = canvasA.getContext("2d", { alpha: false });
+          if (ctxA) {
+            var wA = Math.max(1, window.innerWidth || 1);
+            var hA = Math.max(1, window.innerHeight || 1);
+            canvasA.width = wA;
+            canvasA.height = hA;
+            canvasA.style.width = wA + "px";
+            canvasA.style.height = hA + "px";
+            ctxA.setTransform(1, 0, 0, 1, 0, 0);
+            ctxA.fillStyle = "#100c09";
+            ctxA.fillRect(0, 0, wA, hA);
+          }
+        }
+        document.documentElement.classList.add("vc-home-cine-live");
+      } catch (eAuditPaint) {}
       markPageCineReady(true);
       return;
     }
@@ -1887,6 +1944,7 @@
     if (!votePage && !skipPointerFx) {
       initCursorSpotlight();
     }
+
     var canvas = stage.querySelector(".vc-home-cine__canvas");
     if (!canvas || !canvas.getContext) {
       try {
@@ -1903,6 +1961,12 @@
       markPageCineReady(true);
       return;
     }
+    try {
+      canvas.style.backgroundColor = "#100c09";
+      // Primo paint scuro subito (evita flash bianco prima del loop RAF).
+      ctx.fillStyle = "#100c09";
+      ctx.fillRect(0, 0, Math.max(1, canvas.width || 1), Math.max(1, canvas.height || 1));
+    } catch (eCanvasBg) {}
 
     var reduced = prefersReduced();
     var coarse = isCoarse();
@@ -1935,10 +1999,10 @@
     function resize() {
       var nextW = Math.max(1, window.innerWidth || 1);
       var nextH = Math.max(1, window.innerHeight || 1);
-      var dprCap = lite ? 1.05 : 1.25;
+      var dprCap = lite ? 1.05 : 1.35;
       try {
-        if (window.VcPerf && window.VcPerf.tier() === "mid") dprCap = Math.min(dprCap, 1.1);
         if (window.VcPerf && window.VcPerf.isLite()) dprCap = 1;
+        else if (coarse) dprCap = Math.min(dprCap, 1.1);
       } catch (eDpr) {}
       dpr = Math.min(dprCap, window.devicePixelRatio || 1);
       w = nextW;
@@ -1948,10 +2012,9 @@
       canvas.style.width = w + "px";
       canvas.style.height = h + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      var dustN = lite ? (coarse ? 0 : 8) : coarse ? 10 : 18;
+      var dustN = lite ? (coarse ? 4 : 8) : coarse ? 8 : 18;
       try {
-        if (window.VcPerf && window.VcPerf.isLite()) dustN = 0;
-        else if (window.VcPerf && window.VcPerf.tier() === "mid") dustN = Math.min(dustN, coarse ? 0 : 10);
+        if (window.VcPerf && window.VcPerf.isLite()) dustN = Math.min(dustN, 2);
       } catch (eDust) {}
       spawnDust(dustN);
     }
@@ -1982,11 +2045,14 @@
       ctx.beginPath();
       ctx.arc(0, 0, r * 0.97, 0, Math.PI * 2);
       ctx.clip();
-      var step = Math.max(2.4, r * 0.014);
-      for (var i = r * 0.22; i < r * 0.96; i += step) {
+      var step = Math.max(lite || coarse ? 4.2 : 2.4, r * (lite || coarse ? 0.028 : 0.014));
+      if (!Number.isFinite(step) || step < 2) step = 2;
+      var grooves = 0;
+      for (var i = r * 0.22; i < r * 0.96 && grooves < 64; i += step) {
+        grooves += 1;
         ctx.beginPath();
         ctx.arc(0, 0, i, 0, Math.PI * 2);
-        ctx.strokeStyle = i % (step * 2) < step ? "rgba(255,244,232,0.045)" : "rgba(0,0,0,0.28)";
+        ctx.strokeStyle = grooves % 2 === 0 ? "rgba(255,244,232,0.045)" : "rgba(0,0,0,0.28)";
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -2024,27 +2090,41 @@
     /* Cap FPS + idle freeze: full-viewport canvas at 60fps (even 24) stalls GPU
        while the PWA/window is open; UI sheet animations then feel frozen.
        Pause on blur, overlays, and after a short idle without input. */
-    var targetFps = lite ? 14 : 18;
+    var targetFps = lite ? 12 : 22;
     try {
       if (window.VcPerf && window.VcPerf.isLite()) targetFps = 10;
-      else if (window.VcPerf && window.VcPerf.tier() === "mid") targetFps = 12;
+      if (coarse) targetFps = Math.min(targetFps, 10);
+      // Home desktop: pochi frame intro poi statico (anti "pagina non risponde" Brave).
+      if (home && !coarse) targetFps = Math.min(targetFps, 14);
     } catch (eFps) {}
     var minFrameMs = 1000 / targetFps;
     var lastFrameAt = 0;
-    var lastInputAt = performance.now();
-    var IDLE_FREEZE_MS = lite || coarse ? 1800 : 2800;
+    /* 0 finché non c'è il primo paint: così syncRunState non tratta il boot come
+       "idle scaduto" e non spegne il RAF prima del vinile (bug telefono).
+       Dopo il primo paint DEVE diventare "now", altrimenti
+       frame → idle+vc-cine-idle → MO → syncRunState(lastInputAt===0) → start
+       → loop infinito di paint sync = "La pagina non risponde" (solo home). */
+    var lastInputAt = 0;
+    var IDLE_FREEZE_MS = coarse ? 700 : lite ? 1800 : home ? 900 : 2800;
+    var PHONE_AUTO_IDLE_MS = 1400;
+    var HOME_AUTO_IDLE_MS = 700;
+    var resumeTimer = 0;
     var vinylCache = null;
     var vinylCacheR = 0;
     var vinylCacheSize = 0;
     var idleFrozen = false;
+    var cineMoQuietUntil = 0;
 
     function afterFirstPaint() {
       if (paintedOnce) return;
       paintedOnce = true;
+      // Avvia la finestra idle reale (niente più lastInputAt===0 forever).
+      lastInputAt = performance.now();
       try {
         document.documentElement.classList.add("vc-home-cine-live");
       } catch (eLiveClass) {}
-      if (polish && typeof window.__vcSitePolishRise === "function") {
+      // Mai chiamare polish rise sulla home (DOM enorme + :has = freeze).
+      if (polish && !document.body.classList.contains("vc-body--home") && typeof window.__vcSitePolishRise === "function") {
         try {
           window.__vcSitePolishRise();
         } catch (eRise) {}
@@ -2091,6 +2171,40 @@
 
     function noteCineInput() {
       lastInputAt = performance.now();
+      // Homepage desktop: vinyl statico dopo intro — niente restart RAF su ogni mousemove
+      // (altrimenti Brave resta sotto stress e compare "La pagina non risponde").
+      if (home && !coarse && paintedOnce) {
+        return;
+      }
+      // phoneSnap1: su telefono touch/scroll spegne il RAF (anti-lag), MA non prima del primo paint.
+      if (coarse) {
+        if (!paintedOnce) {
+          if (!running) start();
+          return;
+        }
+        idleFrozen = true;
+        try {
+          document.documentElement.classList.add("vc-cine-idle");
+        } catch (eIdlePhone) {}
+        stop();
+        if (resumeTimer) {
+          try {
+            window.clearTimeout(resumeTimer);
+          } catch (eClr) {}
+          resumeTimer = 0;
+        }
+        resumeTimer = window.setTimeout(function () {
+          resumeTimer = 0;
+          if (!pageWantsCine()) return;
+          if (performance.now() - lastInputAt < IDLE_FREEZE_MS - 30) return;
+          idleFrozen = false;
+          try {
+            document.documentElement.classList.remove("vc-cine-idle");
+          } catch (eIdleOffP) {}
+          start();
+        }, IDLE_FREEZE_MS);
+        return;
+      }
       if (idleFrozen) {
         idleFrozen = false;
         try {
@@ -2102,9 +2216,13 @@
 
     function pageWantsCine() {
       if (document.hidden) return false;
-      try {
-        if (typeof document.hasFocus === "function" && !document.hasFocus()) return false;
-      } catch (eFocus) {}
+      // PWA/telefono: hasFocus è spesso false al resume da background → canvas morto + body trasparente = schermo nero.
+      var skipFocusGate = coarse || isStandalonePwa();
+      if (paintedOnce && !skipFocusGate) {
+        try {
+          if (typeof document.hasFocus === "function" && !document.hasFocus()) return false;
+        } catch (eFocus) {}
+      }
       if (uiChromeBusy()) return false;
       return true;
     }
@@ -2176,12 +2294,35 @@
         stop();
         return;
       }
-      if (now - lastInputAt >= IDLE_FREEZE_MS) {
+      if (paintedOnce && lastInputAt && now - lastInputAt >= IDLE_FREEZE_MS) {
         paintFrame(now, true);
         idleFrozen = true;
+        cineMoQuietUntil = performance.now() + 120;
         try {
           document.documentElement.classList.add("vc-cine-idle");
         } catch (eIdleOn) {}
+        stop();
+        return;
+      }
+      // Telefono: dopo breve intro ferma il loop anche senza input (vinyl resta statico).
+      if (coarse && paintedOnce && now - t0 >= PHONE_AUTO_IDLE_MS) {
+        paintFrame(now, true);
+        idleFrozen = true;
+        cineMoQuietUntil = performance.now() + 120;
+        try {
+          document.documentElement.classList.add("vc-cine-idle");
+        } catch (ePhoneIdle) {}
+        stop();
+        return;
+      }
+      // Homepage desktop: ferma subito dopo breve intro (niente loop lungo su Brave).
+      if (home && !coarse && paintedOnce && now - t0 >= HOME_AUTO_IDLE_MS) {
+        paintFrame(now, true);
+        idleFrozen = true;
+        cineMoQuietUntil = performance.now() + 400;
+        try {
+          document.documentElement.classList.add("vc-cine-idle");
+        } catch (eHomeIdle) {}
         stop();
         return;
       }
@@ -2215,18 +2356,53 @@
     }
 
     function syncRunState() {
-      if (pageWantsCine()) {
-        if (performance.now() - lastInputAt < IDLE_FREEZE_MS) {
+      if (performance.now() < cineMoQuietUntil) return;
+      if (!pageWantsCine()) {
+        if (!paintedOnce) {
+          // Ancora nessun frame: tieni vivo il loop fino al primo paint.
+          start();
+          return;
+        }
+        stop();
+        return;
+      }
+      if (!paintedOnce || !lastInputAt) {
+        start();
+        return;
+      }
+      if (coarse) {
+        // Solo riprendi se davvero idle; se c'è stato un tap resta spento.
+        if (performance.now() - lastInputAt >= IDLE_FREEZE_MS) {
           idleFrozen = false;
           try {
             document.documentElement.classList.remove("vc-cine-idle");
-          } catch (eIdleClr) {}
+          } catch (eIdleClrP) {}
           start();
+        } else {
+          stop();
         }
-      } else stop();
+        return;
+      }
+      // Desktop: MAI `lastInputAt === 0` qui (dopo paint è sempre settato).
+      // Altrimenti ogni class toggle su <html> riaccende il canvas all'infinito.
+      if (performance.now() - lastInputAt < IDLE_FREEZE_MS) {
+        idleFrozen = false;
+        try {
+          document.documentElement.classList.remove("vc-cine-idle");
+        } catch (eIdleClr) {}
+        start();
+      }
     }
 
     resize();
+    try {
+      ctx.fillStyle = "#100c09";
+      ctx.fillRect(0, 0, Math.max(1, w), Math.max(1, h));
+    } catch (eBootFill) {}
+    /* Primo frame sincrono: vinile subito anche se RAF viene stoppato al boot. */
+    try {
+      paintFrame(performance.now(), true);
+    } catch (eFirstPaint) {}
     start();
 
     window.addEventListener("resize", function () {
@@ -2274,13 +2450,69 @@
       );
     }
     try {
-      if (typeof MutationObserver !== "undefined") {
+      // Homepage: niente MO su class (landing toggle continuamente → restart cine).
+      if (!home && typeof MutationObserver !== "undefined") {
         var chromeObs = new MutationObserver(function () {
+          if (performance.now() < cineMoQuietUntil) return;
           syncRunState();
         });
         chromeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
       }
     } catch (eObs) {}
+
+    var lastRecoverHomeCineAt = 0;
+    var recoverHomeCineBusy = false;
+    var wasPageHidden = false;
+    function recoverHomeCineSurface(force) {
+      if (recoverHomeCineBusy) return;
+      var now = performance.now();
+      var must = Boolean(force) || wasPageHidden || coarse || isStandalonePwa();
+      if (!must && now - lastRecoverHomeCineAt < 3500) return;
+      if (must && now - lastRecoverHomeCineAt < 280) return;
+      lastRecoverHomeCineAt = now;
+      recoverHomeCineBusy = true;
+      wasPageHidden = false;
+      try {
+        document.documentElement.classList.add("vc-page-cine-ready");
+        document.documentElement.classList.add("vc-home-motion-ready");
+        document.documentElement.classList.remove("vc-page-cine-boot");
+        document.documentElement.classList.remove("vc-cine-idle");
+      } catch (eR) {}
+      try {
+        var stale = document.querySelectorAll(".vc-home-rise:not(.is-in)");
+        var max = Math.min(stale.length, 80);
+        for (var i = 0; i < max; i++) stale[i].classList.add("is-in");
+      } catch (eS) {}
+      try {
+        if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+      } catch (eU) {}
+      try {
+        // Resume PWA/telefono: sempre ripaint (iOS azzera il canvas in background).
+        idleFrozen = false;
+        vinylCache = null;
+        vinylCacheR = 0;
+        resize();
+        paintFrame(performance.now(), true);
+        paintedOnce = true;
+        if (!document.hidden) start();
+      } catch (ePaint) {}
+      recoverHomeCineBusy = false;
+    }
+    window.addEventListener("pageshow", function (ev) {
+      recoverHomeCineSurface(Boolean(ev && ev.persisted) || isStandalonePwa());
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") {
+        wasPageHidden = true;
+        return;
+      }
+      if (document.visibilityState === "visible") {
+        recoverHomeCineSurface(true);
+      }
+    });
+    window.addEventListener("focus", function () {
+      if (coarse || isStandalonePwa()) recoverHomeCineSurface(true);
+    });
   }
 
   if (document.readyState === "loading") {

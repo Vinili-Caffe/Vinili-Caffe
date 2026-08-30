@@ -9,7 +9,7 @@
 (function () {
   "use strict";
 
-  var ASSET_V = "20260829inboxClip1";
+  var ASSET_V = "20260830resoTemp1";
   var TOKEN_KEY = "vc_discord_access_token";
   var SCOPE_PREF_KEY = "vc_notif_scope_pref";
   var scope = "personal";
@@ -436,11 +436,19 @@
           "queue=" +
           encodeURIComponent(targetTab) +
           "&scope=pending&page=1&pageSize=20&sync=1";
+        var prefetchCtrl =
+          typeof AbortController !== "undefined" ? new AbortController() : null;
+        var prefetchTimer = window.setTimeout(function () {
+          try {
+            if (prefetchCtrl) prefetchCtrl.abort();
+          } catch (eAbortPf) {}
+        }, 8000);
         var prefetchPromise = fetch(url, {
           method: "GET",
           credentials: "include",
           headers: { Authorization: "Bearer " + token, Accept: "application/json" },
           cache: "no-store",
+          signal: prefetchCtrl ? prefetchCtrl.signal : undefined,
         })
           .then(function (res) {
             return res
@@ -460,6 +468,9 @@
           })
           .catch(function () {
             return null;
+          })
+          .finally(function () {
+            window.clearTimeout(prefetchTimer);
           });
         window.__VC_INBOX_QUEUE_PREFETCH = {
           tab: targetTab,
@@ -581,7 +592,7 @@
       loadScript("/js/vc-site-toast.js?v=20260825siteToast1"),
       loadScript("/js/vc-dialog.js?v=20260826dialog1"),
       loadScript("/js/vc-emoji-picker.js?v=20260825subjChat1"),
-      loadScript("/js/vc-workflow-chat.js?v=20260825subjChat1"),
+      loadScript("/js/vc-workflow-chat.js?v=" + ASSET_V),
     ]).catch(function () {});
     return staffDeferredPromise;
   }
@@ -595,7 +606,9 @@
       loadCss("/css/vc-workflow-chat.css?v=" + ASSET_V),
     ]);
     var jsPromise = loadScript("/js/staff-tools-common.js?v=" + ASSET_V).then(function () {
-      return loadScript("/js/staff-inbox-page.js?v=" + ASSET_V);
+      return loadScript("/js/staff-inbox-page.js?v=" + ASSET_V).then(function () {
+        return loadScript("/js/staff-punti-tolti-page.js?v=" + ASSET_V);
+      });
     });
     staffCriticalPromise = Promise.all([cssPromise, jsPromise]).then(function () {
       return true;

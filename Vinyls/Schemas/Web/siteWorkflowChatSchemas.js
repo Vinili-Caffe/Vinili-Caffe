@@ -19,6 +19,7 @@ const siteWorkflowChatMessageSchema = new Schema(
     authorId: { type: String, required: true, index: true },
     authorName: { type: String, default: "", trim: true, maxlength: 80 },
     authorAvatarUrl: { type: String, default: "", trim: true, maxlength: 400 },
+    authorRoleLabel: { type: String, default: "", trim: true, maxlength: 48 },
     authorKind: {
       type: String,
       required: true,

@@ -78,6 +78,14 @@ function getSerataFilmAttendanceDeadlineMs(saturdayKey) {
   );
 }
 
+function addDaysToDateKey(key, days) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || "").trim());
+  if (!m) return "";
+  const utc = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + Number(days || 0));
+  const d = new Date(utc);
+  return toDateKey(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+}
+
 function getRomeSaturdayKeyForWeek(date = new Date()) {
   const parts = getRomeParts(date);
   const utcDate = Date.UTC(parts.year, parts.month - 1, parts.day);
@@ -86,18 +94,32 @@ function getRomeSaturdayKeyForWeek(date = new Date()) {
   return toDateKey(saturday.getUTCFullYear(), saturday.getUTCMonth() + 1, saturday.getUTCDate());
 }
 
+function canEditSerataFilmAttendance(now = new Date(), saturdayKey = null) {
+  const key = saturdayKey || getActiveSerataFilmAttendanceSaturdayKey(now);
+  const deadlineMs = getSerataFilmAttendanceDeadlineMs(key);
+  return Number.isFinite(deadlineMs) && deadlineMs > 0 && now.getTime() < deadlineMs;
+}
+
+/**
+ * Sabato di riferimento per presenza: se la deadline di questo sabato è passata
+ * (serata chiusa), passa al sabato successivo così lo switcher resta usabile.
+ */
+function getActiveSerataFilmAttendanceSaturdayKey(now = new Date()) {
+  const weekSat = getRomeSaturdayKeyForWeek(now);
+  const deadlineMs = getSerataFilmAttendanceDeadlineMs(weekSat);
+  if (Number.isFinite(deadlineMs) && deadlineMs > 0 && now.getTime() < deadlineMs) {
+    return weekSat;
+  }
+  return addDaysToDateKey(weekSat, 7) || weekSat;
+}
+
 function getSerataFilmSaturdayKeyForSession(session) {
   const startedAt = Number(session?.startedAt || 0);
   return getRomeSaturdayKeyForWeek(startedAt > 0 ? new Date(startedAt) : new Date());
 }
 
-function canEditSerataFilmAttendance(now = new Date(), saturdayKey = getRomeSaturdayKeyForWeek(now)) {
-  const deadlineMs = getSerataFilmAttendanceDeadlineMs(saturdayKey);
-  return Number.isFinite(deadlineMs) && deadlineMs > 0 && now.getTime() < deadlineMs;
-}
-
 function resolveSerataFilmAttendanceForWeek(staff, now = new Date()) {
-  const saturdayKey = getRomeSaturdayKeyForWeek(now);
+  const saturdayKey = getActiveSerataFilmAttendanceSaturdayKey(now);
   const keyMatch = String(staff?.serataFilmAttendanceSaturdayKey || "") === saturdayKey;
   const declaredAbsent = keyMatch && staff?.serataFilmWillAttend === false;
   return {
@@ -177,8 +199,8 @@ function buildSerataFilmAttendanceButtonRow(viewerId, targetId, state, sourceMes
 
 async function setSerataFilmWillAttend(guildId, userId, willAttend, now = new Date()) {
   if (!isValidGuildUserId(guildId, userId)) return { ok: false, code: "bad_input" };
-  if (!canEditSerataFilmAttendance(now)) return { ok: false, code: "closed" };
-  const saturdayKey = getRomeSaturdayKeyForWeek(now);
+  const saturdayKey = getActiveSerataFilmAttendanceSaturdayKey(now);
+  if (!canEditSerataFilmAttendance(now, saturdayKey)) return { ok: false, code: "closed" };
   if (willAttend === true) {
     const unsetRes = await ActivityUserProfile.updateOne(
       { guildId: String(guildId), userId: String(userId), "staff.serataFilmAttendanceSaturdayKey": saturdayKey },
@@ -217,6 +239,7 @@ async function loadSerataFilmStaffAttendanceByUserId(guildId, userIds) {
 
 module.exports = {
   getRomeSaturdayKeyForWeek,
+  getActiveSerataFilmAttendanceSaturdayKey,
   getSerataFilmSaturdayKeyForSession,
   canEditSerataFilmAttendance,
   resolveSerataFilmAttendanceForWeek,

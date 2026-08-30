@@ -7,6 +7,7 @@
     { id: "candidature", label: "Candidature", queue: "candidature", requiresCandidatureReview: true },
     { id: "appelli", label: "Appelli", queue: "appelli", requiresAppelliReview: true },
     { id: "resoconti", label: "Resoconti", queue: "resoconti" },
+    { id: "punti-tolti", label: "Punti tolti", queue: null, requiresPmOrHighStaff: true },
   ];
 
   var QUEUE_FILTERS = {
@@ -52,7 +53,8 @@
   var MOBILE_APPEAL_FIX_MAX = 4;
   var appealFixWaitCount = 0;
   var skeletonWatchdogTimer = null;
-  var SKELETON_WATCHDOG_MS = 8500;
+  var SKELETON_WATCHDOG_MS = 4500;
+  var PREFETCH_CONSUME_MAX_MS = 2200;
   /** Tab già caricate vuote nonostante summary>0 (evita loop / badge fantasma). */
   var emptyLoadedTabs = Object.create(null);
   var SUMMARY_CACHE_KEY = "vc_inbox_summary_v1";
@@ -114,16 +116,19 @@
 
   function armSkeletonWatchdog() {
     clearSkeletonWatchdog();
-    if (!(T.isCoarseMobile && T.isCoarseMobile())) return;
+    // Anche desktop: al primo boost lo skeleton "Caricamento appelli…" restava
+    // eterno se il prefetch caldo non risolveva mai.
     if (!isStaffScopeActive()) return;
     if (state.tab !== "appelli" || state.scope !== "pending") return;
     if (!appealPendingInSummary()) return;
+    var waitMs =
+      T.isCoarseMobile && T.isCoarseMobile() ? SKELETON_WATCHDOG_MS : Math.max(5500, SKELETON_WATCHDOG_MS);
     skeletonWatchdogTimer = window.setTimeout(function () {
       skeletonWatchdogTimer = null;
       if (state.items && state.items.length) return;
-      if (!listEmptyDespitePending()) return;
+      if (!listEmptyDespitePending() && !inboxLoadBusy()) return;
       forceAppealSyncLoad(true);
-    }, SKELETON_WATCHDOG_MS);
+    }, waitMs);
   }
 
   function endNonQuietQueueLoad(seq, opts) {
@@ -178,6 +183,16 @@
     if (!tab) return false;
     var perms = readPermissions();
     if (tab.requiresHighStaff && !(perms.isHighStaff || perms.canManage || perms.highStaff)) return false;
+    if (tab.requiresPmOrHighStaff) {
+      return Boolean(
+        perms.isPm ||
+          perms.pm ||
+          perms.isHighStaff ||
+          perms.canManage ||
+          perms.highStaff ||
+          perms.director,
+      );
+    }
     if (tab.requiresCandidatureReview && !perms.candidatureReview) return false;
     if (
       tab.requiresAppelliReview &&
@@ -254,6 +269,9 @@
   }
 
   function markTabConfirmedEmpty(tabId) {
+    // Mai avvelenare summary/cache al primo boot: il primo fetch vuoto è spesso race
+    // (token/perms/prefetch stale) e al reload la coda c'è.
+    if (inboxBooting || !initialQueueLoaded) return;
     var id = String(tabId || state.tab || "").trim();
     if (!id) return;
     emptyLoadedTabs[id] = true;
@@ -403,10 +421,26 @@
       if (String(pf.scope || "pending") !== String(requestedScope || "pending")) return null;
       if (Number(requestedPage || 1) !== Number(pf.page || 1)) return null;
       if (Date.now() - Number(pf.at || 0) > 120000) return null;
-      return Promise.resolve(pf.promise).then(function (out) {
+      var settled = Promise.resolve(pf.promise).then(function (out) {
         if (!out || !out.res) return null;
         if (isStaleEmptyAppealPrefetch(out, requestedTab, requestedScope)) return null;
-        window.__VC_INBOX_QUEUE_PREFETCH = null;
+        try {
+          window.__VC_INBOX_QUEUE_PREFETCH = null;
+        } catch (eClr) {}
+        return out;
+      });
+      // inboxStuck1: non aspettare forever un prefetch caldo appeso (primo boost → F5).
+      var timedOut = new Promise(function (resolve) {
+        window.setTimeout(function () {
+          resolve(null);
+        }, PREFETCH_CONSUME_MAX_MS);
+      });
+      return Promise.race([settled, timedOut]).then(function (out) {
+        if (!out) {
+          try {
+            window.__VC_INBOX_QUEUE_PREFETCH = null;
+          } catch (eDrop) {}
+        }
         return out;
       });
     } catch (ePf) {
@@ -488,7 +522,14 @@
 
   function finalizeVisibleQueueLoad(seq, quiet) {
     if (!quiet && seq === loadSeq) {
-      if (inboxBooting) hideInboxBootScreen();
+      hideInboxBootScreen();
+      initialQueueLoaded = true;
+      try {
+        renderTabs();
+        renderScopeToggle();
+        renderQueueFilters();
+        renderWeekNav();
+      } catch (eChrome) {}
       endNonQuietQueueLoad(seq);
     }
   }
@@ -1045,6 +1086,112 @@
     return state.scope;
   }
 
+  function isPuntiToltiTab() {
+    return String(state.tab || "") === "punti-tolti";
+  }
+
+  function ensurePuntiToltiModule() {
+    if (window.VCStaffPuntiTolti && typeof window.VCStaffPuntiTolti.mount === "function") {
+      return Promise.resolve(true);
+    }
+    return new Promise(function (resolve) {
+      var existing = document.querySelector('script[data-vc-staff-pt-js="1"]');
+      if (existing) {
+        var started = Date.now();
+        (function tick() {
+          if (window.VCStaffPuntiTolti && typeof window.VCStaffPuntiTolti.mount === "function") {
+            resolve(true);
+            return;
+          }
+          if (Date.now() - started > 8000) {
+            resolve(false);
+            return;
+          }
+          setTimeout(tick, 40);
+        })();
+        return;
+      }
+      var s = document.createElement("script");
+      s.src = "/js/staff-punti-tolti-page.js?v=20260830chatRole1";
+      s.async = true;
+      s.setAttribute("data-vc-staff-pt-js", "1");
+      s.onload = function () {
+        resolve(Boolean(window.VCStaffPuntiTolti && window.VCStaffPuntiTolti.mount));
+      };
+      s.onerror = function () {
+        resolve(false);
+      };
+      (document.head || document.documentElement).appendChild(s);
+    });
+  }
+
+  function syncPuntiToltiMode() {
+    var list = T.byId("vc-staff-inbox-list");
+    var detail = T.byId("vc-staff-inbox-detail");
+    var filters = T.byId("vc-staff-inbox-filters");
+    var scopeEl = T.byId("vc-staff-inbox-scope");
+    var week = T.byId("vc-staff-inbox-week");
+    var pag = T.byId("vc-staff-inbox-pagination");
+    var filterWrap =
+      (scopeEl && scopeEl.parentElement) ||
+      (filters && filters.parentElement) ||
+      null;
+    if (!isPuntiToltiTab()) {
+      if (window.VCStaffPuntiTolti && typeof window.VCStaffPuntiTolti.unmount === "function") {
+        try {
+          window.VCStaffPuntiTolti.unmount();
+        } catch (eUm) {}
+      }
+      if (list) list.classList.remove("vc-staff-pt-inbox-host", "is-loading");
+      if (filterWrap) {
+        filterWrap.hidden = false;
+        filterWrap.removeAttribute("hidden");
+      }
+      if (filters) filters.hidden = false;
+      if (scopeEl) scopeEl.hidden = false;
+      return Promise.resolve(false);
+    }
+    if (detail) {
+      detail.hidden = true;
+      detail.innerHTML = "";
+    }
+    if (filterWrap) {
+      filterWrap.hidden = true;
+      filterWrap.setAttribute("hidden", "");
+    }
+    if (filters) {
+      filters.hidden = true;
+      filters.innerHTML = "";
+    }
+    if (scopeEl) {
+      scopeEl.hidden = true;
+      scopeEl.innerHTML = "";
+    }
+    if (week) week.hidden = true;
+    if (pag) pag.hidden = true;
+    if (list) {
+      list.hidden = false;
+      list.classList.remove("is-loading");
+      list.classList.add("vc-staff-pt-inbox-host");
+      list.removeAttribute("aria-busy");
+    }
+    return ensurePuntiToltiModule().then(function (ok) {
+      if (!ok || !list) {
+        if (list) {
+          list.innerHTML =
+            '<div class="vc-staff-inbox-empty"><p>Impossibile caricare Punti tolti. Ricarica la pagina.</p></div>';
+        }
+        return false;
+      }
+      try {
+        window.VCStaffPuntiTolti.mount(list);
+      } catch (eMount) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   function setTab(tab) {
     state.tab = tab;
     teardownChat();
@@ -1177,36 +1324,66 @@
     return "Ruolo";
   }
 
+  function inboxFilterHint() {
+    if (state.tab === "pause") return "Controlla le richieste di pausa in coda prima di chiudere.";
+    if (state.tab === "candidature") return "Approva o rifiuta le candidature in attesa.";
+    if (state.tab === "appelli") return "Valuta unban e unmute in coda.";
+    if (state.tab === "resoconti") return "Rivedi i resoconti settimanali dello staff.";
+    return "";
+  }
+
+  function inboxFilterWrap() {
+    var scope = T.byId("vc-staff-inbox-scope");
+    var filters = T.byId("vc-staff-inbox-filters");
+    return (scope && scope.parentElement) || (filters && filters.parentElement) || null;
+  }
+
+  function syncInboxFilterHint() {
+    var wrap = inboxFilterWrap();
+    if (!wrap) return;
+    wrap.classList.add("vc-staff-inbox-board-toolbar");
+    var hint = wrap.querySelector(".vc-staff-inbox-board-toolbar__hint");
+    var text = inboxFilterHint();
+    if (!text || isPuntiToltiTab()) {
+      if (hint) hint.remove();
+      return;
+    }
+    if (!hint) {
+      hint = document.createElement("p");
+      hint.className = "vc-staff-inbox-board-toolbar__hint";
+      wrap.appendChild(hint);
+    }
+    hint.textContent = text;
+  }
+
   function renderQueueFilters() {
     var root = T.byId("vc-staff-inbox-filters");
     if (!root) return;
+    if (isPuntiToltiTab()) {
+      root.hidden = true;
+      root.innerHTML = "";
+      syncInboxFilterHint();
+      return;
+    }
     var options = QUEUE_FILTERS[state.tab] || [];
     if (!options.length) {
       root.innerHTML = "";
       root.hidden = true;
+      syncInboxFilterHint();
       return;
     }
     root.hidden = false;
-    var embed = isInboxEmbed();
-    var segClass = embed
-      ? "vc-staff-inbox-filter-group__seg vc-notify-filter-bar"
-      : "vc-staff-inbox-filter-group__seg";
+    root.className = "vc-staff-inbox-filter-group vc-staff-inbox-filter-group--board";
     root.innerHTML =
-      '<span class="vc-staff-inbox-filter-group__label">' +
+      '<div class="vc-staff-pt-seg" role="group" aria-label="' +
       T.esc(queueFilterGroupLabel()) +
-      "</span>" +
-      '<div class="' +
-      segClass +
-      '" role="group">' +
+      '">' +
       options
         .map(function (opt) {
           var active = String(state.filter || "") === String(opt.id || "");
-          var btnClass = embed
-            ? "vc-notify-filter-btn" + (active ? " vc-notify-filter-btn--on is-active" : "")
-            : "vc-staff-inbox-filter-btn" + (active ? " is-active" : "");
           return (
-            '<button type="button" class="' +
-            btnClass +
+            '<button type="button" class="vc-staff-pt-seg__btn' +
+            (active ? " is-active" : "") +
             '" data-filter="' +
             T.esc(opt.id || "") +
             '">' +
@@ -1222,6 +1399,7 @@
         renderQueueFilters();
       });
     });
+    syncInboxFilterHint();
   }
 
   function renderWeekNav() {
@@ -1341,39 +1519,39 @@
   }
 
   function filterBtnClass(active) {
-    if (isInboxEmbed()) {
-      return (
-        "vc-notify-filter-btn" +
-        (active ? " vc-notify-filter-btn--on is-active" : "")
-      );
-    }
-    return "vc-staff-inbox-scope-btn" + (active ? " is-active" : "");
+    return "vc-staff-pt-seg__btn" + (active ? " is-active" : "");
   }
 
   function renderScopeToggle() {
     var root = T.byId("vc-staff-inbox-scope");
     if (!root) return;
-    var embed = isInboxEmbed();
-    var segClass = embed
-      ? "vc-staff-inbox-filter-group__seg vc-notify-filter-bar"
-      : "vc-staff-inbox-filter-group__seg";
-    var pendingCls = embed
-      ? filterBtnClass(state.scope === "pending")
-      : "vc-staff-inbox-scope-btn" + (state.scope === "pending" ? " is-active" : "");
-    var allCls = embed
-      ? filterBtnClass(state.scope === "all")
-      : "vc-staff-inbox-scope-btn" + (state.scope === "all" ? " is-active" : "");
+    if (isPuntiToltiTab()) {
+      root.hidden = true;
+      root.innerHTML = "";
+      var wrapPt = inboxFilterWrap();
+      if (wrapPt) {
+        wrapPt.hidden = true;
+        wrapPt.setAttribute("hidden", "");
+      }
+      syncInboxFilterHint();
+      return;
+    }
+    var wrap = inboxFilterWrap();
+    if (wrap) {
+      wrap.hidden = false;
+      wrap.removeAttribute("hidden");
+      wrap.classList.add("vc-staff-inbox-board-toolbar");
+    }
+    root.hidden = false;
+    root.className = "vc-staff-inbox-filter-group vc-staff-inbox-filter-group--board";
     root.innerHTML =
-      '<span class="vc-staff-inbox-filter-group__label">Stato</span>' +
-      '<div class="' +
-      segClass +
-      '" role="group">' +
+      '<div class="vc-staff-pt-seg" role="group" aria-label="Filtro stato">' +
       '<button type="button" class="' +
-      pendingCls +
+      filterBtnClass(state.scope === "all") +
+      '" data-scope="all">Tutti</button>' +
+      '<button type="button" class="' +
+      filterBtnClass(state.scope === "pending") +
       '" data-scope="pending">In attesa</button>' +
-      '<button type="button" class="' +
-      allCls +
-      '" data-scope="all">Anche chiuse</button>' +
       "</div>";
     root.querySelectorAll("[data-scope]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -1382,6 +1560,7 @@
         renderQueueFilters();
       });
     });
+    syncInboxFilterHint();
   }
 
   function renderTabs() {
@@ -2270,13 +2449,10 @@
       var altsRaw =
         String(item.kind || "") === "p"
           ? [
-              { key: "dp", label: "Depex" },
               { key: "rc", label: "Richiamo" },
               { key: "nl", label: "Nulla" },
             ]
           : [
-              { key: "px", label: "Pex" },
-              { key: "dp", label: "Depex" },
               { key: "vp", label: "Val +" },
               { key: "vn", label: "Val -" },
               { key: "nl", label: "Nulla" },
@@ -3015,7 +3191,18 @@
         break;
       }
     }
-    if (anyPending) state.scope = "pending";
+    // Primo ingresso staff: preferisci sempre "In attesa" se c'è coda (anche da cache).
+    // Evita empty "Tutti" da URL sporca (?scope=all) al primo paint.
+    if (anyPending || !String(location.search || "").match(/(?:^|[?&])scope=/)) {
+      state.scope = "pending";
+    }
+    // Mostra subito le tab (niente schermo vuoto solo lista).
+    hideInboxBootScreen();
+    var panel = T.byId("vc-staff-inbox");
+    if (panel) {
+      panel.classList.remove("is-booting");
+      panel.hidden = false;
+    }
     renderTabs();
     renderScopeToggle();
     renderQueueFilters();
@@ -3085,18 +3272,24 @@
 
   function waitForPermissionsFast() {
     seedPermissionsFromGate();
-    if (permissionsReady()) return Promise.resolve();
-    var cap = T.isCoarseMobile && T.isCoarseMobile() ? 120 : 80;
+    if (permissionsReady() && T.getToken()) return Promise.resolve();
+    var cap = T.isCoarseMobile && T.isCoarseMobile() ? 1800 : 1200;
     return new Promise(function (resolve) {
       var done = false;
       function finish() {
         if (done) return;
         done = true;
-        window.removeEventListener("vc:staff-access-ok", finish);
+        window.removeEventListener("vc:staff-access-ok", onOk);
+        window.removeEventListener("vc-discord-profile", onOk);
         seedPermissionsFromGate();
         resolve();
       }
-      window.addEventListener("vc:staff-access-ok", finish);
+      function onOk() {
+        seedPermissionsFromGate();
+        if (permissionsReady() && T.getToken()) finish();
+      }
+      window.addEventListener("vc:staff-access-ok", onOk);
+      window.addEventListener("vc-discord-profile", onOk);
       window.setTimeout(finish, cap);
     });
   }
@@ -3185,8 +3378,6 @@
       return;
     }
 
-    if (inboxBooting) return;
-
     if (mode === "soft" && state.items.length) {
       list.classList.add("is-refreshing");
       list.classList.remove("is-loading");
@@ -3243,17 +3434,20 @@
   function armLoadWatchdog(seq) {
     clearLoadWatchdog();
     var capMs =
-      state.tab === "appelli" && T.isCoarseMobile && T.isCoarseMobile()
-        ? 14000
+      state.tab === "appelli"
+        ? T.isCoarseMobile && T.isCoarseMobile()
+          ? 7000
+          : 8000
         : T.isCoarseMobile && T.isCoarseMobile()
-          ? 22000
-          : 28000;
+          ? 16000
+          : 22000;
     loadWatchdogTimer = setTimeout(function () {
       loadWatchdogTimer = null;
       if (seq !== loadSeq) return;
       var list = T.byId("vc-staff-inbox-list");
       if (!list || !list.querySelector(".vc-staff-inbox-loading")) return;
-      loadInFlightNonQuiet = false;
+      // Sblocca coalesce/prefetch appesi prima del retry (senza restare sullo stesso promise).
+      forceReleaseStuckInboxLoad();
       lastQueueLoadFailed = true;
       if (state.tab === "appelli" && !initialQueueLoaded) {
         loadQueue({ soft: false, _internal: true, sync: true, _boot: true, _userIntent: true }).catch(function () {
@@ -3273,10 +3467,15 @@
 
   function finishQueueLoad(seq, opts) {
     opts = opts || {};
-    if (inboxBooting && (initialQueueLoaded || opts.force)) hideInboxBootScreen();
+    hideInboxBootScreen();
     if (!opts.force && seq !== loadSeq) return;
     if (seq === loadSeq) clearLoadWatchdog();
     clearSkeletonWatchdog();
+    try {
+      renderTabs();
+      renderScopeToggle();
+      renderQueueFilters();
+    } catch (eChrome) {}
     var list = T.byId("vc-staff-inbox-list");
     if (!list) return;
     clearInboxLoading();
@@ -3317,6 +3516,23 @@
       T.hideStaffToast();
       return Promise.resolve();
     }
+    if (isPuntiToltiTab()) {
+      clearSkeletonWatchdog();
+      loadInFlightNonQuiet = false;
+      initialQueueLoaded = true;
+      lastQueueLoadFailed = false;
+      try {
+        if (typeof clearInboxLoading === "function") clearInboxLoading();
+      } catch (eClr) {}
+      try {
+        renderTabs();
+      } catch (eTabs) {}
+      return syncPuntiToltiMode();
+    }
+    // Leaving punti-tolti: restore normal chrome.
+    try {
+      syncPuntiToltiMode();
+    } catch (eLeave) {}
     // Refresh silenziosi non devono abortire il primo caricamento visibile (tipico su cellulare).
     if (quiet && loadInFlightNonQuiet) {
       return Promise.resolve();
@@ -3387,11 +3603,14 @@
     }
     // Do not re-read tab/filter from URL here: setters already updated state + URL.
     // Re-reading can race and briefly restore the previous queue.
-    renderTabs();
-    renderScopeToggle();
-    renderQueueFilters();
-    renderWeekNav();
-    if (!quiet && !opts._noSkeleton && !inboxBooting) {
+    try {
+      renderTabs();
+      renderScopeToggle();
+      renderQueueFilters();
+      renderWeekNav();
+    } catch (eChrome) {}
+    if (!quiet && !opts._noSkeleton) {
+      // Anche durante boot: sostituisci lo skeleton generico col testo della tab corrente.
       showInboxLoading(soft || state.items.length ? "soft" : "skeleton");
       if (state.tab === "appelli" && state.scope === "pending" && appealPendingInSummary()) {
         armSkeletonWatchdog();
@@ -3582,13 +3801,14 @@
             return;
           }
           lastQueueLoadFailed = false;
-          initialQueueLoaded = true;
+          // initialQueueLoaded solo in finalizeVisibleQueueLoad (dopo eventuali retry/chain).
           pendingListRetryCount = 0;
           clearSkeletonWatchdog();
           appealFixWaitCount = 0;
           if (out.data.summary) applySummaryPayload(out.data);
           // Imposta items PRIMA di togliere lo skeleton: altrimenti flash/empty sticky su mobile.
           state.items = mergeIncomingWorkflowItems(out.data.items || []);
+          if (state.items.length) initialQueueLoaded = true;
           state.pagination = out.data.pagination || null;
           if (state.pagination && state.pagination.page) state.page = state.pagination.page;
           if (requestedTab === "resoconti") {
@@ -3652,11 +3872,11 @@
             requestedScope === "pending" &&
             !state.items.length &&
             summaryCount > 0 &&
-            Number(opts._appealRetry || 0) < 6
+            Number(opts._appealRetry || 0) < 2
           ) {
             var appealTry = Number(opts._appealRetry || 0) + 1;
             return new Promise(function (resolve) {
-              window.setTimeout(resolve, 400 + appealTry * 600);
+              window.setTimeout(resolve, 350 + appealTry * 400);
             }).then(function () {
               return chainQueueLoad(
                 seq,
@@ -3669,6 +3889,18 @@
               );
             });
           }
+          // Summary stale (badge > 0 ma coda vuota): non tenere lo skeleton all'infinito.
+          // Al primo boot NON confermare empty (race tipica → empty finché non ricarichi).
+          if (
+            !quiet &&
+            requestedScope === "pending" &&
+            !state.items.length &&
+            summaryCount > 0 &&
+            initialQueueLoaded &&
+            (Number(opts._appealRetry || 0) >= 2 || requestedTab !== "appelli")
+          ) {
+            markTabConfirmedEmpty(requestedTab);
+          }
           if (
             !quiet &&
             requestedScope === "pending" &&
@@ -3676,8 +3908,10 @@
             summaryCount > 0 &&
             (opts._emptyRetry || opts.sync) &&
             !opts._switchedEmptyTab &&
+            initialQueueLoaded &&
             !(
               requestedTab === "appelli" &&
+              Number(opts._appealRetry || 0) < 2 &&
               (opts._boot || opts._mobileAppealFix || (T.isCoarseMobile && T.isCoarseMobile()))
             )
           ) {
@@ -3693,6 +3927,28 @@
                 _switchedEmptyTab: true,
               });
             }
+          }
+          // Primo boot ancora vuoto con badge pending: un retry hard ritardato, poi paint.
+          if (
+            !quiet &&
+            (opts._boot || !initialQueueLoaded) &&
+            requestedScope === "pending" &&
+            !state.items.length &&
+            summaryCount > 0 &&
+            !opts._bootEmptyRescue
+          ) {
+            return new Promise(function (resolve) {
+              window.setTimeout(resolve, 700);
+            }).then(function () {
+              return chainQueueLoad(seq, {
+                soft: false,
+                sync: true,
+                _internal: true,
+                _boot: true,
+                _bootEmptyRescue: true,
+                _userIntent: true,
+              });
+            });
           }
           finalizeVisibleQueueLoad(seq, quiet);
           if (!quiet && opts._boot && needsMobileAppealReload()) {
@@ -3757,6 +4013,19 @@
         if (!quiet && seq === loadSeq) {
           if (bootLoadSeq === seq) bootLoadSeq = 0;
           loadQueueCoalesce = null;
+          // Safety: se un path ha risolto senza endNonQuietQueueLoad, non lasciare busy forever.
+          if (loadInFlightNonQuiet && !state.items.length) {
+            window.setTimeout(function () {
+              if (seq !== loadSeq) return;
+              if (!loadInFlightNonQuiet) return;
+              var list = T.byId("vc-staff-inbox-list");
+              if (list && list.querySelector(".vc-staff-inbox-loading") && listEmptyDespitePending()) {
+                forceReleaseStuckInboxLoad();
+                finishQueueLoad(seq, { force: true });
+                loadQueue({ soft: false, sync: true, _internal: true, _userIntent: true }).catch(function () {});
+              }
+            }, 100);
+          }
         } else if (!quiet && seq !== loadSeq) {
           window.setTimeout(function () {
             if (loadSeq !== seq && !loadQueueCoalesce) {

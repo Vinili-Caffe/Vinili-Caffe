@@ -20,7 +20,12 @@ VER_INBOX = "20260828inboxMobile3"
 
 def grab(text: str, pattern: str, default: str = "") -> str:
     m = re.search(pattern, text, flags=re.S)
-    return m.group(1).strip() if m else default
+    if not m:
+        return default
+    val = m.group(1).strip()
+    if "{{" in val or "}}" in val:
+        return default
+    return val or default
 
 
 def main() -> None:
@@ -44,7 +49,23 @@ def main() -> None:
         site_url += "/"
 
     site_name = grab(donor, r"<title>([^|<]+)", "Vinili &amp; Caffè").strip()
-    guild_icon = grab(donor, r'vc-header-logo-img[^>]*src="([^"]+)"', "")
+    guild_icon = ""
+    m_icon = re.search(
+        r'<img[^>]*class="[^"]*vc-header-logo-img[^"]*"[^>]*src="([^"]+)"',
+        donor,
+    ) or re.search(
+        r'<img[^>]*src="([^"]+)"[^>]*class="[^"]*vc-header-logo-img[^"]*"',
+        donor,
+    )
+    if m_icon:
+        guild_icon = m_icon.group(1).strip()
+    if not guild_icon or "{{" in guild_icon:
+        guild_icon = grab(donor, r'vc-header-logo-img[^>]*src="([^"]+)"', "")
+    if not guild_icon or "{{" in guild_icon:
+        guild_icon = (
+            "https://cdn.discordapp.com/icons/1329080093599076474/"
+            "a_152fffe587276d12887237d53390e495.gif?size=256"
+        )
     discord_invite = grab(donor, r'aria-label="Entra su Discord"[^>]*href="([^"]+)"', "https://discord.gg/viniliecaffe")
     og_image = grab(donor, r'property="og:image"\s+content="([^"]+)"', "/images/og-banner.jpg")
     build_ver = grab(donor, r'vc-fonts\.css\?v=([^"\']+)', VER_NOTIF)

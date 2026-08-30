@@ -112,8 +112,14 @@
           T.esc(m.userId) +
           '">' +
           T.avatarImgHtml(m.avatarUrl, m.userId, { width: 36, height: 36 }) +
-          "<span><strong>" +
+          "<span><strong class=\"vc-staff-manage-person__name\">" +
           T.esc(m.displayName) +
+          (m.isNew
+            ? '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--new" title="Nuovo in staff">Nuovo</span>'
+            : "") +
+          (m.onPause
+            ? '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--pause" title="In pausa">Pausa</span>'
+            : "") +
           "</strong><em>" +
           meta +
           "</em></span></button></li>";
@@ -135,9 +141,12 @@
     );
     var selfOk = canSelfServiceOnView();
     var canTradeNeg =
-      ((!state.readOnly && state.canManage) || selfOk) && kind === "val_neg_rm" && pos >= 3;
-    var canTradeWarn = !state.readOnly && state.canManage && kind === "warn_rm" && pos >= 1;
-    var canRemove = !state.readOnly && state.canManage;
+      ((!state.readOnly && state.canManage) || selfOk) &&
+      (kind === "val_neg_rm" || kind === "val_neg") &&
+      pos >= 3;
+    var canTradeWarn =
+      !state.readOnly && state.canManage && !selfOk && kind === "warn_rm" && pos >= 1;
+    var canRemove = !state.readOnly && state.canManage && !selfOk;
     return (
       '<ul class="vc-staff-manage-entries">' +
       entries
@@ -545,12 +554,28 @@
     var ladder = String(m.ladderRoleLabel || "").trim();
     if (ladder) return ladder;
     var raw = String(m.displayRoleLabel || "").trim();
-    // Togli il badge generico "Staff" dal titolo (resta il grado vero).
-    raw = raw
-      .replace(/\s*&\s*Staff\b/gi, "")
-      .replace(/\bStaff\s*&\s*/gi, "")
-      .replace(/^Staff$/i, "")
-      .trim();
+    // Togli i badge generici Staff / High Staff / Staffer del mese (resta il grado vero).
+    var parts = raw.split(/\s*&\s*/);
+    var keep = [];
+    for (var i = 0; i < parts.length; i += 1) {
+      var part = String(parts[i] || "").trim();
+      if (!part) continue;
+      var core = part.replace(/^[^A-Za-z0-9]+/, "").replace(/\s+/g, " ").trim();
+      var low = core.toLowerCase();
+      if (
+        low === "staff" ||
+        low === "high staff" ||
+        low === "highstaff" ||
+        low === "staffer del mese" ||
+        low === "staff del mese" ||
+        low.indexOf("staffer del mese") !== -1 ||
+        low.indexOf("staff del mese") !== -1
+      ) {
+        continue;
+      }
+      keep.push(part);
+    }
+    raw = keep.join(" & ").trim();
     return raw || "Staff";
   }
 
@@ -634,11 +659,12 @@
       '<section class="vc-staff-rank-forge" aria-label="Gestione carriera">' +
       '<div class="vc-staff-rank-forge__badge">' +
       '<span class="vc-staff-rank-forge__kicker">Ruolo attuale</span>' +
+      '<div class="vc-staff-rank-forge__roles">' +
       "<strong>" +
       T.esc(roleLabel) +
       "</strong>" +
       (m.isPm ? '<em class="vc-staff-rank-forge__pm">Partner Manager</em>' : "") +
-      "</div>";
+      "</div></div>";
 
     if (!canAct) {
       html +=
@@ -669,14 +695,6 @@
 
   function renderPmOnlyDetail(m) {
     var html = readOnlyBannerHtml() + renderCareerForge(m);
-    if (m.partner) {
-      html +=
-        '<p class="vc-staff-manage-pm-meta">' +
-        T.esc(m.partner.pointsSpendable || 0) +
-        " punti spendibili · " +
-        T.esc(m.partner.partnerCount || 0) +
-        " partnership</p>";
-    }
     html +=
       '<section class="vc-staff-manage-history-sec"><h3>Cronologia valutazioni</h3>' +
       historyHtml(historyRowsForMember(m), state.historyPage) +
@@ -686,14 +704,6 @@
 
   function renderStaffDetail(m) {
     var html = readOnlyBannerHtml() + renderCareerForge(m);
-    if (m.isPm && m.partner) {
-      html +=
-        '<p class="vc-staff-manage-pm-meta">PM · ' +
-        T.esc(m.partner.pointsSpendable || 0) +
-        " punti spendibili · " +
-        T.esc(m.partner.partnerCount || 0) +
-        " partnership</p>";
-    }
     html +=
       '<section class="vc-staff-manage-history-sec"><h3>Cronologia valutazioni</h3>' +
       historyHtml(historyRowsForMember(m), state.historyPage) +
@@ -1024,6 +1034,10 @@
   function postWarnTrade(warnId) {
     if (state.readOnly) {
       setActionStatus("Modalità solo lettura: non puoi eseguire azioni.", true);
+      return;
+    }
+    if (canSelfServiceOnView() || isViewingSelf()) {
+      setActionStatus("Non puoi toglierti i warn da solo: serve High Staff.", true);
       return;
     }
     if (state.busy || !state.selectedId) return;

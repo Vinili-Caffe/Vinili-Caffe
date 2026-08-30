@@ -60,7 +60,13 @@
 
   var SESSION_OVERLAY_ID = "vc-session-verify-overlay";
   /** Hard stop: @me / site-verify appesi non devono bloccare la pagina. */
-  var SESSION_VERIFY_HARD_MS = 1200;
+  var SESSION_VERIFY_HARD_MS = (function () {
+    try {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return 350;
+      if (document.documentElement.classList.contains("vc-perf-lite")) return 350;
+    } catch (eMs) {}
+    return 500;
+  })();
   var sessionVerifyWatchdog = null;
 
   function byId(id) {
@@ -303,6 +309,10 @@
   function isBlockingSessionVerifyPage() {
     try {
       if (isStandalonePwa()) return false;
+      try {
+        if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return false;
+      } catch (eCoarse) {}
+      if (Number(navigator.maxTouchPoints || 0) > 0 && window.innerWidth && window.innerWidth <= 920) return false;
       if (!window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY) return false;
       var p = sessionPath();
       if (p.indexOf("/dashboard") === 0) return true;
@@ -921,7 +931,7 @@
     window.__vcStaffSiteNavRequested = true;
     try {
       var s = document.createElement("script");
-      s.src = "/js/staff-site-nav.js?v=20260829noStaffEvento3";
+      s.src = "/js/staff-site-nav.js?v=20260830staffGuidaOnly1";
       // Dinamico: async=false = download immediato + exec appena pronto (no coda defer).
       s.async = false;
       s.setAttribute("data-vc-staff-site-nav", "1");

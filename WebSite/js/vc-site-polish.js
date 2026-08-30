@@ -117,6 +117,10 @@
     if (!el || skipChrome(el)) return;
     /* Notify rows over cine canvas: home-panel transparent chrome = continuous flash on Chromium. */
     if (el.classList && el.classList.contains("vc-notify-row")) return;
+    // riseLoop1: già decorata → zero DOM (altrimenti MO ↔ initRise loop infinito).
+    if (el.classList && el.classList.contains("vc-fx-card") && el.querySelector(":scope > .vc-fx-sheen")) {
+      return;
+    }
     if (el.closest && el.closest(".vc-page-cine-hero, .vc-wt-board, dialog")) return;
     if (
       el.id === "vc-page-content" ||
@@ -256,7 +260,7 @@
       var el = heads[i];
       if (skipChrome(el)) continue;
       if (el.closest && el.closest(".vc-page-cine-hero, .vc-ul-card, .vc-role-card, .vc-user-profile-block")) continue;
-      markRise(el, 32 + n * 28);
+      markRise(el, 0);
       if (inView(el)) el.classList.add("is-in");
       n += 1;
       if (n >= 20) break;
@@ -370,61 +374,135 @@
     }
   }
 
+  var riseBusy = false;
+  var risePassDone = false;
+  var riseMoTimer = 0;
+  var riseMoPaused = false;
+
   function initRise() {
-    undressLayoutWrappers();
+    if (excluded()) return;
+    if (riseBusy) return;
+    riseBusy = true;
+    riseMoPaused = true;
     try {
-      var staleNotify = document.querySelectorAll(".vc-notify-row.vc-home-panel, .vc-notify-row.vc-fx-card, .vc-notify-row.vc-home-rise");
-      for (var sn = 0; sn < staleNotify.length; sn++) undressEl(staleNotify[sn]);
-    } catch (eNotifyUndress) {}
-    var nodes = pickRiseNodes();
-    var seen = [];
-    function seenHas(el) {
-      for (var s = 0; s < seen.length; s++) if (seen[s] === el) return true;
-      return false;
-    }
-    function touch(el, delayMs) {
-      if (!el || seenHas(el)) return;
-      seen.push(el);
-      decorateFxCard(el);
-      markRise(el, delayMs);
-      if (inView(el)) el.classList.add("is-in");
-    }
-    for (var i = 0; i < nodes.length; i++) {
-      touch(nodes[i], 16 + Math.min(i, 8) * 24);
-    }
-    var fx = pickFxCardNodes();
-    for (var f = 0; f < fx.length; f++) {
-      touch(fx[f], 16 + Math.min(f, 8) * 24);
-    }
-    var glass = scanGlassPanels();
-    for (var g = 0; g < glass.length; g++) {
-      touch(glass[g], 20 + Math.min(g, 8) * 22);
-    }
-    markTextRise();
+      // riseLoop1: NON undress ad ogni pass (toglie sheen → MO → initRise → freeze totale).
+      if (!risePassDone) {
+        try {
+          undressLayoutWrappers();
+        } catch (eUndress) {}
+        risePassDone = true;
+      }
+      try {
+        var staleNotify = document.querySelectorAll(".vc-notify-row.vc-home-panel, .vc-notify-row.vc-fx-card, .vc-notify-row.vc-home-rise");
+        for (var sn = 0; sn < staleNotify.length; sn++) undressEl(staleNotify[sn]);
+      } catch (eNotifyUndress) {}
+      var nodes = pickRiseNodes();
+      var seen = [];
+      function seenHas(el) {
+        for (var s = 0; s < seen.length; s++) if (seen[s] === el) return true;
+        return false;
+      }
+      function touch(el, delayMs) {
+        if (!el || seenHas(el)) return;
+        seen.push(el);
+        decorateFxCard(el);
+        markRise(el, delayMs);
+        if (inView(el)) el.classList.add("is-in");
+      }
+      for (var i = 0; i < nodes.length; i++) {
+        touch(nodes[i], 0);
+      }
+      var fx = pickFxCardNodes();
+      for (var f = 0; f < fx.length; f++) {
+        touch(fx[f], 0);
+      }
+      var glass = scanGlassPanels();
+      for (var g = 0; g < glass.length; g++) {
+        touch(glass[g], 0);
+      }
+      markTextRise();
 
-    var riseNodes = document.querySelectorAll(".vc-home-rise");
-    if (!riseNodes.length || typeof IntersectionObserver === "undefined") return;
+      var riseNodes = document.querySelectorAll(".vc-home-rise");
+      if (!riseNodes.length) {
+        window.setTimeout(forceRevealStaleRises, 1200);
+        return;
+      }
+      if (typeof IntersectionObserver === "undefined") {
+        for (var r0 = 0; r0 < riseNodes.length; r0++) riseNodes[r0].classList.add("is-in");
+        return;
+      }
 
-    function reveal(el) {
-      if (!el || el.classList.contains("is-in")) return;
-      el.classList.add("is-in");
-    }
+      function reveal(el) {
+        if (!el || el.classList.contains("is-in")) return;
+        el.classList.add("is-in");
+      }
 
-    var io = new IntersectionObserver(
-      function (entries) {
-        for (var e = 0; e < entries.length; e++) {
-          if (!entries[e].isIntersecting) continue;
-          reveal(entries[e].target);
-          io.unobserve(entries[e].target);
+      var io = new IntersectionObserver(
+        function (entries) {
+          for (var e = 0; e < entries.length; e++) {
+            if (!entries[e].isIntersecting) continue;
+            reveal(entries[e].target);
+            io.unobserve(entries[e].target);
+          }
+        },
+        { root: null, rootMargin: "160px 0px", threshold: 0.01 }
+      );
+      for (var n = 0; n < riseNodes.length; n++) {
+        if (riseNodes[n].dataset.vcRiseIo === "1") continue;
+        riseNodes[n].dataset.vcRiseIo = "1";
+        if (
+          riseNodes[n].classList.contains("vc-regole-card") ||
+          riseNodes[n].classList.contains("vc-faq-item") ||
+          riseNodes[n].classList.contains("vc-faq-group") ||
+          riseNodes[n].closest("#vc-regole-list")
+        ) {
+          reveal(riseNodes[n]);
+          continue;
         }
-      },
-      { root: null, rootMargin: "0px 0px -2% 0px", threshold: 0.02 }
-    );
-    for (var n = 0; n < riseNodes.length; n++) {
-      if (riseNodes[n].dataset.vcRiseIo === "1") continue;
-      riseNodes[n].dataset.vcRiseIo = "1";
-      io.observe(riseNodes[n]);
+        io.observe(riseNodes[n]);
+      }
+
+      window.setTimeout(forceRevealStaleRises, 1200);
+      window.setTimeout(forceRevealStaleRises, 2800);
+    } finally {
+      riseBusy = false;
+      // Riprendi MO dopo un tick: evita di vedere le nostre stesse mutazioni sheen.
+      window.setTimeout(function () {
+        riseMoPaused = false;
+      }, 50);
     }
+  }
+
+  function forceRevealStaleRises() {
+    try {
+      var nodes = document.querySelectorAll(".vc-home-rise:not(.is-in)");
+      for (var i = 0; i < nodes.length; i++) {
+        nodes[i].classList.add("is-in");
+      }
+    } catch (eForce) {}
+  }
+
+  function recoverBlackScreen() {
+    try {
+      var root = document.documentElement;
+      root.classList.add("vc-page-cine-ready");
+      root.classList.remove("vc-page-cine-boot");
+      root.classList.add("vc-home-motion-ready");
+      root.classList.remove("vc-cine-idle");
+    } catch (eReady) {}
+    forceRevealStaleRises();
+    try {
+      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eUnpin) {}
+    // riseLoop1: NON richiamare initRise qui (undress/sheen → freeze).
+    forceRevealStaleRises();
+    try {
+      // pwaResume1: ripristina sfondo solido se il canvas è morto dopo background.
+      var body = document.body;
+      if (body && isStandalonePwa()) {
+        body.style.setProperty("background-color", "#100c09");
+      }
+    } catch (eBg) {}
   }
 
   function loadHomeCine() {
@@ -433,7 +511,7 @@
       if (document.querySelector('script[src*="vc-home-cine"]')) return;
     } catch (e0) {}
     var s = document.createElement("script");
-    s.src = "/js/vc-home-cine.js?v=20260829cinePerf2";
+    s.src = "/js/vc-home-cine.js?v=20260830ptrFirstTap1";
     s.defer = true;
     (document.body || document.documentElement).appendChild(s);
   }
@@ -441,12 +519,33 @@
   function watchDynamicRise() {
     var roots = document.querySelectorAll("#vc-page-content, #vc-ul-grid, #vc-roles-grid, #vc-regole-list, #wiki-comandi-panel");
     if (!roots.length || typeof MutationObserver === "undefined") return;
-    var pending = 0;
     for (var r = 0; r < roots.length; r++) {
       (function (root) {
-        var obs = new MutationObserver(function () {
-          clearTimeout(pending);
-          pending = window.setTimeout(initRise, 90);
+        var obs = new MutationObserver(function (mutations) {
+          if (riseMoPaused || riseBusy) return;
+          var meaningful = false;
+          for (var m = 0; m < mutations.length; m++) {
+            var mut = mutations[m];
+            var nodes = [];
+            if (mut.addedNodes && mut.addedNodes.length) {
+              for (var a = 0; a < mut.addedNodes.length; a++) nodes.push(mut.addedNodes[a]);
+            }
+            if (mut.removedNodes && mut.removedNodes.length) {
+              for (var rm = 0; rm < mut.removedNodes.length; rm++) nodes.push(mut.removedNodes[rm]);
+            }
+            for (var n = 0; n < nodes.length; n++) {
+              var node = nodes[n];
+              if (!node || node.nodeType !== 1) continue;
+              var cls = node.classList;
+              if (cls && (cls.contains("vc-fx-sheen") || cls.contains("vc-site-atmos"))) continue;
+              meaningful = true;
+              break;
+            }
+            if (meaningful) break;
+          }
+          if (!meaningful) return;
+          clearTimeout(riseMoTimer);
+          riseMoTimer = window.setTimeout(initRise, 320);
         });
         obs.observe(root, { childList: true, subtree: true });
       })(roots[r]);
@@ -475,6 +574,16 @@
     loadHomeCine();
     initRise();
     watchDynamicRise();
+    window.setTimeout(forceRevealStaleRises, 900);
+    window.setTimeout(forceRevealStaleRises, 2200);
+    try {
+      window.addEventListener("pageshow", function () {
+        recoverBlackScreen();
+      });
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible") recoverBlackScreen();
+      });
+    } catch (eRec) {}
   }
 
   try {

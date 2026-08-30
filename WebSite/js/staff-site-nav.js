@@ -1,9 +1,7 @@
 /**
  * Navbar staff = navbar sito (Vinili & Caffè) + menu Area staff
- * (Guida; Inbox in /notifications/?view=staff;
- * Organico / Punti tolti dal profilo. Su mobile/tablet Area staff è nascosto.)
- * Organico → dal profilo staff card Carriera;
- * Punti tolti PM e Pause/Serata Film solo dal profilo staff).
+ * (solo Guida). Inbox → /notifications/?view=staff; Organico / Punti tolti /
+ * Pause → dal profilo staff. Su mobile/tablet Area staff è nascosto.
  * Attiva su body.vc-staff-area o quando l'utente è staff (dropdown globale).
  */
 (function () {
@@ -143,11 +141,73 @@
     brand.setAttribute("aria-label", "Vai alla homepage");
   }
 
+  function isStaffGuideNavHref(href) {
+    return String(href || "")
+      .toLowerCase()
+      .indexOf("/staff/guida") >= 0;
+  }
+
+  function isStaffGuideNavLabel(label) {
+    var t = String(label || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    return t === "guida" || t === "guida staff" || t === "staff guide";
+  }
+
+  /** Area staff dropdown: solo Guida — rimuove Pause/Organico/Inbox/Gestione/ecc. */
+  function enforceStaffMenuGuidaOnly(root) {
+    try {
+      var scope = root || document;
+      var menus = scope.querySelectorAll(
+        "[data-vc-staff-tools-nav], .vc-snav-details--staff",
+      );
+      for (var m = 0; m < menus.length; m++) {
+        var menu = menus[m];
+        if (
+          menu.closest &&
+          menu.closest(".vc-user-profile, #vc-user-profile-view, .vc-staff-pm-pt-btn")
+        ) {
+          continue;
+        }
+        var panel = menu.querySelector(".vc-snav-panel") || menu;
+        var links = panel.querySelectorAll("a.vc-snav-row, a.vc-snav-item, a");
+        var keptGuide = false;
+        for (var i = 0; i < links.length; i++) {
+          var a = links[i];
+          var href = String(a.getAttribute("href") || "");
+          var lab = "";
+          try {
+            var spans = a.querySelectorAll("span");
+            for (var s = 0; s < spans.length; s++) {
+              if (spans[s].classList.contains("vc-snav-row-ico")) continue;
+              lab = String(spans[s].textContent || "").trim();
+              if (lab) break;
+            }
+          } catch (eLab) {}
+          if (!lab) lab = String(a.textContent || "").trim();
+          if (isStaffGuideNavHref(href) || isStaffGuideNavLabel(lab)) {
+            if (keptGuide) {
+              if (a.parentNode) a.parentNode.removeChild(a);
+            } else {
+              keptGuide = true;
+            }
+            continue;
+          }
+          if (a.parentNode) a.parentNode.removeChild(a);
+        }
+        if (!keptGuide && panel) {
+          panel.innerHTML = row("/staff/guida/", "book", "Guida", true);
+        }
+      }
+    } catch (eEnforce) {}
+  }
+
   function stripLegacyStaffNavRows(root) {
     try {
       var scope = root || document;
       var links = scope.querySelectorAll(
-        'a.vc-snav-row[href*="/staff/inbox"], a.vc-snav-row[href*="/staff/punti-tolti"], a.vc-snav-row[href*="/staff/organico"], a.vc-snav-row[href*="/staff/gestione"], a.vc-snav-item[href*="/staff/gestione"], a[href*="/staff/inbox"], a[href*="/staff/punti-tolti"], a[href*="/staff/organico"], a[href*="/staff/gestione"]',
+        'a.vc-snav-row[href*="/staff/inbox"], a.vc-snav-row[href*="/staff/pause"], a.vc-snav-row[href*="/staff/punti-tolti"], a.vc-snav-row[href*="/staff/organico"], a.vc-snav-row[href*="/staff/gestione"], a.vc-snav-item[href*="/staff/gestione"], a[href*="/staff/inbox"], a[href*="/staff/pause"], a[href*="/staff/punti-tolti"], a[href*="/staff/organico"], a[href*="/staff/gestione"], a[href*="notifications/?view=staff"]',
       );
       for (var i = 0; i < links.length; i++) {
         var a = links[i];
@@ -161,9 +221,11 @@
         if (a.closest && a.closest(".vc-staff-pm-pt-btn, .vc-staff-pm-pt-link, .vc-user-profile, #vc-user-profile-view")) {
           continue;
         }
+        // Non togliere Guida se per errore matchasse un selettore largo.
+        if (isStaffGuideNavHref(a.getAttribute("href"))) continue;
         if (a.parentNode) a.parentNode.removeChild(a);
       }
-      // Rimuovi anche summary/link etichettati Gestione nei menu staff.
+      // Rimuovi anche summary/link etichettati Gestione / Pause / Organico nei menu staff.
       var rows = scope.querySelectorAll(
         "[data-vc-staff-tools-nav] a.vc-snav-row, .vc-snav-details--staff a.vc-snav-row, .vc-header-snav a.vc-snav-item, #vc-mobile-nav-drawer a.vc-mobile-nav-tile",
       );
@@ -174,7 +236,23 @@
           .trim()
           .toLowerCase();
         var href = String(el.getAttribute("href") || "").toLowerCase();
-        if (lab === "gestione" || lab === "gestione staff" || href.indexOf("/staff/gestione") >= 0) {
+        if (isStaffGuideNavHref(href) || isStaffGuideNavLabel(lab)) continue;
+        if (
+          lab === "gestione" ||
+          lab === "gestione staff" ||
+          lab === "organico" ||
+          lab === "organico staff" ||
+          lab === "pause" ||
+          lab === "calendario pause" ||
+          lab === "inbox" ||
+          lab === "inbox staff" ||
+          lab === "punti tolti" ||
+          href.indexOf("/staff/gestione") >= 0 ||
+          href.indexOf("/staff/organico") >= 0 ||
+          href.indexOf("/staff/pause") >= 0 ||
+          href.indexOf("/staff/inbox") >= 0 ||
+          href.indexOf("/staff/punti-tolti") >= 0
+        ) {
           if (el.parentNode) el.parentNode.removeChild(el);
         }
       }
@@ -184,18 +262,12 @@
         var det = details[d];
         var sum = det.querySelector(".vc-snav-summary span, .vc-snav-summary");
         var title = sum ? String(sum.textContent || "").replace(/\s+/g, " ").trim().toLowerCase() : "";
-        var panelRows = det.querySelectorAll(".vc-snav-panel a.vc-snav-row, a.vc-snav-row");
         if (title === "gestione" || title === "gestione staff") {
           if (det.parentNode) det.parentNode.removeChild(det);
           continue;
         }
-        if (
-          (det.classList.contains("vc-snav-details--staff") || det.hasAttribute("data-vc-staff-tools-nav")) &&
-          panelRows.length === 0
-        ) {
-          // keep staff block even if empty — inject will refill Guida
-        }
       }
+      enforceStaffMenuGuidaOnly(scope);
     } catch (eStrip) {}
   }
 
@@ -972,6 +1044,8 @@
     injectStaffMenu(header);
     stripLegacyStaffNavRows(header);
     stripLegacyStaffNavRows(document);
+    enforceStaffMenuGuidaOnly(header);
+    enforceStaffMenuGuidaOnly(document);
     if (isEventDedicatedNavPage()) {
       watchEventNavStaffStrip(header);
     }

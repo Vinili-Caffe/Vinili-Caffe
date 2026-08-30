@@ -175,8 +175,18 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filter
   flex-direction: row !important;
   flex-wrap: wrap !important;
   align-items: center !important;
-  gap: 0.45rem !important;
+  gap: 0.75rem 1.1rem !important;
   width: 100% !important;
+  max-width: 100% !important;
+  padding: 0.85rem 1rem !important;
+  border-radius: 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background:
+    linear-gradient(165deg, rgba(28, 20, 15, 0.88), rgba(12, 9, 7, 0.92)) !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filters[hidden] {
+  display: none !important;
 }
 
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group__seg,
@@ -220,13 +230,16 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading__card {
   display: none !important;
 }
 
+/* Durante boot: lista in loading, ma tab/filtri restano visibili (niente schermo vuoto). */
 .vc-staff-inbox.is-booting {
   min-height: 12rem;
 }
 
 .vc-staff-inbox.is-booting > .vc-notify-toolbar,
 .vc-staff-inbox.is-booting > section.vc-notify-toolbar {
-  display: none !important;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 body.vc-notifications-page .vc-notif-staff-inbox.is-booting #vc-staff-inbox-list {

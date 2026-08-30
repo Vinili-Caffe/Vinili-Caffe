@@ -1385,6 +1385,14 @@
     setLoading(true, "Caricamento classifica");
     load();
     startLiveUsersPolling();
+    // siteSweep1: mai restare su schermo nero leader-pending.
+    setTimeout(function () {
+      try {
+        if (!document.documentElement.classList.contains("vc-user-leader-pending")) return;
+        clearLeaderPending({ scroll: true });
+        setLoading(false);
+      } catch (eFs) {}
+    }, 6000);
   }
 
   document.addEventListener("visibilitychange", function () {

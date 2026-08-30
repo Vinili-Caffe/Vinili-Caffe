@@ -937,6 +937,7 @@ module.exports = {
   didStaffMembershipChange,
   didStaffListDisplayRolesChange,
   getStaffListPausedUserIds,
+  getStaffListNewBadgeRoleIdsByUser,
   fetchMembersForStaffList,
   refreshStaffList,
   scheduleStaffListRefresh,

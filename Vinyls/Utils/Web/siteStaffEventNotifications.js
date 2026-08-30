@@ -128,7 +128,7 @@ async function notifyPuntiToltiPending(opts = {}) {
       (reporterName ? `${reporterName} ha segnalato ` : "Nuova segnalazione per ") +
       `${pmName}${rule ? `: ${rule}` : ""}. Conferma o nega in Punti tolti PM.`,
     kind: "mod",
-    openUrl: "/staff/punti-tolti/",
+    openUrl: "/notifications/?view=staff&inbox=punti-tolti",
     dedupeKey: messageId ? `pt-pending:${messageId}` : `pt-pending:${pmUserId}:${Date.now()}`,
   }, [pmUserId]);
 }
@@ -151,7 +151,7 @@ async function notifyPuntiToltiReviewed(opts = {}) {
         ? `L'High Staff ha confermato la rimozione punti per ${pmName}.`
         : `L'High Staff ha negato la segnalazione punti per ${pmName}.`,
       kind: "mod",
-      openUrl: "/staff/punti-tolti/",
+      openUrl: "/notifications/?view=staff&inbox=punti-tolti",
       dedupeKey: messageId ? `pt-review:${messageId}:${isConfirm ? "ok" : "no"}` : undefined,
     },
   );
@@ -168,7 +168,7 @@ async function notifyPuntiToltiPointsRemoved(opts = {}) {
     title: "Punto partnership rimosso",
     body: `${actorName} ha registrato una rimozione punti${rule ? `: ${rule}` : ""}.`,
     kind: "mod",
-    openUrl: "/staff/punti-tolti/",
+    openUrl: "/notifications/?view=staff&inbox=punti-tolti",
     dedupeKey: opts.dedupeKey || `pt-removed:${pmUserId}:${String(opts.sourceHint || Date.now())}`,
   });
 }

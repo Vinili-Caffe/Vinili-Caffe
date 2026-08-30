@@ -776,7 +776,7 @@
     }
     var cards = "";
     if (memberPulse.messages7d > 0) {
-      cards += renderPulseCard(formatItInt(memberPulse.messages7d), "Messaggi", "in chat, negli ultimi 7 giorni");
+      cards += renderPulseCard(formatItInt(memberPulse.messages7d), "Messaggi", "in chat");
     }
     if (memberPulse.voiceSeconds7d > 0) {
       cards += renderPulseCard(formatVoiceHours(memberPulse.voiceSeconds7d), "Vocali", "ore passate insieme");

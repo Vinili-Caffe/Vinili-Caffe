@@ -6,7 +6,7 @@ const { VOICE_EXP_PER_MINUTE, MESSAGE_EXP } = require("./expService");
 const { addGaleoni } = require("./gringottService");
 const { resolveHogwartsEventConfig, isEventWindowOpen, resolveHubStartMs } = require("../../Utils/Web/hogwartsSortingConfig");
 const { HOUSES } = require("../../Utils/Web/hogwartsSortingBank");
-const { housePointPeriodKey } = require("../../Utils/Web/hogwartsHousePointPeriods");
+const { housePointPeriodKey, periodEndingOnDate, resolvePeriodBounds } = require("../../Utils/Web/hogwartsHousePointPeriods");
 const IDs = require("../../Utils/Config/ids");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
@@ -145,9 +145,36 @@ function buildBiweekPeriodKey(endMs) {
   return `${romeDateKeyFromMs(end - HOGWARTS_BIWEEKLY_MS)}_${romeDateKeyFromMs(end)}`;
 }
 
-function buildLast14DaysHourKeys(endMs) {
+/** Finestra chiusura: periodo anno scolastico se oggi è end-date ufficiale, altrimenti 14gg dal boundary domenica 12. */
+function resolveHogwartsBiweeklyWindow(now = new Date()) {
+  const boundaryMs = getLastSunday12BoundaryMsAtOrBefore(now);
+  const dateKey = romeDateKeyFromMs(boundaryMs);
+  const schoolPeriod = periodEndingOnDate(dateKey);
+  if (schoolPeriod) {
+    const bounds = resolvePeriodBounds(schoolPeriod.key);
+    if (bounds && Number.isFinite(bounds.startMs)) {
+      return {
+        periodKey: schoolPeriod.key,
+        periodStartMs: bounds.startMs,
+        periodEndMs: boundaryMs,
+        schoolPeriod,
+        hourWindowDays: Math.max(1, Math.ceil((boundaryMs - bounds.startMs) / (24 * 60 * 60 * 1000))),
+      };
+    }
+  }
+  return {
+    periodKey: buildBiweekPeriodKey(boundaryMs),
+    periodStartMs: boundaryMs - HOGWARTS_BIWEEKLY_MS,
+    periodEndMs: boundaryMs,
+    schoolPeriod: null,
+    hourWindowDays: 14,
+  };
+}
+
+function buildLastNDaysHourKeys(endMs, days) {
+  const n = Math.max(1, Math.min(21, Math.floor(Number(days) || 14)));
   const keys = [];
-  for (let h = 0; h < 24 * 14; h += 1) {
+  for (let h = 0; h < 24 * n; h += 1) {
     const d = new Date(endMs - h * 60 * 60 * 1000);
     const parts = getTimeParts(d);
     keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
@@ -155,11 +182,17 @@ function buildLast14DaysHourKeys(endMs) {
   return keys;
 }
 
-function getIsoWeekKeysInBiweeklyWindow(endMs) {
+function buildLast14DaysHourKeys(endMs) {
+  return buildLastNDaysHourKeys(endMs, 14);
+}
+
+function getIsoWeekKeysInBiweeklyWindow(endMs, startMs = null) {
   const end = Number(endMs);
   if (!Number.isFinite(end)) return [];
+  const start = Number(startMs);
+  const spanMs = Number.isFinite(start) && start < end ? end - start : HOGWARTS_BIWEEKLY_MS;
   const keys = new Set();
-  for (let h = 0; h < 14 * 24; h += 12) {
+  for (let h = 0; h < Math.ceil(spanMs / (60 * 60 * 1000)); h += 12) {
     const parts = getTimeParts(new Date(end - h * 60 * 60 * 1000));
     keys.add(getWeekKey(new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12, 0, 0))));
   }
@@ -174,9 +207,11 @@ function isHogwartsWeeklyTopReplaced(client) {
 }
 
 function shouldPublishHogwartsBiweeklyToday(now = new Date(), eventStartMs) {
+  const endMs = getLastSunday12BoundaryMsAtOrBefore(now);
+  // Chiusura ufficiale anno scolastico (anche il 7° anno da 1 settimana).
+  if (periodEndingOnDate(romeDateKeyFromMs(endMs))) return true;
   const start = Number(eventStartMs);
   if (!Number.isFinite(start)) return false;
-  const endMs = getLastSunday12BoundaryMsAtOrBefore(now);
   const anchorMs = getLastSunday12BoundaryMsAtOrBefore(new Date(start));
   const daysSince = Math.floor((endMs - anchorMs) / (24 * 60 * 60 * 1000));
   if (daysSince < 14) return false;
@@ -429,15 +464,16 @@ async function markBiweeklyPublishComplete(guildId, periodKey, eventKey, stats =
 
 async function collectHogwartsBiweeklyActivityRows(guild, anchorDate = new Date(), eventKey) {
   const now = anchorDate instanceof Date && !Number.isNaN(anchorDate.getTime()) ? anchorDate : new Date();
-  const periodEndMs = getLastSunday12BoundaryMsAtOrBefore(now);
-  const periodStartMs = periodEndMs - HOGWARTS_BIWEEKLY_MS;
-  const periodKey = buildBiweekPeriodKey(periodEndMs);
+  const window = resolveHogwartsBiweeklyWindow(now);
+  const periodEndMs = window.periodEndMs;
+  const periodStartMs = window.periodStartMs;
+  const periodKey = window.periodKey;
   const ek = String(eventKey || "").trim();
   const sortedHouseByUserId = await loadSortedHouseByUserId(guild.id, ek);
   if (!sortedHouseByUserId.size) {
     return { ok: false, code: "no_sorted", periodStartMs, periodEndMs, periodKey, users: [] };
   }
-  const rowsSource = await loadBiweeklyRowsFromHourlyWindow(guild, now);
+  const rowsSource = await loadBiweeklyRowsFromHourlyWindow(guild, now, window);
   let messageDocs = filterDocsToSortedUsers(
     rowsSource.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)),
     sortedHouseByUserId,
@@ -446,7 +482,7 @@ async function collectHogwartsBiweeklyActivityRows(guild, anchorDate = new Date(
     rowsSource.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)),
     sortedHouseByUserId,
   );
-  const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs);
+  const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs, periodStartMs);
   let minigameDocsRaw = [];
   if (minigameWeekKeys.length) {
     minigameDocsRaw = await ActivityUserProfile.find({
@@ -492,6 +528,7 @@ async function collectHogwartsBiweeklyActivityRows(guild, anchorDate = new Date(
     sortedHouseByUserId,
     users,
     minigameWeekKeys,
+    schoolPeriod: window.schoolPeriod,
   };
 }
 
@@ -771,65 +808,76 @@ async function loadWeeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
   return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
 }
 
-async function loadBiweeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
+async function loadBiweeklyRowsFromHourlyWindow(guild, anchorDate = new Date(), windowOrNull = null) {
   const eligible = await getEligibleChannelSets(guild);
   if (!eligible.text.size && !eligible.voice.size) return [];
-  const endMs = getLastSunday12BoundaryMsAtOrBefore(anchorDate);
-  const hourKeys = buildLast14DaysHourKeys(endMs);
-  return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
+  const window = windowOrNull && typeof windowOrNull === "object" ? windowOrNull : resolveHogwartsBiweeklyWindow(anchorDate);
+  const endMs = Number(window.periodEndMs) || getLastSunday12BoundaryMsAtOrBefore(anchorDate);
+  const days = Number(window.hourWindowDays) || 14;
+  const hourKeys = buildLastNDaysHourKeys(endMs, days);
+  return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys, {
+    startMs: Number(window.periodStartMs) || endMs - HOGWARTS_BIWEEKLY_MS,
+    endMs,
+  });
 }
 
 async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys, clipRange = null) {
-  const rows = [];
+  const keys = [...new Set((hourKeys || []).map((k) => String(k || "").trim()).filter(Boolean))];
+  if (!keys.length) return [];
   const clipStart = Number(clipRange?.startMs);
   const clipEnd = Number(clipRange?.endMs);
   const hasClip = Number.isFinite(clipStart) && Number.isFinite(clipEnd) && clipEnd > clipStart;
-  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId profile.totals.hourly").lean().catch(() => []);
-  if (profileDocs.length) {
-    const wanted = new Set(hourKeys.map(String));
-    for (const doc of profileDocs) {
-      const userId = String(doc?.userId || "");
-      const hourly = toObjectMap(doc?.profile?.totals?.hourly || {});
-      if (!userId) continue;
-      for (const [hourKey, value] of Object.entries(hourly)) {
-        if (!wanted.has(String(hourKey))) continue;
-        if (shouldSkipBackfillRow(String(hourKey), wanted)) continue;
-        let scale = 1;
-        if (hasClip) {
-          const { startMs, endMs } = hourKeyToBoundsMs(hourKey);
-          const overlap = overlapRangeMs(startMs, endMs, clipStart, clipEnd);
-          if (overlap <= 0) continue;
-          scale = overlap / (60 * 60 * 1000);
+  const wanted = new Set(keys);
+  const projection = { _id: 0, userId: 1 };
+  for (const k of keys) projection[`profile.totals.hourly.${k}`] = 1;
+  // Solo i bucket della finestra (mai tutto `profile.totals.hourly` → OOM).
+  // Query a chunk di 24h per non sforare il planner Mongo con $or enormi.
+  const perUser = new Map();
+  try {
+    for (let i = 0; i < keys.length; i += 24) {
+      const chunk = keys.slice(i, i + 24);
+      const orHourly = chunk.map((k) => ({ [`profile.totals.hourly.${k}`]: { $exists: true } }));
+      const cursor = ActivityUserProfile.find({ guildId: guild.id, $or: orHourly })
+        .select(projection)
+        .lean()
+        .cursor({ batchSize: 250 });
+      for await (const doc of cursor) {
+        const userId = String(doc?.userId || "");
+        const hourly = toObjectMap(doc?.profile?.totals?.hourly || {});
+        if (!userId) continue;
+        let messageCount = 0;
+        let voiceSeconds = 0;
+        for (const [hourKey, value] of Object.entries(hourly)) {
+          if (!wanted.has(String(hourKey))) continue;
+          if (shouldSkipBackfillRow(String(hourKey), wanted)) continue;
+          let scale = 1;
+          if (hasClip) {
+            const bounds = hourKeyToBoundsMs(hourKey);
+            const overlap = overlapRangeMs(bounds.startMs, bounds.endMs, clipStart, clipEnd);
+            if (overlap <= 0) continue;
+            scale = overlap / (60 * 60 * 1000);
+          }
+          const textChannels = toObjectMap(value?.textChannels || {});
+          const voiceChannels = toObjectMap(value?.voiceChannels || {});
+          for (const [channelId, raw] of extractMapEntries(textChannels)) {
+            if (!eligible.text.has(String(channelId))) continue;
+            messageCount += Math.max(0, Number(raw || 0)) * scale;
+          }
+          for (const [channelId, raw] of extractMapEntries(voiceChannels)) {
+            if (!eligible.voice.has(String(channelId))) continue;
+            voiceSeconds += Math.max(0, Number(raw || 0)) * scale;
+          }
         }
-        rows.push({
-          userId,
-          scale,
-          textChannels: toObjectMap(value?.textChannels || {}),
-          voiceChannels: toObjectMap(value?.voiceChannels || {}),
-        });
+        if (messageCount <= 0 && voiceSeconds <= 0) continue;
+        const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0 };
+        current.messageCount += messageCount;
+        current.voiceSeconds += voiceSeconds;
+        perUser.set(userId, current);
       }
     }
-  }
-  const perUser = new Map();
-  for (const row of rows) {
-    const userId = String(row?.userId || "");
-    if (!userId) continue;
-    const scale = Math.max(0, Math.min(1, Number(row?.scale) || 1));
-    let messageCount = 0;
-    let voiceSeconds = 0;
-    for (const [channelId, value] of extractMapEntries(row?.textChannels)) {
-      if (!eligible.text.has(String(channelId))) continue;
-      messageCount += Math.max(0, Number(value || 0)) * scale;
-    }
-    for (const [channelId, value] of extractMapEntries(row?.voiceChannels)) {
-      if (!eligible.voice.has(String(channelId))) continue;
-      voiceSeconds += Math.max(0, Number(value || 0)) * scale;
-    }
-    if (messageCount <= 0 && voiceSeconds <= 0) continue;
-    const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0 };
-    current.messageCount += messageCount;
-    current.voiceSeconds += voiceSeconds;
-    perUser.set(userId, current);
+  } catch (eLoad) {
+    global.logger?.error?.("[HOURLY WINDOW] loadRows failed:", eLoad?.message || eLoad);
+    return [];
   }
   return Array.from(perUser.values()).map((row) => ({
     userId: row.userId,
@@ -1121,6 +1169,26 @@ function formatRankLine(index, userMention, value, unit) {
   return `${medal} ${userMention} <a:VC_Arrow:1482706699365257397> **${value}** *${unit}*`;
 }
 
+/** voiceExp → minuti (VOICE_EXP_PER_MINUTE), poi etichetta ore/min per gli embed. */
+function voiceExpToMinutes(voiceExp) {
+  return Math.max(0, Math.floor(Number(voiceExp) || 0) / Math.max(1, VOICE_EXP_PER_MINUTE));
+}
+
+function formatVoiceHoursFromExp(voiceExp) {
+  const mins = Math.max(0, Math.floor(voiceExpToMinutes(voiceExp)));
+  if (mins <= 0) return "0h";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h <= 0) return `${m}m`;
+  if (m <= 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function formatVoiceRankLine(index, userMention, voiceExp) {
+  const medal = TROPHY_LABELS[index] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>";
+  return `${medal} ${userMention} <a:VC_Arrow:1482706699365257397> **${formatVoiceHoursFromExp(voiceExp)}**`;
+}
+
 async function publishWeeklyActivityWinners(client, options = {}) {
   const mode = String(options.mode || "weekly").trim().toLowerCase() === "daily" ? "daily" : "weekly";
   const skipNormalWeekly = Boolean(options.skipNormalWeekly);
@@ -1167,7 +1235,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
   let displayTopVoice = [];
   let displayTopMinigame = [];
   let messageRows = [buildEmptyLine("messaggi")];
-  let voiceRows = [buildEmptyLine("exp vocale")];
+  let voiceRows = [buildEmptyLine("ore in vocale")];
   let minigameRows = [];
   let awarded = { messageWinner: null, voiceWinner: null, minigameWinner: null };
   let minigameRankWeekKey = "";
@@ -1219,8 +1287,8 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       ? displayTopMessages.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "messaggi"))
       : [buildEmptyLine("messaggi")];
     voiceRows = displayTopVoice.length
-      ? displayTopVoice.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp"))
-      : [buildEmptyLine("exp vocale")];
+      ? displayTopVoice.map((item, index) => formatVoiceRankLine(index, `<@${item.userId}>`, item.value))
+      : [buildEmptyLine("ore in vocale")];
     if (mode === "weekly") {
       const rankKeyForSuppress = String(options.weekKey || getMinigameRankWeekKeyForPublish(now) || "").trim();
       suppressMinigameThisWeek = TEMP_SUPPRESS_MINIGAME_WEEK_KEYS.has(rankKeyForSuppress);
@@ -1373,7 +1441,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
 ${introLine}
 
 <:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
-<:VC_Podio1:1482694399283433582> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.${minigameAnnounceLine}
+<:VC_Podio1:1482694399283433582> Con un totale di **${formatVoiceHoursFromExp(voiceWinnerTotal)}** in vocale, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.${minigameAnnounceLine}
 _ _`,
     embeds: [embed],
     components: [button],
@@ -2053,14 +2121,14 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
     global.logger?.info?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: non è domenica di chiusura bisettimanale.");
     return;
   }
-  const periodEndMs = getLastSunday12BoundaryMsAtOrBefore(now);
-  const periodStartMs = periodEndMs - HOGWARTS_BIWEEKLY_MS;
-  const periodKey = buildBiweekPeriodKey(periodEndMs);
+  const window = resolveHogwartsBiweeklyWindow(now);
+  const periodEndMs = window.periodEndMs;
+  const periodStartMs = window.periodStartMs;
+  const periodKey = window.periodKey;
   const eventKey = String(eventCfg.eventKey || "").trim();
   if (!periodKey || !eventKey) return;
   const existing = await findBiweeklyPublishMarker(guild.id, periodKey);
   if (existing?.status === "completed" && !options.forcePublish) {
-    global.logger?.info?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: periodo già pubblicato.", periodKey);
     return;
   }
   const sortedHouseByUserId = await loadSortedHouseByUserId(guild.id, eventKey);
@@ -2068,7 +2136,7 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
     global.logger?.warn?.("[HOGWARTS BIWEEKLY TOP] Publish skipped: nessuno smistato.");
     return;
   }
-  const rowsSource = await loadBiweeklyRowsFromHourlyWindow(guild, now);
+  const rowsSource = await loadBiweeklyRowsFromHourlyWindow(guild, now, window);
   let messageDocs = filterDocsToSortedUsers(
     rowsSource.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)).slice(0, 300),
     sortedHouseByUserId,
@@ -2079,7 +2147,7 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
   );
   const topMessagesPool = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
   const topVoicePool = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 40, HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS);
-  const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs);
+  const minigameWeekKeys = getIsoWeekKeysInBiweeklyWindow(periodEndMs, periodStartMs);
   let minigameDocsRaw = [];
   if (minigameWeekKeys.length) {
     minigameDocsRaw = await ActivityUserProfile.find({
@@ -2114,8 +2182,8 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
     ? displayTopMessages.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "messaggi"))
     : [buildEmptyLine("messaggi")];
   const voiceRows = displayTopVoice.length
-    ? displayTopVoice.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp"))
-    : [buildEmptyLine("exp vocale")];
+    ? displayTopVoice.map((item, index) => formatVoiceRankLine(index, `<@${item.userId}>`, item.value))
+    : [buildEmptyLine("ore in vocale")];
   const minigameRows = displayTopMinigame.length
     ? displayTopMinigame.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "pt minigame"))
     : [buildEmptyLine("minigames")];
@@ -2157,12 +2225,13 @@ async function publishHogwartsBiweeklyActivityWinners(client, options = {}) {
       .setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),
   );
   const minigameAnnounceLine = `\n<:VC_Podio1:1482694399283433582> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottiene il primo posto per **__minigames__**.`;
+  const spanLabel = window.schoolPeriod && Number(window.hourWindowDays) <= 8 ? "questa **settimana**" : "queste **due settimane**";
   const payload = {
     content: `<@&1442568949605597264>
-<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di queste **due settimane** per attività.
+<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di ${spanLabel} per attività.
 
 <:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottiene il primo posto per **__chat testuale__**.
-<:VC_Podio1:1482694399283433582> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottiene il primo posto per **__chat vocale__**.${minigameAnnounceLine}
+<:VC_Podio1:1482694399283433582> Con un totale di **${formatVoiceHoursFromExp(voiceWinnerTotal)}** in vocale, ${voiceWinnerMention} ottiene il primo posto per **__chat vocale__**.${minigameAnnounceLine}
 _ _`,
     embeds: [embed],
     components: [button],

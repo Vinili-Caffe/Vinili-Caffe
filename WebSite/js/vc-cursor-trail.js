@@ -8,8 +8,20 @@
   var NS = "http://www.w3.org/2000/svg";
 
   function canRun() {
-    /* Sempre attiva su desktop; touch viene filtrato da pointerType. */
-    return typeof window !== "undefined" && typeof document !== "undefined";
+    if (typeof window === "undefined" || typeof document === "undefined") return false;
+    try {
+      if (document.documentElement.classList.contains("vc-cursor-trail-off")) return false;
+      if (document.documentElement.classList.contains("vc-perf-lite")) return false;
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return false;
+      if (
+        window.matchMedia &&
+        window.matchMedia("(hover: none)").matches &&
+        Number(navigator.maxTouchPoints || 0) > 0
+      ) {
+        return false;
+      }
+    } catch (eCan) {}
+    return true;
   }
 
   function initCursorTrail() {

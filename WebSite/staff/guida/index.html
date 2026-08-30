@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="stylesheet" href="../../css/vc-landing.css?v=20260829sheetHeadClear1" />
+    <link rel="stylesheet" href="../../css/vc-landing.css?v=20260830notifBellHide1" />
     <link rel="stylesheet" href="../../css/staff-pause.css?v=20260829sheetHeadClear1" />
     <style id="vc-anti-fouc-css">html,body{background:#100c09}</style>
     <style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed{background:transparent!important;background-color:transparent!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass{background:#140f0c!important;background-color:#140f0c!important;border-radius:1rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 10px 28px rgba(0,0,0,.35)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}</style>
@@ -172,8 +172,8 @@
         apiUrlLocal: "{{STAFF_ACCESS_API_URL_LOCAL}}",
       };
       window.__VC_STAFF_GUIDE = {
-        apiUrl: "{{STAFF_GUIDE_API_URL}}",
-        apiUrlLocal: "{{STAFF_GUIDE_API_URL_LOCAL}}",
+        apiUrl: "/webhooks/site-staff-guide",
+        apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-staff-guide",
       };
     </script>
     <script src="../../js/discord-auth.js?v=20260824mobileAuth1" defer></script>
@@ -184,7 +184,7 @@
     <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
     <script src="/js/vc-dialog.js?v=20260826dialog1" defer></script>
     <script src="../../js/staff-tools-common.js?v=20260826cineFix1" defer></script>
-    <script src="../../js/staff-site-nav.js?v=20260827staffNavClean1" defer></script>
+    <script src="../../js/staff-site-nav.js?v=20260830staffGuidaOnly1" defer></script>
     <script src="../../js/vc-home-cine.js?v=20260827staffPublic1" defer></script>
     <script src="../../js/staff-guide-page.js?v=20260829noIntro1" defer></script>
     <script src="/js/vc-cursor-trail.js?v=20260825cursorFx1" defer></script>

@@ -807,6 +807,9 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
       needsDepexDecision: warnCount === 2,
     }).catch(() => 0);
   } catch (_) {}
+  try {
+    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id);
+  } catch (_) {}
   return { ok: true };
 }
 
@@ -889,6 +892,9 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
       .setColor(SUCCESS_COLOR);
     await warnChannel.send({ content: `${targetUser}`, embeds: [embed] }).catch(() => null);
   }
+  try {
+    require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id);
+  } catch (_) {}
   return {
     ok: true,
     tradedPositives,

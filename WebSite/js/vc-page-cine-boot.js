@@ -3,7 +3,7 @@
   try {
     if (!window.VcPerf || !window.VcPerf.__ready) {
       var cur = document.currentScript;
-      var ver = "20260827perfAdapt1";
+      var ver = "20260830ptrFirstTap1";
       var url = "/js/vc-perf.js?v=" + ver;
       try {
         if (cur && cur.src) {
@@ -23,8 +23,30 @@
   var root = document.documentElement;
   if (!root || !root.classList.contains("vc-site-polish")) return;
 
-  var BOOT_CSS =
-    "html.vc-site-polish.vc-page-cine-boot,html.vc-site-polish.vc-page-cine-boot body{background:#100c09!important}" +
+  function isMobileFastBoot() {
+    try {
+      if (root.classList.contains("vc-perf-lite")) return true;
+      if (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()) return true;
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+      if (
+        window.matchMedia &&
+        window.matchMedia("(hover: none)").matches &&
+        Number(navigator.maxTouchPoints || 0) > 0
+      ) {
+        return true;
+      }
+      var w = Number(window.innerWidth || (window.screen && screen.width) || 0);
+      if (w > 0 && w <= 920 && Number(navigator.maxTouchPoints || 0) > 0) return true;
+    } catch (eFast) {}
+    return false;
+  }
+
+  var mobileFast = true; // snappyMotion1: mai nascondere main/footer (desktop incluso)
+
+  // Desktop: overlay finché layout pronto. Mobile: solo sfondo scuro, NESSUN hide di main
+  // (è la causa della “schermata bianca/vuota” per secondi a ogni apertura/redirect).
+  var BOOT_CSS_DESKTOP =
+    "html.vc-site-polish.vc-page-cine-boot,html.vc-site-polish.vc-page-cine-boot body{background:#100c09!important;color-scheme:dark}" +
     "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready){overflow:hidden!important;overscroll-behavior:none!important}" +
     "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before{content:\"\";position:fixed;inset:0;z-index:2147483000;" +
     "background-color:#100c09;background-image:radial-gradient(ellipse 92% 74% at 50% 38%,rgba(232,196,156,.14) 0%,rgba(28,20,14,.94) 52%,#0a0706 100%);pointer-events:none}" +
@@ -32,11 +54,26 @@
     "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
     "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header{position:relative;z-index:2147483001;visibility:visible!important;opacity:1!important}";
 
+  var BOOT_CSS_MOBILE =
+    "html,body{background:#100c09!important;color-scheme:dark}" +
+    "html.vc-site-polish.vc-page-cine-boot,html.vc-site-polish.vc-page-cine-boot body{background:#100c09!important}" +
+    "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main," +
+    "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer," +
+    "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header{" +
+    "opacity:1!important;visibility:visible!important;pointer-events:auto!important}";
+
   if (!document.getElementById("vc-anti-fouc-css")) {
     var anti = document.createElement("style");
     anti.id = "vc-anti-fouc-css";
-    anti.textContent = "html,body{background:#100c09}";
+    anti.textContent = "html,body{background:#100c09;color-scheme:dark}";
     (document.head || root).appendChild(anti);
+  } else {
+    try {
+      var antiEl = document.getElementById("vc-anti-fouc-css");
+      if (antiEl && antiEl.textContent.indexOf("color-scheme") < 0) {
+        antiEl.textContent = "html,body{background:#100c09;color-scheme:dark}";
+      }
+    } catch (eAnti) {}
   }
 
   root.classList.add("vc-page-cine-boot");
@@ -46,11 +83,11 @@
     bootStyle.id = "vc-page-cine-boot-css";
     (document.head || root).insertBefore(bootStyle, (document.head || root).firstChild);
   }
-  // Sempre aggiorna: i template avevano solo lo sfondo → flash del layout grezzo.
-  bootStyle.textContent = BOOT_CSS;
+  bootStyle.textContent = mobileFast ? BOOT_CSS_MOBILE : BOOT_CSS_DESKTOP;
 
   var path = String(location.pathname || "/").replace(/\/+$/, "") || "/";
   var waitStaffCinePaint =
+    !mobileFast &&
     (root.classList.contains("vc-staff-cine-route") || path === "/staff") &&
     !root.classList.contains("vc-staff-inbox-route") &&
     path !== "/staff/inbox";
@@ -79,7 +116,6 @@
   function staffLayoutLooksReady() {
     try {
       var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
-      // Profilo staff / pagine senza hero card: ok reveal dopo styles (come public layoutLooksApplied).
       if (
         p === "/staff" ||
         (document.body && document.body.classList.contains("vc-staff-profile-home"))
@@ -158,14 +194,14 @@
         complete();
         return;
       }
-      if (tries < 36) {
-        window.setTimeout(tick, 80);
+      if (tries < 24) {
+        window.setTimeout(tick, 50);
         return;
       }
       complete();
     }
-    window.setTimeout(tick, 40);
-    window.setTimeout(complete, 3200);
+    window.setTimeout(tick, 16);
+    window.setTimeout(complete, 280);
   }
 
   function stylesheetPending(link) {
@@ -187,6 +223,12 @@
       if (doneCalled) return;
       doneCalled = true;
       done();
+    }
+    if (mobileFast) {
+      // Telefono: non bloccare il paint in attesa di CSS pesanti.
+      window.setTimeout(finish, 0);
+      window.setTimeout(finish, 180);
+      return;
     }
     var needles = ["vc-landing.css", "tw-build.css"];
     var links = document.querySelectorAll('link[rel="stylesheet"]');
@@ -220,7 +262,7 @@
       finish();
       return;
     }
-    window.setTimeout(finish, 450);
+    window.setTimeout(finish, 160);
   }
 
   try {
@@ -243,7 +285,6 @@
     try {
       if (!document.body) return false;
       if (document.body.classList.contains("vc-page-cine-layout")) return true;
-      // Pagine senza hero cine (profilo, evento, customize…): ok reveal dopo styles.
       if (
         root.classList.contains("vc-user-profile-route") ||
         root.classList.contains("vc-user-profile-pending") ||
@@ -261,6 +302,20 @@
     markStylesReady();
     if (root.classList.contains("vc-page-cine-ready")) {
       finishBoot();
+      return;
+    }
+    if (mobileFast) {
+      try {
+        runLayout();
+      } catch (eLay) {}
+      // Reveal immediato: layout può continuare dopo.
+      requestAnimationFrame(function () {
+        finishBoot();
+        try {
+          runLayout();
+        } catch (eLay2) {}
+      });
+      window.setTimeout(finishBoot, 120);
       return;
     }
     if (runLayout() && layoutLooksApplied()) {
@@ -292,14 +347,13 @@
         });
         return;
       }
-      if (tries > 36) {
+      if (tries > 24) {
         window.clearInterval(timer);
         finishBoot();
       }
     }, 40);
 
-    // Failsafe: non lasciare schermo nero se JS cine non parte.
-    window.setTimeout(finishBoot, 1600);
+    window.setTimeout(finishBoot, 220);
   }
 
   function afterStyles() {
