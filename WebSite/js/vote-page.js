@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+  /* siteSnappyApi1 */
   var currentUser = null;
   var allRows = [];
   var loadedExtra = 0;
@@ -244,22 +246,42 @@
   function fetchVotes() {
     var url = buildApiUrl();
     if (!url) return;
+    var cacheKey = "vote:" + String((currentUser && currentUser.id) || "anon");
+
+    function applyOut(out) {
+      var body = out && out.body;
+      if (!out || !out.ok) {
+        renderVoteError(t("vote.loadError"));
+        return;
+      }
+      if (!body || body.ok !== true) return;
+      renderStats(body.stats || {}, body.personal || {});
+      renderTop(Array.isArray(body.rows) ? body.rows : []);
+    }
+
+    if (window.VcApiCache) {
+      window.VcApiCache.fetchWithCache(cacheKey, url, {
+        ttlMs: 45000,
+        staleMs: 300000,
+        fetchInit: { credentials: "omit", cache: "no-store" },
+        onStale: function (cached) {
+          if (cached) applyOut(cached);
+        },
+      })
+        .then(applyOut)
+        .catch(function () {
+          renderVoteError(t("vote.loadError"));
+        });
+      return;
+    }
+
     fetch(url, { credentials: "omit", cache: "no-store" })
       .then(function (r) {
         return r.json().then(function (body) {
           return { ok: r.ok, status: r.status, body: body };
         });
       })
-      .then(function (out) {
-        var body = out && out.body;
-        if (!out || !out.ok) {
-          renderVoteError(t("vote.loadError"));
-          return;
-        }
-        if (!body || body.ok !== true) return;
-        renderStats(body.stats || {}, body.personal || {});
-        renderTop(Array.isArray(body.rows) ? body.rows : []);
-      })
+      .then(applyOut)
       .catch(function () {
         renderVoteError(t("vote.loadError"));
       });
@@ -286,19 +308,25 @@
     } catch (e) {}
   }
 
+  function isExternalVotePlatformHref(href) {
+    try {
+      var host = String(new URL(String(href || ""), window.location.href).hostname || "").toLowerCase();
+      return host.indexOf("top.gg") !== -1 || host.indexOf("discadia.com") !== -1;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function initVoteResume() {
     var wrap = byId("vote-platforms");
     if (wrap) {
       wrap.addEventListener("click", function (ev) {
         var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
         if (!a) return;
+        if (!isExternalVotePlatformHref(a.getAttribute("href") || "")) return;
         markVoteResume();
       });
     }
-    window.addEventListener("pagehide", markVoteResume);
-    document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "hidden") markVoteResume();
-    });
   }
 
   function initVoteReveal() {

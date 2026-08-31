@@ -4,12 +4,12 @@
 (function (global) {
   "use strict";
 
-  var ASSET_VER = "20260830selfNeg1";
+  var ASSET_VER = "20260830staffBootFast1";
   var STAFF_ROSTER_CACHE_KEY = "vc_staff_roster_v2";
   var STAFF_ROSTER_CACHE_TTL_MS = 10 * 60 * 1000;
   var sfPostBusy = false;
-  var PROBE_TIMEOUT_MS = 6000;
-  var STAFF_PENDING_FAILSAFE_MS = 16000;
+  var PROBE_TIMEOUT_MS = 4500;
+  var STAFF_PENDING_FAILSAFE_MS = 12000;
   var STAFF_FETCH_RETRIES = 2;
   var STAFF_RETRY_GAP_MS = 500;
   var STAFF_SESSION_CACHE_KEY = "vc_staff_prof_cache_v1";
@@ -535,8 +535,19 @@
     if (!global.VCStaffProfileRender || typeof global.VCStaffProfileRender.syncStaffListDock !== "function") {
       return;
     }
+    var pending = false;
+    try {
+      pending = global.document.documentElement.classList.contains("vc-user-profile-staff-tab-pending");
+    } catch (ePend) {}
+    var root = byId("vc-user-profile-view");
+    var ready =
+      state.activeTab === "staff" &&
+      viewerMaySeeStaffTab(userId) &&
+      !state.staffLoading &&
+      !pending &&
+      staffPanelMounted(root);
     global.VCStaffProfileRender.syncStaffListDock({
-      visible: state.activeTab === "staff" && viewerMaySeeStaffTab(userId),
+      visible: ready,
       currentUserId: userId,
       getStaffList: function () {
         return ensureStaffPeople();
@@ -589,12 +600,22 @@
       });
   }
 
-  function classicProfileBootHtml() {
+  function classicProfileBootHtml(opts) {
+    opts = opts || {};
+    var staff = Boolean(opts.staff);
     return (
-      '<div class="vc-user-profile-loader vc-user-profile-boot vc-user-profile-boot--inline" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento profilo">' +
+      '<div class="vc-user-profile-loader vc-user-profile-boot vc-user-profile-boot--inline" data-vc-profile-boot' +
+      (staff ? ' data-vc-staff-loading="1"' : "") +
+      ' role="status" aria-live="polite" aria-label="' +
+      (staff ? "Caricamento profilo staff" : "Caricamento profilo") +
+      '">' +
       '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
-      '<p class="vc-user-profile-loader__title">Caricamento profilo</p>' +
-      '<p class="vc-user-profile-loader__sub">Sto recuperando le statistiche dell\'utente...</p>' +
+      '<p class="vc-user-profile-loader__title">' +
+      (staff ? "Caricamento profilo staff" : "Caricamento profilo") +
+      "</p>" +
+      '<p class="vc-user-profile-loader__sub">' +
+      (staff ? "Sto aprendo la scheda… un attimo." : "Sto recuperando le statistiche dell'utente...") +
+      "</p>" +
       "</div>"
     );
   }
@@ -624,13 +645,7 @@
 
   function staffPaneHtml(loading, errorMsg) {
     if (loading) {
-      return (
-        '<div class="vc-user-profile-loader vc-user-profile-boot vc-user-profile-boot--inline vc-staff-prof-boot" data-vc-staff-loading="1" role="status" aria-live="polite" aria-label="Caricamento profilo">' +
-        '<span class="vc-staff-prof-boot__ring" aria-hidden="true"></span>' +
-        '<p class="vc-staff-prof-boot__title">Caricamento profilo staff</p>' +
-        '<p class="vc-staff-prof-boot__sub">Sto aprendo la scheda… un attimo.</p>' +
-        "</div>"
-      );
+      return classicProfileBootHtml({ staff: true });
     }
     if (errorMsg) {
       return (
@@ -960,8 +975,8 @@
   }
 
   function renderStaffPanel(root, userId, payload) {
-    var needShop = Boolean(payload && payload.partner && payload.partner.shop);
-    return waitForStaffRender(5000, { needShop: needShop }).then(function (ready) {
+    // First paint: solo renderer. Shop/modal arrivano dopo (non bloccano).
+    return waitForStaffRender(2200, { needShop: false }).then(function (ready) {
       var cachedRoster = state.rosterIds || readRosterCache() || [];
       var pane = ensureStaffPane(root);
       var panel = pane.querySelector("#vc-user-profile-staff-panel") || byId("vc-user-profile-staff-panel");
@@ -1614,11 +1629,21 @@
       try {
         global.document.documentElement.classList.add("vc-user-profile-staff-tab-pending");
       } catch (eP) {}
+      try {
+        if (global.VCStaffProfileRender) {
+          if (typeof global.VCStaffProfileRender.unmountStaffListDock === "function") {
+            global.VCStaffProfileRender.unmountStaffListDock();
+          }
+          if (typeof global.VCStaffProfileRender.unmountStaffPeerDock === "function") {
+            global.VCStaffProfileRender.unmountStaffPeerDock();
+          }
+        }
+      } catch (eDockHide) {}
       armStaffPendingFailsafe(root, userId);
       applyTabVisibility(root);
       // Un solo boot di pagina: niente secondo "Caricamento profilo" nel pane.
       if (!pageAlreadyHasProfileLoader(root) && !communityShellPainted(root) && !staffPanelMounted(root)) {
-        root.innerHTML = classicProfileBootHtml();
+        root.innerHTML = classicProfileBootHtml({ staff: true });
       }
       ensureStaffPane(root).hidden = false;
       if (!state.staffLoaded && !state.staffLoading) {
@@ -1657,20 +1682,11 @@
   }
 
   function onAuthReady() {
+    // Solo profili con ?id= (o /users/:id). Su /user community NON inventare l'id del login:
+    // altrimenti finishSync fa replaceState → /user/?id=me e Users finisce sul profilo.
     var userId = parseProfileIdFromUrl() || state.targetUserId;
-    var root = byId("vc-user-profile-view");
-    if (!userId) {
-      try {
-        var fromProf =
-          global.__VC_DISCORD_PROFILE && global.__VC_DISCORD_PROFILE.id
-            ? String(global.__VC_DISCORD_PROFILE.id)
-            : "";
-        if (/^\d{17,20}$/.test(fromProf) && /\/user\/?$/i.test(String(global.location.pathname || ""))) {
-          userId = fromProf;
-        }
-      } catch (eId) {}
-    }
     if (!userId) return;
+    var root = byId("vc-user-profile-view");
     if (state.probeDone && state.staffAvailable && state.targetUserId === userId) {
       if (root) finishSync(root, userId);
       return;
@@ -1738,17 +1754,28 @@
       } catch (eHref) {}
     }
     function loadScript(src, attr) {
+      if (global.document.querySelector("script[" + attr + '="1"]')) return;
       if (global.document.querySelector("script[" + attr + "]")) return;
       var s = global.document.createElement("script");
       s.src = src;
-      // Ordine immediato: niente defer (altrimenti resta dietro vc-landing.js).
+      // Critico: sync. Secondari: defer dopo first paint.
       s.async = false;
       s.setAttribute(attr, "1");
       head.appendChild(s);
     }
-    loadScript("/js/staff-manage-modal.js?v=" + ASSET_VER, "data-vc-staff-manage-modal");
+    // Solo renderer sul critical path → first paint velocissimo.
     loadScript("/js/staff-profile-render.js?v=" + ASSET_VER, "data-vc-staff-prof-render");
-    loadScript("/js/staff-pm-shop-ui.js?v=" + ASSET_VER, "data-vc-staff-pm-shop");
+    function loadSecondary() {
+      loadScript("/js/staff-manage-modal.js?v=" + ASSET_VER, "data-vc-staff-manage-modal");
+      loadScript("/js/staff-pm-shop-ui.js?v=" + ASSET_VER, "data-vc-staff-pm-shop");
+    }
+    if (typeof global.requestAnimationFrame === "function") {
+      global.requestAnimationFrame(function () {
+        global.setTimeout(loadSecondary, 0);
+      });
+    } else {
+      global.setTimeout(loadSecondary, 0);
+    }
   }
 
   function boot() {

@@ -339,6 +339,7 @@ const ids = {
     Partnership: "1500844518088507412",
     Events: "1442569012063109151",
     HogwartsEventParticipant: "1507000390493798511",
+    HogwartsFinaleWinnerBonus: "1543350496792682517",
     News: "1442569010943365342",
     Polls: "1442569014474965033",
     Bump: "1442569013074071644",

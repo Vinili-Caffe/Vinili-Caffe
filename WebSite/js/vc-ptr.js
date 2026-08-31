@@ -1,4 +1,4 @@
-/* Pull-to-refresh: vinile sotto la navbar, su tutte le pagine. */
+/* Pull-to-refresh: vinile sotto la navbar, su tutte le pagine. phonePtrRestore1 */
 (function () {
   if (window.__vcPtrBooted) return;
   window.__vcPtrBooted = true;
@@ -480,6 +480,9 @@
       if (html.classList.contains("vc-user-leader-pending")) return true;
       if (html.classList.contains("vc-user-profile-pending")) return true;
       if (html.classList.contains("vc-rank-customize-pending")) return true;
+      if (html.classList.contains("vc-page-cine-boot") && !html.classList.contains("vc-page-cine-ready")) {
+        return true;
+      }
     } catch (eDef) {}
     return false;
   }
@@ -523,6 +526,7 @@
   function tryInitPtrIfNeeded() {
     if (window.__vcPtrListenersBound) return;
     if (!isTouchUi() && !(Number(navigator.maxTouchPoints || 0) > 0)) return;
+    // phonePtrRestore1: PTR su telefono — defer solo durante gate/boot pending.
     if (shouldDeferPtr()) {
       watchDeferClear();
       return;
@@ -580,6 +584,7 @@
     if (!isTouchUi() && !(Number(navigator.maxTouchPoints || 0) > 0)) return;
     if (shouldDeferPtr()) {
       watchDeferClear();
+      window.addEventListener("vc:page-cine-ready", tryInitPtrIfNeeded, { once: true });
       window.addEventListener("vc:staff-access-ok", tryInitPtrIfNeeded, { once: true });
       window.addEventListener("vc:access-ok", tryInitPtrIfNeeded, { once: true });
       window.addEventListener("vc-dashboard-access", tryInitPtrIfNeeded, { once: true });

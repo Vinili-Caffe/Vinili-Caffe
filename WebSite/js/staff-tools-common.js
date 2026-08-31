@@ -416,6 +416,25 @@
 
   function fetchJson(url, options) {
     var opts = options || {};
+    var method = String(opts.method || "GET").toUpperCase();
+    if (
+      method === "GET" &&
+      opts.cache !== false &&
+      global.VcApiCache &&
+      typeof global.VcApiCache.fetchStaffJson === "function"
+    ) {
+      var headers = Object.assign({ Authorization: "Bearer " + getToken() }, opts.headers || {});
+      return global.VcApiCache.fetchStaffJson(url, {
+        headers: headers,
+        timeoutMs: resolveFetchTimeoutMs(opts.timeoutMs),
+        ttlMs: opts.ttlMs,
+        staleMs: opts.staleMs,
+        persistMs: opts.persistMs,
+        cacheScope: opts.cacheScope || "staff",
+        cache: opts.cache,
+        onStale: opts.onStale,
+      });
+    }
     var headers = Object.assign({ Authorization: "Bearer " + getToken() }, opts.headers || {});
     var timeoutMs = resolveFetchTimeoutMs(opts.timeoutMs);
     var fetchOpts = {

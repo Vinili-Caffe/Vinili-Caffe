@@ -332,6 +332,15 @@
         "board=profile&userId=" +
         encodeURIComponent(id) +
         "&perPage=1";
+      if (window.VcApiCache && typeof window.VcApiCache.prefetchIdle === "function") {
+        window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor(prefetchUrl, { scope: "profile" }), prefetchUrl, {
+          ttlMs: 90000,
+          staleMs: 600000,
+          persistMs: 30 * 60 * 1000,
+          timeoutMs: 12000,
+        });
+        return;
+      }
       var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
       var timer = window.setTimeout(function () {
         try {
@@ -485,12 +494,10 @@
   function cachedUsersFetch(url, opts) {
     var useCache = Boolean(opts && opts.useCache);
     var ttl = Math.max(1, Number((opts && opts.ttlMs) || USERS_CACHE_TTL_MS));
-    var now = Date.now();
-    var key = usersCacheKey(url);
     var allowStale = Boolean(opts && opts.allowStale);
     var onStale = opts && typeof opts.onStale === "function" ? opts.onStale : null;
 
-    function networkOnce() {
+    function networkWithRetry() {
       var headers = { Accept: "application/json" };
       try {
         if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
@@ -505,11 +512,7 @@
         return r.json().then(function (j) {
           return { ok: r.ok, status: r.status, body: j };
         });
-      });
-    }
-
-    function networkWithRetry() {
-      return networkOnce().catch(function (err) {
+      }).catch(function (err) {
         var timedOut =
           err &&
           (err.name === "AbortError" ||
@@ -522,44 +525,68 @@
           var sub = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
           if (sub) sub.textContent = "Ancora un momento, sto recuperando la classifica…";
         } catch (eSub) {}
-        return networkOnce();
+        return fetchWithTimeout(
+          url,
+          { credentials: "omit", cache: "no-store", headers: headers },
+          USERS_FETCH_TIMEOUT_MS,
+        ).then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, status: r.status, body: j };
+          });
+        });
       });
     }
 
-    function storeFresh(payload) {
-      if (payload && payload.ok && payload.body && payload.body.ok) {
-        usersMemoryCache.set(key, { expireAt: now + ttl, value: payload });
-        writeUsersSessionCache(key, payload, ttl, now);
-      }
-      return payload;
+    function toPayload(raw) {
+      if (!raw) return { ok: false, status: 0, body: {} };
+      if (raw.body && typeof raw.ok === "boolean") return raw;
+      return { ok: Boolean(raw.ok), status: Number(raw.status) || 0, body: raw.body || {} };
     }
 
     var prefP = takeLeaderPrefetch(url);
     if (prefP) {
       return prefP.then(function (payload) {
-        storeFresh(payload);
-        return payload;
+        return toPayload(payload);
       });
     }
 
     if (!useCache) {
       return networkWithRetry();
     }
-    var mem = usersMemoryCache.get(key);
-    if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now) {
-      return Promise.resolve(mem.value);
+
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      var cacheKey = window.VcApiCache.keyFor(String(url || ""), { scope: "users" });
+      return window.VcApiCache
+        .fetchWithCache(cacheKey, url, {
+          ttlMs: ttl,
+          staleMs: USERS_STALE_TTL_MS,
+          persistMs: 15 * 60 * 1000,
+          timeoutMs: USERS_FETCH_TIMEOUT_MS,
+          useCache: true,
+          fetchInit: {
+            credentials: "omit",
+            cache: "no-store",
+            headers: (function () {
+              var headers = { Accept: "application/json" };
+              try {
+                if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
+                  headers = window.VcPerf.apiHeaders(headers);
+                }
+              } catch (eH2) {}
+              return headers;
+            })(),
+          },
+          onStale: allowStale ? onStale : null,
+        })
+        .then(function (raw) {
+          return toPayload(raw);
+        })
+        .catch(function () {
+          return networkWithRetry();
+        });
     }
-    var sess = readUsersSessionCache(key, now, allowStale);
-    if (sess && !sess.stale) {
-      usersMemoryCache.set(key, { expireAt: now + ttl, value: sess.value });
-      return Promise.resolve(sess.value);
-    }
-    if (sess && sess.stale && onStale) {
-      try {
-        onStale(sess.value);
-      } catch (eStale) {}
-    }
-    return networkWithRetry().then(storeFresh);
+
+    return networkWithRetry();
   }
 
   function clearLeaderPending(opts) {
@@ -570,6 +597,16 @@
       document.documentElement.classList.add("vc-page-cine-ready");
       document.documentElement.classList.remove("vc-page-cine-boot");
     } catch (ePending) {}
+    try {
+      var overlay = byId("vc-ul-loading");
+      if (overlay) {
+        overlay.hidden = true;
+        overlay.setAttribute("hidden", "");
+        overlay.removeAttribute("data-vc-loader-blocking");
+        overlay.style.setProperty("display", "none", "important");
+        overlay.style.setProperty("pointer-events", "none", "important");
+      }
+    } catch (eOv) {}
     try {
       var html = document.documentElement;
       var body = document.body;
@@ -647,8 +684,22 @@
       scrollToLeaderCards("auto");
     }, 120);
     window.requestAnimationFrame(function () {
-      scrollToLeaderCards("auto");
+      if (shouldScroll) scrollToLeaderCards("auto");
     });
+  }
+
+  // phoneLoadClipFix4: vc-loader-blocking-live solo se overlay visibile.
+  function syncLeaderLoaderBlocking(overlay, loading) {
+    if (!overlay) return;
+    var root = document.documentElement;
+    var bootHide =
+      root.classList.contains("vc-user-leader-pending") ||
+      (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready"));
+    if (loading && bootHide) overlay.setAttribute("data-vc-loader-blocking", "1");
+    else overlay.removeAttribute("data-vc-loader-blocking");
+    try {
+      if (typeof window.__vcSyncLoaderBlockingLiveClass === "function") window.__vcSyncLoaderBlockingLiveClass();
+    } catch (eLive) {}
   }
 
   function setLoading(on, label) {
@@ -657,10 +708,25 @@
     var title = overlay ? overlay.querySelector(".vc-ul-loading-title") : null;
     var sub = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
     var grid = byId("vc-ul-grid");
-    if (overlay) overlay.hidden = !state.loading;
+    if (overlay) {
+      overlay.hidden = !state.loading;
+      if (state.loading) {
+        overlay.removeAttribute("hidden");
+        syncLeaderLoaderBlocking(overlay, true);
+      } else {
+        overlay.setAttribute("hidden", "");
+        syncLeaderLoaderBlocking(overlay, false);
+        overlay.style.setProperty("display", "none", "important");
+        overlay.style.setProperty("pointer-events", "none", "important");
+        overlay.style.setProperty("opacity", "0", "important");
+      }
+    }
     if (title) title.textContent = label || "Caricamento classifica";
     if (sub) sub.textContent = state.loading ? "Sto aggiornando i dati della community…" : "";
     if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
     if (!state.loading) {
       var doScroll = pendingScrollToCards;
       pendingScrollToCards = false;
@@ -1385,14 +1451,14 @@
     setLoading(true, "Caricamento classifica");
     load();
     startLiveUsersPolling();
-    // siteSweep1: mai restare su schermo nero leader-pending.
+    // phoneClassifica1: failsafe più rapido su telefono (mai loader infinito).
     setTimeout(function () {
       try {
         if (!document.documentElement.classList.contains("vc-user-leader-pending")) return;
-        clearLeaderPending({ scroll: true });
+        clearLeaderPending({ scroll: false });
         setLoading(false);
       } catch (eFs) {}
-    }, 6000);
+    }, 3500);
   }
 
   document.addEventListener("visibilitychange", function () {

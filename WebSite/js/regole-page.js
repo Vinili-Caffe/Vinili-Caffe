@@ -211,14 +211,29 @@
     }
     setState(t("rules.loading", "Caricamento regole…"), false);
     try {
-      var res = await fetch(url, { method: "GET", credentials: "omit" });
       var data = {};
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = {};
+      var resOk = false;
+      if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+        var cacheKey = window.VcApiCache.keyFor(url, { scope: "regole" });
+        var cached = await window.VcApiCache.fetchWithCache(cacheKey, url, {
+          ttlMs: 10 * 60 * 1000,
+          staleMs: 60 * 60 * 1000,
+          persistMs: 24 * 60 * 60 * 1000,
+          timeoutMs: 15000,
+          fetchInit: { method: "GET", credentials: "omit", cache: "no-store" },
+        });
+        data = (cached && cached.body) || {};
+        resOk = Boolean(cached && cached.ok && data.ok);
+      } else {
+        var res = await fetch(url, { method: "GET", credentials: "omit" });
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = {};
+        }
+        resOk = Boolean(res.ok && data.ok);
       }
-      if (!res.ok || !data.ok) {
+      if (!resOk) {
         setState(t("rules.errLoad", "Impossibile caricare le regole dal bot."), true);
         return;
       }

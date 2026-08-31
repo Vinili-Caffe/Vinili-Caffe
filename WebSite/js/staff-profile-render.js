@@ -74,10 +74,9 @@
 
   function isOnStaffCareerLadder(token) {
     if (!token) return false;
-    if (token === "member" || token === "community") return false;
+    if (token === "member" || token === "community" || token === "partner manager") return false;
     var ladder = {
       helper: 1,
-      "partner manager": 1,
       moderator: 1,
       "senior moderator": 1,
       director: 1,
@@ -88,16 +87,65 @@
     return !!ladder[token];
   }
 
+  function isPartnerManagerRole(token) {
+    return token === "partner manager";
+  }
+
   function isOutsideStaffCareerLadder(token) {
     return !isOnStaffCareerLadder(token);
   }
 
-  /** Ultimo stint on-ladder intero (Member→Helper→…).
+  /** Traccia PM parallela: solo pex → Partner Manager dell'ultimo stint. */
+  function slicePartnerManagerCareer(rows, opts) {
+    opts = opts || {};
+    var stillActive = Boolean(opts.stillActive);
+    if (!Array.isArray(rows) || !rows.length) return [];
+    var chrono = rows.slice().sort(function (a, b) {
+      return careerRowSortMs(a) - careerRowSortMs(b);
+    });
+    var start = 0;
+    var found = false;
+    var onPm = false;
+    for (var i = 0; i < chrono.length; i += 1) {
+      var to = normalizeCareerRoleToken(chrono[i].newRole);
+      var from = normalizeCareerRoleToken(chrono[i].oldRole);
+      if (isPartnerManagerRole(to) && !isPartnerManagerRole(from)) {
+        start = i;
+        found = true;
+        onPm = true;
+        continue;
+      }
+      if (onPm && isPartnerManagerRole(from) && !isPartnerManagerRole(to)) {
+        onPm = false;
+      }
+    }
+    if (!found) return [];
+    if (!onPm && !stillActive) return [];
+    var kept = [];
+    for (var j = start; j < chrono.length; j += 1) {
+      var toJ = normalizeCareerRoleToken(chrono[j].newRole);
+      var fromJ = normalizeCareerRoleToken(chrono[j].oldRole);
+      if (isPartnerManagerRole(toJ)) {
+        kept.push(chrono[j]);
+        continue;
+      }
+      if (isPartnerManagerRole(fromJ) && !isPartnerManagerRole(toJ)) break;
+    }
+    return kept.sort(function (a, b) {
+      return careerRowSortMs(b) - careerRowSortMs(a);
+    });
+  }
+
+  /** Ultimo stint Helper→Founder, oppure traccia PM se currentRole è Partner Manager.
    *  Vuota se uscito e non più in organico; niente carriere precedenti dopo depex. */
   function sliceToLatestCareer(rows, opts) {
     opts = opts || {};
     var stillActive = Boolean(opts.stillActive);
+    var currentRole = normalizeCareerRoleToken(opts.currentRole || "");
     if (!Array.isArray(rows) || !rows.length) return [];
+    if (isPartnerManagerRole(currentRole) || opts.track === "pm") {
+      return slicePartnerManagerCareer(rows, opts);
+    }
     var chrono = rows.slice().sort(function (a, b) {
       return careerRowSortMs(a) - careerRowSortMs(b);
     });
@@ -445,6 +493,7 @@
           sliceToLatestCareer(rolesHistory, {
             stillActive: stillActiveCareer,
             currentRole: currentCareerRole,
+            track: roleKind === "pm_only" ? "pm" : "staff",
           }),
         )
       : [];

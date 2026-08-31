@@ -100,7 +100,7 @@ body.vc-notifications-page .vc-notif-staff-inbox.has-detail .vc-staff-inbox-list
   padding: 0 !important;
 }
 
-/* Chip bar: niente container esterno — solo bottoni, come Personali */
+/* Chip bar legacy — tab ora dentro board unificata */
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-tools-tabs,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-filter-bar.vc-staff-inbox-tabs-bar,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group__seg,
@@ -122,6 +122,46 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-filter-bar {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   flex: 0 1 auto !important;
+}
+
+/* Seg dentro barra unificata: mantieni pill scura + bottoni beige */
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.15rem !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0.22rem !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+  box-shadow: none !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.3rem !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(245, 235, 224, 0.72) !important;
+  font-size: 0.82rem !important;
+  font-weight: 650 !important;
+  min-height: 0 !important;
+  padding: 0.42rem 0.95rem !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn.is-active {
+  background: rgba(232, 201, 168, 0.92) !important;
+  color: #1a120d !important;
+  border: 0 !important;
 }
 
 /* Niente cerchi/ornamenti ::before/::after sui filtri Staff */
@@ -220,6 +260,20 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-filter-btn {
   box-shadow: none !important;
 }
 
+/* Override mocha: tab/filtri unificati usano pt-seg */
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn {
+  border: 0 !important;
+  min-height: 0 !important;
+  padding: 0.42rem 0.95rem !important;
+  background: transparent !important;
+  color: rgba(245, 235, 224, 0.72) !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn.is-active {
+  background: rgba(232, 201, 168, 0.92) !important;
+  color: #1a120d !important;
+}
+
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading {
   min-height: 0 !important;
   padding: 0.75rem 0 !important;
@@ -230,22 +284,110 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading__card {
   display: none !important;
 }
 
-/* Durante boot: lista in loading, ma tab/filtri restano visibili (niente schermo vuoto). */
+/* Fullscreen boot inbox (stile staff pages) — NON abbassare lo z-index (footer/nav restano sotto). */
+body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading,
+html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading,
+html.vc-notif-early-staff body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading {
+  z-index: 2147483646 !important;
+}
+
+/* Come le altre pagine staff: solo loader a tutto schermo, niente header/footer.
+   Specificità > cine-boot (che forza header visible a z 2147483001). */
+html.vc-notif-staff-loading body.vc-notifications-page > header,
+html.vc-notif-early-staff body.vc-notifications-page > header,
+html.vc-notif-staff-loading body.vc-notifications-page > footer,
+html.vc-notif-early-staff body.vc-notifications-page > footer,
+html.vc-notif-staff-loading body.vc-notifications-page .vc-blob,
+html.vc-notif-early-staff body.vc-notifications-page .vc-blob,
+html.vc-notif-staff-loading body.vc-notifications-page .vc-home-cine,
+html.vc-notif-early-staff body.vc-notifications-page .vc-home-cine,
+html.vc-notif-staff-loading body.vc-notifications-page #vc-notif-scope-dock,
+html.vc-notif-staff-loading body.vc-notifications-page .vc-notif-scope-dock,
+html.vc-site-polish.vc-page-cine-boot.vc-notif-staff-loading:not(.vc-page-cine-ready) body.vc-body > header,
+html.vc-site-polish.vc-page-cine-boot.vc-notif-early-staff:not(.vc-page-cine-ready) body.vc-body > header,
+html.vc-site-polish.vc-page-cine-boot.vc-notif-staff-loading:not(.vc-page-cine-ready) body.vc-notifications-page > header,
+html.vc-site-polish.vc-page-cine-boot.vc-notif-early-staff:not(.vc-page-cine-ready) body.vc-notifications-page > header,
+html.vc-page-cine-boot.vc-notif-staff-loading:not(.vc-page-cine-ready) body.vc-body > header,
+html.vc-page-cine-boot.vc-notif-early-staff:not(.vc-page-cine-ready) body.vc-body > header {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading--hidden,
+html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox-loading[hidden] {
+  /* Non forzare più display se JS ha nascosto: altrimenti overlay fantasma = freeze telefono. */
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden) {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  /* Sopra cine-boot header (2147483001): solo loader a tutto schermo. */
+  z-index: 2147483646 !important;
+}
+
+html.vc-notif-staff-loading body.vc-notifications-page > footer.vc-premium-footer,
+html.vc-notif-early-staff body.vc-notifications-page > footer.vc-premium-footer,
+html.vc-notif-staff-loading body.vc-notifications-page #vc-notif-pane-personal,
+html.vc-notif-early-staff body.vc-notifications-page #vc-notif-pane-personal {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html.vc-notif-staff-loading body.vc-notifications-page #vc-notif-pane-personal,
+html.vc-notif-early-staff body.vc-notifications-page #vc-notif-pane-personal {
+  display: none !important;
+}
+
+html.vc-notif-staff-loading body.vc-notifications-page #vc-notif-pane-staff,
+html.vc-notif-early-staff body.vc-notifications-page #vc-notif-pane-staff,
+html.vc-notif-staff-loading body.vc-notifications-page #vc-notif-pane-staff[hidden],
+html.vc-notif-early-staff body.vc-notifications-page #vc-notif-pane-staff[hidden] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+html.vc-notif-staff-loading body.vc-notifications-page #vc-notif-scope-dock {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .vc-staff-inbox.is-booting {
   min-height: 12rem;
 }
 
 .vc-staff-inbox.is-booting > .vc-notify-toolbar,
-.vc-staff-inbox.is-booting > section.vc-notify-toolbar {
+.vc-staff-inbox.is-booting > section.vc-notify-toolbar,
+.vc-staff-inbox.is-booting > .vc-staff-inbox-unified-toolbar {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
+html.vc-notif-staff-loading .vc-staff-inbox.is-booting > .vc-notify-toolbar,
+html.vc-notif-staff-loading .vc-staff-inbox.is-booting > section.vc-notify-toolbar,
+html.vc-notif-staff-loading .vc-staff-inbox.is-booting > .vc-staff-inbox-unified-toolbar {
+  visibility: hidden !important;
+}
+
 body.vc-notifications-page .vc-notif-staff-inbox.is-booting #vc-staff-inbox-list {
   visibility: visible !important;
   opacity: 1 !important;
-  min-height: 12rem;
+  min-height: 0;
 }
 
 @media (max-width: 720px) {

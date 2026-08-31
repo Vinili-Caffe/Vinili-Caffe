@@ -127,12 +127,40 @@ async function ensureStaffCmdsThreadIdsHydrated() {
   return getStaffCmdsThreadIdsCache();
 }
 
+function resolveStaffCmdsThreadSpecKeySync(channel, ids = {}) {
+  if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return null;
+  const parentId = staffCmdsChannelId();
+  if (!parentId || String(channel.parentId || "") !== parentId) return null;
+  const threadId = String(channel.id);
+  if (ids.pm && threadId === String(ids.pm)) return "pm";
+  if (ids.high && threadId === String(ids.high)) return "high";
+  if (isPmCommandsThreadName(channel)) return "pm";
+  if (isHighCommandsThreadName(channel)) return "high";
+  return null;
+}
+
+async function resolveStaffCmdsThreadSpecKey(channel) {
+  if (!channel?.isThread?.()) return null;
+  const cached = getStaffCmdsThreadIdsCache();
+  let fetched = { pm: null, high: null };
+  try {
+    fetched = await getStaffCmdsThreadIds();
+  } catch (_) {}
+  const ids = {
+    pm: cached.pm || fetched.pm || null,
+    high: cached.high || fetched.high || null,
+  };
+  return resolveStaffCmdsThreadSpecKeySync(channel, ids);
+}
+
 module.exports = {
   staffCmdsChannelId,
   setStaffCmdsThreadIdsCache,
   getStaffCmdsThreadIdsCache,
   isChannelOrThreadUnderStaffCmds,
   isStaffCmdsMainChannel,
+  isPmCommandsThreadName,
+  isHighCommandsThreadName,
   isStaffCmdsPmCommandsThreadSync,
   isHighStaffCommandsThread,
   isStaffCmdsPmCommandsThread,
@@ -140,4 +168,6 @@ module.exports = {
   isStaffCmdsManagedCommandsThread,
   resolveStaffCmdsPmThread,
   ensureStaffCmdsThreadIdsHydrated,
+  resolveStaffCmdsThreadSpecKey,
+  resolveStaffCmdsThreadSpecKeySync,
 };

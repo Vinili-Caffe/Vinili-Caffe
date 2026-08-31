@@ -59,8 +59,7 @@
     if (!drawer) return;
     mountDrawer(drawer);
     closeNotifDropdown();
-    rebuildGrid();
-    syncDrawerFooter();
+    // safeFixes1: Apri SUBITO — rebuild griglia dopo il paint (ieri: tap hamburger lento).
     drawer.classList.add("vc-mobile-nav-drawer--open");
     drawer.setAttribute("aria-hidden", "false");
     if (toggle) toggle.setAttribute("aria-expanded", "true");
@@ -71,6 +70,12 @@
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
     } catch (eSyncOpen) {}
+    window.requestAnimationFrame(function () {
+      try {
+        rebuildGrid();
+        syncDrawerFooter();
+      } catch (eRebuild) {}
+    });
     onEscapeDrawer = function (ev) {
       if (ev.key === "Escape") {
         ev.preventDefault();

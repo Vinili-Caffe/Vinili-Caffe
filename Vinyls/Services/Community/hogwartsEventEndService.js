@@ -296,8 +296,9 @@ async function resolveMainGuild(client) {
 }
 
 /**
- * Premi fine evento (no annuncio Discord):
+ * Premi fine evento + verbale in #eventi:
  * - membri con ≥7000 pt personali nella casa 1°/2°/3° → VIP+ / VIP / Donator 30g
+ * - casa 1° + ≥7000 pt → anche ruolo bonus finale (finaleWinnerHouseBonusRoleId)
  * - 3° top utenti personali (esclusi prefetti) → VIP 30g; 1°/2° manuali
  * Non sovrascrive: se il ruolo c’è già, non viene rimosso a scadenza.
  */
@@ -305,6 +306,7 @@ async function awardHogwartsFinalePrizes(client, options = {}) {
   const cfg = resolveHogwartsEventConfig(client);
   const eventKey = normalizeId(cfg.eventKey);
   const endMs = Number(cfg.endMs || 0);
+  const winnerBonusRoleId = normalizeId(cfg.finaleWinnerHouseBonusRoleId);
   const nowMs = options.nowMs != null ? Number(options.nowMs) : Date.now();
   if (!cfg.enabled || !eventKey) {
     return { skipped: true, reason: "disabled" };
@@ -321,7 +323,31 @@ async function awardHogwartsFinalePrizes(client, options = {}) {
 
   const dedupeKey = `${eventKey}_finale_prizes`;
   const existing = await findFinalePublishMarker(guild.id, dedupeKey);
+  const priorSummary =
+    existing?.rawWebhook?.summary && typeof existing.rawWebhook.summary === "object"
+      ? existing.rawWebhook.summary
+      : null;
   if (existing?.status === "completed" && !options.force) {
+    if (priorSummary?.announceMessageId) {
+      return { skipped: true, reason: "already_done" };
+    }
+    if (priorSummary?.houseRanking?.length) {
+      try {
+        const { publishHogwartsFinaleAnnounce } = require("./hogwartsEventFinaleAnnounce");
+        const announce = await publishHogwartsFinaleAnnounce(client, guild, priorSummary, options);
+        if (announce?.ok) {
+          priorSummary.announceChannelId = announce.channelId;
+          priorSummary.announceMessageId = announce.messageId;
+          priorSummary.announceMessageIds = announce.messageIds;
+          await markFinalePublish(guild.id, dedupeKey, priorSummary);
+        } else if (announce?.reason && announce.reason !== "already_posted") {
+          global.logger?.warn?.("[HOGWARTS FINALE PRIZES] announce retry:", announce.reason);
+        }
+      } catch (errAnn) {
+        global.logger?.warn?.("[HOGWARTS FINALE PRIZES] announce retry failed:", errAnn?.message || errAnn);
+      }
+      return { skipped: false, summary: priorSummary, announceOnly: true };
+    }
     return { skipped: true, reason: "already_done" };
   }
 
@@ -346,6 +372,7 @@ async function awardHogwartsFinalePrizes(client, options = {}) {
     awardedAt: new Date(nowMs).toISOString(),
     houseRanking: rankedHouses,
     houseAwards: [],
+    winnerHouseBonusAwards: [],
     memberTop: [],
     memberTopAward: null,
   };
@@ -373,6 +400,28 @@ async function awardHogwartsFinalePrizes(client, options = {}) {
       hadRoleBefore: Boolean(result?.hadRoleBefore),
       reason: result?.reason || null,
     });
+
+    if (placeIndex === 0 && winnerBonusRoleId) {
+      const member = await getGuildMemberCached(guild, row.userId, { preferFresh: true }).catch(() => null);
+      let bonusOk = false;
+      let bonusHadRole = false;
+      if (member) {
+        bonusHadRole = member.roles.cache.has(winnerBonusRoleId);
+        if (!bonusHadRole) {
+          bonusOk = Boolean(await member.roles.add(winnerBonusRoleId).then(() => true).catch(() => false));
+        } else {
+          bonusOk = true;
+        }
+      }
+      summary.winnerHouseBonusAwards.push({
+        userId: row.userId,
+        houseId: row.houseId,
+        points: row.totalPoints,
+        roleId: winnerBonusRoleId,
+        ok: bonusOk,
+        hadRoleBefore: bonusHadRole,
+      });
+    }
   }
 
   const topEligible = [];
@@ -410,8 +459,24 @@ async function awardHogwartsFinalePrizes(client, options = {}) {
   }
 
   await markFinalePublish(guild.id, dedupeKey, summary);
+
+  try {
+    const { publishHogwartsFinaleAnnounce } = require("./hogwartsEventFinaleAnnounce");
+    const announce = await publishHogwartsFinaleAnnounce(client, guild, summary, options);
+    if (announce?.ok) {
+      summary.announceChannelId = announce.channelId;
+      summary.announceMessageId = announce.messageId;
+      summary.announceMessageIds = announce.messageIds;
+      await markFinalePublish(guild.id, dedupeKey, summary);
+    } else if (announce?.reason && announce.reason !== "already_posted") {
+      global.logger?.warn?.("[HOGWARTS FINALE PRIZES] announce:", announce.reason);
+    }
+  } catch (errAnn) {
+    global.logger?.warn?.("[HOGWARTS FINALE PRIZES] announce failed:", errAnn?.message || errAnn);
+  }
+
   global.logger?.info?.(
-    `[HOGWARTS FINALE PRIZES] Assegnati house=${summary.houseAwards.filter((a) => a.ok).length}/${summary.houseAwards.length} memberTop3=${summary.memberTopAward?.ok ? 1 : 0}`,
+    `[HOGWARTS FINALE PRIZES] Assegnati house=${summary.houseAwards.filter((a) => a.ok).length}/${summary.houseAwards.length} winnerBonus=${summary.winnerHouseBonusAwards.filter((a) => a.ok).length}/${summary.winnerHouseBonusAwards.length} memberTop3=${summary.memberTopAward?.ok ? 1 : 0}`,
   );
   return { skipped: false, summary };
 }

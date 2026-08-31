@@ -178,6 +178,90 @@ async function collectResocontoSegmentStats(channel, sinceMs) {
   return stats;
 }
 
+/**
+ * Stats compito da inbox Mongo (source of truth quando Discord workflow posts sono OFF).
+ * Esclude il resoconto del revisore stesso ("escluso lui"): non deve gestirlo per il premio.
+ */
+async function collectResocontoSegmentStatsFromSite(guildId, weekKey, { excludeUserId = null } = {}) {
+  const stats = Object.fromEntries(
+    RESOCONTO_SEGMENTS.map((segment) => [segment, { total: 0, handled: 0, handlers: [] }]),
+  );
+  const gid = String(guildId || "").trim();
+  const wk = String(weekKey || "").trim();
+  if (!gid || !wk) return stats;
+
+  try {
+    const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+    const docs = await SiteDocument.find({
+      docType: SITE_DOCUMENT_TYPE.STAFF_WORKFLOW,
+      guildId: gid,
+      workflowQueue: "resoconti",
+      workflowWeekKey: wk,
+    })
+      .select("userId status workflowDecidedBy workflowKind workflowRoleId")
+      .lean()
+      .catch(() => []);
+
+    const exclude = String(excludeUserId || "").trim();
+    for (const doc of Array.isArray(docs) ? docs : []) {
+      const subjectId = String(doc?.userId || "").trim();
+      if (exclude && subjectId && subjectId === exclude) continue;
+
+      const kind = String(doc?.workflowKind || "").trim().toLowerCase();
+      let segment = null;
+      if (kind === "p") segment = "pm";
+      else if (kind === "s") {
+        segment = ROLE_ID_TO_RESOCONTO_SEGMENT[String(doc?.workflowRoleId || "")] || null;
+      }
+      if (!segment || !stats[segment]) continue;
+
+      stats[segment].total += 1;
+      const status = String(doc?.status || "").trim().toLowerCase();
+      if (status === "pending") continue;
+      stats[segment].handled += 1;
+      const reviewerId = String(doc?.workflowDecidedBy || "").trim();
+      if (/^\d{16,22}$/.test(reviewerId)) stats[segment].handlers.push(reviewerId);
+    }
+  } catch (err) {
+    global.logger?.warn?.(
+      "[RESOCONTO REVIEWER REWARD] Site stats failed:",
+      err?.message || err,
+    );
+  }
+
+  return stats;
+}
+
+function mergeResocontoSegmentStats(primary, fallback) {
+  const out = Object.fromEntries(
+    RESOCONTO_SEGMENTS.map((segment) => [segment, { total: 0, handled: 0, handlers: [] }]),
+  );
+  for (const segment of RESOCONTO_SEGMENTS) {
+    const a = primary?.[segment] || { total: 0, handled: 0, handlers: [] };
+    const b = fallback?.[segment] || { total: 0, handled: 0, handlers: [] };
+    // Preferisci la sorgente con più pratiche (sito vs Discord).
+    const use = Number(a.total || 0) >= Number(b.total || 0) ? a : b;
+    out[segment] = {
+      total: Number(use.total || 0),
+      handled: Number(use.handled || 0),
+      handlers: Array.isArray(use.handlers) ? [...use.handlers] : [],
+    };
+  }
+  return out;
+}
+
+async function collectResocontoSegmentStatsForCompito(guild, channel, weekKey) {
+  const since = weeklyResocontoService().getResocontoCycleMessagesSince();
+  const sinceMs = since?.getTime?.() || 0;
+  const discordStats = channel?.messages?.fetch
+    ? await collectResocontoSegmentStats(channel, sinceMs)
+    : Object.fromEntries(
+        RESOCONTO_SEGMENTS.map((segment) => [segment, { total: 0, handled: 0, handlers: [] }]),
+      );
+  const siteStats = await collectResocontoSegmentStatsFromSite(guild?.id, weekKey);
+  return mergeResocontoSegmentStats(siteStats, discordStats);
+}
+
 function findAutoValutazioneEntry(staff, keyStr) {
   if (!Array.isArray(staff?.autoValutazioni)) return null;
   return staff.autoValutazioni.find((entry) => String(entry?.key || "") === String(keyStr || "")) || null;
@@ -372,15 +456,26 @@ async function resolveCompitoRecipientForSegment(guild, segment, segmentStats) {
  * Se un revisore ha più segmenti (es. tutti tranne director), il compito
  * scatta solo quando ha gestito TUTTI i resoconti di quei segmenti attivi.
  */
-async function reviewerCompletedAllAssignedSegments(guild, reviewerId, scanStats) {
+async function reviewerCompletedAllAssignedSegments(guild, reviewerId, scanStats, weekKey = null) {
   const uid = String(reviewerId || "").trim();
   if (!uid || !scanStats) return false;
   const segments = getResocontoSegmentsForReviewerUserId(uid);
   if (!segments.length) return false;
 
+  // Ricalcola da sito escludendo il proprio resoconto (non deve gestirlo per il premio).
+  let stats = scanStats;
+  try {
+    const wk = String(weekKey || weeklyResocontoService().getResocontoCycleWeekKey() || "").trim();
+    if (wk && guild?.id) {
+      const siteExcl = await collectResocontoSegmentStatsFromSite(guild.id, wk, { excludeUserId: uid });
+      const siteHasRows = RESOCONTO_SEGMENTS.some((s) => Number(siteExcl[s]?.total || 0) > 0);
+      if (siteHasRows) stats = siteExcl;
+    }
+  } catch (_) {}
+
   let anyActive = false;
   for (const seg of segments) {
-    const st = scanStats[seg];
+    const st = stats[seg];
     if (!st || Number(st.total || 0) < 1) continue;
     anyActive = true;
     if (Number(st.handled || 0) < Number(st.total || 0)) return false;
@@ -398,17 +493,13 @@ async function maybeGrantCompitoSettimanaleForSegment(
   { stats = null } = {},
 ) {
   const seg = String(segment || "").trim();
-  if (!guild || !channel || !seg) return { ok: false, skipped: "invalid_args" };
+  if (!guild || !seg) return { ok: false, skipped: "invalid_args" };
 
-  let segmentStats = stats?.[seg] || null;
   let scanStats = stats;
-  if (!segmentStats || !scanStats) {
-    const since = weeklyResocontoService().getResocontoCycleMessagesSince();
-    const sinceMs = since?.getTime?.() || 0;
-    const collected = await collectResocontoSegmentStats(channel, sinceMs);
-    scanStats = collected;
-    segmentStats = collected[seg];
+  if (!scanStats) {
+    scanStats = await collectResocontoSegmentStatsForCompito(guild, channel, weekKey);
   }
+  let segmentStats = scanStats?.[seg] || null;
   if (!segmentStats || segmentStats.total < 1) {
     return { ok: false, skipped: "no_resoconti" };
   }
@@ -422,7 +513,7 @@ async function maybeGrantCompitoSettimanaleForSegment(
   }
 
   // Revisore multi-segmento: un solo compito quando ha chiuso TUTTI i suoi segmenti.
-  if (!(await reviewerCompletedAllAssignedSegments(guild, reviewerId, scanStats))) {
+  if (!(await reviewerCompletedAllAssignedSegments(guild, reviewerId, scanStats, weekKey))) {
     return { ok: false, skipped: "assigned_segments_incomplete" }; // atteso finché restano segmenti aperti
   }
 
@@ -438,8 +529,8 @@ async function maybeGrantCompitoSettimanaleForSegment(
   return result?.created ? { ...result, reviewerId } : result;
 }
 
-function scheduleDebouncedCompitoSegmentChecks(guild, channel) {
-  if (!guild || !channel) return;
+function scheduleDebouncedCompitoSegmentChecks(guild, channel = null) {
+  if (!guild) return;
   if (compitoCheckTimer) return;
 
   compitoCheckTimer = setTimeout(() => {
@@ -451,14 +542,12 @@ function scheduleDebouncedCompitoSegmentChecks(guild, channel) {
   compitoCheckTimer.unref?.();
 }
 
-async function runDebouncedCompitoSegmentChecks(guild, channel) {
+async function runDebouncedCompitoSegmentChecks(guild, channel = null) {
   if (compitoCheckRunning) return;
   compitoCheckRunning = true;
   try {
     const weekKey = weeklyResocontoService().getResocontoCycleWeekKey();
-    const since = weeklyResocontoService().getResocontoCycleMessagesSince();
-    const sinceMs = since?.getTime?.() || 0;
-    const scanStats = await collectResocontoSegmentStats(channel, sinceMs);
+    const scanStats = await collectResocontoSegmentStatsForCompito(guild, channel, weekKey);
     const activeSegments = RESOCONTO_SEGMENTS.filter((segment) => (scanStats[segment]?.total || 0) > 0);
     const granted = [];
 
@@ -466,7 +555,7 @@ async function runDebouncedCompitoSegmentChecks(guild, channel) {
       const result = await maybeGrantCompitoSettimanaleForSegment(guild, channel, segment, weekKey, {
         stats: scanStats,
       });
-      if (result?.created) granted.push(`${segment}:${result.reviewerId || reviewerId || "?"}`);
+      if (result?.created) granted.push(`${segment}:${result.reviewerId || "?"}`);
     }
 
     if (granted.length) {
@@ -482,8 +571,9 @@ async function runDebouncedCompitoSegmentChecks(guild, channel) {
 async function onResocontoOutcomeRecorded(guild, channel, reviewerUserId, payload) {
   try {
     const segment = resolveSegmentFromPayload(payload);
-    if (!segment || !guild || !channel) return;
-    scheduleDebouncedCompitoSegmentChecks(guild, channel);
+    // Site-only: channel può essere null — il check usa Mongo inbox.
+    if (!segment || !guild) return;
+    scheduleDebouncedCompitoSegmentChecks(guild, channel || null);
   } catch (err) {
     global.logger?.warn?.("[RESOCONTO REVIEWER REWARD] onOutcome failed:", err?.message || err);
   }
@@ -530,5 +620,9 @@ module.exports = {
   resolveSegmentFromPayload,
   parseResocontoMessageMeta,
   collectResocontoSegmentStats,
+  collectResocontoSegmentStatsFromSite,
+  collectResocontoSegmentStatsForCompito,
   grantCompitoSettimanaleIfEligible,
+  runDebouncedCompitoSegmentChecks,
+  maybeGrantCompitoSettimanaleForSegment,
 };

@@ -1,4 +1,5 @@
 (function () {
+  // chromeWidgetsSync1: volume + posizione + play/pause sincronizzati tra pagine/tab/device.
   var BGM_PREF_KEY = "vc_hogwarts_bgm_enabled_v1";
   var VOL_PREF_KEY = "vc_hogwarts_bgm_volume_v1";
   var HINT_AUTO_HIDE_MS = 4500;
@@ -22,6 +23,96 @@
   var seekUiBound = false;
   var seekUiTimer = 0;
   var seekDragging = false;
+  var PLAYBACK_STALE_MS = 45 * 60 * 1000;
+  var pendingSeek = null;
+  var playbackPublishTimer = 0;
+
+  function readHogwartsMirror() {
+    try {
+      var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
+      if (sync && sync.hogwartsBgm && typeof sync.hogwartsBgm === "object") return sync.hogwartsBgm;
+    } catch (eMir) {}
+    return null;
+  }
+
+  function mirrorIsFresh(hb) {
+    if (!hb) return false;
+    var at = Number(hb.at) || 0;
+    return at > 0 && Date.now() - at < PLAYBACK_STALE_MS;
+  }
+
+  function publishHogwartsMirror(partial, opts) {
+    var patch = Object.assign({}, partial || {});
+    try {
+      if (player && playerReady) {
+        if (!("seek" in patch)) patch.seek = Number(player.getCurrentTime()) || 0;
+        if (!("playing" in patch)) patch.playing = isAudiblePlaying();
+        if (!("videoIdx" in patch)) patch.videoIdx = activeVideoIdx;
+      }
+    } catch (ePb) {}
+    patch.at = Date.now();
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.publish({ hogwartsBgm: patch }, opts);
+      }
+    } catch (ePub) {}
+  }
+
+  function applyPendingSeek() {
+    if (pendingSeek == null || !player || !playerReady) return;
+    try {
+      var dur = Number(player.getDuration()) || 0;
+      var t = Math.max(0, Number(pendingSeek) || 0);
+      if (dur > 0.5) t = Math.min(Math.max(0, dur - 0.35), t);
+      player.seekTo(t, true);
+      syncSeekSliderUi();
+      pendingSeek = null;
+    } catch (eSk) {}
+  }
+
+  function softPauseAudible() {
+    started = false;
+    try {
+      if (player) player.pauseVideo();
+    } catch (eSp) {}
+    updateMusicButtonUi();
+  }
+
+  function schedulePlaybackPublish() {
+    if (playbackPublishTimer) return;
+    playbackPublishTimer = window.setInterval(function () {
+      if (!isAudiblePlaying()) return;
+      publishHogwartsMirror({ enabled: !isUserOptedOut(), volume: userVol });
+    }, 4000);
+    if (playbackPublishTimer && playbackPublishTimer.unref) playbackPublishTimer.unref();
+  }
+
+  function applyRemoteHogwartsPlayback(hb) {
+    if (!hb || !mirrorIsFresh(hb)) return;
+    if (Number.isFinite(Number(hb.videoIdx))) {
+      var idx = Math.max(0, Math.floor(Number(hb.videoIdx)));
+      if (idx !== activeVideoIdx) {
+        activeVideoIdx = idx;
+        try {
+          var pub = youtubePublicCfg();
+          if (player && playerReady && pub && pub.videoIds && pub.videoIds[idx]) {
+            player.loadVideoById(pub.videoIds[idx]);
+          }
+        } catch (eVi) {}
+      }
+    }
+    if (Number.isFinite(Number(hb.seek)) && Number(hb.seek) > 0) {
+      pendingSeek = Number(hb.seek);
+      applyPendingSeek();
+    }
+    if (typeof hb.playing === "boolean") {
+      if (hb.playing && !isUserOptedOut()) {
+        if (!isAudiblePlaying()) playAudible(true);
+      } else if (!hb.playing && isAudiblePlaying()) {
+        softPauseAudible();
+      }
+    }
+  }
 
   function seekBySeconds(deltaSec) {
     if (!player || !playerReady) return;
@@ -32,6 +123,7 @@
       if (dur > 0.5) next = Math.min(Math.max(0, dur - 0.35), next);
       player.seekTo(next, true);
       syncSeekSliderUi();
+      publishHogwartsMirror({ enabled: !isUserOptedOut(), volume: userVol, playing: true, seek: next });
     } catch (eSeek) {}
   }
 
@@ -42,6 +134,7 @@
       if (!(dur > 0.5)) return;
       var next = Math.min(Math.max(0, dur - 0.35), Math.max(0, dur * Math.min(1, Math.max(0, Number(ratio01) || 0))));
       player.seekTo(next, true);
+      publishHogwartsMirror({ enabled: !isUserOptedOut(), volume: userVol, playing: isAudiblePlaying(), seek: next });
     } catch (eRatio) {}
   }
 
@@ -127,11 +220,11 @@
       localStorage.setItem(BGM_PREF_KEY, enabled ? "1" : "0");
     } catch (eP) {}
     try {
-      if (window.__VC_CHROME_SYNC) {
-        window.__VC_CHROME_SYNC.publish({
-          hogwartsBgm: { enabled: Boolean(enabled), volume: userVol },
-        });
-      }
+      publishHogwartsMirror({
+        enabled: Boolean(enabled),
+        volume: userVol,
+        playing: enabled ? isAudiblePlaying() : false,
+      });
     } catch (eS) {}
   }
 
@@ -171,11 +264,10 @@
       localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
     } catch (eP) {}
     try {
-      if (window.__VC_CHROME_SYNC) {
-        window.__VC_CHROME_SYNC.publish({
-          hogwartsBgm: { enabled: !isUserOptedOut(), volume: userVol },
-        });
-      }
+      publishHogwartsMirror({
+        enabled: !isUserOptedOut(),
+        volume: userVol,
+      });
     } catch (eS) {}
   }
 
@@ -751,6 +843,11 @@
           } catch (eV) {}
           startSeekUiLoop();
           syncSeekSliderUi();
+          applyPendingSeek();
+          var hbBoot = readHogwartsMirror();
+          if (mirrorIsFresh(hbBoot) && hbBoot.playing && !isUserOptedOut() && !isAudiblePlaying()) {
+            playAudible(true);
+          }
         },
         onError: function (ev) {
           booting = false;
@@ -786,10 +883,17 @@
             hideHint();
             detachFirstPointer();
             updateMusicButtonUi();
+            applyPendingSeek();
+            schedulePlaybackPublish();
+            publishHogwartsMirror({ enabled: !isUserOptedOut(), volume: userVol, playing: true });
           }
           if (ev.data === YT.PlayerState.PAUSED && mutedByUser) {
             started = false;
             updateMusicButtonUi();
+            publishHogwartsMirror({ enabled: false, volume: userVol, playing: false });
+          }
+          if (ev.data === YT.PlayerState.PAUSED && !mutedByUser) {
+            publishHogwartsMirror({ enabled: !isUserOptedOut(), volume: userVol, playing: false });
           }
           if (ev.data === YT.PlayerState.ENDED) {
             if (mutedByUser) return;
@@ -935,6 +1039,8 @@
       player.playVideo();
       started = true;
       updateMusicButtonUi();
+      schedulePlaybackPublish();
+      publishHogwartsMirror({ enabled: true, volume: userVol, playing: true });
     } catch (eP) {
       ensureHint();
     }
@@ -1024,6 +1130,16 @@
       updateMusicButtonUi();
       return;
     }
+    var hbResume = readHogwartsMirror();
+    if (mirrorIsFresh(hbResume) && hbResume.playing) {
+      if (Number.isFinite(Number(hbResume.seek)) && Number(hbResume.seek) > 0) pendingSeek = Number(hbResume.seek);
+      try {
+        window.__vcHogwartsBgmAllowed = true;
+      } catch (eA0) {}
+      mutedByUser = false;
+      playAudible(true);
+      return;
+    }
     if (cinemaIntroActive()) return;
     ensureHint();
     armFirstPointer();
@@ -1078,8 +1194,11 @@
             if (!prefs.hogwartsBgm.enabled) {
               mutedByUser = true;
               pauseAudible();
+            } else {
+              mutedByUser = false;
             }
           }
+          applyRemoteHogwartsPlayback(prefs.hogwartsBgm);
           updateMusicButtonUi();
         });
       }
@@ -1100,6 +1219,9 @@
   });
 
   window.addEventListener("pagehide", function () {
+    try {
+      publishHogwartsMirror({ enabled: !isUserOptedOut(), volume: userVol });
+    } catch (ePhPub) {}
     try {
       if (typeof window.__vcHogwartsYoutubeStop === "function") {
         window.__vcHogwartsYoutubeStop();

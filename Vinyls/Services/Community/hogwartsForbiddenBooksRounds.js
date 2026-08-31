@@ -32,6 +32,7 @@ function forbiddenBooksConfig(client) {
   return { ...fallback, ...root, rounds: Array.isArray(fallback.rounds) ? fallback.rounds : [] };
 }
 
+/** Label pagina (solo indizi / admin) — non mostrare come titolo libro in Discord. */
 const FORBIDDEN_BOOK_LABELS = Object.freeze({
   home: "Home",
   faq: "FAQ",
@@ -47,7 +48,8 @@ const FORBIDDEN_BOOK_LABELS = Object.freeze({
   user: "Profilo utente",
   perks: "Perks",
   notifications: "Notifiche",
-  unban: "Richiesta unban",
+  appelli: "Appelli",
+  unban: "Appelli",
   evento_shop: "Shop evento",
   evento_pozioni: "Pozioni",
   evento_smistamento: "Smistamento",
@@ -57,15 +59,79 @@ const FORBIDDEN_BOOK_LABELS = Object.freeze({
   cookie: "Cookie",
 });
 
+/** Titoli fantasy dei libri (annunci Discord / toast). La pagina resta nascosta fino all'indizio. */
+const FORBIDDEN_BOOK_TITLES = Object.freeze({
+  home: "Cronache di Hogwarts",
+  faq: "Domande di un Mago Curioso",
+  wiki: "Enciclopedia delle Arti Magiche",
+  regole: "Il Codice dell'Onore Magico",
+  donazioni: "Tesori Segreti di Gringott",
+  vote: "Il Verdetto del Calice",
+  ruoli: "Gerarchie della Scuola di Magia",
+  sponsor: "Patrocini dei Mecenati Oscuri",
+  candidature: "Lettere ai Prefetti",
+  recensioni: "Giudizi del Critico Magico",
+  suggerimenti: "Appunti dal Gabinetto degli Indovinelli",
+  user: "Diario dello Studente",
+  perks: "Privilegi della Torre",
+  notifications: "Messaggeri della Civetta",
+  appelli: "Appelli al Wizengamot",
+  unban: "Appelli al Wizengamot",
+  evento_shop: "Catalogo di Flourish & Blotts",
+  evento_pozioni: "Ricettario di Pozioni Proibite",
+  evento_smistamento: "Segreti del Cappello Parlante",
+  evento_coppa: "Annali della Coppa delle Case",
+  privacy: "Il Velo dell'Invisibilità",
+  terms: "Patto Vincolante di Magia",
+  cookie: "Biscotti della Fortuna Magica",
+});
+
+/** Alias legacy → id canonico (pagina site). */
+const FORBIDDEN_BOOK_ID_ALIASES = Object.freeze({
+  unban: "appelli",
+});
+
+/**
+ * Pagine pubbliche (aperte a tutti, con vc-landing): usate dalla Sezione proibita lampo.
+ * Esclusi login-only (user/perks/notifications) e pagine staff.
+ */
+const PUBLIC_FORBIDDEN_BOOK_IDS = Object.freeze([
+  "home",
+  "faq",
+  "wiki",
+  "regole",
+  "donazioni",
+  "vote",
+  "ruoli",
+  "sponsor",
+  "candidature",
+  "recensioni",
+  "suggerimenti",
+  "appelli",
+  "evento_shop",
+  "evento_pozioni",
+  "evento_smistamento",
+  "evento_coppa",
+  "privacy",
+  "terms",
+  "cookie",
+]);
+
 const DEFAULT_ROUND_BOOK_IDS = Object.freeze([
   "home", "faq", "wiki", "regole", "donazioni", "vote", "ruoli", "sponsor",
 ]);
+
+function canonicalizeForbiddenBookId(value) {
+  const id = String(value || "").trim().toLowerCase();
+  if (!id) return "";
+  return FORBIDDEN_BOOK_ID_ALIASES[id] || id;
+}
 
 function normalizeRoundBookIds(raw) {
   const list = Array.isArray(raw) ? raw : [];
   const out = [];
   for (const entry of list) {
-    const id = String(entry || "").trim().toLowerCase();
+    const id = canonicalizeForbiddenBookId(entry);
     if (!id || out.includes(id)) continue;
     out.push(id);
   }
@@ -152,20 +218,41 @@ function allConfiguredForbiddenBookIds(client) {
 }
 
 function normalizeForbiddenBookId(value, allowedBookIds) {
-  const id = String(value || "").trim().toLowerCase();
-  const allowed = Array.isArray(allowedBookIds) && allowedBookIds.length
+  const id = canonicalizeForbiddenBookId(value);
+  const allowedRaw = Array.isArray(allowedBookIds) && allowedBookIds.length
     ? allowedBookIds
     : DEFAULT_ROUND_BOOK_IDS;
+  const allowed = allowedRaw.map(canonicalizeForbiddenBookId).filter(Boolean);
   return allowed.includes(id) ? id : "";
 }
 
 function formatForbiddenBookLabel(bookId) {
-  return FORBIDDEN_BOOK_LABELS[String(bookId || "").trim().toLowerCase()] || String(bookId || "").trim();
+  const id = canonicalizeForbiddenBookId(bookId);
+  return FORBIDDEN_BOOK_LABELS[id] || String(bookId || "").trim();
+}
+
+function formatForbiddenBookTitle(bookId) {
+  const id = canonicalizeForbiddenBookId(bookId);
+  return FORBIDDEN_BOOK_TITLES[id] || formatForbiddenBookLabel(id) || String(bookId || "").trim();
+}
+
+function filterPublicForbiddenBookIds(ids) {
+  const list = Array.isArray(ids) ? ids : [];
+  const out = [];
+  for (const entry of list) {
+    const id = canonicalizeForbiddenBookId(entry);
+    if (!id || !PUBLIC_FORBIDDEN_BOOK_IDS.includes(id) || out.includes(id)) continue;
+    out.push(id);
+  }
+  return out;
 }
 
 module.exports = {
   FORBIDDEN_EVENT_DEDUPE,
   FORBIDDEN_BOOK_LABELS,
+  FORBIDDEN_BOOK_TITLES,
+  FORBIDDEN_BOOK_ID_ALIASES,
+  PUBLIC_FORBIDDEN_BOOK_IDS,
   DEFAULT_ROUND_BOOK_IDS,
   forbiddenBooksConfig,
   resolveForbiddenBooksRounds,
@@ -173,6 +260,9 @@ module.exports = {
   forbiddenRoundDedupeKey,
   resolveForbiddenRoundByTime,
   allConfiguredForbiddenBookIds,
+  canonicalizeForbiddenBookId,
   normalizeForbiddenBookId,
   formatForbiddenBookLabel,
+  formatForbiddenBookTitle,
+  filterPublicForbiddenBookIds,
 };

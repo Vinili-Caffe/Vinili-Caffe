@@ -1,5 +1,6 @@
 /**
  * Sync chrome widgets (musica, kick pip, type-sfx) tra tab/pagine e, se loggato, PC↔telefono.
+ * chromeWidgetsSync1
  */
 (function (global) {
   "use strict";
@@ -59,9 +60,25 @@
     }
   }
 
+  function mergePrefs(base, incoming) {
+    var out = Object.assign({}, base || {});
+    var inc = incoming || {};
+    var nested = ["kickPip", "hogwartsBgm", "seratafilmBgm", "typeSfx"];
+    Object.keys(inc).forEach(function (key) {
+      if (nested.indexOf(key) >= 0 && inc[key] && typeof inc[key] === "object") {
+        out[key] = Object.assign({}, out[key] || {}, inc[key]);
+      } else {
+        out[key] = inc[key];
+      }
+    });
+    return out;
+  }
+
   function publish(partial, opts) {
     if (applyingRemote) return;
-    var next = Object.assign({}, readMirror(), partial || {}, { updatedAt: Date.now(), tabId: TAB_ID });
+    var next = mergePrefs(readMirror(), partial || {});
+    next.updatedAt = Date.now();
+    next.tabId = TAB_ID;
     writeMirror(next);
     try {
       if (bc) bc.postMessage({ type: "chrome-prefs", prefs: next, tabId: TAB_ID });
@@ -100,6 +117,40 @@
     var token = getToken();
     if (!token || hydratedServer) return;
     hydratedServer = true;
+    var cacheKey =
+      global.VcApiCache && typeof global.VcApiCache.keyFor === "function"
+        ? global.VcApiCache.keyFor(API, { scope: "chrome", auth: token })
+        : "";
+    function applyData(data) {
+      if (!data || data.ok !== true || !data.prefs) return;
+      var local = readMirror();
+      var remoteAt = Number(data.prefs.updatedAt) || 0;
+      var localAt = Number(local.updatedAt) || 0;
+      if (remoteAt >= localAt) {
+        writeMirror(mergePrefs(local, data.prefs));
+        notify(data.prefs, "server");
+      } else {
+        pushServer(local);
+      }
+    }
+    if (global.VcApiCache && typeof global.VcApiCache.fetchWithCache === "function" && cacheKey) {
+      global.VcApiCache
+        .fetchWithCache(cacheKey, API, {
+          ttlMs: 30000,
+          staleMs: 5 * 60 * 1000,
+          auth: token,
+          fetchInit: {
+            headers: { Authorization: "Bearer " + token },
+            credentials: "omit",
+            cache: "no-store",
+          },
+        })
+        .then(function (payload) {
+          applyData(payload && payload.body ? payload.body : null);
+        })
+        .catch(function () {});
+      return;
+    }
     fetch(API, {
       headers: { Authorization: "Bearer " + token },
       credentials: "omit",
@@ -110,18 +161,7 @@
           return {};
         });
       })
-      .then(function (data) {
-        if (!data || data.ok !== true || !data.prefs) return;
-        var local = readMirror();
-        var remoteAt = Number(data.prefs.updatedAt) || 0;
-        var localAt = Number(local.updatedAt) || 0;
-        if (remoteAt >= localAt) {
-          writeMirror(Object.assign({}, local, data.prefs));
-          notify(data.prefs, "server");
-        } else {
-          pushServer(local);
-        }
-      })
+      .then(applyData)
       .catch(function () {});
   }
 

@@ -39,6 +39,35 @@
     return Boolean(navigator.standalone);
   }
 
+  /** phoneAllPages1: telefono browser + PWA — niente rise/MO (congela dopo tap/secondi). */
+  function isPhoneTouchUi() {
+    if (isStandalonePwa()) return true;
+    try {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+    } catch (e0) {}
+    try {
+      if (
+        window.matchMedia &&
+        window.matchMedia("(hover: none)").matches &&
+        Number(navigator.maxTouchPoints || 0) > 0
+      ) {
+        return true;
+      }
+    } catch (e1) {}
+    return Number(navigator.maxTouchPoints || 0) > 0;
+  }
+
+  function skipHeavyPolishFx() {
+    /* sitePerfFlash1: mid/lite desktop — niente sheen/MO/rise pesanti. */
+    if (isPhoneTouchUi()) return true;
+    try {
+      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
+        return true;
+      }
+    } catch (ePerfSkip) {}
+    return false;
+  }
+
   function isVotePage() {
     var b = document.body;
     if (b && b.classList.contains("vc-vote-page")) return true;
@@ -381,6 +410,10 @@
 
   function initRise() {
     if (excluded()) return;
+    if (skipHeavyPolishFx()) {
+      forceRevealStaleRises();
+      return;
+    }
     if (riseBusy) return;
     riseBusy = true;
     riseMoPaused = true;
@@ -511,7 +544,7 @@
       if (document.querySelector('script[src*="vc-home-cine"]')) return;
     } catch (e0) {}
     var s = document.createElement("script");
-    s.src = "/js/vc-home-cine.js?v=20260830ptrFirstTap1";
+    s.src = "/js/vc-home-cine.js?v=20260830phoneAllPages1";
     s.defer = true;
     (document.body || document.documentElement).appendChild(s);
   }
@@ -572,10 +605,20 @@
     } catch (eMotion) {}
     ensureAtmos();
     loadHomeCine();
-    initRise();
-    watchDynamicRise();
-    window.setTimeout(forceRevealStaleRises, 900);
-    window.setTimeout(forceRevealStaleRises, 2200);
+    // phoneAllPages1: su telefono/PWA salta sheen/MO/rise (DOM thrash + :has → freeze).
+    if (skipHeavyPolishFx()) {
+      try {
+        var all = document.querySelectorAll(".vc-home-rise");
+        for (var i = 0; i < all.length; i++) all[i].classList.add("is-in");
+      } catch (eIn) {}
+      window.setTimeout(forceRevealStaleRises, 400);
+      window.setTimeout(forceRevealStaleRises, 1600);
+    } else {
+      initRise();
+      watchDynamicRise();
+      window.setTimeout(forceRevealStaleRises, 900);
+      window.setTimeout(forceRevealStaleRises, 2200);
+    }
     try {
       window.addEventListener("pageshow", function () {
         recoverBlackScreen();
@@ -601,6 +644,11 @@
   }
   function onDynamicContentReady() {
     if (excluded()) return;
+    // phoneAllPages1: cine-ready dopo 1–3s riattivava initRise e congelava il telefono.
+    if (skipHeavyPolishFx()) {
+      forceRevealStaleRises();
+      return;
+    }
     initRise();
     try {
       if (typeof window.__vcInitPanelTilt === "function") window.__vcInitPanelTilt();

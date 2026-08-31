@@ -913,7 +913,7 @@ function buildResocontoOverrideRows(payload, messageId) {
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(mk("rc")).setLabel("Richiamo").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(mk("nl")).setLabel("Nulla").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(mk("dp")).setLabel("Depex").setStyle(ButtonStyle.Danger),
       ),
     ];
   }
@@ -1202,7 +1202,7 @@ function buildWebResocontoAlternatives(kind) {
   if (String(kind || "") === "p") {
     return [
       { actionKey: "rc", label: "Richiamo" },
-      { actionKey: "nl", label: "Nulla" },
+      { actionKey: "dp", label: "Depex" },
     ];
   }
   return [
@@ -1257,12 +1257,20 @@ async function decideResocontoFromWeb(guild, actorMember, opts = {}) {
   if (kind !== "s" && kind !== "p") {
     return { ok: false, status: 400, error: "bad_kind", message: "Tipo resoconto non valido." };
   }
-  if (overrideActionKey === "px" || overrideActionKey === "dp" || proposedActionKey === "px" || proposedActionKey === "dp") {
+  if (overrideActionKey === "px" || proposedActionKey === "px") {
     return {
       ok: false,
       status: 400,
       error: "pex_depex_disabled",
-      message: "I resoconti non possono suggerire né applicare Pex/Depex.",
+      message: "I resoconti non possono suggerire né applicare Pex.",
+    };
+  }
+  if ((overrideActionKey === "dp" || proposedActionKey === "dp") && kind !== "p") {
+    return {
+      ok: false,
+      status: 400,
+      error: "pex_depex_disabled",
+      message: "Depex dai resoconti è consentito solo per Partner Manager.",
     };
   }
 

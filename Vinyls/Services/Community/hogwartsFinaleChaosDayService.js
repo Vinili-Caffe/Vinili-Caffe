@@ -23,14 +23,18 @@ const {
   FORBIDDEN_BOOK_LABELS,
   allConfiguredForbiddenBookIds,
   formatForbiddenBookLabel,
+  formatForbiddenBookTitle,
+  filterPublicForbiddenBookIds,
+  PUBLIC_FORBIDDEN_BOOK_IDS,
+  canonicalizeForbiddenBookId,
 } = require("./hogwartsForbiddenBooksRounds");
 const IDs = require("../../Utils/Config/ids");
 
 const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_FINALE_CHAOS;
 const OWNER = "__event__";
 const TIME_ZONE = "Europe/Rome";
-const GAMES = Object.freeze(["reactPress", "forbiddenSection", "findScroll"]);
-/** Sezione proibita / pergamena chaos: un solo vincitore ciascuno. */
+const GAMES = Object.freeze(["reactPress", "forbiddenSection", "spellListHunt"]);
+/** Tutti i minigame chaos: un solo vincitore. */
 const CHAOS_FORBIDDEN_MAX_WINNERS = 1;
 const CHAOS_FIND_SCROLL_WINNERS = 1;
 const loopState = new WeakSet();
@@ -47,7 +51,7 @@ const DEFAULT_CONFIG = Object.freeze({
   rewardGaleoni: 1000,
   rewardHousePoints: 500,
   firstSlotBoostDurationMs: 60 * 60 * 1000,
-  forbiddenBookCount: 5,
+  forbiddenBookCount: 8,
   spawnGraceMs: 5 * 60 * 1000,
   games: [...GAMES],
   pingRoleId: "1507000390493798511",
@@ -98,14 +102,19 @@ function cfg(client) {
   out.forbiddenBookCount = safeInt(out.forbiddenBookCount, DEFAULT_CONFIG.forbiddenBookCount, 3, 12);
   out.spawnGraceMs = safeInt(out.spawnGraceMs, DEFAULT_CONFIG.spawnGraceMs, 60_000, out.activeDurationMs);
   out.games = (Array.isArray(out.games) ? out.games : DEFAULT_CONFIG.games)
-    .map((g) => normalizeId(g))
+    .map((g) => {
+      const id = normalizeId(g);
+      return id === "findScroll" ? "spellListHunt" : id;
+    })
     .filter((g) => GAMES.includes(g));
   if (out.games.length !== 3) out.games = [...DEFAULT_CONFIG.games];
   out.announceChannelId = normalizeId(out.announceChannelId || IDs.channels?.chat);
   out.pingRoleId = normalizeId(out.pingRoleId || IDs.roles?.HogwartsEventParticipant || DEFAULT_CONFIG.pingRoleId);
-  out.forbiddenBookIds = (Array.isArray(out.forbiddenBookIds) ? out.forbiddenBookIds : [])
-    .map((id) => normalizeId(id).toLowerCase())
-    .filter(Boolean);
+  out.forbiddenBookIds = filterPublicForbiddenBookIds(
+    (Array.isArray(out.forbiddenBookIds) ? out.forbiddenBookIds : [])
+      .map((id) => canonicalizeForbiddenBookId(id))
+      .filter(Boolean),
+  );
   return out;
 }
 
@@ -244,20 +253,33 @@ function buildBoostLine(boostType, boostScope) {
 }
 
 function pickForbiddenBookIds(c, seed) {
-  if (c.forbiddenBookIds.length >= c.forbiddenBookCount) {
-    return shuffleGames(c.forbiddenBookIds, seed).slice(0, c.forbiddenBookCount);
+  // Solo pagine pubbliche (aperte a tutti + vc-landing): niente user/perks/staff.
+  const configured = filterPublicForbiddenBookIds(c.forbiddenBookIds);
+  if (configured.length >= c.forbiddenBookCount) {
+    return shuffleGames(configured, seed).slice(0, c.forbiddenBookCount);
   }
-  const pool = allConfiguredForbiddenBookIds(null);
-  const labels = Object.keys(FORBIDDEN_BOOK_LABELS || {});
-  const all = [...new Set([...(Array.isArray(pool) ? pool : []), ...labels])].filter(Boolean);
-  return shuffleGames(all.length ? all : ["home", "faq", "wiki", "regole", "vote"], seed).slice(0, c.forbiddenBookCount);
+  const pool = filterPublicForbiddenBookIds(allConfiguredForbiddenBookIds(null));
+  const labels = filterPublicForbiddenBookIds(Object.keys(FORBIDDEN_BOOK_LABELS || {}));
+  const all = [...new Set([...configured, ...pool, ...labels, ...PUBLIC_FORBIDDEN_BOOK_IDS])].filter(Boolean);
+  return shuffleGames(all.length ? all : ["home", "faq", "wiki", "regole", "vote"], seed).slice(
+    0,
+    c.forbiddenBookCount,
+  );
 }
 
 function gameLabel(game) {
   if (game === "reactPress") return "Premi la react";
   if (game === "forbiddenSection") return "Sezione proibita";
+  if (game === "spellListHunt") return "Caccia alle liste";
   if (game === "findScroll") return "Caccia alle pergamene";
   return game;
+}
+
+function normalizeChaosGameId(game) {
+  const g = String(game || "").trim();
+  // Legacy plan: pergamena → liste (due liste, 1 vincitore).
+  if (g === "findScroll") return "spellListHunt";
+  return g;
 }
 
 function formatPrizeLines(c, { firstSlot, boostType, boostScope } = {}) {
@@ -320,13 +342,22 @@ async function ensureHourPlan(guildId, c, hourKey) {
   const existing = await loadDoc(guildId, dedupeKey);
   if (existing?.rawWebhook?.order?.length === 3) {
     const rw = existing.rawWebhook;
+    const order = (Array.isArray(rw.order) ? rw.order : []).map(normalizeChaosGameId);
+    if (order.join("|") !== (rw.order || []).join("|")) {
+      await upsertDoc(guildId, dedupeKey, {
+        status: existing.status || "planned",
+        planKey: c.eventKey,
+        rawWebhook: { ...rw, order },
+      });
+    }
     return {
       ...rw,
+      order,
       boostType: normalizeBoostType(rw.boostType),
       boostScope: normalizeBoostScope(rw.boostScope || "personal"),
     };
   }
-  const order = shuffleGames(c.games, `${c.eventKey}:${hourKey}`);
+  const order = shuffleGames(c.games, `${c.eventKey}:${hourKey}`).map(normalizeChaosGameId);
   const boost = pickRandomBoost();
   const doc = await upsertDoc(
     guildId,
@@ -627,11 +658,35 @@ async function grantFinaleChaosWinRewards(client, {
   return results;
 }
 
+async function closeStaleForbiddenWindows(guildId, keepDedupeKey = "") {
+  const gid = normalizeId(guildId);
+  const keep = normalizeId(keepDedupeKey);
+  if (!gid) return;
+  await SiteDocument.updateMany(
+    {
+      docType: DOC,
+      guildId: gid,
+      userId: OWNER,
+      status: "active",
+      "rawWebhook.kind": "forbidden_window",
+      ...(keep ? { dedupeKey: { $ne: keep } } : {}),
+    },
+    {
+      $set: {
+        status: "expired",
+        "rawWebhook.expiredAt": new Date(),
+        "rawWebhook.supersededAt": new Date(),
+      },
+    },
+  ).catch(() => null);
+}
+
 async function spawnForbiddenSection(client, guild, c, meta) {
   const bookIds = pickForbiddenBookIds(c, meta.slotKey);
   const expiresAt = new Date(Date.now() + c.activeDurationMs);
   const booksDedupeKey = `finale_chaos_forbidden:${meta.slotKey}`;
   const windowDedupeKey = `forbidden_window:${meta.slotKey}`;
+  await closeStaleForbiddenWindows(guild.id, windowDedupeKey);
   await SiteDocument.findOneAndUpdate(
     {
       docType: FORBIDDEN_DOC,
@@ -676,7 +731,6 @@ async function spawnForbiddenSection(client, guild, c, meta) {
       boostScope: meta.boostScope || "personal",
       bookIds,
       expiresAt,
-      hintSentAt: null,
       booksDedupeKey,
       roundId: `chaos_${meta.slotKey.replace(/[^a-zA-Z0-9]/g, "_")}`,
       roundLabel: `Finale ${meta.slotKey}`,
@@ -688,18 +742,18 @@ async function spawnForbiddenSection(client, guild, c, meta) {
     boostType: meta.boostType,
     boostScope: meta.boostScope,
   });
-  const bookLines = bookIds.map((id) => `• **${formatForbiddenBookLabel(id)}**`).join("\n");
+  const bookCount = bookIds.length;
   const embed = new EmbedBuilder()
     .setColor(0xd4af37)
     .setTitle("<a:VC_Events:1482706144953897223> Sezione proibita — round lampo!")
     .setDescription(
       [
-        "La **Sezione proibita** è di nuovo aperta: cerca e raccogli i **libri proibiti** sulle pagine del **sito** viniliecaffe.it.",
+        "La **Sezione proibita** è di nuovo aperta: cerca e raccogli i **libri proibiti** nascosti sul **sito** viniliecaffe.it.",
         "",
         `Hai **${Math.round(c.activeDurationMs / 60000)} minuti**. Vince **il primo** mago che completa tutti i libri.`,
         "",
-        "**Libri di questo round:**",
-        bookLines,
+        `Sul sito ci sono **${bookCount} libri proibiti** da trovare.`,
+        "<a:VC_Alert:1482706673176150077> **Non** ti diciamo su quali pagine sono: arriverà un **indizio** a metà tempo.",
         "",
         "**Premi:**",
         ...prizeLines,
@@ -735,9 +789,15 @@ async function resolveFinaleChaosForbiddenRuntime(client, nowMs = Date.now()) {
   if (!active) return null;
   const rw = active.rawWebhook || {};
   const closure = await getForbiddenClosure(guildId, rw.booksDedupeKey || `finale_chaos_forbidden:${rw.slotKey}`);
-  const closed = isForbiddenEventClosed(closure);
+  const winners = Array.isArray(closure?.rawWebhook?.winners) ? closure.rawWebhook.winners : [];
+  // Chaos: 1 vincitore chiude (non usare FORBIDDEN_MAX_WINNERS=2 della caccia lunga).
+  const closed =
+    String(closure?.status || "") === "closed" || winners.length >= CHAOS_FORBIDDEN_MAX_WINNERS;
   const startMs = new Date(active.createdAt || nowMs).getTime();
   const endMs = new Date(rw.expiresAt || 0).getTime();
+  const bookIds = filterPublicForbiddenBookIds(
+    Array.isArray(rw.bookIds) ? rw.bookIds.map(canonicalizeForbiddenBookId) : [],
+  );
   return {
     mode: "finale_chaos",
     enabled: true,
@@ -746,13 +806,13 @@ async function resolveFinaleChaosForbiddenRuntime(client, nowMs = Date.now()) {
       label: rw.roundLabel,
       startMs,
       endMs,
-      bookIds: Array.isArray(rw.bookIds) ? rw.bookIds : [],
+      bookIds,
     },
     roundId: rw.roundId,
     roundLabel: rw.roundLabel,
-    roundActive: !closed,
+    roundActive: !closed && Number.isFinite(endMs) && endMs > nowMs,
     roundClosed: closed,
-    bookIds: Array.isArray(rw.bookIds) ? rw.bookIds : [],
+    bookIds,
     dedupeKey: rw.booksDedupeKey || `finale_chaos_forbidden:${rw.slotKey}`,
     chaosSlotKey: rw.slotKey,
     chaosDocId: active._id,
@@ -763,7 +823,7 @@ async function resolveFinaleChaosForbiddenRuntime(client, nowMs = Date.now()) {
     roundStartMs: startMs,
     roundEndMs: endMs,
     betweenRounds: false,
-    open: !closed,
+    open: !closed && Number.isFinite(endMs) && endMs > nowMs,
     startMs,
     endMs,
     finaleChaos: {
@@ -788,7 +848,10 @@ async function tryAutoWinFinaleChaosForbidden(client, { guildId, userId, houseId
   const dedupeKey = normalizeId(runtime.dedupeKey);
   const closure = await getForbiddenClosure(gid, dedupeKey);
   const progress = forbiddenProgressPayload(null, closure, { bookIds: runtime.bookIds });
-  if (progress.closed) return { ok: false, code: "event_closed", winners: progress.winners };
+  const chaosClosed =
+    String(closure?.status || "") === "closed" ||
+    progress.winners.length >= CHAOS_FORBIDDEN_MAX_WINNERS;
+  if (chaosClosed) return { ok: false, code: "event_closed", winners: progress.winners };
   if (progress.winners.some((w) => normalizeId(w.userId) === uid)) {
     return { ok: false, code: "already_winner", winners: progress.winners };
   }
@@ -849,6 +912,19 @@ async function tryAutoWinFinaleChaosForbidden(client, { guildId, userId, houseId
   });
   const houseMeta = getHouseMeta(hid);
   const award = rewards[0];
+  const awardedPts = Math.max(0, Math.floor(Number(award?.house?.points) || 0));
+  const mult = Math.max(1, Number(award?.house?.multiplier) || 1);
+  const petBit = award?.house?.petName ? ` · ${award.house.petName}` : "";
+  const consLabels = Array.isArray(award?.house?.consumableLabels)
+    ? award.house.consumableLabels.filter(Boolean)
+    : [];
+  const consBit = consLabels.length ? ` · ${consLabels.join(", ")}` : "";
+  const ptsLine =
+    mult > 1 && awardedPts > 0
+      ? `<a:VC_Winner:1482535294757507255> **${awardedPts} punti casa** (base ${c.rewardHousePoints} ×${mult}${petBit}${consBit})`
+      : `<a:VC_Winner:1482535294757507255> **${awardedPts || c.rewardHousePoints} punti casa**${
+          awardedPts > 0 ? " (multi animale / boost se attivi)" : ""
+        }`;
   const embed = new EmbedBuilder()
     .setColor(0xd4af37)
     .setTitle("<a:VC_Events:1482706144953897223> Sezione proibita — vittoria!")
@@ -857,7 +933,7 @@ async function tryAutoWinFinaleChaosForbidden(client, { guildId, userId, houseId
         `<@${uid}> (**${houseMeta?.label || hid}**) ha completato tutti i libri proibiti!`,
         "",
         `**${formatGaleoni(c.rewardGaleoni)}**`,
-        `<a:VC_Winner:1482535294757507255> **${award?.house?.points || c.rewardHousePoints} punti casa**`,
+        ptsLine,
         fc.firstSlot
           ? `<a:VC_Events:1482706144953897223> Boost attivo: **${buildBoostLine(fc.boostType, fc.boostScope)}**`
           : "",
@@ -892,10 +968,26 @@ async function maybeHintOrExpireForbidden(client, guild, c, nowMs = Date.now()) 
     const expMs = new Date(doc.rawWebhook?.expiresAt || 0).getTime();
     if (!Number.isFinite(expMs)) continue;
     if (nowMs >= expMs) {
-      await SiteDocument.updateOne(
-        { _id: doc._id, status: "active" },
-        { $set: { status: "expired", "rawWebhook.expiredAt": new Date() } },
-      ).catch(() => null);
+      const claimed = await SiteDocument.findOneAndUpdate(
+        { _id: doc._id, status: "active", "rawWebhook.timeoutAnnouncedAt": { $exists: false } },
+        {
+          $set: {
+            status: "expired",
+            "rawWebhook.expiredAt": new Date(),
+            "rawWebhook.timeoutAnnouncedAt": new Date(),
+          },
+        },
+        { new: true },
+      )
+        .lean()
+        .catch(() => null);
+      if (!claimed) {
+        await SiteDocument.updateOne(
+          { _id: doc._id, status: "active" },
+          { $set: { status: "expired", "rawWebhook.expiredAt": new Date() } },
+        ).catch(() => null);
+        continue;
+      }
       await SiteDocument.updateOne(
         {
           docType: FORBIDDEN_DOC,
@@ -906,39 +998,84 @@ async function maybeHintOrExpireForbidden(client, guild, c, nowMs = Date.now()) 
         },
         { $set: { status: "closed", "rawWebhook.closedAt": new Date() } },
       ).catch(() => null);
-      await announceChat(client, c, {
-        content:
-          "<a:VC_Alert:1482706673176150077> **Sezione proibita** — tempo scaduto: nessuno ha completato i libri sul sito in tempo.",
+      const prizeLines = formatPrizeLines(c, {
+        firstSlot: doc.rawWebhook?.firstSlot === true,
+        boostType: doc.rawWebhook?.boostType,
+        boostScope: doc.rawWebhook?.boostScope,
       });
+      const embed = new EmbedBuilder()
+        .setColor(0xd4af37)
+        .setTitle("<a:VC_Events:1482706144953897223> Sezione proibita — tempo scaduto")
+        .setDescription(
+          [
+            "<a:VC_Alert:1482706673176150077> Tempo scaduto: nessuno ha completato tutti i libri sul sito in tempo.",
+            "",
+            "In questo round i premi erano:",
+            ...prizeLines,
+          ].join("\n"),
+        )
+        .setTimestamp();
+      await announceChat(client, c, { embeds: [embed], allowedMentions: { parse: [] } });
       continue;
     }
     if (doc.rawWebhook?.hintSentAt) continue;
     if (nowMs < expMs - c.hintBeforeExpiryMs) continue;
+    const hintClaim = await SiteDocument.findOneAndUpdate(
+      {
+        _id: doc._id,
+        status: "active",
+        $or: [{ "rawWebhook.hintSentAt": { $exists: false } }, { "rawWebhook.hintSentAt": null }],
+      },
+      { $set: { "rawWebhook.hintSentAt": new Date() } },
+      { new: true },
+    )
+      .lean()
+      .catch(() => null);
+    if (!hintClaim) continue;
     const remainingMin = Math.max(1, Math.ceil((expMs - nowMs) / 60000));
     const books = (Array.isArray(doc.rawWebhook?.bookIds) ? doc.rawWebhook.bookIds : [])
-      .map((id) => `• **${formatForbiddenBookLabel(id)}**`)
+      .map((id) => {
+        const title = formatForbiddenBookTitle(id);
+        const page = formatForbiddenBookLabel(id);
+        return `• **${title}** → pagina **${page}**`;
+      })
       .join("\n");
     const embed = new EmbedBuilder()
       .setColor(0xd4af37)
       .setTitle("<a:VC_Events:1482706144953897223> Sezione proibita — indizio!")
       .setDescription(
         [
-          "Metà tempo: i libri sono ancora nascosti sulle pagine del **sito** — aprirle e raccoglierli prima che scada il round.",
+          "Metà tempo: ecco **dove** cercare i libri ancora nascosti sul **sito**.",
           "",
-          "**Libri richiesti:**",
+          "**Indizio (libro → pagina):**",
           books || "—",
           "",
           `<a:VC_pixeltime:1482535344103620771> Restano circa **${remainingMin} minuti**.`,
         ].join("\n"),
       )
       .setTimestamp();
-    const sent = await announceChat(client, c, { embeds: [embed], allowedMentions: { parse: [] } });
-    if (sent?.id) {
-      await SiteDocument.updateOne(
-        { _id: doc._id, status: "active", "rawWebhook.hintSentAt": { $exists: false } },
-        { $set: { "rawWebhook.hintSentAt": new Date() } },
-      ).catch(() => null);
-    }
+    await announceChat(client, c, { embeds: [embed], allowedMentions: { parse: [] } });
+  }
+}
+
+async function maybeHintOrExpireChaosMinigames(client, guild, c, nowMs = Date.now()) {
+  try {
+    const { tickFinaleChaosReactPressRounds } = require("./hogwartsReactPressService");
+    await tickFinaleChaosReactPressRounds(client, guild, c, nowMs);
+  } catch (err) {
+    global.logger?.warn?.("[FINALE CHAOS] react hint tick:", err?.message || err);
+  }
+  try {
+    const { tickFinaleChaosSpellListRounds } = require("./hogwartsSpellListHuntService");
+    await tickFinaleChaosSpellListRounds(client, guild, c, nowMs);
+  } catch (err) {
+    global.logger?.warn?.("[FINALE CHAOS] spell list hint tick:", err?.message || err);
+  }
+  try {
+    const { tickFinaleChaosFindScrollHints } = require("../Minigames/minigameService");
+    await tickFinaleChaosFindScrollHints(client, c, nowMs);
+  } catch (err) {
+    global.logger?.warn?.("[FINALE CHAOS] findScroll hint tick:", err?.message || err);
   }
 }
 
@@ -961,21 +1098,21 @@ async function spawnReactPressChaos(client, guild, c, meta) {
   });
 }
 
-async function spawnFindScrollChaos(client, guild, c, meta) {
-  const { startFinaleChaosFindScroll } = require("../Minigames/minigameService");
-  return startFinaleChaosFindScroll(client, {
+async function spawnSpellListHuntChaos(client, guild, c, meta) {
+  const { spawnFinaleChaosSpellListHunt } = require("./hogwartsSpellListHuntService");
+  return spawnFinaleChaosSpellListHunt(client, guild, {
     durationMs: c.activeDurationMs,
     hintBeforeExpiryMs: c.hintBeforeExpiryMs,
     rewardGaleoni: c.rewardGaleoni,
     rewardHousePoints: c.rewardHousePoints,
     pingRoleId: c.pingRoleId,
+    announceChannelId: c.announceChannelId,
     firstSlot: meta.firstSlot === true,
     boostType: meta.boostType || "",
     boostScope: meta.boostScope || "personal",
     firstSlotBoostDurationMs: c.firstSlotBoostDurationMs,
     slotKey: meta.slotKey,
     chaosEventKey: c.eventKey,
-    announceChannelId: c.announceChannelId,
   });
 }
 
@@ -999,7 +1136,7 @@ async function trySpawnSlot(client, guild, c, slot, plan) {
   }
   if (!(await hasEnoughChat(client, guild.id, c))) return false;
 
-  const game = plan.order?.[slot.slotIndex];
+  const game = normalizeChaosGameId(plan.order?.[slot.slotIndex]);
   if (!game) return false;
   const firstSlot = slot.slotIndex === 0;
   const boostPick = {
@@ -1016,7 +1153,8 @@ async function trySpawnSlot(client, guild, c, slot, plan) {
   let ok = false;
   if (game === "reactPress") ok = await spawnReactPressChaos(client, guild, c, meta);
   else if (game === "forbiddenSection") ok = await spawnForbiddenSection(client, guild, c, meta);
-  else if (game === "findScroll") ok = await spawnFindScrollChaos(client, guild, c, meta);
+  else if (game === "spellListHunt") ok = await spawnSpellListHuntChaos(client, guild, c, meta);
+  else if (game === "findScroll") ok = await spawnSpellListHuntChaos(client, guild, c, meta);
 
   if (!ok) return false;
   await upsertDoc(guild.id, `slot:${slot.slotKey}`, {
@@ -1051,6 +1189,7 @@ async function tickFinaleChaos(client) {
   if (!guild) return;
 
   await maybeHintOrExpireForbidden(client, guild, c, nowMs);
+  await maybeHintOrExpireChaosMinigames(client, guild, c, nowMs);
 
   const parts = getRomeParts(new Date(nowMs));
   const slot = resolveCurrentSlot(parts, c);

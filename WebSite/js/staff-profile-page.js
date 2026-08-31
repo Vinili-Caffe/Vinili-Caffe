@@ -396,6 +396,8 @@
                 : "") ||
               (payload.role && payload.role.label) ||
               "",
+            track:
+              String((payload.role && payload.role.kind) || "").toLowerCase() === "pm_only" ? "pm" : "staff",
           })
         : rolesHistory.length
           ? rolesHistory

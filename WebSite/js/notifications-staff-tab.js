@@ -9,10 +9,27 @@
 (function () {
   "use strict";
 
-  var ASSET_V = "20260830resoTemp1";
+  var ASSET_V = "20260830inboxBootOne1b";
   var TOKEN_KEY = "vc_discord_access_token";
   var SCOPE_PREF_KEY = "vc_notif_scope_pref";
-  var scope = "personal";
+  // inboxBootOne1: scope subito da URL/early-staff (niente default personal → flash).
+  var scope = (function initScope() {
+    try {
+      if (
+        document.documentElement.classList.contains("vc-notif-early-staff") ||
+        document.documentElement.classList.contains("vc-notif-staff-loading") ||
+        window.__VC_NOTIF_EARLY_STAFF
+      ) {
+        return "staff";
+      }
+      var sp = new URLSearchParams(location.search || "");
+      var view = String(sp.get("view") || "").trim().toLowerCase();
+      if (view === "staff") return "staff";
+      var tab = String(sp.get("tab") || "").trim().toLowerCase();
+      if (tab === "staff") return "staff";
+    } catch (eInit) {}
+    return "personal";
+  })();
   var staffAssetsPromise = null;
   var staffCriticalPromise = null;
   var staffDeferredPromise = null;
@@ -229,8 +246,41 @@
     } catch (ePre) {}
   }
 
-  function applyPaneVisibility(next) {
+  function hideInboxBootOverlay() {
     clearEarlyStaffClass();
+    try {
+      document.documentElement.classList.remove("vc-notif-staff-loading");
+      window.__VC_NOTIF_EARLY_STAFF = false;
+    } catch (eRm) {}
+    try {
+      var el = byId("vc-staff-inbox-loading");
+      if (el) {
+        el.hidden = true;
+        el.setAttribute("hidden", "");
+        el.classList.add("vc-staff-loading--hidden");
+      }
+    } catch (eEl) {}
+    try {
+      window.clearTimeout(window.__vcNotifStaffLoadWatch);
+    } catch (eTo) {}
+  }
+
+  function applyPaneVisibility(next) {
+    if (next === "staff") {
+      showInboxBootPlaceholder();
+    } else {
+      // inboxBootOne1: non spezzare il boot staff se URL/early chiedono ancora Staff.
+      var keepStaffBoot = false;
+      try {
+        keepStaffBoot =
+          staffBooting ||
+          document.documentElement.classList.contains("vc-notif-early-staff") ||
+          (readTabFromUrl() === "staff" && !staffBooted);
+      } catch (eKeep) {}
+      if (!keepStaffBoot) {
+        hideInboxBootOverlay();
+      }
+    }
     var personal = byId("vc-notif-pane-personal");
     var staff = byId("vc-notif-pane-staff");
     var tabP = byId("vc-notif-tab-personal");
@@ -435,7 +485,8 @@
           (workflowApiUrl().indexOf("?") >= 0 ? "&" : "?") +
           "queue=" +
           encodeURIComponent(targetTab) +
-          "&scope=pending&page=1&pageSize=20&sync=1";
+          "&scope=pending&page=1&pageSize=20";
+        // Soft prefetch: no sync=1 (lento). Sync dopo paint.
         var prefetchCtrl =
           typeof AbortController !== "undefined" ? new AbortController() : null;
         var prefetchTimer = window.setTimeout(function () {
@@ -587,6 +638,8 @@
   function ensureStaffAssetsDeferred() {
     if (staffDeferredPromise) return staffDeferredPromise;
     staffDeferredPromise = Promise.all([
+      loadCss("/css/vc-workflow-chat.css?v=" + ASSET_V),
+      loadScript("/js/staff-punti-tolti-page.js?v=" + ASSET_V),
       loadScript("/js/vc-avatar-fallback.js?v=" + ASSET_V),
       loadScript("/js/vc-emoji-render.js?v=20260824emoji1"),
       loadScript("/js/vc-site-toast.js?v=20260825siteToast1"),
@@ -600,15 +653,13 @@
   function ensureStaffAssetsCritical() {
     if (staffCriticalPromise) return staffCriticalPromise;
     ensureStaffConfig();
+    // Critico minimo: CSS inbox + tools + inbox page. Chat/punti-tolti dopo il primo paint.
     var cssPromise = Promise.all([
       loadCss("/css/staff-pause.css?v=" + ASSET_V),
       loadCss("/css/notif-staff-embed.css?v=" + ASSET_V),
-      loadCss("/css/vc-workflow-chat.css?v=" + ASSET_V),
     ]);
     var jsPromise = loadScript("/js/staff-tools-common.js?v=" + ASSET_V).then(function () {
-      return loadScript("/js/staff-inbox-page.js?v=" + ASSET_V).then(function () {
-        return loadScript("/js/staff-punti-tolti-page.js?v=" + ASSET_V);
-      });
+      return loadScript("/js/staff-inbox-page.js?v=" + ASSET_V);
     });
     staffCriticalPromise = Promise.all([cssPromise, jsPromise]).then(function () {
       return true;
@@ -628,20 +679,63 @@
   function showInboxBootPlaceholder() {
     try {
       var panel = byId("vc-staff-inbox");
-      if (!panel) return;
-      panel.classList.add("is-booting");
-      panel.hidden = false;
+      if (panel) {
+        panel.classList.add("is-booting");
+        panel.hidden = false;
+      }
       var list = byId("vc-staff-inbox-list");
-      if (!list) return;
-      list.hidden = false;
-      list.classList.add("is-loading");
-      list.innerHTML =
-        '<div class="vc-staff-inbox-loading" role="status" aria-live="polite">' +
-        '<div class="vc-staff-inbox-loading__head">' +
-        '<span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>' +
-        "<p>Caricamento inbox\u2026</p></div></div>";
+      if (list) {
+        list.hidden = false;
+        list.classList.add("is-loading");
+        list.setAttribute("aria-busy", "true");
+        list.innerHTML = "";
+      }
+      var el = byId("vc-staff-inbox-loading");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "vc-staff-inbox-loading";
+        el.className = "vc-staff-loading vc-staff-loading--hidden";
+        el.setAttribute("role", "status");
+        el.setAttribute("aria-live", "polite");
+        el.innerHTML =
+          '<div class="vc-staff-loading__card">' +
+          '<p class="vc-staff-loading__text">Caricamento inbox staff\u2026</p>' +
+          '<p class="vc-staff-loading__hint" id="vc-staff-inbox-loading-hint">Pause · Candidature · Appelli · Resoconti</p>' +
+          "</div>";
+        var host = byId("vc-notif-pane-staff") || document.body;
+        host.insertBefore(el, host.firstChild);
+      }
+      el.hidden = false;
+      el.removeAttribute("hidden");
+      el.classList.remove("vc-staff-loading--hidden");
+      try {
+        document.documentElement.classList.add("vc-notif-staff-loading");
+      } catch (eCls) {}
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      } catch (eSync) {}
       var boot = byId("vc-staff-inbox-boot");
       if (boot) boot.remove();
+      // Failsafe telefono: se l'inbox non apre entro 14s, togli overlay (evita freeze totale).
+      try {
+        window.clearTimeout(window.__vcNotifStaffLoadWatch);
+        window.__vcNotifStaffLoadWatch = window.setTimeout(function () {
+          try {
+            var still = byId("vc-staff-inbox-loading");
+            var root = document.documentElement;
+            if (!root || !root.classList.contains("vc-notif-staff-loading")) return;
+            if (still) {
+              still.hidden = true;
+              still.setAttribute("hidden", "");
+              still.classList.add("vc-staff-loading--hidden");
+            }
+            root.classList.remove("vc-notif-staff-loading", "vc-notif-early-staff");
+            window.__VC_NOTIF_EARLY_STAFF = false;
+            if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+            if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+          } catch (eWatch) {}
+        }, 14000);
+      } catch (eWatchArm) {}
     } catch (eBootPh) {}
   }
 
@@ -660,7 +754,8 @@
     } catch (eEarlyClass) {}
     applyPaneVisibility("staff");
     showInboxBootPlaceholder();
-    var assetsP = ensureStaffAssets();
+    // Avvia subito gli asset critici; accesso in parallelo (cache = istantaneo).
+    var assetsP = ensureStaffAssetsCritical();
     var accessP = softStaffAccess();
     return Promise.all([assetsP, accessP])
       .then(function (results) {
@@ -690,6 +785,10 @@
             window.VCStaffInboxEmbed.boot();
           }
         } catch (eBoot) {}
+        // Non bloccante: chat / punti tolti / emoji dopo il primo paint.
+        try {
+          ensureStaffAssetsDeferred();
+        } catch (eDef) {}
         return true;
       })
       .finally(function () {
@@ -798,20 +897,26 @@
   function setScope(next, opts) {
     var want = next === "staff" ? "staff" : "personal";
     if (want === "staff" && !canStaff()) {
-      applyPaneVisibility("personal");
-      writeTabToUrl("personal");
+      // Resta su Staff + loader mentre verifica accesso (niente flash Personali).
+      showInboxBootPlaceholder();
+      applyPaneVisibility("staff");
+      writeTabToUrl("staff");
       softStaffAccess().then(function (ok) {
         if (ok) {
           revealTabs();
           setScope("staff", { push: opts && opts.push === false ? false : true });
+        } else {
+          hideInboxBootOverlay();
+          setScope("personal", { push: true });
         }
       });
       return;
     }
     scope = want;
-    applyPaneVisibility(scope);
+    // inboxBootOne1: URL prima della visibility, altrimenti keepStaffBoot resta true su personal.
     if (!opts || opts.push !== false) writeTabToUrl(scope);
     if (!opts || opts.remember !== false) writeScopePref(scope);
+    applyPaneVisibility(scope);
     placeDockInContent();
     emitScope(scope);
     if (scope === "personal") {
@@ -897,83 +1002,64 @@
 
   function boot() {
     var initial = preferInitialScope();
+    if (scope === "staff") initial = "staff";
     try {
       if (initial === "staff") {
+        scope = "staff";
         document.body.classList.add("vc-notif-scope-staff");
+        document.documentElement.classList.add("vc-notif-early-staff", "vc-notif-staff-loading");
+        window.__VC_NOTIF_EARLY_STAFF = true;
+        showInboxBootPlaceholder();
+        applyPaneVisibility("staff");
       } else {
+        scope = "personal";
         document.body.classList.remove("vc-notif-scope-staff");
-        document.documentElement.classList.remove("vc-notif-early-staff");
+        document.documentElement.classList.remove("vc-notif-early-staff", "vc-notif-staff-loading");
         window.__VC_NOTIF_EARLY_STAFF = false;
       }
     } catch (eEarlyBody) {}
     flattenNotifCineHero();
     bindTabs();
-    clearEarlyStaffClass();
+    if (initial !== "staff") clearEarlyStaffClass();
     warmStaffFromCache();
     if (initial === "staff") {
-      if (canStaff() || initial === "staff") {
+      writeTabToUrl("staff");
+      try {
+        ensureStaffConfig();
+        ensureStaffAssetsCritical();
         warmInboxPrefetch();
-      }
-      // Prefetch asset staff in background (tabs / switch più snello), senza aprire l'inbox.
-      if (canStaff() || initial === "staff") {
-        try {
-          ensureStaffConfig();
-          ensureStaffAssets();
-        } catch (ePrefetch) {}
-        softStaffAccess().then(function () {
-          revealTabs();
-          warmInboxPrefetch();
-        });
-      }
+      } catch (ePrefetch) {}
       revealTabs();
       schedulePlaceDock();
-      softStaffAccess().then(function () {
-        revealTabs();
-      });
+      // Un solo percorso boot: niente doppio softStaffAccess / setScope che flasha Personali.
+      softStaffAccess()
+        .then(function (ok) {
+          revealTabs();
+          if (ok || canStaff()) {
+            return bootStaffInbox();
+          }
+          hideInboxBootOverlay();
+          setScope("personal", { push: true });
+          return null;
+        })
+        .catch(function () {
+          hideInboxBootOverlay();
+          showStaffDenied("Impossibile caricare l'inbox staff.");
+        });
     } else {
       softStaffAccess().catch(function () {});
       prefetchStaffInboxForPersonal();
-    }
-    if (initial === "staff") {
-      try {
-        document.body.classList.add("vc-notif-scope-staff");
-        document.documentElement.classList.add("vc-notif-early-staff");
-      } catch (eScopeEarly) {}
-      applyPaneVisibility("staff");
-      writeTabToUrl("staff");
-      if (canStaff()) {
-        setScope("staff", { push: false, remember: false });
-      } else {
-        softStaffAccess().then(function (ok) {
-          revealTabs();
-          if (ok) setScope("staff", { push: false, remember: false });
-          else {
-            try {
-              document.documentElement.classList.remove("vc-notif-early-staff");
-            } catch (eRm) {}
-            setScope("personal", { push: true });
-          }
-        });
-      }
-    } else {
-      try {
-        document.documentElement.classList.remove("vc-notif-early-staff");
-      } catch (eRm2) {}
       setScope("personal", { push: false, remember: false });
       try {
         if (document.documentElement.classList.contains("vc-page-cine-ready")) {
           markPersonalBootReady();
         }
       } catch (ePersonalReady) {}
-      // Failsafe: se cine marca ready senza evento (race script order), sblocca comunque.
       var bootPoll = 0;
       var bootPollId = window.setInterval(function () {
         bootPoll += 1;
         try {
-          if (
-            document.documentElement.classList.contains("vc-page-cine-ready") ||
-            bootPoll > 50
-          ) {
+          if (document.documentElement.classList.contains("vc-page-cine-ready") || bootPoll > 50) {
             window.clearInterval(bootPollId);
             markPersonalBootReady();
           }
@@ -1016,6 +1102,23 @@
   document.addEventListener("vc:page-cine-ready", function () {
     flattenNotifCineHero();
     placeTries = 0;
+    var wantStaff = false;
+    try {
+      wantStaff =
+        scope === "staff" ||
+        readTabFromUrl() === "staff" ||
+        document.documentElement.classList.contains("vc-notif-early-staff") ||
+        document.documentElement.classList.contains("vc-notif-staff-loading") ||
+        Boolean(window.__VC_NOTIF_EARLY_STAFF);
+    } catch (eWant) {}
+    if (wantStaff) {
+      scope = "staff";
+      applyPaneVisibility("staff");
+      showInboxBootPlaceholder();
+      schedulePlaceDock();
+      revealTabs();
+      return;
+    }
     applyPaneVisibility(scope);
     if (scope === "personal") {
       hideInboxToast();

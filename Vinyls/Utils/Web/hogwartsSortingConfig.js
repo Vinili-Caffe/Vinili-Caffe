@@ -1,5 +1,6 @@
 const { HOUSES } = require("./hogwartsSortingBank");
 const { hasHogwartsSortingPreviewAccess, memberHasHogwartsEventStaffAccess } = require("./hogwartsEventParticipation");
+const IDs = require("../Config/ids");
 const DEFAULT_EVENT_KEY = "hogwarts_summer_2026";
 
 function readBool(v, fallback) {
@@ -143,6 +144,27 @@ function resolveHogwartsEventConfig(client) {
   const completionRoleId =
     completionRoleRaw.split(/[,\s]+/).map((p) => p.trim()).find((p) => /^\d{17,22}$/.test(p)) ||
     "1507000390493798511";
+  const finaleWinnerHouseBonusRoleRaw = String(
+    process.env.HOGWARTS_FINALE_WINNER_BONUS_ROLE_ID || raw.finaleWinnerHouseBonusRoleId || "1543350496792682517",
+  ).trim();
+  const finaleWinnerHouseBonusRoleId =
+    finaleWinnerHouseBonusRoleRaw.split(/[,\s]+/).map((p) => p.trim()).find((p) => /^\d{17,22}$/.test(p)) || "";
+  const finaleAnnounceChannelId = String(
+    process.env.HOGWARTS_FINALE_ANNOUNCE_CHANNEL_ID || raw.finaleAnnounceChannelId || IDs.channels?.eventAnnouncements || "",
+  ).trim();
+  const finaleCommemorativoRoleRaw = String(
+    process.env.HOGWARTS_FINALE_COMMEMORATIVO_ROLE_ID ||
+      raw.finaleCommemorativoRoleId ||
+      raw.completionRoleId ||
+      IDs.roles?.HogwartsEventParticipant ||
+      "",
+  ).trim();
+  const finaleCommemorativoRoleId =
+    finaleCommemorativoRoleRaw.split(/[,\s]+/).map((p) => p.trim()).find((p) => /^\d{17,22}$/.test(p)) || "";
+  const finaleLotteryChannelId = String(
+    process.env.HOGWARTS_FINALE_LOTTERY_CHANNEL_ID || raw.finaleLotteryChannelId || IDs.channels?.vocaleLounge1 || "",
+  ).trim();
+  const finaleLotteryAt = String(process.env.HOGWARTS_FINALE_LOTTERY_AT || raw.finaleLotteryAt || "2026-09-02T15:00:00").trim();
   const sortingLogChannelId = String(process.env.HOGWARTS_SORTING_LOG_CHANNEL_ID || raw.sortingLogChannelId || "").trim();
   const punticasaPrefectHousesRaw = raw.punticasaPrefectHouses && typeof raw.punticasaPrefectHouses === "object"
     ? raw.punticasaPrefectHouses
@@ -168,6 +190,11 @@ function resolveHogwartsEventConfig(client) {
     staffBypassUserIds,
     gringott,
     completionRoleId,
+    finaleWinnerHouseBonusRoleId,
+    finaleAnnounceChannelId,
+    finaleCommemorativoRoleId,
+    finaleLotteryChannelId,
+    finaleLotteryAt,
     sortingLogChannelId,
     punticasaPrefectHouses,
   };

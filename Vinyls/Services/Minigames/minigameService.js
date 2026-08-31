@@ -8208,6 +8208,15 @@ async function sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game
       embeds.push(buildHogwartsPodiumSummaryEmbed(cfg, game.type, podium, { timedOut: true }));
     } else if (timeoutEmbed) {
       embeds.push(timeoutEmbed);
+    } else {
+      // Mai chiudere in silenzio: messaggio di timeout generico.
+      embeds.push(
+        new EmbedBuilder()
+          .setColor(MINIGAME_EMBED_COLOR)
+          .setDescription(
+            "<a:VC_pixeltime:1482535344103620771> Tempo scaduto! Nessuno ha vinto questo minigioco.",
+          ),
+      );
     }
     activeGames.delete(chId);
     clearHogwartsPodiumChannel(chId);
@@ -8217,6 +8226,12 @@ async function sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game
       if (!sent) {
         const fresh = await getChannelCached(client, chId);
         if (fresh?.send) sent = await sendMinigameMessage(fresh, { embeds });
+      }
+      if (!sent) {
+        // Retry una volta dopo breve attesa (rate limit / canale momentaneamente offline).
+        await new Promise((r) => setTimeout(r, 750));
+        const retryCh = await getChannelCached(client, chId);
+        if (retryCh?.send) sent = await sendMinigameMessage(retryCh, { embeds });
       }
       if (!sent) {
         global.logger?.warn?.("[MINIGAMES] timeout embed send failed", {
@@ -11212,6 +11227,7 @@ async function startFindScrollGame(client, cfg) {
   let introEmbed;
   if (finaleChaos) {
     const minutes = Math.max(1, Math.round(durationMs / 60000));
+    const needWinners = Math.max(2, Number(finaleChaos.requiredWinners) || 2);
     const boostLine = finaleChaos.firstSlot
       ? `\n<a:VC_Events:1482706144953897223> **Bonus 1° slot:** boost **2× ${finaleChaos.boostType === "exp" ? "EXP" : "punti casa"} ${finaleChaos.boostScope === "house" ? "di casata" : "personale"}** per **1 ora** (si somma agli altri).`
       : "";
@@ -11222,9 +11238,9 @@ async function startFindScrollGame(client, cfg) {
         [
           "Una **pergamena** è nascosta in un canale a caso: trovala e premi il bottone!",
           `> <a:VC_pixeltime:1482535344103620771> Hai **${minutes} minuti**.`,
-          "> <a:VC_Winner:1482535294757507255> Vince **il primo** che la raccoglie.",
+          `> <a:VC_Winner:1482535294757507255> Servono **${needWinners} vincitori** diversi per chiudere il round.`,
           "",
-          "**Premi:**",
+          `**Premi (a ciascuno dei ${needWinners}):**`,
           `• **${Number(finaleChaos.rewardGaleoni) || 0} galeoni**`,
           `• **${Number(finaleChaos.rewardHousePoints) || 0} punti casa** (con multi animale / boost)`,
           boostLine,
@@ -11269,9 +11285,10 @@ async function startFindScrollGame(client, cfg) {
       ? {
           finaleChaos: {
             ...finaleChaos,
-            requiredWinners: Math.max(1, Number(finaleChaos.requiredWinners) || 1),
-            winnerIds: Array.isArray(finaleChaos.winnerIds) ? finaleChaos.winnerIds : [],
+            requiredWinners: Math.max(2, Number(finaleChaos.requiredWinners) || 2),
+            winnerIds: Array.isArray(finaleChaos.winnerIds) ? finaleChaos.winnerIds.map(String) : [],
           },
+          mapChannelId: channelId,
         }
       : {}),
   });
@@ -11285,7 +11302,17 @@ async function startFindScrollGame(client, cfg) {
     gameMessageId: gameMessage?.id || null,
     mainMessageId: mainMessage?.id || null,
     customId,
-    ...(finaleChaos ? { target: JSON.stringify({ finaleChaos }) } : {}),
+    ...(finaleChaos
+      ? {
+          target: JSON.stringify({
+            finaleChaos: {
+              ...finaleChaos,
+              requiredWinners: Math.max(2, Number(finaleChaos.requiredWinners) || 2),
+              winnerIds: Array.isArray(finaleChaos.winnerIds) ? finaleChaos.winnerIds.map(String) : [],
+            },
+          }),
+        }
+      : {}),
   });
 
   stampMinigameBurrobirraApplies(channelId, client);
@@ -11297,12 +11324,17 @@ async function startFindScrollGame(client, cfg) {
 async function startFinaleChaosFindScroll(client, opts = {}) {
   const base = getConfig(client);
   if (!base?.channelId) return false;
-  if (activeGames.has(base.channelId)) return false;
+  const announceId = String(opts.announceChannelId || base.channelId || "").trim();
+  if (!announceId) return false;
+  // Busy check sullo stesso canale dove verrà montata la partita (non solo base).
+  if (activeGames.has(announceId) || activeGames.has(base.channelId)) return false;
+  const { CHAOS_FIND_SCROLL_WINNERS } = require("../Community/hogwartsFinaleChaosDayService");
+  const requiredWinners = Math.max(1, Number(opts.requiredWinners) || Number(CHAOS_FIND_SCROLL_WINNERS) || 1);
   const durationMs = Math.max(60_000, Math.floor(Number(opts.durationMs) || 900000));
   const cfg = {
     ...base,
     roleId: opts.pingRoleId || base.roleId,
-    channelId: opts.announceChannelId || base.channelId,
+    channelId: announceId,
     finaleChaos: true,
     findScroll: {
       ...(base.findScroll && typeof base.findScroll === "object" ? base.findScroll : {}),
@@ -11320,12 +11352,40 @@ async function startFinaleChaosFindScroll(client, opts = {}) {
         hintBeforeExpiryMs: Math.max(60_000, Math.floor(Number(opts.hintBeforeExpiryMs) || 450000)),
         slotKey: String(opts.slotKey || "").trim(),
         chaosEventKey: String(opts.chaosEventKey || "").trim(),
-        requiredWinners: 1,
+        requiredWinners,
         winnerIds: [],
       },
     },
   };
   return startFindScrollGame(client, cfg);
+}
+
+/** Tick persistente per indizi pergamena chaos (sopravvive a restart bot). */
+async function tickFinaleChaosFindScrollHints(client, chaosCfg, nowMs = Date.now()) {
+  const base = getConfig(client);
+  if (!base?.channelId) return;
+  for (const [mapChannelId, game] of activeGames.entries()) {
+    if (!game || game.type !== "findScroll" || !game.finaleChaos) continue;
+    if (game.finaleChaosHintSent) continue;
+    const endsAt = Number(game.endsAt) || 0;
+    if (!endsAt || nowMs >= endsAt) continue;
+    const hintBefore = Math.max(
+      60_000,
+      Math.floor(
+        Number(game.finaleChaos?.hintBeforeExpiryMs) ||
+          Number(chaosCfg?.hintBeforeExpiryMs) ||
+          450_000,
+      ),
+    );
+    if (nowMs < endsAt - hintBefore) continue;
+    const announceChannelId = String(game.mapChannelId || mapChannelId || base.channelId).trim();
+    const targetChannelId = String(game.channelId || "").trim();
+    if (!announceChannelId || !targetChannelId) continue;
+    const mainChannel = await getChannelCached(client, announceChannelId);
+    if (!mainChannel) continue;
+    game.finaleChaosHintSent = true;
+    await sendMinigameMessage(mainChannel, { embeds: [buildMinuteHintEmbed(targetChannelId)] }).catch(() => null);
+  }
 }
 
 function normalizeHogwartsMemorySequence(value) {
@@ -14501,10 +14561,11 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
     return;
   }
 
-  // Finale chaos — Caccia alle pergamene: un solo vincitore.
+  // Finale chaos — Caccia alle pergamene: servono 2 vincitori diversi.
   if (game?.finaleChaos && game?.type === "findScroll") {
     const chaos = game.finaleChaos;
-    const required = Math.max(1, Number(chaos.requiredWinners) || 1);
+    const { CHAOS_FIND_SCROLL_WINNERS } = require("../Community/hogwartsFinaleChaosDayService");
+    const required = Math.max(2, Number(chaos.requiredWinners) || Number(CHAOS_FIND_SCROLL_WINNERS) || 2);
     const uid = String(interaction.user.id || "").trim();
     const winners = Array.isArray(chaos.winnerIds) ? chaos.winnerIds.map(String) : [];
     if (winners.includes(uid)) {
@@ -14522,8 +14583,18 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
       return;
     }
 
-    const lockKey = `finale_scroll:${cfg.channelId}`;
-    if (channelWinClosing.has(lockKey) || channelWinClosing.has(String(cfg.channelId || ""))) {
+    const wantCustomId = String(game.customId || "");
+    let mapKey = "";
+    for (const [key, g] of activeGames.entries()) {
+      if (g && g.type === "findScroll" && String(g.customId || "") === wantCustomId && g.finaleChaos) {
+        mapKey = String(key);
+        break;
+      }
+    }
+    if (!mapKey && game.mapChannelId) mapKey = String(game.mapChannelId);
+    if (!mapKey) mapKey = String(cfg.channelId || "");
+    const lockKey = `finale_scroll:${wantCustomId || mapKey}`;
+    if (channelWinClosing.has(lockKey)) {
       await interaction.reply({
         content: "<:cancel:1461730653677551691> Qualcun altro sta reclamando… riprova.",
         flags: 1 << 6,
@@ -14531,8 +14602,9 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
       return;
     }
     channelWinClosing.add(lockKey);
+    let roundComplete = false;
     try {
-      const live = activeGames.get(cfg.channelId);
+      const live = (mapKey && activeGames.get(mapKey)) || activeGames.get(cfg.channelId) || game;
       if (!live || live.customId !== game.customId || !live.finaleChaos) {
         await interaction.reply({
           content: "<:cancel:1461730653677551691> Partita già conclusa.",
@@ -14540,22 +14612,32 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
         }).catch(() => { });
         return;
       }
+      // Partite spawnate con requiredWinners:1 (bug) → forza 2.
+      live.finaleChaos.requiredWinners = required;
       const liveWinners = Array.isArray(live.finaleChaos.winnerIds) ? live.finaleChaos.winnerIds.map(String) : [];
-      if (liveWinners.includes(uid) || liveWinners.length >= required) {
+      if (liveWinners.includes(uid)) {
         await interaction.reply({
-          content: liveWinners.includes(uid)
-            ? "<a:VC_Alert:1482706673176150077> Hai già raccolto questa pergamena."
-            : "<:cancel:1461730653677551691> Round già completato.",
+          content: "<a:VC_Alert:1482706673176150077> Hai già raccolto questa pergamena.",
+          flags: 1 << 6,
+        }).catch(() => { });
+        return;
+      }
+      if (liveWinners.length >= required) {
+        await interaction.reply({
+          content: "<:cancel:1461730653677551691> Round già completato.",
           flags: 1 << 6,
         }).catch(() => { });
         return;
       }
       liveWinners.push(uid);
       live.finaleChaos.winnerIds = liveWinners;
-      activeGames.set(cfg.channelId, live);
+      if (mapKey) activeGames.set(mapKey, live);
+      else activeGames.set(String(cfg.channelId || ""), live);
+      roundComplete = liveWinners.length >= required;
 
       const { grantFinaleChaosWinRewards } = require("../Community/hogwartsFinaleChaosDayService");
       const { formatGaleoni } = require("../Community/gringottService");
+      const need = required;
       const rewards = await grantFinaleChaosWinRewards(client, {
         guildId: interaction.guild.id,
         userIds: [uid],
@@ -14567,45 +14649,81 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
         },
         rewardKeyPrefix: `${chaos.chaosEventKey || "finale"}:${chaos.slotKey || game.customId || "scroll"}:findScroll`,
         reason: `Finale chaos — Caccia alle pergamene ${chaos.slotKey || ""}`,
-        firstSlot: chaos.firstSlot === true,
+        // Boost 1° slot solo al primo dei due claim.
+        firstSlot: chaos.firstSlot === true && liveWinners.length === 1,
         boostType: chaos.boostType || "housePoints",
         boostScope: chaos.boostScope || "personal",
       });
       const award = rewards[0];
-      const mainChannel = await getChannelCached(client, cfg.channelId);
+      const announceId = mapKey || String(cfg.channelId || "");
+      const mainChannel = await getChannelCached(client, announceId);
+      const place = liveWinners.length;
       const embed = new EmbedBuilder()
         .setColor(MINIGAME_EMBED_COLOR)
-        .setTitle("Caccia alle pergamene — vittoria!")
+        .setTitle(roundComplete ? "Caccia alle pergamene — round completo!" : "Caccia alle pergamene — pergamena raccolta!")
         .setDescription(
           [
-            `<@${uid}> ha trovato la pergamena!`,
+            `<@${uid}> è il **${place}°** a trovare la pergamena (**${place}/${need}**).`,
             "",
             `**${formatGaleoni(Number(chaos.rewardGaleoni) || 1000)}**`,
             `**${award?.house?.points || chaos.rewardHousePoints || 500} punti casa**`,
-            chaos.firstSlot
+            chaos.firstSlot && liveWinners.length === 1
               ? `Boost attivo: **2× ${chaos.boostType === "exp" ? "EXP" : "punti casa"} ${chaos.boostScope === "house" ? "di casata" : "personale"}** per 1 ora (si somma)`
               : "",
+            roundComplete
+              ? ""
+              : `Manca ancora **${need - place}** mago: la pergamena resta attiva!`,
           ].filter(Boolean).join("\n"),
         );
       if (mainChannel) {
-        await sendMinigameMessage(mainChannel, { embeds: [embed] }).catch(() => { });
+        let sent = await sendMinigameMessage(mainChannel, { embeds: [embed] }).catch(() => null);
+        if (!sent) {
+          await new Promise((r) => setTimeout(r, 750));
+          const fresh = await getChannelCached(client, announceId);
+          if (fresh) sent = await sendMinigameMessage(fresh, { embeds: [embed] }).catch(() => null);
+        }
       }
       await interaction.reply({
-        content: "<a:VC_Events:1482706144953897223> Hai vinto!",
+        content: roundComplete
+          ? "<a:VC_Events:1482706144953897223> Hai vinto! Round completo."
+          : `<a:VC_Events:1482706144953897223> Hai vinto! Serve ancora **${need - place}** vincitore.`,
         flags: 1 << 6,
       }).catch(() => { });
 
+      // Persisti winnerIds così un restart non perde il 1° claim.
       try {
-        const channel = interaction.channel;
-        const msg = await channel.messages.fetch(live.messageId || game.messageId).catch(() => null);
-        if (msg) await msg.delete().catch(() => { });
-      } catch (err) {
-        warnMinigame(err);
+        await saveActiveGame(
+          client,
+          { ...winCfg, channelId: announceId, guildId: interaction.guild.id },
+          {
+            type: "findScroll",
+            rewardExp: 0,
+            startedAt: live.startedAt ? new Date(live.startedAt) : new Date(),
+            endsAt: live.endsAt ? new Date(live.endsAt) : new Date(Date.now() + 60_000),
+            targetChannelId: live.channelId || null,
+            gameMessageId: live.messageId || null,
+            mainMessageId: live.mainMessageId || null,
+            customId: live.customId,
+            target: JSON.stringify({ finaleChaos: live.finaleChaos }),
+          },
+        );
+      } catch (errPersist) {
+        warnMinigame(errPersist);
       }
-      if (live.timeout) clearTimeout(live.timeout);
-      if (live.hintTimeout) clearTimeout(live.hintTimeout);
-      clearHogwartsPodiumChannel(channelId);
-      await clearActiveGame(client, winCfg).catch(() => { });
+
+      if (roundComplete) {
+        try {
+          const channel = interaction.channel;
+          const msg = await channel.messages.fetch(live.messageId || game.messageId).catch(() => null);
+          if (msg) await msg.delete().catch(() => { });
+        } catch (err) {
+          warnMinigame(err);
+        }
+        if (live.timeout) clearTimeout(live.timeout);
+        if (live.hintTimeout) clearTimeout(live.hintTimeout);
+        clearHogwartsPodiumChannel(announceId);
+        await clearActiveGame(client, { ...winCfg, channelId: announceId }).catch(() => { });
+      }
     } finally {
       channelWinClosing.delete(lockKey);
     }
@@ -15546,7 +15664,20 @@ ${game.previewUrl}`,
     String(interaction.customId || "").startsWith("minigame_findscroll:");
   const isFindHiddenButton = isFindBotButton || isFindScrollButton;
   const expectedType = isFindScrollButton ? "findScroll" : "findBot";
-  if (!game || game.type !== expectedType) {
+  let liveGame = game && game.type === expectedType ? game : null;
+  let liveMapKey = liveGame ? String(cfg.channelId || "") : "";
+  // Finale chaos / restart: cerca anche per customId se la partita non è sulla chat main.
+  if (!liveGame && isFindHiddenButton) {
+    const wantId = String(interaction.customId || "");
+    for (const [key, g] of activeGames.entries()) {
+      if (g && g.type === expectedType && String(g.customId || "") === wantId) {
+        liveGame = g;
+        liveMapKey = String(key);
+        break;
+      }
+    }
+  }
+  if (!liveGame) {
     if (isFindHiddenButton) {
       await interaction
         .reply({
@@ -15558,7 +15689,7 @@ ${game.previewUrl}`,
     }
     return false;
   }
-  if (interaction.customId !== game.customId) {
+  if (interaction.customId !== liveGame.customId) {
     if (isFindHiddenButton) {
       await interaction
         .reply({
@@ -15571,7 +15702,22 @@ ${game.previewUrl}`,
     return false;
   }
 
-  await handleMinigameButtonWin(interaction, game, cfg);
+  const winCfg =
+    liveMapKey && liveMapKey !== String(cfg.channelId || "")
+      ? { ...cfg, channelId: liveMapKey }
+      : cfg;
+  if (liveGame.finaleChaos && liveGame.type === "findScroll") {
+    try {
+      const { CHAOS_FIND_SCROLL_WINNERS } = require("../Community/hogwartsFinaleChaosDayService");
+      liveGame.finaleChaos.requiredWinners = Math.max(
+        2,
+        Number(liveGame.finaleChaos.requiredWinners) || Number(CHAOS_FIND_SCROLL_WINNERS) || 2,
+      );
+    } catch (_) {
+      liveGame.finaleChaos.requiredWinners = Math.max(2, Number(liveGame.finaleChaos.requiredWinners) || 2);
+    }
+  }
+  await handleMinigameButtonWin(interaction, liveGame, winCfg);
   return true;
 }
 
@@ -16409,6 +16555,21 @@ async function restoreActiveGames(client) {
   if (state.type === "findScroll") {
     const timeout = scheduleFindMinigameTimeout(client, cfg, cfg.channelId, channel, state.customId, remainingMs, buildTimeoutFindScrollEmbed);
     const hintTimeout = await scheduleMinuteHint(client, state.targetChannelId, remainingMs, cfg.channelId);
+    let finaleChaos = null;
+    try {
+      const parsed = JSON.parse(state.target || "{}");
+      if (parsed?.finaleChaos && typeof parsed.finaleChaos === "object") {
+        finaleChaos = {
+          ...parsed.finaleChaos,
+          requiredWinners: Math.max(2, Number(parsed.finaleChaos.requiredWinners) || 2),
+          winnerIds: Array.isArray(parsed.finaleChaos.winnerIds)
+            ? parsed.finaleChaos.winnerIds.map(String)
+            : [],
+        };
+      }
+    } catch (errParseChaos) {
+      warnMinigame(errParseChaos);
+    }
     const game = {
       type: "findScroll",
       rewardExp: Number(state.rewardExp || 0),
@@ -16420,6 +16581,7 @@ async function restoreActiveGames(client) {
       messageId: state.gameMessageId || null,
       mainMessageId: state.mainMessageId || null,
       customId: state.customId,
+      ...(finaleChaos ? { finaleChaos } : {}),
     };
     restoreHogwartsPodiumFromState(cfg.channelId, state, game);
     activeGames.set(cfg.channelId, game);
@@ -16644,4 +16806,4 @@ async function handleMinigameVoiceState(oldState, newState, client) {
   return handleFindBotVoiceWin(client, guild, member, active.game, active.cfg);
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startFinaleChaosFindScroll };
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, hasAnyHouseChannelMinigameBusy, hasAnyActiveMinigame, spawnHouseChannelMinigame, getActiveGameForChannel, getConfig, pickObservationTowerTier, isMinigameSnipeSuppressed, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startFinaleChaosFindScroll, tickFinaleChaosFindScrollHints };

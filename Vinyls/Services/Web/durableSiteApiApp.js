@@ -440,6 +440,14 @@ async function main() {
   server.listen(port, "0.0.0.0", () => {
     console.log(`[SITE-API] listening on 0.0.0.0:${port} as ${client.user?.tag || client.user?.username}`);
     try {
+      const { warmSiteRolesCache } = require("../../Utils/Web/siteRolesApi");
+      setTimeout(() => {
+        warmSiteRolesCache(client);
+      }, 2500);
+    } catch (err) {
+      console.warn("[SITE-API] site-roles warm:", err?.message || err);
+    }
+    try {
       const {
         startPartnershipHistoryMigrationWorker,
       } = require("../Partner/tenantPartnershipHistoryMigrationService");

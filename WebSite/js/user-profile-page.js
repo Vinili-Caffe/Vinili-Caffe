@@ -203,6 +203,11 @@
       profileMemoryCache.clear();
     } catch (eMem) {}
     try {
+      if (window.VcApiCache && typeof window.VcApiCache.invalidatePrefix === "function") {
+        window.VcApiCache.invalidatePrefix("profile:");
+      }
+    } catch (eApi) {}
+    try {
       var keys = [];
       for (var i = 0; i < sessionStorage.length; i += 1) {
         var k = sessionStorage.key(i);
@@ -217,31 +222,27 @@
   }
 
   function cachedJsonFetch(url, ttlMs, opts) {
-    var key = "vc:profilecache:" + String(url || "");
-    var now = Date.now();
+    var ttl = Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS);
     var bypass = Boolean(opts && opts.bypassCache);
-    if (!bypass) {
-      var mem = profileMemoryCache.get(key);
-      if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now) {
-        return Promise.resolve(mem.value);
-      }
-      var sess = readSessionCache(key, now);
-      if (sess) {
-        profileMemoryCache.set(key, { expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: sess });
-        return Promise.resolve(sess);
-      }
-      var local = readLocalProfileCache(key, now);
-      if (local) {
-        profileMemoryCache.set(key, { expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: local });
-        return Promise.resolve(local);
-      }
-    } else {
-      try {
-        profileMemoryCache.delete(key);
-      } catch (eMemDel) {}
-      try {
-        sessionStorage.removeItem(key);
-      } catch (eSessDel) {}
+    if (window.VcApiCache && typeof window.VcApiCache.fetchHttpOk === "function") {
+      var cacheKey = window.VcApiCache.keyFor(String(url || ""), { scope: "profile" });
+      if (bypass) window.VcApiCache.invalidate(cacheKey);
+      return window.VcApiCache
+        .fetchHttpOk(String(url || ""), {
+          scope: "profile",
+          ttlMs: ttl,
+          staleMs: Math.max(ttl * 8, 10 * 60 * 1000),
+          persistMs: 30 * 60 * 1000,
+          useCache: !bypass,
+          timeoutMs: 28000,
+          fetchInit: { credentials: "omit", cache: "no-store" },
+        })
+        .then(function (row) {
+          return { httpOk: Boolean(row && row.httpOk), body: row && row.body ? row.body : null };
+        })
+        .catch(function () {
+          return { httpOk: false, body: null };
+        });
     }
     var fetchOpts = { credentials: "omit", cache: "no-store" };
     return fetch(url, fetchOpts)
@@ -255,35 +256,7 @@
           },
         );
       })
-      .then(function (payload) {
-        var body = payload && payload.body ? payload.body : null;
-        var success = Boolean(payload && payload.httpOk && body && body.ok === true);
-        if (success) {
-          var ttl = Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS);
-          profileMemoryCache.set(key, { expireAt: now + ttl, value: payload });
-          try {
-            var approx = JSON.stringify(payload || {}).length;
-            if (approx > 0 && approx < 120000) {
-              writeSessionCache(key, payload, ttl, now);
-            }
-          } catch (eCache) {}
-        } else {
-          try {
-            profileMemoryCache.delete(key);
-          } catch (eMemDel) {}
-          try {
-            sessionStorage.removeItem(key);
-          } catch (eSessDel) {}
-        }
-        return payload;
-      })
       .catch(function () {
-        try {
-          profileMemoryCache.delete(key);
-        } catch (eMemDel) {}
-        try {
-          sessionStorage.removeItem(key);
-        } catch (eSessDel) {}
         return { httpOk: false, body: null };
       });
   }

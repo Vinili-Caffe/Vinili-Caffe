@@ -631,9 +631,18 @@
     var unreadBtn = byId("vc-filter-unread");
     var filteredBtn = byId("vc-filter-filtered");
     var filteredCard = byId("vc-stat-filtered-card");
-    if (allBtn) allBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "all");
-    if (unreadBtn) unreadBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "unread");
-    if (filteredBtn) filteredBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "filtered");
+    if (allBtn) {
+      allBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "all");
+      allBtn.classList.toggle("is-active", filterMode === "all");
+    }
+    if (unreadBtn) {
+      unreadBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "unread");
+      unreadBtn.classList.toggle("is-active", filterMode === "unread");
+    }
+    if (filteredBtn) {
+      filteredBtn.classList.toggle("vc-notify-filter-btn--on", filterMode === "filtered");
+      filteredBtn.classList.toggle("is-active", filterMode === "filtered");
+    }
     if (filteredCard) {
       filteredCard.classList.toggle("vc-notify-stat--active", filterMode === "filtered");
       filteredCard.setAttribute("aria-pressed", filterMode === "filtered" ? "true" : "false");
@@ -1295,6 +1304,7 @@
     panel.hidden = !open;
     btn.setAttribute("aria-expanded", open ? "true" : "false");
     btn.classList.toggle("vc-notify-filter-btn--on", Boolean(open));
+    btn.classList.toggle("is-active", Boolean(open));
   }
 
   function toggleSwitchHtml(opts) {

@@ -6,9 +6,38 @@
   if (window.__VC_ACCESS_PENDING_BOOT) return;
   window.__VC_ACCESS_PENDING_BOOT = true;
 
+  /* phoneRootUnlock1: inject early anche su staff/dashboard (senza cine-boot). */
+  try {
+    if (typeof window.__vcPhoneRootUnlockInject !== "function") {
+      var unlockCss =
+        "@media (pointer:coarse),(max-width:920px){" +
+        "html,html body,html.vc-staff-access-pending,html.vc-staff-access-pending body," +
+        "html.vc-dash-access-pending,html.vc-dash-access-pending body," +
+        "html.vc-session-verify-pending,html.vc-session-verify-pending body," +
+        "html.vc-loading-scroll-lock,html.vc-loading-scroll-lock body{" +
+        "touch-action:manipulation!important}" +
+        "html body,html.vc-staff-access-pending body,html.vc-dash-access-pending body," +
+        "html.vc-session-verify-pending body,html.vc-loading-scroll-lock body{" +
+        "position:static!important;inset:auto!important;width:auto!important}" +
+        "}";
+      window.__vcPhoneRootUnlockInject = function () {
+        var el = document.getElementById("vc-phone-root-unlock-css");
+        if (!el) {
+          el = document.createElement("style");
+          el.id = "vc-phone-root-unlock-css";
+          el.setAttribute("data-vc", "phoneRootUnlock1");
+        }
+        el.textContent = unlockCss;
+        (document.head || document.documentElement).appendChild(el);
+      };
+    }
+    window.__vcPhoneRootUnlockInject();
+  } catch (ePhoneRoot) {}
+
   var CRITICAL_CSS_ID = "vc-access-pending-critical-css";
-  /* Scroll lock unico: nessuna pagina sotto le overlay di verifica/caricamento. */
-  var scrollLockCss =
+  /* Scroll lock: su telefono/PWA NIENTE touch-action:none / body:fixed (freeze totale).
+     Overlay fullscreen bastano. Desktop fine-pointer tiene il lock classico. */
+  var scrollLockCssDesktop =
     "html.vc-staff-access-pending:not(.vc-staff-app-revealed)," +
     "html.vc-staff-access-pending:not(.vc-staff-app-revealed) body," +
     "html.vc-staff-denied-open," +
@@ -28,7 +57,8 @@
     "html:not(.vc-hw-loading-done):has(#vc-hw-loading)," +
     "html:not(.vc-hw-loading-done):has(#vc-hw-loading) body{" +
     "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
-    "overscroll-behavior:none!important;height:100%!important;max-height:100dvh!important;touch-action:none}" +
+    "overscroll-behavior:none!important;height:100%!important;max-height:100dvh!important;touch-action:manipulation}" +
+    "@media (hover:hover) and (pointer:fine){" +
     "html.vc-staff-access-pending:not(.vc-staff-app-revealed) body," +
     "html.vc-staff-denied-open body," +
     "html.vc-dash-access-pending:not(.vc-dash-access-ready) body," +
@@ -38,7 +68,9 @@
     "html.vc-user-profile-pending body," +
     "html.vc-rank-customize-pending body," +
     "html:not(.vc-hw-loading-done):has(#vc-hw-loading) body{" +
-    "position:fixed!important;inset:0!important;width:100%!important}";
+    "position:fixed!important;inset:0!important;width:100%!important}" +
+    "}";
+  var scrollLockCss = scrollLockCssDesktop;
   var criticalCss =
     scrollLockCss +
     "html.vc-staff-access-pending:not(.vc-staff-app-revealed):not(.vc-staff-denied-open) .vc-staff-app," +
@@ -52,7 +84,7 @@
     "html.vc-staff-access-pending:not(.vc-staff-app-revealed):not(.vc-staff-denied-open) #vc-staff-loading{" +
     "display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}" +
     "html.vc-staff-access-pending:not(.vc-staff-app-revealed):not(.vc-staff-denied-open) #vc-staff-loading[hidden]{" +
-    "display:flex!important}" +
+    "display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}" +
     "html.vc-staff-denied-open #vc-staff-loading{display:none!important}" +
     "html.vc-dash-access-pending:not(.vc-dash-access-ready) body.vc-dashboard-page>header," +
     "html.vc-dash-access-pending:not(.vc-dash-access-ready) body.vc-dashboard-page>main," +

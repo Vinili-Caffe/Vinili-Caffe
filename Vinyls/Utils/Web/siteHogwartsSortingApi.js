@@ -1408,14 +1408,17 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
     if (!participation.ok) return participation;
   }
   if (!previewViewer) {
-    const { endMs } = resolveForbiddenBooksSchedule(client);
-    if (Number.isFinite(endMs) && Date.now() > endMs) {
-      return {
-        ok: false,
-        status: 403,
-        error: "event_closed",
-        message: "La caccia ai libri proibiti è conclusa.",
-      };
+    // Finale chaos: round lampo indipendente dallo schedule Sezione proibita (enabled:false / endDate).
+    if (runtime?.mode !== "finale_chaos") {
+      const { endMs } = resolveForbiddenBooksSchedule(client);
+      if (Number.isFinite(endMs) && Date.now() > endMs) {
+        return {
+          ok: false,
+          status: 403,
+          error: "event_closed",
+          message: "La caccia ai libri proibiti è conclusa.",
+        };
+      }
     }
     if (!runtime.roundActive) {
       if (runtime.nextRoundStartMs) {

@@ -1235,10 +1235,10 @@ function normalizePendingManualActions(pendingManualActions) {
     const actionKey = String(row?.actionKey || "").trim();
     const reason = String(row?.reason || "").trim();
     if (!actionKey || !reason) continue;
-    if (actionKey === "vp" || actionKey === "vn") {
-      if (seen.has(actionKey)) continue;
-      seen.add(actionKey);
-    }
+    // Una VP limiti + una VP compito sanzioni devono restare entrambe (prima solo 1 vp).
+    const dedupe = `${actionKey}::${reason.toLowerCase()}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
     normalized.push({ actionKey, reason });
   }
   return normalized;
@@ -1248,6 +1248,35 @@ function resolveResocontoWeekKey(now = new Date()) {
   const pexSkipWindow = getCurrentResocontoPexWeekWindowUtc(now);
   const closingPartsForResocontoKey = getRomeDateParts(pexSkipWindow.windowEndExclusive);
   return `${closingPartsForResocontoKey.year}-${String(closingPartsForResocontoKey.month).padStart(2, "0")}-${String(closingPartsForResocontoKey.day).padStart(2, "0")}`;
+}
+
+/** Finestra lun→dom per un weekKey resoconto (domenica di chiusura YYYY-MM-DD). */
+function getResocontoWeekRangeFromWeekKey(weekKey) {
+  const raw = String(weekKey || "").trim();
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+  const sundayStart = createUtcFromRomeLocal(y, mo, d, 0, 0, 0);
+  const weekStart = new Date(sundayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const weekEnd = createUtcFromRomeLocal(y, mo, d, RESOCONTO_CLOSE_HOUR_ROME, 0, 0);
+  return { weekStart, weekEnd };
+}
+
+/** Serie giornaliera per inbox (messaggi + voiceSeconds), lun→dom. */
+function serializeCostanzaChart(overview) {
+  const chart = Array.isArray(overview?.chart) ? overview.chart : [];
+  return chart
+    .slice(-7)
+    .map((p) => ({
+      dayKey: String(p?.dayKey || "").trim(),
+      text: Math.max(0, Math.floor(Number(p?.text) || 0)),
+      voiceSeconds: Math.max(0, Math.floor(Number(p?.voiceSeconds) || 0)),
+    }))
+    .filter((p) => p.dayKey)
+    .sort((a, b) => String(a.dayKey).localeCompare(String(b.dayKey)));
 }
 
 function buildStaffResocontoAzioneDisplay({
@@ -1305,7 +1334,16 @@ function buildStaffResocontoAzioneDisplay({
           "Limiti settimanali superati almeno del doppio.",
         );
       }
-    } else if (!reachedWeeklyLimits && !inPauseDuringWeek) {
+    } else if (reachedWeeklyLimits) {
+      pushPart(formatValutazioneLabel("positive", limitsByBot, "limiti settimanali completati"));
+      if (!limitsByBot) {
+        pushPendingManualAction(
+          pendingManualActions,
+          "vp",
+          "Limiti settimanali completati.",
+        );
+      }
+    } else if (!inPauseDuringWeek) {
       pushPart(formatValutazioneLabel("negative", limitsByBot, "limiti settimanali non raggiunti"));
       if (!limitsByBot) {
         pushPendingManualAction(
@@ -1319,21 +1357,11 @@ function buildStaffResocontoAzioneDisplay({
 
   if (metWeeklySanctionLimit) {
     const sanctionsByBot = hasStaffSanctionsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId);
-    const label = formatValutazioneLabel("positive", sanctionsByBot, "compito sanzioni completato");
-    const hasPositive = parts.some((part) => part.startsWith("Valutazione Positiva"));
-    if (!hasPositive) {
-      pushPart(label);
-      if (!sanctionsByBot) {
-        pushPendingManualAction(
-          pendingManualActions,
-          "vp",
-          "Compito sanzioni completato.",
-        );
-      }
-    } else if (sanctionsByBot && !parts.some((part) => part.includes("compito sanzioni"))) {
-      pushPart(`Compito sanzioni${BOT_VALUTAZIONE_SUFFIX}`);
-    } else if (!sanctionsByBot) {
-      pushPart(formatValutazioneLabel("positive", false, "compito sanzioni completato"));
+    // Sempre riga dedicata: prima veniva assorbita dalla VP limiti e spariva in UI/pending.
+    if (!parts.some((part) => /compito sanzioni/i.test(part))) {
+      pushPart(formatValutazioneLabel("positive", sanctionsByBot, "compito sanzioni completato"));
+    }
+    if (!sanctionsByBot) {
       pushPendingManualAction(
         pendingManualActions,
         "vp",
@@ -2869,6 +2897,22 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
             status: "pending",
             createdAt: new Date(),
             weekKey: resocontoWeekKey,
+            workflowFields: {
+              costanzaChart: serializeCostanzaChart(overview),
+              activityGrade,
+              behaviorGrade,
+              azioneDisplay: action,
+              weeklyMessages,
+              weeklyVoiceSeconds,
+              isNewStaff: Boolean(graceNewStaffRole),
+              inPause: Boolean(currentlyInPause || inPauseDuringWeek),
+              pauseEnded: Boolean(endedPauseDuringWeek),
+              activityLimits: limits
+                ? { messages: Number(limits.messages || 0), hours: Number(limits.hours || 0) }
+                : null,
+              sanctionLimit: sanctionLimit != null ? Number(sanctionLimit) : null,
+              weeklySanctions: Number(weeklySanctions) || 0,
+            },
           });
           staffMsg = { id: siteMessageId };
         } catch (err) {
@@ -2885,7 +2929,28 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
             await persistResocontoWorkflowFromMessage(
               guild,
               staffMsg,
-              { kind: "s", userId, roleId: staffRoleId, actionKey },
+              {
+                kind: "s",
+                userId,
+                roleId: staffRoleId,
+                actionKey,
+                workflowFields: {
+                  costanzaChart: serializeCostanzaChart(overview),
+                  activityGrade,
+                  behaviorGrade,
+                  azioneDisplay: action,
+                  weeklyMessages,
+                  weeklyVoiceSeconds,
+                  isNewStaff: Boolean(graceNewStaffRole),
+                  inPause: Boolean(currentlyInPause || inPauseDuringWeek),
+                  pauseEnded: Boolean(endedPauseDuringWeek),
+                  activityLimits: limits
+                    ? { messages: Number(limits.messages || 0), hours: Number(limits.hours || 0) }
+                    : null,
+                  sanctionLimit: sanctionLimit != null ? Number(sanctionLimit) : null,
+                  weeklySanctions: Number(weeklySanctions) || 0,
+                },
+              },
               "pending",
             );
           }
@@ -3026,6 +3091,12 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
             status: "pending",
             createdAt: new Date(),
             weekKey: resocontoWeekKey,
+            workflowFields: {
+              weeklyPartners,
+              azioneDisplay: String(action || ""),
+              isNewStaff: Boolean(pmPexedInCurrentWeek || pmPromotedInResocontoWindow),
+              inPause: Boolean(pmCurrentlyInPause || pmInPauseDuringWeek),
+            },
           });
           pmMsg = { id: siteMessageId };
         } catch (err) {
@@ -3041,7 +3112,18 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
             await persistResocontoWorkflowFromMessage(
               guild,
               pmMsg,
-              { kind: "p", userId, roleId: null, actionKey: pmActionToKey(basePmAction) },
+              {
+                kind: "p",
+                userId,
+                roleId: null,
+                actionKey: pmActionToKey(basePmAction),
+                workflowFields: {
+                  weeklyPartners,
+                  azioneDisplay: String(action || ""),
+                  isNewStaff: Boolean(pmPexedInCurrentWeek || pmPromotedInResocontoWindow),
+                  inPause: Boolean(pmCurrentlyInPause || pmInPauseDuringWeek),
+                },
+              },
               "pending",
             );
           }
@@ -3621,6 +3703,10 @@ module.exports = {
   shouldSkipManualResocontoVp,
   shouldSkipManualResocontoVn,
   resolveResocontoWeekKey,
+  getResocontoWeekRangeFromWeekKey,
+  serializeCostanzaChart,
+  collectResocontoVoiceExcludeIds,
+  buildResocontoOverviewOptions,
   ensureWeeklyLimitAutoValutazione,
   STAFF_ACTIVITY_LIMITS,
   STAFF_LIMITS_MSG_PER_HOUR_SWAP,

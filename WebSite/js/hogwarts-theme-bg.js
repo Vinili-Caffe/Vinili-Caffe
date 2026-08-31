@@ -4,9 +4,6 @@
   var videoEl = null;
   var wrapEl = null;
   var started = false;
-  var lastInputAt = 0;
-  var IDLE_MS = 3200;
-  var idleTimer = 0;
 
   function cfgSrc() {
     try {
@@ -69,11 +66,14 @@
       videoEl.className = "vc-hw-theme-bg__video";
       videoEl.muted = true;
       videoEl.defaultMuted = true;
+      videoEl.autoplay = true;
       videoEl.loop = true;
       videoEl.playsInline = true;
       videoEl.setAttribute("playsinline", "");
+      videoEl.setAttribute("webkit-playsinline", "");
       videoEl.setAttribute("muted", "");
-      videoEl.preload = "metadata";
+      videoEl.setAttribute("autoplay", "");
+      videoEl.preload = "auto";
       wrapEl.appendChild(videoEl);
       wrapEl.appendChild(veil);
       var body = document.body;
@@ -89,20 +89,28 @@
 
   function pageWantsThemeBg() {
     if (document.hidden) return false;
-    try {
-      if (typeof document.hasFocus === "function" && !document.hasFocus()) return false;
-    } catch (eF) {}
     if (document.body && document.body.classList.contains("vc-hw-cinema-active")) return false;
     if (uiChromeBusy()) return false;
-    if (lastInputAt && Date.now() - lastInputAt > IDLE_MS) return false;
     return true;
+  }
+
+  function markLive() {
+    try {
+      document.documentElement.classList.add("vc-hw-theme-bg-live");
+      document.body.classList.add("vc-hw-theme-bg-live");
+    } catch (eC) {}
   }
 
   function playSafe() {
     if (!videoEl) return;
     if (!pageWantsThemeBg()) return;
+    markLive();
     var p = videoEl.play();
-    if (p && typeof p.catch === "function") p.catch(function () {});
+    if (p && typeof p.catch === "function") {
+      p.catch(function () {
+        /* autoplay block: resta sfondo opaco, riprova al prossimo gesto */
+      });
+    }
   }
 
   function pauseSafe() {
@@ -118,23 +126,17 @@
     else pauseSafe();
   }
 
-  function noteInput() {
-    lastInputAt = Date.now();
-    if (idleTimer) {
-      clearTimeout(idleTimer);
-      idleTimer = 0;
-    }
-    idleTimer = setTimeout(syncThemeBgRunState, IDLE_MS + 40);
-    syncThemeBgRunState();
-  }
-
   function loadSrc(src, triedFallback) {
     if (!ensureShell()) return;
+    markLive();
     var url = absUrl(src || DEFAULT_SRC);
     videoEl.onerror = function () {
       if (!triedFallback && url.indexOf("theme-bg.mp4") !== -1) {
         loadSrc(FALLBACK_SRC, true);
       }
+    };
+    videoEl.onloadeddata = function () {
+      playSafe();
     };
     if (videoEl.getAttribute("src") !== url && videoEl.src !== url) {
       videoEl.src = url;
@@ -142,11 +144,6 @@
         videoEl.load();
       } catch (eL) {}
     }
-    try {
-      document.documentElement.classList.add("vc-hw-theme-bg-live");
-      document.body.classList.add("vc-hw-theme-bg-live");
-    } catch (eC) {}
-    lastInputAt = Date.now();
     playSafe();
     started = true;
   }
@@ -167,13 +164,14 @@
     loadSrc(cfgSrc(), false);
     wireCinemaPause();
     document.addEventListener("visibilitychange", syncThemeBgRunState);
-    window.addEventListener("blur", syncThemeBgRunState);
-    window.addEventListener("focus", noteInput);
-    document.addEventListener("pointerdown", noteInput, { passive: true, capture: true });
-    document.addEventListener("pointermove", noteInput, { passive: true, capture: true });
-    document.addEventListener("keydown", noteInput, { passive: true, capture: true });
-    document.addEventListener("scroll", noteInput, { passive: true, capture: true });
-    noteInput();
+    document.addEventListener(
+      "pointerdown",
+      function () {
+        playSafe();
+      },
+      { passive: true, capture: true },
+    );
+    window.addEventListener("focus", playSafe);
   }
 
   window.__vcHogwartsThemeBgPlay = playSafe;

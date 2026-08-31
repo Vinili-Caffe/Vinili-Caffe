@@ -12,10 +12,24 @@
     }
   }
   if (!isHomePage()) return;
+  try {
+    var coarseKick =
+      (window.matchMedia && window.matchMedia("(max-width: 639.98px)").matches) ||
+      (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+      (window.matchMedia && window.matchMedia("(hover: none)").matches) ||
+      Number(navigator.maxTouchPoints || 0) > 0 ||
+      Boolean(navigator.standalone);
+    // phoneKickPipOff1: PiP Kick disabilitato su telefono/PWA (touch-action:none + pointer capture → freeze).
+    if (coarseKick) return;
+  } catch (eKickPhone) {
+    return;
+  }
   if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
   if (document.body && document.body.classList.contains("vc-seratafilm-page")) return;
 
   var DISMISS_KEY = "vc_kick_pip_dismiss_v2";
+  var USER_CLOSED_KEY = "vc_kick_pip_user_closed_v1";
+  // kickPipUserClosed1: resta chiuso finché l'utente non preme reopen
   var DISMISS_TTL_MS = 18 * 60 * 60 * 1000;
   var POS_KEY = "vc_kick_pip_pos_v2";
   var WATCH_KEY = "vc_kick_pip_watch_v2";
@@ -163,6 +177,39 @@
     return Promise.resolve();
   }
 
+  function channelSlugFromStream(stream) {
+    return String((stream && stream.slug) || (lastPayload && lastPayload.slug) || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function isUserClosedPip() {
+    try {
+      if (localStorage.getItem(USER_CLOSED_KEY) === "1") return true;
+    } catch (e0) {}
+    try {
+      var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
+      if (sync && sync.kickPip && sync.kickPip.userClosed === true) return true;
+    } catch (e1) {}
+    return false;
+  }
+
+  function setUserClosedPip(on, opts) {
+    opts = opts || {};
+    try {
+      if (on) localStorage.setItem(USER_CLOSED_KEY, "1");
+      else localStorage.removeItem(USER_CLOSED_KEY);
+    } catch (eLs) {}
+    if (opts.skipPublish) return;
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.publish({
+          kickPip: { userClosed: on === true },
+        });
+      }
+    } catch (eSy) {}
+  }
+
   function readDismissState() {
     try {
       var raw = localStorage.getItem(DISMISS_KEY);
@@ -224,6 +271,7 @@
   }
 
   function isStreamDismissed(stream) {
+    if (isUserClosedPip()) return true;
     var st = readDismissState();
     if (!st) return false;
     if (Number(st.at) && Date.now() - Number(st.at) > DISMISS_TTL_MS) {
@@ -242,9 +290,8 @@
 
   function setDismissedStream(stream) {
     var sid = String((stream && stream.id) || lastStreamId || "").trim();
-    var slug = String((stream && stream.slug) || (lastPayload && lastPayload.slug) || "")
-      .trim()
-      .toLowerCase();
+    var slug = channelSlugFromStream(stream);
+    setUserClosedPip(true);
     if (!sid && !slug) return;
     var prev = readDismissState() || { ids: [], slug: "", at: Date.now() };
     var ids = Array.isArray(prev.ids) ? prev.ids.slice() : [];
@@ -262,6 +309,7 @@
 
   function clearDismissedStreamId() {
     writeDismissState(null);
+    setUserClosedPip(false);
   }
 
   function loadPos() {
@@ -1825,6 +1873,15 @@
     else poll();
   });
 
+  window.addEventListener("pagehide", function () {
+    try {
+      if (root.hidden && reopenBtn && !reopenBtn.hidden) {
+        setUserClosedPip(true, { skipPublish: false });
+        if (lastPayload) setDismissedStream(lastPayload);
+      }
+    } catch (eHide) {}
+  });
+
   videoEl.addEventListener("timeupdate", function () {
     if (root.classList.contains("vc-kick-pip--ready")) rememberPlaybackTime();
   });
@@ -1929,8 +1986,14 @@
           try {
             localStorage.removeItem(DISMISS_KEY);
           } catch (eC) {}
+          setUserClosedPip(false, { skipPublish: true });
           if (reopenBtn) reopenBtn.hidden = true;
           return;
+        }
+        if (prefs.kickPip.userClosed === true) {
+          setUserClosedPip(true, { skipPublish: true });
+        } else if (prefs.kickPip.userClosed === false) {
+          setUserClosedPip(false, { skipPublish: true });
         }
         if (prefs.kickPip.dismiss && typeof prefs.kickPip.dismiss === "object") {
           try {

@@ -457,14 +457,75 @@ function dedupeKey(c, messageId) {
 }
 
 async function findReactPressDocForMessage(guildId, c, messageId) {
-  return SiteDocument.findOne({
+  const mid = normalizeId(messageId);
+  const gid = normalizeId(guildId);
+  if (!mid || !gid) return null;
+  const byKey = await SiteDocument.findOne({
     docType: DOC,
-    guildId: normalizeId(guildId),
-    dedupeKey: dedupeKey(c, messageId),
+    guildId: gid,
+    dedupeKey: dedupeKey(c, mid),
   })
-    .select({ status: 1, rawWebhook: 1, userId: 1 })
+    .select({ status: 1, rawWebhook: 1, userId: 1, planKey: 1 })
     .lean()
     .catch(() => null);
+  if (byKey) return byKey;
+  // Finale chaos / eventKey diverso da premiLaReact base: match sul messageId.
+  return SiteDocument.findOne({
+    docType: DOC,
+    guildId: gid,
+    "rawWebhook.messageId": mid,
+  })
+    .sort({ createdAt: -1 })
+    .select({ status: 1, rawWebhook: 1, userId: 1, planKey: 1 })
+    .lean()
+    .catch(() => null);
+}
+
+async function findActiveReactPressByMessage(guildId, messageId) {
+  const mid = normalizeId(messageId);
+  const gid = normalizeId(guildId);
+  if (!mid || !gid) return null;
+  return SiteDocument.findOne({
+    docType: DOC,
+    guildId: gid,
+    status: "active",
+    "rawWebhook.messageId": mid,
+    "rawWebhook.expiresAt": { $gt: new Date() },
+  })
+    .select({ status: 1, rawWebhook: 1, userId: 1, planKey: 1 })
+    .lean()
+    .catch(() => null);
+}
+
+/** Config runtime dal doc attivo (finale chaos usa eventKey diverso da premiLaReact scaduto). */
+function cfgFromReactPressDoc(client, doc) {
+  const base = cfg(client);
+  if (!doc) return base;
+  const eventKey =
+    normalizeId(doc?.rawWebhook?.eventKey) ||
+    normalizeId(doc?.planKey) ||
+    base.eventKey;
+  const finaleChaos =
+    doc?.rawWebhook?.finaleChaos && typeof doc.rawWebhook.finaleChaos === "object"
+      ? doc.rawWebhook.finaleChaos
+      : null;
+  return {
+    ...base,
+    eventKey,
+    rewardGaleoni: safeInt(doc?.rawWebhook?.rewardGaleoni, base.rewardGaleoni, 0, 100000),
+    rewardHousePoints: safeInt(doc?.rawWebhook?.rewardHousePoints, base.rewardHousePoints, 0, 100000),
+    activeDurationMs: safeInt(doc?.rawWebhook?.activeDurationMs, base.activeDurationMs, 60_000, 60 * 60_000),
+    hintBeforeExpiryMs: safeInt(
+      doc?.rawWebhook?.hintBeforeExpiryMs,
+      base.hintBeforeExpiryMs,
+      60_000,
+      safeInt(doc?.rawWebhook?.activeDurationMs, base.activeDurationMs, 60_000, 60 * 60_000) - 60_000,
+    ),
+    // Round già spawnato: non usare date premiLaReact (chiuse l'11/08).
+    startDate: "2020-01-01T00:00:00",
+    endDate: "2099-12-31T23:59:59",
+    finaleChaos,
+  };
 }
 
 async function resolveSortedHouse(guildId, userId, eventKey) {
@@ -1288,8 +1349,8 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
     }
   }
 
-  // Annuncio solo su win davvero nuovi (non recovery di round già pagati).
-  const shouldAnnounce = announce && !galeoniAlreadyPaid && galeoni?.ok !== false;
+  // Annuncio sempre su win nuovi (anche se galeoni falliscono: il messaggio in chat non deve sparire).
+  const shouldAnnounce = announce && !galeoniAlreadyPaid;
   if (shouldAnnounce) {
     const announceLock = await SiteDocument.findOneAndUpdate(
       {
@@ -1325,6 +1386,10 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
       ]
         .filter(Boolean)
         .join(" + ") || "punto evento";
+      const galeoniNote =
+        galeoni?.ok === false
+          ? "\n<a:VC_Alert:1482706673176150077> Premi in elaborazione (riprova automatica al prossimo tick)."
+          : "";
       const embed = new EmbedBuilder()
         .setColor(0xd4af37)
         .setTitle("<:VC_harrypotters:1510941833222557696> Premi la react!")
@@ -1332,6 +1397,7 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
           [
             `<:VC_Dobby:1510941838138413146> **${winnerName}** ha cliccato per primo e vince **${rewardText}**.`,
             channelId ? `<:VC_Owlcall:1510941826176126976> Era in <#${channelId}>.` : "",
+            galeoniNote,
           ]
             .filter(Boolean)
             .join("\n"),
@@ -1362,7 +1428,8 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
 
 /** Dopo un riavvio: se qualcuno ha già messo ⚡ mentre il bot era giù, claim + premi. */
 async function catchUpActiveReactPressReactions(client, c, live) {
-  const channelId = normalizeId(live?.rawWebhook?.channelId || c.channelId);
+  const claimCfg = cfgFromReactPressDoc(client, live);
+  const channelId = normalizeId(live?.rawWebhook?.channelId || claimCfg.channelId);
   const messageId = normalizeId(live?.rawWebhook?.messageId);
   const gid = normalizeId(live?.guildId) || normalizeId(IDs.guilds.main);
   if (!channelId || !messageId || !gid) return false;
@@ -1372,7 +1439,7 @@ async function catchUpActiveReactPressReactions(client, c, live) {
   if (!message) return false;
 
   const reaction =
-    [...(message.reactions?.cache?.values() || [])].find((row) => sameEmoji(row, c.emoji)) || null;
+    [...(message.reactions?.cache?.values() || [])].find((row) => sameEmoji(row, claimCfg.emoji)) || null;
   if (!reaction) return false;
 
   const users = await reaction.users.fetch().catch(() => null);
@@ -1380,7 +1447,7 @@ async function catchUpActiveReactPressReactions(client, c, live) {
 
   const botId = normalizeId(client?.user?.id);
   const eventCfg = resolveHogwartsEventConfig(client);
-  const eventKey = normalizeId(eventCfg?.eventKey) || c.eventKey;
+  const eventKey = normalizeId(eventCfg?.eventKey) || claimCfg.eventKey;
   const guild =
     message.guild ||
     client.guilds.cache.get(gid) ||
@@ -1396,17 +1463,17 @@ async function catchUpActiveReactPressReactions(client, c, live) {
     if (!isValidGuildUserId(gid, uid)) continue;
     const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
     if (await isUserHighStaffExcludedFromHogwartsEvent(client, uid, member)) continue;
-    if (c.sortedOnly) {
+    if (claimCfg.sortedOnly) {
       const house = await resolveSortedHouse(gid, uid, eventKey);
       if (!house) {
         await reaction.users?.remove?.(uid).catch(() => null);
         continue;
       }
     }
-    const doc = await claimReactPressRound(gid, c, messageId, uid, new Date());
+    const doc = await claimReactPressRound(gid, claimCfg, messageId, uid, new Date());
     if (!doc) continue;
     global.logger?.warn?.("[PREMI LA REACT] catch-up win dopo riavvio:", uid, messageId);
-    await fulfillReactPressWin(client, c, doc, { user, message, announce: true });
+    await fulfillReactPressWin(client, claimCfg, doc, { user, message, announce: true });
     return true;
   }
   return false;
@@ -1596,6 +1663,8 @@ async function trySpawnReactPressOnCandidate(client, guild, c, chosen) {
     rewardGaleoni: c.rewardGaleoni,
     rewardHousePoints: c.rewardHousePoints,
     expiresAt,
+    activeDurationMs: c.activeDurationMs,
+    hintBeforeExpiryMs: c.hintBeforeExpiryMs,
     ...(c.finaleChaos && typeof c.finaleChaos === "object" ? { finaleChaos: c.finaleChaos } : {}),
   };
   let doc;
@@ -1749,6 +1818,18 @@ async function announceReactPressHint(client, c, active) {
   const expMs = new Date(active?.rawWebhook?.expiresAt || 0).getTime();
   const nowMs = Date.now();
   if (!Number.isFinite(expMs) || expMs <= nowMs) return false;
+  const hintClaim = await SiteDocument.findOneAndUpdate(
+    {
+      _id: active._id,
+      status: "active",
+      $or: [{ "rawWebhook.hintSentAt": { $exists: false } }, { "rawWebhook.hintSentAt": null }],
+    },
+    { $set: { "rawWebhook.hintSentAt": new Date() } },
+    { new: true },
+  )
+    .lean()
+    .catch(() => null);
+  if (!hintClaim) return false;
   const remainingMin = Math.max(1, Math.ceil((expMs - nowMs) / 60_000));
   const emoji = c.emoji || "⚡";
   const embed = new EmbedBuilder()
@@ -1767,16 +1848,7 @@ async function announceReactPressHint(client, c, active) {
     embeds: [embed],
     allowedMentions: { parse: [] },
   });
-  if (!sent) return false;
-  await SiteDocument.updateOne(
-    {
-      _id: active._id,
-      status: "active",
-      $or: [{ "rawWebhook.hintSentAt": { $exists: false } }, { "rawWebhook.hintSentAt": null }],
-    },
-    { $set: { "rawWebhook.hintSentAt": new Date() } },
-  ).catch(() => null);
-  return true;
+  return Boolean(sent);
 }
 
 async function maybeAnnounceReactPressHint(client, c, active) {
@@ -1819,14 +1891,27 @@ async function spawnReactPressChallenge(client, guild, c) {
 }
 
 async function resolveNextReactPressTickDelayMs(client, c) {
-  if (!eventOpen(c)) return 30 * 60 * 1000;
   const guildId = normalizeId(IDs.guilds.main);
   const now = Date.now();
+  const active = await activeChallenge(guildId);
+  if (active?.rawWebhook?.finaleChaos) {
+    const expMs = new Date(active?.rawWebhook?.expiresAt || 0).getTime();
+    let delay = Number.isFinite(expMs) ? Math.max(15_000, expMs - now + 5_000) : 15_000;
+    const rc = cfgFromReactPressDoc(client, active);
+    if (!active?.rawWebhook?.hintSentAt && Number.isFinite(expMs) && expMs > now) {
+      const hintBeforeMs = safeInt(rc.hintBeforeExpiryMs, DEFAULT_CONFIG.hintBeforeExpiryMs, 60 * 1000, rc.activeDurationMs);
+      const hintAtMs = expMs - hintBeforeMs;
+      if (hintAtMs > now) {
+        delay = Math.min(delay, Math.max(15_000, hintAtMs - now));
+      }
+    }
+    return Math.min(delay, 20_000);
+  }
+  if (!eventOpen(c)) return 30 * 60 * 1000;
   const startMs = parseLocalMs(c.startDate, DEFAULT_CONFIG.startDate);
   if (now < startMs) {
     return Math.max(15_000, slotSpawnAtMs(c, startMs) - now);
   }
-  const active = await activeChallenge(guildId);
   if (active) {
     const expMs = new Date(active?.rawWebhook?.expiresAt || 0).getTime();
     let delay = Number.isFinite(expMs) ? Math.max(15_000, expMs - now + 5_000) : 15_000;
@@ -1845,7 +1930,6 @@ async function resolveNextReactPressTickDelayMs(client, c) {
 
 async function runPremiLaReactTick(client, reason = "tick") {
   const c = cfg(client);
-  if (!eventOpen(c)) return false;
   const guild =
     client.guilds.cache.get(IDs.guilds.main) ||
     (await client.guilds.fetch(IDs.guilds.main).catch(() => null));
@@ -1853,31 +1937,48 @@ async function runPremiLaReactTick(client, reason = "tick") {
     global.logger?.warn?.(`[PREMI LA REACT] Guild main assente (${reason}).`);
     return false;
   }
+  const live = await activeChallenge(guild.id);
+  if (live?.rawWebhook?.finaleChaos) {
+    const rc = cfgFromReactPressDoc(client, live);
+    await expireOldChallenges(client, guild.id, rc, { announce: true });
+    const stillLive = await activeChallenge(guild.id);
+    if (stillLive) {
+      await ensureActiveChallengeReaction(client, rc, stillLive);
+      await maybeAnnounceReactPressHint(client, rc, stillLive);
+    }
+    return true;
+  }
+  if (!eventOpen(c)) return false;
   return spawnReactPressChallenge(client, guild, c);
 }
 
 async function resumeReactPressOnBoot(client) {
-  const c = cfg(client);
-  if (!eventOpen(c)) return;
+  const base = cfg(client);
   const guild =
     client.guilds.cache.get(IDs.guilds.main) ||
     (await client.guilds.fetch(IDs.guilds.main).catch(() => null));
   if (!guild) return;
-  // Prima recupera win claimati ma senza premi (crash a metà).
-  await recoverUnfulfilledReactPressWins(client, c).catch((err) =>
+  // Round attivi (anche finale chaos con eventKey diverso / premiLaReact scaduto).
+  const live = await activeChallenge(guild.id);
+  if (live) {
+    const c = cfgFromReactPressDoc(client, live);
+    await recoverUnfulfilledReactPressWins(client, c).catch((err) =>
+      global.logger?.warn?.("[PREMI LA REACT] recover unfulfilled:", err?.message || err),
+    );
+    const caughtUp = await catchUpActiveReactPressReactions(client, c, live).catch((err) => {
+      global.logger?.warn?.("[PREMI LA REACT] catch-up reactions:", err?.message || err);
+      return false;
+    });
+    if (caughtUp) return;
+    await ensureActiveChallengeReaction(client, c, live);
+    await maybeAnnounceReactPressHint(client, c, live);
+    return;
+  }
+  if (!eventOpen(base)) return;
+  await recoverUnfulfilledReactPressWins(client, base).catch((err) =>
     global.logger?.warn?.("[PREMI LA REACT] recover unfulfilled:", err?.message || err),
   );
-  await expireOldChallenges(client, guild.id, c, { announce: false });
-  const live = await activeChallenge(guild.id);
-  if (!live) return;
-  // Se qualcuno ha cliccato ⚡ durante il downtime, assegna ora (prima di eventuali cleanup).
-  const caughtUp = await catchUpActiveReactPressReactions(client, c, live).catch((err) => {
-    global.logger?.warn?.("[PREMI LA REACT] catch-up reactions:", err?.message || err);
-    return false;
-  });
-  if (caughtUp) return;
-  await ensureActiveChallengeReaction(client, c, live);
-  await maybeAnnounceReactPressHint(client, c, live);
+  await expireOldChallenges(client, guild.id, base, { announce: true });
 }
 
 async function tick(client) {
@@ -1937,21 +2038,28 @@ async function resolveReactPressMessage(reaction) {
 }
 
 async function handleReactPressReaction(client, reaction, user) {
-  const c = cfg(client);
-  if (!eventOpen(c) || user?.bot) return false;
+  const base = cfg(client);
+  if (user?.bot) return false;
 
   let liveReaction = reaction;
   if (liveReaction?.partial) {
     liveReaction = await liveReaction.fetch().catch(() => null);
     if (!liveReaction) return false;
   }
-  if (!sameEmoji(liveReaction, c.emoji)) return false;
+  if (!sameEmoji(liveReaction, base.emoji)) return false;
 
   const message = await resolveReactPressMessage(liveReaction);
   if (!message?.guild) return false;
   const gid = normalizeId(message.guild.id);
   const uid = normalizeId(user.id);
   if (!isValidGuildUserId(gid, uid)) return false;
+
+  // Finale chaos (e round spawnati con eventKey diverso): accetta se c'è un active
+  // sul messageId anche se premiLaReact base è scaduto (endDate 11/08).
+  const liveDoc = await findActiveReactPressByMessage(gid, message.id);
+  if (!liveDoc && !eventOpen(base)) return false;
+  const c = liveDoc ? cfgFromReactPressDoc(client, liveDoc) : base;
+
   const clickerMember = await getGuildMemberCached(message.guild, uid).catch(() => null);
   if (await isUserHighStaffExcludedFromHogwartsEvent(client, uid, clickerMember)) return false;
   const eventCfg = resolveHogwartsEventConfig(client);
@@ -1967,16 +2075,17 @@ async function handleReactPressReaction(client, reaction, user) {
     const existing = await findReactPressDocForMessage(gid, c, message.id);
     const status = normalizeId(existing?.status);
     const winnerId = normalizeId(existing?.userId || existing?.rawWebhook?.winnerUserId);
+    const claimCfg = existing ? cfgFromReactPressDoc(client, existing) : c;
 
     // Win già claimato da questo utente ma premi persi (crash): recupera.
     if (status === "completed" && winnerId === uid) {
-      await fulfillReactPressWin(client, c, existing, { user, message, announce: true });
+      await fulfillReactPressWin(client, claimCfg, existing, { user, message, announce: true });
       return true;
     }
 
     if (status === "completed" || status === "expired") {
       await liveReaction.users?.remove?.(uid).catch(() => null);
-      await removeReactPressEmojiFromMessage(message, c.emoji);
+      await removeReactPressEmojiFromMessage(message, claimCfg.emoji);
       return true;
     }
 
@@ -1984,14 +2093,14 @@ async function handleReactPressReaction(client, reaction, user) {
       const expMs = new Date(existing?.rawWebhook?.expiresAt || 0).getTime();
       if (!Number.isFinite(expMs) || expMs <= Date.now()) {
         await liveReaction.users?.remove?.(uid).catch(() => null);
-        await removeReactPressEmojiFromMessage(message, c.emoji);
+        await removeReactPressEmojiFromMessage(message, claimCfg.emoji);
         return true;
       }
       // Race/mongo durante riavvio: ritenta il claim senza togliere la ⚡.
       await new Promise((resolve) => setTimeout(resolve, 400));
-      const retry = await claimReactPressRound(gid, c, message.id, uid, new Date());
+      const retry = await claimReactPressRound(gid, claimCfg, message.id, uid, new Date());
       if (retry) {
-        await fulfillReactPressWin(client, c, retry, { user, message, announce: true });
+        await fulfillReactPressWin(client, claimCfg, retry, { user, message, announce: true });
       }
       return true;
     }
@@ -2057,7 +2166,7 @@ async function spawnFinaleChaosReactPress(client, guild, opts = {}) {
   const gid = normalizeId(guild?.id);
   if (!gid) return false;
   return withReactPressSpawnLock(client, gid, async () => {
-    await expireOldChallenges(client, gid, c, { announce: false });
+    await expireOldChallenges(client, gid, c, { announce: true });
     const live = await activeChallenge(gid);
     if (live) {
       await ensureActiveChallengeReaction(client, c, live);
@@ -2069,13 +2178,52 @@ async function spawnFinaleChaosReactPress(client, guild, opts = {}) {
   });
 }
 
+async function tickFinaleChaosReactPressRounds(client, guild, chaosCfg, nowMs = Date.now()) {
+  const gid = normalizeId(guild?.id);
+  if (!gid) return;
+  const activeDocs = await SiteDocument.find({
+    docType: DOC,
+    guildId: gid,
+    status: "active",
+    "rawWebhook.finaleChaos": { $exists: true },
+  })
+    .lean()
+    .catch(() => []);
+  for (const doc of activeDocs) {
+    const rc = {
+      ...cfgFromReactPressDoc(client, doc),
+      hintBeforeExpiryMs: safeInt(
+        chaosCfg?.hintBeforeExpiryMs ?? doc?.rawWebhook?.hintBeforeExpiryMs,
+        DEFAULT_CONFIG.hintBeforeExpiryMs,
+        60_000,
+        20 * 60_000,
+      ),
+      activeDurationMs: safeInt(
+        chaosCfg?.activeDurationMs ?? doc?.rawWebhook?.activeDurationMs,
+        DEFAULT_CONFIG.activeDurationMs,
+        60_000,
+        30 * 60_000,
+      ),
+    };
+    const expMs = new Date(doc.rawWebhook?.expiresAt || 0).getTime();
+    if (Number.isFinite(expMs) && nowMs >= expMs) {
+      await expireOldChallenges(client, gid, rc, { announce: true });
+      continue;
+    }
+    await maybeAnnounceReactPressHint(client, rc, doc);
+  }
+}
+
 module.exports = {
   announceActiveReactPressRound,
+  cfgFromReactPressDoc,
   getPremiLaReactConfig: cfg,
   handleReactPressReaction,
   isPremiLaReactEventEnded,
+  maybeAnnounceReactPressHint,
   recordReactPressCandidateMessage,
   runPremiLaReactTick,
   startReactPressEventLoop,
   spawnFinaleChaosReactPress,
+  tickFinaleChaosReactPressRounds,
 };

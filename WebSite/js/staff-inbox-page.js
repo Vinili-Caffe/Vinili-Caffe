@@ -40,6 +40,8 @@
   var loadWatchdogTimer = null;
   var initStarted = false;
   var loadInFlightNonQuiet = false;
+  var inboxRealtimeRefreshPending = false;
+  var inboxPollTimer = null;
   var initialQueueLoaded = false;
   var lastQueueLoadFailed = false;
   var initialLoadPromise = null;
@@ -136,6 +138,11 @@
     if (seq !== loadSeq) return;
     loadInFlightNonQuiet = false;
     finishQueueLoad(seq, opts);
+    // inboxRt1: WS arrivato durante load → non scartare, ripeti subito.
+    if (inboxRealtimeRefreshPending) {
+      inboxRealtimeRefreshPending = false;
+      scheduleInboxRefreshFromRealtime({ immediate: true });
+    }
   }
 
   var STATUS_LABELS = {
@@ -408,7 +415,15 @@
       scheduleMobileAppealBootGuarantee();
     }
     armSkeletonWatchdog();
-    return loadQueue({ soft: false, _boot: true, sync: true }).then(afterBootQueue);
+    // Primo paint veloce: soft (prefetch/cache). Sync Discord solo quiet in background.
+    return loadQueue({ soft: true, _boot: true }).then(function () {
+      afterBootQueue();
+      window.setTimeout(function () {
+        if (!isStaffScopeActive()) return;
+        // soft+sync: lista da DB subito; sync Discord fire-and-forget lato API.
+        loadQueue({ soft: true, sync: true, quiet: true, _internal: true }).catch(function () {});
+      }, 120);
+    });
   }
 
   function consumeQueuePrefetch(requestedTab, requestedScope, requestedPage) {
@@ -728,17 +743,24 @@
 
   function scheduleInboxRefreshFromRealtime(opts) {
     opts = opts || {};
-    // Su mobile WS/PTR partono spesso durante il primo load: non cancellarlo.
-    if (!initialQueueLoaded || loadInFlightNonQuiet) return;
+    // inboxRt1: non droppare eventi WS — coda se boot/load in corso.
+    if (!initialQueueLoaded || loadInFlightNonQuiet) {
+      inboxRealtimeRefreshPending = true;
+      return;
+    }
     if (state.inboxRefreshTimer) clearTimeout(state.inboxRefreshTimer);
     state.inboxRefreshTimer = setTimeout(function () {
       state.inboxRefreshTimer = null;
-      if (loadInFlightNonQuiet) return;
+      if (loadInFlightNonQuiet) {
+        inboxRealtimeRefreshPending = true;
+        return;
+      }
+      inboxRealtimeRefreshPending = false;
       loadQueue({ quiet: true, sync: Boolean(opts.sync) }).then(function () {
         loadSummary().catch(function () {});
         syncDetailWithList();
       });
-    }, opts.immediate ? 120 : 650);
+    }, opts.immediate ? 80 : 320);
   }
 
   function scheduleInboxSoftRefresh() {
@@ -747,49 +769,83 @@
       state.inboxSoftRefreshTimer = null;
       loadQueue({ quiet: true }).catch(function () {});
       loadSummary().catch(function () {});
-    }, 1800);
+    }, 450);
+  }
+
+  function ensureInboxPoll() {
+    if (inboxPollTimer) return;
+    inboxPollTimer = window.setInterval(function () {
+      try {
+        if (document.hidden) return;
+        if (isInboxEmbed() && !isStaffScopeActive()) return;
+        if (!initialQueueLoaded || loadInFlightNonQuiet) return;
+        scheduleInboxRefreshFromRealtime({ immediate: true });
+      } catch (ePoll) {}
+    }, 8000);
+  }
+
+  function decisionStoreKey(patchOrItem) {
+    if (!patchOrItem) return "";
+    var mid = String(patchOrItem.messageId || "").trim();
+    if (mid) return "msg:" + mid;
+    var uid = String(patchOrItem.userId || "").trim();
+    var pid = String(patchOrItem.id || patchOrItem.pauseId || "").trim();
+    if (uid && pid) return "pause:" + uid + ":" + pid;
+    var k = String(itemKey(patchOrItem) || "").trim();
+    return k ? "k:" + k : "";
   }
 
   function rememberLocalDecision(patch) {
     if (!patch) return;
-    var mid = String(patch.messageId || "").trim();
-    if (!mid) return;
+    var key = decisionStoreKey(patch);
+    if (!key) return;
     if (!state.localDecisions) state.localDecisions = {};
-    state.localDecisions[mid] = { at: Date.now(), patch: patch };
+    state.localDecisions[key] = { at: Date.now(), patch: patch };
   }
 
   function mergeIncomingWorkflowItems(incoming) {
     var local = state.localDecisions || {};
-    return (incoming || []).map(function (it) {
-      var mid = String(it.messageId || itemKey(it) || "").trim();
-      var memo = mid ? local[mid] : null;
-      if (!memo) return it;
-      if (Date.now() - memo.at > 180000) {
-        delete local[mid];
-        return it;
+    var out = [];
+    (incoming || []).forEach(function (it) {
+      if (!it) return;
+      var key = decisionStoreKey(it);
+      var memo = key ? local[key] : null;
+      if (memo && Date.now() - memo.at > 180000) {
+        delete local[key];
+        memo = null;
       }
-      var serverPending = String(it.status || "").toLowerCase() === "pending";
-      var localDecided = String(memo.patch.status || "").toLowerCase() !== "pending";
-      if (serverPending && localDecided) {
-        return Object.assign({}, it, memo.patch, {
-          body: memo.patch.body || memo.patch.content || it.body || "",
-          content: memo.patch.content || memo.patch.body || it.content || "",
-          preview: memo.patch.preview || it.preview || "",
-        });
+      var serverStatus = String(it.status || "").toLowerCase() || "pending";
+      if (memo) {
+        var localStatus = String(memo.patch.status || "").toLowerCase() || "pending";
+        var localDecided = localStatus !== "pending";
+        if (serverStatus === "pending" && localDecided) {
+          // Già gestita in locale: fuori da "In attesa", patchata altrove.
+          if (state.scope === "pending") return;
+          out.push(
+            Object.assign({}, it, memo.patch, {
+              body: memo.patch.body || memo.patch.content || it.body || "",
+              content: memo.patch.content || memo.patch.body || it.content || "",
+              preview: memo.patch.preview || it.preview || "",
+            }),
+          );
+          return;
+        }
+        if (serverStatus !== "pending") delete local[key];
       }
-      if (!serverPending) delete local[mid];
-      return it;
+      if (state.scope === "pending" && serverStatus !== "pending") return;
+      out.push(it);
     });
+    return out;
   }
 
   function itemWithLocalDecision(item) {
     if (!item) return item;
-    var mid = String(item.messageId || itemKey(item) || "").trim();
-    if (!mid || !state.localDecisions) return item;
-    var memo = state.localDecisions[mid];
+    var key = decisionStoreKey(item);
+    if (!key || !state.localDecisions) return item;
+    var memo = state.localDecisions[key];
     if (!memo) return item;
     if (Date.now() - memo.at > 180000) {
-      delete state.localDecisions[mid];
+      delete state.localDecisions[key];
       return item;
     }
     var serverPending = String(item.status || "").toLowerCase() === "pending";
@@ -801,7 +857,7 @@
         preview: memo.patch.preview || item.preview || "",
       });
     }
-    if (!serverPending) delete state.localDecisions[mid];
+    if (!serverPending) delete state.localDecisions[key];
     return item;
   }
 
@@ -862,6 +918,10 @@
         return itemKey(it) !== state.selectedKey;
       });
       closeDetail();
+      try {
+        renderList();
+        renderTabs();
+      } catch (eRtList) {}
     } else if (state.selectedKey && patch) {
       applySelectedItemFromList();
     } else {
@@ -876,6 +936,8 @@
     );
     teardownChat();
     scheduleInboxSoftRefresh();
+    // Notifica subito anche le altre sessioni (WS) — e ripeti locale.
+    scheduleInboxRefreshFromRealtime({ immediate: true });
   }
 
   function resocontoCardAction(item) {
@@ -884,6 +946,8 @@
     var st = String(item.status || "pending").toLowerCase();
     if (st === "pending" || st === "cancelled") {
       return (
+        (item.proposedLabel && String(item.proposedLabel)) ||
+        resocontoProposedLabel(item) ||
         resocontoActionCodeLabel(item.actionKey) ||
         extractResocontoAzione(item.body || item.content || item.preview || "")
       );
@@ -1155,9 +1219,11 @@
       detail.hidden = true;
       detail.innerHTML = "";
     }
+    /* Barra unificata: resta visibile (tab Pause/…); nascondi solo scope/filtri/settimana */
     if (filterWrap) {
-      filterWrap.hidden = true;
-      filterWrap.setAttribute("hidden", "");
+      filterWrap.hidden = false;
+      filterWrap.removeAttribute("hidden");
+      filterWrap.classList.add("vc-staff-inbox-board-toolbar");
     }
     if (filters) {
       filters.hidden = true;
@@ -1167,7 +1233,10 @@
       scopeEl.hidden = true;
       scopeEl.innerHTML = "";
     }
-    if (week) week.hidden = true;
+    if (week) {
+      week.hidden = true;
+      week.innerHTML = "";
+    }
     if (pag) pag.hidden = true;
     if (list) {
       list.hidden = false;
@@ -1525,22 +1594,17 @@
   function renderScopeToggle() {
     var root = T.byId("vc-staff-inbox-scope");
     if (!root) return;
-    if (isPuntiToltiTab()) {
-      root.hidden = true;
-      root.innerHTML = "";
-      var wrapPt = inboxFilterWrap();
-      if (wrapPt) {
-        wrapPt.hidden = true;
-        wrapPt.setAttribute("hidden", "");
-      }
-      syncInboxFilterHint();
-      return;
-    }
     var wrap = inboxFilterWrap();
     if (wrap) {
       wrap.hidden = false;
       wrap.removeAttribute("hidden");
       wrap.classList.add("vc-staff-inbox-board-toolbar");
+    }
+    if (isPuntiToltiTab()) {
+      root.hidden = true;
+      root.innerHTML = "";
+      syncInboxFilterHint();
+      return;
     }
     root.hidden = false;
     root.className = "vc-staff-inbox-filter-group vc-staff-inbox-filter-group--board";
@@ -1568,31 +1632,36 @@
     if (!root) return;
     var embed = isInboxEmbed();
     if (embed) {
-      root.className =
-        "vc-notify-filter-bar inline-flex flex-wrap items-center gap-2 rounded-xl p-1.5 vc-staff-inbox-tabs-bar";
+      root.className = "vc-staff-inbox-filter-group vc-staff-inbox-filter-group--board";
+      root.hidden = false;
+      root.removeAttribute("hidden");
     } else {
       root.className = "vc-staff-tools-tabs";
     }
-    root.innerHTML = TABS.filter(function (t) {
+    var buttons = TABS.filter(function (t) {
       return canAccessTab(t.id);
     })
       .map(function (t) {
-      var count = state.summary && state.summary[t.id] != null ? Number(state.summary[t.id]) : 0;
-      var active = state.tab === t.id;
-      var btnClass = embed
-        ? "vc-notify-filter-btn" + (active ? " vc-notify-filter-btn--on is-active" : "")
-        : "vc-staff-tools-tab" + (active ? " is-active" : "");
-      return (
-        '<button type="button" class="' +
-        btnClass +
-        '" data-tab="' +
-        T.esc(t.id) +
-        '">' +
-        T.esc(t.label) +
-        (count ? ' <span class="vc-staff-inbox-tab__count">' + count + "</span>" : "") +
-        "</button>"
-      );
-    }).join("");
+        var count = state.summary && state.summary[t.id] != null ? Number(state.summary[t.id]) : 0;
+        var active = state.tab === t.id;
+        var btnClass = embed
+          ? filterBtnClass(active)
+          : "vc-staff-tools-tab" + (active ? " is-active" : "");
+        return (
+          '<button type="button" class="' +
+          btnClass +
+          '" data-tab="' +
+          T.esc(t.id) +
+          '">' +
+          T.esc(t.label) +
+          (count ? ' <span class="vc-staff-inbox-tab__count">' + count + "</span>" : "") +
+          "</button>"
+        );
+      })
+      .join("");
+    root.innerHTML = embed
+      ? '<div class="vc-staff-pt-seg" role="tablist" aria-label="Sezioni inbox">' + buttons + "</div>"
+      : buttons;
     root.querySelectorAll("[data-tab]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         setTab(btn.getAttribute("data-tab"));
@@ -1825,6 +1894,49 @@
     );
   }
 
+  /** Badge Nuovo / In pausa / Rientrato sui resoconti (API o parse body). */
+  function resocontoStaffFlags(item) {
+    if (!item) return { isNewStaff: false, inPause: false, pauseEnded: false };
+    if (
+      Object.prototype.hasOwnProperty.call(item, "isNewStaff") ||
+      Object.prototype.hasOwnProperty.call(item, "inPause")
+    ) {
+      var apiInPause = item.inPause === true;
+      return {
+        isNewStaff: item.isNewStaff === true,
+        inPause: apiInPause,
+        pauseEnded: item.pauseEnded === true && !apiInPause,
+      };
+    }
+    var azione = String(item.azioneDisplay || item.proposedLabel || "").toLowerCase();
+    var body = String(item.body || item.content || item.preview || "").toLowerCase();
+    var blob = azione + " " + body;
+    var isNew = /nuovo in staff|nuovo partner manager|nuovo\s*pm\b/.test(blob);
+    var inPause = /\bin pausa\b|pausa nella settimana/.test(azione) || /\bin pausa\b/.test(body);
+    var pauseEnded = /rientrato da pausa/.test(blob);
+    return {
+      isNewStaff: isNew,
+      inPause: inPause,
+      pauseEnded: pauseEnded && !inPause,
+    };
+  }
+
+  function resocontoFlagBadgesHtml(item) {
+    if (state.tab !== "resoconti" || !item) return "";
+    var f = resocontoStaffFlags(item);
+    var bits = [];
+    if (f.isNewStaff) {
+      bits.push('<span class="vc-staff-reso-flag vc-staff-reso-flag--new">Nuovo</span>');
+    }
+    if (f.inPause) {
+      bits.push('<span class="vc-staff-reso-flag vc-staff-reso-flag--pause">In pausa</span>');
+    } else if (f.pauseEnded) {
+      bits.push('<span class="vc-staff-reso-flag vc-staff-reso-flag--back">Rientrato</span>');
+    }
+    if (!bits.length) return "";
+    return '<span class="vc-staff-reso-flags">' + bits.join("") + "</span>";
+  }
+
   function parseNumberedSections(text) {
     var raw = cleanDiscordText(text, { keepNewlines: true, keepCustomEmoji: true });
     if (!raw) return [];
@@ -1973,8 +2085,8 @@
   }
 
   var RESOCONTO_ACTION_CODES = {
-    vp: "Val +",
-    vn: "Val -",
+    vp: "Valutazione positiva",
+    vn: "Valutazione negativa",
     nl: "Nulla",
     px: "Pex",
     dp: "Depex",
@@ -1984,9 +2096,39 @@
 
   function resocontoProposedLabel(item) {
     if (!item) return "";
+    // API: proposedLabel già ricavato dal testo Azione (anche se actionKey resta nl
+    // perché le auto-valutazioni sono già registrate).
+    if (item.proposedLabel) return String(item.proposedLabel);
+    var fromBody = extractResocontoAzione(item.body || item.content || item.preview || "");
+    if (fromBody) {
+      var short = shortenResocontoAzioneLabel(fromBody);
+      if (short) return short;
+    }
     var fromKey = resocontoActionCodeLabel(item.actionKey);
     if (fromKey) return fromKey;
-    return extractResocontoAzione(item.body || item.content || item.preview || "");
+    return fromBody || "";
+  }
+
+  function shortenResocontoAzioneLabel(azioneRaw) {
+    var azione = String(azioneRaw || "").trim();
+    if (!azione) return "";
+    if (/^nulla\b/i.test(azione)) {
+      var dash = azione.match(/^nulla\s*[—–-]\s*(.+)$/i);
+      if (dash && dash[1]) return ("Nulla — " + String(dash[1]).trim()).slice(0, 48);
+      return "Nulla";
+    }
+    var hasPos = /valutazione positiva|compito sanzioni/i.test(azione);
+    var hasNeg = /valutazione negativa/i.test(azione);
+    var gia = /gi[aà]\s*registrat/i.test(azione);
+    if (!hasPos && !hasNeg) return "";
+    var label =
+      hasPos && hasNeg
+        ? "Valutazione positiva / negativa"
+        : hasPos
+          ? "Valutazione positiva"
+          : "Valutazione negativa";
+    if (gia) label += hasPos && hasNeg ? " (già fatte)" : " (già fatta)";
+    return label;
   }
 
   function resocontoNeedsReasonForAction(item, actionKey) {
@@ -1994,12 +2136,12 @@
     var key = String(actionKey || item && item.actionKey || "")
       .trim()
       .toLowerCase();
-    if (kind === "p") return false;
+    if (kind === "p") return key === "dp";
     if (key === "nl" || key === "rc" || key === "batch") return false;
     if (key === "px" || key === "dp" || key === "vp" || key === "vn") return true;
     var label = resocontoActionCodeLabel(key) || resocontoProposedLabel(item);
     if (/^nulla$/i.test(label) || /^richiamo$/i.test(label)) return false;
-    if (/^pex$|^depex$|^val \+|^val -$/i.test(label)) return true;
+    if (/^pex$|^depex$|^valutazione positiva$|^valutazione negativa$|^val \+|^val -$/i.test(label)) return true;
     return false;
   }
 
@@ -2053,6 +2195,9 @@
 
   function ensureResocontoReason(body, item) {
     var effectiveKey = resocontoEffectiveActionKey(body);
+    if (String((body && body.reason) || "").trim()) {
+      return Promise.resolve(String(body.reason).trim());
+    }
     if (!resocontoNeedsReasonForAction(item, effectiveKey)) {
       return Promise.resolve(body.reason || "");
     }
@@ -2079,8 +2224,8 @@
     var outcome = m ? String(m[1] || "").trim().toLowerCase() : "";
     if (/pex applicato/.test(outcome)) return "Pex";
     if (/depex pm applicato|depex applicato/.test(outcome)) return "Depex";
-    if (/valutazione positiva/.test(outcome)) return "Val +";
-    if (/valutazione negativa/.test(outcome)) return "Val −";
+    if (/valutazione positiva/.test(outcome)) return "Valutazione positiva";
+    if (/valutazione negativa/.test(outcome)) return "Valutazione negativa";
     if (/richiamo/.test(outcome)) return "Richiamo";
     if (/nessuna azione/.test(outcome)) return "Nulla";
     if (/valutazioni gi[aà] registrate|azioni multiple/.test(outcome)) return "Azioni multiple";
@@ -2141,34 +2286,106 @@
     };
   }
 
-  function extractResocontoListPreview(text) {
+  function stripResocontoText(text, opts) {
+    var keepNewlines = Boolean(opts && opts.keepNewlines);
+    var s = cleanDiscordText(text || "", { keepCustomEmoji: false, keepNewlines: keepNewlines });
+    s = s
+      .replace(/:[a-zA-Z0-9_~-]+:/g, "")
+      .replace(/\{\{VCEMOJI\d+\}\}/g, "")
+      .replace(/<(a?):[\w~-]+:\d+>/g, "");
+    try {
+      s = s.replace(/\p{Extended_Pictographic}/gu, "");
+    } catch (ePic) {
+      s = s.replace(/(?:[\u2600-\u27BF]|(?:\uD83C[\uDC00-\uDFFF])|(?:\uD83D[\uDC00-\uDFFF])|(?:\uD83E[\uDC00-\uDFFF]))/g, "");
+    }
+    s = s.replace(/\uFE0F|\u200D/g, "");
+    if (keepNewlines) {
+      return s
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim();
+    }
+    return s.replace(/\s+/g, " ").trim();
+  }
+
+  function extractHoursLabelFromRaw(raw) {
+    var cleaned = stripResocontoText(raw || "");
+    if (!cleaned) return "";
+    var m = cleaned.match(/(\d+(?:[.,]\d+)?)\s*h\b/i);
+    if (m) {
+      var n = Number(String(m[1]).replace(",", "."));
+      if (Number.isFinite(n)) return formatVoiceHours(n * 3600);
+    }
+    var only = cleaned.replace(/[^\d.,]/g, "");
+    if (only && /^\d+(?:[.,]\d+)?$/.test(only)) {
+      var n2 = Number(only.replace(",", "."));
+      if (Number.isFinite(n2)) return formatVoiceHours(n2 * 3600);
+    }
+    return cleaned;
+  }
+
+  function extractResocontoListPreview(text, item) {
     var sections = parseResocontoSections(text);
-    if (!sections.length) return "";
-    var stats = [];
-    var azioneLine = "";
-    sections.forEach(function (s) {
-      var placed = placeResocontoFieldEmojis(s);
-      var name = cleanDiscordText(placed.name || "", { keepCustomEmoji: true });
-      var value = cleanDiscordText(placed.value || "", { keepCustomEmoji: true });
-      if (!name && !value) return;
-      var key = name
-        .replace(/\{\{VCEMOJI\d+\}\}/g, "")
-        .replace(/<a?:[a-zA-Z0-9_]+:\d+>/g, "")
-        .replace(/:[a-zA-Z0-9_]+:/g, "")
-        .trim()
-        .toLowerCase();
-      if (/^azione$/.test(key)) {
-        azioneLine = name + ": " + value;
-        return;
+    var isPm = item && String(item.kind || "").toLowerCase() === "p";
+    var msgs = null;
+    var ore = "";
+    var sanzioni = "";
+    var partners = null;
+    var azione = "";
+    if (sections.length) {
+      sections.forEach(function (s) {
+        var name = stripResocontoText(s.name || "");
+        var value = stripResocontoText(s.value || "");
+        if (!name && !value) return;
+        var key = name.toLowerCase();
+        if (/^azione$/.test(key)) {
+          azione = value;
+          return;
+        }
+        if (/messaggi/.test(key)) {
+          var mNum = value.replace(/[^\d]/g, "");
+          if (mNum) msgs = Number(mNum);
+          return;
+        }
+        if (/^ore\b|ore in una settimana/.test(key)) {
+          ore = extractHoursLabelFromRaw(value);
+          return;
+        }
+        if (/sanzioni/.test(key)) {
+          sanzioni = value;
+          return;
+        }
+        if (/^partner$/.test(key)) {
+          var pNum = value.replace(/[^\d]/g, "");
+          if (pNum) partners = Number(pNum);
+        }
+      });
+    }
+    if (item) {
+      if (msgs == null && item.weeklyMessages != null && Number.isFinite(Number(item.weeklyMessages))) {
+        msgs = Math.max(0, Math.floor(Number(item.weeklyMessages)));
       }
-      if (
-        /messaggi in una settimana|ore in una settimana|sanzioni|scambio limiti|^partner$/.test(key)
-      ) {
-        stats.push(name + ": " + value);
+      if (!ore && item.weeklyVoiceSeconds != null && Number.isFinite(Number(item.weeklyVoiceSeconds))) {
+        ore = formatVoiceHours(item.weeklyVoiceSeconds);
       }
-    });
-    if (stats.length) return stats.join(" · ");
-    return azioneLine || "";
+      if (partners == null && item.weeklyPartners != null && Number.isFinite(Number(item.weeklyPartners))) {
+        partners = Math.max(0, Math.floor(Number(item.weeklyPartners)));
+      }
+      if (!azione) azione = resocontoProposedLabel(item) || "";
+    }
+    azione = shortenResocontoAzioneLabel(azione) || stripResocontoText(azione);
+    var parts = [];
+    if (isPm) {
+      if (partners != null) parts.push(partners + " partner");
+      if (azione) parts.push(azione);
+      return parts.join(" · ");
+    }
+    if (msgs != null) parts.push(msgs + " msg");
+    if (ore) parts.push(ore);
+    if (sanzioni) parts.push("Sanzioni " + sanzioni);
+    if (azione) parts.push(azione);
+    return parts.join(" · ");
   }
 
   /** Resoconti staff/PM: righe etichettate Discord (Staffer, Ruolo, Azione, …). */
@@ -2444,33 +2661,9 @@
       var roleId = T.esc(item.roleId || "");
       var actionKey = T.esc(item.actionKey || "");
       var channelId = T.esc(item.channelId || "");
-      var proposed = resocontoProposedLabel(item) || (String(item.kind || "") === "p" ? "Nulla" : "Piano automatico");
-      var applyLabel = proposed === "Piano automatico" ? "Conferma piano" : "Conferma: " + proposed;
-      var altsRaw =
-        String(item.kind || "") === "p"
-          ? [
-              { key: "rc", label: "Richiamo" },
-              { key: "nl", label: "Nulla" },
-            ]
-          : [
-              { key: "vp", label: "Val +" },
-              { key: "vn", label: "Val -" },
-              { key: "nl", label: "Nulla" },
-            ];
-      var alts = altsRaw.filter(function (alt) {
-        if (alt.key === "nl" && /^nulla$/i.test(proposed)) return false;
-        if (String(alt.key || "") === String(item.actionKey || "").trim().toLowerCase()) return false;
-        if (alt.label === proposed) return false;
-        return true;
-      });
-      return (
-        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--resoconti">' +
-        '<p class="vc-staff-inbox-actions__hint">' +
-        T.esc("Conferma la proposta del resoconto oppure scegli un\u2019altra azione.") +
-        "</p>" +
-        '<div class="vc-staff-inbox-actions__primary vc-staff-inbox-actions__primary--solo">' +
-        '<div class="vc-staff-inbox-actions__decide">' +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--ok vc-staff-inbox-btn--confirm" data-act="accept" data-message-id="' +
+      var isPm = String(item.kind || "") === "p";
+      var attrs =
+        ' data-message-id="' +
         mid +
         '" data-user-id="' +
         uid +
@@ -2482,40 +2675,82 @@
         actionKey +
         '" data-channel-id="' +
         channelId +
-        '">' +
-        T.esc(applyLabel) +
-        "</button>" +
-        "</div></div>" +
-        (alts.length
-          ? '<div class="vc-staff-inbox-alt" aria-label="Azione alternativa">' +
-            '<span class="vc-staff-inbox-alt__label">Altra azione</span>' +
-            '<div class="vc-staff-inbox-alt__pills">' +
-            alts
-              .map(function (alt) {
-                return (
-                  '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--alt" data-act="accept" data-override-key="' +
-                  T.esc(alt.key) +
-                  '" data-message-id="' +
-                  mid +
-                  '" data-user-id="' +
-                  uid +
-                  '" data-kind="' +
-                  kind +
-                  '" data-role-id="' +
-                  roleId +
-                  '" data-action-key="' +
-                  actionKey +
-                  '" data-channel-id="' +
-                  channelId +
-                  '">' +
-                  T.esc(alt.label) +
-                  "</button>"
-                );
-              })
-              .join("") +
-            "</div></div>"
-          : "") +
-        "</div>"
+        '"';
+      var alts = isPm
+        ? [
+            { key: "rc", label: "Richiamo", reason: "" },
+            { key: "dp", label: "Depex", reason: "" },
+          ]
+        : [
+            {
+              key: "vp",
+              label: "Valutazione positiva · limiti raggiunti",
+              reason: "Limiti settimanali completati.",
+            },
+            {
+              key: "vp",
+              label: "Valutazione positiva · limiti doppi",
+              reason: "Limiti settimanali superati almeno del doppio.",
+            },
+            {
+              key: "vn",
+              label: "Valutazione negativa · limiti non raggiunti",
+              reason: "Limiti settimanali non raggiunti.",
+            },
+            {
+              key: "vp",
+              label: "Valutazione positiva · compito sanzioni",
+              reason: "Compito sanzioni completato.",
+            },
+            {
+              key: "vp",
+              label: "Valutazione positiva · griglia",
+              reason: "Valutazione positiva da griglia attività/condotta.",
+            },
+            {
+              key: "vn",
+              label: "Valutazione negativa · griglia",
+              reason: "Valutazione negativa da griglia attività/condotta.",
+            },
+            { key: "nl", label: "Nulla", reason: "" },
+          ];
+      return (
+        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--resoconti" data-reso-actions="1">' +
+        '<p class="vc-staff-inbox-actions__hint">' +
+        T.esc(
+          isPm
+            ? "Conferma l\u2019esito automatico oppure rifiuta per scegliere Richiamo o Depex."
+            : "Conferma le valutazioni automatiche oppure rifiuta per sceglierne altre.",
+        ) +
+        "</p>" +
+        '<div class="vc-staff-inbox-actions__decide vc-staff-inbox-actions__decide--pair">' +
+        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--ok vc-staff-inbox-btn--confirm" data-act="accept"' +
+        attrs +
+        ">Conferma</button>" +
+        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--no" data-reso-reject-ui="1"' +
+        attrs +
+        ">Rifiuta</button>" +
+        "</div>" +
+        '<div class="vc-staff-inbox-alt vc-staff-inbox-alt--reso" hidden data-reso-alts="1" aria-label="Valutazioni alternative">' +
+        '<span class="vc-staff-inbox-alt__label">' +
+        T.esc(isPm ? "Scegli azione" : "Valutazioni automatiche") +
+        "</span>" +
+        '<div class="vc-staff-inbox-alt__pills">' +
+        alts
+          .map(function (alt) {
+            return (
+              '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--alt" data-act="accept" data-override-key="' +
+              T.esc(alt.key) +
+              '"' +
+              (alt.reason ? ' data-reason="' + T.esc(alt.reason) + '"' : "") +
+              attrs +
+              ">" +
+              T.esc(alt.label) +
+              "</button>"
+            );
+          })
+          .join("") +
+        "</div></div></div>"
       );
     }
     return "";
@@ -2531,8 +2766,32 @@
     body.channelId = btn.getAttribute("data-channel-id") || (item && item.channelId) || "";
     var override = btn.getAttribute("data-override-key") || "";
     if (override) body.overrideActionKey = override;
-    body.reason = "";
+    body.reason = String(btn.getAttribute("data-reason") || "").trim();
     return body;
+  }
+
+  function revealResocontoRejectAlts(root) {
+    if (!root) return;
+    var alts = root.querySelector("[data-reso-alts]");
+    if (alts) {
+      alts.hidden = false;
+      alts.removeAttribute("hidden");
+    }
+    root.classList.add("is-rejected-plan");
+    var box = document.getElementById("vc-staff-reso-auto-box");
+    if (box) {
+      box.classList.add("is-cleared");
+      var list = box.querySelector(".vc-staff-reso-auto__list");
+      if (list) {
+        list.innerHTML =
+          '<p class="vc-staff-reso-auto__empty">Valutazioni automatiche annullate. Scegli un\u2019opzione sotto.</p>';
+      }
+    }
+    var rejectBtn = root.querySelector("[data-reso-reject-ui]");
+    if (rejectBtn) {
+      rejectBtn.disabled = true;
+      rejectBtn.setAttribute("aria-pressed", "true");
+    }
   }
 
   function runResocontoAction(btn, itemOverride) {
@@ -2553,6 +2812,14 @@
 
   function bindActionButtons(root, itemOverride) {
     if (!root) return;
+    root.querySelectorAll("[data-reso-reject-ui]").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (state.busy) return;
+        var wrap = btn.closest("[data-reso-actions]") || root;
+        revealResocontoRejectAlts(wrap);
+      });
+    });
     root.querySelectorAll("[data-act]").forEach(function (btn) {
       btn.addEventListener("click", function (ev) {
         ev.stopPropagation();
@@ -2603,7 +2870,11 @@
           root.hidden = false;
           root.classList.add("is-loading");
           root.classList.remove("is-refreshing");
-          root.innerHTML = inboxLoadingSkeletonHtml();
+          root.innerHTML = "";
+          // Non riaprire il fullscreen dopo il primo paint (restava su "Carico resoconti…").
+          if (inboxBooting || !initialQueueLoaded) {
+            showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
+          }
           schedulePendingListRetry();
           return;
         }
@@ -2646,8 +2917,8 @@
           var title = itemTitle(item);
           var previewSource =
             state.tab === "resoconti"
-              ? extractResocontoListPreview(item.body || item.content || item.preview || "") ||
-                item.preview ||
+              ? extractResocontoListPreview(item.body || item.content || item.preview || "", item) ||
+                stripResocontoText(item.preview || "") ||
                 ""
               : state.tab === "appelli"
                 ? cleanAppealListPreview(item.preview || item.body || "")
@@ -2656,6 +2927,9 @@
           var key = itemKey(item);
           var selected = state.selectedKey && state.selectedKey === key;
           var meta = cardMeta(item);
+          var previewHtml =
+            state.tab === "resoconti" ? T.esc(preview) : formatDiscordHtml(preview);
+          var flagBits = resocontoFlagBadgesHtml(item);
           if (embed) {
             var typeBit = typeBadge(item);
             return (
@@ -2671,9 +2945,10 @@
               '<p class="vc-notify-row-title">' +
               T.esc(title) +
               (typeBit ? " " + typeBit : "") +
+              (flagBits ? " " + flagBits : "") +
               "</p>" +
               (preview
-                ? '<p class="vc-notify-row-desc">' + formatDiscordHtml(preview) + "</p>"
+                ? '<p class="vc-notify-row-desc">' + previewHtml + "</p>"
                 : "") +
               (meta ? '<p class="vc-notify-row-meta">' + T.esc(meta) + "</p>" : "") +
               "</div>" +
@@ -2697,9 +2972,12 @@
             '<div class="vc-staff-inbox-item__head">' +
             '<div class="vc-staff-inbox-item__titles">' +
             typeBadge(item) +
+            '<div class="vc-staff-inbox-item__title-row">' +
             '<h3 class="vc-staff-inbox-item__title">' +
             T.esc(title) +
-            "</h3></div>" +
+            "</h3>" +
+            flagBits +
+            "</div></div>" +
             '<span class="vc-staff-inbox-status ' +
             statusClass(item) +
             '">' +
@@ -2708,7 +2986,7 @@
             (meta ? '<p class="vc-staff-inbox-item__meta">' + T.esc(meta) + "</p>" : "") +
             (preview
               ? '<p class="vc-staff-inbox-item__preview">' +
-                formatDiscordHtml(preview) +
+                previewHtml +
                 "</p>"
               : "") +
             "</div></li>"
@@ -2744,6 +3022,7 @@
   function clearDetailState() {
     detailSeq += 1;
     teardownChat();
+    closeResoSheet(true);
     state.detail = null;
     state.detailLoading = false;
     state.detailError = "";
@@ -2811,6 +3090,629 @@
     };
   }
 
+  function fieldValueByName(fields, re) {
+    var list = Array.isArray(fields) ? fields : [];
+    for (var i = 0; i < list.length; i++) {
+      var n = cleanDiscordText(String((list[i] && list[i].name) || ""), { keepCustomEmoji: false });
+      if (re.test(n)) return String((list[i] && list[i].value) || "").trim();
+    }
+    return "";
+  }
+
+  function parseSanzioniDisplay(raw) {
+    var s = stripResocontoText(raw || "").trim();
+    if (!s || s === "—") return { count: "—", min: null };
+    var m = s.match(/^(\d+)\s*(?:\(?\s*minimo\s*(\d+)\s*\)?)?/i);
+    if (m) {
+      return { count: m[1], min: m[2] ? String(m[2]) : null };
+    }
+    var loose = s.match(/minimo\s*(\d+)/i);
+    var digits = s.replace(/[^\d].*$/, "").replace(/[^\d]/g, "");
+    return {
+      count: digits || s,
+      min: loose ? String(loose[1]) : null,
+    };
+  }
+
+  function resoTipHtml(text) {
+    var tip = String(text || "").trim();
+    if (!tip) return "";
+    return (
+      '<span class="vc-staff-reso-tip">' +
+      '<button type="button" class="vc-staff-reso-tip__btn" aria-label="Info">i</button>' +
+      '<span class="vc-staff-reso-tip__pop" role="tooltip">' +
+      T.esc(tip) +
+      "</span></span>"
+    );
+  }
+
+  /** Limiti settimanali per ruolo (allineati al bot). */
+  var RESOCONTO_ROLE_LIMITS = {
+    "1442568904311570555": { label: "Helper", messages: 400, hours: 4, sanctions: 1 },
+    "1442568901887000618": { label: "Mod", messages: 500, hours: 5, sanctions: 2 },
+    "1502321956236824677": { label: "Senior Moderator", messages: 600, hours: 6, sanctions: 2 },
+    "1502322782602530977": { label: "Director", messages: 550, hours: 5.5, sanctions: 1 },
+  };
+
+  function resocontoRoleLimits(item) {
+    var wfLimits =
+      item && item.activityLimits && typeof item.activityLimits === "object"
+        ? item.activityLimits
+        : null;
+    var byId = RESOCONTO_ROLE_LIMITS[String((item && item.roleId) || "")] || null;
+    var label =
+      String((item && item.roleLabel) || "").trim() ||
+      (byId && byId.label) ||
+      "questo ruolo";
+    var messages =
+      wfLimits && wfLimits.messages != null
+        ? Number(wfLimits.messages)
+        : byId
+          ? byId.messages
+          : null;
+    var hours =
+      wfLimits && wfLimits.hours != null ? Number(wfLimits.hours) : byId ? byId.hours : null;
+    var sanctions =
+      item && item.sanctionLimit != null && Number.isFinite(Number(item.sanctionLimit))
+        ? Number(item.sanctionLimit)
+        : byId
+          ? byId.sanctions
+          : null;
+    return { label: label, messages: messages, hours: hours, sanctions: sanctions };
+  }
+
+  function formatHoursLimit(h) {
+    var n = Number(h);
+    if (!Number.isFinite(n)) return "—";
+    if (Math.abs(n - Math.round(n)) < 0.01) return String(Math.round(n));
+    return String(n).replace(".", ",");
+  }
+
+  function niceChartCeil(value, kind) {
+    var v = Math.max(0, Number(value) || 0);
+    if (kind === "voice") {
+      var paddedV = Math.max(v * 1.55, v + 0.45, 2.5);
+      return Math.ceil(paddedV * 4) / 4;
+    }
+    var padded = Math.max(v * 1.45, v + 18, 50);
+    if (padded <= 80) return Math.ceil(padded / 10) * 10;
+    if (padded <= 200) return Math.ceil(padded / 25) * 25;
+    return Math.ceil(padded / 50) * 50;
+  }
+
+  function parseResocontoDetailModel(item) {
+    var body = item.body || item.content || item.preview || "";
+    var fields = Array.isArray(item.fields) ? item.fields.slice() : [];
+    var parsed = parseResocontoSections(body);
+    if (parsed.length) fields = filterResocontoDetailFields(parsed);
+    var isPm = String(item.kind || "").toLowerCase() === "p";
+    var msgs =
+      item.weeklyMessages != null && Number.isFinite(Number(item.weeklyMessages))
+        ? Math.max(0, Math.floor(Number(item.weeklyMessages)))
+        : null;
+    var voiceSec =
+      item.weeklyVoiceSeconds != null && Number.isFinite(Number(item.weeklyVoiceSeconds))
+        ? Math.max(0, Math.floor(Number(item.weeklyVoiceSeconds)))
+        : null;
+    var msgsRaw = fieldValueByName(fields, /messaggi/i);
+    var oreRaw = fieldValueByName(fields, /^ore\b|ore in una settimana/i);
+    if (msgs == null && msgsRaw) {
+      var mNum = String(stripResocontoText(msgsRaw)).replace(/[^\d]/g, "");
+      if (mNum) msgs = Number(mNum);
+    }
+    var partnersRaw =
+      item.weeklyPartners != null && Number.isFinite(Number(item.weeklyPartners))
+        ? String(Math.max(0, Math.floor(Number(item.weeklyPartners))))
+        : fieldValueByName(fields, /^partner$/i);
+    var partnersNum = null;
+    if (partnersRaw) {
+      var pNum = String(stripResocontoText(partnersRaw)).replace(/[^\d]/g, "");
+      if (pNum) partnersNum = Number(pNum);
+    }
+    var activity = String(item.activityGrade || "").trim() || fieldValueByName(fields, /attivit/i);
+    var conduct = String(item.behaviorGrade || "").trim() || fieldValueByName(fields, /condotta/i);
+    var azione =
+      String(item.azioneDisplay || "").trim() ||
+      fieldValueByName(fields, /^azione$/i) ||
+      resocontoProposedLabel(item) ||
+      "";
+    var sanzioni = fieldValueByName(fields, /sanzioni/i);
+    var pause = fieldValueByName(fields, /pausa/i);
+    var chart = Array.isArray(item.costanzaChart) ? item.costanzaChart : [];
+    var oreLabel =
+      voiceSec != null
+        ? formatVoiceHours(voiceSec)
+        : extractHoursLabelFromRaw(oreRaw) || "—";
+    var sanzioniParsed = parseSanzioniDisplay(sanzioni);
+    if (!sanzioniParsed.min && item.sanctionLimit != null) {
+      sanzioniParsed.min = String(item.sanctionLimit);
+    }
+    return {
+      isPm: isPm,
+      fields: fields,
+      msgs: msgs,
+      voiceSec: voiceSec,
+      oreLabel: oreLabel,
+      partners: partnersNum,
+      partnersLabel: partnersNum != null ? String(partnersNum) : partnersRaw ? stripResocontoText(partnersRaw) || "—" : "—",
+      activity: stripResocontoText(activity) || "—",
+      conduct: stripResocontoText(conduct) || "—",
+      azione: stripResocontoText(azione) || stripResocontoText(resocontoProposedLabel(item)) || "—",
+      sanzioni: sanzioniParsed.count,
+      sanzioniMin: sanzioniParsed.min,
+      pause: stripResocontoText(pause),
+      chart: chart,
+      limits: resocontoRoleLimits(item),
+      rolesHistory: Array.isArray(item.rolesHistory) ? item.rolesHistory : [],
+      weeklySanctions:
+        item.weeklySanctions != null && Number.isFinite(Number(item.weeklySanctions))
+          ? Number(item.weeklySanctions)
+          : null,
+      sanctionLimit:
+        item.sanctionLimit != null && Number.isFinite(Number(item.sanctionLimit))
+          ? Number(item.sanctionLimit)
+          : sanzioniParsed.min
+            ? Number(sanzioniParsed.min)
+            : null,
+    };
+  }
+
+  function formatVoiceHours(sec) {
+    var s = Math.max(0, Number(sec) || 0);
+    var h = s / 3600;
+    if (h >= 10) return h.toFixed(1).replace(/\.0$/, "") + "h";
+    return h.toFixed(2).replace(/0+$/, "").replace(/\.$/, "") + "h";
+  }
+
+  function weekdayShortFromDayKey(dayKey) {
+    try {
+      var parts = String(dayKey || "").split("-");
+      if (parts.length !== 3) return "—";
+      var dt = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12));
+      return dt.toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "");
+    } catch (e) {
+      return "—";
+    }
+  }
+
+  function renderCostanzaBarChart(chart) {
+    var points = Array.isArray(chart)
+      ? chart
+          .slice()
+          .sort(function (a, b) {
+            return String(a.dayKey || "").localeCompare(String(b.dayKey || ""));
+          })
+          .slice(-7)
+      : [];
+    if (!points.length) {
+      return (
+        '<div class="vc-staff-reso-chart vc-staff-reso-chart--empty">' +
+        '<p>Costanza non disponibile per questo resoconto.</p></div>'
+      );
+    }
+    var maxMsgRaw = 0;
+    var maxVoiceRaw = 0;
+    points.forEach(function (p) {
+      maxMsgRaw = Math.max(maxMsgRaw, Number(p.text) || 0);
+      maxVoiceRaw = Math.max(maxVoiceRaw, (Number(p.voiceSeconds) || 0) / 3600);
+    });
+    var maxMsg = niceChartCeil(maxMsgRaw, "msg");
+    var maxVoiceH = niceChartCeil(maxVoiceRaw, "voice");
+    var bars = points
+      .map(function (p) {
+        var msg = Math.max(0, Number(p.text) || 0);
+        var voiceH = Math.max(0, (Number(p.voiceSeconds) || 0) / 3600);
+        var msgPct = msg > 0 ? Math.max(3, Math.round((100 * msg) / maxMsg)) : 0;
+        var voicePct = voiceH > 0.004 ? Math.max(3, Math.round((100 * voiceH) / maxVoiceH)) : 0;
+        var label = weekdayShortFromDayKey(p.dayKey);
+        var dayNum = String(p.dayKey || "").slice(8, 10);
+        var voiceLabel = formatVoiceHours(p.voiceSeconds);
+        return (
+          '<div class="vc-staff-reso-chart__col" title="' +
+          T.esc(label + " " + dayNum + " · " + msg + " msg · " + voiceLabel) +
+          '">' +
+          '<div class="vc-staff-reso-chart__pair">' +
+          '<div class="vc-staff-reso-chart__slot">' +
+          '<span class="vc-staff-reso-chart__val vc-staff-reso-chart__val--msg' +
+          (msg > 0 ? "" : " is-empty") +
+          '">' +
+          T.esc(msg > 0 ? String(msg) : "0") +
+          "</span>" +
+          '<div class="vc-staff-reso-chart__track">' +
+          '<span class="vc-staff-reso-chart__bar vc-staff-reso-chart__bar--msg" style="height:' +
+          msgPct +
+          '%"></span></div></div>' +
+          '<div class="vc-staff-reso-chart__slot">' +
+          '<span class="vc-staff-reso-chart__val vc-staff-reso-chart__val--voice' +
+          (voiceH > 0.004 ? "" : " is-empty") +
+          '">' +
+          T.esc(voiceH > 0.004 ? voiceLabel : "0h") +
+          "</span>" +
+          '<div class="vc-staff-reso-chart__track">' +
+          '<span class="vc-staff-reso-chart__bar vc-staff-reso-chart__bar--voice" style="height:' +
+          voicePct +
+          '%"></span></div></div></div>' +
+          '<div class="vc-staff-reso-chart__day"><b>' +
+          T.esc(label) +
+          "</b><span>" +
+          T.esc(dayNum) +
+          "</span></div></div>"
+        );
+      })
+      .join("");
+    var active = points.filter(function (p) {
+      return (Number(p.text) || 0) > 0 || (Number(p.voiceSeconds) || 0) >= 600;
+    }).length;
+    return (
+      '<section class="vc-staff-reso-section vc-staff-reso-section--chart">' +
+      '<div class="vc-staff-reso-section__head">' +
+      "<h3>Costanza</h3>" +
+      '<span class="vc-staff-reso-pill">' +
+      T.esc(String(active) + "/" + String(points.length) + " giorni attivi") +
+      "</span></div>" +
+      '<div class="vc-staff-reso-chart__legend">' +
+      '<span><i class="vc-staff-reso-chart__swatch vc-staff-reso-chart__swatch--msg"></i> Messaggi</span>' +
+      '<span><i class="vc-staff-reso-chart__swatch vc-staff-reso-chart__swatch--voice"></i> Ore in voc</span>' +
+      "</div>" +
+      '<div class="vc-staff-reso-chart" role="img" aria-label="Grafico costanza messaggi e ore vocali">' +
+      bars +
+      "</div></section>"
+    );
+  }
+
+  function renderRolesChronology(rows) {
+    var list = Array.isArray(rows) ? rows.filter(Boolean).slice(0, 5) : [];
+    if (!list.length) return "";
+    var items = list
+      .map(function (row) {
+        var to = String(row.to || row.newRole || "").trim();
+        var from = String(row.from || row.oldRole || "").trim();
+        var when = String(row.dateLabel || "").trim();
+        var label = to ? (from ? from + " → " + to : to) : from || "Ruolo";
+        return (
+          '<li><span class="vc-staff-reso-hero__role-name">' +
+          T.esc(label) +
+          "</span>" +
+          (when ? '<span class="vc-staff-reso-hero__role-date">' + T.esc(when) + "</span>" : "") +
+          "</li>"
+        );
+      })
+      .join("");
+    return (
+      '<div class="vc-staff-reso-hero__roles" aria-label="Cronologia ruoli">' +
+      '<p class="vc-staff-reso-hero__roles-kicker">Cronologia ruoli</p>' +
+      '<ul class="vc-staff-reso-hero__roles-list">' +
+      items +
+      "</ul></div>"
+    );
+  }
+
+  function ensureResoSheet() {
+    var sheet = document.getElementById("vc-staff-reso-sheet");
+    if (sheet && sheet.getAttribute("data-reso-bound") === "resoClose2") return sheet;
+    if (sheet) {
+      try {
+        sheet.remove();
+      } catch (eRm) {}
+    }
+    sheet = document.createElement("div");
+    sheet.id = "vc-staff-reso-sheet";
+    sheet.className = "vc-staff-reso-sheet";
+    sheet.setAttribute("data-reso-bound", "resoClose2");
+    sheet.hidden = true;
+    sheet.innerHTML =
+      '<button type="button" class="vc-staff-reso-sheet__backdrop" data-reso-close="1" aria-label="Chiudi"></button>' +
+      '<div class="vc-staff-reso-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="vc-staff-reso-title">' +
+      '<div class="vc-staff-reso-sheet__head">' +
+      "<div><p class=\"vc-staff-reso-sheet__kicker\">Resoconto</p>" +
+      '<h2 id="vc-staff-reso-title" class="vc-staff-reso-sheet__title">Dettaglio</h2></div>' +
+      '<button type="button" class="vc-staff-reso-sheet__close" data-reso-close="1" aria-label="Chiudi">\u2715</button>' +
+      "</div>" +
+      '<div class="vc-staff-reso-sheet__body" id="vc-staff-reso-body"></div>' +
+      '<div class="vc-staff-reso-sheet__foot" id="vc-staff-reso-foot"></div>' +
+      "</div>";
+    document.body.appendChild(sheet);
+    function onCloseIntent(ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var closer = t.closest("[data-reso-close]");
+      if (!closer || !sheet.contains(closer)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      closeDetail();
+    }
+    sheet.addEventListener("click", onCloseIntent);
+    document.addEventListener("keydown", function resoEsc(ev) {
+      if (ev.key !== "Escape") return;
+      if (!sheet || sheet.hidden || !sheet.classList.contains("is-in")) return;
+      ev.preventDefault();
+      closeDetail();
+    });
+    return sheet;
+  }
+
+  function closeResoSheet(silent) {
+    var sheet = document.getElementById("vc-staff-reso-sheet");
+    try {
+      document.documentElement.classList.remove("vc-staff-reso-sheet-open");
+    } catch (e) {}
+    if (!sheet) return;
+    sheet.classList.remove("is-in");
+    sheet.hidden = true;
+    sheet.setAttribute("hidden", "");
+    if (!silent) {
+      /* keep immediate hide; animation already covered by is-in removal */
+    }
+  }
+
+  function openResoSheet() {
+    var sheet = ensureResoSheet();
+    sheet.hidden = false;
+    try {
+      document.documentElement.classList.add("vc-staff-reso-sheet-open");
+    } catch (e) {}
+    window.requestAnimationFrame(function () {
+      sheet.classList.add("is-in");
+    });
+  }
+
+  function splitAutoValutazioneParts(azione) {
+    var raw = stripResocontoText(azione || "");
+    if (!raw || /^—$|^-$|^nulla$/i.test(raw)) return [];
+    return raw
+      .split(/\s*\+\s*/)
+      .map(function (part) {
+        return String(part || "").trim();
+      })
+      .filter(Boolean);
+  }
+
+  function renderAutoValutazioniBox(model, isPm) {
+    var parts = splitAutoValutazioneParts(model.azione);
+    if (!parts.length && model.azione && !/^—$/.test(model.azione)) {
+      parts = [model.azione];
+    }
+    var autoTip = isPm
+      ? "Esito automatico PM: sotto 30 partner → Richiamo; sotto soglia critica → Depex; altrimenti Nulla o promozione in finestra."
+      : "Proposte automatiche da attività/condotta, limiti, pause e compito sanzioni. Conferma o rifiuta sotto.";
+    if (
+      !isPm &&
+      model.sanctionLimit != null &&
+      Number.isFinite(Number(model.sanctionLimit))
+    ) {
+      var done =
+        model.weeklySanctions != null && Number.isFinite(Number(model.weeklySanctions))
+          ? Number(model.weeklySanctions)
+          : model.sanzioni
+            ? Number(String(model.sanzioni).replace(/[^\d]/g, "")) || null
+            : null;
+      if (done != null) {
+        autoTip +=
+          " Compito sanzioni: " +
+          done +
+          "/" +
+          Number(model.sanctionLimit) +
+          " questa settimana.";
+      }
+    }
+    var rows =
+      parts.length > 0
+        ? parts
+            .map(function (part) {
+              var isNeg = /valutazione negativa/i.test(part);
+              var isPos = /valutazione positiva|compito sanzioni/i.test(part);
+              var tone = isNeg ? "is-neg" : isPos ? "is-pos" : "is-neutral";
+              var title = isNeg
+                ? "Valutazione negativa"
+                : isPos
+                  ? /compito sanzioni/i.test(part) && !/valutazione positiva/i.test(part)
+                    ? "Compito sanzioni"
+                    : "Valutazione positiva"
+                  : /^nulla/i.test(part)
+                    ? "Nulla"
+                    : /^richiamo/i.test(part)
+                      ? "Richiamo"
+                      : "Esito";
+              var already = /gi[aà]\s*registrat/i.test(part);
+              var detail = part
+                .replace(/^Valutazione (Positiva|Negativa)\s*[—–-]?\s*/i, "")
+                .replace(/^Compito sanzioni\s*/i, "")
+                .replace(/\(\s*gi[aà]\s*registrat[aoe]?\s*\)/gi, "")
+                .replace(/\bgi[aà]\s*registrat[aoe]?\b/gi, "")
+                .replace(/\s{2,}/g, " ")
+                .replace(/\s*[—–-]\s*$/g, "")
+                .trim();
+              if (!detail && /compito sanzioni/i.test(part)) {
+                detail = already ? "già registrata" : "completato";
+              }
+              if (!detail && already) detail = "già registrata";
+              return (
+                '<li class="vc-staff-reso-auto__item ' +
+                tone +
+                '"><span class="vc-staff-reso-auto__kind">' +
+                T.esc(title) +
+                (already
+                  ? '<span class="vc-staff-reso-flag vc-staff-reso-flag--done">già registrata</span>'
+                  : "") +
+                "</span><strong>" +
+                T.esc(detail || part) +
+                "</strong></li>"
+              );
+            })
+            .join("")
+        : '<li class="vc-staff-reso-auto__item is-neutral"><span class="vc-staff-reso-auto__kind">Esito</span><strong>Nulla</strong></li>';
+    return (
+      '<article id="vc-staff-reso-auto-box" class="vc-staff-reso-grade vc-staff-reso-grade--action vc-staff-reso-grade--wide vc-staff-reso-auto">' +
+      '<div class="vc-staff-reso-grade__head"><span>Valutazioni automatiche</span>' +
+      resoTipHtml(autoTip) +
+      "</div>" +
+      '<ul class="vc-staff-reso-auto__list">' +
+      rows +
+      "</ul></article>"
+    );
+  }
+
+  function renderResoSheet(item) {
+    if (!item) return;
+    openResoSheet();
+    var sheet = ensureResoSheet();
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    var titleEl = sheet.querySelector("#vc-staff-reso-title");
+    var model = parseResocontoDetailModel(item);
+    var isPm = model.isPm || String(item.kind || "").toLowerCase() === "p";
+    var kindLabel = isPm ? "Partner Manager" : "Staff";
+    var limits = model.limits || {};
+    if (titleEl) titleEl.textContent = item.displayName || itemTitle(item) || "Resoconto";
+    var kicker = sheet.querySelector(".vc-staff-reso-sheet__kicker");
+    if (kicker) {
+      kicker.textContent =
+        "Resoconto · " + kindLabel + (item.weekLabel ? " · " + item.weekLabel : "");
+    }
+
+    var msgTip =
+      limits.messages != null
+        ? "Limite settimanale " +
+          limits.label +
+          ": " +
+          limits.messages +
+          " messaggi. Scambio ammesso: 100 msg ↔ 1 ora vocale."
+        : isPm
+          ? "I Partner Manager non hanno limite messaggi settimanale."
+          : "Nessun limite messaggi per questo ruolo.";
+    var oreTip =
+      limits.hours != null
+        ? "Limite settimanale " +
+          limits.label +
+          ": " +
+          formatHoursLimit(limits.hours) +
+          " ore in vocale. Scambio ammesso: 100 msg ↔ 1 ora."
+        : isPm
+          ? "I Partner Manager non hanno limite ore vocali settimanale."
+          : "Nessun limite ore vocali per questo ruolo.";
+    var sanzTip =
+      limits.sanctions != null
+        ? "Minimo settimanale " +
+          limits.label +
+          ": " +
+          limits.sanctions +
+          " sanzioni applicate (warn/mute/kick/ban)."
+        : "Nessun minimo sanzioni per questo ruolo.";
+    var partnerTip = "Minimo settimanale Partner Manager: 30 partner.";
+    var activityTip =
+      limits.messages != null
+        ? "Attività su limiti " +
+          limits.label +
+          " (" +
+          limits.messages +
+          " msg / " +
+          formatHoursLimit(limits.hours) +
+          "h, scambio 100↔1h): Sufficiente = 1×; Discreto = +150 msg/+1,5h; Buono = 2×; Ottimo = 2×+300/+2h; Eccellente = 3×."
+        : "Ruolo senza griglia messaggi/vocale: Attività = Nessun limite.";
+    var conductTip =
+      "Condotta da valutazioni ±: Ottimo ≥3 positive e 0 negative; Discreto se positive > negative; Sufficiente se pari o nessuna; Insufficiente se negative > positive; Non classificato se solo negative.";
+
+    var gradeCards;
+    var stats;
+    if (isPm) {
+      stats =
+        '<div class="vc-staff-reso-stats vc-staff-reso-stats--pm">' +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Partner</span>' +
+        resoTipHtml(partnerTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>' +
+        T.esc(model.partnersLabel) +
+        "</strong></div></div>" +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Minimo</span>' +
+        resoTipHtml(partnerTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>30</strong></div></div></div>';
+      gradeCards =
+        '<div class="vc-staff-reso-grades vc-staff-reso-grades--pm">' +
+        renderAutoValutazioniBox(model, true) +
+        "</div>";
+    } else {
+      stats =
+        '<div class="vc-staff-reso-stats">' +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Messaggi</span>' +
+        resoTipHtml(msgTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>' +
+        T.esc(model.msgs != null ? String(model.msgs) : "—") +
+        "</strong></div></div>" +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Ore vocali</span>' +
+        resoTipHtml(oreTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>' +
+        T.esc(model.oreLabel) +
+        "</strong></div></div>" +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Sanzioni</span>' +
+        resoTipHtml(sanzTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>' +
+        T.esc(model.sanzioni || "—") +
+        "</strong></div></div></div>";
+      gradeCards =
+        '<div class="vc-staff-reso-grades">' +
+        '<article class="vc-staff-reso-grade"><div class="vc-staff-reso-grade__head"><span>Attività</span>' +
+        resoTipHtml(activityTip) +
+        "</div><strong>" +
+        T.esc(model.activity) +
+        "</strong></article>" +
+        '<article class="vc-staff-reso-grade"><div class="vc-staff-reso-grade__head"><span>Condotta</span>' +
+        resoTipHtml(conductTip) +
+        "</div><strong>" +
+        T.esc(model.conduct) +
+        "</strong></article>" +
+        renderAutoValutazioniBox(model, false) +
+        "</div>";
+    }
+
+    var extras = "";
+    if (model.pause) {
+      extras += '<p class="vc-staff-reso-note"><b>Pausa</b> · ' + T.esc(model.pause) + "</p>";
+    }
+    if (isPm && model.partners != null && model.partners < 30) {
+      extras +=
+        '<p class="vc-staff-reso-note vc-staff-reso-note--warn"><b>Sotto soglia</b> · servono almeno 30 partner nella settimana.</p>';
+    }
+
+    var heroFlags = resocontoFlagBadgesHtml(item);
+    var rolesChrono = renderRolesChronology(model.rolesHistory || item.rolesHistory || []);
+    body.innerHTML =
+      '<div class="vc-staff-reso-hero">' +
+      '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--lg">' +
+      T.avatarImgHtml(item.avatarUrl, item.userId, { width: 64, height: 64 }) +
+      "</span><div>" +
+      '<p class="vc-staff-reso-hero__meta">' +
+      T.esc(cardMeta(item, { roleOnly: true }) || kindLabel) +
+      "</p>" +
+      "<h3>" +
+      T.esc(item.displayName || itemTitle(item)) +
+      "</h3>" +
+      '<div class="vc-staff-reso-hero__badges">' +
+      '<span class="vc-staff-inbox-status ' +
+      statusClass(item) +
+      '">' +
+      T.esc(statusLabel(item)) +
+      "</span>" +
+      (heroFlags || "") +
+      "</div>" +
+      rolesChrono +
+      "</div></div>" +
+      stats +
+      (isPm ? "" : renderCostanzaBarChart(model.chart)) +
+      '<section class="vc-staff-reso-section"><div class="vc-staff-reso-section__head"><h3>' +
+      (isPm ? "Esito" : "Valutazione") +
+      "</h3></div>" +
+      gradeCards +
+      extras +
+      "</section>" +
+      renderDecisionMeta(item) +
+      '<section class="vc-staff-reso-section vc-staff-reso-section--chat"><div class="vc-staff-reso-section__head"><h3>Chat</h3></div>' +
+      renderChatPanel(item) +
+      "</section>";
+
+    foot.innerHTML = actionButtons(item, "resoconti") || "";
+    bindActionButtons(foot, item);
+    bootChatForDetail(item);
+  }
+
   function renderDetailFields(item) {
     var fields = Array.isArray(item.fields) ? item.fields : [];
     var sourceBody = item.body || item.content || item.preview || "";
@@ -2865,6 +3767,15 @@
     }
     if (!fieldsLookUseful(fields)) {
       var fallbackBody = breakNumberedProse(item.body || item.content || item.preview || sourceBody || "");
+      if (state.tab === "resoconti") {
+        fallbackBody = stripResocontoText(fallbackBody, { keepNewlines: true });
+        if (!fallbackBody) return "";
+        return (
+          '<div class="vc-staff-inbox-detail__body vc-staff-inbox-detail__prose">' +
+          T.esc(fallbackBody).replace(/\n/g, "<br>") +
+          "</div>"
+        );
+      }
       if (!cleanDiscordText(fallbackBody, { keepNewlines: true, keepCustomEmoji: true })) return "";
       return (
         '<div class="vc-staff-inbox-detail__body vc-staff-inbox-detail__prose">' +
@@ -2877,7 +3788,17 @@
       fields
         .map(function (field) {
           field = repairBrokenEmojiField(field);
-          if (state.tab === "resoconti") field = placeResocontoFieldEmojis(field);
+          if (state.tab === "resoconti") {
+            var qR = stripResocontoText(field.name || "");
+            var aR = stripResocontoText(field.value || "", { keepNewlines: true });
+            return (
+              '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa"><h4>' +
+              T.esc(qR || "Campo") +
+              '</h4><div class="vc-staff-inbox-detail__answer">' +
+              T.esc(aR || "\u2014").replace(/\n/g, "<br>") +
+              "</div></div>"
+            );
+          }
           var q = field.name || "";
           var a = field.value || "";
           var keepNl = /\n/.test(a);
@@ -2931,6 +3852,27 @@
     var panel = T.byId("vc-staff-inbox-detail");
     var layout = T.byId("vc-staff-inbox");
     if (!panel) return;
+
+    // Resoconti: finestra stile gestione (sheet), non pannello laterale.
+    if (state.tab === "resoconti" && (state.detail || state.detailLoading)) {
+      if (layout) layout.classList.remove("has-detail");
+      panel.hidden = true;
+      panel.innerHTML = "";
+      if (state.detailLoading && !state.detail) {
+        openResoSheet();
+        var loadingBody = document.getElementById("vc-staff-reso-body");
+        if (loadingBody) {
+          loadingBody.innerHTML =
+            '<div class="vc-staff-inbox-detail__loading">Caricamento resoconto\u2026</div>';
+        }
+        return;
+      }
+      if (state.detail) renderResoSheet(state.detail);
+      return;
+    }
+
+    closeResoSheet(true);
+
     if (layout) {
       layout.classList.toggle("has-detail", Boolean(state.detail || state.detailLoading));
     }
@@ -3142,25 +4084,85 @@
   }
 
   function ensureInboxBootEl() {
-    return null;
+    var el = T.byId("vc-staff-inbox-loading");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "vc-staff-inbox-loading";
+    el.className = "vc-staff-loading vc-staff-loading--hidden";
+    el.hidden = true;
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    el.setAttribute("aria-label", "Caricamento inbox staff");
+    el.innerHTML =
+      '<div class="vc-staff-loading__card">' +
+      '<p class="vc-staff-loading__text">Caricamento inbox staff\u2026</p>' +
+      '<p class="vc-staff-loading__hint" id="vc-staff-inbox-loading-hint">Pause · Candidature · Appelli · Resoconti</p>' +
+      "</div>";
+    var host = T.byId("vc-notif-pane-staff") || document.body;
+    host.insertBefore(el, host.firstChild);
+    return el;
+  }
+
+  function isInboxFsLoadingVisible() {
+    var el = T.byId("vc-staff-inbox-loading");
+    if (!el) return false;
+    if (el.hidden || el.hasAttribute("hidden")) return false;
+    if (el.classList.contains("vc-staff-loading--hidden")) return false;
+    return true;
+  }
+
+  function setInboxFsLoadingHint(text) {
+    var hint = T.byId("vc-staff-inbox-loading-hint");
+    if (!hint) return;
+    hint.textContent = text || "Pause · Candidature · Appelli · Resoconti";
+  }
+
+  function showInboxFsLoading(hint) {
+    var el = ensureInboxBootEl();
+    if (!el) return;
+    setInboxFsLoadingHint(hint);
+    el.hidden = false;
+    el.removeAttribute("hidden");
+    el.classList.remove("vc-staff-loading--hidden");
+    try {
+      document.documentElement.classList.add("vc-notif-staff-loading");
+    } catch (eCls) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
+  }
+
+  function hideInboxFsLoading() {
+    var el = T.byId("vc-staff-inbox-loading");
+    if (el) {
+      el.hidden = true;
+      el.setAttribute("hidden", "");
+      el.classList.add("vc-staff-loading--hidden");
+    }
+    try {
+      document.documentElement.classList.remove("vc-notif-staff-loading", "vc-notif-early-staff");
+      window.__VC_NOTIF_EARLY_STAFF = false;
+    } catch (eCls) {}
+    try {
+      window.clearTimeout(window.__vcNotifStaffLoadWatch);
+    } catch (eTo) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
   }
 
   function inboxBootLoadingHtml() {
-    return (
-      '<div class="vc-staff-inbox-loading" role="status" aria-live="polite">' +
-      '<div class="vc-staff-inbox-loading__head">' +
-      '<span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>' +
-      "<p>Caricamento inbox\u2026</p>" +
-      "</div></div>"
-    );
+    return "";
   }
 
   function showInboxBootScreen() {
     var panel = T.byId("vc-staff-inbox");
-    if (!panel) return;
-    inboxBooting = true;
-    panel.classList.add("is-booting");
-    panel.hidden = false;
+    if (panel) {
+      inboxBooting = true;
+      panel.classList.add("is-booting");
+      panel.hidden = false;
+    }
+    showInboxFsLoading("Pause · Candidature · Appelli · Resoconti");
     var list = T.byId("vc-staff-inbox-list");
     if (!list) return;
     state.items = [];
@@ -3168,13 +4170,15 @@
     list.hidden = false;
     list.classList.remove("is-refreshing");
     list.classList.add("is-loading");
-    list.innerHTML = inboxBootLoadingHtml();
+    list.setAttribute("aria-busy", "true");
+    list.innerHTML = "";
   }
 
   function hideInboxBootScreen() {
     inboxBooting = false;
     var panel = T.byId("vc-staff-inbox");
     if (panel) panel.classList.remove("is-booting");
+    hideInboxFsLoading();
     var boot = T.byId("vc-staff-inbox-boot");
     if (boot) boot.remove();
   }
@@ -3196,13 +4200,15 @@
     if (anyPending || !String(location.search || "").match(/(?:^|[?&])scope=/)) {
       state.scope = "pending";
     }
-    // Mostra subito le tab (niente schermo vuoto solo lista).
-    hideInboxBootScreen();
+    // Tieni il fullscreen loader fino a finishQueueLoad: niente skeleton in lista.
     var panel = T.byId("vc-staff-inbox");
     if (panel) {
-      panel.classList.remove("is-booting");
+      panel.classList.add("is-booting");
       panel.hidden = false;
     }
+    showInboxFsLoading(
+      "Carico " + tabLabel(state.tab).toLowerCase() + " e le altre code\u2026",
+    );
     renderTabs();
     renderScopeToggle();
     renderQueueFilters();
@@ -3273,7 +4279,12 @@
   function waitForPermissionsFast() {
     seedPermissionsFromGate();
     if (permissionsReady() && T.getToken()) return Promise.resolve();
-    var cap = T.isCoarseMobile && T.isCoarseMobile() ? 1800 : 1200;
+    try {
+      if (T.getToken() && (window.__VC_ACCESS_OK || window.__VC_STAFF_MENU_ALLOWED || window.__VC_NOTIF_EARLY_STAFF)) {
+        return Promise.resolve();
+      }
+    } catch (eFast) {}
+    var cap = T.isCoarseMobile && T.isCoarseMobile() ? 500 : 700;
     return new Promise(function (resolve) {
       var done = false;
       function finish() {
@@ -3287,6 +4298,7 @@
       function onOk() {
         seedPermissionsFromGate();
         if (permissionsReady() && T.getToken()) finish();
+        else if (T.getToken()) finish();
       }
       window.addEventListener("vc:staff-access-ok", onOk);
       window.addEventListener("vc-discord-profile", onOk);
@@ -3332,15 +4344,7 @@
   var lastVisibleRefreshAt = 0;
 
   function inboxLoadingSkeletonHtml() {
-    return (
-      '<div class="vc-staff-inbox-loading" role="status" aria-live="polite">' +
-      '<div class="vc-staff-inbox-loading__head">' +
-      '<span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>' +
-      "<p>Caricamento " +
-      T.esc(tabLabel(state.tab).toLowerCase()) +
-      "\u2026</p>" +
-      "</div></div>"
-    );
+    return "";
   }
 
   function inboxEmptyBoxHtml(messageHtml, iconClass) {
@@ -3367,6 +4371,8 @@
     var list = T.byId("vc-staff-inbox-list");
     if (!list) return;
     list.classList.remove("is-loading", "is-refreshing");
+    list.removeAttribute("aria-busy");
+    list.setAttribute("aria-busy", "false");
   }
 
   function showInboxLoading(mode) {
@@ -3375,6 +4381,7 @@
 
     if (mode === "off") {
       clearInboxLoading();
+      hideInboxFsLoading();
       return;
     }
 
@@ -3411,7 +4418,9 @@
     list.hidden = false;
     list.classList.remove("is-refreshing");
     list.classList.add("is-loading");
-    list.innerHTML = inboxLoadingSkeletonHtml();
+    list.setAttribute("aria-busy", "true");
+    list.innerHTML = "";
+    showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
   }
 
   function clearLoadWatchdog() {
@@ -3438,14 +4447,18 @@
         ? T.isCoarseMobile && T.isCoarseMobile()
           ? 7000
           : 8000
-        : T.isCoarseMobile && T.isCoarseMobile()
-          ? 16000
-          : 22000;
+        : state.tab === "resoconti"
+          ? T.isCoarseMobile && T.isCoarseMobile()
+            ? 5500
+            : 7000
+          : T.isCoarseMobile && T.isCoarseMobile()
+            ? 10000
+            : 14000;
     loadWatchdogTimer = setTimeout(function () {
       loadWatchdogTimer = null;
       if (seq !== loadSeq) return;
       var list = T.byId("vc-staff-inbox-list");
-      if (!list || !list.querySelector(".vc-staff-inbox-loading")) return;
+      if (!list || (!list.classList.contains("is-loading") && !isInboxFsLoadingVisible())) return;
       // Sblocca coalesce/prefetch appesi prima del retry (senza restare sullo stesso promise).
       forceReleaseStuckInboxLoad();
       lastQueueLoadFailed = true;
@@ -3703,7 +4716,8 @@
         if (requestedTab === "resoconti" && requestedWeek) {
           url += "&week=" + encodeURIComponent(requestedWeek);
         }
-        if (opts.sync || (requestedTab === "appelli" && requestedScope === "pending")) {
+        /* Soft/boot: niente sync Discord (lento). Sync dopo il primo paint. */
+        if (opts.sync || (!opts.soft && requestedTab === "appelli" && requestedScope === "pending")) {
           url += "&sync=1";
         }
 
@@ -3714,9 +4728,13 @@
               ? T.resolveFetchTimeoutMs
                 ? T.resolveFetchTimeoutMs(22000)
                 : 22000
-              : T.resolveFetchTimeoutMs
-                ? T.resolveFetchTimeoutMs(45000)
-                : 45000,
+              : requestedTab === "resoconti"
+                ? T.resolveFetchTimeoutMs
+                  ? T.resolveFetchTimeoutMs(9000)
+                  : 9000
+                : T.resolveFetchTimeoutMs
+                  ? T.resolveFetchTimeoutMs(28000)
+                  : 28000,
           signal: loadAbortCtrl ? loadAbortCtrl.signal : null,
         };
         var fetchPromise = prefetched
@@ -3856,12 +4874,13 @@
             !opts._emptyRetry &&
             !opts.sync
           ) {
+            // Soft retry senza sync Discord (resoconti sync bloccava il fullscreen).
             return chainQueueLoad(
               seq,
               Object.assign({}, opts, {
                 _emptyRetry: true,
                 _internal: true,
-                sync: true,
+                sync: requestedTab === "appelli",
                 soft: true,
               }),
             );
@@ -3928,7 +4947,7 @@
               });
             }
           }
-          // Primo boot ancora vuoto con badge pending: un retry hard ritardato, poi paint.
+          // Primo boot ancora vuoto: paint subito, rescue soft in background (no sync block).
           if (
             !quiet &&
             (opts._boot || !initialQueueLoaded) &&
@@ -3937,18 +4956,19 @@
             summaryCount > 0 &&
             !opts._bootEmptyRescue
           ) {
-            return new Promise(function (resolve) {
-              window.setTimeout(resolve, 700);
-            }).then(function () {
-              return chainQueueLoad(seq, {
-                soft: false,
-                sync: true,
+            finalizeVisibleQueueLoad(seq, quiet);
+            window.setTimeout(function () {
+              if (!isStaffScopeActive()) return;
+              if (state.items.length) return;
+              loadQueue({
+                soft: true,
+                sync: requestedTab === "appelli",
+                quiet: true,
                 _internal: true,
-                _boot: true,
                 _bootEmptyRescue: true,
-                _userIntent: true,
-              });
-            });
+              }).catch(function () {});
+            }, 180);
+            return;
           }
           finalizeVisibleQueueLoad(seq, quiet);
           if (!quiet && opts._boot && needsMobileAppealReload()) {
@@ -4019,7 +5039,7 @@
               if (seq !== loadSeq) return;
               if (!loadInFlightNonQuiet) return;
               var list = T.byId("vc-staff-inbox-list");
-              if (list && list.querySelector(".vc-staff-inbox-loading") && listEmptyDespitePending()) {
+              if (list && (list.classList.contains("is-loading") || isInboxFsLoadingVisible()) && listEmptyDespitePending()) {
                 forceReleaseStuckInboxLoad();
                 finishQueueLoad(seq, { force: true });
                 loadQueue({ soft: false, sync: true, _internal: true, _userIntent: true }).catch(function () {});
@@ -4060,7 +5080,7 @@
     if (!T.getToken()) {
       showInboxBootScreen();
       initStarted = false;
-      var tokenWait = T.isCoarseMobile && T.isCoarseMobile() ? 1200 : 800;
+      var tokenWait = T.isCoarseMobile && T.isCoarseMobile() ? 400 : 300;
       window.setTimeout(function () {
         if (isStaffScopeActive()) T.whenDiscordSessionReady(init, tokenWait);
       }, 200);
@@ -4072,6 +5092,7 @@
     loadInitialData()
       .then(function () {
         connectInboxWebSocket();
+        ensureInboxPoll();
         scheduleMobileAppealBootGuarantee();
         // Solo se il primo load è fallito davvero: niente retry su lista vuota ok.
         if (lastQueueLoadFailed) {
@@ -4088,12 +5109,13 @@
         lastQueueLoadFailed = true;
         inboxNotify("Impossibile caricare l'inbox.", true);
         connectInboxWebSocket();
+        ensureInboxPoll();
       });
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) return;
-      if (Date.now() - lastVisibleRefreshAt < 15000) return;
+      if (Date.now() - lastVisibleRefreshAt < 8000) return;
       lastVisibleRefreshAt = Date.now();
-      scheduleInboxRefreshFromRealtime();
+      scheduleInboxRefreshFromRealtime({ immediate: true });
     });
   }
 
@@ -4117,7 +5139,7 @@
     ensureAccessibleTab();
     renderTabs();
     if (!initStarted) {
-      T.whenDiscordSessionReady(init, 800);
+      T.whenDiscordSessionReady(init, T.getToken() ? 1 : 400);
       return;
     }
     if (initialLoadPromise || loadInFlightNonQuiet) {
@@ -4145,7 +5167,11 @@
           safeRenderList();
           return;
         }
-        T.whenDiscordSessionReady(init, T.isCoarseMobile && T.isCoarseMobile() ? 1400 : 600);
+        if (T.getToken()) {
+          init();
+        } else {
+          T.whenDiscordSessionReady(init, T.isCoarseMobile && T.isCoarseMobile() ? 400 : 300);
+        }
       },
     };
   } catch (eExport) {}
@@ -4165,7 +5191,7 @@
     window.addEventListener("vc-discord-profile", function () {
       if (!isStaffScopeActive()) return;
       if (!initStarted) {
-        T.whenDiscordSessionReady(init, T.isCoarseMobile && T.isCoarseMobile() ? 1200 : 800);
+        T.whenDiscordSessionReady(init, T.getToken() ? 1 : T.isCoarseMobile && T.isCoarseMobile() ? 400 : 300);
         return;
       }
       if ((!initialQueueLoaded || lastQueueLoadFailed) && !inboxLoadBusy() && !initialLoadPromise) {
@@ -4192,7 +5218,11 @@
         return;
       }
       if (next === "staff" && !initStarted) {
-        T.whenDiscordSessionReady(init, T.isCoarseMobile && T.isCoarseMobile() ? 1400 : 600);
+        if (T.getToken()) {
+          init();
+        } else {
+          T.whenDiscordSessionReady(init, T.isCoarseMobile && T.isCoarseMobile() ? 400 : 300);
+        }
       } else if (next === "staff" && (lastQueueLoadFailed || !initialQueueLoaded)) {
         if (!initialLoadPromise) {
           emptyLoadedTabs = Object.create(null);
@@ -4215,7 +5245,7 @@
       });
     });
     if (isStaffScopeActive()) {
-      T.whenDiscordSessionReady(init, 800);
+      T.whenDiscordSessionReady(init, T.getToken() ? 1 : 400);
     }
   });
 })();

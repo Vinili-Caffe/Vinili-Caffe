@@ -1,7 +1,20 @@
 (function () {
   "use strict";
+  // typeSfxShellFlashFix1
 
   var STORAGE_KEY = "vc_type_sfx";
+  var CRITICAL_CSS_ID = "vc-bgm-player-critical";
+  var ICO =
+    '<svg class="vc-bgm-player__ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false" width="20" height="20">';
+  var ICON_KEYBOARD =
+    ICO +
+    '<path fill="currentColor" d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>';
+  var ICON_VOL_LO =
+    ICO +
+    '<path fill="currentColor" d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>';
+  var ICON_VOL_HI =
+    ICO +
+    '<path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
   var VOL_KEY = "vc_type_sfx_vol";
   var MAX_RATE_MS = 22;
   var BASE_PEAK = 0.85;
@@ -35,6 +48,17 @@
 
   function readPrefs() {
     try {
+      var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
+      if (sync && sync.typeSfx && typeof sync.typeSfx === "object") {
+        if (Number.isFinite(Number(sync.typeSfx.volume))) {
+          userVol = clamp01(Number(sync.typeSfx.volume));
+        }
+        if (typeof sync.typeSfx.enabled === "boolean") {
+          mutedByUser = !sync.typeSfx.enabled;
+        }
+      }
+    } catch (eSy) {}
+    try {
       var rawVol = localStorage.getItem(VOL_KEY);
       if (rawVol != null && String(rawVol).trim() !== "") {
         var n = Number(rawVol);
@@ -54,6 +78,36 @@
       localStorage.setItem(VOL_KEY, String(Math.round(userVol * 100) / 100));
       localStorage.setItem(STORAGE_KEY, mutedByUser || userVol <= 0.001 ? "0" : "1");
     } catch (e) {}
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.publish({
+          typeSfx: {
+            enabled: !mutedByUser && userVol > 0.001,
+            volume: userVol,
+          },
+        });
+      }
+    } catch (ePub) {}
+  }
+
+  function applyRemoteTypeSfx(prefs) {
+    if (!prefs || !prefs.typeSfx || typeof prefs.typeSfx !== "object") return;
+    var changed = false;
+    if (Number.isFinite(Number(prefs.typeSfx.volume))) {
+      userVol = clamp01(Number(prefs.typeSfx.volume));
+      changed = true;
+    }
+    if (typeof prefs.typeSfx.enabled === "boolean") {
+      mutedByUser = !prefs.typeSfx.enabled;
+      changed = true;
+    }
+    if (!changed) return;
+    if (userVol > 0.001) lastAudibleVol = userVol;
+    try {
+      localStorage.setItem(VOL_KEY, String(Math.round(userVol * 100) / 100));
+      localStorage.setItem(STORAGE_KEY, mutedByUser || userVol <= 0.001 ? "0" : "1");
+    } catch (eLs) {}
+    syncUi();
   }
 
   function effectiveVol() {
@@ -278,8 +332,24 @@
     }
   }
 
+  function injectCriticalShellCss() {
+    if (document.getElementById(CRITICAL_CSS_ID)) return;
+    var style = document.createElement("style");
+    style.id = CRITICAL_CSS_ID;
+    style.textContent =
+      ".vc-bgm-player,.vc-type-sfx-player{position:fixed;right:1rem;bottom:1rem;z-index:10110;display:inline-flex;align-items:center;gap:0;padding:0;border:none;background:transparent;color:#f7ecdf;box-shadow:none}" +
+      ".vc-bgm-player .vc-bgm-player__meta{flex:1 1 auto;min-width:0;max-width:0;opacity:0;overflow:hidden;display:flex;flex-direction:column;gap:.42rem;pointer-events:none}" +
+      ".vc-bgm-player__toggle{flex:0 0 auto;width:3.35rem;height:3.35rem;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid rgba(212,168,120,.48);background:rgba(20,12,8,.92);color:#f7ecdf;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.42)}" +
+      ".vc-bgm-player__ico,.vc-bgm-player__toggle .fa{width:1.2rem;height:1.2rem;flex:0 0 auto;display:block;font-size:1.2rem;line-height:1}" +
+      ".vc-bgm-player__label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
+      ".vc-bgm-player__slider-row{display:flex;align-items:center;gap:.45rem;width:100%;min-width:0}" +
+      ".vc-type-sfx-player[hidden]{display:none!important}";
+    (document.head || document.documentElement).appendChild(style);
+  }
+
   function setShellVisible(show) {
     if (show) {
+      injectCriticalShellCss();
       ensureShell();
       if (wrap) {
         wrap.hidden = false;
@@ -330,9 +400,6 @@
     btn.title = btn.getAttribute("aria-label");
     btn.classList.toggle("is-muted", !on);
     if (wrap) wrap.classList.toggle("is-muted", !on);
-    var icon = btn.querySelector(".fa");
-    // Icona fissa: niente swap keyboard ↔ volume-off.
-    if (icon) icon.className = "fa fa-keyboard-o";
     if (rangeEl) {
       // Come la musica: lo slider riflette userVol anche se muto (non forzare 0).
       rangeEl.value = String(Math.round(clamp01(userVol) * 100));
@@ -391,16 +458,16 @@
       wrap.setAttribute("hidden", "");
       wrap.innerHTML =
         '<button type="button" class="vc-bgm-player__toggle vc-type-sfx-toggle" id="vc-type-sfx-toggle" aria-pressed="true">' +
-        '<i class="fa fa-keyboard-o" aria-hidden="true"></i>' +
+        ICON_KEYBOARD +
         "</button>" +
         '<div class="vc-bgm-player__meta">' +
         '<span class="vc-bgm-player__label">' +
         (isIt() ? "Suono tastiera" : "Typing sound") +
         "</span>" +
         '<div class="vc-bgm-player__slider-row">' +
-        '<i class="fa fa-volume-down" aria-hidden="true"></i>' +
+        ICON_VOL_LO +
         '<input type="range" id="vc-type-sfx-vol" class="vc-bgm-player__range" min="0" max="100" step="1" />' +
-        '<i class="fa fa-volume-up" aria-hidden="true"></i>' +
+        ICON_VOL_HI +
         "</div>" +
         "</div>";
       (document.body || document.documentElement).appendChild(wrap);
@@ -434,6 +501,7 @@
     if (window.__VC_TYPE_SFX_INIT) return;
     window.__VC_TYPE_SFX_INIT = true;
     if (document.documentElement.classList.contains("vc-type-sfx-off")) return;
+    injectCriticalShellCss();
     readPrefs();
     refreshShellVisibility();
 
@@ -509,6 +577,14 @@
     } catch (eMo) {}
 
     window.addEventListener("resize", scheduleRefresh);
+
+    try {
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.subscribe(function (prefs) {
+          applyRemoteTypeSfx(prefs);
+        });
+      }
+    } catch (eSub) {}
   }
 
   if (document.readyState === "loading") {

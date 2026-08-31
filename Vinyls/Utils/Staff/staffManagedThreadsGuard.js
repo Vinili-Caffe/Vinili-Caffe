@@ -1,10 +1,12 @@
-const { getStaffChatThreadIds } = require("../Global/globalSettingsBucket");
-const { getStaffCmdsThreadIds, getStaffCmdsThreadIdsCache } = require("../Staff/staffCmdsChannelUtils");
+const { getStaffChatThreadIds, getStaffCmdsThreadIds } = require("../Global/globalSettingsBucket");
+const {
+  getStaffCmdsThreadIdsCache,
+  staffCmdsChannelId,
+  resolveStaffCmdsThreadSpecKeySync,
+} = require("./staffCmdsChannelUtils");
 const { staffChatChannelId } = require("./staffChatChannelUtils");
-const { staffCmdsChannelId } = require("./staffCmdsChannelUtils");
 const { STAFF_CHAT_THREAD_SPECS, memberQualifiesForSpec: chatMemberQualifiesForSpec } = require("../../Services/Staff/staffChatThreadsService");
 const { STAFF_CMDS_THREAD_SPECS, memberQualifiesForSpec: cmdsMemberQualifiesForSpec } = require("../../Services/Staff/staffCmdsThreadsService");
-const IDs = require("../Config/ids");
 const {
   memberHasStaffThreadAccess,
   resolveStaffThreadQualifyingRoleIds,
@@ -35,11 +37,23 @@ async function resolveManagedStaffThreadContext(channel) {
   if (!cmdsParent || parentId !== cmdsParent) return null;
 
   const cached = getStaffCmdsThreadIdsCache();
-  const ids = cached.pm && cached.high ? cached : await getStaffCmdsThreadIds();
+  let fetched = { pm: null, high: null };
+  try {
+    fetched = await getStaffCmdsThreadIds();
+  } catch (_) {}
+  const ids = {
+    pm: cached.pm || fetched.pm || null,
+    high: cached.high || fetched.high || null,
+  };
   for (const spec of STAFF_CMDS_THREAD_SPECS) {
     if (threadId === String(ids?.[spec.key] || "")) {
       return { zone: "cmds", spec, memberQualifiesForSpec: cmdsMemberQualifiesForSpec };
     }
+  }
+  const specKey = resolveStaffCmdsThreadSpecKeySync(channel, ids);
+  if (specKey) {
+    const spec = STAFF_CMDS_THREAD_SPECS.find((s) => s.key === specKey);
+    if (spec) return { zone: "cmds", spec, memberQualifiesForSpec: cmdsMemberQualifiesForSpec };
   }
   return null;
 }

@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+  /* siteSnappyApi1 */
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var state = {
@@ -1027,21 +1029,50 @@
 
   function fetchPayload() {
     setStatus("", false);
-    return fetch(apiUrl(), {
+    var url = apiUrl();
+    var cacheKey = "reviews:" + pageKind();
+
+    function applyBody(body) {
+      if (!body || body.ok !== true) throw new Error((body && body.message) || t("reviews.loadError", "Impossibile caricare le recensioni."));
+      state.payload = body;
+      syncDraftFromPayload();
+      render();
+      var wsr = state.reviewsWs ? state.reviewsWs.readyState : 3;
+      if (wsr !== 0 && wsr !== 1) {
+        connectReviewsWebSocket();
+      }
+    }
+
+    if (window.VcApiCache) {
+      return window.VcApiCache.fetchWithCache(cacheKey, url, {
+        ttlMs: 60000,
+        staleMs: 600000,
+        fetchInit: { method: "GET", headers: authHeaders(), cache: "no-store" },
+        onStale: function (cached) {
+          if (cached && cached.body && cached.body.ok === true) {
+            try {
+              applyBody(cached.body);
+            } catch (eSt) {}
+          }
+        },
+      })
+        .then(function (out) {
+          if (!out || !out.ok || !out.body) throw new Error(t("reviews.loadError", "Impossibile caricare le recensioni."));
+          applyBody(out.body);
+        })
+        .catch(function (err) {
+          setStatus(err && err.message ? err.message : t("reviews.loadError", "Impossibile caricare le recensioni."), true);
+        });
+    }
+
+    return fetch(url, {
       method: "GET",
       headers: authHeaders(),
       cache: "no-store",
     })
       .then(parseJsonResponse)
       .then(function (body) {
-        if (!body || body.ok !== true) throw new Error((body && body.message) || t("reviews.loadError", "Impossibile caricare le recensioni."));
-        state.payload = body;
-        syncDraftFromPayload();
-        render();
-        var wsr = state.reviewsWs ? state.reviewsWs.readyState : 3;
-        if (wsr !== 0 && wsr !== 1) {
-          connectReviewsWebSocket();
-        }
+        applyBody(body);
       })
       .catch(function (err) {
         setStatus(err && err.message ? err.message : t("reviews.loadError", "Impossibile caricare le recensioni."), true);
@@ -1079,6 +1110,7 @@
         }
         state.editModalOpen = false;
         if (window.VcFormDrafts) window.VcFormDrafts.clear("reviews:" + pageKind());
+        if (window.VcApiCache) window.VcApiCache.invalidate("reviews:" + pageKind());
         setStatus(body.message || t("reviews.saved", "Recensione salvata."), false);
         return fetchPayload();
       })

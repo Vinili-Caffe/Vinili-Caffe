@@ -535,6 +535,11 @@
       sessionStorage.removeItem("vc_menu_dash_v1");
       localStorage.removeItem("vc_menu_dash_local_v1");
       sessionStorage.removeItem("vc_server_avatar_v1");
+      if (window.VcApiCache && typeof window.VcApiCache.invalidatePrefix === "function") {
+        ["profile:", "chrome:", "avatar:", "feedback:", "suggestions:", "staff:"].forEach(function (prefix) {
+          window.VcApiCache.invalidatePrefix(prefix);
+        });
+      }
     } catch (eCt) {}
     syncTokenToServiceWorker("");
   }
@@ -741,15 +746,32 @@
     if (!token) return "";
     var cached = readMenuCache("vc_server_avatar_v1", token, 600000);
     if (cached && cached.url) return String(cached.url || "");
+    var apiUrl =
+      resolveRankCardApiUrl() + (resolveRankCardApiUrl().indexOf("?") >= 0 ? "&" : "?") + "avatarOnly=1";
     try {
-      var res = await fetch(resolveRankCardApiUrl() + (resolveRankCardApiUrl().indexOf("?") >= 0 ? "&" : "?") + "avatarOnly=1", {
-        headers: { Authorization: "Bearer " + token },
-        cache: "no-store",
-      });
-      if (!res.ok) return "";
-      var data = await res.json().catch(function () {
-        return {};
-      });
+      var data = {};
+      if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+        var cacheKey = window.VcApiCache.keyFor(apiUrl, { scope: "avatar", auth: token });
+        var payload = await window.VcApiCache.fetchWithCache(cacheKey, apiUrl, {
+          ttlMs: 600000,
+          staleMs: 3600000,
+          persistMs: 24 * 60 * 60 * 1000,
+          fetchInit: {
+            headers: { Authorization: "Bearer " + token },
+            cache: "no-store",
+          },
+        });
+        data = (payload && payload.body) || {};
+      } else {
+        var res = await fetch(apiUrl, {
+          headers: { Authorization: "Bearer " + token },
+          cache: "no-store",
+        });
+        if (!res.ok) return "";
+        data = await res.json().catch(function () {
+          return {};
+        });
+      }
       var u = String(data && data.avatarUrl || "").trim();
       if (!/^https?:\/\//i.test(u)) return "";
       writeMenuCache("vc_server_avatar_v1", token, { url: u });

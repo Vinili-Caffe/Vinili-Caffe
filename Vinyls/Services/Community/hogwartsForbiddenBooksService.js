@@ -356,6 +356,8 @@ function buildForbiddenPublicStatusPayload(runtime) {
     ok: true,
     enabled: true,
     open: runtime.open === true,
+    mode: runtime.mode || null,
+    chaosSlotKey: runtime.chaosSlotKey || null,
     startMs: runtime.startMs,
     endMs: runtime.endMs,
     betweenRounds: runtime.betweenRounds === true,
@@ -467,10 +469,14 @@ async function assignForbiddenSectionWinner(client, guildId, userId, actorId) {
   const uid = String(userId || "").trim();
   const actor = String(actorId || "").trim();
   if (!gid || !uid || !actor) return { ok: false, code: "bad_input" };
-  if (!isForbiddenBooksFeatureEnabled(client)) return { ok: false, code: "feature_disabled" };
   const runtime = await resolveForbiddenRoundRuntime(client);
-  if (!runtime.round || !runtime.dedupeKey) {
-    return { ok: false, code: "round_inactive", nextRoundId: runtime.nextRoundId, nextRoundStartMs: runtime.nextRoundStartMs };
+  if (!runtime.roundActive || !runtime.dedupeKey) {
+    return {
+      ok: false,
+      code: runtime.enabled === false && !runtime.roundActive ? "feature_disabled" : "round_inactive",
+      nextRoundId: runtime.nextRoundId,
+      nextRoundStartMs: runtime.nextRoundStartMs,
+    };
   }
   if (runtime.roundClosed) {
     return { ok: false, code: "event_closed", winners: runtime.closure?.rawWebhook?.winners || [] };

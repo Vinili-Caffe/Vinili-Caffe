@@ -24,6 +24,13 @@ function sanitizeChromePrefs(raw) {
       volume: Math.min(1, Math.max(0, Number(src.hogwartsBgm.volume))),
     };
     if (!Number.isFinite(out.hogwartsBgm.volume)) delete out.hogwartsBgm.volume;
+    if (typeof src.hogwartsBgm.playing === "boolean") out.hogwartsBgm.playing = src.hogwartsBgm.playing;
+    const seek = Number(src.hogwartsBgm.seek);
+    if (Number.isFinite(seek) && seek >= 0) out.hogwartsBgm.seek = Math.min(seek, 86400);
+    const videoIdx = Number(src.hogwartsBgm.videoIdx);
+    if (Number.isFinite(videoIdx) && videoIdx >= 0) out.hogwartsBgm.videoIdx = Math.min(Math.floor(videoIdx), 50);
+    const at = Number(src.hogwartsBgm.at);
+    if (Number.isFinite(at) && at > 0) out.hogwartsBgm.at = at;
   }
   if (src.seratafilmBgm && typeof src.seratafilmBgm === "object") {
     out.seratafilmBgm = {

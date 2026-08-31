@@ -476,8 +476,6 @@ function buildEventHeaderHtml({
                   </div>
                 </div>
                 <div class="vc-notif-panel-head-actions">
-                  <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette"
-                    aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
                   <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
                     aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
                 </div>

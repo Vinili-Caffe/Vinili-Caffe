@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+  /* siteSnappyApi1 */
   var PER_PAGE = 9;
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
@@ -162,6 +164,49 @@
       .replace(/"/g, "&quot;");
   }
 
+  var ROLE_EMOJI_TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/";
+
+  function emojiToTwemojiUrl(emoji) {
+    emoji = String(emoji || "").trim();
+    if (!emoji) return "";
+    try {
+      if (window.twemoji && window.twemoji.convert && typeof window.twemoji.convert.toCodePoint === "function") {
+        var fromLib = window.twemoji.convert.toCodePoint(emoji);
+        if (fromLib) return ROLE_EMOJI_TWEMOJI_BASE + fromLib + ".svg";
+      }
+    } catch (eTw) {}
+    var parts = [];
+    for (var i = 0; i < emoji.length; ) {
+      var cp = emoji.codePointAt(i);
+      if (!cp) break;
+      parts.push(cp.toString(16));
+      i += cp > 0xffff ? 2 : 1;
+    }
+    if (!parts.length) return "";
+    return ROLE_EMOJI_TWEMOJI_BASE + parts.join("-") + ".svg";
+  }
+
+  /** rolesEmojiTwemoji1: ZWJ/emoji complesse → Twemoji SVG (niente testo spezzato su Windows/mobile). */
+  function roleEmojiMarkup(emoji, classPrefix, px) {
+    emoji = String(emoji || "").trim();
+    if (!emoji) return "";
+    var url = emojiToTwemojiUrl(emoji);
+    if (url) {
+      return (
+        '<img class="' +
+        classPrefix +
+        'img vc-role-emoji-twemoji" src="' +
+        esc(url) +
+        '" alt="" width="' +
+        px +
+        '" height="' +
+        px +
+        '" loading="lazy" decoding="async" draggable="false" data-vc-emoji-skip="1" />'
+      );
+    }
+    return '<span class="' + classPrefix + 'emoji" aria-hidden="true">' + esc(emoji) + "</span>";
+  }
+
   function formatIntIt(n) {
     var x = Number(n);
     if (!Number.isFinite(x)) return "0";
@@ -238,10 +283,31 @@
     var title = overlay ? overlay.querySelector(".vc-ul-loading-title") : null;
     var subtitle = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
     var grid = byId("vc-roles-grid");
-    if (overlay) overlay.hidden = !state.loading;
+    if (overlay) {
+      overlay.hidden = !state.loading;
+      if (state.loading) {
+        try {
+          overlay.removeAttribute("hidden");
+          overlay.style.removeProperty("display");
+          overlay.style.removeProperty("pointer-events");
+        } catch (eShow) {}
+      } else {
+        try {
+          overlay.setAttribute("hidden", "");
+          overlay.style.setProperty("display", "none", "important");
+          overlay.style.setProperty("pointer-events", "none", "important");
+        } catch (eHide) {}
+        try {
+          document.documentElement.classList.remove("vc-loading-scroll-lock", "vc-scroll-soft-lock");
+        } catch (eCls) {}
+      }
+    }
     if (title) title.textContent = label || "Caricamento ruoli";
     if (subtitle) subtitle.textContent = state.loading ? sub || "Sto recuperando tutti i ruoli personalizzati della community…" : "";
     if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
     if (!state.loading) {
       try {
         document.dispatchEvent(new Event("vc:roles-ready"));
@@ -343,7 +409,7 @@
     }
     var emoji = String(row.roleEmoji || "").trim();
     if (emoji) {
-      return '<span class="vc-role-card-iconemoji" aria-hidden="true">' + esc(emoji) + "</span>";
+      return roleEmojiMarkup(emoji, "vc-role-card-icon", 52);
     }
     return '<i class="fa fa-paint-brush" aria-hidden="true"></i>';
   }
@@ -450,7 +516,7 @@
     }
     var emoji = String((row && row.roleEmoji) || "").trim();
     if (emoji) {
-      return '<span class="vc-role-modal-iconemoji" aria-hidden="true">' + esc(emoji) + "</span>";
+      return roleEmojiMarkup(emoji, "vc-role-modal-icon", 56);
     }
     return '<i class="fa fa-shield" aria-hidden="true"></i>';
   }
@@ -580,7 +646,7 @@
       return;
     }
     if (emoji) {
-      icon.innerHTML = '<span class="vc-role-request-iconemoji" aria-hidden="true">' + esc(emoji) + "</span>" + swatch;
+      icon.innerHTML = roleEmojiMarkup(emoji, "vc-role-request-icon", 56) + swatch;
       return;
     }
     icon.innerHTML = '<i class="fa fa-shield" aria-hidden="true"></i>' + swatch;
@@ -1054,6 +1120,23 @@
       return;
     }
 
+    function applyRolesPayload(data, fromStale) {
+      if (!data || data.ok !== true) {
+        throw new Error((data && data.message) || "Risposta non valida");
+      }
+      state.rows = Array.isArray(data.rows) ? data.rows : [];
+      state.summary = data.summary || { totalRoles: state.rows.length, permanentRoles: 0, totalAssignments: 0 };
+      var snapshot = buildDataSnapshot(state.rows, state.summary);
+      var sameData = snapshot && state.lastSnapshot && snapshot === state.lastSnapshot;
+      state.lastSnapshot = snapshot;
+      if (silent && sameData) return true;
+      state.page = 1;
+      applyFilter();
+      setSummary(state.summary);
+      renderGrid();
+      return true;
+    }
+
     if (!silent) {
       state.lastAppliedSummarySig = "";
       setLoading(true, "Caricamento ruoli", "Sto recuperando tutti i ruoli personalizzati della community…");
@@ -1061,28 +1144,43 @@
     }
 
     try {
-      var out = await fetchJsonWithTimeout(
-        api,
-        { headers: { Accept: "application/json" }, cache: "no-store", credentials: "omit" },
-        12000,
-      );
-      var data = out && out.data;
-      if (!out || !out.ok || !data || data.ok !== true) {
-        throw new Error((data && data.message) || "Risposta non valida");
+      var out = null;
+      if (window.VcApiCache && opts.bypassCache !== true) {
+        out = await window.VcApiCache.fetchWithCache(
+          window.VcApiCache.keyFor(api, { scope: "roles" }),
+          api,
+          {
+          ttlMs: 90000,
+          staleMs: 600000,
+          persistMs: 20 * 60 * 1000,
+          timeoutMs: 22000,
+          onStale: function (cached) {
+            if (silent || !cached || !cached.body) return;
+            try {
+              applyRolesPayload(cached.body, true);
+            } catch (eSt) {}
+          },
+        },
+        );
+      } else {
+        var lastErr = null;
+        for (var attempt = 0; attempt < 2; attempt++) {
+          try {
+            out = await fetchJsonWithTimeout(
+              api,
+              { headers: { Accept: "application/json" }, cache: "no-store", credentials: "omit" },
+              attempt === 0 ? 22000 : 28000,
+            );
+            lastErr = null;
+            break;
+          } catch (fetchErr) {
+            lastErr = fetchErr;
+            if (!(fetchErr && String(fetchErr.message || "").toLowerCase() === "timeout")) throw fetchErr;
+          }
+        }
+        if (lastErr) throw lastErr;
       }
-
-      state.rows = Array.isArray(data.rows) ? data.rows : [];
-      state.summary = data.summary || { totalRoles: state.rows.length, permanentRoles: 0, totalAssignments: 0 };
-      var snapshot = buildDataSnapshot(state.rows, state.summary);
-      var sameData = snapshot && state.lastSnapshot && snapshot === state.lastSnapshot;
-      state.lastSnapshot = snapshot;
-
-      if (silent && sameData) return;
-
-      state.page = 1;
-      applyFilter();
-      setSummary(state.summary);
-      renderGrid();
+      applyRolesPayload(out && (out.body || out.data), false);
     } catch (err) {
       if (silent && Array.isArray(state.rows) && state.rows.length) {
         // Keep last good grid on background poll failures.
@@ -1129,6 +1227,12 @@
     bindModal();
     load();
     startLiveRolesPolling();
+    // phoneBootReveal1: se l'API resta appesa, togli comunque il fullscreen loader.
+    try {
+      window.setTimeout(function () {
+        if (state.loading) setLoading(false);
+      }, 9000);
+    } catch (eFailsafe) {}
     window.addEventListener("vc-discord-profile", function () {
       if (state.activeRequestRoleId) {
         syncRequestAuthUi();

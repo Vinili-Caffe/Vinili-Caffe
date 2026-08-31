@@ -80,6 +80,9 @@
 
   function useLiteCanvas() {
     try {
+      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
+        return true;
+      }
       if (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()) return true;
     } catch (ePerf) {}
     /* phoneSnap1: CSS resta full; canvas telefono/PWA leggero (GPU libera per i tap). */
@@ -377,7 +380,20 @@
     return r.width >= 8 && r.height >= 8;
   }
 
-  function refreshScrollCue(cue, hero, target) {
+  function scrollCueShouldHide(hero) {
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    if (y > 6) return true;
+    if (!hero) return false;
+    try {
+      var r = hero.getBoundingClientRect();
+      if (r.top < -8) return true;
+      var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (vh > 0 && r.bottom < vh * 0.9) return true;
+    } catch (eHeroHide) {}
+    return false;
+  }
+
+  function applyScrollCueVisibility(cue, hero) {
     if (!cue) return;
     if (skipScrollCuePage()) {
       cue.classList.add("is-away");
@@ -390,10 +406,20 @@
       cue.setAttribute("aria-hidden", "false");
       return;
     }
-    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
-    var hide = y > 72;
+    var hide = scrollCueShouldHide(hero);
     cue.classList.toggle("is-away", hide);
     cue.setAttribute("aria-hidden", hide ? "true" : "false");
+    if (hide) {
+      try {
+        cue.style.removeProperty("opacity");
+        cue.style.removeProperty("pointer-events");
+        cue.style.removeProperty("transition");
+      } catch (eCueClr) {}
+    }
+  }
+
+  function refreshScrollCue(cue, hero, target) {
+    applyScrollCueVisibility(cue, hero);
   }
 
   function bindCueLayoutWatch(cue, hero, target) {
@@ -467,6 +493,8 @@
       cue.dataset.vcScrollCueScroll = "1";
       window.addEventListener("scroll", onScroll, { passive: true });
       window.addEventListener("resize", onScroll, { passive: true });
+      window.addEventListener("wheel", onScroll, { passive: true });
+      window.addEventListener("touchmove", onScroll, { passive: true });
       onScroll();
     } else {
       onScroll();
@@ -568,6 +596,18 @@
       loaderObs.observe(loader, { attributes: true, attributeFilter: ["hidden"] });
     }
     run();
+    // phoneLoadClipFix1: mai restare senza restructure se il loader/classifica si blocca.
+    window.setTimeout(function () {
+      if (done) return;
+      done = true;
+      try {
+        obs.disconnect();
+      } catch (eObsT) {}
+      try {
+        if (loaderObs) loaderObs.disconnect();
+      } catch (eLoaderObsT) {}
+      fn();
+    }, 4500);
   }
 
   function markPageCineReady(immediate) {
@@ -1021,6 +1061,15 @@
 
   function initPageHeroRise(hero) {
     if (!hero || prefersReduced()) return;
+    try {
+      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
+        hero.classList.remove("vc-home-rise");
+        hero.classList.add("is-in");
+        var fastBits = hero.querySelectorAll(".vc-home-rise");
+        for (var fb = 0; fb < fastBits.length; fb++) fastBits[fb].classList.add("is-in");
+        return;
+      }
+    } catch (eFastRise) {}
     hero.classList.remove("vc-home-rise");
     hero.classList.add("is-in");
 
@@ -1434,28 +1483,14 @@
   }
 
   function initPolishHeroFx() {
-    var titles = document.querySelectorAll(
-      "main .vc-page-cine-hero h1, main .vc-support-page-hero h1, main .vc-notify-hero h1, main .vc-user-profile-hero h1, main .vc-users-title"
-    );
-    for (var i = 0; i < titles.length; i++) {
-      (function (title) {
-        var t0 = performance.now();
-        function pulse(now) {
-          if (!title.isConnected) return;
-          var p = (Math.sin(((now - t0) / 1000) * 1.15) + 1) / 2;
-          var blur = 24 + p * 20;
-          var alpha = 0.1 + p * 0.14;
-          title.style.textShadow =
-            "0 2px 18px rgba(0,0,0,0.45), 0 0 " +
-            blur.toFixed(0) +
-            "px rgba(232,201,168," +
-            alpha.toFixed(3) +
-            ")";
-          requestAnimationFrame(pulse);
-        }
-        requestAnimationFrame(pulse);
-      })(titles[i]);
-    }
+    /* sitePerfFlash1: glow statico via CSS .vc-brand-glow — niente loop rAF per titolo. */
+    var skipMag = prefersReduced() || isCoarse();
+    try {
+      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
+        skipMag = true;
+      }
+    } catch (eMagSkip) {}
+    if (skipMag) return;
 
     var ctas = document.querySelectorAll(".vc-page-cine-hero .vc-hero-head a.vc-header-pill");
     for (var c = 0; c < ctas.length; c++) {
@@ -1524,6 +1559,7 @@
           cue.style.removeProperty("transition");
           cue.style.removeProperty("opacity");
           cue.style.removeProperty("pointer-events");
+          applyScrollCueVisibility(cue, section);
         }
         return;
       }
@@ -1540,13 +1576,7 @@
       card.style.transform = "translate3d(0," + shift.toFixed(1) + "px,0)";
       card.style.opacity = String(opacity);
 
-      if (cue) {
-        var cueOpacity = Math.max(0, 1 - y / 220);
-        cue.style.transition = "none";
-        cue.style.opacity = String(cueOpacity);
-        if (cueOpacity <= 0.04) cue.style.pointerEvents = "none";
-        else cue.style.removeProperty("pointer-events");
-      }
+      if (cue) applyScrollCueVisibility(cue, section);
     }
 
     section._vcInnerHeroFxTick = tick;
@@ -1871,11 +1901,7 @@
         } else if (shouldSkipPageCineHeroLayout()) {
           resetUsersPageCineLayout();
         } else if (isUsersCommunityPage()) {
-          whenCommunityLeaderReady(function () {
-            initPageHeroLayout({ force: true });
-            bindInnerHeroScrollFx();
-            snapScrollTopIfPristine();
-          });
+          ensureCommunityPageCineLayout();
         } else {
           initPageHeroLayout({ force: true });
           bindInnerHeroScrollFx();

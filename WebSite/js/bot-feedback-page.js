@@ -531,23 +531,40 @@
 
   function fetchPayload(opts) {
     var force = Boolean(opts && opts.force);
-    return fetch(apiUrl(), { method: "GET", headers: authHeaders(), cache: "no-store" })
-      .then(parseJson)
-      .then(function (body) {
-        if (!body || body.ok !== true) throw new Error((body && body.message) || "Caricamento non riuscito.");
-        var fp = "";
-        try {
-          fp = JSON.stringify({ items: body.items || [], viewer: body.viewer || null });
-        } catch (e) {
-          fp = "";
-        }
-        if (!force && fp && fp === state.renderFingerprint && !state.modalOpen) {
-          state.payload = body;
-          return;
-        }
+    var url = apiUrl();
+    function applyBody(body) {
+      if (!body || body.ok !== true) throw new Error((body && body.message) || "Caricamento non riuscito.");
+      var fp = "";
+      try {
+        fp = JSON.stringify({ items: body.items || [], viewer: body.viewer || null });
+      } catch (e) {
+        fp = "";
+      }
+      if (!force && fp && fp === state.renderFingerprint && !state.modalOpen) {
         state.payload = body;
-        render();
-      });
+        return;
+      }
+      state.payload = body;
+      render();
+    }
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      var token = getToken();
+      var cacheKey = window.VcApiCache.keyFor(url, { scope: "feedback", auth: token });
+      if (force) window.VcApiCache.invalidate(cacheKey);
+      return window.VcApiCache
+        .fetchWithCache(cacheKey, url, {
+          ttlMs: 25000,
+          staleMs: 120000,
+          useCache: !force,
+          fetchInit: { method: "GET", headers: authHeaders(), cache: "no-store" },
+        })
+        .then(function (payload) {
+          applyBody(payload && payload.body ? payload.body : null);
+        });
+    }
+    return fetch(url, { method: "GET", headers: authHeaders(), cache: "no-store" })
+      .then(parseJson)
+      .then(applyBody);
   }
 
   function startPoll() {

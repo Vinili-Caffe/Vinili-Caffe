@@ -38,7 +38,7 @@ const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi");
 const PROFILE_CACHE_TTL_MS = 120_000;
 const PROFILE_CACHE_MAX = 200;
 const profileCache = new Map();
-const PROFILE_PAYLOAD_VERSION = 20;
+const PROFILE_PAYLOAD_VERSION = 21;
 /** Soft caps: first paint staff come community. */
 const STAFF_MEMBER_SOFT_TIMEOUT_MS = 500;
 const STAFF_LEGACY_SOFT_TIMEOUT_MS = 350;
@@ -329,13 +329,12 @@ function preferCareerRow(a, b) {
   return a;
 }
 
-/** Ruoli ladder staff (ingresso carriera = da fuori → uno di questi). */
+/** Scala staff Helper→Founder (Partner Manager è traccia parallela, non va mescolata). */
 function isOnStaffCareerLadder(token) {
   if (!token) return false;
-  if (token === "member" || token === "community") return false;
+  if (token === "member" || token === "community" || token === "partner manager") return false;
   const ladder = new Set([
     "helper",
-    "partner manager",
     "moderator",
     "senior moderator",
     "director",
@@ -346,20 +345,73 @@ function isOnStaffCareerLadder(token) {
   return ladder.has(token);
 }
 
-/** true se oldRole non è già nella ladder staff (ingresso da Member / fuori organico). */
+function isPartnerManagerRole(token) {
+  return token === "partner manager";
+}
+
+/** true se oldRole non è già nella ladder staff (ingresso da Member / fuori organico / PM). */
 function isOutsideStaffCareerLadder(token) {
   return !isOnStaffCareerLadder(token);
 }
 
 /**
- * Tiene solo l'ultimo stint on-ladder (dal rientro/ingresso attuale).
- * - Nuovo stint = ingresso da fuori ladder, oppure rientro dopo un'uscita.
- * - Se uscito e non più in organico → lista vuota (niente carriera "vecchia").
- * - Mostra TUTTO il percorso di quello stint (Member→Helper→Mod→…), non solo l'ultimo ruolo.
+ * Traccia Partner Manager (parallela allo staff).
+ * Solo passaggi → Partner Manager dell'ultimo stint PM; niente Helper/Mod.
+ */
+function slicePartnerManagerCareer(rows, opts = {}) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  const stillActive = Boolean(opts.stillActive);
+  const chrono = rows.slice().sort((a, b) => (a._sort || 0) - (b._sort || 0));
+  let startIdx = 0;
+  let onPm = false;
+  let found = false;
+  for (let i = 0; i < chrono.length; i += 1) {
+    const to = normalizeCareerRoleToken(chrono[i]?.newRole);
+    const from = normalizeCareerRoleToken(chrono[i]?.oldRole);
+    if (isPartnerManagerRole(to) && !isPartnerManagerRole(from)) {
+      startIdx = i;
+      found = true;
+      onPm = true;
+      continue;
+    }
+    if (onPm && isPartnerManagerRole(from) && !isPartnerManagerRole(to)) {
+      onPm = false;
+    }
+  }
+  if (!found) {
+    if (!stillActive) return [];
+    // Nessun pex →PM in history: non inventare la riga Helper.
+    return [];
+  }
+  if (!onPm && !stillActive) return [];
+
+  const kept = [];
+  for (let i = startIdx; i < chrono.length; i += 1) {
+    const to = normalizeCareerRoleToken(chrono[i]?.newRole);
+    const from = normalizeCareerRoleToken(chrono[i]?.oldRole);
+    if (isPartnerManagerRole(to)) {
+      kept.push(chrono[i]);
+      continue;
+    }
+    // Fine stint PM (es. PM → Member / PM → Helper): stop, non includere.
+    if (isPartnerManagerRole(from) && !isPartnerManagerRole(to)) break;
+  }
+  return kept.sort((a, b) => (b._sort || 0) - (a._sort || 0));
+}
+
+/**
+ * Tiene solo l'ultimo stint sulla scala Helper→Founder.
+ * Partner Manager conta come "fuori" (traccia parallela).
+ * - Se uscito e non più in organico → lista vuota.
+ * - Mostra TUTTO il percorso di quello stint (Member→Helper→Mod→…).
  */
 function sliceToLatestCareerStart(rows, opts = {}) {
   if (!Array.isArray(rows) || !rows.length) return [];
   const stillActive = Boolean(opts.stillActive);
+  const currentRole = normalizeCareerRoleToken(opts.currentRole || "");
+  if (isPartnerManagerRole(currentRole) || opts.track === "pm") {
+    return slicePartnerManagerCareer(rows, opts);
+  }
   const chrono = rows.slice().sort((a, b) => (a._sort || 0) - (b._sort || 0));
   let startIdx = 0;
   let found = false;
@@ -439,6 +491,7 @@ function dedupeCareerHistoryRows(rows) {
 
 function serializeRolesHistory(guild, staffObj, limit = 20, opts = {}) {
   const stillActive = Boolean(opts.stillActive);
+  const currentRole = opts.currentRole || "";
   const hist = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
   const mapped = hist
     .filter((row) => !isHiddenManualStaffCareerReason(row?.reason))
@@ -455,14 +508,17 @@ function serializeRolesHistory(guild, staffObj, limit = 20, opts = {}) {
       };
     })
     .sort((a, b) => b._sort - a._sort);
-  // Solo ultimo stint intero (Member→…→ruolo attuale). currentRole non restringe più.
-  const currentCareer = sliceToLatestCareerStart(mapped, { stillActive });
+  const currentCareer = sliceToLatestCareerStart(mapped, {
+    stillActive,
+    currentRole,
+    track: opts.track,
+  });
   return dedupeCareerHistoryRows(currentCareer)
     .slice(0, limit)
     .map(({ _sort, ...rest }) => rest);
 }
 
-function resolveTenureIso(staffObj) {
+function resolveTenureIso(staffObj, opts = {}) {
   const hist = Array.isArray(staffObj?.rolesHistory) ? staffObj.rolesHistory : [];
   const mapped = hist
     .filter((row) => !isHiddenManualStaffCareerReason(row?.reason))
@@ -482,7 +538,11 @@ function resolveTenureIso(staffObj) {
     oldRole: normalizeCareerRoleToken(row.oldRole) || row.oldRole,
     newRole: normalizeCareerRoleToken(row.newRole) || row.newRole,
   }));
-  const current = sliceToLatestCareerStart(withNames, { stillActive: true });
+  const current = sliceToLatestCareerStart(withNames, {
+    stillActive: true,
+    currentRole: opts.currentRole || "",
+    track: opts.track,
+  });
   if (!current.length) return null;
   // current è newest-first: la tenure è la riga più vecchia della carriera corrente.
   let earliest = null;
@@ -728,7 +788,14 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
   const neg = Math.max(0, Math.floor(Number(staff.negativeCount || 0)));
   const warns = Math.max(0, Math.floor(Number(staff.warnCount || 0)));
 
-  const tenureIso = resolveTenureIso(staff);
+  const careerCurrentRole =
+    profileKind === PROFILE_PM_ONLY
+      ? displayRole?.name || guild?.roles?.cache?.get(pmRoleId)?.name || "Partner Manager"
+      : displayRole?.name || roleLabel || null;
+  const tenureIso = resolveTenureIso(staff, {
+    currentRole: careerCurrentRole,
+    track: profileKind === PROFILE_PM_ONLY ? "pm" : "staff",
+  });
 
   let serataFilm = null;
   if (profileKind === PROFILE_FULL) {
@@ -813,11 +880,10 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
         : null,
       rolesHistory: serializeRolesHistory(guild, staff, 20, {
         stillActive: profileKind === PROFILE_FULL || profileKind === PROFILE_PM_ONLY,
+        currentRole: careerCurrentRole,
+        track: profileKind === PROFILE_PM_ONLY ? "pm" : "staff",
       }),
-      currentRole:
-        profileKind === PROFILE_PM_ONLY
-          ? displayRole?.name || guild?.roles?.cache?.get(pmRoleId)?.name || "Partner Manager"
-          : displayRole?.name || roleLabel || null,
+      currentRole: careerCurrentRole,
     },
   };
 }

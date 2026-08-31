@@ -1515,22 +1515,43 @@
 
   function fetchPayload() {
     setStatus("", false);
-    return fetch(apiUrl(), {
+    var url = apiUrl();
+    function applyBody(body) {
+      if (!body || body.ok !== true) throw new Error((body && body.message) || t("sugg.errorLoad", "Impossibile caricare i suggerimenti."));
+      state.payload = body;
+      render();
+      startLiveSuggestionsPoll();
+      var wsRs = state.suggestionsWs ? state.suggestionsWs.readyState : 3;
+      if (wsRs !== 0 && wsRs !== 1) {
+        connectSuggestionsWebSocket();
+      }
+    }
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      var token = getToken();
+      return window.VcApiCache
+        .fetchWithCache(window.VcApiCache.keyFor(url, { scope: "suggestions", auth: token }), url, {
+          ttlMs: 20000,
+          staleMs: 120000,
+          fetchInit: {
+            method: "GET",
+            headers: authHeaders(),
+            cache: "no-store",
+          },
+        })
+        .then(function (payload) {
+          applyBody(payload && payload.body ? payload.body : null);
+        })
+        .catch(function (err) {
+          setStatus(err && err.message ? err.message : t("sugg.errorLoad", "Impossibile caricare i suggerimenti."), true);
+        });
+    }
+    return fetch(url, {
       method: "GET",
       headers: authHeaders(),
       cache: "no-store",
     })
       .then(parseSuggestionsApiJson)
-      .then(function (body) {
-        if (!body || body.ok !== true) throw new Error((body && body.message) || t("sugg.errorLoad", "Impossibile caricare i suggerimenti."));
-        state.payload = body;
-        render();
-        startLiveSuggestionsPoll();
-        var wsRs = state.suggestionsWs ? state.suggestionsWs.readyState : 3;
-        if (wsRs !== 0 && wsRs !== 1) {
-          connectSuggestionsWebSocket();
-        }
-      })
+      .then(applyBody)
       .catch(function (err) {
         setStatus(err && err.message ? err.message : t("sugg.errorLoad", "Impossibile caricare i suggerimenti."), true);
       });

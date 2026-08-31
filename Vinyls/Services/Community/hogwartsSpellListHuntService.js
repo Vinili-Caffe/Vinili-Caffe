@@ -13,6 +13,7 @@ const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const EVENT_OWNER_ID = "__event__";
 const TIME_ZONE = "Europe/Rome";
 const BUTTON_PREFIX = "hogwarts_spell_list";
+const SPELL_LIST_CLAIM_FIX_MARKER = "spellListClaimFix1";
 const DEFAULT_CONFIG = {
   enabled: true,
   eventKey: "hogwarts_spell_list_hunt_2026",
@@ -310,10 +311,65 @@ async function loadRound(guildId, eventKey, roundId) {
     .catch(() => null);
 }
 
+/** Trova un round attivo per roundId (anche Finale Chaos con eventKey diverso). */
+async function loadActiveRoundByRoundId(guildId, roundId) {
+  const rid = normalizeId(roundId);
+  if (!rid) return null;
+  return SiteDocument.findOne({
+    docType: HUNT_DOC,
+    guildId: normalizeId(guildId),
+    userId: EVENT_OWNER_ID,
+    status: "active",
+    "rawWebhook.roundId": rid,
+  })
+    .lean()
+    .catch(() => null);
+}
+
 async function saveRound(doc) {
   if (!doc?._id) return doc;
   await SiteDocument.updateOne({ _id: doc._id }, { $set: { status: doc.status, rawWebhook: doc.rawWebhook } }).catch(() => null);
   return doc;
+}
+
+function readClaims(doc) {
+  return doc?.rawWebhook?.claims && typeof doc.rawWebhook.claims === "object" ? doc.rawWebhook.claims : {};
+}
+
+/** Aggiorna un solo slot claim (evita race che sovrascrivono l'altro slot). */
+async function atomicClaimSlot(docId, slot, claim, expectedSlotUserId = null) {
+  if (!docId || (slot !== "a" && slot !== "b") || !claim?.userId) return null;
+  const userField = `rawWebhook.claims.${slot}.userId`;
+  const claimField = `rawWebhook.claims.${slot}`;
+  const filter = { _id: docId, status: "active" };
+  if (expectedSlotUserId) {
+    filter[userField] = normalizeId(expectedSlotUserId);
+  } else {
+    filter.$or = [{ [userField]: { $exists: false } }, { [userField]: null }, { [userField]: "" }];
+  }
+  return SiteDocument.findOneAndUpdate(filter, { $set: { [claimField]: claim } }, { new: true })
+    .lean()
+    .catch(() => null);
+}
+
+function canOverwriteSpellListSlot(slotClaim, otherClaim, houseId) {
+  const slotHouse = normalizeHouseId(slotClaim?.houseId);
+  if (!slotClaim?.userId || !houseId || slotHouse === houseId) return false;
+  if (!otherClaim?.userId) return true;
+  return normalizeHouseId(otherClaim.houseId) === houseId;
+}
+
+function spellListAlreadyFoundReply(otherListOpen = true) {
+  const tail = otherListOpen
+    ? " Cerca **l'altra lista** in un altro canale del server."
+    : "";
+  return `<a:VC_Alert:1482706673176150077> Questa lista \u00e8 gi\u00e0 stata trovata da un altro mago.${tail}`;
+}
+
+function spellListCrossHouseReply(client, houseId, otherHouse) {
+  const label = houseLabel(houseId, client);
+  const otherLabel = houseLabel(otherHouse, client);
+  return `<a:VC_Alert:1482706673176150077> Liste trovate da **case diverse** (**${label}** e **${otherLabel}**). Il turno **resta aperto**: un compagno di casata pu\u00f2 riprendere lo slot sbagliato, oppure si attende la scadenza.`;
 }
 
 async function announceInChat(client, guild, c, text, embeds = []) {
@@ -327,6 +383,20 @@ async function announceInChat(client, guild, c, text, embeds = []) {
       allowedMentions: c.eventsRoleId ? { roles: [c.eventsRoleId] } : { parse: [] },
     })
     .catch(() => null);
+}
+
+function announceCfgForDoc(c, doc) {
+  const fc = doc?.rawWebhook?.finaleChaos && typeof doc.rawWebhook.finaleChaos === "object"
+    ? doc.rawWebhook.finaleChaos
+    : null;
+  if (!fc) return c;
+  return {
+    ...c,
+    announceChannelId: normalizeId(fc.announceChannelId) || c.announceChannelId,
+    eventsRoleId: normalizeId(fc.pingRoleId) || c.eventsRoleId,
+    hintBeforeExpiryMs: safeInt(fc.hintBeforeExpiryMs, c.hintBeforeExpiryMs, 60_000, 24 * 60 * 60 * 1000),
+    roundDurationMs: safeInt(fc.durationMs, c.roundDurationMs, 5 * 60 * 1000, 24 * 60 * 60 * 1000),
+  };
 }
 
 function formatSpellListHousePointsAward(points, award) {
@@ -499,9 +569,82 @@ async function finalizeHouseWin(client, guild, c, doc, houseId, claimA, claimB) 
       ].join("\n"),
     )
     .setTimestamp();
-  await announceInChat(client, guild, c, "", [embed]);
+  await announceInChat(client, guild, announceCfgForDoc(c, doc), "", [embed]);
   await deleteSpawnedListMessages(guild, doc, "Lista raccolta");
   return { ...award, galeoniAward };
+}
+
+function formatChaosBoostLine(boostType, boostScope) {
+  const kind = String(boostType || "").toLowerCase() === "exp" ? "EXP" : "punti casa";
+  const scope = String(boostScope || "").toLowerCase() === "house" ? "di casata" : "personale";
+  return `2× ${kind} ${scope}`;
+}
+
+async function finalizeChaosSpellListWin(client, guild, c, doc, houseId, winnerUserId) {
+  const fc = doc.rawWebhook?.finaleChaos && typeof doc.rawWebhook.finaleChaos === "object"
+    ? doc.rawWebhook.finaleChaos
+    : {};
+  const uid = normalizeId(winnerUserId);
+  doc.status = "won";
+  doc.rawWebhook.resolvedAt = new Date();
+  doc.rawWebhook.winningHouseId = houseId;
+  doc.rawWebhook.winnerUserId = uid;
+  await saveRound(doc);
+
+  const { grantFinaleChaosWinRewards } = require("./hogwartsFinaleChaosDayService");
+  const rewardGaleoni = Math.max(0, Math.floor(Number(fc.rewardGaleoni) || c.rewardGaleoni || 0));
+  const rewardHousePoints = Math.max(0, Math.floor(Number(fc.rewardHousePoints) || c.rewardHousePoints || 0));
+  const chaosCfg = {
+    eventKey: normalizeId(fc.chaosEventKey) || c.eventKey,
+    rewardGaleoni,
+    rewardHousePoints,
+    firstSlotBoostDurationMs: Math.max(60_000, Math.floor(Number(fc.firstSlotBoostDurationMs) || 3600000)),
+  };
+  const rewards = await grantFinaleChaosWinRewards(client, {
+    guildId: guild.id,
+    userIds: [uid],
+    c: chaosCfg,
+    rewardKeyPrefix: `${chaosCfg.eventKey}:${fc.slotKey || doc.rawWebhook?.roundId || "lists"}:spellListHunt`,
+    reason: `Finale chaos — Caccia alle liste ${fc.slotKey || ""}`,
+    firstSlot: fc.firstSlot === true,
+    boostType: fc.boostType || "housePoints",
+    boostScope: fc.boostScope || "personal",
+  });
+  const award = rewards[0];
+  const awardedPts = Math.max(0, Math.floor(Number(award?.house?.points) || 0));
+  const mult = Math.max(1, Number(award?.house?.multiplier) || 1);
+  const petBit = award?.house?.petName ? ` · ${award.house.petName}` : "";
+  const consLabels = Array.isArray(award?.house?.consumableLabels)
+    ? award.house.consumableLabels.filter(Boolean)
+    : [];
+  const consBit = consLabels.length ? ` · ${consLabels.join(", ")}` : "";
+  const ptsLine =
+    mult > 1 && awardedPts > 0
+      ? `<a:VC_Winner:1482535294757507255> **${awardedPts} punti casa** (base ${rewardHousePoints} ×${mult}${petBit}${consBit})`
+      : `<a:VC_Winner:1482535294757507255> **${awardedPts || rewardHousePoints} punti casa**${
+          awardedPts > 0 ? " (multi animale / boost se attivi)" : ""
+        }`;
+  const label = houseLabel(houseId, client);
+  const embed = new EmbedBuilder()
+    .setColor(0xd4af37)
+    .setTitle("<a:VC_Events:1482706144953897223> Caccia alle liste — vittoria!")
+    .setDescription(
+      [
+        `<@${uid}> (**${label}**) ha trovato **entrambe** le liste!`,
+        "",
+        `**${formatGaleoni(rewardGaleoni)}**`,
+        ptsLine,
+        fc.firstSlot
+          ? `<a:VC_Events:1482706144953897223> Boost attivo: **${formatChaosBoostLine(fc.boostType, fc.boostScope)}**`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    )
+    .setTimestamp();
+  await announceInChat(client, guild, announceCfgForDoc(c, doc), "", [embed]);
+  await deleteSpawnedListMessages(guild, doc, "Liste raccolte");
+  return { ok: true, rewards };
 }
 
 async function spawnRound(client, guild, c, parts) {
@@ -602,16 +745,179 @@ async function spawnRound(client, guild, c, parts) {
   return true;
 }
 
+/**
+ * Finale Chaos: due liste, un solo vincitore (stesso mago deve trovare entrambe).
+ */
+async function spawnFinaleChaosSpellListHunt(client, guild, opts = {}) {
+  const base = cfg(client);
+  const chaosEventKey = normalizeId(opts.chaosEventKey) || "hogwarts_finale_chaos";
+  const eventKey = `${chaosEventKey}_spell`;
+  const slotKey = normalizeId(opts.slotKey);
+  if (!slotKey) return false;
+  const roundId = `chaos_${slotKey.replace(/[^a-zA-Z0-9]/g, "_")}`;
+  const dedupeKey = dedupeKeyFromRoundId(eventKey, roundId);
+  const existing = await loadRound(guild.id, eventKey, roundId);
+  if (existing) return Boolean(existing.status === "active" || existing.status === "won" || existing.status === "expired");
+
+  const durationMs = safeInt(opts.durationMs, 15 * 60 * 1000, 5 * 60 * 1000, 24 * 60 * 60 * 1000);
+  const hintBeforeExpiryMs = safeInt(opts.hintBeforeExpiryMs, 7 * 60 * 1000, 60_000, durationMs);
+  const announceChannelId = normalizeId(opts.announceChannelId) || base.announceChannelId;
+  const pingRoleId = normalizeId(opts.pingRoleId) || base.eventsRoleId;
+  const huntCfg = {
+    ...base,
+    eventKey,
+    announceChannelId,
+    eventsRoleId: pingRoleId,
+    excludedChannelIds: [...new Set([...(base.excludedChannelIds || []), announceChannelId].filter(Boolean))],
+    roundDurationMs: durationMs,
+    hintBeforeExpiryMs,
+    rewardGaleoni: Math.max(0, Math.floor(Number(opts.rewardGaleoni) || base.rewardGaleoni || 0)),
+    rewardHousePoints: Math.max(0, Math.floor(Number(opts.rewardHousePoints) || base.rewardHousePoints || 0)),
+  };
+
+  let seed = 0;
+  for (let i = 0; i < slotKey.length; i += 1) seed = (seed * 31 + slotKey.charCodeAt(i)) >>> 0;
+  const pair = pickSpellListPair(seed % 1000);
+  if (!pair) {
+    global.logger?.warn?.(`[FINALE CHAOS SPELL LIST] Turno ${roundId}: coppia liste assente.`);
+    return false;
+  }
+
+  let channelA = await pickRandomHuntChannel(guild, huntCfg);
+  let channelB = await pickRandomHuntChannel(guild, huntCfg);
+  if (!channelA || !channelB) {
+    global.logger?.warn?.(`[FINALE CHAOS SPELL LIST] Turno ${roundId}: canali insufficienti.`);
+    return false;
+  }
+  if (channelA.id === channelB.id) {
+    channelB = await pickRandomHuntChannel(guild, {
+      ...huntCfg,
+      excludedChannelIds: [...huntCfg.excludedChannelIds, channelA.id],
+    });
+  }
+  if (!channelB || channelB.id === channelA.id) {
+    global.logger?.warn?.(`[FINALE CHAOS SPELL LIST] Turno ${roundId}: servono due canali distinti.`);
+    return false;
+  }
+
+  const expiresAt = new Date(Date.now() + durationMs);
+  const roundLabel = slotKey;
+  const postList = async (channel, slot) => {
+    const embed = buildListEmbed(pair, slot, roundId);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildButtonCustomId(roundId, slot))
+        .setLabel("Ho trovato questa lista")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji({ id: "1485419161168511036" }),
+    );
+    const msg = await channel.send({ embeds: [embed], components: [row] }).catch(() => null);
+    return msg?.id ? { channelId: channel.id, messageId: msg.id } : null;
+  };
+  const listA = await postList(channelA, "a");
+  const listB = await postList(channelB, "b");
+  if (!listA || !listB) {
+    global.logger?.warn?.(`[FINALE CHAOS SPELL LIST] Turno ${roundId}: invio liste fallito.`);
+    if (listA?.messageId) {
+      const ch = await getGuildChannelCached(guild, listA.channelId).catch(() => null);
+      const msg = ch ? await ch.messages.fetch(listA.messageId).catch(() => null) : null;
+      if (msg) await msg.delete().catch(() => null);
+    }
+    if (listB?.messageId) {
+      const ch = await getGuildChannelCached(guild, listB.channelId).catch(() => null);
+      const msg = ch ? await ch.messages.fetch(listB.messageId).catch(() => null) : null;
+      if (msg) await msg.delete().catch(() => null);
+    }
+    return false;
+  }
+
+  const firstSlot = opts.firstSlot === true;
+  const boostType = normalizeId(opts.boostType) || "housePoints";
+  const boostScope = normalizeId(opts.boostScope) || "personal";
+  const intro = new EmbedBuilder()
+    .setColor(0xd4af37)
+    .setTitle("<a:VC_Events:1482706144953897223> Finale Chaos — Caccia alle liste")
+    .setDescription(
+      [
+        "Sono state nascoste **due liste di incantesimi** in **due canali** del server.",
+        "",
+        "Vince **un solo mago**: deve trovare **entrambe** le liste e premere i bottoni.",
+        "",
+        `Premio: **${formatGaleoni(huntCfg.rewardGaleoni)}** + **${huntCfg.rewardHousePoints} punti casa**.`,
+        firstSlot
+          ? `Bonus 1° slot: boost **${formatChaosBoostLine(boostType, boostScope)}** per 1 ora.`
+          : "",
+        "",
+        `<a:VC_pixeltime:1482535344103620771> Hai **${Math.max(1, Math.round(durationMs / 60000))} minuti**.`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  const announceMsg = await announceInChat(client, guild, huntCfg, "", [intro]);
+  await SiteDocument.findOneAndUpdate(
+    { docType: HUNT_DOC, guildId: guild.id, userId: EVENT_OWNER_ID, dedupeKey },
+    {
+      $setOnInsert: {
+        docType: HUNT_DOC,
+        guildId: guild.id,
+        userId: EVENT_OWNER_ID,
+        dedupeKey,
+        createdBy: "finale_chaos",
+      },
+      $set: {
+        status: "active",
+        planKey: eventKey,
+        rawWebhook: {
+          eventKey,
+          roundId,
+          roundLabel,
+          expiresAt,
+          announceMessageId: announceMsg?.id || "",
+          pairIndex: seed % 1000,
+          lists: { a: listA, b: listB },
+          claims: {},
+          finaleChaos: {
+            chaosEventKey,
+            slotKey,
+            firstSlot,
+            boostType,
+            boostScope,
+            firstSlotBoostDurationMs: Math.max(
+              60_000,
+              Math.floor(Number(opts.firstSlotBoostDurationMs) || 3600000),
+            ),
+            rewardGaleoni: huntCfg.rewardGaleoni,
+            rewardHousePoints: huntCfg.rewardHousePoints,
+            announceChannelId,
+            pingRoleId,
+            durationMs,
+            hintBeforeExpiryMs,
+            singleWinner: true,
+          },
+        },
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  global.logger?.info?.(
+    `[FINALE CHAOS SPELL LIST] Turno ${roundId} avviato (#${channelA.name}, #${channelB.name}).`,
+  );
+  return true;
+}
+
 async function expireRound(client, guild, c, doc) {
   if (!doc || doc.status !== "active") return;
   doc.status = "expired";
   doc.rawWebhook.resolvedAt = new Date();
   await saveRound(doc);
+  const isChaos = Boolean(doc.rawWebhook?.finaleChaos);
   await announceInChat(
     client,
     guild,
-    c,
-    `<a:VC_Alert:1482706673176150077> **Caccia alle liste** — turno **${doc.rawWebhook?.roundLabel || ""}** scaduto senza vittoria di casata.`,
+    announceCfgForDoc(c, doc),
+    isChaos
+      ? `<a:VC_Alert:1482706673176150077> **Caccia alle liste** — tempo scaduto senza vincitore.`
+      : `<a:VC_Alert:1482706673176150077> **Caccia alle liste** — turno **${doc.rawWebhook?.roundLabel || ""}** scaduto senza vittoria di casata.`,
   );
   await deleteSpawnedListMessages(guild, doc, "Turno scaduto");
 }
@@ -629,21 +935,38 @@ async function announceSpellListHint(client, guild, c, doc) {
   const expMs = new Date(doc.rawWebhook?.expiresAt || 0).getTime();
   const nowMs = Date.now();
   if (!Number.isFinite(expMs) || expMs <= nowMs) return false;
+  const hintClaim = await SiteDocument.findOneAndUpdate(
+    {
+      _id: doc._id,
+      status: "active",
+      $or: [{ "rawWebhook.hintSentAt": { $exists: false } }, { "rawWebhook.hintSentAt": null }],
+    },
+    { $set: { "rawWebhook.hintSentAt": new Date() } },
+    { new: true },
+  )
+    .lean()
+    .catch(() => null);
+  if (!hintClaim) return false;
   const listA = doc.rawWebhook?.lists?.a;
   const listB = doc.rawWebhook?.lists?.b;
   const chA = listA?.channelId ? `<#${listA.channelId}>` : "un canale del server";
   const chB = listB?.channelId ? `<#${listB.channelId}>` : "un altro canale del server";
   const remainingMin = Math.max(1, Math.ceil((expMs - nowMs) / 60_000));
   const claims = doc.rawWebhook?.claims && typeof doc.rawWebhook.claims === "object" ? doc.rawWebhook.claims : {};
+  const isChaos = Boolean(doc.rawWebhook?.finaleChaos);
   const lines = [
-    `<:VC_Owlcall:1510941826176126976> Nessuna casata ha ancora completato entrambe le liste del turno **${doc.rawWebhook?.roundLabel || ""}**.`,
+    isChaos
+      ? `<:VC_Owlcall:1510941826176126976> Nessuno ha ancora trovato **entrambe** le liste.`
+      : `<:VC_Owlcall:1510941826176126976> Nessuna casata ha ancora completato entrambe le liste del turno **${doc.rawWebhook?.roundLabel || ""}**.`,
     "",
     `<:VC_Dobby:1510941838138413146> **Indizio:** le liste sono in ${chA} e ${chB}.`,
   ];
   if (claims.a?.userId || claims.b?.userId) {
     lines.push(
       "",
-      "Una o entrambe le liste sono già state segnalate: serve un **secondo mago della stessa casa** per chiudere il turno.",
+      isChaos
+        ? "Una lista è già stata segnalata: serve lo **stesso mago** sull'altra lista."
+        : "Una o entrambe le liste sono già state segnalate: serve un **secondo mago della stessa casa** per chiudere il turno.",
     );
   }
   lines.push("", `<a:VC_pixeltime:1482535344103620771> Restano circa **${remainingMin} minuti**.`);
@@ -652,32 +975,24 @@ async function announceSpellListHint(client, guild, c, doc) {
     .setTitle("<a:VC_Events:1482706144953897223> Caccia alle liste — indizio!")
     .setDescription(lines.join("\n"))
     .setTimestamp();
-  const sent = await announceInChat(client, guild, c, "", [embed]);
-  if (!sent?.id) return false;
-  await SiteDocument.updateOne(
-    {
-      _id: doc._id,
-      status: "active",
-      $or: [{ "rawWebhook.hintSentAt": { $exists: false } }, { "rawWebhook.hintSentAt": null }],
-    },
-    { $set: { "rawWebhook.hintSentAt": new Date() } },
-  ).catch(() => null);
-  return true;
+  const sent = await announceInChat(client, guild, announceCfgForDoc(c, doc), "", [embed]);
+  return Boolean(sent?.id);
 }
 
 async function maybeAnnounceSpellListHint(client, guild, c, doc) {
-  if (!spellListHintDue(doc, c)) return false;
+  const cfgDoc = announceCfgForDoc(c, doc);
+  if (!spellListHintDue(doc, cfgDoc)) return false;
   return announceSpellListHint(client, guild, c, doc);
 }
 
 async function tickRounds(client) {
   const c = cfg(client);
-  if (!c.enabled) return;
+  if (!c.enabled && !(await hasActiveChaosSpellListRound(client))) return;
   const parts = getRomeParts();
   const guildId = normalizeId(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id);
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return;
-  if (isHuntCalendarDay(parts, c) && shouldSpawnHourSlot(parts, c)) {
+  if (c.enabled && isHuntCalendarDay(parts, c) && shouldSpawnHourSlot(parts, c)) {
     const roundId = roundIdFromParts(parts);
     const existing = await loadRound(guild.id, c.eventKey, roundId);
     if (!existing) await spawnRound(client, guild, c, parts);
@@ -687,7 +1002,6 @@ async function tickRounds(client) {
     guildId: guild.id,
     userId: EVENT_OWNER_ID,
     status: "active",
-    planKey: c.eventKey,
   })
     .lean()
     .catch(() => []);
@@ -702,6 +1016,19 @@ async function tickRounds(client) {
   }
 }
 
+async function hasActiveChaosSpellListRound(client) {
+  const guildId = normalizeId(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id);
+  if (!guildId) return false;
+  const n = await SiteDocument.countDocuments({
+    docType: HUNT_DOC,
+    guildId,
+    userId: EVENT_OWNER_ID,
+    status: "active",
+    "rawWebhook.finaleChaos": { $exists: true },
+  }).catch(() => 0);
+  return n > 0;
+}
+
 async function handleSpellListHuntButton(interaction, client) {
   const parsed = parseButtonCustomId(interaction.customId);
   if (!parsed) return false;
@@ -709,7 +1036,10 @@ async function handleSpellListHuntButton(interaction, client) {
   const guildId = normalizeId(interaction.guild?.id);
   const uid = normalizeId(interaction.user?.id);
   if (!guildId || !uid) return true;
-  const doc = await loadRound(guildId, c.eventKey, parsed.roundId);
+  let doc = await loadRound(guildId, c.eventKey, parsed.roundId);
+  if (!doc || doc.status !== "active") {
+    doc = await loadActiveRoundByRoundId(guildId, parsed.roundId);
+  }
   if (!doc || doc.status !== "active") {
     await interaction
       .reply({ content: "<a:VC_Alert:1482706673176150077> Questo turno non \u00e8 pi\u00f9 attivo.", flags: 1 << 6 })
@@ -741,17 +1071,84 @@ async function handleSpellListHuntButton(interaction, client) {
       .catch(() => null);
     return true;
   }
-  const claims = doc.rawWebhook?.claims && typeof doc.rawWebhook.claims === "object" ? { ...doc.rawWebhook.claims } : {};
+  const isChaos = Boolean(doc.rawWebhook?.finaleChaos);
+  const claims = readClaims(doc);
   const slot = parsed.slot;
   const otherSlot = slot === "a" ? "b" : "a";
   const slotClaim = claims[slot];
   const otherClaim = claims[otherSlot];
-  if (slotClaim?.userId && normalizeId(slotClaim.userId) === uid) {
+  const claimPayload = { userId: uid, houseId, at: new Date().toISOString() };
+  const ephemeral = { flags: 1 << 6 };
+
+  if (isChaos) {
+    if (slotClaim?.userId && normalizeId(slotClaim.userId) === uid) {
+      await interaction
+        .reply({ content: "<a:VC_Alert:1482706673176150077> Hai gi\u00e0 segnalato questa lista.", ...ephemeral })
+        .catch(() => null);
+      return true;
+    }
+    const canStealToComplete =
+      Boolean(slotClaim?.userId) &&
+      Boolean(otherClaim?.userId) &&
+      normalizeId(otherClaim.userId) === uid;
+    if (slotClaim?.userId && normalizeId(slotClaim.userId) !== uid && !canStealToComplete) {
+      await interaction
+        .reply({ content: spellListAlreadyFoundReply(), ...ephemeral })
+        .catch(() => null);
+      return true;
+    }
+    const updated = await atomicClaimSlot(
+      doc._id,
+      slot,
+      claimPayload,
+      canStealToComplete || slotClaim?.userId ? normalizeId(slotClaim.userId) : null,
+    );
+    if (!updated) {
+      await interaction
+        .reply({
+          content: "<a:VC_Alert:1482706673176150077> Un altro mago ha appena segnalato questa lista. Riprova sull'altra lista se serve.",
+          ...ephemeral,
+        })
+        .catch(() => null);
+      return true;
+    }
+    doc = updated;
+    const freshClaims = readClaims(doc);
+    const label = houseLabel(houseId, client);
+    if (!freshClaims[otherSlot]?.userId) {
+      await interaction
+        .reply({
+          content: `<a:VC_Events:1482706144953897223> Lista segnalata! Ora trova **l'altra lista** tu stesso per vincere (**${label}**).`,
+          ...ephemeral,
+        })
+        .catch(() => null);
+      return true;
+    }
+    if (normalizeId(freshClaims[otherSlot].userId) !== uid) {
+      await interaction
+        .reply({
+          content:
+            "<a:VC_Alert:1482706673176150077> In Finale Chaos serve lo **stesso mago** su entrambe le liste. L'altra \u00e8 gi\u00e0 di un altro giocatore: chi ha la prima pu\u00f2 riprendere questa.",
+          ...ephemeral,
+        })
+        .catch(() => null);
+      return true;
+    }
+    await finalizeChaosSpellListWin(client, interaction.guild, c, doc, houseId, uid);
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Hai gi\u00e0 segnalato questa lista.",
-        flags: 1 << 6,
+        content: canStealToComplete
+          ? `<a:VC_Events:1482706144953897223> **Hai ripreso la seconda lista!** Vittoria Finale Chaos per la **${label}**.`
+          : `<a:VC_Events:1482706144953897223> **Hai trovato entrambe le liste!** Vittoria Finale Chaos per la **${label}**.`,
+        ...ephemeral,
       })
+      .catch(() => null);
+    return true;
+  }
+
+  if (slotClaim?.userId && normalizeId(slotClaim.userId) === uid) {
+    await interaction
+      .reply({ content: "<a:VC_Alert:1482706673176150077> Hai gi\u00e0 segnalato questa lista.", ...ephemeral })
       .catch(() => null);
     return true;
   }
@@ -759,44 +1156,54 @@ async function handleSpellListHuntButton(interaction, client) {
     await interaction
       .reply({
         content: "<a:VC_Alert:1482706673176150077> Hai gi\u00e0 trovato l'altra lista: serve un **secondo mago** della tua casata.",
-        flags: 1 << 6,
+        ...ephemeral,
       })
       .catch(() => null);
     return true;
   }
-  const canOverwriteSlot =
-    Boolean(slotClaim?.userId) &&
-    Boolean(otherClaim?.userId) &&
-    normalizeHouseId(otherClaim.houseId) === houseId;
+  const canOverwriteSlot = canOverwriteSpellListSlot(slotClaim, otherClaim, houseId);
   if (slotClaim?.userId && !canOverwriteSlot) {
     await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Questa lista \u00e8 gi\u00e0 stata trovata da un altro mago.",
-        flags: 1 << 6,
-      })
+      .reply({ content: spellListAlreadyFoundReply(Boolean(!otherClaim?.userId)), ...ephemeral })
       .catch(() => null);
     return true;
   }
   const stoleSlot = Boolean(slotClaim?.userId) && canOverwriteSlot;
-  claims[slot] = { userId: uid, houseId, at: new Date().toISOString() };
-  doc.rawWebhook.claims = claims;
-  await saveRound(doc);
-  const label = houseLabel(houseId, client);
-  if (!claims[otherSlot]?.userId) {
+  const updated = await atomicClaimSlot(
+    doc._id,
+    slot,
+    claimPayload,
+    stoleSlot ? normalizeId(slotClaim.userId) : null,
+  );
+  if (!updated) {
     await interaction
       .reply({
-        content: `<a:VC_Events:1482706144953897223> Lista segnalata per la **${label}**! Manca ancora l'altra lista da un altro mago della tua casata.`,
-        flags: 1 << 6,
+        content: "<a:VC_Alert:1482706673176150077> Un altro mago ha appena segnalato questa lista. Controlla l'altra lista o riprova tra un attimo.",
+        ...ephemeral,
       })
       .catch(() => null);
     return true;
   }
-  const otherHouse = normalizeHouseId(claims[otherSlot].houseId);
-  if (otherHouse && otherHouse !== houseId) {
-    await interaction.deferUpdate().catch(() => null);
+  doc = updated;
+  const freshClaims = readClaims(doc);
+  const label = houseLabel(houseId, client);
+  if (!freshClaims[otherSlot]?.userId) {
+    await interaction
+      .reply({
+        content: `<a:VC_Events:1482706144953897223> Lista segnalata per la **${label}**! Manca ancora l'altra lista da un altro mago della tua casata.`,
+        ...ephemeral,
+      })
+      .catch(() => null);
     return true;
   }
-  const award = await finalizeHouseWin(client, interaction.guild, c, doc, houseId, claims.a, claims.b);
+  const otherHouse = normalizeHouseId(freshClaims[otherSlot].houseId);
+  if (otherHouse && otherHouse !== houseId) {
+    await interaction
+      .reply({ content: spellListCrossHouseReply(client, houseId, otherHouse), ...ephemeral })
+      .catch(() => null);
+    return true;
+  }
+  const award = await finalizeHouseWin(client, interaction.guild, c, doc, houseId, freshClaims.a, freshClaims.b);
   const pointsLine = formatSpellListHousePointsAward(award.points, award);
   const selfPayout = (award.galeoniAward?.payouts || []).find((row) => normalizeId(row.userId) === uid);
   const galeoniLine = selfPayout
@@ -815,6 +1222,39 @@ async function handleSpellListHuntButton(interaction, client) {
   return true;
 }
 
+async function tickFinaleChaosSpellListRounds(client, guild, chaosCfg, nowMs = Date.now()) {
+  const c = cfg(client);
+  const gid = normalizeId(guild?.id);
+  if (!gid) return;
+  const active = await SiteDocument.find({
+    docType: HUNT_DOC,
+    guildId: gid,
+    userId: EVENT_OWNER_ID,
+    status: "active",
+    "rawWebhook.finaleChaos": { $exists: true },
+  })
+    .lean()
+    .catch(() => []);
+  for (const doc of active) {
+    const exp = doc?.rawWebhook?.expiresAt ? new Date(doc.rawWebhook.expiresAt).getTime() : 0;
+    if (Number.isFinite(exp) && nowMs > exp) {
+      await expireRound(client, guild, c, doc);
+      continue;
+    }
+    const cfgDoc = {
+      ...announceCfgForDoc(c, doc),
+      hintBeforeExpiryMs: safeInt(
+        chaosCfg?.hintBeforeExpiryMs ?? doc?.rawWebhook?.finaleChaos?.hintBeforeExpiryMs,
+        c.hintBeforeExpiryMs,
+        60_000,
+        24 * 60 * 60 * 1000,
+      ),
+    };
+    if (!spellListHintDue(doc, cfgDoc, nowMs)) continue;
+    await announceSpellListHint(client, guild, c, doc);
+  }
+}
+
 function startHogwartsSpellListHuntLoop(client) {
   if (!client || loopState.has(client)) return;
   loopState.add(client);
@@ -826,4 +1266,11 @@ function startHogwartsSpellListHuntLoop(client) {
   if (typeof interval.unref === "function") interval.unref();
 }
 
-module.exports = { cfg, isSpellListHuntEventEnded, handleSpellListHuntButton, startHogwartsSpellListHuntLoop };
+module.exports = {
+  cfg,
+  isSpellListHuntEventEnded,
+  handleSpellListHuntButton,
+  startHogwartsSpellListHuntLoop,
+  spawnFinaleChaosSpellListHunt,
+  tickFinaleChaosSpellListRounds,
+};

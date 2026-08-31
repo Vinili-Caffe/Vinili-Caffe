@@ -232,8 +232,8 @@ function pauseRoleDisplayLabel(trackOrFields, member, guild = null) {
 }
 
 const RESOCONTO_ACTION_LABELS = {
-  vp: "Val +",
-  vn: "Val -",
+  vp: "Valutazione positiva",
+  vn: "Valutazione negativa",
   nl: "Nulla",
   px: "Pex",
   dp: "Depex",
@@ -255,6 +255,164 @@ function resocontoActionLabelForKey(raw) {
   return RESOCONTO_ACTION_LABELS[k] || "";
 }
 
+/** Estrae il testo **Azione:** dal body Discord del resoconto. */
+function extractResocontoAzioneText(content) {
+  const raw = String(content || "");
+  const m =
+    raw.match(/\*\*Azione:\*\*\s*__([\s\S]*?)__/i) ||
+    raw.match(/Azione:\s*__([^_\n]+)__/i) ||
+    raw.match(/\*\*Azione:\*\*\s*([^\n]+)/i) ||
+    raw.match(/Azione:\s*([^\n]+)/i);
+  if (!m) return "";
+  return stripDiscordDecorations(m[1] || "", { keepCustomEmoji: false }).trim();
+}
+
+/**
+ * Label corta per la lista inbox.
+ * Le auto-valutazioni lasciano actionKey=nl (niente da applicare a mano) ma il testo Azione
+ * dice "Valutazione Positiva … (già registrata)": senza questo la UI mostrava "Nulla".
+ */
+function formatResocontoProposedLabel(azioneRaw, actionKey) {
+  const azione = String(azioneRaw || "").trim();
+  if (azione) {
+    if (/^nulla\b/i.test(azione)) {
+      // "Nulla — in pausa" / "Nulla — nuovo in staff" → tieni il suffisso corto
+      const dash = azione.match(/^nulla\s*[—–-]\s*(.+)$/i);
+      if (dash && dash[1]) return `Nulla — ${String(dash[1]).trim()}`.slice(0, 48);
+      return "Nulla";
+    }
+    const hasPos = /valutazione positiva|compito sanzioni/i.test(azione);
+    const hasNeg = /valutazione negativa/i.test(azione);
+    const gia = /gi[aà]\s*registrat/i.test(azione);
+    if (hasPos || hasNeg) {
+      let label = "Azioni multiple";
+      if (hasPos && hasNeg) label = "Valutazione positiva / negativa";
+      else if (hasPos) label = "Valutazione positiva";
+      else label = "Valutazione negativa";
+      if (gia) label += hasPos && hasNeg ? " (già fatte)" : " (già fatta)";
+      return label;
+    }
+    const fromAzione = normalizeResocontoActionKey(azione);
+    if (fromAzione) return resocontoActionLabelForKey(fromAzione) || azione.slice(0, 48);
+    return azione.slice(0, 48);
+  }
+  return resocontoActionLabelForKey(actionKey) || "";
+}
+
+function formatVoiceHoursForPreview(sec) {
+  const s = Math.max(0, Number(sec) || 0);
+  const h = s / 3600;
+  if (h >= 10) return `${h.toFixed(1).replace(/\.0$/, "")}h`;
+  return `${h.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}h`;
+}
+
+/** Anteprima lista inbox: niente emoji, formato corto. */
+function buildResocontoInboxPreview(
+  content,
+  {
+    kind = "",
+    proposedLabel = "",
+    weeklyMessages = null,
+    weeklyVoiceSeconds = null,
+    weeklyPartners = null,
+  } = {},
+) {
+  const plain = stripDiscordDecorations(content || "", { keepNewlines: true, keepCustomEmoji: false })
+    .replace(/:[a-zA-Z0-9_~-]+:/g, "")
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/\uFE0F|\u200D/g, "");
+  const fields = parseResocontoBodyFields(plain);
+  let msgs =
+    weeklyMessages != null && Number.isFinite(Number(weeklyMessages))
+      ? Math.max(0, Math.floor(Number(weeklyMessages)))
+      : null;
+  let ore =
+    weeklyVoiceSeconds != null && Number.isFinite(Number(weeklyVoiceSeconds))
+      ? formatVoiceHoursForPreview(weeklyVoiceSeconds)
+      : "";
+  let sanzioni = "";
+  let partners =
+    weeklyPartners != null && Number.isFinite(Number(weeklyPartners))
+      ? Math.max(0, Math.floor(Number(weeklyPartners)))
+      : null;
+  let azione = String(proposedLabel || "").trim();
+  for (const f of fields) {
+    const key = stripDiscordDecorations(f?.name || "", { keepCustomEmoji: false })
+      .trim()
+      .toLowerCase();
+    const value = stripDiscordDecorations(f?.value || "", { keepCustomEmoji: false }).trim();
+    if (/^azione$/.test(key) && !azione) azione = formatResocontoProposedLabel(value, "") || value;
+    else if (/messaggi/.test(key) && msgs == null) {
+      const n = value.replace(/[^\d]/g, "");
+      if (n) msgs = Number(n);
+    } else if ((/^ore\b/.test(key) || /ore in una settimana/.test(key)) && !ore) {
+      const m = value.match(/(\d+(?:[.,]\d+)?)\s*h\b/i);
+      if (m) ore = `${String(m[1]).replace(",", ".")}h`;
+      else {
+        const only = value.replace(/[^\d.,]/g, "");
+        if (only) ore = `${only.replace(",", ".")}h`;
+      }
+    } else if (/sanzioni/.test(key)) sanzioni = value;
+    else if (/^partner$/.test(key) && partners == null) {
+      const n = value.replace(/[^\d]/g, "");
+      if (n) partners = Number(n);
+    }
+  }
+  const parts = [];
+  if (String(kind || "").toLowerCase() === "p") {
+    if (partners != null) parts.push(`${partners} partner`);
+    if (azione) parts.push(azione);
+    return parts.join(" · ").slice(0, 180);
+  }
+  if (msgs != null) parts.push(`${msgs} msg`);
+  if (ore) parts.push(ore);
+  if (sanzioni) parts.push(`Sanzioni ${sanzioni}`);
+  if (azione) parts.push(azione);
+  return parts.join(" · ").slice(0, 180);
+}
+
+/** Flag UI: staffer nuovo / in pausa (da body o workflowFields). */
+function deriveResocontoStaffFlags(content, { azioneText = "", workflowFields = null } = {}) {
+  const wf =
+    workflowFields && typeof workflowFields === "object" && !Array.isArray(workflowFields)
+      ? workflowFields
+      : {};
+  const plain = stripDiscordDecorations(String(content || ""), {
+    keepNewlines: true,
+    keepCustomEmoji: false,
+  }).toLowerCase();
+  const azione = stripDiscordDecorations(String(azioneText || extractResocontoAzioneText(content) || ""), {
+    keepCustomEmoji: false,
+  }).toLowerCase();
+  let isNew =
+    wf.isNewStaff === true ||
+    wf.graceNewStaff === true ||
+    /nuovo in staff|nuovo partner manager|nuovo\s*pm\b/.test(azione) ||
+    /nuovo in staff|nuovo partner manager/.test(plain);
+  let inPause =
+    wf.inPause === true ||
+    wf.currentlyInPause === true ||
+    /\bin pausa\b|pausa nella settimana/.test(azione) ||
+    /\bin pausa\b/.test(plain);
+  const pauseEnded =
+    wf.pauseEnded === true || /rientrato da pausa/.test(azione) || /rientrato da pausa/.test(plain);
+  let pauseNote = "";
+  const pauseMatch =
+    String(content || "").match(/\*\*In pausa\*\*[^\n]*/i) ||
+    String(content || "").match(/In pausa[^\n]*/i);
+  if (pauseMatch) {
+    pauseNote = stripDiscordDecorations(pauseMatch[0], { keepCustomEmoji: false }).trim();
+    // Non forzare "in pausa" se il testo parla di rientro (badge Rientrato).
+    if (!pauseEnded) inPause = true;
+  }
+  return {
+    isNewStaff: Boolean(isNew),
+    inPause: Boolean(inPause),
+    pauseEnded: Boolean(pauseEnded && !inPause),
+    pauseNote: pauseNote.slice(0, 120),
+  };
+}
+
 function parseResocontoOutcomeFromContent(text) {
   const raw = String(text || "");
   if (/azione negata da/i.test(raw)) {
@@ -267,8 +425,8 @@ function parseResocontoOutcomeFromContent(text) {
   if (/depex pm applicato|depex applicato/.test(plain)) {
     return { rejected: false, actionKey: "dp", label: "Depex" };
   }
-  if (/valutazione positiva/.test(plain)) return { rejected: false, actionKey: "vp", label: "Val +" };
-  if (/valutazione negativa/.test(plain)) return { rejected: false, actionKey: "vn", label: "Val -" };
+  if (/valutazione positiva/.test(plain)) return { rejected: false, actionKey: "vp", label: "Valutazione positiva" };
+  if (/valutazione negativa/.test(plain)) return { rejected: false, actionKey: "vn", label: "Valutazione negativa" };
   if (/richiamo/.test(plain)) return { rejected: false, actionKey: "rc", label: "Richiamo" };
   if (/nessuna azione/.test(plain)) return { rejected: false, actionKey: "nl", label: "Nulla" };
   if (/valutazioni gi[aà] registrate|azioni multiple/.test(plain)) {
@@ -594,20 +752,42 @@ function docToListItem(doc, memberCache) {
       String(doc?.workflowWeekKey || "").trim() ||
       weekKeyFromDate(createdFromMsg || doc?.createdAt) ||
       "";
+    const actionKey = normalizeResocontoActionKey(doc?.workflowActionKey || "");
+    const fullContent = String(doc?.content || doc?.body || "");
+    const azioneText = extractResocontoAzioneText(fullContent);
+    const proposedLabel = formatResocontoProposedLabel(azioneText, actionKey);
+    const wf =
+      doc?.workflowFields && typeof doc.workflowFields === "object" && !Array.isArray(doc.workflowFields)
+        ? doc.workflowFields
+        : {};
+    const flags = deriveResocontoStaffFlags(fullContent, {
+      azioneText,
+      workflowFields: wf,
+    });
     return {
       ...base,
-      preview: stripDiscordDecorations(doc?.body || doc?.content || "", {
-        keepNewlines: true,
-        keepCustomEmoji: true,
-      }).slice(0, 500),
+      preview:
+        buildResocontoInboxPreview(fullContent, {
+          kind: String(doc?.workflowKind || ""),
+          proposedLabel,
+          weeklyMessages: wf.weeklyMessages,
+          weeklyVoiceSeconds: wf.weeklyVoiceSeconds,
+          weeklyPartners: wf.weeklyPartners,
+        }) ||
+        stripDiscordDecorations(fullContent, { keepNewlines: false, keepCustomEmoji: false }).slice(0, 180),
       messageId: String(doc?.workflowMessageId || ""),
       channelId: String(doc?.workflowChannelId || ""),
       kind: String(doc?.workflowKind || ""),
-      actionKey: normalizeResocontoActionKey(doc?.workflowActionKey || ""),
+      actionKey,
+      proposedLabel,
       roleId: doc?.workflowRoleId ? String(doc.workflowRoleId) : null,
       weekKey,
       weekLabel: formatWeekLabel(weekKey),
       statusLabel: deriveResocontoStatusLabel(doc),
+      isNewStaff: flags.isNewStaff,
+      inPause: flags.inPause,
+      pauseEnded: flags.pauseEnded,
+      pauseNote: flags.pauseNote,
     };
   }
   return base;
@@ -787,7 +967,7 @@ function parseResocontoBodyFields(text) {
 
 function buildDetailFields(doc, member = null) {
   const queue = String(doc?.workflowQueue || "");
-  const keepEmoji = queue === "resoconti";
+  const keepEmoji = false;
   const body = stripDiscordDecorations(doc?.content || doc?.body || "", {
     keepNewlines: true,
     keepCustomEmoji: keepEmoji,
@@ -848,12 +1028,34 @@ function docToDetail(doc, member, memberCache) {
     memberCache ||
     (member && doc?.userId ? new Map([[String(doc.userId || ""), member]]) : null);
   const item = docToListItem(doc, cache);
-  const keepEmoji = String(doc?.workflowQueue || "") === "resoconti";
+  const keepEmoji = false;
   const body = stripDiscordDecorations(doc?.content || doc?.body || "", {
     keepNewlines: true,
     keepCustomEmoji: keepEmoji,
   });
   const fields = buildDetailFields(doc, member);
+  const wf =
+    doc?.workflowFields && typeof doc.workflowFields === "object" && !Array.isArray(doc.workflowFields)
+      ? doc.workflowFields
+      : {};
+  const costanzaChart = Array.isArray(wf.costanzaChart)
+    ? wf.costanzaChart
+        .map((p) => ({
+          dayKey: String(p?.dayKey || "").trim(),
+          text: Math.max(0, Math.floor(Number(p?.text) || 0)),
+          voiceSeconds: Math.max(0, Math.floor(Number(p?.voiceSeconds) || 0)),
+        }))
+        .filter((p) => p.dayKey)
+        .sort((a, b) => String(a.dayKey).localeCompare(String(b.dayKey)))
+    : [];
+  let weeklyPartners = wf.weeklyPartners != null ? Number(wf.weeklyPartners) : null;
+  if ((weeklyPartners == null || !Number.isFinite(weeklyPartners)) && String(item.kind || "").toLowerCase() === "p") {
+    const partnerField = (Array.isArray(fields) ? fields : []).find((f) =>
+      /^partner$/i.test(stripDiscordDecorations(String(f?.name || ""), { keepCustomEmoji: false }).trim()),
+    );
+    const digits = String(partnerField?.value || "").replace(/[^\d]/g, "");
+    if (digits) weeklyPartners = Math.max(0, Math.floor(Number(digits)));
+  }
   return {
     ...item,
     body,
@@ -862,9 +1064,168 @@ function docToDetail(doc, member, memberCache) {
       keepNewlines: true,
       keepCustomEmoji: keepEmoji,
     }),
-    timing: doc?.workflowFields?.timing || null,
-    giorniScalati: doc?.workflowFields?.giorniScalati ?? null,
+    timing: wf.timing || null,
+    giorniScalati: wf.giorniScalati ?? null,
+    costanzaChart,
+    activityGrade: wf.activityGrade != null ? String(wf.activityGrade) : "",
+    behaviorGrade: wf.behaviorGrade != null ? String(wf.behaviorGrade) : "",
+    azioneDisplay: wf.azioneDisplay != null ? String(wf.azioneDisplay) : "",
+    weeklyMessages: wf.weeklyMessages != null ? Number(wf.weeklyMessages) : null,
+    weeklyVoiceSeconds: wf.weeklyVoiceSeconds != null ? Number(wf.weeklyVoiceSeconds) : null,
+    weeklyPartners:
+      weeklyPartners != null && Number.isFinite(weeklyPartners) ? weeklyPartners : null,
+    activityLimits:
+      wf.activityLimits && typeof wf.activityLimits === "object" && !Array.isArray(wf.activityLimits)
+        ? {
+            messages: Number(wf.activityLimits.messages) || 0,
+            hours: Number(wf.activityLimits.hours) || 0,
+          }
+        : null,
+    sanctionLimit:
+      wf.sanctionLimit != null && Number.isFinite(Number(wf.sanctionLimit))
+        ? Number(wf.sanctionLimit)
+        : null,
+    weeklySanctions:
+      wf.weeklySanctions != null && Number.isFinite(Number(wf.weeklySanctions))
+        ? Number(wf.weeklySanctions)
+        : null,
+    rolesHistory: Array.isArray(wf.rolesHistory) ? wf.rolesHistory : [],
   };
+}
+
+async function enrichResocontoDetailChart(detail, doc, guild) {
+  if (!detail || String(detail.kind || "").toLowerCase() !== "s") return detail;
+  if (Array.isArray(detail.costanzaChart) && detail.costanzaChart.length >= 5) {
+    detail.costanzaChart = detail.costanzaChart
+      .slice()
+      .sort((a, b) => String(a.dayKey || "").localeCompare(String(b.dayKey || "")));
+  } else {
+    const userId = String(detail.userId || doc?.userId || "").trim();
+    const guildId = String(guild?.id || doc?.guildId || "").trim();
+    if (userId && guildId) {
+      try {
+        const { getUserOverviewStats } = require("../../Services/Community/activityService");
+        const {
+          buildResocontoOverviewOptions,
+          collectResocontoVoiceExcludeIds,
+          getResocontoWeekRangeFromWeekKey,
+          serializeCostanzaChart,
+        } = require("../../Services/Staff/weeklyStaffResocontoService");
+        const weekKey = String(detail.weekKey || doc?.workflowWeekKey || "").trim();
+        const range = getResocontoWeekRangeFromWeekKey(weekKey);
+        const scope = guild ? buildResocontoOverviewOptions(guild, range?.weekEnd || new Date()) : {};
+        const exclude = guild ? collectResocontoVoiceExcludeIds(guild) : null;
+        const overview = await getUserOverviewStats(
+          guildId,
+          userId,
+          7,
+          exclude?.size ? exclude : null,
+          {
+            ...scope,
+            ...(range ? { rangeStart: range.weekStart, rangeEnd: range.weekEnd } : {}),
+          },
+        );
+        const chart = serializeCostanzaChart(overview);
+        if (chart.length) {
+          detail.costanzaChart = chart;
+          if (detail.weeklyMessages == null) {
+            detail.weeklyMessages = Math.max(0, Math.floor(Number(overview?.windows?.d7?.text) || 0));
+          }
+          if (detail.weeklyVoiceSeconds == null) {
+            detail.weeklyVoiceSeconds = Math.max(
+              0,
+              Math.floor(Number(overview?.windows?.d7?.voiceSeconds) || 0),
+            );
+          }
+          if (doc?._id) {
+            const prev =
+              doc.workflowFields && typeof doc.workflowFields === "object" && !Array.isArray(doc.workflowFields)
+                ? { ...doc.workflowFields }
+                : {};
+            void SiteDocument.updateOne(
+              { _id: doc._id },
+              {
+                $set: {
+                  workflowFields: {
+                    ...prev,
+                    costanzaChart: chart,
+                    ...(detail.weeklyMessages != null ? { weeklyMessages: detail.weeklyMessages } : {}),
+                    ...(detail.weeklyVoiceSeconds != null
+                      ? { weeklyVoiceSeconds: detail.weeklyVoiceSeconds }
+                      : {}),
+                  },
+                },
+              },
+            ).catch(() => null);
+          }
+        }
+      } catch (_) {}
+    }
+  }
+  try {
+    detail = await enrichResocontoRolesHistory(detail, doc, guild);
+  } catch (_) {}
+  return detail;
+}
+
+async function enrichResocontoRolesHistory(detail, doc, guild) {
+  if (!detail) return detail;
+  if (Array.isArray(detail.rolesHistory) && detail.rolesHistory.length) return detail;
+  const userId = String(detail.userId || doc?.userId || "").trim();
+  const guildId = String(guild?.id || doc?.guildId || "").trim();
+  if (!userId || !guildId) return detail;
+  try {
+    const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+    const profile = await ActivityUserProfile.findOne({ guildId, userId })
+      .select("staff.rolesHistory")
+      .lean()
+      .catch(() => null);
+    const hist = Array.isArray(profile?.staff?.rolesHistory) ? profile.staff.rolesHistory : [];
+    if (!hist.length) {
+      detail.rolesHistory = [];
+      return detail;
+    }
+    const roleName = (id) => {
+      const rid = String(id || "").trim();
+      if (!rid) return "";
+      const role = guild?.roles?.cache?.get?.(rid);
+      return String(role?.name || "").trim() || rid;
+    };
+    const rows = hist
+      .map((row) => {
+        const d = row?.date ? new Date(row.date) : null;
+        const iso = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
+        const from = roleName(row?.oldRole);
+        const to = roleName(row?.newRole);
+        if (!to && !from) return null;
+        let dateLabel = "";
+        try {
+          if (iso) {
+            dateLabel = new Date(iso).toLocaleDateString("it-IT", {
+              day: "2-digit",
+              month: "short",
+              year: "2-digit",
+            });
+          }
+        } catch (_) {}
+        return {
+          from: from || null,
+          to: to || null,
+          reason: String(row?.reason || "").trim() || null,
+          dateIso: iso,
+          dateLabel: dateLabel || null,
+          _sort: iso ? new Date(iso).getTime() : 0,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b._sort - a._sort)
+      .slice(0, 6)
+      .map(({ _sort, ...rest }) => rest);
+    detail.rolesHistory = rows;
+  } catch (_) {
+    detail.rolesHistory = Array.isArray(detail.rolesHistory) ? detail.rolesHistory : [];
+  }
+  return detail;
 }
 
 async function upsertStaffWorkflowItem(payload) {
@@ -977,7 +1338,13 @@ async function upsertStaffWorkflowItem(payload) {
     typeof incomingWorkflowFields === "object" &&
     !Array.isArray(incomingWorkflowFields)
   ) {
-    update.workflowFields = incomingWorkflowFields;
+    const prevFields =
+      existing?.workflowFields &&
+      typeof existing.workflowFields === "object" &&
+      !Array.isArray(existing.workflowFields)
+        ? { ...existing.workflowFields }
+        : {};
+    update.workflowFields = { ...prevFields, ...incomingWorkflowFields };
   }
   if (queue === "resoconti" && workflowStatusLabel) {
     const mergedFields =
@@ -1044,7 +1411,7 @@ async function updateStaffWorkflowStatusByDedupe(guildId, dedupeKey, status, ext
     set.content = messageContent.slice(0, 50000);
     set.body = stripDiscordDecorations(messageContent, {
       keepNewlines: true,
-      keepCustomEmoji: true,
+      keepCustomEmoji: false,
     }).slice(0, 500);
   }
   let doc = await SiteDocument.findOneAndUpdate(
@@ -1954,7 +2321,14 @@ async function getStaffWorkflowDetailFromDb(client, guildId, queue, itemId, user
   if (!doc) return null;
 
   // Fast path: dettaglio subito dal DB (niente attesa Discord).
-  const fast = docToDetail(doc, null, null);
+  let fast = docToDetail(doc, null, null);
+  if (q === "resoconti") {
+    try {
+      const guildFast =
+        client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
+      fast = await enrichResocontoDetailChart(fast, doc, guildFast);
+    } catch (_) {}
+  }
   const needsSubject =
     !hasRealDiscordAvatarUrl(fast.avatarUrl) ||
     !pickSubjectDisplayName(fast.userId, fast.displayName);
@@ -1965,7 +2339,10 @@ async function getStaffWorkflowDetailFromDb(client, guildId, queue, itemId, user
   const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch(gid).catch(() => null));
   const memberCache = await loadMembersForIds(guild, [String(doc.userId || ""), String(doc.workflowDecidedBy || "")]);
   const member = memberCache.get(String(doc.userId || "")) || null;
-  const detail = docToDetail(doc, member, memberCache);
+  let detail = docToDetail(doc, member, memberCache);
+  if (q === "resoconti") {
+    detail = await enrichResocontoDetailChart(detail, doc, guild);
+  }
     const enriched = await applyWorkflowSubjectToItem(client, guild, detail);
     // Denormalizza nome/avatar risolti così la lista successiva non resta con solo l'ID.
     const resolvedName = pickSubjectDisplayName(enriched?.userId, enriched?.displayName);
@@ -2457,16 +2834,16 @@ async function listStaffWorkflowForInbox(client, guild, viewerMember, queue, opt
     }
   }
 
-  // Resoconti: sync/prune in background; never block the inbox list response.
+  // Resoconti: sync/prune SEMPRE in background.
+  // Mai await su forceSync: sync Discord (fino a 200 msg + member fetch) bloccava
+  // "Carico resoconti…" per decine di secondi sul request path.
   if (q === "resoconti" && guild) {
     const resoSyncKey = `resoconti:${guildId}`;
     if (!listStaffWorkflowForInbox.__syncAt) listStaffWorkflowForInbox.__syncAt = new Map();
     const lastReso = Number(listStaffWorkflowForInbox.__syncAt.get(resoSyncKey) || 0);
     if (opts.forceSync || Date.now() - lastReso > INBOX_SYNC_MIN_MS) {
       listStaffWorkflowForInbox.__syncAt.set(resoSyncKey, Date.now());
-      const syncPromise = syncResocontiToWorkflowStore(guild, { maxPages: opts.forceSync ? 2 : 2 }).catch(() => 0);
-      if (opts.forceSync) await syncPromise;
-      else void syncPromise;
+      void syncResocontiToWorkflowStore(guild, { maxPages: opts.forceSync ? 2 : 2 }).catch(() => 0);
     }
     if (!listStaffWorkflowForInbox.__pruneAt) listStaffWorkflowForInbox.__pruneAt = new Map();
     const lastPrune = Number(listStaffWorkflowForInbox.__pruneAt.get(resoSyncKey) || 0);
@@ -2684,6 +3061,8 @@ async function persistResocontoWorkflowFromMessage(guild, message, payload, stat
     content: rawBody,
     createdAt: message.createdAt,
     status,
+    weekKey: payload.weekKey,
+    workflowFields: payload.workflowFields || null,
   });
 }
 
@@ -2702,6 +3081,10 @@ async function persistResocontoWorkflowFromPayload(guild, payload = {}) {
   const member = await getGuildMemberCached(guild, userId).catch(() => null);
   const subject = await resolveWorkflowSubject(guild?.client, guild, userId);
   const fromMember = memberToSubjectFields(member, userId);
+  const extraFields =
+    payload.workflowFields && typeof payload.workflowFields === "object" && !Array.isArray(payload.workflowFields)
+      ? payload.workflowFields
+      : null;
   return upsertStaffWorkflowItem({
     guildId: guild.id,
     queue: "resoconti",
@@ -2720,6 +3103,7 @@ async function persistResocontoWorkflowFromPayload(guild, payload = {}) {
     weekKey: String(payload.weekKey || weekKeyFromDate(createdAt) || "").trim(),
     displayName: fromMember.displayName || subject.displayName || "",
     avatarUrl: fromMember.avatarUrl || subject.avatarUrl || "",
+    ...(extraFields ? { workflowFields: extraFields } : {}),
   });
 }
 
@@ -2737,6 +3121,9 @@ function workflowActorExtras(actorMember) {
 function resocontoWorkflowItemFromDoc(doc) {
   if (!doc) return null;
   const status = resolveResocontoDocStatus(doc);
+  const actionKey = normalizeResocontoActionKey(doc?.workflowActionKey || "");
+  const body = String(doc?.content || doc?.body || "");
+  const proposedLabel = formatResocontoProposedLabel(extractResocontoAzioneText(body), actionKey);
   return {
     messageId: String(doc?.workflowMessageId || ""),
     channelId: String(doc?.workflowChannelId || ""),
@@ -2744,16 +3131,21 @@ function resocontoWorkflowItemFromDoc(doc) {
     userId: String(doc?.userId || ""),
     kind: String(doc?.workflowKind || ""),
     roleId: doc?.workflowRoleId ? String(doc.workflowRoleId) : null,
-    actionKey: normalizeResocontoActionKey(doc?.workflowActionKey || ""),
+    actionKey,
+    proposedLabel,
     status,
     statusLabel: deriveResocontoStatusLabel(doc),
     canAct: status === "pending",
-    body: String(doc?.content || doc?.body || ""),
-    content: String(doc?.content || doc?.body || ""),
-    preview: stripDiscordDecorations(doc?.body || doc?.content || "", {
-      keepNewlines: true,
-      keepCustomEmoji: true,
-    }).slice(0, 500),
+    body,
+    content: body,
+    preview: buildResocontoInboxPreview(body, {
+      kind: String(doc?.workflowKind || ""),
+      proposedLabel,
+    }) ||
+      stripDiscordDecorations(doc?.body || doc?.content || "", {
+        keepNewlines: false,
+        keepCustomEmoji: false,
+      }).slice(0, 180),
   };
 }
 
@@ -2779,10 +3171,14 @@ function resocontoWorkflowItemFromSnapshot(fields = {}) {
     canAct: status === "pending",
     body,
     content: body,
-    preview: stripDiscordDecorations(body, {
-      keepNewlines: true,
-      keepCustomEmoji: true,
-    }).slice(0, 500),
+    preview: buildResocontoInboxPreview(body, {
+      kind: String(fields.kind || ""),
+      proposedLabel: resocontoActionLabelForKey(actionKey),
+    }) ||
+      stripDiscordDecorations(body, {
+        keepNewlines: false,
+        keepCustomEmoji: false,
+      }).slice(0, 180),
   };
 }
 
@@ -2831,4 +3227,6 @@ module.exports = {
   resocontoWorkflowItemFromSnapshot,
   parseResocontoOutcomeFromContent,
   deriveResocontoStatusLabel,
+  buildResocontoInboxPreview,
+  deriveResocontoStaffFlags,
 };

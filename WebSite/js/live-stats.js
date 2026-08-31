@@ -948,6 +948,20 @@
   }
 
   function fetchNoStore(url) {
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      var cacheKey = window.VcApiCache.keyFor(url, { scope: "live" });
+      return window.VcApiCache
+        .fetchWithCache(cacheKey, url, {
+          ttlMs: 45000,
+          staleMs: 5 * 60 * 1000,
+          timeoutMs: 12000,
+          fetchInit: { cache: "no-store", credentials: "omit" },
+        })
+        .then(function (payload) {
+          if (!payload || !payload.ok) throw new Error(String((payload && payload.status) || 0));
+          return payload.body;
+        });
+    }
     return fetch(url, { cache: "no-store", credentials: "omit" }).then(function (r) {
       if (!r.ok) throw new Error(String(r.status));
       return r.json();

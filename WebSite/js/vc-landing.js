@@ -1,8 +1,85 @@
+
+/* siteSnappyApi1 */
+
+/* notifReadMergeFix1 */
+
+/* featureBack1: phone cascade stubs (no-op) */
+try{window.__vcPhoneRootUnlockInject=function(){};}catch(e){}
+try{window.__vcPhoneUnfreezeArmedAt=Date.now();}catch(e){}
+try{if(window.__vcPhoneScrollWatch){clearInterval(window.__vcPhoneScrollWatch);window.__vcPhoneScrollWatch=0;}}catch(e){}
+
+/* phoneWork2 */
+(function () {
+  try {
+    var coarse =
+      (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+      (window.matchMedia && window.matchMedia("(hover: none)").matches) ||
+      Number(navigator.maxTouchPoints || 0) > 0 ||
+      Boolean(navigator.standalone);
+    if (!coarse) return;
+    var strip = function () {
+      try {
+        var r = document.documentElement;
+        if (!r) return;
+        var drawer = document.getElementById("vc-mobile-nav-drawer");
+        if (
+          r.classList.contains("vc-mobile-nav-open") &&
+          (!drawer || !drawer.classList.contains("vc-mobile-nav-drawer--open"))
+        ) {
+          r.classList.remove("vc-mobile-nav-open");
+        }
+        r.classList.remove(
+          "vc-loading-scroll-lock",
+          "vc-ui-scroll-lock",
+          "vc-session-verify-pending",
+          "vc-user-leader-pending",
+          "vc-user-profile-pending",
+          "vc-rank-customize-pending",
+          "vc-dash-access-pending"
+        );
+        var b = document.body;
+        if (b) {
+          b.style.removeProperty("overflow");
+          b.style.removeProperty("position");
+          b.style.removeProperty("top");
+          b.style.removeProperty("left");
+          b.style.removeProperty("right");
+          b.style.removeProperty("width");
+          b.style.removeProperty("touch-action");
+          b.style.removeProperty("height");
+          b.style.removeProperty("max-height");
+        }
+        r.style.removeProperty("overflow");
+        r.style.removeProperty("touch-action");
+        r.style.removeProperty("height");
+        r.style.removeProperty("max-height");
+      } catch (e) {}
+    };
+    strip();
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", strip, { once: true });
+    }
+    window.setTimeout(strip, 0);
+    window.setTimeout(strip, 400);
+    window.setTimeout(strip, 1200);
+    window.addEventListener("pageshow", strip);
+  } catch (e0) {}
+})();
+(function () {
+  try {
+    if (!window.VcApiCache) {
+      var s = document.createElement("script");
+      s.src = "/js/vc-api-cache.js?v=20260831siteSnappyApi2";
+      s.async = false;
+      (document.head || document.documentElement).appendChild(s);
+    }
+  } catch (eApiBoot) {}
+})();
 (function () {
   try {
     if (!window.VcPerf || !window.VcPerf.__ready) {
       var s = document.createElement("script");
-      s.src = "/js/vc-perf.js?v=20260830ptrFirstTap1";
+      s.src = "/js/vc-perf.js?v=20260831phonePwaLoadFix1";
       s.async = false;
       (document.head || document.documentElement).appendChild(s);
     } else if (typeof window.VcPerf.apply === "function") {
@@ -136,24 +213,41 @@
     }
   }
 
-  /** siteUrlFaq1: bake corrotti mettevano SITE_URL=/faq sul brand — forza homepage. */
+  function isBrokenHomePath(pathname) {
+    var p = String(pathname || "/").replace(/\/+$/, "") || "/";
+    return p === "/faq" || p === "/vote";
+  }
+
+  /** siteUrlFaq1: bake corrotti mettevano SITE_URL=/faq o /vote sul brand — forza homepage. */
   function repairBrokenHomeLinks() {
     try {
       if (window.__VC_AUTH && window.__VC_AUTH.homeUrl) {
         var badHome = String(window.__VC_AUTH.homeUrl || "");
         var cleaned = badHome.replace(/\?.*$/, "").replace(/#.*$/, "");
-        if (/\/faq\/?$/i.test(cleaned)) {
-          try {
-            window.__VC_AUTH.homeUrl = window.location.origin + "/";
-          } catch (eFix) {
-            window.__VC_AUTH.homeUrl = "/";
+        try {
+          var badPath = String(new URL(cleaned, window.location.href).pathname || "/")
+            .replace(/\/+$/, "") || "/";
+          if (isBrokenHomePath(badPath)) {
+            try {
+              window.__VC_AUTH.homeUrl = window.location.origin + "/";
+            } catch (eFix) {
+              window.__VC_AUTH.homeUrl = "/";
+            }
+          }
+        } catch (eParse) {
+          if (/\/faq\/?$/i.test(cleaned) || /\/vote\/?$/i.test(cleaned)) {
+            try {
+              window.__VC_AUTH.homeUrl = window.location.origin + "/";
+            } catch (eFix2) {
+              window.__VC_AUTH.homeUrl = "/";
+            }
           }
         }
       }
     } catch (eAuth) {}
     var home = siteHomeHref();
     var nodes = document.querySelectorAll(
-      'a.vc-header-site-name, a[aria-label="Vai alla homepage"], .vc-premium-footer__logo-row, a[data-i18n="footer.home"]'
+      'a.vc-header-site-name, a[aria-label="Vai alla homepage"], header .vc-header-logo-link + a[href], .vc-premium-footer__logo-row, a[data-i18n="footer.home"]'
     );
     for (var i = 0; i < nodes.length; i++) {
       var a = nodes[i];
@@ -162,7 +256,7 @@
         var u = new URL(href, window.location.href);
         if (!isSiteHost(u.hostname) && href.charAt(0) !== "/") continue;
         var p = String(u.pathname || "/").replace(/\/+$/, "") || "/";
-        if (p === "/faq") {
+        if (isBrokenHomePath(p)) {
           a.setAttribute("href", home);
         }
       } catch (eA) {}
@@ -254,6 +348,9 @@
       var path = safeResumePath(data && data.p);
       var at = Number(data && data.t) || 0;
       if (!path || path === "/" || Date.now() - at > 2 * 60 * 60 * 1000) return false;
+      // brandHomeVote1: /vote non deve mai hijackare la homepage dal resume PWA.
+      var norm = String(path || "").replace(/\/+$/, "") || "/";
+      if (norm === "/vote") return false;
       if (path === here) return false;
       try {
         document.documentElement.style.background = "#100c09";
@@ -311,6 +408,9 @@
       var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
       if (!a) return;
       var href = a.getAttribute("href") || "";
+      if (isHomeHref(href)) {
+        markWantHome();
+      }
       if (isVotePlatformHref(href)) {
         saveResume("/vote/");
         return;
@@ -335,9 +435,6 @@
           return;
         }
       }
-      if (isHomeHref(href)) {
-        markWantHome();
-      }
     },
     true
   );
@@ -358,8 +455,9 @@
         return;
       }
     } catch (eL) {}
-    if (currentPath() === "/vote/" || currentPath() === "/vote") saveResume("/vote/");
-    else saveResume(currentPath());
+    var leavePath = currentPath();
+    if (leavePath === "/vote/" || leavePath === "/vote") return;
+    saveResume(leavePath);
   });
 })();
 
@@ -777,12 +875,54 @@
 
   }
 
+  function richiesteNavTitleNorm(det) {
+    var sum = det ? det.querySelector(".vc-snav-summary span, .vc-snav-summary") : null;
+    if (sum && sum.getAttribute && sum.getAttribute("data-i18n") === "nav.requests") return "richieste";
+    return sum ? String(sum.textContent || "").replace(/\s+/g, " ").trim().toLowerCase() : "";
+  }
+
+  /** navbarTickets1: Tickets mancante in Richieste su pagine non ribakeate. */
+  function ensureTicketsInRichiesteNav() {
+    var bar = document.querySelector(".vc-header-bar");
+    if (!bar) return;
+    bar.querySelectorAll("details.vc-snav-details").forEach(function (det) {
+      var title = richiesteNavTitleNorm(det);
+      if (title !== "richieste" && title !== "requests") return;
+      var panel = det.querySelector(".vc-snav-panel");
+      if (!panel) return;
+      if (
+        panel.querySelector(
+          'a[href*="/tickets"], a[href*="/supporto"], a[href*="TICKETS_PAGE"], a[href*="SUPPORTO_PAGE"]',
+        )
+      ) {
+        return;
+      }
+      var row = document.createElement("a");
+      row.className = "vc-snav-row";
+      row.setAttribute("href", "/tickets/");
+      row.innerHTML =
+        '<span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-ticket"></i></span><span data-i18n="nav.tickets">Tickets</span>';
+      var sug = panel.querySelector(
+        'a[href*="suggerimenti"], a[href*="RICHIESTE_SUGGERIMENTI"]',
+      );
+      if (sug && sug.parentNode) sug.parentNode.insertBefore(row, sug.nextSibling);
+      else panel.appendChild(row);
+    });
+  }
+
   function initHeaderNavAccordion() {
     var bar = document.querySelector(".vc-header-bar");
     if (!bar) return;
     var HEADER_MENU_SYNC_KEY = "vc_header_menu_sync_v1";
     var localWindowId = String(Date.now()) + "-" + String(Math.random()).slice(2);
-    var detailsList = bar.querySelectorAll("details.vc-snav-details");
+    function getSnavDetails() {
+      return bar.querySelectorAll("details.vc-snav-details");
+    }
+    function closeOtherSnavDetails(except) {
+      getSnavDetails().forEach(function (other) {
+        if (other !== except) other.open = false;
+      });
+    }
     var notif = bar.querySelector("details.vc-notif-dropdown");
     var accountMenuOpen = false;
     function closeLangMenu() {
@@ -815,25 +955,41 @@
         );
       } catch (e) {}
     }
-    detailsList.forEach(function (d) {
-      d.addEventListener("toggle", function () {
+    // navbarAccordion1: delegation — funziona anche su details iniettati dopo (Area staff) e chiude prima del toggle.
+    bar.addEventListener(
+      "click",
+      function (ev) {
+        var sum = ev.target && ev.target.closest ? ev.target.closest("summary.vc-snav-summary") : null;
+        if (!sum || !bar.contains(sum)) return;
+        var det = sum.closest("details.vc-snav-details");
+        if (!det) return;
+        closeOtherSnavDetails(det);
+      },
+      true,
+    );
+    bar.addEventListener(
+      "toggle",
+      function (ev) {
+        var d = ev.target;
+        if (!d || d.tagName !== "DETAILS" || !d.classList.contains("vc-snav-details") || !bar.contains(d)) {
+          return;
+        }
         if (d.open) {
           broadcastHeaderMenuOpen(d.id || d.getAttribute("data-menu-id") || "snav");
-          detailsList.forEach(function (other) {
-            if (other !== d) other.open = false;
-          });
+          closeOtherSnavDetails(d);
           if (notif) notif.open = false;
           closeLangMenu();
         }
         syncHeaderDropdownOpenClasses();
-      });
-    });
+      },
+      true,
+    );
     if (notif) {
       notif.addEventListener("toggle", function () {
         syncHeaderDropdownOpenClasses();
         if (!notif.open) return;
         broadcastHeaderMenuOpen(notif.id || "notif");
-        detailsList.forEach(function (other) {
+        getSnavDetails().forEach(function (other) {
           other.open = false;
         });
         setAccountMenuOpen(false);
@@ -845,7 +1001,7 @@
       });
     }
     document.addEventListener("vc:langmenuopen", function () {
-      detailsList.forEach(function (other) {
+      getSnavDetails().forEach(function (other) {
         other.open = false;
       });
       if (notif) notif.open = false;
@@ -862,7 +1018,7 @@
       if (related && menu.contains(related)) return;
       // Notifiche aperte con click: restano aperte (niente chiusura solo per hover sull’avatar).
       if (notif && notif.open) return;
-      detailsList.forEach(function (other) {
+      getSnavDetails().forEach(function (other) {
         other.open = false;
       });
       closeLangMenu();
@@ -882,7 +1038,7 @@
       if (!t || !t.closest) return;
       if (!t.closest(".discord-account-menu")) return;
       if (notif && notif.open) return;
-      detailsList.forEach(function (other) {
+      getSnavDetails().forEach(function (other) {
         other.open = false;
       });
       closeLangMenu();
@@ -894,7 +1050,7 @@
       if (!t.closest(".discord-account-menu")) return;
       if (!(notif && notif.open)) return;
       notif.open = false;
-      detailsList.forEach(function (other) {
+      getSnavDetails().forEach(function (other) {
         other.open = false;
       });
       closeLangMenu();
@@ -926,7 +1082,7 @@
       return pointInside(openEl, ev);
     }
     function closeAllHeaderDropdowns() {
-      detailsList.forEach(function (d) {
+      getSnavDetails().forEach(function (d) {
         d.open = false;
       });
       var liveNotif = document.getElementById("vc-notif-dropdown") || notif;
@@ -968,6 +1124,7 @@
       closeAllHeaderDropdowns();
     });
     syncHeaderDropdownOpenClasses();
+    ensureTicketsInRichiesteNav();
     markSnavDetailsCurrentFromLocation();
   }
   if (document.readyState === "loading") {
@@ -1418,6 +1575,27 @@
   var notifInterruptCurrent = null;
   var notifInterruptKeyHandler = null;
 
+  function loaderElReallyBlocking(el) {
+    if (!el) return false;
+    try {
+      if (el.hidden || el.hasAttribute("hidden")) return false;
+      if (el.classList && el.classList.contains("vc-staff-loading--hidden")) return false;
+      if (el.classList && el.classList.contains("vc-reviews-gate")) return false;
+      var cs = window.getComputedStyle(el);
+      if (!cs) return false;
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
+      if (Number(cs.opacity || "1") < 0.05) return false;
+      if (cs.pointerEvents === "none") return false;
+      var r = el.getBoundingClientRect();
+      if (r.width < 24 || r.height < 24) return false;
+      // Deve coprire una fetta reale dello schermo (loader fullscreen).
+      if (r.width < window.innerWidth * 0.45 && r.height < window.innerHeight * 0.35) return false;
+      return true;
+    } catch (eVis) {
+      return false;
+    }
+  }
+
   function isBlockingLoaderVisible() {
     try {
       var root = document.documentElement;
@@ -1430,8 +1608,16 @@
       // Su telefono non congelare gesture per session-verify (overlay spesso fantasma).
       if (!coarse && root.classList.contains("vc-session-verify-pending")) return true;
       if (root.classList.contains("vc-dash-access-pending")) return true;
-      if (root.classList.contains("vc-user-leader-pending")) return true;
-      if (root.classList.contains("vc-user-profile-pending")) return true;
+      // legacyPhoneXAll1: pending stuck senza overlay reale non deve bloccare.
+      if (root.classList.contains("vc-user-leader-pending")) {
+        var ulPend = document.getElementById("vc-ul-loading");
+        if (loaderElReallyBlocking(ulPend)) return true;
+      }
+      if (root.classList.contains("vc-user-profile-pending")) {
+        var prPend = document.getElementById("vc-user-profile-loading");
+        var bpPend = document.querySelector("body > .vc-user-profile-loader");
+        if (loaderElReallyBlocking(prPend) || loaderElReallyBlocking(bpPend)) return true;
+      }
     } catch (e0) {}
     var tr = document.getElementById("vc-page-transition");
     if (tr && tr.classList.contains("vc-page-transition--on")) {
@@ -1453,12 +1639,31 @@
         if (ov) return true;
       }
     } catch (eOv) {}
-    // Solo overlay caricamento full-page (non gate login/auth).
-    if (document.querySelector(".vc-ul-loading:not([hidden])")) return true;
-    if (document.querySelector("#vc-rank-customize-loading:not([hidden])")) return true;
+    // Solo overlay caricamento full-page VISIBILI (non gate login/auth).
+    // legacyPhoneXAll1: :not([hidden]) non basta — nodi fantasma restano senza [hidden]
+    // e attivano :has() → touch-action:none → freeze totale su telefono.
+    try {
+      var uls = document.querySelectorAll(".vc-ul-loading");
+      for (var ui = 0; ui < uls.length; ui += 1) {
+        if (loaderElReallyBlocking(uls[ui])) return true;
+      }
+    } catch (eUl) {
+      if (document.querySelector('.vc-ul-loading[data-vc-loader-blocking="1"]')) return true;
+    }
+    try {
+      var rankL = document.getElementById("vc-rank-customize-loading");
+      if (loaderElReallyBlocking(rankL)) return true;
+    } catch (eRk) {
+      if (document.querySelector("#vc-rank-customize-loading:not([hidden])")) return true;
+    }
+    var staffInboxLoading = document.getElementById("vc-staff-inbox-loading");
+    if (loaderElReallyBlocking(staffInboxLoading)) return true;
     var profileLoading = document.getElementById("vc-user-profile-loading");
-    if (profileLoading && !profileLoading.hidden && !profileLoading.hasAttribute("hidden")) return true;
-    if (document.querySelector("body > .vc-user-profile-loader:not([hidden])")) return true;
+    if (loaderElReallyBlocking(profileLoading)) return true;
+    try {
+      var bodyProf = document.querySelector("body > .vc-user-profile-loader");
+      if (loaderElReallyBlocking(bodyProf)) return true;
+    } catch (eBp) {}
     // Solo loader community/boot a livello root — NON quello del tab Staff (altrimenti
     // resta touchmove non-passive e lagga tutta la pagina da telefono).
     try {
@@ -1477,6 +1682,35 @@
     // Lo scroll lock per gate resta gestito dal CSS del gate stesso se serve.
     return false;
   }
+
+  try {
+    window.__vcLoaderElReallyBlocking = loaderElReallyBlocking;
+    window.__vcIsBlockingLoaderVisible = isBlockingLoaderVisible;
+  } catch (eVisExport) {}
+
+  function syncLoaderBlockingLiveClass() {
+    // phoneLoadClipFix4: classe html solo se loader blocking è visibile (no :has su ghost).
+    var live = false;
+    try {
+      var nodes = document.querySelectorAll(
+        '.vc-ul-loading[data-vc-loader-blocking="1"], #vc-roles-loading[data-vc-loader-blocking="1"]',
+      );
+      for (var i = 0; i < nodes.length; i += 1) {
+        if (loaderElReallyBlocking(nodes[i])) {
+          live = true;
+          break;
+        }
+      }
+    } catch (eScan) {}
+    try {
+      document.documentElement.classList.toggle("vc-loader-blocking-live", live);
+    } catch (eCls) {}
+    return live;
+  }
+
+  try {
+    window.__vcSyncLoaderBlockingLiveClass = syncLoaderBlockingLiveClass;
+  } catch (eLiveExport) {}
 
   function resetScrollAfterOverlay() {
     try {
@@ -1520,9 +1754,19 @@
     try {
       var root = document.documentElement;
       if (root.classList.contains("vc-rank-customize-pending")) return true;
-      if (root.classList.contains("vc-mobile-nav-open")) return true;
-      if (root.classList.contains("vc-user-leader-pending")) return true;
-      if (root.classList.contains("vc-user-profile-pending")) return true;
+      if (root.classList.contains("vc-mobile-nav-open")) {
+        var navDr = document.getElementById("vc-mobile-nav-drawer");
+        if (navDr && navDr.classList.contains("vc-mobile-nav-drawer--open")) return true;
+      }
+      if (root.classList.contains("vc-user-leader-pending")) {
+        var ulFr = document.getElementById("vc-ul-loading");
+        if (loaderElReallyBlocking(ulFr)) return true;
+      }
+      if (root.classList.contains("vc-user-profile-pending")) {
+        var prFr = document.getElementById("vc-user-profile-loading");
+        var bpFr = document.querySelector("body > .vc-user-profile-loader");
+        if (loaderElReallyBlocking(prFr) || loaderElReallyBlocking(bpFr)) return true;
+      }
       try {
         var coarseFreeze =
           (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
@@ -1536,6 +1780,7 @@
       }
       if (root.classList.contains("vc-staff-stat-sheet-open")) return true;
       if (root.classList.contains("vc-staff-manage-sheet-open")) return true;
+      if (root.classList.contains("vc-staff-reso-sheet-open")) return true;
       if (root.classList.contains("vc-staff-datepicker-open")) return true;
       if (root.classList.contains("vc-dialog-open")) return true;
       if (root.classList.contains("vc-dash-confirm-open")) return true;
@@ -1575,6 +1820,12 @@
   }
 
   function pinPageScroll(opts) {
+    // phoneScrollNoPin2: su telefono/PWA mai pinPageScroll (freeze post menu/sheet/loader).
+    try {
+      if (isCoarsePointerDevice() || isStandalonePwaLocal()) return;
+    } catch (ePhoneNoPin) {
+      return;
+    }
     var body = document.body;
     if (!body) return;
     opts = opts || {};
@@ -1582,10 +1833,13 @@
     // (altrimenti iOS non scrolla il contenuto interno dello sheet → tutto “lento/bloccato”).
     // pwaHardFreeze1: su telefono/PWA MAI touch-action:none inline (uccide TUTTI i tap).
     var soft = Boolean(opts.soft);
+    var phonePin = false;
     try {
-      if (isCoarsePointerDevice() || isStandalonePwaLocal()) soft = true;
+      phonePin = isCoarsePointerDevice() || isStandalonePwaLocal();
+      if (phonePin) soft = true;
     } catch (eSoftForce) {
       soft = true;
+      phonePin = true;
     }
     if (!scrollPinned) {
       scrollPinSavedY = pageScrollY();
@@ -1593,6 +1847,25 @@
     }
     scrollPinSoft = soft;
     try {
+      // phoneScrollFreeze2: su telefono/PWA il soft-pin NON deve scrivere overflow:hidden
+      // inline (inline !important batte ogni CSS unlock → freeze permanente dopo menu/sheet/loader).
+      if (phonePin && soft) {
+        document.documentElement.style.removeProperty("overflow");
+        document.documentElement.style.removeProperty("overscroll-behavior");
+        document.documentElement.style.removeProperty("touch-action");
+        body.style.removeProperty("position");
+        body.style.removeProperty("left");
+        body.style.removeProperty("right");
+        body.style.removeProperty("top");
+        body.style.removeProperty("width");
+        body.style.removeProperty("overflow");
+        body.style.removeProperty("overscroll-behavior");
+        body.style.removeProperty("touch-action");
+        try {
+          document.documentElement.classList.add("vc-scroll-soft-lock");
+        } catch (eSoftCls) {}
+        return;
+      }
       document.documentElement.style.setProperty("overflow", "hidden", "important");
       document.documentElement.style.setProperty("overscroll-behavior", "none", "important");
       if (soft) {
@@ -1600,28 +1873,111 @@
       } else {
         document.documentElement.style.setProperty("touch-action", "none", "important");
       }
-      body.style.setProperty("position", "fixed", "important");
-      body.style.setProperty("left", "0", "important");
-      body.style.setProperty("right", "0", "important");
-      body.style.setProperty("width", "100%", "important");
-      body.style.setProperty("top", "-" + scrollPinSavedY + "px", "important");
-      body.style.setProperty("overflow", "hidden", "important");
-      body.style.setProperty("overscroll-behavior", "none", "important");
-      if (soft) {
-        body.style.setProperty("touch-action", "pan-y", "important");
+      // phoneNoFixed1: su telefono/PWA position:fixed sul body congela i tap dopo 1–2 gesture
+      // (homepage ok perché non apre sheet/ham pin così spesso sulle cine-page).
+      if (phonePin) {
+        body.style.removeProperty("position");
+        body.style.removeProperty("left");
+        body.style.removeProperty("right");
+        body.style.removeProperty("top");
+        body.style.removeProperty("width");
+        body.style.setProperty("overflow", "hidden", "important");
+        body.style.setProperty("overscroll-behavior", "none", "important");
+        body.style.removeProperty("touch-action");
       } else {
-        body.style.setProperty("touch-action", "none", "important");
+        body.style.setProperty("position", "fixed", "important");
+        body.style.setProperty("left", "0", "important");
+        body.style.setProperty("right", "0", "important");
+        body.style.setProperty("width", "100%", "important");
+        body.style.setProperty("top", "-" + scrollPinSavedY + "px", "important");
+        body.style.setProperty("overflow", "hidden", "important");
+        body.style.setProperty("overscroll-behavior", "none", "important");
+        if (soft) {
+          body.style.setProperty("touch-action", "pan-y", "important");
+        } else {
+          body.style.setProperty("touch-action", "none", "important");
+        }
       }
     } catch (ePin) {}
   }
 
+  function stripPhoneInlineScrollLocks() {
+    var phone = false;
+    try {
+      phone = isCoarsePointerDevice() || isStandalonePwaLocal();
+    } catch (ePh) {
+      phone = true;
+    }
+    if (!phone) return;
+    var root = document.documentElement;
+    var body = document.body;
+    var mustLock = false;
+    try {
+      var ddLive = document.getElementById("vc-notif-dropdown");
+      var notifReallyOpen = Boolean(
+        ddLive && (ddLive.open || ddLive.hasAttribute("open")) && root.classList.contains("vc-notif-sheet-open"),
+      );
+      var inboxLoad = document.getElementById("vc-staff-inbox-loading");
+      var inboxLive =
+        Boolean(inboxLoad) &&
+        !inboxLoad.hidden &&
+        !inboxLoad.hasAttribute("hidden") &&
+        !inboxLoad.classList.contains("vc-staff-loading--hidden");
+      mustLock =
+        root.classList.contains("vc-mobile-nav-open") ||
+        notifReallyOpen ||
+        root.classList.contains("vc-dialog-open") ||
+        root.classList.contains("vc-staff-manage-sheet-open") ||
+        root.classList.contains("vc-staff-reso-sheet-open") ||
+        root.classList.contains("vc-staff-stat-sheet-open") ||
+        (root.classList.contains("vc-notif-staff-loading") && inboxLive);
+      if (root.classList.contains("vc-user-leader-pending")) {
+        var ulStrip = document.getElementById("vc-ul-loading");
+        if (
+          ulStrip &&
+          !ulStrip.hidden &&
+          !ulStrip.hasAttribute("hidden") &&
+          (typeof loaderElReallyBlocking !== "function" || loaderElReallyBlocking(ulStrip))
+        ) {
+          mustLock = true;
+        }
+      }
+    } catch (eMust) {
+      mustLock = false;
+    }
+    if (mustLock) return;
+    try {
+      root.style.removeProperty("overflow");
+      root.style.removeProperty("overscroll-behavior");
+      root.style.removeProperty("touch-action");
+      root.classList.remove("vc-scroll-soft-lock", "vc-loading-scroll-lock");
+    } catch (eR) {}
+    if (body) {
+      try {
+        body.style.removeProperty("position");
+        body.style.removeProperty("left");
+        body.style.removeProperty("right");
+        body.style.removeProperty("top");
+        body.style.removeProperty("width");
+        body.style.removeProperty("overflow");
+        body.style.removeProperty("overscroll-behavior");
+        body.style.removeProperty("touch-action");
+      } catch (eB) {}
+    }
+    scrollPinned = false;
+    scrollPinSoft = false;
+  }
+
   function unpinPageScroll() {
-    if (!scrollPinned) return;
     var body = document.body;
     var y = scrollPinSavedY;
+    var wasPinned = scrollPinned;
     scrollPinned = false;
     scrollPinSoft = false;
     scrollPinSavedY = 0;
+    try {
+      document.documentElement.classList.remove("vc-scroll-soft-lock");
+    } catch (eSoftClsOff) {}
     try {
       document.documentElement.style.removeProperty("overflow");
       document.documentElement.style.removeProperty("overscroll-behavior");
@@ -1640,16 +1996,28 @@
       } catch (eUnpinStyle) {}
     }
     try {
-      window.scrollTo(0, y);
-    } catch (eUnpin) {}
+      stripPhoneInlineScrollLocks();
+    } catch (eStrip) {}
+    if (wasPinned) {
+      try {
+        window.scrollTo(0, y);
+      } catch (eUnpin) {}
+    }
   }
 
   try {
     window.__vcPinPageScroll = pinPageScroll;
     window.__vcUnpinPageScroll = unpinPageScroll;
+    window.__vcStripPhoneInlineScrollLocks = stripPhoneInlineScrollLocks;
   } catch (ePinExport) {}
 
   function isLoaderScrollLocked() {
+    // legacyPhoneX1: pending fantasma NON deve più armare lock/guards su telefono.
+    try {
+      if (isCoarsePointerDevice() || isStandalonePwaLocal()) return false;
+    } catch (ePhLock) {
+      return false;
+    }
     try {
       var root = document.documentElement;
       if (root.classList.contains("vc-loading-scroll-lock")) return true;
@@ -1776,8 +2144,29 @@
     } catch (eSoftPhone) {
       softPin = true;
     }
-    if (frozen) pinPageScroll({ soft: softPin });
-    else if (scrollPinned) unpinPageScroll();
+    var phonePinOff = false;
+    try {
+      phonePinOff = isCoarsePointerDevice() || isStandalonePwaLocal();
+    } catch (ePhPinOff) {}
+    if (phonePinOff) {
+      // phoneScrollNoPin2: su telefono niente pin JS — menu/sheet usano solo overflow CSS.
+      if (scrollPinned) unpinPageScroll();
+      try {
+        document.documentElement.classList.remove("vc-ui-scroll-lock", "vc-scroll-soft-lock");
+        // phonePointerUnlock2: mai loading-scroll-lock su telefono (:has loader fantasma = tap morti).
+        document.documentElement.classList.remove("vc-loading-scroll-lock");
+      } catch (ePhLock) {}
+    } else {
+      if (frozen) pinPageScroll({ soft: softPin });
+      else if (scrollPinned) unpinPageScroll();
+      // phoneUnfreezeSheetLock1: revert uiSheetScrollLock — mai body:fixed su telefono per sheet.
+      try {
+        document.documentElement.classList.remove("vc-ui-scroll-lock");
+      } catch (eUiLockOff) {}
+      try {
+        document.documentElement.classList.toggle("vc-loading-scroll-lock", on);
+      } catch (eLock) {}
+    }
 
     // touchmove non-passive SOLO mentre serve (come vc-ptr): altrimenti lagga tutto lo scroll mobile.
     // Mai per il menu hamburger (i tile devono restare cliccabili).
@@ -1802,9 +2191,6 @@
     lastScrollLockFrozen = frozen;
     lastScrollLockOverlay = on;
     lastScrollLockNeedGuards = needGuards;
-    try {
-      document.documentElement.classList.toggle("vc-loading-scroll-lock", on);
-    } catch (eLock) {}
     if (wasPageLoaderVisible && !on) resetScrollAfterOverlay();
     wasPageLoaderVisible = on;
     if (on) {
@@ -1818,6 +2204,9 @@
         flushNotifInterruptQueue();
       } catch (eFlush) {}
     }
+    try {
+      syncLoaderBlockingLiveClass();
+    } catch (eLiveSync) {}
   }
 
   function scheduleLoaderScrollLock() {
@@ -1878,22 +2267,80 @@
       scheduleLoaderScrollLock();
     });
     loaderClassMo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    // Su telefono NON osservare subtree del body: ogni rebuild menu/DOM
-    // rieseguiva syncLoaderScrollLock e bloccava i tap.
+    // Su telefono NON osservare tutto il subtree body (menu/DOM thrash → freeze).
+    // phoneLoaderUnlock1: osserva SOLO i loader full-page noti per l'attr hidden,
+    // altrimenti vc-loading-scroll-lock resta dopo il caricamento (/ruoli/, classifica, …).
     var coarseMo = false;
     try {
       coarseMo =
         (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
         Number(navigator.maxTouchPoints || 0) > 0;
     } catch (eMoC) {}
+    function observeLoaderHidden(el) {
+      if (!el || !el.getAttribute) return;
+      try {
+        loaderClassMo.observe(el, { attributes: true, attributeFilter: ["hidden", "class", "style"] });
+      } catch (eObs) {}
+    }
+    function bindKnownLoaderObservers() {
+      var ids = [
+        "vc-ul-loading",
+        "vc-roles-loading",
+        "vc-rank-customize-loading",
+        "vc-user-profile-loading",
+        "vc-shared-boot-overlay",
+        "vc-staff-loading",
+        "vc-staff-inbox-loading",
+        "vc-page-transition",
+      ];
+      for (var i = 0; i < ids.length; i++) {
+        observeLoaderHidden(document.getElementById(ids[i]));
+      }
+      try {
+        var list = document.querySelectorAll(
+          ".vc-ul-loading, body > .vc-user-profile-loader, #vc-user-profile-view > .vc-user-profile-loader, #vc-user-profile-view > [data-vc-profile-boot]",
+        );
+        for (var j = 0; j < list.length; j++) observeLoaderHidden(list[j]);
+      } catch (eList) {}
+    }
+    bindKnownLoaderObservers();
     if (!coarseMo && document.body) {
-      // homeFreeze1: NON osservare class sul subtree (ogni is-in/rise esplodeva syncLoader).
+      // Desktop: body subtree ok (meno thrash touch).
       loaderClassMo.observe(document.body, {
         subtree: true,
         childList: true,
         attributes: true,
         attributeFilter: ["hidden"],
       });
+    } else {
+      // phoneLoaderUnlock1: se nasce un loader dopo boot, agganciarlo.
+      try {
+        var phoneLoaderBirthMo = new MutationObserver(function (muts) {
+          var need = false;
+          for (var m = 0; m < muts.length; m++) {
+            var nodes = muts[m].addedNodes || [];
+            for (var n = 0; n < nodes.length; n++) {
+              var node = nodes[n];
+              if (!node || node.nodeType !== 1) continue;
+              var el = node;
+              if (
+                (el.id && /loading|boot|transition/i.test(el.id)) ||
+                (el.classList &&
+                  (el.classList.contains("vc-ul-loading") ||
+                    el.classList.contains("vc-user-profile-loader") ||
+                    el.classList.contains("vc-reviews-gate")))
+              ) {
+                observeLoaderHidden(el);
+                need = true;
+              }
+            }
+          }
+          if (need) scheduleLoaderScrollLock();
+        });
+        if (document.body) {
+          phoneLoaderBirthMo.observe(document.body, { childList: true, subtree: true });
+        }
+      } catch (eBirth) {}
     }
     syncLoaderScrollLock();
   } catch (eMo) {}
@@ -2777,6 +3224,26 @@
     if (!sid) return false;
     return Boolean(loadToastedMap()[sid]);
   }
+  /** notifSoundCrossDevice1: suono solo se il server conferma non-letta (niente ding al open su altro device). */
+  function shouldPlayNotifAlert(row) {
+    if (!row || row.read) return false;
+    var id = String(row.id || "").trim();
+    if (id && wasAlreadyToasted(id)) return false;
+    if (recentlyGotOsPush(row)) return false;
+    return true;
+  }
+  function rememberToastedForDismissPush(p) {
+    if (!p || typeof p !== "object") return;
+    if (p.all === true) {
+      loadStored().forEach(function (x) {
+        var xid = String((x && x.id) || "").trim();
+        if (xid) rememberToastedId(xid);
+      });
+      return;
+    }
+    var sid = String(p.id || "").trim();
+    if (sid) rememberToastedId(sid);
+  }
   function clearAllStampKey() {
     var uid = normalizeUserId(currentUserId);
     return CLEAR_ALL_AT_PREFIX + (uid || "anon");
@@ -3115,7 +3582,7 @@
         return Object.assign({}, x, { read: true });
       }),
     );
-    render();
+    render({ force: true });
     dismissOsNotifications({ all: true });
     markAllSiteNotificationsReadOnServer().finally(function () {
       window.setTimeout(function () {
@@ -3252,7 +3719,7 @@
         return Object.assign({}, x, { read: true });
       }),
     );
-    render();
+    render({ force: true });
     dismissOsNotifications({ id: sid, ticketIds: Object.keys(ticketIds) });
     function afterMark() {
       window.setTimeout(function () {
@@ -3345,14 +3812,13 @@
               id: p.id,
               all: p.all === true,
             });
+            rememberToastedForDismissPush(p);
             scheduleInboxSyncFromPush();
             return;
           }
           rememberRecentOsPush(String(p.id || "").trim());
           rememberRecentOsPush(String(p.messageId || "").trim());
           rememberRecentOsPush(String(p.ticketId || "").trim());
-          var pushNotifId = String(p.id || "").trim();
-          if (pushNotifId) rememberToastedId(pushNotifId);
           setPushSubActive(true);
           // Non aspettare WS/poll (60s): la push è già arrivata su questo browser.
           scheduleInboxSyncFromPush();
@@ -3364,20 +3830,25 @@
             }
             return;
           }
-          // Suono solo dalla tab in focus: altrimenti OS push + WebAudio = doppio,
-          // e N tab aperte = N suoni.
-          try {
-            if (document.visibilityState === "visible" && document.hasFocus()) {
-              playNotifSound();
-              pulseNotifSummary();
-            }
-          } catch (eSound) {}
+          // notifSoundCrossDevice1: niente suono qui — sync server decide (read su altro device = mute).
           return;
         }
         if (data.type === "vc:push-resubscribe") {
           refreshPushSubscriptionState().then(function (ok) {
             if (!ok) syncPushPromptUi();
           });
+          return;
+        }
+        if (data.type === "vc:force-reload-layout" || data.type === "vc:force-reload-home") {
+          try {
+            var want = String(data.v || "").trim();
+            var seen = String(sessionStorage.getItem("vc_layout_reload_v") || "").trim();
+            if (want && seen === want) return;
+            if (want) sessionStorage.setItem("vc_layout_reload_v", want);
+          } catch (eReloadKey) {}
+          try {
+            window.location.reload();
+          } catch (eReload) {}
           return;
         }
         if (data.type === "vc:open-dest") {
@@ -5393,7 +5864,10 @@
         return r
           .json()
           .then(function (j) {
-            var ok = Boolean(j && (j.updated === true || Number(j.modified) > 0 || j.ok === true));
+            var ok = Boolean(
+              j &&
+                (j.updated === true || Number(j.modified) > 0 || (j.updated !== false && j.ok === true)),
+            );
             if (ok) {
               for (var i = 0; i < list.length; i += 1) forgetPendingRead(list[i]);
             }
@@ -5715,6 +6189,7 @@
           read:
             Boolean(mapped.read) ||
             Boolean(markAllRecent) ||
+            Boolean(oldSame && oldSame.read) ||
             Boolean(pendingReadMap[sid]) ||
             Boolean(fpId && pendingReadMap[fpId]),
         }),
@@ -5825,22 +6300,18 @@
         if (mergeResult.changed) render();
         tryFlushClickReads();
         dismissOsNotificationsForReadItems(loadStored());
-        if (mergeResult.toastRow) {
+        if (mergeResult.toastRow && shouldPlayNotifAlert(mergeResult.toastRow)) {
           var toastId = String(mergeResult.toastRow.id || "").trim();
-          var skipToast =
-            (toastId && wasAlreadyToasted(toastId)) || recentlyGotOsPush(mergeResult.toastRow);
-          if (skipToast) {
-            /* già push/toast: non ripeti suono/OS dopo SW update o re-sync */
-            if (toastId) rememberToastedId(toastId);
-          } else {
-            if (toastId) rememberToastedId(toastId);
-            playNotifSound();
-            showNativeOsBanner(mergeResult.toastRow);
-            try {
-              showNotifFlyToast(mergeResult.toastRow);
-            } catch (eFlySync) {}
-            pulseNotifSummary();
-          }
+          if (toastId) rememberToastedId(toastId);
+          playNotifSound();
+          showNativeOsBanner(mergeResult.toastRow);
+          try {
+            showNotifFlyToast(mergeResult.toastRow);
+          } catch (eFlySync) {}
+          pulseNotifSummary();
+        } else if (mergeResult.toastRow) {
+          var mutedId = String(mergeResult.toastRow.id || "").trim();
+          if (mutedId) rememberToastedId(mutedId);
         }
       })
       .catch(function () {})
@@ -6673,7 +7144,7 @@
   }
 
   function shouldInjectStaffTile() {
-    // Area staff solo dal dropdown navbar, mai nel menu profilo / hamburger.
+    // Area staff solo dal dropdown navbar, mai nel hamburger.
     return false;
   }
 
@@ -7201,7 +7672,7 @@
 
   function init() {
     revealForbiddenSectionBooks();
-    window.setInterval(revealForbiddenSectionBooks, 30000);
+    window.setInterval(revealForbiddenSectionBooks, 5000);
     bindGlobalToggle();
     ensure();
     var m = getMq();
@@ -7239,10 +7710,18 @@
     return merged;
   }
 
+  function normalizeForbiddenBookIds(ids) {
+    if (!Array.isArray(ids)) return [];
+    return ids.map(function (x) {
+      var v = String(x || "").trim().toLowerCase();
+      return v === "unban" ? "appelli" : v;
+    }).filter(Boolean);
+  }
+
   function applyForbiddenBooksVisibility(books, collected, options) {
     var list = mergeForbiddenCollected(collected);
     var status = forbiddenBooksRoundState || {};
-    var activeIds = Array.isArray(status.bookIds) ? status.bookIds.map(String) : [];
+    var activeIds = normalizeForbiddenBookIds(status.bookIds);
     var canShow = status.roundActive === true || Boolean(options && options.previewViewer);
     for (var i = 0; i < books.length; i += 1) {
       var id = forbiddenBookId(books[i]);
@@ -7294,14 +7773,13 @@
     }
 
     fetchForbiddenBooksPublicStatus().then(function (status) {
-      forbiddenBooksRoundState = status && status.ok === true ? status : null;
+      if (status && status.ok === true) forbiddenBooksRoundState = status;
       if (status && status.ok && (status.enabled === false || forbiddenHuntEnded(status))) {
         removeAllForbiddenBooks();
         return;
       }
       proceed();
     }).catch(function () {
-      forbiddenBooksRoundState = null;
       proceed();
     });
   }
@@ -7345,7 +7823,7 @@
     if (!id || !document.body) return;
     var status = forbiddenBooksRoundState || {};
     if (status.roundActive !== true) return;
-    var activeIds = Array.isArray(status.bookIds) ? status.bookIds.map(String) : [];
+    var activeIds = normalizeForbiddenBookIds(status.bookIds);
     if (activeIds.length && activeIds.indexOf(id) === -1) return;
     var el = document.createElement("span");
     el.className = "vc-forbidden-book";
@@ -7464,12 +7942,17 @@
   function fetchForbiddenBooksPublicStatus() {
     return fetch(forbiddenBooksPublicStatusUrl(), { cache: "no-store" })
       .then(function (res) {
+        if (!res || !res.ok) {
+          return res.text().catch(function () { return ""; }).then(function () {
+            throw new Error("forbidden_status_http_" + (res ? res.status : 0));
+          });
+        }
         return res.json().catch(function () {
-          return {};
+          throw new Error("forbidden_status_json");
         });
       })
       .catch(function () {
-        return {};
+        return null;
       });
   }
 
@@ -7645,18 +8128,32 @@
       });
       var onViewportChange = function () {
         if (!el.isConnected) return;
+        // phoneScrollFreeze2: durante scroll mobile non riposizionare (jank → freeze).
+        if (isForbiddenBookMobile()) {
+          pauseForbiddenBookFlight(el, 1600);
+          return;
+        }
         move();
       };
       window.addEventListener("resize", onViewportChange);
       if (window.visualViewport) {
         window.visualViewport.addEventListener("resize", onViewportChange);
-        window.visualViewport.addEventListener("scroll", onViewportChange);
+        // Solo resize: scroll del visualViewport su iOS sparava move a ogni pixel.
+        if (!isForbiddenBookMobile()) {
+          window.visualViewport.addEventListener("scroll", onViewportChange);
+        }
       }
     }
   }
 
   function showForbiddenBookToast(count, customMessage) {
-    var total = FORBIDDEN_SITE_BOOKS_TOTAL;
+    var status = forbiddenBooksRoundState || {};
+    var total = Number(status.requiredCount);
+    if (!Number.isFinite(total) || total <= 0) {
+      total = Array.isArray(status.bookIds) && status.bookIds.length
+        ? status.bookIds.length
+        : FORBIDDEN_SITE_BOOKS_TOTAL;
+    }
     var toast = document.getElementById("vc-forbidden-book-toast");
     if (!toast) {
       toast = document.createElement("div");
@@ -7665,7 +8162,14 @@
       toast.setAttribute("role", "status");
       document.body.appendChild(toast);
     }
-    toast.textContent = customMessage || ("Libro raccolto: " + Math.min(count, total) + "/" + total + " sul sito. Ricorda: 2 sono negli status dei bot.");
+    if (customMessage) {
+      toast.textContent = customMessage;
+    } else {
+      var got = Math.min(Math.max(0, Number(count) || 0), total);
+      var chaos = status.mode === "finale_chaos" || Boolean(status.chaosSlotKey);
+      var tip = chaos ? "" : " Alcuni libri possono essere anche negli status/canali Discord.";
+      toast.textContent = "Libro raccolto: " + got + "/" + total + " sul sito." + tip;
+    }
     toast.classList.add("vc-forbidden-book-toast--show");
     window.clearTimeout(toast.__vcTimer);
     toast.__vcTimer = window.setTimeout(function () {
@@ -7728,7 +8232,7 @@ function vcPageAssetVer() {
     if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
   } catch (e0) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-site-polish.js?v=20260830ptrFirstTap1";
+  s.src = "/js/vc-site-polish.js?v=20260830phoneLoaderUnlock1";
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();
@@ -8104,8 +8608,58 @@ function vcPageAssetVer() {
     } catch (e0) {}
   }
 
+  function loaderLooksDead(el) {
+    if (!el) return true;
+    try {
+      if (typeof window.__vcLoaderElReallyBlocking === "function") {
+        return !window.__vcLoaderElReallyBlocking(el);
+      }
+    } catch (eApi) {}
+    try {
+      if (el.hidden || el.hasAttribute("hidden")) return true;
+      var cs = window.getComputedStyle(el);
+      if (!cs || cs.display === "none" || cs.visibility === "hidden") return true;
+      if (Number(cs.opacity || "1") < 0.05) return true;
+      if (cs.pointerEvents === "none") return true;
+      var r = el.getBoundingClientRect();
+      if (r.width < 24 || r.height < 24) return true;
+      return false;
+    } catch (eDead) {
+      return true;
+    }
+  }
+
+  function stampHiddenLoader(el) {
+    if (!el) return;
+    try {
+      el.hidden = true;
+      el.setAttribute("hidden", "");
+      el.removeAttribute("data-vc-loader-blocking");
+      el.style.setProperty("display", "none", "important");
+      el.style.setProperty("pointer-events", "none", "important");
+      el.style.setProperty("opacity", "0", "important");
+    } catch (eStamp) {}
+    try {
+      if (typeof window.__vcSyncLoaderBlockingLiveClass === "function") window.__vcSyncLoaderBlockingLiveClass();
+    } catch (eLiveStamp) {}
+  }
+
   function clearPhoneHasFreezeGhosts() {
+    // phoneLoadClipFix3: ghost loader senza [hidden] → :has() nascondeva main (clip + tap morti).
+    // phoneLoadClipFix4: sync classe html dopo pulizia ghost.
+    // phonePointerUnlock2: classe hamburger fantasma → drawer fullscreen pointer-events:auto invisibile.
+    try {
+      var rootNav = document.documentElement;
+      var navDr = document.getElementById("vc-mobile-nav-drawer");
+      if (
+        rootNav.classList.contains("vc-mobile-nav-open") &&
+        (!navDr || !navDr.classList.contains("vc-mobile-nav-drawer--open"))
+      ) {
+        rootNav.classList.remove("vc-mobile-nav-open");
+      }
+    } catch (eNavGhost) {}
     // Solo overlay/boot fantasma che attivano :has() → touch-action:none su telefono.
+    // legacyPhoneXAll1: :has(.vc-ul-loading:not([hidden])) matcha anche display:none → freeze.
     try {
       var tr = document.getElementById("vc-page-transition");
       if (tr) {
@@ -8132,13 +8686,64 @@ function vcPageAssetVer() {
       );
       for (var bi = 0; bi < boots.length; bi++) {
         var boot = boots[bi];
-        var br = boot.getBoundingClientRect();
-        if (br.width < 8 && br.height < 8) {
-          boot.hidden = true;
-          boot.setAttribute("hidden", "");
-        }
+        if (loaderLooksDead(boot)) stampHiddenLoader(boot);
       }
     } catch (eBoot) {}
+    // Ghost .vc-ul-loading senza [hidden] ma invisibili → spezzano :has() CSS.
+    try {
+      var ghosts = document.querySelectorAll(".vc-ul-loading");
+      for (var gi = 0; gi < ghosts.length; gi++) {
+        var g = ghosts[gi];
+        if (g.classList && g.classList.contains("vc-reviews-gate")) continue;
+        var reallyBlocking = false;
+        try {
+          if (typeof window.__vcLoaderElReallyBlocking === "function") {
+            reallyBlocking = window.__vcLoaderElReallyBlocking(g);
+          } else {
+            reallyBlocking = !loaderLooksDead(g);
+          }
+        } catch (eBlkG) {
+          reallyBlocking = !loaderLooksDead(g);
+        }
+        if (reallyBlocking) continue;
+        stampHiddenLoader(g);
+        try {
+          g.removeAttribute("data-vc-loader-blocking");
+        } catch (eBlkRm) {}
+      }
+    } catch (eGhostUl) {}
+    try {
+      var shared = document.getElementById("vc-shared-boot-overlay");
+      if (shared && loaderLooksDead(shared)) stampHiddenLoader(shared);
+    } catch (eShared) {}
+    // Inbox staff: NON togliere vc-notif-staff-loading / early-staff qui.
+    // inboxBootOne1: lo faceva durante il boot (loader “morto” un frame) → flash Personali.
+    // Hide solo da hideInboxFsLoading / finishQueueLoad.
+    // Pending classifica/profilo stuck senza overlay reale.
+    try {
+      var rootPend = document.documentElement;
+      var ulLoad = document.getElementById("vc-ul-loading");
+      if (rootPend.classList.contains("vc-user-leader-pending") && loaderLooksDead(ulLoad)) {
+        var painted = document.querySelector(
+          "#vc-ul-list .vc-ul-row, #vc-ul-rows [data-user-id], .vc-ul-card, #vc-ul-empty:not([hidden]), .vc-user-leader-empty, #vc-ul-grid .vc-ul-card",
+        );
+        var agedOut = Date.now() - (window.__vcPhoneUnfreezeArmedAt || Date.now()) > 12000;
+        if (painted || agedOut) {
+          rootPend.classList.remove("vc-user-leader-pending");
+          stampHiddenLoader(ulLoad);
+        }
+      }
+      if (rootPend.classList.contains("vc-user-profile-pending")) {
+        var profLoad = document.getElementById("vc-user-profile-loading");
+        var bodyProf = document.querySelector("body > .vc-user-profile-loader");
+        var viewReady = document.querySelector("#vc-user-profile-view:not([hidden]) .vc-user-profile-main");
+        if (loaderLooksDead(profLoad) && loaderLooksDead(bodyProf) && viewReady) {
+          rootPend.classList.remove("vc-user-profile-pending");
+          stampHiddenLoader(profLoad);
+          stampHiddenLoader(bodyProf);
+        }
+      }
+    } catch (ePend) {}
     // pwaHardFreeze1: togli touch-action:none / body fixed residui da pin hard.
     try {
       var coarseOrPwa = false;
@@ -8153,8 +8758,18 @@ function vcPageAssetVer() {
       }
       if (coarseOrPwa) {
         document.documentElement.style.removeProperty("touch-action");
+        document.documentElement.style.removeProperty("overflow");
+        document.documentElement.style.removeProperty("overflow-x");
+        document.documentElement.style.removeProperty("overflow-y");
+        document.documentElement.style.removeProperty("height");
+        document.documentElement.style.removeProperty("max-height");
         if (document.body) {
           document.body.style.removeProperty("touch-action");
+          document.body.style.removeProperty("overflow");
+          document.body.style.removeProperty("overflow-x");
+          document.body.style.removeProperty("overflow-y");
+          document.body.style.removeProperty("height");
+          document.body.style.removeProperty("max-height");
         }
         try {
           if (typeof window.__vcUnpinPageScroll === "function") {
@@ -8174,6 +8789,7 @@ function vcPageAssetVer() {
               notifReallyOpen ||
               root.classList.contains("vc-dialog-open") ||
               root.classList.contains("vc-staff-manage-sheet-open") ||
+              root.classList.contains("vc-staff-reso-sheet-open") ||
               root.classList.contains("vc-staff-stat-sheet-open");
             if (mustLock && typeof window.__vcPinPageScroll === "function") {
               window.__vcPinPageScroll({ soft: true });
@@ -8182,28 +8798,60 @@ function vcPageAssetVer() {
             }
           }
         } catch (ePinApi) {}
+        try {
+          if (typeof window.__vcStripPhoneInlineScrollLocks === "function") {
+            window.__vcStripPhoneInlineScrollLocks();
+          }
+        } catch (eStripApi) {}
       }
     } catch (eUnfreeze) {}
+    try {
+      if (typeof window.__vcSyncLoaderBlockingLiveClass === "function") window.__vcSyncLoaderBlockingLiveClass();
+    } catch (eLiveGhost) {}
   }
 
   function forceHideStuckLoaders() {
     clearPhoneHasFreezeGhosts();
     try {
-      var loaders = document.querySelectorAll(".vc-ul-loading:not([hidden])");
+      var loaders = document.querySelectorAll(".vc-ul-loading");
       for (var i = 0; i < loaders.length; i++) {
         var el = loaders[i];
         if (el.classList.contains("vc-reviews-gate")) continue;
-        el.hidden = true;
-        el.setAttribute("hidden", "");
+        // Non toccare loader classifica se ancora pending E overlay reale (phoneClassifica1).
+        if (
+          document.documentElement.classList.contains("vc-user-leader-pending") &&
+          el.id === "vc-ul-loading" &&
+          !loaderLooksDead(el)
+        ) {
+          continue;
+        }
+        stampHiddenLoader(el);
       }
     } catch (eL) {}
     try {
       document.documentElement.classList.remove("vc-loading-scroll-lock");
-      document.documentElement.classList.remove("vc-user-leader-pending");
       document.documentElement.classList.remove("vc-user-profile-pending");
+      // Se loader classifica morto, togli anche pending (altrimenti CSS body:fixed resta forever).
+      try {
+        var ulStuck = document.getElementById("vc-ul-loading");
+        if (loaderLooksDead(ulStuck)) {
+          document.documentElement.classList.remove("vc-user-leader-pending");
+        }
+      } catch (eLead) {}
       document.documentElement.classList.add("vc-page-cine-ready");
       document.documentElement.classList.remove("vc-page-cine-boot");
     } catch (eCls) {}
+    try {
+      var rootBoot = document.documentElement;
+      if (
+        rootBoot.classList.contains("vc-page-cine-boot") &&
+        !rootBoot.classList.contains("vc-page-cine-ready") &&
+        Date.now() - (window.__vcPhoneUnfreezeArmedAt || 0) > 8000
+      ) {
+        rootBoot.classList.add("vc-page-cine-ready");
+        rootBoot.classList.remove("vc-page-cine-boot");
+      }
+    } catch (eBootReady) {}
     try {
       if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
     } catch (eU) {}
@@ -8217,7 +8865,11 @@ function vcPageAssetVer() {
       var root = document.documentElement;
       if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) return false;
       if (root.classList.contains("vc-loading-scroll-lock")) return false;
-      if (document.querySelector(".vc-ul-loading:not([hidden])")) return false;
+      try {
+        if (typeof window.__vcIsBlockingLoaderVisible === "function" && window.__vcIsBlockingLoaderVisible()) return false;
+      } catch (eBlkH) {
+        if (document.querySelector('.vc-ul-loading[data-vc-loader-blocking="1"]')) return false;
+      }
       if (document.querySelector(".vc-home-rise:not(.is-in)")) return false;
       return root.classList.contains("vc-page-cine-ready") || root.classList.contains("vc-home-motion-ready");
     } catch (eH) {
@@ -8228,7 +8880,7 @@ function vcPageAssetVer() {
   function recover(force) {
     if (recovering) return;
     var now = Date.now();
-    if (!force && now - lastRecoverAt < 4000) return;
+    if (!force && now - lastRecoverAt < 1200) return;
     if (!force && pageLooksHealthy()) {
       lastRecoverAt = now;
       return;
@@ -8240,6 +8892,16 @@ function vcPageAssetVer() {
       root.classList.add("vc-page-cine-ready");
       root.classList.add("vc-home-motion-ready");
       root.classList.remove("vc-page-cine-boot");
+      root.classList.remove("vc-loading-scroll-lock");
+      root.classList.remove("vc-session-verify-pending");
+      // legacyPhoneX1: pending stuck = freeze nero; togli se loader assente/morto.
+      try {
+        var ul = document.getElementById("vc-ul-loading");
+        if (!ul || ul.hidden || ul.hasAttribute("hidden") || loaderLooksDead(ul)) {
+          root.classList.remove("vc-user-leader-pending");
+          if (ul) stampHiddenLoader(ul);
+        }
+      } catch (eLead) {}
     } catch (e1) {}
     forceReveal();
     clearPhoneHasFreezeGhosts();
@@ -8248,30 +8910,67 @@ function vcPageAssetVer() {
     } catch (e2) {}
     try {
       var body = document.body;
-      if (body && body.style && body.style.position === "fixed") {
-        var loading = document.querySelector(".vc-ul-loading:not([hidden])");
-        if (!loading) {
-          body.style.removeProperty("position");
-          body.style.removeProperty("top");
-          body.style.removeProperty("left");
-          body.style.removeProperty("right");
-          body.style.removeProperty("width");
-          body.style.removeProperty("overflow");
-          body.style.removeProperty("inset");
-        }
+      if (body) {
+        body.style.removeProperty("position");
+        body.style.removeProperty("top");
+        body.style.removeProperty("left");
+        body.style.removeProperty("right");
+        body.style.removeProperty("width");
+        body.style.removeProperty("overflow");
+        body.style.removeProperty("inset");
+        body.style.removeProperty("touch-action");
+        document.documentElement.style.removeProperty("overflow");
+        document.documentElement.style.removeProperty("overflow-x");
+        document.documentElement.style.removeProperty("overflow-y");
+        document.documentElement.style.removeProperty("height");
+        document.documentElement.style.removeProperty("max-height");
+        document.documentElement.style.removeProperty("touch-action");
       }
     } catch (e3) {}
+    try {
+      if (document.body && document.body.classList.contains("vc-users-page") && !document.body.classList.contains("vc-user-profile-route")) {
+        if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
+          window.__vcEnsureCommunityPageCineLayout();
+        } else if (typeof window.__vcPageHeroLayout === "function") {
+          window.__vcPageHeroLayout({ force: true });
+        }
+      }
+    } catch (eCommRec) {}
     recovering = false;
   }
 
   function arm() {
+    try {
+      window.__vcPhoneUnfreezeArmedAt = Date.now();
+    } catch (eArmAt) {}
     recover(true);
     window.setTimeout(function () {
-      recover(false);
+      recover(true);
+    }, 400);
+    window.setTimeout(function () {
+      recover(true);
     }, 1200);
-    window.setTimeout(clearPhoneHasFreezeGhosts, 400);
-    window.setTimeout(clearPhoneHasFreezeGhosts, 1800);
-    window.setTimeout(forceHideStuckLoaders, 8000);
+    window.setTimeout(clearPhoneHasFreezeGhosts, 100);
+    window.setTimeout(clearPhoneHasFreezeGhosts, 500);
+    window.setTimeout(clearPhoneHasFreezeGhosts, 1200);
+    window.setTimeout(forceHideStuckLoaders, 900);
+    window.setTimeout(forceHideStuckLoaders, 2200);
+    window.setTimeout(forceHideStuckLoaders, 5000);
+    // legacyPhoneX1 / legacyPhoneX1: watchdog continuo aggressivo.
+    try {
+      if (!window.__vcPhoneScrollWatch) {
+        window.__vcPhoneScrollWatch = window.setInterval(function () {
+          try {
+            if (typeof window.__vcPhoneRootUnlockInject === "function") {
+              window.__vcPhoneRootUnlockInject();
+            }
+            clearPhoneHasFreezeGhosts();
+            recover(false);
+          } catch (eW) {}
+        }, 600);
+        if (window.__vcPhoneScrollWatch.unref) window.__vcPhoneScrollWatch.unref();
+      }
+    } catch (eArmW) {}
   }
 
   if (document.readyState === "loading") {
@@ -8298,7 +8997,157 @@ function vcPageAssetVer() {
         recover(true);
         clearPhoneHasFreezeGhosts();
       }
-    } catch (eFocusRec) {}
+    } catch (eFocus) {}
   });
+  // phoneNoFixed1 + phoneLoaderUnlock1: heartbeat — body fixed O scroll-lock fantasma senza overlay.
+  try {
+    var phoneHb =
+      (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+      Boolean(navigator.standalone) ||
+      Number(navigator.maxTouchPoints || 0) > 0;
+    if (phoneHb) {
+      window.setInterval(function () {
+        try {
+          var body = document.body;
+          var root = document.documentElement;
+          if (!body || !root) return;
+          var blocking = false;
+          try {
+            if (typeof window.__vcIsBlockingLoaderVisible === "function") {
+              blocking = window.__vcIsBlockingLoaderVisible();
+            }
+          } catch (eBlk) {}
+          var lockCls = root.classList.contains("vc-loading-scroll-lock");
+          var fixed = getComputedStyle(body).position === "fixed" || body.style.position === "fixed";
+          var must =
+            root.classList.contains("vc-mobile-nav-open") ||
+            root.classList.contains("vc-dialog-open") ||
+            root.classList.contains("vc-staff-manage-sheet-open") ||
+            root.classList.contains("vc-staff-reso-sheet-open") ||
+            root.classList.contains("vc-staff-stat-sheet-open");
+          // pending solo se overlay ancora reale — altrimenti sticky freeze.
+          if (root.classList.contains("vc-user-leader-pending")) {
+            var ulHb = document.getElementById("vc-ul-loading");
+            if (ulHb && !loaderLooksDead(ulHb)) must = true;
+            else root.classList.remove("vc-user-leader-pending");
+          }
+          if (root.classList.contains("vc-user-profile-pending")) {
+            var prHb = document.getElementById("vc-user-profile-loading");
+            var bpHb = document.querySelector("body > .vc-user-profile-loader");
+            if ((prHb && !loaderLooksDead(prHb)) || (bpHb && !loaderLooksDead(bpHb))) must = true;
+            else root.classList.remove("vc-user-profile-pending");
+          }
+          var dd = document.getElementById("vc-notif-dropdown");
+          if (dd && (dd.open || dd.hasAttribute("open"))) must = true;
+          if (must || blocking) {
+            if (lockCls || fixed) {
+              try {
+                if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+              } catch (eSyncHb) {}
+            }
+            return;
+          }
+          if (!lockCls && !fixed) {
+            // Anche senza fixed: strip ghost :has matching.
+            clearPhoneHasFreezeGhosts();
+            return;
+          }
+          // Loader sparito ma lock/class/CSS fixed ancora attivi → sblocca.
+          try {
+            root.classList.remove("vc-loading-scroll-lock");
+            root.classList.remove("vc-user-leader-pending");
+            root.classList.remove("vc-user-profile-pending");
+          } catch (eRm) {}
+          if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+          body.style.removeProperty("position");
+          body.style.removeProperty("top");
+          body.style.removeProperty("left");
+          body.style.removeProperty("right");
+          body.style.removeProperty("width");
+          body.style.removeProperty("overflow");
+          body.style.removeProperty("touch-action");
+          root.style.removeProperty("overflow");
+          root.style.removeProperty("touch-action");
+          clearPhoneHasFreezeGhosts();
+          try {
+            if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+          } catch (eSync2) {}
+        } catch (eHb) {}
+      }, 900);
+    }
+  } catch (eHbBoot) {}
+})();
+
+(function () {
+  function warmPublicApis() {
+    if (!window.VcApiCache || typeof window.VcApiCache.prefetchIdle !== "function") return;
+    window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles" }), "/webhooks/site-roles", {
+      ttlMs: 90000,
+      staleMs: 600000,
+      persistMs: 20 * 60 * 1000,
+      timeoutMs: 15000,
+    });
+    window.VcApiCache.prefetchIdle("vote:anon", "/webhooks/site-vote", {
+      ttlMs: 45000,
+      staleMs: 300000,
+      timeoutMs: 12000,
+    });
+    try {
+      var path = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
+      if (path !== "/recensioni" && path !== "/reviews") {
+        window.VcApiCache.prefetchIdle("reviews:server", "/webhooks/site-reviews?kind=server", {
+          ttlMs: 60000,
+          staleMs: 600000,
+          timeoutMs: 15000,
+        });
+      }
+      if (path !== "/user" && path.indexOf("/user/") !== 0) {
+        window.VcApiCache.prefetchIdle(
+          window.VcApiCache.keyFor("/webhooks/site-users?board=level&page=1&perPage=24", { scope: "users" }),
+          "/webhooks/site-users?board=level&page=1&perPage=24",
+          {
+            ttlMs: 60000,
+            staleMs: 600000,
+            persistMs: 15 * 60 * 1000,
+            timeoutMs: 20000,
+          },
+        );
+      }
+      var regoleCfg = window.__VC_REGOLE || {};
+      var regoleUrl = String(regoleCfg.apiUrl || regoleCfg.api || "").trim();
+      if (regoleUrl && regoleUrl.indexOf("{{") < 0 && path !== "/regole") {
+        window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor(regoleUrl, { scope: "regole" }), regoleUrl, {
+          ttlMs: 10 * 60 * 1000,
+          staleMs: 60 * 60 * 1000,
+          persistMs: 24 * 60 * 60 * 1000,
+          timeoutMs: 15000,
+        });
+      }
+      var liveCfg = window.__VC_LIVE || {};
+      var liveExtra = String(liveCfg.extraStatsPath || liveCfg.extraStatsUrl || "").trim();
+      if (liveExtra && liveExtra.indexOf("{{") < 0) {
+        window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor(liveExtra, { scope: "live" }), liveExtra, {
+          ttlMs: 45000,
+          staleMs: 300000,
+          timeoutMs: 12000,
+        });
+      }
+    } catch (eP) {}
+  }
+
+  function scheduleWarm() {
+    if (window.VcApiCache) {
+      warmPublicApis();
+      return;
+    }
+    window.setTimeout(scheduleWarm, 120);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleWarm, { once: true });
+  } else {
+    scheduleWarm();
+  }
 })();
 

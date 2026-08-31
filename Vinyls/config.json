@@ -669,13 +669,13 @@
         "id": "r2",
         "label": "Round 2",
         "start": "2026-06-20T17:00:00",
-        "bookIds": ["candidature", "evento_shop", "evento_smistamento", "recensioni", "suggerimenti", "user", "perks", "notifications"]
+        "bookIds": ["candidature", "evento_shop", "evento_smistamento", "evento_pozioni", "recensioni", "suggerimenti", "appelli", "sponsor"]
       },
       {
         "id": "r3",
         "label": "Round 3",
         "start": "2026-06-20T21:00:00",
-        "bookIds": ["donazioni", "evento_coppa", "privacy", "terms", "cookie", "unban", "faq", "wiki"]
+        "bookIds": ["donazioni", "evento_coppa", "privacy", "terms", "cookie", "appelli", "faq", "wiki"]
       }
     ]
   },
@@ -737,8 +737,8 @@
     "rewardGaleoni": 1000,
     "rewardHousePoints": 500,
     "firstSlotBoostDurationMs": 3600000,
-    "forbiddenBookCount": 5,
-    "games": ["reactPress", "forbiddenSection", "findScroll"],
+    "forbiddenBookCount": 8,
+    "games": ["reactPress", "forbiddenSection", "spellListHunt"],
     "pingRoleId": "1507000390493798511"
   },
   "hogwartsPotions": {
@@ -934,6 +934,11 @@
       "sortingReward": 250
     },
     "completionRoleId": "1507000390493798511",
+    "finaleWinnerHouseBonusRoleId": "1543350496792682517",
+    "finaleAnnounceChannelId": "1481660281032675510",
+    "finaleLotteryChannelId": "1442569101225496819",
+    "finaleLotteryAt": "2026-09-02T15:00:00",
+    "finaleCommemorativoRoleId": "1507000390493798511",
     "calendar": {
       "timezone": "Europe/Rome"
     },

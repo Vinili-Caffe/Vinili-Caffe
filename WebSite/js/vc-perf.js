@@ -7,6 +7,8 @@
   if (global.VcPerf && global.VcPerf.__ready) return;
 
   /* v3: telefono non viene più spinto a mid (look “migliora” / full). */
+  /* sitePerfFlash1 */
+  /* phonePwaLoadFix1 */
   var STORAGE_KEY = "vc_perf_tier_pref_v3";
   var lastTier = "";
 
@@ -68,15 +70,37 @@
     return "auto";
   }
 
+  function isPhoneOrPwa() {
+    try {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+      if (
+        window.matchMedia &&
+        window.matchMedia("(hover: none)").matches &&
+        Number(navigator.maxTouchPoints || 0) > 0
+      ) {
+        return true;
+      }
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+      if (navigator.standalone) return true;
+    } catch (e) {}
+    return false;
+  }
+
   function detectAutoTier() {
-    // phoneUltra1: default FULL ovunque (PC + telefono). Lite solo casi estremi.
+    /* phonePwaLoadFix1: telefono/PWA resta full; mid solo desktop. */
+    if (isPhoneOrPwa()) return "full";
     if (saveDataOn()) return "lite";
     var et = effectiveType();
     if (et === "slow-2g" || et === "2g") return "lite";
+    if (et === "3g") return "mid";
     var mem = deviceMemoryGb();
     if (mem > 0 && mem <= 2) return "lite";
+    if (mem > 0 && mem <= 4) return "mid";
+    var cores = cpuCores();
+    if (cores > 0 && cores <= 4) return "mid";
     var dl = downlinkMbps();
     if (dl >= 0 && dl > 0 && dl < 0.7) return "lite";
+    if (dl >= 0 && dl > 0 && dl < 2.5) return "mid";
     return "full";
   }
 
