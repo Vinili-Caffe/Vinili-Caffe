@@ -77,10 +77,6 @@ async function probeCoffeeHealth(timeoutMs = 1500) {
   }
 }
 
-/**
- * Snapshot stato servizi per Uptime Kuma / pagina pubblica /status.
- * @param {import("discord.js").Client} client
- */
 async function buildStackHealthPayload(client, opts = {}) {
   const includeLavalink = opts.includeLavalink !== false;
   const includeCoffee = opts.includeCoffee !== false;

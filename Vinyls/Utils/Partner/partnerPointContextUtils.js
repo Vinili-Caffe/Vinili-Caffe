@@ -150,8 +150,7 @@ function shouldDeleteHumanPartnershipsChannelMessage(message) {
     const cfg = resolvePartnershipConfigSync(String(message?.guild?.id || message?.guildId || "").trim());
     if (cfg && !cfg.legacy && cfg.manualPartnershipEnabled) return false;
   } catch {
-    // ignore config lookup errors
-  }
+      }
   return true;
 }
 

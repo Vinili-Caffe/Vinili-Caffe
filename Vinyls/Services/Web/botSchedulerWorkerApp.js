@@ -1,8 +1,3 @@
-/*!
- * Scheduler bot: giveaway ends, mod-case lifecycle, one-time reminders, custom role expiry,
- * tenant offline recovery (kick bot / depex PM persi mentre gateway offline).
- * Discord REST only (niente gateway). Sopravvive ai reload di `bots`.
- */
 const mongoose = require("mongoose");
 const {
   loadDotEnv,

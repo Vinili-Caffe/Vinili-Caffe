@@ -58,9 +58,7 @@ module.exports = {
     );
     client._multiGuildReadyAt = Date.now();
 
-    // Kick/depex persi mentre offline: recovery immediato al reconnect gateway.
-    // Il loop periodico vive su bot-scheduler (REST); qui solo un tick throttled.
-    setTimeout(() => {
+            setTimeout(() => {
       try {
         const { runTenantOfflineRecoveryTick } = require("../../Services/Partner/tenantOfflineRecoveryService");
         void runTenantOfflineRecoveryTick(client, {

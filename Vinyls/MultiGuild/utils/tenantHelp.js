@@ -197,8 +197,7 @@ function formatStatsBlock(stats, lang) {
   const users = String(stats.users || 0);
   const serversLabel = t(lang, "help_stats_servers");
   const usersLabel = t(lang, "help_stats_users");
-  // Stacked lines: Discord mobile wraps side-by-side padEnd columns and breaks the pairing.
-  return `\`\`\`\n${serversLabel}: ${servers}\n${usersLabel}: ${users}\n\`\`\``;
+    return `\`\`\`\n${serversLabel}: ${servers}\n${usersLabel}: ${users}\n\`\`\``;
 }
 
 function formatPageNumber(index) {

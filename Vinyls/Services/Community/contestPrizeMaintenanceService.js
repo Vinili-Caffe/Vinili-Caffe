@@ -7,7 +7,6 @@ const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEnt
 
 const MAIN_GUILD_ID = String(process.env.ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
 const TIME_ZONE = "Europe/Rome";
-/** Prima `weeklycontestmetas`; ora unificato in `weeklycontests`. */
 const LEGACY_WEEKLY_CONTEST_META_COLL = "weeklycontests";
 
 function contestGuildId() {

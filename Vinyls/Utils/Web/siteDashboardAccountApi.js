@@ -18,14 +18,10 @@ function guildDisplayIcon(guild) {
       return guild.iconURL({ size: 64, extension: "png" }) || null;
     }
   } catch {
-    /* ignore */
-  }
+      }
   return null;
 }
 
-/**
- * Riepilogo account: abbonamenti Vinili Premium (crediti) per i server gestiti dall'utente.
- */
 async function getDashboardAccountSummary(client, accessToken) {
   const gate = await assertDashboardHighStaffAccess(client, accessToken);
   if (!gate.ok) return gate;

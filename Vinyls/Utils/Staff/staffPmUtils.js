@@ -22,7 +22,6 @@ function memberHasAnyStaffPresenceForDepexSync(member) {
   return Boolean(ROLE_STAFF_GENERIC && member.roles.cache.has(ROLE_STAFF_GENERIC));
 }
 
-/** Inizializza i campi DB legati al ruolo Partner Manager (solo quando l'utente ha il PM). */
 function initPartnerManagerFieldsIfMissing(staffObj) {
   if (!staffObj) return;
   if (staffObj.partnerCount === undefined) staffObj.partnerCount = 0;
@@ -32,12 +31,9 @@ function initPartnerManagerFieldsIfMissing(staffObj) {
 }
 
 function buildStaffPartnerFieldsUnsetUpdate() {
-  // Non usare in depex: la cronologia partnership deve restare.
-  // Tenuto solo per compatibilità export; azzera solo l'assegnazione manager corrente.
-  return buildStaffPartnerManagerIdUnsetUpdate();
+      return buildStaffPartnerManagerIdUnsetUpdate();
 }
 
-/** Solo assegnazione PM corrente: non tocca conteggio né storico (serve per classifica e audit). */
 function buildStaffPartnerManagerIdUnsetUpdate() {
   return { $unset: { "staff.managerId": "" } };
 }
@@ -46,19 +42,12 @@ function memberHasStaffLadderRole(member) {
   return Boolean(getHighestStaffLadderRoleId(member));
 }
 
-/**
- * Dopo un depex (o equivalente): se non resta nessun ruolo staff list → archivia rolesHistory,
- * rimuove valutazioni/warn/pause ma **conserva** cronologia partnership (`partnerActions`).
- * Se resta solo PM (senza scala staff) → azzera tracciamento staff (valutazioni/warn/pause) ma tiene punti partner.
- * Se resta staff ma non più PM → rimuove solo `managerId` (storico partner e punti restano nel DB).
- */
 async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) return;
   if (!member) {
-    // Evita wipe distruttivi in caso di fetch membro fallita temporaneamente.
-    return;
+        return;
   }
   if (memberHasAnyStaffPresenceForDepexSync(member)) {
     if (!memberHasPartnerManagerRole(member)) {
@@ -74,16 +63,12 @@ async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
   }
 }
 
-/**
- * Dopo un depex: se l'utente non ha più ruoli staff list, cancella messaggi/thread pausa nel canale e poi allinea il DB (`applyStaffDatabaseAfterDepex`).
- */
 async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
   const gid = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) return;
   if (!member) return;
-  // Mai depexare su cache incompleta: rifetch obbligatorio.
-  const verified =
+    const verified =
     (await guild.members.fetch({ user: uid, force: true }).catch(() => null)) || member;
   if (memberHasAnyStaffPresenceForDepexSync(verified)) {
     await applyStaffDatabaseAfterDepex(gid, uid, verified);

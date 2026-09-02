@@ -119,7 +119,6 @@ function isConfigDeveloper(userId) {
   }
 }
 
-/** Stesse eccezioni dell'anti-nuke: owner, Founder, High Staff (fullImmunity), whitelist, extra owners, ecc. */
 function isAllowedManualStaffRoleAssigner(guild, executorMember, actorId) {
   const uid = String(actorId || "").trim();
   if (!uid) return false;
@@ -268,8 +267,7 @@ async function handleStaffRoleAssignmentGuard({
     guild.members.cache.get(actorId) ||
     (await getGuildMemberCached(guild, actorId, { ttlMs: 5_000 }).catch(() => null));
 
-  // Allineato all'anti-nuke: owner / Founder / High Staff (fullImmunity) / whitelist / extra owners / developers.
-  if (isAllowedManualStaffRoleAssigner(guild, executorMember, actorId)) {
+    if (isAllowedManualStaffRoleAssigner(guild, executorMember, actorId)) {
     return { handled: false, allowed: true };
   }
 

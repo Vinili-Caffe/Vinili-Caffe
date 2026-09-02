@@ -310,7 +310,6 @@ async function submitSiteRoleRequest(client, payload) {
   };
 }
 
-/** L’utente loggato si toglie da solo un ruolo custom (non se ne è il creatore). */
 async function leaveSiteRole(client, payload) {
   const accessToken = String(payload?.accessToken || "").trim();
   const roleId = String(payload?.roleId || "").trim();
@@ -387,8 +386,7 @@ async function leaveSiteRole(client, payload) {
     const { invalidateSiteRolesCache } = require("./siteRolesApi");
     if (typeof invalidateSiteRolesCache === "function") invalidateSiteRolesCache();
   } catch {
-    /* ignore */
-  }
+      }
 
   return {
     ok: true,

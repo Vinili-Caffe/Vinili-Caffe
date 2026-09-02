@@ -65,8 +65,7 @@ function memberBypassesCountingChannelBan(member, channel) {
     if (perms?.has?.(PermissionFlagsBits.Administrator)) return true;
     if (perms?.has?.(PermissionFlagsBits.ManageMessages)) return true;
   } catch {
-    /* ignore */
-  }
+      }
   return false;
 }
 

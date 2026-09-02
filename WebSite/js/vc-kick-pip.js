@@ -19,8 +19,7 @@
       (window.matchMedia && window.matchMedia("(hover: none)").matches) ||
       Number(navigator.maxTouchPoints || 0) > 0 ||
       Boolean(navigator.standalone);
-    // phoneKickPipOff1: PiP Kick disabilitato su telefono/PWA (touch-action:none + pointer capture → freeze).
-    if (coarseKick) return;
+        if (coarseKick) return;
   } catch (eKickPhone) {
     return;
   }
@@ -29,8 +28,7 @@
 
   var DISMISS_KEY = "vc_kick_pip_dismiss_v2";
   var USER_CLOSED_KEY = "vc_kick_pip_user_closed_v1";
-  // kickPipUserClosed1: resta chiuso finché l'utente non preme reopen
-  var DISMISS_TTL_MS = 18 * 60 * 60 * 1000;
+    var DISMISS_TTL_MS = 18 * 60 * 60 * 1000;
   var POS_KEY = "vc_kick_pip_pos_v2";
   var WATCH_KEY = "vc_kick_pip_watch_v2";
   var pollMs = Math.max(30000, Math.min(180000, Number(cfg.pollIntervalMs) || 90000));
@@ -214,8 +212,7 @@
     try {
       var raw = localStorage.getItem(DISMISS_KEY);
       if (!raw) {
-        // Migrazione chiave v1 (solo stream id).
-        var legacy = String(localStorage.getItem("vc_kick_pip_dismiss_v1") || "").trim();
+                var legacy = String(localStorage.getItem("vc_kick_pip_dismiss_v1") || "").trim();
         if (!legacy) return null;
         return { ids: [legacy], slug: "", at: Date.now() };
       }
@@ -283,8 +280,7 @@
       .trim()
       .toLowerCase();
     if (sid && st.ids && st.ids.indexOf(sid) >= 0) return true;
-    // Stesso canale: se chiudi la live e l'API passa a VOD (id diverso), non riaprire al cambio pagina.
-    if (slug && st.slug && slug === st.slug) return true;
+        if (slug && st.slug && slug === st.slug) return true;
     return false;
   }
 
@@ -349,8 +345,7 @@
     return 12 + Math.max(safeInset("left"), safeInset("right"), safeInset("bottom"), safeInset("top")) * 0.15;
   }
 
-  /** Altezza sotto header: l'anteprima non deve coprire notif/profilo. */
-  function headerClearTop() {
+    function headerClearTop() {
     var m = margin();
     try {
       var hdr = document.querySelector("body.vc-body > header, body.vc-body header.fixed, header.fixed");
@@ -406,8 +401,7 @@
   function ensureRoot() {
     var n = document.getElementById("vc-kick-pip");
     if (n) {
-      // Migra DOM vecchio (SUB sopra il video / senza footer).
-      if (
+            if (
         !n.querySelector(".vc-kick-pip__footer") ||
         n.querySelector(".vc-kick-pip__media [data-vc-kick-pip-sub]") ||
         !n.querySelector("[data-vc-kick-pip-play]")
@@ -578,8 +572,7 @@
     }
     if (labelEl) labelEl.textContent = label;
     else subBtn.textContent = label;
-    // Accessible name must match visible label; longer hint stays in title/tooltip.
-    subBtn.setAttribute("aria-label", label);
+        subBtn.setAttribute("aria-label", label);
     subBtn.title = title;
     subBtn.disabled = subBusy;
   }
@@ -649,8 +642,7 @@
       return;
     }
 
-    // Già sub attivo → apri canale Kick
-    if (subStatus && subStatus.linked && subStatus.subActive) {
+        if (subStatus && subStatus.linked && subStatus.subActive) {
       var openUrl =
         String((subStatus && subStatus.subscribeUrl) || "").trim() ||
         String((lastPayload && lastPayload.url) || "").trim() ||
@@ -661,8 +653,7 @@
       return;
     }
 
-    // Collegato ma non sub → spiega chat obbligatoria + apri Kick
-    if (subStatus && subStatus.linked && !subStatus.subActive) {
+        if (subStatus && subStatus.linked && !subStatus.subActive) {
       var subUrl = String(subStatus.subscribeUrl || "").trim() || "https://kick.com/d1uk";
       void showPipAlert({
         title: t("kickPip.subLinkedTitle", "Quasi fatto"),
@@ -680,8 +671,7 @@
       return;
     }
 
-    // Non collegato → OAuth Kick
-    subBusy = true;
+        subBusy = true;
     syncSubButton();
     fetch(kickSubApiBase() + "/oauth-start", {
       method: "GET",
@@ -763,8 +753,7 @@
     return cur;
   }
 
-  /** Accumula solo il tempo in cui il PiP è aperto (non a chiuso / tab nascosta). */
-  function flushWatchSession() {
+    function flushWatchSession() {
     var cur = loadWatchState();
     if (!cur || !cur.sessionStart) return cur;
     cur.watchedMs = Math.max(0, Number(cur.watchedMs) || 0) + Math.max(0, Date.now() - cur.sessionStart);
@@ -840,8 +829,7 @@
     if (previewLocked) {
       stopPreviewMedia();
       root.classList.remove("vc-kick-pip--playing", "vc-kick-pip--ready", "vc-kick-pip--sound-on", "vc-kick-pip--iframe", "vc-kick-pip--awaiting-play");
-      // resta la thumb (offuscata via CSS)
-      if (lastPayload && lastPayload.thumbnailUrl) setThumbUrl(String(lastPayload.thumbnailUrl));
+            if (lastPayload && lastPayload.thumbnailUrl) setThumbUrl(String(lastPayload.thumbnailUrl));
       thumbEl.hidden = false;
     }
     syncSoundButton();
@@ -977,17 +965,34 @@
   }
 
   function setThumbUrl(url) {
-    var base = String(url || "").trim();
-    if (!base) {
+    var raw = String(url || "").trim();
+    if (!raw) {
       thumbEl.removeAttribute("src");
+      thumbEl.onerror = null;
       thumbEl.hidden = true;
       return;
     }
-    // Prefer a smaller Kick thumbnail when the CDN path allows it.
-    base = base.replace(/\/(\d{3,4})\.webp(\?|$)/i, "/160.webp$2");
+    var base = raw;
+        if (!/\/video_thumbnails\//i.test(base) && base.indexOf("/webhooks/site-kick-live/thumb") < 0) {
+      base = base.replace(/\/(\d{3,4})\.webp(\?|$)/i, "/160.webp$2");
+    }
     var sep = base.indexOf("?") >= 0 ? "&" : "?";
-    thumbEl.src = base + sep + "vc_t=" + encodeURIComponent(String(Date.now()));
+    var finalUrl = base + sep + "vc_t=" + encodeURIComponent(String(Date.now()));
+    thumbEl.onerror = function onThumbErr() {
+      thumbEl.onerror = null;
+      if (raw && finalUrl !== raw) {
+        var sep2 = raw.indexOf("?") >= 0 ? "&" : "?";
+        thumbEl.src = raw + sep2 + "vc_t=" + encodeURIComponent(String(Date.now()));
+        thumbEl.hidden = false;
+      }
+    };
+    thumbEl.src = finalUrl;
     thumbEl.hidden = false;
+  }
+
+  function isVodPayload(payload) {
+    payload = payload || lastPayload;
+    return payload && String(payload.kind || "").toLowerCase() === "vod";
   }
 
   function startThumbRefresh(baseUrl) {
@@ -1166,8 +1171,7 @@
 
   function kickstartVideoDecode() {
     try {
-      // Non riportare a 0 se stiamo riprendendo da un punto già visto.
-      if ((Number(playbackResumeAt) || 0) > 0.2 || (Number(videoEl.currentTime) || 0) > 0.2) {
+            if ((Number(playbackResumeAt) || 0) > 0.2 || (Number(videoEl.currentTime) || 0) > 0.2) {
         applyResumeTime();
         return;
       }
@@ -1205,8 +1209,7 @@
       }
       return lit >= 3;
     } catch (eSample) {
-      // canvas tainted / blocked → fidati di dimensions + currentTime
-      return (Number(videoEl.videoWidth) || 0) >= 2 && (Number(videoEl.currentTime) || 0) > 0.02;
+            return (Number(videoEl.videoWidth) || 0) >= 2 && (Number(videoEl.currentTime) || 0) > 0.02;
     }
   }
 
@@ -1489,8 +1492,7 @@
       tryPlay();
       return;
     }
-    // Se stavi già guardando, non buttare via il punto (salvo forceReload esplicito).
-    if (!forceReload && root.classList.contains("vc-kick-pip--playing") && lastPlaybackUrl) {
+        if (!forceReload && root.classList.contains("vc-kick-pip--playing") && lastPlaybackUrl) {
       rememberPlaybackTime();
       syncPlayButton(!root.classList.contains("vc-kick-pip--ready"));
       return;
@@ -1509,8 +1511,17 @@
     syncSoundButton();
     if (lastPayload && lastPayload.thumbnailUrl) setThumbUrl(String(lastPayload.thumbnailUrl));
     thumbEl.hidden = false;
-    syncPlayButton(true);
-    if (mp4Url) prefetchMp4Blob(mp4Url).catch(function () {});
+    root.classList.add("vc-kick-pip--playing");
+    syncPlayButton(!isVodPayload());
+    if (isVodPayload()) {
+      var startVod = function () {
+        startPreviewFromGesture();
+      };
+      if (mp4Url) prefetchMp4Blob(mp4Url).then(startVod).catch(startVod);
+      else playerLoadTimer = window.setTimeout(startVod, 80);
+    } else if (mp4Url) {
+      prefetchMp4Blob(mp4Url).catch(function () {});
+    }
   }
 
   function hideAll() {
@@ -1520,8 +1531,7 @@
     previewLocked = false;
     root.classList.remove("vc-kick-pip--locked");
     if (gateEl) gateEl.hidden = true;
-    // Nuova live = nuovo streamId; qui la live è finita: reset timer.
-    try {
+        try {
       localStorage.removeItem(WATCH_KEY);
     } catch (eW) {}
     root.hidden = true;
@@ -1555,8 +1565,7 @@
     var previewMp4 = String(stream.previewMp4Url || "").trim();
 
     linkEl.setAttribute("href", url);
-    // Visible meta (name/title/viewers) is the accessible name; avoid aria mismatch.
-    linkEl.removeAttribute("aria-label");
+        linkEl.removeAttribute("aria-label");
     if (openKickEl) {
       openKickEl.setAttribute("href", url);
       openKickEl.setAttribute("aria-label", kindUi.openLabel + ": " + name);
@@ -1802,8 +1811,7 @@
     pipWin.addEventListener("pagehide", function () {
       returnFromDocPip();
     });
-    // Non rimontare il media: riprendi dal punto salvato (evita 00:00).
-    scheduleResumeRestore();
+        scheduleResumeRestore();
     if (wasPlaying) {
       tryPlay().then(function () {
         scheduleResumeRestore();
@@ -1911,16 +1919,14 @@
       })
       .then(function (j) {
         if (!j || j.ok !== true) {
-          // Errore rete/API: non nascondere il PiP già aperto.
-          return;
+                    return;
         }
         if (j.active && j.primary && j.primary.id) {
           pollMisses = 0;
           showStream(j.primary);
           return;
         }
-        // Kick/VOD a volte risponde vuoto per un tick → non sparire subito.
-        pollMisses += 1;
+                pollMisses += 1;
         var sticky =
           lastPayload &&
           lastPayload.id &&
@@ -1932,15 +1938,13 @@
         if (sticky && pollMisses < POLL_HIDE_AFTER_MISSES) {
           return;
         }
-        // Non azzerare il dismiss: altrimenti al cambio pagina / glitch API il PiP riparte da solo.
-        lastPayload = null;
+                lastPayload = null;
         lastStreamId = "";
         pollMisses = 0;
         hideAll();
       })
       .catch(function () {
-        // Network blip: lascia tutto com’è.
-      });
+              });
   }
 
   ensureKickPreconnect();

@@ -1,4 +1,3 @@
-/** Compat + reveal Serata Film: usa vc-access-gate (highStaff) e assicura hide overlay. */
 (function () {
   if (!window.__VC_ACCESS_PENDING_BOOT) {
     var boot = document.createElement("script");

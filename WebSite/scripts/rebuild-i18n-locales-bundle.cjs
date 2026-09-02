@@ -1,7 +1,3 @@
-/**
- * Rebuild vc-i18n-locales.js — solo EN come gap-fill.
- * Picker pubblico: IT + EN (vedi vc-i18n.js). Altre lingue auto non caricate.
- */
 const fs = require("fs");
 const path = require("path");
 const ROOT = path.join(__dirname, "..");

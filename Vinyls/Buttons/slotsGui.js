@@ -35,8 +35,7 @@ async function execute(interaction, client) {
   let session = await getSession(interaction.message?.id, guildId, parsed.ownerId);
 
   if (!session) {
-    // Fallback: pannello ancora valido ma memoria persa (restart) — solo se messageId combacia.
-    session = await getSession("", guildId, parsed.ownerId);
+        session = await getSession("", guildId, parsed.ownerId);
     if (session) {
       const mid = String(interaction.message?.id || "");
       if (mid && String(session.messageId || "") !== mid) session = null;
@@ -126,8 +125,7 @@ async function execute(interaction, client) {
   }
 
   if (parsed.action === "cashout") {
-    // Compat pannelli vecchi: paga subito eventuali vincite residue, senza più bottone.
-    if (!interaction.deferred && !interaction.replied) {
+        if (!interaction.deferred && !interaction.replied) {
       await interaction.deferUpdate().catch(() => {});
     }
     const out = await cashoutSession(client, interaction, session, interaction.message?.id);

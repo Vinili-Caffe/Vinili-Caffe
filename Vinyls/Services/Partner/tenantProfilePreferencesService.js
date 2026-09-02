@@ -116,11 +116,6 @@ async function userSuppressesManagerPing(guildId, userId) {
   return prefs.suppressManagerPing === true;
 }
 
-/**
- * Emoji dei badge selezionati sul profilo tenant (max 2), per mostrare
- * accanto al tag Manager in partnership / log / embed.
- * @returns {Promise<string[]>}
- */
 async function resolveManagerSelectedBadgeEmojis(guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();

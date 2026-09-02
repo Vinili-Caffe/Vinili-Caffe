@@ -1,8 +1,3 @@
-/**
- * Fallback globale per media embed Discord (author iconURL, thumbnail, image, footer icon).
- * - URL vuoti / malformati → rimossi o default avatar
- * - Avatar utente Discord → PNG statico CDN (gif/webp spezzati su client)
- */
 const { EmbedBuilder } = require("discord.js");
 const { discordDefaultAvatarUrl } = require("../Discord/guildDiscordIdentity");
 
@@ -48,10 +43,6 @@ function isDiscordCdnUrl(url) {
   return /(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(String(url || ""));
 }
 
-/**
- * Normalizza un URL media per embed. Per avatar/icona Discord forza PNG statico.
- * @returns {string|null} URL sicuro, o null se il campo va omesso
- */
 function sanitizeEmbedMediaUrl(url, { preferDefaultOnBad = true, size = 256 } = {}) {
   const raw = String(url == null ? "" : url).trim();
   if (!raw || raw === "null" || raw === "undefined") return null;
@@ -162,7 +153,6 @@ function sanitizeEmbedDataObject(data) {
   return next;
 }
 
-/** True se l'embed ha corpo visibile (non solo colore/footer brand). */
 function embedHasMeaningfulContent(embed) {
   if (!embed) return false;
   const data =

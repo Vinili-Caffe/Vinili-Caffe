@@ -1,10 +1,27 @@
 (function () {
   "use strict";
-  /* siteSnappyApi2 */
-
+  
   var PREFIX = "vc:apicache:";
   var LOCAL_PREFIX = "vc:apicache:local:";
   var memory = Object.create(null);
+  var inFlight = Object.create(null);
+  var webhookBlockedUntil = 0;
+  var DEFAULT_429_BLOCK_MS = 90000;
+  var DEFAULT_429_BLOCK_MS_TOUCH = 35000;
+
+  function isTouchDevice() {
+    try {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+      if (Number(navigator.maxTouchPoints || 0) > 0) return true;
+    } catch (eT) {}
+    return false;
+  }
+
+  function webhook429BlockMs(retryAfterSec) {
+    var sec = Number(retryAfterSec);
+    if (Number.isFinite(sec) && sec > 0) return sec * 1000;
+    return isTouchDevice() ? DEFAULT_429_BLOCK_MS_TOUCH : DEFAULT_429_BLOCK_MS;
+  }
 
   function now() {
     return Date.now();
@@ -20,6 +37,8 @@
     opts = opts || {};
     var scope = String(opts.scope || opts.cacheScope || "pub");
     var auth = opts.auth != null ? authSlice(opts.auth) : "anon";
+    var ver = opts.v != null ? String(opts.v) : opts.version != null ? String(opts.version) : "";
+    if (ver) return scope + ":" + auth + ":" + ver + ":" + String(url || "");
     return scope + ":" + auth + ":" + String(url || "");
   }
 
@@ -55,9 +74,68 @@
     } catch (e2) {}
   }
 
+  function isWebhookUrl(url) {
+    try {
+      var base =
+        typeof location !== "undefined" && location.origin ? location.origin : "https://localhost";
+      var u = new URL(String(url || ""), base);
+      return String(u.pathname || "").indexOf("/webhooks/") === 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function flightKey(url, init) {
+    var method = String((init && init.method) || "GET").toUpperCase();
+    var auth = "";
+    try {
+      var h = (init && init.headers) || {};
+      auth = authSlice(String(h.Authorization || h.authorization || ""));
+    } catch (eA) {}
+    return method + " " + auth + " " + String(url || "");
+  }
+
+  function noteWebhook429(retryAfterSec) {
+    var blockMs = webhook429BlockMs(retryAfterSec);
+    webhookBlockedUntil = Math.max(webhookBlockedUntil, now() + blockMs);
+    try {
+      window.dispatchEvent(
+        new CustomEvent("vc:webhook-rate-limited", { detail: { until: webhookBlockedUntil } }),
+      );
+    } catch (eEv) {}
+  }
+
+  function isWebhookBlocked() {
+    return now() < webhookBlockedUntil;
+  }
+
+  function stalePayloadFromCache(key, ttlMs, staleMs, persistMs) {
+    var hit = getFresh(key, ttlMs, staleMs, persistMs);
+    return hit && hit.value ? hit.value : null;
+  }
+
   function fetchJson(url, init, timeoutMs) {
     var ms = Number(timeoutMs);
-    if (!Number.isFinite(ms) || ms <= 0) ms = 12000;
+    if (!Number.isFinite(ms) || ms <= 0) {
+            var touch = false;
+      try {
+        touch =
+          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+          Number(navigator.maxTouchPoints || 0) > 0;
+      } catch (eT) {}
+      ms = touch ? 22000 : 15000;
+    }
+    var webhook = isWebhookUrl(url);
+    var fk = flightKey(url, init);
+    if (webhook && inFlight[fk]) return inFlight[fk];
+    if (webhook && isWebhookBlocked()) {
+      return Promise.resolve({
+        ok: false,
+        status: 429,
+        body: { ok: false, error: "rate_limited_client" },
+        blocked: true,
+      });
+    }
     var ctrl = new AbortController();
     var tid = window.setTimeout(function () {
       try {
@@ -67,18 +145,28 @@
     var headers = Object.assign({ Accept: "application/json" }, (init && init.headers) || {});
     try {
       if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
-        headers = window.VcPerf.apiHeaders(headers);
+        headers = window.VcPerf.apiHeaders(headers, url);
       }
     } catch (eH) {}
-    return fetch(url, Object.assign({}, init || {}, { headers: headers, signal: ctrl.signal }))
+    var req = fetch(url, Object.assign({}, init || {}, { headers: headers, signal: ctrl.signal }))
       .then(function (r) {
+        if (webhook && r && r.status === 429) {
+          var ra = 0;
+          try {
+            ra = Number(r.headers.get("Retry-After") || "0");
+          } catch (eRa) {}
+          noteWebhook429(ra);
+        }
         return r.json().then(function (body) {
           return { ok: r.ok, status: r.status, body: body };
         });
       })
       .finally(function () {
         window.clearTimeout(tid);
+        if (webhook) delete inFlight[fk];
       });
+    if (webhook) inFlight[fk] = req;
+    return req;
   }
 
   function getFresh(key, ttlMs, staleMs, persistMs) {
@@ -124,12 +212,20 @@
     var useCache = opts.useCache !== false;
     var onStale = typeof opts.onStale === "function" ? opts.onStale : null;
     var init = opts.fetchInit || { credentials: "omit", cache: "no-store" };
-    var timeoutMs = opts.timeoutMs || 12000;
+    var timeoutMs = opts.timeoutMs || 0;
 
     function network() {
+      if (isWebhookUrl(url) && isWebhookBlocked()) {
+        var blockedStale = stalePayloadFromCache(key, ttlMs, staleMs, persistMs);
+        if (blockedStale) return Promise.resolve(blockedStale);
+      }
       return fetchJson(url, init, timeoutMs)
         .then(function (payload) {
-          if (payload && payload.ok && payload.body && payload.body.ok !== false) {
+          if (payload && (payload.status === 429 || payload.blocked)) {
+            var stale429 = stalePayloadFromCache(key, ttlMs, staleMs, persistMs);
+            if (stale429) return stale429;
+          }
+          if (payload && payload.ok && payload.body && payload.body.ok === true) {
             store(key, payload, ttlMs, persistMs);
           }
           return payload;
@@ -170,15 +266,18 @@
 
   function prefetchIdle(key, url, opts) {
     var run = function () {
+      if (isWebhookBlocked()) return;
       prefetch(key, url, opts);
     };
+    var idleTimeout = isTouchDevice() ? 6500 : 3500;
+    var fallbackMs = isTouchDevice() ? 3200 : 1200;
     try {
       if (typeof window.requestIdleCallback === "function") {
-        window.requestIdleCallback(run, { timeout: 3500 });
+        window.requestIdleCallback(run, { timeout: idleTimeout });
         return;
       }
     } catch (eI) {}
-    window.setTimeout(run, 1200);
+    window.setTimeout(run, fallbackMs);
   }
 
   function invalidate(key) {
@@ -276,5 +375,8 @@
     prefetchIdle: prefetchIdle,
     invalidate: invalidate,
     invalidatePrefix: invalidatePrefix,
+    isWebhookBlocked: isWebhookBlocked,
+    noteWebhook429: noteWebhook429,
+    fetchJson: fetchJson,
   };
 })();

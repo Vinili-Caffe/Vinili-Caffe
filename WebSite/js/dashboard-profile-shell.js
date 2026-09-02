@@ -53,8 +53,7 @@
       }
     }
 
-    // Mark all matching links in both desktop sidebar and mobile strip.
-    var activeHref = "";
+        var activeHref = "";
     var active = bestHash || best;
     if (active) {
       try {

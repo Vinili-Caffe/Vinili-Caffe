@@ -1,8 +1,3 @@
-/*!
- * API HTTP sito sempre attiva (sopravvive ai restart di `bots`).
- * Discord solo via REST (niente gateway) — coesiste col bot online.
- * Nginx: /webhooks/site-* → questa porta (3020).
- */
 const fs = require("fs");
 const path = require("path");
 const http = require("node:http");
@@ -137,8 +132,7 @@ async function main() {
     process.exit(1);
   }
 
-  // Stesso comportamento del bot: candidature + API pubbliche sito abilitate di default qui.
-  if (process.env.WEBSITE_CANDIDATURE_HTTP == null || String(process.env.WEBSITE_CANDIDATURE_HTTP).trim() === "") {
+    if (process.env.WEBSITE_CANDIDATURE_HTTP == null || String(process.env.WEBSITE_CANDIDATURE_HTTP).trim() === "") {
     process.env.WEBSITE_CANDIDATURE_HTTP = "1";
   }
   if (process.env.WEBSITE_PUBLIC_HTTP == null || String(process.env.WEBSITE_PUBLIC_HTTP).trim() === "") {
@@ -194,8 +188,7 @@ async function main() {
   }
 
   const app = express();
-  // Un solo hop (nginx → site-api); evita ERR_ERL_PERMISSIVE_TRUST_PROXY con express-rate-limit.
-  app.set("trust proxy", 1);
+    app.set("trust proxy", 1);
   mountSiteApiRateLimit(app);
   app.use(
     express.json({
@@ -204,8 +197,7 @@ async function main() {
         const pathOnly = String(req.originalUrl || req.url || req.path || "")
           .split("?")[0]
           .replace(/\/+$/, "") || "/";
-        // Kick firma sul raw body: senza questo JSON.stringify(req.body) fallisce la verify → 401.
-        if (
+                if (
           pathOnly === "/webhooks/site-kick-sub/events" ||
           pathOnly.endsWith("/site-kick-sub/events")
         ) {
@@ -393,8 +385,7 @@ async function main() {
           const { invalidateStaffPauseCalendarCache } = require("../../Utils/Web/siteStaffPauseApi");
           invalidateStaffPauseCalendarCache();
         } catch {
-          /* ignore */
-        }
+                  }
       }
       const { broadcastSiteRealtime } = require("../../Utils/Web/siteSuggestionsBroadcast");
       broadcastSiteRealtime({ ...body, at: body.at || new Date().toISOString() });

@@ -6,6 +6,7 @@ const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../share
 const { chatReminderRotationFindOneLean, chatReminderRotationFindOneAndUpdate, chatReminderScheduleCreate, chatReminderScheduleUpdateOne, chatReminderScheduleDeleteOne, chatReminderScheduleFindLatestFuture, chatReminderScheduleFindDueLean, chatReminderScheduleDeleteManyFuture } = require("../../../Vinyls/Utils/BotState/domainStatesStore");
 const { getClientChannelCached } = require("../../Utils/Interaction/entityCache");
 const IDs = require("../../Utils/Config/ids");
+const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef");
 const { isChatHubMinigameActive } = require("../../../shared/discord/chatHubMinigameGate");
 const {
   CHAT_HUB_SOURCES,
@@ -134,14 +135,14 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_Color:1482532543273238569> Sblocca i colori gradienti esclusivi!")
       .setDescription([
-        "<:VC_Vip:1482534921472835895> Ottieni i colori PLUS con i ruoli <@&1329497467481493607> o <@&1442568932136587297> e ricorda: con <@&1442568950805430312> puoi crearne uno personalizzato! Per impostare il tuo colore usa il comando `+profile` in <#1442569138114662490>",
+        "<:VC_Vip:1482534921472835895> Ottieni i colori PLUS con i ruoli <@&1329497467481493607> o <@&1442568932136587297> e ricorda: con <@&1442568950805430312> puoi crearne uno personalizzato! Per impostare il tuo colore usa il [profilo sul sito](https://www.viniliecaffe.it/personalizza/)",
       ].join("\n")),
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle("<:VC_Color:1482532543273238569> Personalizza il tuo profilo del server!")
       .setDescription([
-        "<:VC_Vip:1482534921472835895> Digita `+profile` in <#1442569138114662490> e imposta il tuo compleanno, attiva i reminder del nostro bot per accumulare EXP!",
+        "<:VC_Vip:1482534921472835895> Apri il [profilo sul sito](https://www.viniliecaffe.it/personalizza/) e imposta il tuo compleanno, attiva i reminder del nostro bot per accumulare EXP!",
         "",
         `<a:VC_Boost:1482706171386269830> Alcuni colori si sbloccano con livelli o boost: rendi il tuo profilo davvero personale!`,
       ].join("\n")),
@@ -184,7 +185,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_Collab:1482534540089098260> Vuoi sponsorizzare il tuo server o social network?")
       .setDescription([
-        "<a:VC_ThankYou:1330186319673950401> Vinili & Caffè offre sponsorizzazioni per i tuoi progetti. Apri un <#1442569095068254219> `HIGH STAFF` per avere più info!",
+        "<a:VC_ThankYou:1330186319673950401> Vinili & Caffè offre sponsorizzazioni per i tuoi progetti. Apri un " + siteTicketsPageDiscordRef("HIGH STAFF") + " per avere più info!",
         "<:VC_Ticket:1482535175283019888> Trovi tutte le info sulle sponsorizzazioni [sul nostro sito](https://viniliecaffe.it/sponsor)",
       ].join("\n")),
   () =>

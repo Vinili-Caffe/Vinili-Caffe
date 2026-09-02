@@ -1,21 +1,7 @@
-/**
- * Site i18n: IT default. Persistenza `vc_site_lang`.
- * Pack curati a mano: italiano (master) + inglese in questo file / pages / pages-extra.
- * Altre lingue auto non sono esposte nel selettore (vedi js/i18n/I18N.md).
- * Fallback lookup: lingua corrente → it.
- * Uso: data-i18n="key" | data-i18n-html="key" | data-i18n-attr="aria-label:key,title:key2"
- *      data-i18n-placeholder="key" | data-i18n-title="key"
- * API: window.VcI18n.t(key), .getLang(), .setLang(lang), evento `vc:langchange`
- */
 (function () {
   var STORAGE_KEY = "vc_site_lang";
-  /** Solo lingue con copy revisionata (IT master + EN curato). */
-  var SUPPORTED = ["it", "en"];
-  /**
-   * Ex auto-MT (gtx). Non in picker; se salvate in localStorage → migrazione a `en`.
-   * Allineato storicamente a Vinyls tenant languages.
-   */
-  var LEGACY_AUTO_LANGS = [
+    var SUPPORTED = ["it", "en"];
+    var LEGACY_AUTO_LANGS = [
     "es",
     "fr",
     "de",
@@ -131,8 +117,11 @@
       "nav.discordAria": "Entra su Discord",
       "header.promo.eventLabel": "Evento",
       "header.promo.appsLabel": "Candidature",
-      "header.promo.eventBadge": "ATTIVO",
+      "header.promo.appsLabelShort": "CAND.",
+      "header.promo.eventBadge": "evento attivo",
+      "header.promo.eventBadgeShort": "ATTIVO",
       "header.promo.appsBadge": "APERTE",
+      "header.promo.appsBadgeLong": "candidature aperte",
       "header.promo.eventAria": "Evento Hogwarts attivo – vai al calendario",
       "header.promo.appsAria": "Candidature staff aperte",
       "kickPip.aria": "Anteprima live Kick",
@@ -417,7 +406,7 @@
       "dashCreditsShop.heroTitleAccent": "crediti",
       "dashCreditsShop.heroLead": "Scegli un pacchetto e paga con PayPal. Il pagamento non è automatico: apri prima un ticket nel server principale per la conferma, poi i crediti verranno accreditati.",
       "dashCreditsShop.ticketCta": "Apri ticket",
-      "dashCreditsShop.ticketAria": "Apri il canale ticket su Discord",
+      "dashCreditsShop.ticketAria": "Apri la pagina ticket sul sito",
       "dashCreditsShop.backPremium": "Torna a Premium",
       "dashCreditsShop.packsAria": "Pacchetti crediti",
       "dashCreditsShop.badgePopular": "Più scelto",
@@ -697,8 +686,11 @@
       "nav.discordAria": "Join Discord",
       "header.promo.eventLabel": "Event",
       "header.promo.appsLabel": "Applications",
-      "header.promo.eventBadge": "ACTIVE",
+      "header.promo.appsLabelShort": "CAND.",
+      "header.promo.eventBadge": "event live",
+      "header.promo.eventBadgeShort": "LIVE",
       "header.promo.appsBadge": "OPEN",
+      "header.promo.appsBadgeLong": "applications open",
       "header.promo.eventAria": "Hogwarts event active – go to the calendar",
       "header.promo.appsAria": "Staff applications open",
       "kickPip.aria": "Kick live preview",
@@ -982,7 +974,7 @@
       "dashCreditsShop.heroTitleAccent": "packs",
       "dashCreditsShop.heroLead": "Pick a pack and pay with PayPal. Payment is not automatic: open a ticket on the main server first for confirmation, then credits will be added.",
       "dashCreditsShop.ticketCta": "Open ticket",
-      "dashCreditsShop.ticketAria": "Open the Discord ticket channel",
+      "dashCreditsShop.ticketAria": "Open the tickets page on the site",
       "dashCreditsShop.backPremium": "Back to Premium",
       "dashCreditsShop.packsAria": "Credit packs",
       "dashCreditsShop.badgePopular": "Most popular",
@@ -1313,8 +1305,7 @@
     } catch (e) {}
     try {
       if (!siteName && window.__VC_AUTH && window.__VC_AUTH.homeUrl) {
-        /* keep empty — filled from meta below */
-      }
+              }
       var metaSite = document.querySelector('meta[name="author"]');
       if (!siteName && metaSite) {
         var metaName = String(metaSite.getAttribute("content") || "").trim();
@@ -1611,9 +1602,9 @@
   function findBrandSiteNameLink(brand) {
     if (!brand) return null;
     return (
-      brand.querySelector("a.vc-header-site-name") ||
       brand.querySelector("a.vc-header-logo-link + a") ||
-      brand.querySelector("a[href]:not(.vc-header-logo-link)")
+      brand.querySelector("a.vc-header-site-name:not(.vc-snav-item):not(.vc-snav-row)") ||
+      brand.querySelector("a[href]:not(.vc-header-logo-link):not(.vc-snav-item):not(.vc-snav-row)")
     );
   }
 
@@ -1654,11 +1645,7 @@
     }, 120);
   }
 
-  /**
-   * Se la navbar viene ricostruita (mobile/drawer) o lo script arriva prima del DOM,
-   * ripeti bind senza duplicare i listener sul root già marcato.
-   */
-  function ensureSwitcherReady() {
+    function ensureSwitcherReady() {
     try {
       scheduleLangChromePlacement();
       bindSwitcher();
@@ -1686,8 +1673,7 @@
     else if (langMq.addListener) langMq.addListener(scheduleLangChromePlacement);
   } catch (eLangMq) {}
   window.addEventListener("vc:langmenuopen", function () {
-    /* no-op hook for other chrome to close competing menus */
-  });
+      });
 
   window.VcI18n = {
     t: t,
@@ -1706,15 +1692,13 @@
       var isAuto = source === "auto" || source === "gtx";
       for (var lang in partial) {
         if (!Object.prototype.hasOwnProperty.call(partial, lang)) continue;
-        // Non caricare pack auto-MT non revisionati nel runtime.
-        if (SUPPORTED.indexOf(lang) === -1) continue;
+                if (SUPPORTED.indexOf(lang) === -1) continue;
         if (!DICTS[lang]) DICTS[lang] = {};
         var src = partial[lang];
         if (!src || typeof src !== "object") continue;
         for (var k in src) {
           if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
-          // EN curato a mano: l'auto-MT riempie solo chiavi mancanti.
-          if (isAuto && lang === "en" && Object.prototype.hasOwnProperty.call(DICTS.en, k) && DICTS.en[k] != null) {
+                    if (isAuto && lang === "en" && Object.prototype.hasOwnProperty.call(DICTS.en, k) && DICTS.en[k] != null) {
             continue;
           }
           DICTS[lang][k] = src[k];

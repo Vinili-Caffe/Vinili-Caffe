@@ -1,4 +1,3 @@
-/* Staff area + pause calendar */
 
 html.vc-staff-route,
 html.vc-staff-route body.vc-staff-area {
@@ -8,19 +7,16 @@ html.vc-staff-route body.vc-staff-area {
     linear-gradient(180deg, #120d09 0%, #1a120d 38%, #0b0806 100%) !important;
 }
 
-/* Pagine cine staff: niente gradiente “vinile”, solo canvas cine (come inbox). */
 html.vc-staff-route body.vc-staff-area.vc-staff-cine-page,
 html.vc-staff-cine-route body.vc-staff-cine-page,
 html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page,
 html.vc-staff-inbox-route body.vc-staff-inbox-page {
   background-color: #100c09 !important;
   background-image: none !important;
-  /* Android Chrome: overflow-x:hidden senza overflow-y esplicito può bloccare lo scroll. */
   overflow-x: hidden !important;
   overflow-y: auto !important;
 }
 
-/* Canvas live: body trasparente così il vinile si vede (come FAQ/wiki). */
 html.vc-site-polish.vc-home-cine-live.vc-staff-route body.vc-staff-area.vc-staff-cine-page,
 html.vc-site-polish.vc-home-cine-live.vc-staff-cine-route body.vc-staff-cine-page,
 html.vc-site-polish.vc-home-cine-live.vc-staff-route body.vc-staff-area.vc-staff-inbox-page,
@@ -32,7 +28,6 @@ html.vc-site-polish.vc-home-cine-live body.vc-notifications-page.vc-notif-scope-
   background-image: none !important;
 }
 
-/* Dopo il gate: ripristina scroll pagina (Android spesso resta “locked” dal position:fixed). */
 html.vc-staff-app-revealed:not(.vc-staff-denied-open),
 html.vc-staff-app-revealed:not(.vc-staff-denied-open) body.vc-staff-area {
   position: static !important;
@@ -56,7 +51,6 @@ html.vc-staff-app-revealed body.vc-staff-profile-home.vc-user-profile-page {
   position: relative !important;
 }
 
-/* Cine staff pages keep vinyl canvas / blobs (match inbox). */
 html.vc-staff-route.vc-site-polish body.vc-staff-area .vc-home-cine,
 html.vc-staff-route.vc-site-polish body.vc-staff-area .vc-blob {
   display: block !important;
@@ -70,7 +64,6 @@ html.vc-staff-route.vc-site-polish body.vc-staff-area .vc-home-cine {
   z-index: 0 !important;
 }
 
-/* Non-cine staff shells (accesso-richiesto / legacy). */
 html.vc-staff-route:not(.vc-site-polish) body.vc-staff-area .vc-site-atmos,
 html.vc-staff-route:not(.vc-site-polish) body.vc-staff-area .vc-home-cine,
 html.vc-staff-route:not(.vc-site-polish) body.vc-staff-area .vc-home-scrollcue {
@@ -320,8 +313,6 @@ html.vc-site-polish body.vc-staff-area .vc-staff-hero:not(.vc-page-cine-hero) {
   color: var(--vc-staff-role-color, #d4a888);
 }
 
-
-/* Verifica/denied staff: niente scroll della pagina sotto l'overlay. */
 html.vc-staff-access-pending:not(.vc-staff-app-revealed),
 html.vc-staff-access-pending:not(.vc-staff-app-revealed) body,
 html.vc-staff-denied-open,
@@ -364,7 +355,6 @@ html.vc-staff-app-revealed body.vc-staff-area #vc-mobile-nav-toggle {
   cursor: pointer;
 }
 
-/* Staff: drawer always above cine/overlays when open. */
 html.vc-staff-route #vc-mobile-nav-drawer.vc-mobile-nav-drawer--open,
 html.vc-staff-route.vc-mobile-nav-open #vc-mobile-nav-drawer {
   display: block !important;
@@ -378,7 +368,6 @@ html.vc-staff-route #vc-mobile-nav-drawer.vc-mobile-nav-drawer--open .vc-mobile-
   transform: translateX(0) !important;
 }
 
-/* Staff header mobile/tablet: stesso layout compatto del sito (fino a 1199px). */
 @media (max-width: 1199.98px) {
   html.vc-staff-route body.vc-staff-area .vc-header-bar {
     display: flex !important;
@@ -591,7 +580,6 @@ html.vc-staff-denied-open #vc-staff-loading {
   max-width: min(92rem, calc(100% - 1.25rem)) !important;
 }
 
-/* Staff header: shell scura come le altre pagine staff (HTML bg-[#140f0c]). */
 html.vc-staff-route body.vc-staff-area > header,
 html.vc-staff-route body.vc-staff-area header.fixed {
   background: transparent !important;
@@ -739,7 +727,6 @@ html.vc-staff-route body.vc-staff-area header.fixed {
 }
 
 .vc-staff-side-panel {
-  /* Altezza allineata al calendario via JS (syncSidePanelHeight) */
   overflow: hidden;
 }
 
@@ -821,7 +808,6 @@ html.vc-staff-route body.vc-staff-area header.fixed {
   padding: 0 0 0.12rem;
 }
 
-/* Altezza fissa media: niente stretch viewport */
 .vc-staff-cal__day {
   position: relative;
   box-sizing: border-box;
@@ -1069,7 +1055,6 @@ html.vc-staff-route body.vc-staff-area header.fixed {
   background: #3a2a20;
 }
 
-/* —— Richiedi pausa —— */
 .vc-staff-request {
   margin: 0 0 1rem;
   border-radius: 1.15rem;
@@ -1363,7 +1348,6 @@ html.vc-staff-route body.vc-staff-area header.fixed {
   }
 }
 
-/* —— Staff profile —— */
 .vc-staff-profile-status {
   margin: 0 0 1rem;
   font-size: 0.9rem;
@@ -1796,7 +1780,6 @@ html.vc-staff-route body.vc-staff-area header.fixed {
   text-decoration: none;
 }
 
-/* CTA Serata Film: pill neutra in palette (beige), non rosso di stato. */
 a.vc-staff-sf-bar__cta,
 .vc-staff-sf-bar__cta {
   appearance: none;
@@ -1871,7 +1854,6 @@ body.vc-staff-profile-home a.vc-staff-sf-bar__cta {
   display: none !important;
 }
 
-/* Staff profilo: stesso shell di /user/profilo (moka/cine compatto). */
 body.vc-staff-profile-home.vc-user-profile-page {
   overflow-x: hidden;
 }
@@ -2062,7 +2044,6 @@ html.vc-staff-route body.vc-staff-profile-home .vc-home-scrollcue {
   display: none !important;
 }
 
-/* Legacy staff profile blocks — niente card esterna. */
 body.vc-staff-profile-home #vc-staff-profile.vc-staff-profile,
 body.vc-staff-profile-home .vc-staff-profile.vc-staff-panel,
 body.vc-staff-profile-home .vc-staff-profile.vc-home-panel,
@@ -2080,7 +2061,6 @@ body.vc-staff-profile-home .vc-staff-profile.vc-page-cine-card {
   max-height: none !important;
 }
 
-/* Mai card hero cine sul profilo (anche se un boot precedente ha lasciato le classi). */
 body.vc-staff-profile-home .vc-page-cine-hero,
 body.vc-staff-profile-home .vc-support-page-hero.vc-page-cine-hero,
 body.vc-staff-profile-home .vc-regole-hero-card,
@@ -2391,7 +2371,6 @@ body.vc-staff-profile-home main.vc-page-cine-main {
   background: rgba(212, 168, 136, 0.12);
 }
 
-/* —— Guida staff (layout stile FAQ) —— */
 body.vc-staff-guide-page .vc-regole-tabs {
   margin-bottom: 1rem;
 }
@@ -2546,7 +2525,6 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
   color: #e8dfd4;
 }
 
-/* —— Dashboard hub —— */
 .vc-staff-dash {
   margin-top: 0.35rem;
 }
@@ -2723,8 +2701,6 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
     linear-gradient(160deg, rgba(52, 34, 24, 0.95), rgba(16, 11, 9, 0.96));
 }
 
-/* —— Gestione console —— */
-/* display:grid batte lo UA di [hidden] → tab Staff restava visibile su PM. */
 .vc-staff-manage[hidden],
 .vc-staff-tools[hidden],
 .vc-staff-panel[hidden],
@@ -2764,7 +2740,6 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
   }
 
   .vc-staff-manage-side {
-    /* Telefono: lista staff usabile (prima era ~16rem e risultava troppo bassa). */
     max-height: min(62vh, 30rem);
     min-height: 18rem;
   }
@@ -2831,13 +2806,15 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
 .vc-staff-manage-detail::-webkit-scrollbar-thumb,
 .vc-staff-organico-hist::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(212, 168, 136, 0.32);
+  background: rgba(212, 168, 136, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .vc-staff-manage-roster::-webkit-scrollbar-track,
 .vc-staff-manage-detail::-webkit-scrollbar-track,
 .vc-staff-organico-hist::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
 }
 
 .vc-staff-manage-sec + .vc-staff-manage-sec {
@@ -3039,7 +3016,6 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
   background: rgba(0, 0, 0, 0.16);
 }
 
-/* Val+ / Valâˆ’ / Warn: altezza fissa + scroll interno (liste lunghe non allungano la pagina). */
 .vc-staff-manage-cols section {
   display: flex;
   flex-direction: column;
@@ -3648,7 +3624,6 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
   background: rgba(20, 15, 12, 0.65);
 }
 
-/* display:inline-flex batte lo UA di [hidden] → cerchietto fantasma a destra */
 .vc-staff-inbox-week[hidden],
 #vc-staff-inbox-week[hidden] {
   display: none !important;
@@ -3883,7 +3858,6 @@ body.vc-staff-guide-page .vc-regole-body-text.vc-staff-guide-prose,
   white-space: nowrap;
 }
 
-/* Staff inbox: gradient staff (blob + scroll → regole complete in fondo file). */
 html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page {
   background-color: #100c09 !important;
   background-image:
@@ -3904,7 +3878,6 @@ html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page {
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* —— Inbox: stesso linguaggio di Gestione (chrome + lista | dettaglio) —— */
 .vc-staff-inbox {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -4197,7 +4170,6 @@ html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page {
   display: block;
 }
 
-/* Valori corti (Messaggi/Ore/Partner): emoji sulla stessa riga del numero. */
 .vc-staff-inbox-detail__answer:not(:has(br)) {
   white-space: normal;
 }
@@ -4237,7 +4209,6 @@ html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page {
     overflow: hidden;
   }
 
-  /* Lista: flex fill (non height:100%), così resta sotto la paginazione e scrolla. */
   .vc-staff-inbox.has-detail #vc-staff-inbox-list {
     flex: 1 1 auto;
     height: auto !important;
@@ -4643,7 +4614,6 @@ a.vc-staff-pm-pt-btn .fa,
   opacity: 0.9;
 }
 
-/* — Punti tolti PM: board sotto l'hero / embed inbox — */
 body.vc-staff-punti-tolti-page #vc-staff-pt-toolbar {
   margin-bottom: 0.85rem;
 }
@@ -4786,7 +4756,6 @@ body.vc-notifications-page .vc-staff-pt-board__toolbar {
   -webkit-clip-path: none !important;
 }
 
-/* Board toolbar stile Punti tolti per filtri inbox */
 .vc-staff-inbox-board-toolbar,
 .vc-staff-inbox-unified-bar,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filters.vc-staff-inbox-board-toolbar,
@@ -4850,7 +4819,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group--b
   gap: 0 !important;
 }
 
-/* display:flex !important sui filtri bucava [hidden] → doppia barra su Punti tolti */
 body.vc-notifications-page .vc-staff-inbox-filter-group[hidden],
 body.vc-notifications-page #vc-staff-inbox-scope[hidden],
 body.vc-notifications-page #vc-staff-inbox-filters[hidden],
@@ -5209,10 +5177,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filter
   color: #fecaca;
 }
 
-/* ============================================================================
- * Staff Inbox — page-cine come FAQ/wiki (card hero + scroll cue, board sotto).
- * Blobs/canvas fixed: mai nel flow del documento.
- * ========================================================================== */
 html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page,
 html.vc-staff-inbox-route body.vc-staff-inbox-page {
   background-color: #100c09 !important;
@@ -5268,7 +5232,6 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page .vc-blob-c {
   left: 60%;
 }
 
-/* Hero full-viewport: card vetro centrata (come FAQ/regole). */
 body.vc-page-cine-layout.vc-staff-inbox-page .vc-page-cine-hero.vc-support-page-hero,
 body.vc-page-cine-layout.vc-staff-inbox-page .vc-page-cine-hero.vc-inbox-page-hero,
 body.vc-page-cine-layout.vc-staff-inbox-page .vc-page-cine-hero.vc-regole-hero-card,
@@ -5306,7 +5269,7 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page.vc-page-cine-layout main.vc-p
 }
 
 body.vc-page-cine-layout.vc-staff-inbox-page .vc-page-cine-hero .vc-hero-head.vc-hero-head--has-aside {
-  max-width: min(64rem, calc(100% - 2rem)) !important;
+  max-width: min(48rem, calc(100% - 2rem)) !important;
   width: 100%;
   gap: 0.75rem;
   padding: 1.15rem 1.25rem 1.25rem !important;
@@ -5357,7 +5320,6 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page .vc-premium-footer {
   background: transparent !important;
 }
 
-/* Board inbox sotto lo scroll: card vetro + lista scrollabile. */
 html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page #vc-staff-inbox.vc-staff-tools-workspace,
 html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page #vc-staff-inbox.vc-staff-inbox,
 html.vc-staff-inbox-route body.vc-staff-inbox-page #vc-staff-inbox.vc-staff-inbox,
@@ -5439,7 +5401,6 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page .vc-staff-inbox.has-detail .v
   line-height: 1.4;
 }
 
-/* Chat web-only nel dettaglio pratica (come thread Discord). */
 .vc-staff-inbox-chat {
   display: grid;
   gap: 0.55rem;
@@ -5633,7 +5594,6 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page .vc-staff-inbox.has-detail .v
   min-height: 2.6rem;
 }
 
-/* Workflow chat (inbox + richieste utente) — stile Discord/ticket */
 .vc-wfc {
   display: flex;
   flex-direction: column;
@@ -6295,7 +6255,6 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page .vc-staff-inbox.has-detail .v
   }
 }
 
-/* Chat richiedente pausa su /staff/pause/ */
 .vc-staff-pause-chat {
   margin: 0 0 1.25rem;
   border-radius: 1.35rem;
@@ -6355,7 +6314,6 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page > header.fixed::before {
   display: none !important;
 }
 
-/* —— Staff cine condiviso (gestione / pause / guida / profilo / organico) = layout inbox —— */
 html.vc-staff-route body.vc-staff-area.vc-staff-cine-page .vc-home-cine,
 html.vc-staff-cine-route body.vc-staff-cine-page .vc-home-cine {
   display: block !important;
@@ -6404,7 +6362,13 @@ html.vc-staff-cine-route body.vc-staff-cine-page .vc-blob-c {
   left: 60%;
 }
 
-/* Staff cine = stesso linguaggio delle pagine pubbliche (FAQ/wiki). */
+html.vc-staff-cine-route body.vc-staff-cine-page .vc-support-page-hero.vc-regole-hero-card,
+html.vc-staff-cine-route body.vc-staff-inbox-page .vc-support-page-hero.vc-regole-hero-card {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 body.vc-page-cine-layout.vc-staff-cine-page .vc-page-cine-hero.vc-support-page-hero,
 body.vc-page-cine-layout.vc-staff-cine-page .vc-page-cine-hero.vc-regole-hero-card,
 body.vc-page-cine-layout.vc-staff-inbox-page .vc-page-cine-hero.vc-support-page-hero,
@@ -6450,7 +6414,7 @@ html.vc-staff-inbox-route body.vc-staff-inbox-page.vc-page-cine-layout main.vc-p
 
 body.vc-page-cine-layout.vc-staff-cine-page .vc-page-cine-hero .vc-hero-head.vc-hero-head--has-aside,
 body.vc-page-cine-layout.vc-staff-inbox-page .vc-page-cine-hero .vc-hero-head.vc-hero-head--has-aside {
-  max-width: min(64rem, calc(100% - 2rem)) !important;
+  max-width: min(48rem, calc(100% - 2rem)) !important;
   width: 100%;
   margin-left: auto !important;
   margin-right: auto !important;
@@ -6496,7 +6460,6 @@ html.vc-staff-cine-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-staf
   pointer-events: none !important;
 }
 
-/* Same as public pages: reveal only after cine-ready (no flat-layout flash). */
 html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-ready body.vc-staff-cine-page > main,
 html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-ready body.vc-staff-cine-page > footer,
 html.vc-staff-app-revealed.vc-staff-inbox-route.vc-page-cine-ready body.vc-staff-inbox-page > main,
@@ -6510,7 +6473,6 @@ html.vc-staff-app-revealed.vc-staff-route:not(.vc-page-cine-boot) body.vc-staff-
   pointer-events: auto !important;
 }
 
-/* During boot keep main hidden even if access already revealed (public-page anti-FOUC). */
 html.vc-staff-app-revealed.vc-staff-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-staff-area > main,
 html.vc-staff-app-revealed.vc-staff-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-staff-area > footer,
 html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-staff-cine-page > main,
@@ -6521,8 +6483,6 @@ html.vc-staff-app-revealed.vc-staff-inbox-route.vc-page-cine-boot:not(.vc-page-c
   visibility: hidden !important;
   pointer-events: none !important;
 }
-
-/* Keep the same boot veil as public pages (do not disable ::before on staff). */
 
 html.vc-staff-route body.vc-staff-area.vc-staff-cine-page .vc-premium-footer,
 html.vc-staff-route body.vc-staff-area.vc-staff-cine-page > footer,
@@ -6545,11 +6505,12 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico
   overflow: hidden !important;
 }
 
-/* Organico: solo cronologia (niente staff list laterale). */
 html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico.vc-staff-organico-board--history-only,
 html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-board--history-only #vc-staff-organico {
-  display: block !important;
+  display: flex !important;
+  flex-direction: column !important;
   grid-template-columns: none !important;
+  min-height: 0 !important;
 }
 
 html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-board--history-only .vc-staff-manage-side,
@@ -6563,6 +6524,7 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico
   max-width: none !important;
   min-width: 0 !important;
   flex: 1 1 auto !important;
+  min-height: 0 !important;
 }
 
 html.vc-staff-route body.vc-staff-area.vc-staff-manage-page .vc-staff-manage,
@@ -6573,8 +6535,6 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico
   overflow: hidden !important;
 }
 
-/* Mobile: no nested tiny panes — roster capped, detail/history grow with page scroll.
-   (flex:1 + min-height:0 inside height:auto collapses the cronologia list.) */
 @media (max-width: 900px) {
   html.vc-staff-route body.vc-staff-area.vc-staff-manage-page .vc-staff-manage-board,
   html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-manage-board,
@@ -6592,7 +6552,6 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico
 
   html.vc-staff-route body.vc-staff-area.vc-staff-manage-page .vc-staff-manage-side,
   html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-manage-side {
-    /* Telefono: lista staff ampia (prima 16rem → troppo piccola). */
     max-height: min(78vh, 36rem);
     min-height: 20rem;
   }
@@ -6606,6 +6565,12 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico
   html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-manage-detail,
   html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-history {
     max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-hist__main {
+    flex: 0 0 auto !important;
     min-height: 0 !important;
     overflow: visible !important;
   }
@@ -6640,7 +6605,6 @@ html.vc-staff-route body.vc-staff-area.vc-staff-organico-page #vc-staff-organico
   }
 }
 
-/* Organico staff — Staff del Mese + board */
 .vc-staff-organico-sdm {
   margin: 0 0 1.15rem;
 }
@@ -6743,7 +6707,45 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: hidden !important;
+}
+
+html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-history.vc-staff-manage-detail {
+  overflow: hidden !important;
+}
+
+html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-hist__main {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0;
+}
+
+html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-hist__pagination {
+  flex: 0 0 auto !important;
+  position: relative;
+  z-index: 2;
+}
+
+html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-hist__pagination--top {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-hist__pagination--foot {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+html.vc-staff-route body.vc-staff-area.vc-staff-organico-page .vc-staff-organico-hist {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 0.2rem;
 }
 
 .vc-staff-organico-hist__head {
@@ -6756,9 +6758,11 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
 
 .vc-staff-organico-hist__head h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
   font-weight: 700;
-  color: rgba(248, 239, 230, 0.96);
+  letter-spacing: 0.01em;
+  color: rgba(248, 239, 230, 0.98);
 }
 
 .vc-staff-organico-hist__lead {
@@ -6805,21 +6809,125 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
   margin: 0 0 0.85rem;
 }
 
-.vc-staff-organico-hist__tab {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.25);
-  color: rgba(248, 239, 230, 0.82);
-  border-radius: 999px;
-  padding: 0.28rem 0.75rem;
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-seg {
+  display: flex !important;
+  width: 100%;
+  padding: 0.3rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(212, 168, 136, 0.32);
+  background: rgba(0, 0, 0, 0.52);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  gap: 0.25rem;
+}
+
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-seg .vc-staff-pt-seg__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 0.72rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.5rem 0.65rem;
+  text-transform: none;
+}
+
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-seg .vc-staff-pt-seg__btn.is-active {
+  background: linear-gradient(180deg, rgba(232, 201, 168, 0.96), rgba(212, 168, 136, 0.88));
+  color: #1a120d;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+}
+
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-hist__item {
+  width: 100%;
+}
+
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-hist__row {
+  width: 100%;
+}
+
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-hist__tabs,
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-hist__tab {
+  display: none !important;
+}
+
+html.vc-staff-route body.vc-staff-organico-page > main.vc-page-cine-main,
+html.vc-staff-route body.vc-staff-organico-page > main {
+  max-width: none !important;
+  width: 100% !important;
+  padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(1rem, env(safe-area-inset-right, 0px)) !important;
+}
+
+html.vc-staff-route body.vc-staff-organico-page #vc-staff-organico-board {
+  width: min(100%, 72rem) !important;
+  max-width: 72rem !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-hist__switch {
+  width: 100%;
+  margin: 0 0 0.85rem;
+}
+
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-hist__switch .vc-staff-pt-seg {
+  display: flex;
+  width: 100%;
+  gap: 0.2rem;
+}
+
+html.vc-staff-route body.vc-staff-organico-page .vc-staff-organico-hist__switch .vc-staff-pt-seg__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
   font-size: 0.78rem;
-  font-weight: 600;
+  padding: 0.44rem 0.55rem;
+  line-height: 1.25;
+}
+
+.vc-staff-organico-hist__count {
+  display: inline-block;
+  margin-left: 0.28rem;
+  opacity: 0.72;
+  font-weight: 650;
+  font-size: 0.92em;
+}
+
+.vc-staff-organico-hist__item,
+.vc-staff-organico-hist__row,
+.vc-staff-organico-hist__body {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.vc-staff-organico-hist__reason {
+  max-width: none;
+  width: 100%;
+}
+
+.vc-staff-organico-hist__roles {
+  width: 100%;
+}
+
+.vc-staff-organico-hist__tab {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 6, 5, 0.42);
+  color: rgba(248, 239, 230, 0.78);
+  border-radius: 999px;
+  padding: 0.34rem 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 650;
   cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
 }
 
 .vc-staff-organico-hist__tab.is-active {
-  border-color: rgba(212, 168, 136, 0.55);
-  background: rgba(212, 168, 136, 0.16);
-  color: #f8efe6;
+  border-color: rgba(212, 168, 136, 0.62);
+  background: linear-gradient(135deg, rgba(212, 168, 136, 0.2), rgba(212, 168, 136, 0.08));
+  color: #fff5eb;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 214, 0.12);
 }
 
 .vc-staff-organico-hist__pagination {
@@ -6836,20 +6944,23 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.65rem;
+  gap: 0.55rem;
   overflow-x: hidden;
   overflow-y: auto;
   min-height: 0;
   flex: 1 1 auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(212, 168, 136, 0.35) transparent;
+  scrollbar-color: rgba(212, 168, 136, 0.52) rgba(255, 255, 255, 0.06);
 }
 
 .vc-staff-organico-hist__item {
-  border-radius: 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.22);
-  padding: 0.75rem 0.85rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.03), transparent 42%),
+    rgba(0, 0, 0, 0.24);
+  padding: 0.82rem 0.92rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 @media (max-width: 900px) {
@@ -6886,7 +6997,6 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
     padding: 0.9rem 0.95rem;
   }
 
-  /* Inbox list alone (no detail): keep a usable height on phones. */
   html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page .vc-staff-inbox:not(.has-detail) .vc-staff-inbox-list,
   html.vc-staff-route body.vc-staff-area.vc-staff-inbox-page .vc-staff-inbox:not(.has-detail) #vc-staff-inbox-list,
   html.vc-staff-inbox-route body.vc-staff-inbox-page .vc-staff-inbox:not(.has-detail) .vc-staff-inbox-list,
@@ -6907,7 +7017,26 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
 .vc-staff-organico-hist__row {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: 0.82rem;
+}
+
+.vc-staff-organico-hist__av {
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 168, 136, 0.28);
+  background: rgba(8, 6, 5, 0.65);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+.vc-staff-organico-hist__av .vc-staff-avatar,
+.vc-staff-organico-hist__av img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
 }
 
 .vc-staff-organico-hist__body {
@@ -6915,10 +7044,18 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
   flex: 1;
 }
 
+.vc-staff-organico-hist__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .vc-staff-organico-hist__who {
   margin: 0;
   font-size: 0.92rem;
-  color: rgba(248, 239, 230, 0.92);
+  color: rgba(248, 239, 230, 0.94);
+  line-height: 1.35;
 }
 
 .vc-staff-organico-hist__badge {
@@ -6943,25 +7080,43 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
 }
 
 .vc-staff-organico-hist__roles {
-  margin: 0.25rem 0 0;
+  margin: 0.32rem 0 0;
   font-size: 0.88rem;
-  color: rgba(248, 239, 230, 0.82);
+  line-height: 1.45;
+  color: rgba(248, 239, 230, 0.84);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+}
+
+.vc-staff-organico-hist__role-from,
+.vc-staff-organico-hist__role-to {
+  font-weight: 600;
+}
+
+.vc-staff-organico-hist__role-arrow {
+  color: rgba(212, 168, 136, 0.82);
+  font-weight: 700;
 }
 
 .vc-staff-organico-hist__reason {
-  margin: 0.35rem 0 0;
+  margin: 0.3rem 0 0;
   font-size: 0.82rem;
   line-height: 1.45;
-  color: rgba(248, 239, 230, 0.62);
+  color: rgba(248, 239, 230, 0.58);
+  font-style: italic;
 }
 
 .vc-staff-organico-hist__date {
-  margin: 0.35rem 0 0;
-  font-size: 0.75rem;
-  color: rgba(248, 239, 230, 0.45);
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: rgba(248, 239, 230, 0.46);
+  white-space: nowrap;
 }
 
-/* PM shop — profilo / hub */
 .vc-staff-pm-shop__tiers {
   list-style: none;
   margin: 0.85rem 0 0;
@@ -7127,12 +7282,10 @@ html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-board {
   opacity: 1;
 }
 
-/* === Staff tools: proporzioni pubbliche (max-w-6xl), niente hero cine storto === */
 html.vc-staff-route body.vc-staff-area:not(.vc-page-cine-layout) > main,
 html.vc-staff-cine-route body.vc-staff-cine-page:not(.vc-page-cine-layout) > main,
 html.vc-staff-inbox-route body.vc-staff-inbox-page:not(.vc-page-cine-layout) > main {
-  max-width: 72rem !important; /* max-w-6xl */
-  width: 100% !important;
+  max-width: 72rem !important;   width: 100% !important;
   margin-left: auto !important;
   margin-right: auto !important;
   padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
@@ -7192,7 +7345,6 @@ html.vc-staff-route body.vc-staff-area:not(.vc-page-cine-layout) > main > .vc-st
   box-sizing: border-box !important;
 }
 
-/* —— Gestione staff: CTA profilo + modale sheet —— */
 html.vc-staff-manage-sheet-open,
 html.vc-staff-manage-sheet-open body,
 html.vc-staff-datepicker-open,
@@ -7201,7 +7353,6 @@ html.vc-staff-datepicker-open body {
   overscroll-behavior: none;
 }
 
-/* Frecce peer: nascoste con qualsiasi sheet/modal aperto (stat, manage, notifiche) */
 html.vc-staff-stat-sheet-open .vc-staff-peer-dock,
 html.vc-staff-manage-sheet-open .vc-staff-peer-dock,
 html.vc-notif-sheet-open .vc-staff-peer-dock,
@@ -7346,13 +7497,38 @@ html.vc-staff-list-dock-on .vc-staff-list-dock {
   display: block;
 }
 
-html.vc-user-profile-staff-tab-pending .vc-staff-list-dock,
-html.vc-user-profile-staff-tab-pending.vc-staff-list-dock-on .vc-staff-list-dock,
-html.vc-user-profile-staff-tab-pending .vc-staff-peer-dock {
-  display: none !important;
-  visibility: hidden !important;
+html.vc-user-profile-staff-tab-pending .vc-staff-peer-dock,
+html.vc-user-profile-staff-tab-pending.vc-staff-peer-dock-on .vc-staff-peer-dock {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   pointer-events: none !important;
-  opacity: 0 !important;
+}
+
+html.vc-user-profile-staff-tab-pending .vc-staff-peer-dock__btn {
+  pointer-events: auto !important;
+}
+
+html.vc-user-profile-staff-tab-pending .vc-staff-list-dock,
+html.vc-user-profile-staff-tab-pending.vc-staff-list-dock-on .vc-staff-list-dock {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.vc-staff-list-fab.is-loading {
+  opacity: 0.72;
+}
+
+.vc-staff-list-fab.is-loading .vc-staff-list-fab__ico {
+  animation: vc-staff-list-fab-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes vc-staff-list-fab-pulse {
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .vc-staff-list-dock .vc-staff-list-fab,
@@ -7360,7 +7536,6 @@ html.vc-user-profile-staff-tab-pending .vc-staff-peer-dock {
   pointer-events: auto;
 }
 
-/* Evita sovrapposizione con Live/VOD Kick reopen (stesso angolo). */
 body.vc-user-profile-staff-tab:has(#vc-kick-pip-reopen:not([hidden])) .vc-staff-list-dock {
   bottom: max(3.65rem, calc(env(safe-area-inset-bottom, 0px) + 2.85rem));
 }
@@ -7555,6 +7730,12 @@ body.vc-user-profile-staff-tab:has(#vc-kick-pip-reopen:not([hidden])) .vc-staff-
   border: 1px solid rgba(232, 201, 168, 0.28);
 }
 
+.vc-staff-list-pop__chip--best {
+  color: #fef3c7;
+  background: rgba(120, 72, 10, 0.72);
+  border: 1px solid rgba(245, 158, 11, 0.34);
+}
+
 .vc-staff-list-pop__item.is-paused .vc-staff-list-pop__name {
   opacity: 0.88;
 }
@@ -7617,12 +7798,10 @@ html.vc-notif-overlay-active .vc-staff-list-dock {
   }
 }
 
-/* legacy absolute wrap (non usato) */
 .vc-staff-list-wrap {
   display: none !important;
 }
 
-/* Fixed buttons only — mai un layer full-viewport (su iOS fa scorrere la pagina dietro gli sheet). */
 .vc-staff-peer-dock {
   position: fixed !important;
   inset: auto !important;
@@ -7664,10 +7843,10 @@ html.vc-notif-overlay-active .vc-staff-list-dock {
   font-size: 1.15rem !important;
   cursor: pointer !important;
   opacity: 0;
-  transform: translateY(-50%) scale(0.88) !important;
+  transform: translateY(-50%) scale(0.94) !important;
   transition:
-    opacity 0.28s ease,
-    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.12s ease,
+    transform 0.12s cubic-bezier(0.22, 1, 0.36, 1),
     border-color 0.18s ease,
     box-shadow 0.18s ease !important;
   animation: none !important;
@@ -7753,7 +7932,6 @@ html.vc-notif-overlay-active .vc-staff-list-dock {
     width: 2.75rem !important;
     height: 2.75rem !important;
     font-size: 1rem !important;
-    /* still viewport vertical center — follow scroll */
     top: 50% !important;
     bottom: auto !important;
   }
@@ -7848,7 +8026,6 @@ a.vc-staff-manage-cta:hover {
   padding: 0;
 }
 
-/* VcDialog sopra sheet gestione (121k) e stat sheet (120.5k). */
 .vc-dialog,
 .vc-dash-confirm,
 #vc-site-dialog.vc-dialog {
@@ -7862,7 +8039,6 @@ a.vc-staff-manage-cta:hover {
   margin: 0;
   padding: 0;
   background: rgba(3, 2, 1, 0.78);
-  /* no backdrop-filter: kills open animation on heavy pages */
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.18s ease;
@@ -7993,7 +8169,6 @@ a.vc-staff-manage-cta:hover {
   padding: 0;
   max-height: none !important;
   height: auto !important;
-  /* Un solo scroller: lo sheet__body. Il detail non deve rubare lo scroll. */
   overflow: visible !important;
   display: block;
 }
@@ -8036,7 +8211,6 @@ a.vc-staff-manage-cta:hover {
   max-width: 28rem;
   line-height: 1.45;
 }
-/* —— Gestione carriera forge + sheet actions —— */
 .vc-staff-rank-forge {
   display: grid;
   gap: 1rem;
@@ -8392,7 +8566,6 @@ a.vc-staff-manage-cta:hover {
   color: #f8fafc;
 }
 
-/* Staff profile miss / boot — palette caffè-bronzo (override empty teal). */
 body.vc-user-profile-page .vc-staff-prof-miss,
 body.vc-user-profile-page .vc-user-profile-staff-empty.vc-staff-prof-miss {
   border: 1px solid rgba(232, 201, 168, 0.28) !important;
@@ -8431,7 +8604,6 @@ body.vc-user-profile-page .vc-staff-prof-boot__sub {
   color: rgba(240, 222, 201, 0.68) !important;
 }
 
-/* Mini-cal polish (profile pause sheet) */
 .vc-staff-mini-cal-wrap {
   display: grid;
   gap: 0.85rem;
@@ -8496,7 +8668,6 @@ body.vc-user-profile-page .vc-staff-prof-boot__sub {
   background: rgba(120, 40, 40, 0.28);
 }
 
-/* Staff pause calendar polish + cancelled + dark datepicker */
 .vc-staff-cal-panel {
   background:
     radial-gradient(120% 70% at 8% 0%, rgba(232, 201, 168, 0.1), transparent 52%),
@@ -8767,7 +8938,6 @@ html.vc-staff-datepicker-open body {
     font-size: 0.95rem;
   }
 
-  /* Main pause calendar: denser but tappable days */
   .vc-staff-cal__day {
     min-height: 3.85rem;
     padding: 0.35rem 0.28rem;
@@ -8784,7 +8954,6 @@ html.vc-staff-datepicker-open body {
   }
 }
 
-/* Punti PM clickable mini + gestione sheet */
 .vc-user-profile-mini--action {
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
@@ -8867,7 +9036,6 @@ html.vc-staff-datepicker-open body {
   text-underline-offset: 2px;
 }
 
-/* staffProfMobile1 — telefono: Serata Film sotto avatar+nome, no colonna 1-char */
 @media (max-width: 720px), ((pointer: coarse) and (max-width: 980px)) {
   body.vc-user-profile-page .vc-user-profile-hero__head,
   .vc-staff-profile-hero .vc-user-profile-hero__head,
@@ -8924,7 +9092,6 @@ html.vc-staff-datepicker-open body {
   }
 }
 
-/* === resoSheet1: dettaglio resoconto stile gestione === */
 html.vc-staff-reso-sheet-open,
 html.vc-staff-reso-sheet-open body {
   overflow: hidden !important;
@@ -9045,9 +9212,13 @@ html.vc-staff-reso-sheet-open body {
 }
 .vc-staff-reso-hero {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.9rem;
   margin-bottom: 1rem;
+}
+.vc-staff-reso-hero__main {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .vc-staff-reso-hero h3 {
   margin: 0.2rem 0 0.45rem;
@@ -9067,9 +9238,13 @@ html.vc-staff-reso-sheet-open body {
   gap: 0.35rem;
 }
 .vc-staff-reso-hero__roles {
-  margin-top: 0.7rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid rgba(232, 201, 168, 0.14);
+  flex: 0 1 15.5rem;
+  max-width: min(16.5rem, 44%);
+  margin-top: 0;
+  margin-left: auto;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  border-top: 0;
+  border-left: 1px solid rgba(232, 201, 168, 0.16);
 }
 .vc-staff-reso-hero__roles-kicker {
   margin: 0 0 0.35rem;
@@ -9103,6 +9278,20 @@ html.vc-staff-reso-sheet-open body {
   flex: 0 0 auto;
   font-size: 0.66rem;
   color: rgba(232, 201, 168, 0.55);
+}
+@media (max-width: 640px) {
+  .vc-staff-reso-hero.has-roles {
+    flex-wrap: wrap;
+  }
+  .vc-staff-reso-hero__roles {
+    flex: 1 1 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-top: 0.55rem;
+    padding: 0.55rem 0 0;
+    border-left: 0;
+    border-top: 1px solid rgba(232, 201, 168, 0.14);
+  }
 }
 .vc-staff-reso-flags {
   display: inline-flex;
@@ -9569,7 +9758,6 @@ html.vc-staff-reso-sheet-open body {
   }
 }
 
-/* === phoneUnfreezeAll1: staff-pause carica DOPO vc-landing e rifreezava body === */
 @media (pointer: coarse), (max-width: 920px) {
   html.vc-staff-access-pending:not(.vc-staff-app-revealed),
   html.vc-staff-access-pending:not(.vc-staff-app-revealed) body,
@@ -9593,5 +9781,4 @@ html.vc-staff-reso-sheet-open body {
     right: auto !important;
   }
 }
-/* === phoneUnfreezeAll1: marker staff-pause === */
 

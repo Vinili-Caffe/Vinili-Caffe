@@ -115,7 +115,7 @@
   "notify_sentRecorded": "<:success:1461731530333229226> Уведомление отправлено и сохранено в профиле.",
   "profile_userNotFound": "<:vegax:1443934876440068179> Пользователь не найден.",
   "profile_botNotAllowed": "❌ Bạn không thể xem **hồ sơ** của bot!",
-  "profile_tenantPmOnly": "<:vegax:1443934876440068179> На этом сервере `+profile` доступен вам или Partner Managers.",
+  "profile_tenantPmOnly": "<:vegax:1443934876440068179> На этом сервере <a href=\"/personalizza/\" class=\"vc-sponsor-code\">profilo sul sito</a> доступен вам или Partner Managers.",
   "admin_denied": "<:vegax:1443934876440068179> Chỉ **chủ sở hữu máy chủ**, người dùng có quyền **Quản trị viên** hoặc **Quản lý máy chủ** mới có thể dùng tính năng này.",
   "admin_notYourPanel": "Bảng điều khiển này không thuộc về bạn.",
   "admin_cancelled": "Đã hủy thao tác.",

@@ -61,11 +61,6 @@ function memberHasCustomRoleOrVocPermission(member) {
   return vocRoleIds.some((roleId) => member.roles.cache.has(roleId));
 }
 
-/**
- * Premi istantanei già goduti → bloccati (come richiesto sullo shop web/Discord).
- * - 50: custom role/voc già attivi (bundle PM o permesso ruolo)
- * - 100: VIP già attivo (timer PM, ruolo VIP o VIP+)
- */
 function resolvePartnerManagerShopInstantBlocks(member, lean) {
   const customActive = partnerManagerCustomBundleActiveFromLean(lean);
   const vipActive = partnerManagerVipActiveFromLean(lean);
@@ -142,9 +137,7 @@ async function sweepExpiredPartnerManagerTimedPerks(client) {
     if (!uid) continue;
     const m = await guild.members.fetch(uid).catch(() => null);
     if (m && vipId && m.roles.cache.has(vipId)) {
-      // VIP è un ruolo condiviso (donazioni, premi, ecc.): toglilo solo se non
-      // resta un altro entitlement evidente, altrimenti sparisce ai riavvii/sweep.
-      const keepVip =
+                  const keepVip =
         Boolean(IDs.roles?.VIPplus && m.roles.cache.has(IDs.roles.VIPplus)) ||
         Boolean(IDs.roles?.Donator && m.roles.cache.has(IDs.roles.Donator)) ||
         Boolean(IDs.roles?.MVP && m.roles.cache.has(IDs.roles.MVP)) ||

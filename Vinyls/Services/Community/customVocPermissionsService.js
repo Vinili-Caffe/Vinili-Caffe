@@ -69,8 +69,7 @@ const CUSTOM_VOC_BOT_PERMS = {
 
 function isCustomPrivateVoiceChannel(channel, guild = null) {
   if (!channel?.isVoiceBased?.()) return false;
-  // Palchi / stage non sono mai vocali private utente.
-  if (channel.type === ChannelType.GuildStageVoice) return false;
+    if (channel.type === ChannelType.GuildStageVoice) return false;
   return isChannelInCustomPrivateCategory(channel, guild || channel.guild);
 }
 
@@ -160,8 +159,7 @@ async function applyOverwrite(channel, targetId, permsObject, reason, overwriteT
       try {
         await channel.permissionOverwrites.edit(id, permsObject, extras);
       } catch (err) {
-        // Stale cache or wrong type: Discord has no overwrite to edit → create instead.
-        if (!isUnknownOverwriteError(err)) throw err;
+                if (!isUnknownOverwriteError(err)) throw err;
         channel.permissionOverwrites.cache.delete(id);
         await channel.permissionOverwrites.create(id, permsObject, extras);
       }
@@ -169,8 +167,7 @@ async function applyOverwrite(channel, targetId, permsObject, reason, overwriteT
       try {
         await channel.permissionOverwrites.create(id, permsObject, extras);
       } catch (err) {
-        // Race: overwrite appeared between cache check and create.
-        if (isUnknownOverwriteError(err)) throw err;
+                if (isUnknownOverwriteError(err)) throw err;
         await channel.permissionOverwrites.edit(id, permsObject, extras);
       }
     }

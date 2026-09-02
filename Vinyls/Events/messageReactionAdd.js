@@ -37,8 +37,7 @@ function resolveSkullboardChannelId(guildId) {
     const fromTenant = gid ? resolveTenantBoardChannelIdSync(gid, "skull") : null;
     if (fromTenant) return fromTenant;
   } catch {
-    /* fallback catalog */
-  }
+      }
   return IDs.channels.quotes ? String(IDs.channels.quotes) : null;
 }
 

@@ -183,8 +183,7 @@ function deleteFeedbackFiles(feedbackId) {
   try {
     fs.rmSync(dir, { recursive: true, force: true });
   } catch {
-    /* ignore */
-  }
+      }
 }
 
 function resolveStoredFile(feedbackId, fileName) {
@@ -380,12 +379,10 @@ async function createBotFeedback(client, payload = {}) {
         ),
       );
     } catch {
-      /* ignore notify errors */
-    }
+          }
   }
 
-  // Bug segnalati dal sito → missioni Bug Hunter (come la segnalazione partnership su Discord).
-  if (kind === "bug") {
+    if (kind === "bug") {
     const claimed = await SiteDocument.findOneAndUpdate(
       {
         docType: BF,
@@ -699,8 +696,7 @@ async function staffSetBotFeedbackDecision(client, payload = {}) {
     }
   }
 
-  // Bug accettati sul sito → progresso missioni/badge Bug Hunter (una sola volta per feedback).
-  if (
+    if (
     nextStatus === "accepted" &&
     authorId &&
     normalizeFeedbackKind(existing.feedbackKind) === "bug" &&

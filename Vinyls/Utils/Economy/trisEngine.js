@@ -103,17 +103,15 @@ function pickCasualMove(moves) {
 function pickBotMove(board, randomPct = 0.35) {
   const moves = availableMoves(board);
   if (!moves.length) return -1;
-  // Vince subito se può.
-  const winNow = pickImmediateThreatMove(board, BOT);
+    const winNow = pickImmediateThreatMove(board, BOT);
   if (winNow >= 0) return winNow;
 
   const pct = Math.max(0, Math.min(1, Number(randomPct) || 0));
   const chance = (p) => p > 0 && randomInt(1, 101) <= Math.floor(Math.max(0, Math.min(1, p)) * 100);
 
-  // Miss-block leggero: via di mezzo tra imbattibile e regalo.
-  const blockNow = pickImmediateThreatMove(board, PLAYER);
+    const blockNow = pickImmediateThreatMove(board, PLAYER);
   if (blockNow >= 0) {
-    const missBlock = Math.min(0.28, 0.08 + pct * 0.35); // ~0.20 a pct=0.35
+    const missBlock = Math.min(0.28, 0.08 + pct * 0.35);
     if (chance(missBlock)) {
       const others = moves.filter((m) => m !== blockNow);
       if (others.length) return others[randomInt(0, others.length)];
@@ -121,8 +119,7 @@ function pickBotMove(board, randomPct = 0.35) {
     return blockNow;
   }
 
-  // Fuori minaccia: per lo più solido, a volte quasi-best/casual.
-  const softPlay = Math.min(0.45, 0.12 + pct * 0.5); // ~0.30 a pct=0.35
+    const softPlay = Math.min(0.45, 0.12 + pct * 0.5);
   if (chance(softPlay)) {
     const best = pickBestMove(board, BOT, PLAYER);
     if (chance(0.55)) {

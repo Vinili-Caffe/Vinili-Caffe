@@ -31,7 +31,6 @@ function getRomeDateKey(date) {
   return year && month && day ? `${year}-${month}-${day}` : "";
 }
 
-/** Primo istante (UTC ms) in cui Europe/Rome è sul giorno di calendario di `dayUtc` (Date.UTC y/m/d). */
 function getRomeDayStartUtcMs(dayUtc) {
   if (!dayUtc || !Number.isFinite(dayUtc.getTime?.())) return null;
   const y = dayUtc.getUTCFullYear();
@@ -78,8 +77,7 @@ function getFestiviSetForYear(year) {
   set.add(`${y}-12-26`);
   set.add(`${y}-12-31`);
   set.add(`${y}-01-01`);
-  /** Festività nazionali (Europe/Rome): non contano nel limite giorni pausa per tutti. */
-  set.add(`${y}-04-25`);
+    set.add(`${y}-04-25`);
   set.add(`${y}-05-01`);
   set.add(`${y}-06-02`);
   set.add(`${y}-08-15`);
@@ -284,10 +282,6 @@ function resolvePauseStaffRankRoleId(member, pause) {
   return stored || null;
 }
 
-/**
- * Conta staffer con pausa accettata sovrapposta e stesso grado Discord (Mod/Director/…),
- * non l’intero bucket Staff/PM.
- */
 async function computeStaffersInPauseByStaffRankForRange(
   guild,
   guildId,
@@ -469,7 +463,6 @@ async function getStaffPauseRecord(guildId, userId) {
   return ActivityUserProfile.findOne({ guildId: g, userId: u });
 }
 
-/** Cerca Staff e pausa per requestMessageId (fallback quando il pulsante ha un pauseId vecchio/sbagliato). */
 async function getStaffAndPauseByRequestMessageId(guildId, messageId) {
   const g = String(guildId ?? "").trim();
   const msgId = String(messageId ?? "").trim();
@@ -783,7 +776,6 @@ function buildAcceptedButtonsRow(userId, pauseId, options = {}) {
   return new ActionRowBuilder().addComponents(components);
 }
 
-/** Recupera la motivazione dal messaggio di richiesta pausa (canale pause). Ritorna null se non disponibile. */
 async function getPauseReasonFromMessage(client, pause) {
   const channelId = pause?.requestChannelId;
   const messageId = pause?.requestMessageId;
@@ -879,7 +871,6 @@ async function applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userI
   return Boolean(edited);
 }
 
-/** Solo frase fase + pulsanti: niente rebuild conteggi staffer/giorni (evita edit inutili a ogni restart). */
 async function syncAcceptedPauseMessagePhaseOnly(guild, userId, pause) {
   const channelId = String(pause?.requestChannelId || IDs.channels?.pause || "").trim();
   const messageId = String(pause?.requestMessageId || "").trim();
@@ -999,18 +990,14 @@ function schedulePauseStatusRefresh(guild, userId, pause) {
   const key = pauseStatusRefreshKey(guild.id, userId, pauseId);
   const flags = pauseStatusRefreshScheduled.get(key) || { start: false, end: false };
   const runPhaseSync = () => {
-    // Solo frase/pulsanti: niente rebuild conteggi (altrimenti ogni restart riscrive i messaggi).
-    syncAcceptedPauseMessagePhaseOnly(guild, userId, pause).catch(() => null);
+        syncAcceptedPauseMessagePhaseOnly(guild, userId, pause).catch(() => null);
     try {
       const { scheduleStaffListRefresh } = require("../Community/staffListUtils");
       scheduleStaffListRefresh(guild.client, guild.id, 800);
     } catch {
-      /* ignore */
-    }
+          }
   };
-  // Transizioni allineate a mezzanotte Europe/Rome (come getPausePhase / getTodayUtc),
-  // non a UTC midnight: altrimenti «è in pausa» resta 2h dopo la fine calendario.
-  const startAt = getRomeDayStartUtcMs(start) ?? start.getTime();
+      const startAt = getRomeDayStartUtcMs(start) ?? start.getTime();
   const dayAfterEnd = new Date(end.getTime() + MS_PER_DAY);
   const endAt = getRomeDayStartUtcMs(dayAfterEnd) ?? dayAfterEnd.getTime();
   const now = Date.now();
@@ -1030,9 +1017,7 @@ function schedulePauseStatusRefresh(guild, userId, pause) {
   }
   pauseStatusRefreshScheduled.set(key, flags);
 
-  // Catch-up solo pause già finite: se il bot era spento al passaggio, restano «è in pausa» + Annulla.
-  // (Le active non si toccano al restart: sync no-op comunque, ma fetch Discord inutili.)
-  if (phase === "ended" && now >= endAt) {
+      if (phase === "ended" && now >= endAt) {
     runPhaseSync();
   }
 }
@@ -1114,7 +1099,6 @@ async function restorePauseMessageStatusSync(client) {
   return { ok: true, examined, synced };
 }
 
-/** All’avvio: solo timer inizio/fine pausa. Niente sync/edit Discord (niente loop). */
 async function scheduleAcceptedPauseStatusTimersOnly(client) {
   const guildId = String(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id || "").trim();
   if (!guildId) return { ok: false, reason: "no_guild" };
@@ -1151,10 +1135,6 @@ function computeConsumedDaysForCancelledPause(pause) {
   return Math.max(1, Math.floor((todayUtc - start) / MS_PER_DAY) + 1);
 }
 
-/**
- * Annulla pause accepted/pending ancora aperte quando lo staffer esce dal server
- * e cancella i messaggi nel canale pause (niente tag ANNULLATA).
- */
 async function cancelOpenPausesOnMemberLeave(guild, userId, options = {}) {
   const guildId = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
@@ -1242,8 +1222,7 @@ function cancelledPauseMessageLooksStale(content) {
   const text = String(content || "");
   if (!text) return false;
   if (/aveva una pausa \*\*annullata\*\*/i.test(text)) return false;
-  // Vecchio formato: frase attiva + tag ANNULLATA (o warning limite ancora presente).
-  if (/ANNULLATA/i.test(text) && /(è in pausa|andrà in pausa|era in pausa)/i.test(text)) return true;
+    if (/ANNULLATA/i.test(text) && /(è in pausa|andrà in pausa|era in pausa)/i.test(text)) return true;
   if (/ANNULLATA/i.test(text) && /Limite ruolo/i.test(text)) return true;
   return false;
 }
@@ -1265,7 +1244,6 @@ async function applyCancelledPauseContentToMessage(channel, messageId, content, 
   return Boolean(edited);
 }
 
-/** One-shot: riscrive i messaggi cancellati ancora nel formato vecchio (append ANNULLATA). */
 async function rewriteStaleCancelledPauseMessages(client) {
   const guildId = String(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id || "").trim();
   if (!guildId) return { ok: false, reason: "no_guild", rewritten: 0 };

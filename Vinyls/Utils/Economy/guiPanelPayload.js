@@ -37,10 +37,7 @@ function buildImageButtonPayload({ files, components }) {
     embeds: [],
     components: Array.isArray(components) ? components : [],
     files: fileList,
-    // Solo per edit: svuota gli allegati esistenti. Su create non passare `attachments`
-    // (discord.js fa push in-place e un retry duplica gli id → ATTACHMENT_NOT_FOUND).
-    // Gli edit passano da prepareMessageEditPayload che gestisce attachments:[].
-    ...(fileList.length ? { attachments: [] } : {}),
+                ...(fileList.length ? { attachments: [] } : {}),
     allowedMentions: { repliedUser: false },
   };
 }

@@ -475,8 +475,7 @@ async function resolveSubjectInviteDmTarget(access, userId) {
     guild.members?.cache?.get?.(userId) ||
     (await guild.members.fetch(userId).catch(() => null));
   if (member && typeof member.send === "function") return { ok: true, target: member };
-  // Fuori server / bannati: Discord blocca i DM (50278 no mutual guilds).
-  const ban = await guild.bans.fetch(userId).catch(() => null);
+    const ban = await guild.bans.fetch(userId).catch(() => null);
   if (ban || !member) return { ok: false, reason: "dm_unavailable" };
   return { ok: false, reason: "no_user" };
 }
@@ -574,7 +573,6 @@ async function ensurePauseWorkflowFromKey(client, guildId, dedupeKey) {
   }
 }
 
-/** Appelli/candidature: se manca il doc DB, ricostruisci da Discord (altrimenti chat → 404). */
 async function ensureInviteQueueWorkflowFromKey(client, guildId, dedupeKey, queue) {
   const q = String(queue || "").trim().toLowerCase();
   const key = String(dedupeKey || "").trim();
@@ -712,9 +710,7 @@ function syntheticMemberFromOauth(oauth) {
 }
 
 async function resolveSubjectChatMember(client, guild, accessToken, { inviteOnly }) {
-  // Per candidature/appelli il richiedente può essere fuori server (es. unban).
-  // Non dipendere da guild.members.fetch (può appendere / fallire).
-  if (inviteOnly) {
+      if (inviteOnly) {
     const oauth = await resolveOAuthIdentity(accessToken);
     if (!oauth.ok) return oauth;
     let member = guild?.members?.cache?.get?.(oauth.userId) || null;
@@ -785,10 +781,7 @@ async function resolveWorkflowChatAccess(client, accessToken, dedupeKey) {
   const subjectChat = normalizeSubjectChat(workflow?.workflowFields?.subjectChat);
   const subjectActive = subjectChatHasActive(subjectChat);
   const subjectEverInvited = subjectChatEverInvited(subjectChat);
-  // Pause: chat aperta col richiedente (come Discord).
-  // Candidature / appelli: solo dopo invito staff (finestre temporali).
-  // Resoconti: solo staff.
-  const subjectMayJoin = queue === "pause" || (inviteOnly && subjectEverInvited);
+        const subjectMayJoin = queue === "pause" || (inviteOnly && subjectEverInvited);
 
   const staffAccess = await assertWebsiteStaffAccess(client, token);
   if (staffAccess.ok && memberCanAccessQueue(staffAccess.member, guild, queue)) {

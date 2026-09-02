@@ -48,7 +48,6 @@ const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [String(IDs.roles.Helper), String(IDs.ro
 const STAFF_PANEL_NON_PM_ROLE_IDS = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
 const STAFF_PANEL_NAV_ROLE_PRIORITY = [String(IDs.roles?.Founder), String(IDs.roles?.Manager), String(IDs.roles?.Admin), String(IDs.roles?.Director), String(IDs.roles?.HighStaff), String(IDs.roles?.SeniorModerator), String(IDs.roles?.Mod), String(IDs.roles?.Helper), String(IDs.roles?.Staff)].filter(Boolean).map((id) => String(id));
 
-/** Totale partnership in profilo (non sottrae i riscatti shop). */
 function resolveStaffPartnerPointsDisplay(staffObj) {
   return resolvePartnerTotalEarned(staffObj);
 }
@@ -253,7 +252,6 @@ function pushRoleBadgeIfMissing(badges, guild, roleId, fallbackLabel) {
   });
 }
 
-/** Badge additivo: Staff del Mese se ha il ruolo dedicato (non sostituisce Founder/PM). */
 function appendStaffDelMeseBadge(guild, member, badges) {
   const list = Array.isArray(badges) ? badges.slice() : [];
   const sdmId = String(IDs.roles?.StafferDelMese || "").trim();
@@ -270,11 +268,6 @@ function appendStaffDelMeseBadge(guild, member, badges) {
   return list;
 }
 
-/**
- * Badge ruolo profilo web.
- * Un badge “primario” dalla ladder (Founder→Helper), poi sempre High Staff / Staff
- * se presenti (come PM e Staff del Mese), così restano visibili insieme a Director ecc.
- */
 function buildStaffProfileRoleBadges(guild, member) {
   if (!member?.roles?.cache || !guild?.roles?.cache) return [];
   const pmId = String(IDs.roles.PartnerManager || "").trim();
@@ -290,8 +283,7 @@ function buildStaffProfileRoleBadges(guild, member) {
       break;
     }
   }
-  // Additive: sempre col ruolo Discord (anche se già c’è Director / Admin / …).
-  if (highStaffId && member.roles.cache.has(highStaffId)) {
+    if (highStaffId && member.roles.cache.has(highStaffId)) {
     pushRoleBadgeIfMissing(badges, guild, highStaffId, "High Staff");
   }
   if (staffId && member.roles.cache.has(staffId)) {
@@ -463,7 +455,6 @@ function getStaffPauseLine(staffDoc, opts = {}) {
   return "Nessuna pausa in corso <a:VC_Cross:1482532424570376253>";
 }
 
-
 function formatStaffProfileSelectCustomId(viewerId, targetId, sourceMessageId = null) {
   return withSourceSuffix(`${PANEL_PREFIX}:select:${viewerId}:${targetId}`, sourceMessageId);
 }
@@ -497,9 +488,7 @@ function parseStaffProfileNextCustomId(customId) {
   let section = SECTION_HOME;
   let sourceMessageId = null;
   if (parts.length === 5) {
-    // Legacy: next:viewer:target:sourceMessageId
-    // New without source: next:viewer:target:sectionTok
-    if (/^\d{16,20}$/.test(String(parts[4] || ""))) sourceMessageId = parts[4];
+            if (/^\d{16,20}$/.test(String(parts[4] || ""))) sourceMessageId = parts[4];
     else section = parseStaffHpButtonSectionToken(parts[4]);
   } else if (parts.length >= 6) {
     section = parseStaffHpButtonSectionToken(parts[4]);
@@ -899,7 +888,6 @@ function chunkString(text, maxLen = 3800) {
   return chunks;
 }
 
-/** Emoji riga warn in +profile: diverso per warn automatico da 3 negative vs altri warn. */
 function staffWarnProfileLineEmoji(reasonText) {
   const raw = String(reasonText || "").trim();
   if (!raw) return "<:banhammer:1443651875441217639>";
@@ -1017,7 +1005,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const negReasons = Array.isArray(s.negativeReasons) ? s.negativeReasons : [];
   const warnReasons = Array.isArray(s.warnReasons) ? s.warnReasons : [];
 
-
   let sec = String(section || SECTION_HOME).toLowerCase();
   if (sec === LEGACY_PARTNER_LB_SECTION) sec = SECTION_HOME;
   if (sec === SECTION_WARN) sec = SECTION_VALUTAZIONI;
@@ -1039,9 +1026,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       usePartnersChatPmPanel ||
       (profileKind === PROFILE_FULL && hasPm));
   const targetHasStaffLadderRole = Boolean(getHighestStaffLadderRoleIdForPanel(member));
-  // Nel pannello PM chat nascondiamo Pex/Depex solo per PM senza scala staff (usa i pulsanti prospect).
-  // PM + Helper/Mod/… deve mantenere Pex/Depex standard.
-  const suppressPexDepexInPmPanel = usePartnersChatPmPanel && !targetHasStaffLadderRole;
+      const suppressPexDepexInPmPanel = usePartnersChatPmPanel && !targetHasStaffLadderRole;
   const omitPexDepexHome = shouldOmitPexDepexHomeRow(viewerId, tid, member);
   const omitStaffLadderPexDepex = shouldOmitStaffLadderPexDepexForTarget(member);
   const pmPexOnlyHome = omitStaffLadderPexDepex && targetMayReceivePartnerManagerPex(member);

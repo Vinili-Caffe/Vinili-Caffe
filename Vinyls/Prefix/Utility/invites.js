@@ -76,7 +76,6 @@ function formatInviteBlock(invite, joiners = []) {
   return `\`discord.gg/${code}\`\n${formatJoinerLines(joiners)}`;
 }
 
-/** Spezza testo lungo in chunk ≤ MAX_FIELD_CHARS (limite Discord per field value). */
 function chunkFieldText(text, max = MAX_FIELD_CHARS) {
   const raw = String(text || "").trim();
   if (!raw) return [];
@@ -108,8 +107,7 @@ function chunkFieldText(text, max = MAX_FIELD_CHARS) {
 
 function buildInvitesEmbedFields(sortedInvites, joinersByCode, unknownJoiners) {
   const blocks = [];
-  // Solo link con almeno un join tracciato (niente "nessuno ancora tracciato").
-  const withJoins = (Array.isArray(sortedInvites) ? sortedInvites : []).filter((invite) => {
+    const withJoins = (Array.isArray(sortedInvites) ? sortedInvites : []).filter((invite) => {
     const code = String(invite?.code || "").trim();
     return code && (joinersByCode.get(code) || []).length > 0;
   });

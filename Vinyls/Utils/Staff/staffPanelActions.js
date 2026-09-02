@@ -106,8 +106,7 @@ async function fetchMember(guild, userId) {
   if (cached) return cached;
   const first = await guild.members.fetch(userId).catch(() => null);
   if (first) return first;
-  // Discord API can occasionally fail transiently; retry once before giving up.
-  return guild.members.fetch(userId).catch(() => null);
+    return guild.members.fetch(userId).catch(() => null);
 }
 
 function createMemberResolver(guild) {
@@ -339,7 +338,6 @@ function getNextLadderRoleId(currentId) {
   return STAFF_LADDER_ROLES[idx + 1];
 }
 
-/** Ruolo risultante dopo un depex di un grado (stessa logica di applyDepexOneLevel). */
 function peekDepexLadderTargetRoleId(ladderRoleId) {
   const roleId = String(ladderRoleId || "").trim();
   if (!roleId) return null;

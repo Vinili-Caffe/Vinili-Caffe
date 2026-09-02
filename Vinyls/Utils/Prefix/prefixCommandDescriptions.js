@@ -8,9 +8,8 @@ const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
   ping: "Mostra latenza bot, database e informazioni di uptime.",
   invite: "Invia il link per invitare il bot in un server.",
   invites: "Mostra gli inviti Discord attivi, gli usi e chi è entrato.",
-  profile: "Hub profilo interattivo community/staff.",
+  profile: "Apre il profilo partnership su server tenant.",
   ship: "Calcola la compatibilità tra due utenti.",
-  duel: "Duello magico vs Voldemort o PvP (evento Hogwarts).",
   snipe: "Recupera l'ultimo messaggio eliminato nel canale.",
   join: "Fa entrare il bot nel tuo canale vocale.",
   leave: "Fa uscire il bot dal canale vocale.",
@@ -28,7 +27,6 @@ const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
   daily: "Ricompensa giornaliera in Vinili e Caffè.",
   weekly: "Ricompensa settimanale in Vinili e Caffè.",
   monthly: "Ricompensa mensile in Vinili e Caffè.",
-  pay: "Non disponibile nell'economia server.",
   rob: "Furto contro cassaforte o utente.",
   shop: "Shop Vinili e Caffè con boost per economia server.",
   roulette: "Roulette interattiva.",
@@ -60,17 +58,14 @@ const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
   blacklist: "Mostra i server blacklistati uno alla volta con navigazione.",
   history: "Cronologia partnership recenti del server corrente o di un altro server partnership.",
   points: "Punti partnership PM su questo server, con gestione admin per Partner Manager.",
-  notify: "Registra una notifica staff per i Partner Manager in +profile pm.",
   badges: "Elenco dei badge partnership sbloccati.",
   leaderboard: "Classifiche globali join, partners e servers.",
   random: "Estrae un server partnership casuale.",
-  ticket: "Pannello gestione ticket.",
   security: "Pannello sicurezza con toggle moduli istantanei.",
   level: "Pannello gestione livelli.",
   backup: "Pannello backup del server.",
   setup: "Guidato setup partnership del server.",
   settings: "Impostazioni personali.",
-  punticasa: "Gestione punti casa Hogwarts.",
   quit: "Forza l'uscita di emergenza del processo bot.",
   quote: "Genera una quote da un messaggio.",
   clip: "Pubblica una clip vocale sulla bacheca.",
@@ -96,8 +91,6 @@ const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
   upcoming: "Mostra i prossimi brani in coda.",
   rewind: "Torna indietro nella traccia corrente.",
   restart: "Riavvia la traccia corrente dall'inizio.",
-  verify: "Avvia o gestisce la verifica membri.",
-  sezioneproibita: "Verifica libri proibiti sul sito o assegna vincitori evento.",
 });
 
 const PREFIX_SUBCOMMAND_DESCRIPTIONS = Object.freeze({
@@ -111,7 +104,6 @@ const PREFIX_SUBCOMMAND_DESCRIPTIONS = Object.freeze({
   "repeat.all": "Disattiva tutto.",
   "server.info": "Scheda informativa partnership di un server.",
   "user.info": "Scheda informativa partnership di un Partner Manager.",
-  "profile.pm": "Profilo partnership Partner Manager (main e server partnership).",
   "random.server": "Estrae un server partnership casuale.",
 });
 
@@ -159,8 +151,7 @@ function resolveApplicationCommandDescription(discordName, fallback = "") {
     APPLICATION_COMMAND_DESCRIPTIONS[exact.toLowerCase()] ||
     "";
   const fb = String(fallback || "").trim();
-  // Evita stringhe errore/accidentali tipo messaggi embed usati come description.
-  if (fb && !/^<a?:/.test(fb) && fb.length <= 200) return fromMap || fb;
+    if (fb && !/^<a?:/.test(fb) && fb.length <= 200) return fromMap || fb;
   return fromMap || "";
 }
 

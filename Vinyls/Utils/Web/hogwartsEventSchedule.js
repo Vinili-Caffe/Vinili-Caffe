@@ -1,4 +1,3 @@
-/** Orari evento Hogwarts: inizio tipico 12:00, fine 10:00 del giorno dopo (o ISO completo). */
 
 const DEFAULT_FORBIDDEN_START = "2026-06-20T12:00:00";
 const DEFAULT_FORBIDDEN_END = "2026-09-01T10:00:00";

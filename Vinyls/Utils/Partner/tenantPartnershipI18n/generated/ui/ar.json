@@ -115,7 +115,7 @@
   "notify_sentRecorded": "<:success:1461731530333229226> Уведомление отправлено и сохранено в профиле.",
   "profile_userNotFound": "<:vegax:1443934876440068179> Пользователь не найден.",
   "profile_botNotAllowed": "❌ لا يمكنك رؤية الملف الشخصي للروبوت!",
-  "profile_tenantPmOnly": "<:vegax:1443934876440068179> На этом сервере `+profile` доступен вам или Partner Managers.",
+  "profile_tenantPmOnly": "<:vegax:1443934876440068179> На этом сервере <a href=\"/personalizza/\" class=\"vc-sponsor-code\">profilo sul sito</a> доступен вам или Partner Managers.",
   "admin_denied": "<:vegax:1443934876440068179> فقط **مالك الخادم** والمستخدمون الذين لديهم **المسؤول** أو **إدارة الخادم** يمكنهم استخدام هذه الميزة.",
   "admin_notYourPanel": "هذه اللوحة ليست لك.",
   "admin_cancelled": "تم إلغاء العملية.",

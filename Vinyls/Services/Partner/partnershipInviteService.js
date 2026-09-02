@@ -68,10 +68,6 @@ async function deleteStaleInviteCodes(guild, codes, keepCode) {
   }
 }
 
-/**
- * Garantisce un invito permanente sul canale partnership (solo testo/annunci).
- * Se l'invito managed è su un altro canale (es. vocale), lo ricrea lì e cancella il vecchio.
- */
 async function ensurePartnershipChannelInvite(guild, channelId) {
   if (!guild?.id || !channelId) return { ok: false, reason: "missing_input" };
   const channel =
@@ -145,8 +141,7 @@ async function maybeSyncPartnershipInviteFromManaged(guildId, inviteRow) {
   if (!/^\d{16,20}$/.test(gid) || !inviteRow?.code || !inviteRow?.url) return;
   const cfg = getPartnershipConfigSync(gid);
   if (!cfg?.partnershipsChannelId) return;
-  // Solo se l'invito managed è già sul canale partnership (o non abbiamo ancora un invite valido).
-  const managedOnPartnerChannel =
+    const managedOnPartnerChannel =
     String(inviteRow.channelId || "") === String(cfg.partnershipsChannelId);
   if (!managedOnPartnerChannel && cfg.invite?.code) return;
   if (!managedOnPartnerChannel) return;
@@ -202,8 +197,7 @@ async function handlePartnershipInviteDeleted(client, invite) {
 
 module.exports = {
   syncPartnershipInviteFromManaged: async (guildId, fallbackChannelId = null) => {
-    // Compat: usato in pochi punti; ora verifica che l'invito managed esista ancora.
-    const gid = String(guildId || "").trim();
+        const gid = String(guildId || "").trim();
     if (!/^\d{16,20}$/.test(gid)) return { ok: false, reason: "invalid_guild" };
     const managed = await getManagedInvite(gid).catch(() => null);
     const invite = inviteRowFromManaged(managed, fallbackChannelId);

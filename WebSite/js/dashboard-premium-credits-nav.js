@@ -215,8 +215,7 @@
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden && getToken()) loadCredits();
     });
-    // Login/logout same-tab: discord-auth updates localStorage + login button.
-    var loginBtn = byId("discord-login-btn");
+        var loginBtn = byId("discord-login-btn");
     var loginState = byId("discord-login-state");
     if (window.MutationObserver && (loginBtn || loginState)) {
       var mo = new MutationObserver(function () {

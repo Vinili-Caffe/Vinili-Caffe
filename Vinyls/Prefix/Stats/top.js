@@ -40,7 +40,6 @@ const SNAPSHOT_SYNC_INTERVAL_MS = 10 * 60 * 1000;
 const topSourceCache = new Map();
 const snapshotSyncByGuild = new Map();
 const ALL_TIME_TOP_VIEWS = new Set(["invites_users", "level_users"]);
-/** Viste senza periodo 7d/14d: inviti e livelli all-time, voti solo mese calendario Roma (come contatori sito). */
 const PERIOD_UI_LOCKED_VIEWS = new Set([...ALL_TIME_TOP_VIEWS, "votes_users"]);
 
 function normalizeCanvasLabel(value, fallback) {
@@ -59,7 +58,6 @@ async function resolveDisplayName(guild, userId) {
   return `utente_${String(userId).slice(-6)}`;
 }
 
-/** Username (handle Discord), coerente con le canvas stats — mai nickname server. */
 async function resolveStatsUsernameLabel(guild, userId) {
   const uid = String(userId || "").trim();
   if (!uid) return "—";

@@ -59,8 +59,7 @@ function loadHouseAnnounceLogRows() {
       try {
         rows.push(JSON.parse(trimmed));
       } catch {
-        /* skip bad line */
-      }
+              }
     }
   } catch (err) {
     global.logger?.warn?.("[hogwarts-sorting-log] house announce read:", err?.message || err);
@@ -327,8 +326,7 @@ function findHogwartsAssetPath(relativePath) {
       const hit = fs.readdirSync(parent).find((entry) => String(entry).toLowerCase() === baseName);
       if (hit) return path.join(parent, hit);
     } catch {
-      /* skip unreadable dir */
-    }
+          }
   }
   return null;
 }
@@ -407,6 +405,10 @@ function appendSortingLogFile(entry) {
 async function sendHouseSortingLogDiscord(client, guild, cfg, entry, member) {
   const houseId = normalizeHouseId(entry.houseId);
   if (!houseId || !guild) return { ok: false, reason: "no_house" };
+  try {
+    const { isHouseChannelQuietHours } = require("./hogwartsHouseChannelMinigameService");
+    if (isHouseChannelQuietHours(client)) return { ok: false, reason: "quiet_hours" };
+  } catch (_) {}
   const channelId = resolveHouseLogChannelId(cfg, houseId);
   if (!channelId) return { ok: false, reason: "no_channel" };
   const channel = await getGuildChannelCached(guild, channelId);
@@ -438,8 +440,7 @@ async function sendHouseSortingLogDiscord(client, guild, cfg, entry, member) {
     const crestUrl = resolveHouseCrestThumbnailUrl(client, cfg, houseId);
     if (crestUrl) embed.setThumbnail(crestUrl);
   }
-  // Verifica CDN (avatar server/hash morti → icona spezzata su Discord). Fallback default sempre valido.
-  const avatarUrl = await resolveEmbedUserAvatarUrl(member || member?.user || { id: uid }, { size: 256 });
+    const avatarUrl = await resolveEmbedUserAvatarUrl(member || member?.user || { id: uid }, { size: 256 });
   embed.setAuthor({ name: String(entry.username || uid), iconURL: avatarUrl });
   const roleId = String(cfg?.houses?.[houseId]?.roleId || "").trim();
   const contentParts = [];

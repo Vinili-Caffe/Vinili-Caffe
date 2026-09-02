@@ -89,10 +89,7 @@ async function migrateGuildCustomPerks(guild, client) {
       touched += 1;
     }
 
-    // I permessi sul canale vocale custom li gestisce solo customVocPermissionsService
-    // (baseline + strip ruoli custom). Non ri-editare overwrite qui: a ogni restart
-    // creava audit spam e litigava col repair ("sync secondary role access" → strip).
-
+            
     if (Object.keys(updateSet).length) {
       await CustomRole.updateOne({ guildId, userId }, { $set: updateSet }).catch(() => {});
     }

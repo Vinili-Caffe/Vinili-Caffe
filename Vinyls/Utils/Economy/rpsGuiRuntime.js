@@ -290,8 +290,7 @@ async function renderRpsAttachment(session, { animating = false, notice = "" } =
   if (hit) return attachmentFromCache(hit);
   try {
     const renderRpsCanvas = require("../Render/rpsCanvas");
-    // Invite lunghe + mention restano nel content Discord, non nel footer canvas.
-    const canvasNotice =
+        const canvasNotice =
       session.mode === "pvp" && session.phase === "pending" ? "" : notice;
     const rendered = await runEconomyRender(() =>
       renderRpsCanvas({

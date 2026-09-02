@@ -250,9 +250,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () =>
         reconcileIncompleteActiveMuteMirrors(client, {
           limit: 80,
-          // Evita guild.members.fetch() a startup: opcode 8 rate-limit.
-          // I casi MUTE attivi + snapshot coprono i mute incompleti.
-          scanTimedOutMembers: true,
+                              scanTimedOutMembers: true,
         }),
     },
     {
@@ -261,8 +259,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       enabled: primaryScheduler,
       run: () =>
         sweepStalePreMemberRoles(client, {
-          // Full member fetch solo col sync completo: altrimenti usa cache + role.members.
-          fetchMembers: fullSync,
+                    fetchMembers: fullSync,
           limit: fullSync ? 500 : 200,
         }),
     },
@@ -339,8 +336,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "rewrite stale cancelled pause messages (legacy ANNULLATA)",
       weight: 19.5,
-      // Una tantum / TTL lungo: sistema i messaggi cancellati ancora nel formato vecchio.
-      enabled:
+            enabled:
         primaryScheduler &&
         (fullSync || shouldRunMediumStartup("cancelled-pause-msg-rewrite", 30 * 24 * 60 * 60 * 1000)),
       run: async () => {
@@ -448,13 +444,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed donation package supporter announces",
       weight: 44,
-      // Anche sul fast path: se il ruolo arriva mentre il bot è offline, guildMemberUpdate si perde.
-      enabled: primaryScheduler,
+            enabled: primaryScheduler,
       run: () =>
         recoverDonationPackageAnnouncesOnStartup(client, {
           limit: fullSync ? 20 : 12,
-          // Audit log è già limitato (~100 entry): lookback ampio anche sul fast path.
-          lookbackMs: 24 * 60 * 60 * 1000,
+                    lookbackMs: 24 * 60 * 60 * 1000,
         }),
     },
     {
@@ -610,8 +604,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "ensure MongoDB indexes (weekly / full sync)",
       weight: 76,
-      // TTL diretto: shouldRunMediumStartup ignora il TTL se FULL_STARTUP_SYNC=1.
-      enabled:
+            enabled:
         primaryScheduler &&
         fullSync &&
         isStartupThrottleDue(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000).due,
@@ -621,9 +614,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
         markMediumStartup("mongo-indexes");
       },
     },
-    // custom perks migration + custom voc startup repair: non più a ogni boot.
-    // Gli overwrite ruolo custom vengono tolti on-demand (voiceStateUpdate / sync canale).
-    {
+            {
       label: "custom private category empty cleanup",
       weight: 54,
       enabled: primaryScheduler && fullSync,
@@ -753,7 +744,6 @@ const getChannelSafe = async (client, channelId) => { if (!channelId) return nul
 const PENDING_COMMANDS_LOOKBACK_MS = 10 * 60 * 1000;
 const PENDING_COMMANDS_FETCH_LIMIT = 40;
 const PENDING_ORPHAN_LOOKBACK_MS = 10 * 60 * 1000;
-/** Solo per comandi che rispondono con channel.send senza reference (moderation). */
 const PENDING_REPLY_WINDOW_MS = 2 * 60 * 1000;
 const PENDING_SCAN_CONCURRENCY = 4;
 const PENDING_EXEC_GAP_MS = 250;
@@ -812,12 +802,8 @@ async function botAlreadyRepliedToPrefixMessage(message, client) {
     const newer = await message.channel.messages.fetch({ after: message.id, limit: 25 });
     for (const reply of newer.values()) {
       if (String(reply.author?.id || "") !== botId) continue;
-      // Match diretto: il bot ha risposto a QUESTO messaggio.
-      if (String(reply.reference?.messageId || "") === String(message.id)) return true;
-      // Heuristic stretta solo per risposte senza reference (ban/mute via channel.send):
-      // deve menzionare l'autore del comando, altrimenti un altro embed in canale
-      // (es. altro +rob) faceva saltare il recovery a caso.
-      if (reply.reference?.messageId) continue;
+            if (String(reply.reference?.messageId || "") === String(message.id)) return true;
+                        if (reply.reference?.messageId) continue;
       const replyTs = Number(reply.createdTimestamp || 0);
       if (!cmdTs || !replyTs || replyTs - cmdTs < 0 || replyTs - cmdTs > PENDING_REPLY_WINDOW_MS) continue;
       if (!authorId) continue;
@@ -829,8 +815,7 @@ async function botAlreadyRepliedToPrefixMessage(message, client) {
       if (reply.embeds?.length || String(reply.content || "").trim()) return true;
     }
   } catch {
-    /* ignore */
-  }
+      }
   return false;
 }
 
@@ -850,8 +835,7 @@ function messageHasBotLoadingReaction(message, client) {
   if (!message?.reactions?.cache?.size) return false;
   for (const reaction of message.reactions.cache.values()) {
     if (!isPrefixLoadingReaction(reaction)) continue;
-    // `me` arriva dal fetch messaggio; dopo restart `users.cache` è spesso vuoto.
-    if (reaction.me === true) return true;
+        if (reaction.me === true) return true;
     if (botId && reaction.users?.cache?.has(botId)) return true;
   }
   return false;
@@ -890,8 +874,7 @@ async function collectPendingPrefixScanChannels(guild, { deep = false } = {}) {
 
   const priorityIds = pendingPriorityChannelIds();
 
-  // Deep fetch solo main/test: su 60+ tenant un channels.fetch() massivo esaurisce RAM e rate-limit.
-  if (deep) {
+    if (deep) {
     await guild.channels.fetch().catch(() => null);
   } else {
     for (const id of priorityIds) {
@@ -912,8 +895,7 @@ async function collectPendingPrefixScanChannels(guild, { deep = false } = {}) {
         if (isScannableChannel(thread)) byId.set(thread.id, thread);
       }
     } catch {
-      /* ignore */
-    }
+          }
   }
 
   const priority = new Set(priorityIds);
@@ -942,8 +924,7 @@ async function processPendingPrefixCommands(client) {
     return;
   }
   const { handleOfficialPrefixMessage, ensurePrefixQueueLoaded } = require("../Utils/Prefix/officialPrefixDispatcher");
-  // Ripristina subito la coda snapshot (in-flight/queued al crash), senza aspettare il primo +comando.
-  try {
+    try {
     ensurePrefixQueueLoaded(client);
   } catch (err) {
     global.logger?.warn?.("[READY] prefix queue restore:", err?.message || err);
@@ -974,8 +955,7 @@ async function processPendingPrefixCommands(client) {
         const msgId = String(msg.id || "");
         if (!msgId || seenIds.has(msgId)) continue;
 
-        // Solo check sync: fetch reaction.users su ogni messaggio saturava Discord.
-        const hasLoading = messageHasBotLoadingReaction(msg, client);
+                const hasLoading = messageHasBotLoadingReaction(msg, client);
         if (hasLoading) {
           if (msg.createdTimestamp < cutoffLoading) continue;
           seenIds.add(msgId);
@@ -1038,8 +1018,7 @@ async function processPendingPrefixCommands(client) {
   try {
     const priorityIds = new Set(pendingPriorityChannelIds());
     const guilds = [...client.guilds.cache.values()].filter((g) => isPendingDeepScanGuild(g.id));
-    // Tenant: niente history-scan (69 guild × canali = OOM/rate-limit). Resta solo la coda snapshot.
-    if (!guilds.length) {
+        if (!guilds.length) {
       global.logger?.warn?.("[READY] pending prefix: nessun guild main/test da scansionare");
     }
 
@@ -1056,15 +1035,13 @@ async function processPendingPrefixCommands(client) {
       const priorityChannels = channels.filter((ch) => priorityIds.has(String(ch.id)));
       const restChannels = channels.filter((ch) => !priorityIds.has(String(ch.id)));
 
-      // Fase 1: ship/commands/… subito, così +ship non resta orfano minuti.
-      const phase1 = [];
+            const phase1 = [];
       const prevCollected = collected.length;
       await mapWithConcurrency(priorityChannels, PENDING_SCAN_CONCURRENCY, (channel) => scanChannel(channel, guildPrefix, me));
       phase1.push(...collected.slice(prevCollected));
       await executeCollected(phase1, `priority ${guild.name || guild.id}`);
 
-      // Fase 2: resto dei canali main (background rispetto ai live command: gap + concurrency bassa).
-      const phase2Start = collected.length;
+            const phase2Start = collected.length;
       await mapWithConcurrency(restChannels, Math.min(2, PENDING_SCAN_CONCURRENCY), (channel) => scanChannel(channel, guildPrefix, me));
       await executeCollected(collected.slice(phase2Start), `rest ${guild.name || guild.id}`);
     }
@@ -1310,8 +1287,7 @@ function startPrimaryLoops(client, engagementTick) {
           const isMongoNetwork = e?.name === "MongoNetworkTimeoutError" || e?.name === "MongoServerSelectionError";
           global.logger?.warn?.("[GIVEAWAY] syncActiveGiveawayButtons", isMongoNetwork ? "MongoDB timeout, will retry next run." : (e?.message || e));
         });
-      // Backup: recupera giveaway persi (restart/timer lunghi). La fine puntuale è via setTimeout.
-      const timer = setInterval(tick, 60 * 1000);
+            const timer = setInterval(tick, 60 * 1000);
       if (typeof timer.unref === "function") timer.unref();
       client._giveawayScheduledEndInterval = timer;
     }],
@@ -1334,7 +1310,6 @@ function startPrimaryLoops(client, engagementTick) {
       },
     ],
   ];
-
 
   for (let i = 0; i < loopStarters.length; i += 1) {
     const [label, starter] = loopStarters[i];
@@ -1479,8 +1454,7 @@ module.exports = {
       } catch (err) {
         global.logger?.error?.("[PUBLIC VOICE HUB INIT ERROR]", err);
       }
-      // Stanze: recovery solo su Caffè (evita doppio ownership dei canali).
-      try {
+            try {
         const { sweepUntrustedBotsInGuild } = require("../Services/Moderation/trustedBotGuardService");
         const mainGuildId = String(require("../Utils/Config/ids").guilds?.main || "").trim();
         if (mainGuildId) {
@@ -1573,18 +1547,15 @@ module.exports = {
     countingCatchUpRetry.unref?.();
 
     if (primaryScheduler) {
-      // Solo timer inizio/fine: niente sync/edit dei messaggi pausa ad ogni restart.
-      startPauseMessageStatusMaintenance(client);
-      // Staff list: bootstrap leggero anche se i pannelli sono in TTL skip (no force edit).
-      try {
+            startPauseMessageStatusMaintenance(client);
+            try {
         const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils");
         startStaffListPeriodicRefreshLoop(client);
       } catch (err) {
         global.logger?.warn?.("[STAFF LIST] startup bootstrap failed:", err?.message || err);
       }
       void runStartupPanels(client, "ready").catch(() => { });
-      // Retry solo se forzato: di default raddoppiava fetch/edit Discord inutili.
-      if (envFlagEnabled("STARTUP_PANELS_RETRY")) {
+            if (envFlagEnabled("STARTUP_PANELS_RETRY")) {
         const retryPanels = setTimeout(() => {
           void runStartupPanels(client, "ready-retry").catch(() => { });
         }, STARTUP_PANELS_RETRY_MS);

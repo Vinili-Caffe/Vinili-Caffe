@@ -26,11 +26,6 @@ function isAutoWarnFromNegativesReason(reasonText) {
   return false;
 }
 
-/**
- * Quanti warn contano come conversione da negative.
- * Se almeno un reason matcha il testo auto → usa solo quelli.
- * Altrimenti (dati vecchi: reason = motivo dell'ultima negativa) → usa tutto warnCount.
- */
 function resolveConvertibleWarnCount(staff) {
   const warnCount = Math.max(0, Math.floor(Number(staff?.warnCount) || 0));
   const reasons = Array.isArray(staff?.warnReasons) ? staff.warnReasons : [];

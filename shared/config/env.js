@@ -24,7 +24,6 @@ function ensureToken(token, botLabel = "Bot") {
   return token;
 }
 
-/** Client ID encoded in a Discord bot token (base64 of the part before the first `.`). */
 function clientIdFromBotToken(token) {
   const raw = String(token || "").trim();
   const head = raw.split(".")[0];
@@ -38,10 +37,6 @@ function clientIdFromBotToken(token) {
   }
 }
 
-/**
- * Abort boot if the resolved token is not the expected bot (e.g. Vinyls loading Coffee's token).
- * `expectedClientId` / `forbiddenClientId` come from env when set.
- */
 function assertBotTokenIdentity(token, {
   botLabel = "Bot",
   expectedClientId = null,

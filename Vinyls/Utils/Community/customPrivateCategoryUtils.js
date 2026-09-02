@@ -111,9 +111,7 @@ function computePrivateCategoryTargetPosition(category, partner, limitate) {
       ? Number(limitate.rawPosition) + 1
       : 0;
 
-  // Must be strictly above partner (lower rawPosition). Same index as partner ties on
-  // channel id; dynamically created categories always have a newer id and sink below.
-  let target = partnerPos - 1;
+      let target = partnerPos - 1;
   if (!Number.isFinite(target)) return null;
   if (target < floor) target = floor;
   if (target >= partnerPos) target = Math.max(floor, partnerPos - 1);
@@ -156,8 +154,7 @@ async function placePrivateCategoryAbovePartner(guild, category) {
 
 async function syncCustomPrivateCategoryLayout(guild, category) {
   if (!guild || !category || category.type !== ChannelType.GuildCategory) return category;
-  // Mantieni eventuale prefisso apice (category numbering); riallinea solo il core PRIVATE.
-  const prefix = extractCategoryIndexPrefix(category.name);
+    const prefix = extractCategoryIndexPrefix(category.name);
   const desired = `${prefix}${CUSTOM_PRIVATE_CATEGORY_NAME}`;
   if (String(category.name || "") !== desired) {
     await category.setName(desired, "Allinea nome categoria vocali private").catch(() => { });

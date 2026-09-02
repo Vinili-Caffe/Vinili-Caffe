@@ -1,5 +1,5 @@
 (function () {
-  try {
+    try {
     var t = localStorage.getItem("vc_discord_access_token");
     if (t) {
       var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
@@ -34,10 +34,8 @@
   var OAUTH_FRESH_AFTER_BOUNCE_KEY = "vc_oauth_fresh_after_bounce_v1";
   var OAUTH_STATE_NONCE_KEY = "vc_oauth_state_nonce_v1";
   var SITE_SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-  /** Backup percorso ritorno se `state` non torna nel fragment OAuth. */
-  var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
-  /** Profilo `@me` in sessione: evita round-trip Discord a ogni navigazione. */
-  var ME_CACHE_KEY = "vc_discord_me_cache_v1";
+    var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
+    var ME_CACHE_KEY = "vc_discord_me_cache_v1";
   var ME_LOCAL_CACHE_KEY = "vc_discord_me_cache_local_v1";
   var ME_SESSION_TTL_MS = 180000;
   var ME_LOCAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -59,8 +57,7 @@
   }
 
   var SESSION_OVERLAY_ID = "vc-session-verify-overlay";
-  /** Hard stop: @me / site-verify appesi non devono bloccare la pagina. */
-  var SESSION_VERIFY_HARD_MS = (function () {
+    var SESSION_VERIFY_HARD_MS = (function () {
     try {
       if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return 350;
       if (document.documentElement.classList.contains("vc-perf-lite")) return 350;
@@ -112,6 +109,20 @@
     } catch (e1) {}
     resetScrollAfterSessionOverlay();
     if (window.__VC_DISCORD_PROFILE) return;
+    var token = getToken();
+    if (token) {
+      try {
+        var cachedUser = readCachedDiscordMe(token);
+        if (cachedUser) {
+          renderLoggedIn(cachedUser);
+          return;
+        }
+        renderAuthPendingShell();
+      } catch (eTok) {
+        renderAuthPendingShell();
+      }
+      return;
+    }
     try {
       var state = byId("discord-login-state");
       if (state && state.querySelector(".vc-auth-pending-shell")) {
@@ -133,8 +144,7 @@
     }, SESSION_VERIFY_HARD_MS);
   }
 
-  /** Chiude campanella notifiche (e classi overlay) se aperta. */
-  function closeVcNotifDropdown() {
+    function closeVcNotifDropdown() {
     try {
       var n = document.getElementById("vc-notif-dropdown");
       if (n && n.open) n.open = false;
@@ -146,8 +156,7 @@
     } catch (eN) {}
   }
 
-  /** Chiude menu account header (hover/focus class + blur). */
-  function closeVcAccountMenu() {
+    function closeVcAccountMenu() {
     try {
       document.documentElement.classList.remove("vc-header-account-open");
       var menu = document.querySelector(".discord-account-menu");
@@ -164,12 +173,7 @@
     } catch (eS) {}
   }
 
-  /**
-   * Un solo pannello header alla volta (notifiche ↔ account) su tutte le pagine.
-   * Deve vivere in discord-auth perché il menu account nasce dopo il login.
-   * Notifiche: click-to-pin — non chiudere solo perché il cursore passa sull’avatar.
-   */
-  var headerMenusMutexWired = false;
+    var headerMenusMutexWired = false;
   function ensureHeaderMenusMutex() {
     if (headerMenusMutexWired) return;
     headerMenusMutexWired = true;
@@ -212,12 +216,12 @@
         if (!menu) return;
         var related = ev.relatedTarget;
         if (related && menu.contains(related)) return;
-        // Se le notifiche sono aperte (click), restano aperte finché non si clicca fuori / sull’account.
-        if (notifDropdownIsOpen()) return;
+                if (notifDropdownIsOpen()) return;
         closeVcHeaderSnavDetails();
         try {
           document.documentElement.classList.add("vc-header-account-open");
         } catch (e3) {}
+        kickAccountMenuPopoverAvatar();
       },
       true,
     );
@@ -249,6 +253,7 @@
         try {
           document.documentElement.classList.add("vc-header-account-open");
         } catch (e5) {}
+        kickAccountMenuPopoverAvatar();
       },
       true,
     );
@@ -260,19 +265,18 @@
         if (!t || !t.closest) return;
         var profile = t.closest(".discord-profile-link, .discord-account-menu");
         if (!profile || !profile.closest || !profile.closest(".discord-account-menu")) return;
-        // Click esplicito sull’account: chiudi notifiche e apri il menu account.
-        if (!notifDropdownIsOpen()) return;
+                if (!notifDropdownIsOpen()) return;
         closeVcNotifDropdown();
         try {
           document.documentElement.classList.add("vc-header-account-open");
         } catch (e6) {}
+        kickAccountMenuPopoverAvatar();
       },
       true,
     );
   }
 
-  /** Header + CTA “Accedi con Discord”: più pulsanti sulla stessa pagina (es. accesso-richiesto). */
-  var DISCORD_LOGIN_BTN_SELECTOR = "#discord-login-btn, button[data-vc-discord-login]";
+    var DISCORD_LOGIN_BTN_SELECTOR = "#discord-login-btn, button[data-vc-discord-login]";
 
   function queryDiscordLoginButtons() {
     try {
@@ -519,8 +523,7 @@
     var t = localStorage.getItem(ACCESS_TOKEN_KEY);
     var exp = Number(localStorage.getItem(EXPIRES_AT_KEY) || "0");
     if (!t) return "";
-    // Sessioni legacy senza expires_at: non forzare logout.
-    if (exp && Date.now() >= exp) return "";
+        if (exp && Date.now() >= exp) return "";
     return t;
   }
 
@@ -532,9 +535,16 @@
       sessionStorage.removeItem(ME_CACHE_KEY);
       localStorage.removeItem(ME_LOCAL_CACHE_KEY);
       sessionStorage.removeItem("vc_menu_staff_v1");
+      localStorage.removeItem("vc_menu_staff_local_v1");
       sessionStorage.removeItem("vc_menu_dash_v1");
       localStorage.removeItem("vc_menu_dash_local_v1");
       sessionStorage.removeItem("vc_server_avatar_v1");
+      sessionStorage.removeItem("vc_staff_access_ok_v2");
+      localStorage.removeItem("vc_staff_access_ok_v2_local");
+      try {
+        window.__VC_STAFF_MENU_ALLOWED = false;
+        window.__VC_STAFF_PERMS = null;
+      } catch (eClrStaff) {}
       if (window.VcApiCache && typeof window.VcApiCache.invalidatePrefix === "function") {
         ["profile:", "chrome:", "avatar:", "feedback:", "suggestions:", "staff:"].forEach(function (prefix) {
           window.VcApiCache.invalidatePrefix(prefix);
@@ -628,8 +638,7 @@
       scope: String(opts.scopes || resolveOAuthScopes()).trim() || "identify",
     });
     q.set("state", buildOAuthState(currentPathPlusQuery() || "/"));
-    // Senza prompt=consent Discord spesso riusa l’auth vecchia e non aggiunge i nuovi scope.
-    if (opts.prompt) q.set("prompt", String(opts.prompt));
+        if (opts.prompt) q.set("prompt", String(opts.prompt));
     return "https://discord.com/oauth2/authorize?" + q.toString();
   }
 
@@ -639,8 +648,7 @@
     return tokenHasOAuthScope(CMD_PERMS_SCOPE);
   }
 
-  /** Logout + OAuth con consent obbligatorio (serve per sync permessi slash). */
-  function reauthorizeForCommandPermissions(visualBtn) {
+    function reauthorizeForCommandPermissions(visualBtn) {
     clearToken();
     startDiscordOAuthFromUserGesture(
       visualBtn || null,
@@ -652,9 +660,116 @@
   }
 
   function avatarUrl(u) {
-    if (!u || !u.id || !u.avatar) return "";
+    if (!u || !u.id) return "";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromUser === "function") {
+        var built = window.VcDiscordAvatar.buildFromUser(u, 64);
+        if (built) {
+          try {
+            if (
+              window.matchMedia &&
+              window.matchMedia("(pointer: coarse)").matches &&
+              window.VcDiscordAvatar.preferStaticUrl
+            ) {
+              return window.VcDiscordAvatar.preferStaticUrl(built, 64) || built;
+            }
+          } catch (eMob) {}
+          return built;
+        }
+      }
+    } catch (eBuild) {}
+    if (!u.avatar) return "";
     var ext = String(u.avatar).indexOf("a_") === 0 ? "gif" : "png";
     return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
+  }
+
+  function normalizeMenuAvatarSrc(url, user) {
+    var raw = String(url || "").trim();
+    if (!raw) return avatarUrl(user);
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
+        return (
+          window.VcDiscordAvatar.resolveUrl(raw, 64, user && user.avatar, user && user.id) || raw
+        );
+      }
+    } catch (eNorm) {}
+    return raw;
+  }
+
+  function buildMenuAvatarVisual(user, label, size) {
+    var px = Math.max(16, Math.floor(Number(size) || 38));
+    var img = avatarUrl(user);
+    var labelEsc = escAttr(label);
+    var hash = user && user.avatar ? escAttr(String(user.avatar)) : "";
+    if (!img) {
+      return (
+        '<span class="discord-avatar-img discord-avatar-img--fallback" aria-label="' +
+        labelEsc +
+        '"><i class="fa fa-user" aria-hidden="true"></i></span>'
+      );
+    }
+    return (
+      '<img class="discord-avatar-img" data-vc-avatar="1"' +
+      (hash ? ' data-avatar-hash="' + hash + '"' : "") +
+      ' src="' +
+      escAttr(img) +
+      '" alt="" width="' +
+      px +
+      '" height="' +
+      px +
+      '" decoding="async" aria-label="' +
+      labelEsc +
+      '">'
+    );
+  }
+
+  function applyAnimatedAvatarToImg(img, user) {
+    if (!img || img.tagName !== "IMG") return;
+    try {
+      var hash = String((user && user.avatar) || img.getAttribute("data-avatar-hash") || "").trim();
+      if (hash && !img.getAttribute("data-avatar-hash")) img.setAttribute("data-avatar-hash", hash);
+      var next = normalizeMenuAvatarSrc(img.getAttribute("src") || img.src, user);
+      if (next && next !== img.src) img.src = next;
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.applyToImage === "function") {
+        window.VcDiscordAvatar.applyToImage(img, { force: true });
+      }
+    } catch (eApply) {}
+  }
+
+  function refreshAccountMenuAvatars(user, opts) {
+    var onlyPopover = opts && opts.onlyPopover;
+    var selector = onlyPopover
+      ? ".discord-account-popover__avatar img.discord-avatar-img"
+      : ".discord-account-menu img.discord-avatar-img";
+    var imgs;
+    try {
+      imgs = document.querySelectorAll(selector);
+    } catch (eSel) {
+      return;
+    }
+    for (var i = 0; i < imgs.length; i += 1) {
+      applyAnimatedAvatarToImg(imgs[i], user);
+      if (
+        onlyPopover &&
+        window.VcDiscordAvatar &&
+        typeof window.VcDiscordAvatar.restartAnimation === "function"
+      ) {
+        window.VcDiscordAvatar.restartAnimation(imgs[i]);
+      }
+    }
+  }
+
+  function kickAccountMenuPopoverAvatar() {
+    var menu = document.querySelector(".discord-account-menu");
+    var user = null;
+    try {
+      user = window.__VC_ACCOUNT_MENU_USER || null;
+    } catch (eUser) {}
+    refreshAccountMenuAvatars(user, { onlyPopover: true });
+    if (!menu) return;
+    window.requestAnimationFrame(function () {
+      refreshAccountMenuAvatars(user, { onlyPopover: true });
+    });
   }
 
   function resolveRankCardApiUrl() {
@@ -697,6 +812,14 @@
         );
       } catch (eLocal) {}
     }
+        if (key === "vc_menu_staff_v1") {
+      try {
+        localStorage.setItem(
+          "vc_menu_staff_local_v1",
+          JSON.stringify(Object.assign({}, payload, { fp: menuTokenFp(token), at: Date.now() })),
+        );
+      } catch (eStaffLocal) {}
+    }
   }
 
   function readMenuCacheWithLocal(key, localKey, token, sessionTtlMs, localTtlMs) {
@@ -716,15 +839,39 @@
 
   function readGateStaffAllowed(token) {
     try {
+      var t = String(token || "").trim();
+      if (!t) return null;
       var raw = sessionStorage.getItem("vc_staff_access_ok_v2") || localStorage.getItem("vc_staff_access_ok_v2_local");
       if (!raw) return null;
       var data = JSON.parse(raw);
       if (!data || data.ok !== true) return null;
+      var fp = String(data.fp || "");
+      if (fp && fp !== menuTokenFp(t) && fp !== discordSessionFingerprint(t)) return null;
       if (Number(data.exp || 0) <= Date.now()) return null;
-      return true;
+      return data;
     } catch (e) {
       return null;
     }
+  }
+
+  function writeGateStaffAllowed(token, perms) {
+    try {
+      var t = String(token || "").trim();
+      if (!t) return;
+      var now = Date.now();
+      var entry = Object.assign({}, perms && typeof perms === "object" ? perms : {}, {
+        ok: true,
+        allowed: true,
+        fp: discordSessionFingerprint(t) || menuTokenFp(t),
+        savedAt: now,
+        exp: now + 600000,
+      });
+      sessionStorage.setItem("vc_staff_access_ok_v2", JSON.stringify(entry));
+      localStorage.setItem(
+        "vc_staff_access_ok_v2_local",
+        JSON.stringify(Object.assign({}, entry, { exp: now + 86400000 })),
+      );
+    } catch (eGateW) {}
   }
 
   function readGateDashAllowed(token) {
@@ -834,23 +981,97 @@
           allowed: true,
           payload: payload && payload.ok ? payload : null,
         });
+        writeGateStaffAllowed(t, payload && payload.ok ? payload : null);
       }
       try {
         if (payload && payload.ok) {
           window.dispatchEvent(new CustomEvent("vc:staff-access-ok", { detail: { perms: payload } }));
+        } else {
+          window.dispatchEvent(new CustomEvent("vc:staff-access-ok", { detail: { perms: window.__VC_STAFF_PERMS || {} } }));
         }
       } catch (eEv) {}
     }
 
     function refreshPermsInBackground() {
+      var refreshNow = Date.now();
+      if (window.__vcStaffPermsBlockedUntil && refreshNow < window.__vcStaffPermsBlockedUntil) return;
+      if (
+        window.__vcStaffPermsRefreshAt &&
+        refreshNow - window.__vcStaffPermsRefreshAt < 60000 &&
+        window.__vcStaffPermsRefreshing
+      ) {
+        return;
+      }
       if (window.__vcStaffPermsRefreshing) return;
       window.__vcStaffPermsRefreshing = true;
+      window.__vcStaffPermsRefreshAt = refreshNow;
+      var apiUrl = staffApiBase();
+      var headers = { Authorization: "Bearer " + t };
+
+      function finishStaffRefresh() {
+        window.__vcStaffPermsRefreshing = false;
+      }
+
+      function handleStaffPayload(data, fromNetwork) {
+        if (data && data.ok === true) {
+          applyAllowed(data, true);
+          return;
+        }
+        if (data && data.ok === false) {
+          try {
+            window.__VC_STAFF_MENU_ALLOWED = false;
+            writeMenuCache("vc_menu_staff_v1", t, { allowed: false, payload: null });
+            sessionStorage.removeItem("vc_staff_access_ok_v2");
+            localStorage.removeItem("vc_staff_access_ok_v2_local");
+          } catch (eDeny) {}
+        }
+      }
+
+      function onStaffHttp(res, body) {
+        if (res && res.status === 429) {
+          window.__vcStaffPermsBlockedUntil = Date.now() + 90000;
+          try {
+            if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
+              window.VcApiCache.noteWebhook429(0);
+            }
+          } catch (e429) {}
+          return null;
+        }
+        if (res && res.ok && body && body.ok) return body;
+        if (res && (res.status === 401 || res.status === 403)) {
+          try {
+            window.__VC_STAFF_MENU_ALLOWED = false;
+            writeMenuCache("vc_menu_staff_v1", t, { allowed: false, payload: null });
+            sessionStorage.removeItem("vc_staff_access_ok_v2");
+            localStorage.removeItem("vc_staff_access_ok_v2_local");
+          } catch (eDeny2) {}
+        }
+        return null;
+      }
+
+      if (window.VcApiCache && typeof window.VcApiCache.fetchStaffJson === "function") {
+        window.VcApiCache
+          .fetchStaffJson(apiUrl, { headers: headers, ttlMs: 45000, staleMs: 600000 })
+          .then(function (out) {
+            finishStaffRefresh();
+            if (out && out.res && out.res.status === 429) {
+              window.__vcStaffPermsBlockedUntil = Date.now() + 90000;
+              return;
+            }
+            handleStaffPayload(out && out.data ? out.data : null, true);
+          })
+          .catch(function () {
+            finishStaffRefresh();
+          });
+        return;
+      }
+
       var pref = window.__VC_STAFF_ACCESS_PREFETCH;
       var req =
         pref && typeof pref.then === "function"
           ? Promise.resolve(pref)
-          : fetch(staffApiBase(), {
-              headers: { Authorization: "Bearer " + t },
+          : fetch(apiUrl, {
+              headers: headers,
               cache: "no-store",
             }).then(function (res) {
               return res
@@ -859,53 +1080,44 @@
                   return {};
                 })
                 .then(function (body) {
-                  return res && res.ok ? body : null;
+                  return onStaffHttp(res, body);
                 });
             });
       Promise.resolve(req)
         .then(function (data) {
-          window.__vcStaffPermsRefreshing = false;
+          finishStaffRefresh();
           if (data && data.ok === true) {
             applyAllowed(data, true);
             return;
           }
-          // Prefetch già risolto: se non ok, fetch diretto.
+          if (data && data.ok === false) {
+            handleStaffPayload(data, true);
+            return;
+          }
           if (pref && data == null) return;
-          return fetch(staffApiBase(), {
-            headers: { Authorization: "Bearer " + t },
-            cache: "no-store",
-          })
-            .then(function (res) {
-              return res
-                .json()
-                .catch(function () {
-                  return {};
-                })
-                .then(function (body) {
-                  if (res && res.ok && body && body.ok) applyAllowed(body, true);
-                });
-            })
-            .catch(function () {});
         })
         .catch(function () {
-          window.__vcStaffPermsRefreshing = false;
+          finishStaffRefresh();
         });
     }
 
-    var cached = readMenuCache("vc_menu_staff_v1", t, 300000);
+        var cached = readMenuCacheWithLocal("vc_menu_staff_v1", "vc_menu_staff_local_v1", t, 600000, 86400000);
     if (cached && cached.allowed) {
       applyAllowed(cached.payload || null, false);
-      if (!cached.payload || !cached.payload.ok) refreshPermsInBackground();
+      refreshPermsInBackground();
       return true;
     }
-    if (readGateStaffAllowed(t) === true || window.__VC_STAFF_MENU_ALLOWED === true) {
-      applyAllowed(window.__VC_STAFF_PERMS || null, false);
+    var gateBlob = readGateStaffAllowed(t);
+    if (gateBlob || window.__VC_STAFF_MENU_ALLOWED === true) {
+      applyAllowed(
+        (gateBlob && typeof gateBlob === "object" ? gateBlob : null) || window.__VC_STAFF_PERMS || null,
+        false,
+      );
       refreshPermsInBackground();
       return true;
     }
 
-    // Prefetch inline (es. /user/): non aspettare un secondo round-trip.
-    var pref = window.__VC_STAFF_ACCESS_PREFETCH;
+        var pref = window.__VC_STAFF_ACCESS_PREFETCH;
     if (pref && typeof pref.then === "function") {
       try {
         var preData = await Promise.resolve(pref);
@@ -954,15 +1166,13 @@
     try {
       var s = document.createElement("script");
       s.src = "/js/staff-site-nav.js?v=20260830staffGuidaOnly1";
-      // Dinamico: async=false = download immediato + exec appena pronto (no coda defer).
-      s.async = false;
+            s.async = false;
       s.setAttribute("data-vc-staff-site-nav", "1");
       (document.head || document.documentElement).appendChild(s);
     } catch (eNav) {}
   }
 
-  /** Dashboard nel hamburger: cache/gate prima del fetch /access. */
-  function warmDashboardNavEarly() {
+    function warmDashboardNavEarly() {
     try {
       var t = getToken();
       if (!t) return false;
@@ -984,22 +1194,29 @@
     }
   }
 
-  /** Mostra Area staff subito da cache/gate, senza aspettare Discord @me. */
-  function warmStaffNavEarly() {
+    function warmStaffNavEarly() {
     try {
       var t = getToken();
       if (!t) return false;
-      var cached = readMenuCache("vc_menu_staff_v1", t, 300000);
-      var gate = readGateStaffAllowed(t) === true;
+      var cached = readMenuCacheWithLocal("vc_menu_staff_v1", "vc_menu_staff_local_v1", t, 600000, 86400000);
+      var gate = readGateStaffAllowed(t);
       var already = window.__VC_STAFF_MENU_ALLOWED === true;
       if (!(cached && cached.allowed) && !gate && !already) return false;
-      if (cached && cached.payload) {
+      var payload =
+        (cached && cached.payload) ||
+        (gate && typeof gate === "object" ? gate : null) ||
+        window.__VC_STAFF_PERMS ||
+        null;
+      if (payload) {
         try {
-          window.__VC_STAFF_PERMS = cached.payload;
+          window.__VC_STAFF_PERMS = payload;
         } catch (eP) {}
       }
       window.__VC_STAFF_MENU_ALLOWED = true;
       ensureStaffSiteNavScript();
+      try {
+        window.dispatchEvent(new CustomEvent("vc:staff-access-ok", { detail: { perms: payload || {} } }));
+      } catch (eEv) {}
       return true;
     } catch (eWarm) {
       return false;
@@ -1051,7 +1268,7 @@
     if (!id) return false;
     try {
       var path = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
-      if (path === "/user/personalizza" || path === "/user/customize" || path === "/user/custom") return false;
+      if (path === "/personalizza" || path === "/user/personalizza" || path === "/user/customize" || path === "/user/custom") return false;
       var q = new URLSearchParams(window.location.search || "");
       var qid = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
       if (qid === id && (path === "/user" || path === "/users")) return true;
@@ -1141,7 +1358,7 @@
       if (p === "/staff/profilo" || p.indexOf("/staff/profilo/") === 0) return true;
       if (p === "/dashboard/profilo" || p.indexOf("/dashboard/profilo/") === 0) return true;
       if (p === "/dashboard/transcript" || p.indexOf("/dashboard/transcript/") === 0) return true;
-      if (p === "/user" || p === "/user/customize" || p === "/user/personalizza" || p === "/user/custom") return true;
+      if (p === "/user" || p === "/personalizza" || p === "/user/customize" || p === "/user/personalizza" || p === "/user/custom") return true;
       return /^\/users\/\d{17,22}$/.test(p);
     } catch (e) {
       return false;
@@ -1205,8 +1422,7 @@
 
   function revealStaffMenuItem(allowed) {
     window.__VC_STAFF_MENU_ALLOWED = Boolean(allowed);
-    // Mai nel menu account profilo: solo dropdown "Area staff" in navbar.
-    var link = byId("discord-staff-link");
+        var link = byId("discord-staff-link");
     if (link) {
       try {
         if (link.parentNode) link.parentNode.removeChild(link);
@@ -1243,12 +1459,7 @@
     } catch (eRebuild2) {}
   }
 
-  /**
-   * Navigazione OAuth nello stesso "tick" del gesto utente (tap).
-   * Ritardi o click sintetici su elementi display:none (es. drawer mobile → header nascosto)
-   * spezzano la user activation su Safari/iOS e il redirect a Discord non parte.
-   */
-  function startDiscordOAuthFromUserGesture(visualBtn, url) {
+    function startDiscordOAuthFromUserGesture(visualBtn, url) {
     var u = url || authUrl();
     if (!u) {
       if (window.VcDialog && typeof window.VcDialog.alert === "function") {
@@ -1439,8 +1650,7 @@
     emitProfile(null);
   }
 
-  /** Token presente ma @me ancora in corso: nasconde Login subito (niente flash “logged out”). */
-  function renderAuthPendingShell() {
+    function renderAuthPendingShell() {
     try {
       document.documentElement.classList.add("vc-auth-session-pending");
     } catch (eCls) {}
@@ -1451,7 +1661,22 @@
     var state = byId("discord-login-state");
     if (!state) return;
     state.hidden = false;
-    if (state.querySelector(".discord-login-row:not(.vc-auth-pending-shell)")) return;
+    if (
+      state.querySelector(".discord-login-row:not(.vc-auth-pending-shell):not(.vc-auth-early-shell)") ||
+      state.querySelector(".vc-auth-early-shell img.discord-avatar-img")
+    ) {
+      return;
+    }
+    var token = getToken();
+    if (token) {
+      try {
+        var cachedUser = readCachedDiscordMe(token);
+        if (cachedUser) {
+          renderLoggedIn(cachedUser);
+          return;
+        }
+      } catch (eCache) {}
+    }
     state.innerHTML =
       '<div class="discord-login-row vc-auth-pending-shell" aria-busy="true" title="' +
       escAttr(i18n("auth.sessionChecking", "Verifica sessione…")) +
@@ -1546,21 +1771,15 @@
       loginBtns[lj].hidden = true;
     }
     var name = String(user.username || "Utente").trim() || "Utente";
-    var img = avatarUrl(user);
     var label = escAttr(name);
+    try {
+      window.__VC_ACCOUNT_MENU_USER = user;
+    } catch (eStoreUser) {}
     var href = escAttr(profileHref(user && user.id));
     var dashHref = escAttr(dashboardPageHref());
     var isProfileCurrent = isOwnProfileCurrent(user && user.id);
     var isDashCurrent = isDashboardContextPath();
-    var avatarVisual = img
-      ? '<img class="discord-avatar-img" src="' +
-        img +
-        '" alt="" width="38" height="38" decoding="async" aria-label="' +
-        label +
-        '">'
-      : '<span class="discord-avatar-img discord-avatar-img--fallback" aria-label="' +
-        label +
-        '"><i class="fa fa-user" aria-hidden="true"></i></span>';
+    var avatarVisual = buildMenuAvatarVisual(user, name, 38);
     var accountMenuBlock =
       '<div class="discord-account-menu">' +
       '<button type="button" class="discord-profile-link" aria-label="' +
@@ -1608,8 +1827,7 @@
       accountMenuBlock +
       "</div>";
     state.hidden = false;
-    // Mai lasciare Area Staff nel menu profilo (anche da JS/cache vecchi).
-    try {
+        try {
       revealStaffMenuItem(window.__VC_STAFF_MENU_ALLOWED === true);
     } catch (eStrip) {}
     ensureHeaderMenusMutex();
@@ -1631,6 +1849,10 @@
     });
     var applyServerAvatar = function (serverAvatar) {
       if (!serverAvatar) return;
+      var nextAvatar = normalizeMenuAvatarSrc(serverAvatar, user);
+      var fallbackAvatar = normalizeMenuAvatarSrc(avatarUrl(user), user);
+      if (!nextAvatar) return;
+      var hash = user && user.avatar ? escAttr(String(user.avatar)) : "";
       try {
         var clips = state.querySelectorAll(".discord-avatar-clip, .discord-account-popover__avatar");
         for (var i = 0; i < clips.length; i += 1) {
@@ -1638,15 +1860,33 @@
           if (!el) continue;
           var currentImg = el.querySelector("img.discord-avatar-img");
           if (currentImg) {
-            currentImg.src = serverAvatar;
+            var prevSrc = String(currentImg.currentSrc || currentImg.src || "").trim();
+            if (prevSrc && prevSrc === nextAvatar) {
+              applyAnimatedAvatarToImg(currentImg, user);
+              continue;
+            }
+            if (hash) currentImg.setAttribute("data-avatar-hash", hash);
+            currentImg.setAttribute("data-vc-avatar", "1");
+            currentImg.onerror = function onServerAvatarErr() {
+              this.onerror = null;
+              if (fallbackAvatar && this.src !== fallbackAvatar) this.src = fallbackAvatar;
+            };
+            currentImg.src = nextAvatar;
+            applyAnimatedAvatarToImg(currentImg, user);
             continue;
           }
-          el.innerHTML =
-            '<img class="discord-avatar-img" src="' +
-            serverAvatar +
-            '" alt="" width="38" height="38" decoding="async" aria-label="' +
-            label +
-            '">';
+          el.innerHTML = buildMenuAvatarVisual(user, name, 38);
+          try {
+            var freshImg = el.querySelector("img.discord-avatar-img");
+            if (freshImg) {
+              freshImg.onerror = function onServerAvatarErrFresh() {
+                this.onerror = null;
+                if (fallbackAvatar && this.src !== fallbackAvatar) this.src = fallbackAvatar;
+              };
+              freshImg.src = nextAvatar;
+              applyAnimatedAvatarToImg(freshImg, user);
+            }
+          } catch (eFresh) {}
         }
       } catch (e) {}
     };
@@ -1658,6 +1898,9 @@
     } else {
       window.setTimeout(runAvatar, 400);
     }
+    try {
+      document.documentElement.classList.remove("vc-auth-session-pending");
+    } catch (eClsDone) {}
     emitProfile(user);
   }
 
@@ -1717,7 +1960,16 @@
   }
 
   function fetchMe(token, timeoutMs) {
-    var ms = Math.max(2500, Number(timeoutMs) || 8000);
+    var fallback = 8000;
+    try {
+      if (
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        Number(navigator.maxTouchPoints || 0) > 0
+      ) {
+        fallback = 16000;
+      }
+    } catch (eFb) {}
+    var ms = Math.max(2500, Number(timeoutMs) || fallback);
     var ac = new AbortController();
     var tid = setTimeout(function () {
       try {
@@ -1932,14 +2184,11 @@
         });
       return;
     }
-    // Cold open (es. link DM voti): niente cache sessionStorage → @me async.
-    // Mostra subito shell account così non sembra logout fino al refresh.
-    renderAuthPendingShell();
+            renderAuthPendingShell();
     showSessionVerifyOverlay();
     fetchMe(t)
       .then(function (user) {
-        // Sblocca subito la UI: site-verify non deve tenere lo spinner a tutto schermo.
-        hideSessionVerifyOverlay();
+                hideSessionVerifyOverlay();
         writeCachedDiscordMe(t, user);
         renderLoggedIn(user);
         if (freshLogin) queueLoginWelcomeNotification(user);
@@ -1954,8 +2203,7 @@
           renderLoggedOut();
           return;
         }
-        // Timeout/rete: NON cancellare il token (prima sembrava logout finché non ricaricavi).
-        forceUnlockSessionVerifyUi();
+                forceUnlockSessionVerifyUi();
         renderAuthPendingShell();
         setTimeout(function () {
           if (!getToken() || window.__VC_DISCORD_PROFILE) return;
@@ -1984,7 +2232,6 @@
     } catch (eVis) {}
   });
 
-
   document.addEventListener("vc:langchange", function () {
     try {
       var profile = window.__VC_DISCORD_PROFILE;
@@ -1993,8 +2240,7 @@
   });
 
   if (document.readyState === "loading") {
-    // Anche durante il parsing: avvia subito download staff-site-nav se cache ok.
-    try {
+        try {
       warmStaffNavEarly();
       warmDashboardNavEarly();
     } catch (eWarm0) {}
@@ -2011,8 +2257,7 @@
     main();
   }
 
-  // Gate accesso centralizzato (tutto il sito): no-op sulle pagine pubbliche.
-  (function bootVcAccessGate() {
+    (function bootVcAccessGate() {
     try {
       if (window.__VC_ACCESS_GATE_LOADED || window.__VC_ACCESS_GATE_BOOT) return;
       window.__VC_ACCESS_GATE_BOOT = true;

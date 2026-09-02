@@ -142,9 +142,7 @@ async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, use
     return { ok: false, status: 403, error: "forbidden", message: "Solo High Staff o Director." };
   }
 
-  // Candidature lunghe: rileggi tutti gli embed Discord (il DB può avere solo il 1° chunk).
-  // Site-only: salta Discord e usa subito il DB.
-  if (q === "candidature" && id && discordPosts) {
+      if (q === "candidature" && id && discordPosts) {
     const live = await getCandidatureApplicationDetail(guild, id).catch(() => null);
     if (live?.userId && live.body) {
       await upsertStaffWorkflowItem({
@@ -181,8 +179,7 @@ async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, use
     }
   }
 
-  // Appelli: rileggi embed Discord per tenere a capo / Q&A (il DB storico può essere "piatto").
-  if (q === "appelli" && id && discordPosts) {
+    if (q === "appelli" && id && discordPosts) {
     const live = await getAppealDetail(guild, id).catch(() => null);
     if (live?.userId && live.body) {
       await upsertStaffWorkflowItem({
@@ -256,8 +253,7 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
     const forceSync = String(req.query?.sync || "").trim() === "1";
 
     if (forceSync && queue !== "resoconti") {
-      // Mai attendere il backfill completo: blocca tutte le code inbox (timeout client).
-      void scheduleStaffWorkflowBackfill(client, guild, access.member, {
+            void scheduleStaffWorkflowBackfill(client, guild, access.member, {
         force: true,
         awaitCompletion: false,
       }).catch(() => null);
@@ -288,8 +284,7 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
         ...listQuery,
         forceSync,
       }),
-      // Badge pending insieme alla lista: evita round-trip summary lento su mobile.
-      buildWorkflowSummary(client, access.member, canManageHighStaff).catch(() => null),
+            buildWorkflowSummary(client, access.member, canManageHighStaff).catch(() => null),
     ]);
     return res.status(200).json({
       ok: true,

@@ -5,12 +5,10 @@ function parseProfilePanelPartsFromCustomId(customId) {
   }
   const a = String(parts[2] || "");
   const b = String(parts[3] || "");
-  // Nuovo: profile_panel:kind:viewerId:ownerId:...
-  if (/^\d{16,20}$/.test(a) && /^\d{16,20}$/.test(b)) {
+    if (/^\d{16,20}$/.test(a) && /^\d{16,20}$/.test(b)) {
     return { viewerId: a, ownerId: b };
   }
-  // Legacy: profile_panel:kind:ownerId:...
-  if (/^\d{16,20}$/.test(a)) {
+    if (/^\d{16,20}$/.test(a)) {
     return { viewerId: null, ownerId: a };
   }
   return { viewerId: null, ownerId: null };
@@ -40,13 +38,6 @@ async function resolveProfileCommandTargetUserId(client, commandMessage) {
   return String(commandMessage.author.id);
 }
 
-/**
- * Controlla chi può usare i componenti del pannello profilo.
- * - Soggetto del profilo → ok + canManage
- * - Viewer nel customId (chi ha aperto +profile) → ok; canManage solo sul proprio
- * - Autore del `+profile` (messaggio referenziato, legacy) → ok; canManage solo sul proprio
- * - Altri → negato
- */
 async function resolveProfilePanelControl(interaction, ownerIdFromCustomId = null) {
   const userId = String(interaction?.user?.id || "");
   if (!userId) {
@@ -62,8 +53,7 @@ async function resolveProfilePanelControl(interaction, ownerIdFromCustomId = nul
     return { ok: true, ownerId: profileOwner, canManage: true };
   }
 
-  // Preferisci viewer nel customId: non dipende dal fetch del messaggio +profile (API flaky).
-  if (viewerId && userId === viewerId) {
+    if (viewerId && userId === viewerId) {
     return {
       ok: true,
       ownerId: profileOwner || userId,

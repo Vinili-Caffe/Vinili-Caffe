@@ -82,8 +82,7 @@ function registerCanvasFonts(canvasModule) {
     }
   }
 
-  // Make-it-a-Quote style fonts for +quote canvas
-  const quoteFontsDir = path.join(__dirname, "..", "..", "UI", "Fonts", "quote");
+    const quoteFontsDir = path.join(__dirname, "..", "..", "UI", "Fonts", "quote");
   const quoteFontFiles = [
     ["mplus.ttf", "M PLUS Rounded 1c"],
     ["dela.ttf", "Dela Gothic One"],

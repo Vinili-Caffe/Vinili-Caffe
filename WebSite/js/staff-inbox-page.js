@@ -49,16 +49,14 @@
   var pendingListRetryTimer = null;
   var pendingListRetryCount = 0;
   var PENDING_LIST_RETRY_MAX = 5;
-  /** Seq del boot in corso: niente abort da retry interni (mobile primo avvio). */
-  var bootLoadSeq = 0;
+    var bootLoadSeq = 0;
   var mobileAppealFixAttempts = 0;
   var MOBILE_APPEAL_FIX_MAX = 4;
   var appealFixWaitCount = 0;
   var skeletonWatchdogTimer = null;
   var SKELETON_WATCHDOG_MS = 4500;
   var PREFETCH_CONSUME_MAX_MS = 2200;
-  /** Tab già caricate vuote nonostante summary>0 (evita loop / badge fantasma). */
-  var emptyLoadedTabs = Object.create(null);
+    var emptyLoadedTabs = Object.create(null);
   var SUMMARY_CACHE_KEY = "vc_inbox_summary_v1";
   var SUMMARY_CACHE_LOCAL_KEY = "vc_inbox_summary_local_v1";
   var SUMMARY_CACHE_TTL_MS = 90000;
@@ -118,9 +116,7 @@
 
   function armSkeletonWatchdog() {
     clearSkeletonWatchdog();
-    // Anche desktop: al primo boost lo skeleton "Caricamento appelli…" restava
-    // eterno se il prefetch caldo non risolveva mai.
-    if (!isStaffScopeActive()) return;
+            if (!isStaffScopeActive()) return;
     if (state.tab !== "appelli" || state.scope !== "pending") return;
     if (!appealPendingInSummary()) return;
     var waitMs =
@@ -138,8 +134,7 @@
     if (seq !== loadSeq) return;
     loadInFlightNonQuiet = false;
     finishQueueLoad(seq, opts);
-    // inboxRt1: WS arrivato durante load → non scartare, ripeti subito.
-    if (inboxRealtimeRefreshPending) {
+        if (inboxRealtimeRefreshPending) {
       inboxRealtimeRefreshPending = false;
       scheduleInboxRefreshFromRealtime({ immediate: true });
     }
@@ -240,8 +235,7 @@
     syncUrlState();
   }
 
-  /** Al primo load: se la tab corrente è vuota, apri la prima con richieste in attesa. */
-  function pickBestTabFromSummary(opts) {
+    function pickBestTabFromSummary(opts) {
     opts = opts || {};
     if (!permissionsReady()) return;
     if (!state.summary || typeof state.summary !== "object") return;
@@ -270,15 +264,11 @@
     if (state.items && state.items.length) return false;
     if (state.scope !== "pending") return false;
     if (!state.summary || typeof state.summary !== "object") return false;
-    // Solo la tab corrente: se un'altra coda ha badge pending non bloccare
-    // "Caricamento appelli…" all'infinito mentre quella tab è già vuota ok.
-    return Number(state.summary[state.tab] || 0) > 0 && !emptyLoadedTabs[state.tab];
+            return Number(state.summary[state.tab] || 0) > 0 && !emptyLoadedTabs[state.tab];
   }
 
   function markTabConfirmedEmpty(tabId) {
-    // Mai avvelenare summary/cache al primo boot: il primo fetch vuoto è spesso race
-    // (token/perms/prefetch stale) e al reload la coda c'è.
-    if (inboxBooting || !initialQueueLoaded) return;
+            if (inboxBooting || !initialQueueLoaded) return;
     var id = String(tabId || state.tab || "").trim();
     if (!id) return;
     emptyLoadedTabs[id] = true;
@@ -415,20 +405,17 @@
       scheduleMobileAppealBootGuarantee();
     }
     armSkeletonWatchdog();
-    // Primo paint veloce: soft (prefetch/cache). Sync Discord solo quiet in background.
-    return loadQueue({ soft: true, _boot: true }).then(function () {
+        return loadQueue({ soft: true, _boot: true }).then(function () {
       afterBootQueue();
       window.setTimeout(function () {
         if (!isStaffScopeActive()) return;
-        // soft+sync: lista da DB subito; sync Discord fire-and-forget lato API.
-        loadQueue({ soft: true, sync: true, quiet: true, _internal: true }).catch(function () {});
+                loadQueue({ soft: true, sync: true, quiet: true, _internal: true }).catch(function () {});
       }, 120);
     });
   }
 
   function consumeQueuePrefetch(requestedTab, requestedScope, requestedPage) {
-    // Primo boot mobile: riusa il warm prefetch da Personali (dopo ok resta disabilitato).
-    if (T.isCoarseMobile && T.isCoarseMobile() && initialQueueLoaded) return null;
+        if (T.isCoarseMobile && T.isCoarseMobile() && initialQueueLoaded) return null;
     try {
       var pf = window.__VC_INBOX_QUEUE_PREFETCH;
       if (!pf || !pf.promise) return null;
@@ -444,8 +431,7 @@
         } catch (eClr) {}
         return out;
       });
-      // inboxStuck1: non aspettare forever un prefetch caldo appeso (primo boost → F5).
-      var timedOut = new Promise(function (resolve) {
+            var timedOut = new Promise(function (resolve) {
         window.setTimeout(function () {
           resolve(null);
         }, PREFETCH_CONSUME_MAX_MS);
@@ -488,8 +474,7 @@
   function schedulePendingListRetry() {
     if (pendingListRetryTimer || !isStaffScopeActive()) return;
     if (inboxLoadBusy()) return;
-    // Primo avvio mobile: lascia finire il boot (PTR funziona perché parte dopo).
-    if (!initialQueueLoaded || bootLoadSeq) return;
+        if (!initialQueueLoaded || bootLoadSeq) return;
     if (pendingListRetryCount >= PENDING_LIST_RETRY_MAX) {
       reconcileStalePendingSummary();
       finishQueueLoad(loadSeq, { force: true });
@@ -537,7 +522,7 @@
 
   function finalizeVisibleQueueLoad(seq, quiet) {
     if (!quiet && seq === loadSeq) {
-      hideInboxBootScreen();
+            hideInboxBootScreen();
       initialQueueLoaded = true;
       try {
         renderTabs();
@@ -560,9 +545,7 @@
   function isStaffScopeActive() {
     if (!isInboxEmbed()) return true;
     try {
-      // Solo il body class (settato dallo switcher) conta: non usare ?tab= / ?view=
-      // altrimenti un deep-link o URL sporco fa partire la coda su Personali → toast.
-      if (document.body && document.body.classList.contains("vc-notif-scope-staff")) return true;
+                  if (document.body && document.body.classList.contains("vc-notif-scope-staff")) return true;
     } catch (eScope) {}
     return false;
   }
@@ -589,8 +572,7 @@
 
   function syncUrlState() {
     try {
-      // Embed su Personali: non toccare l'URL (niente view=staff / inbox=…).
-      if (isInboxEmbed() && !isStaffScopeActive()) return;
+            if (isInboxEmbed() && !isStaffScopeActive()) return;
       var u = new URL(location.href);
       var tabKey = inboxTabQueryKey();
       u.searchParams.set(tabKey, state.tab);
@@ -603,8 +585,7 @@
       else u.searchParams.delete("page");
       if (isInboxEmbed()) {
         u.searchParams.set("view", "staff");
-        // Never overwrite notifications switcher with inbox category on ?tab=
-        var legacyTab = String(u.searchParams.get("tab") || "").trim().toLowerCase();
+                var legacyTab = String(u.searchParams.get("tab") || "").trim().toLowerCase();
         if (
           legacyTab === "staff" ||
           legacyTab === "personal" ||
@@ -743,8 +724,7 @@
 
   function scheduleInboxRefreshFromRealtime(opts) {
     opts = opts || {};
-    // inboxRt1: non droppare eventi WS — coda se boot/load in corso.
-    if (!initialQueueLoaded || loadInFlightNonQuiet) {
+        if (!initialQueueLoaded || loadInFlightNonQuiet) {
       inboxRealtimeRefreshPending = true;
       return;
     }
@@ -819,8 +799,7 @@
         var localStatus = String(memo.patch.status || "").toLowerCase() || "pending";
         var localDecided = localStatus !== "pending";
         if (serverStatus === "pending" && localDecided) {
-          // Già gestita in locale: fuori da "In attesa", patchata altrove.
-          if (state.scope === "pending") return;
+                    if (state.scope === "pending") return;
           out.push(
             Object.assign({}, it, memo.patch, {
               body: memo.patch.body || memo.patch.content || it.body || "",
@@ -936,8 +915,7 @@
     );
     teardownChat();
     scheduleInboxSoftRefresh();
-    // Notifica subito anche le altre sessioni (WS) — e ripeti locale.
-    scheduleInboxRefreshFromRealtime({ immediate: true });
+        scheduleInboxRefreshFromRealtime({ immediate: true });
   }
 
   function resocontoCardAction(item) {
@@ -1094,8 +1072,7 @@
   initWorkflowChat();
 
   function inboxNotify(msg, isError, opts) {
-    // Embed /notifications: mai toast di coda (anche su Staff) — solo stato inline.
-    if (isInboxEmbed()) {
+        if (isInboxEmbed()) {
       try {
         T.hideStaffToast();
       } catch (eHide) {}
@@ -1118,8 +1095,7 @@
       var params = new URLSearchParams(location.search);
       var key = inboxTabQueryKey();
       var q = String(params.get(key) || "").trim();
-      // Ignore notifications switcher values if they leaked into the inbox key.
-      if (q === "staff" || q === "personal") q = "";
+            if (q === "staff" || q === "personal") q = "";
       if (
         TABS.some(function (t) {
           return t.id === q;
@@ -1127,8 +1103,7 @@
       ) {
         return q;
       }
-      // Embed legacy: never treat notifications ?tab=staff as an inbox category.
-      if (!isInboxEmbed()) {
+            if (!isInboxEmbed()) {
         var legacy = String(params.get("tab") || "").trim();
         if (
           TABS.some(function (t) {
@@ -1219,8 +1194,7 @@
       detail.hidden = true;
       detail.innerHTML = "";
     }
-    /* Barra unificata: resta visibile (tab Pause/…); nascondi solo scope/filtri/settimana */
-    if (filterWrap) {
+        if (filterWrap) {
       filterWrap.hidden = false;
       filterWrap.removeAttribute("hidden");
       filterWrap.classList.add("vc-staff-inbox-board-toolbar");
@@ -1329,8 +1303,7 @@
     var itemStatus = String((item && item.status) || "pending").toLowerCase();
     if (item && item.statusLabel) {
       var stored = String(item.statusLabel).trim();
-      // Pause: non mostrare "Richiesta" se la pratica è già gestita.
-      if (state.tab === "pause" && itemStatus !== "pending" && /^richiesta$/i.test(stored)) {
+            if (state.tab === "pause" && itemStatus !== "pending" && /^richiesta$/i.test(stored)) {
         stored = "";
       }
       if (stored) {
@@ -1676,8 +1649,7 @@
     var keepCustomEmoji = Boolean(opts && opts.keepCustomEmoji);
     var s = String(text || "")
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uFFFD]/g, "")
-      // Tieni ZWJ (\u200D): serve alle emoji unicode composite.
-      .replace(/[\u200B\u200C\uFEFF]/g, "");
+            .replace(/[\u200B\u200C\uFEFF]/g, "");
     var emojiTokens = [];
     if (keepCustomEmoji) {
       s = s.replace(/<(a?):([\w~-]+:\d+)>/g, function (m) {
@@ -1715,8 +1687,7 @@
     return s.replace(/\s+/g, " ").trim();
   }
 
-  /** Evita che split su ":" spezzi `<:nome:id>` / `<a:nome:id>`. */
-  function protectDiscordEmojis(text) {
+    function protectDiscordEmojis(text) {
     var tokens = [];
     var out = String(text || "").replace(/<(a?):([\w~-]+):(\d+)>/g, function (m) {
       var i = tokens.length;
@@ -1809,8 +1780,7 @@
       return (role ? "Candidatura " + role : "Candidatura") + (num ? " #" + num : "");
     }
     if (title && !isRoleSlug(title, type) && !looksLikeCandidaturaTitle(title) && !isGenericAppealLabel(title)) {
-      // Appelli: titolo generico → preferisci il nome utente se c'è.
-      if (state.tab === "appelli" && /richiesta\s+(unban|unmute)/i.test(title) && name && !/^\d{16,20}$/.test(name)) {
+            if (state.tab === "appelli" && /richiesta\s+(unban|unmute)/i.test(title) && name && !/^\d{16,20}$/.test(name)) {
         return name;
       }
       return title;
@@ -1823,8 +1793,7 @@
     return formatWorkflowType(type) || name || "Voce";
   }
 
-  /** Appelli/candidature: nome + snowflake ID (mai solo "—"). */
-  function resolveSubjectUserValue(item, rawValue) {
+    function resolveSubjectUserValue(item, rawValue) {
     var name = cleanDiscordText(item && item.displayName ? item.displayName : "");
     var uid = String((item && item.userId) || "").trim();
     var raw = cleanDiscordText(rawValue || "")
@@ -1879,11 +1848,9 @@
     if (s.length <= maxLen) return restoreDiscordEmojis(s, emojiSafe.tokens);
     s = s.slice(0, Math.max(0, maxLen - 1)).trim();
     s = s.replace(/\{\{VCEMOJI\d+$/, "").replace(/\{\{VCEMOJI\d+\}$/, function (tok) {
-      // keep full token only if complete
-      return tok;
+            return tok;
     });
-    // Non lasciare placeholder emoji spezzati in coda.
-    s = s.replace(/\{\{VCEMOJI\d*$/, "").trim();
+        s = s.replace(/\{\{VCEMOJI\d*$/, "").trim();
     return restoreDiscordEmojis(s, emojiSafe.tokens) + "\u2026";
   }
 
@@ -1894,8 +1861,7 @@
     );
   }
 
-  /** Badge Nuovo / In pausa / Rientrato sui resoconti (API o parse body). */
-  function resocontoStaffFlags(item) {
+    function resocontoStaffFlags(item) {
     if (!item) return { isNewStaff: false, inPause: false, pauseEnded: false };
     if (
       Object.prototype.hasOwnProperty.call(item, "isNewStaff") ||
@@ -1941,16 +1907,14 @@
     var raw = cleanDiscordText(text, { keepNewlines: true, keepCustomEmoji: true });
     if (!raw) return [];
 
-    // Normalizza: "1\. " (escape Discord) e spezza anche testo appiattito su una riga.
-    var normalized = raw
+        var normalized = raw
       .replace(/(\d{1,2})\\\./g, "$1.")
       .replace(/\r\n/g, "\n")
       .replace(/[ \t]+\n/g, "\n")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
-    // Inserisci a capo prima di ogni "N. " / "N) " che non è già a inizio riga.
-    normalized = normalized.replace(/([^\n])\s+(?=(\d{1,2})[.)]\s+)/g, "$1\n");
+        normalized = normalized.replace(/([^\n])\s+(?=(\d{1,2})[.)]\s+)/g, "$1\n");
 
     var chunks = normalized
       .split(/\n(?=\d{1,2}[.)]\s+)/)
@@ -1969,8 +1933,7 @@
         var rest = String(match[2] || "").trim();
         if (!rest) return { name: "Domanda " + num, value: "\u2014" };
 
-        // Prima riga = domanda, resto = risposta (formato candidature Discord).
-        var nl = rest.search(/\n/);
+                var nl = rest.search(/\n/);
         if (nl > 0) {
           var qLine = rest.slice(0, nl).trim();
           var aBlock = rest.slice(nl + 1).trim();
@@ -1979,8 +1942,7 @@
           }
         }
 
-        // Solo blocco monoriga: domanda con "?" + risposta sulla stessa riga.
-        var withQuestion = rest.match(/^([\s\S]{1,280}?\?)\s+([\s\S]+)$/);
+                var withQuestion = rest.match(/^([\s\S]{1,280}?\?)\s+([\s\S]+)$/);
         if (withQuestion && String(withQuestion[2] || "").trim()) {
           return {
             name: num + ". " + withQuestion[1].trim(),
@@ -1998,23 +1960,20 @@
           return { name: num + ". " + ageLine[1], value: ageLine[2].trim() || "\u2014" };
         }
 
-        // Fallback: intera riga come risposta se la domanda non è separabile.
-        return { name: "Domanda " + num, value: rest };
+                return { name: "Domanda " + num, value: rest };
       })
       .filter(Boolean);
 
     return out.length >= 2 ? out : out;
   }
 
-  /** Se il testo è ancora "piatto", spezza visualmente i blocchi N. prima del render prose. */
-  function breakNumberedProse(text) {
+    function breakNumberedProse(text) {
     return String(text || "")
       .replace(/(\d{1,2})\\\./g, "$1.")
       .replace(/([^\n])\s+(?=(\d{1,2})[.)]\s+)/g, "$1\n\n");
   }
 
-  /** Appelli unban/unmute: etichette fisse (anche se il testo è stato "appiattito"). */
-  function parseAppealSections(text) {
+    function parseAppealSections(text) {
     var raw = cleanDiscordText(text, { keepNewlines: true, keepCustomEmoji: true });
     if (!raw) return [];
 
@@ -2064,8 +2023,7 @@
       }
     }
 
-    // Flattened fallback: slice by label positions
-    var compact = withBreaks.replace(/\s+/g, " ").trim();
+        var compact = withBreaks.replace(/\s+/g, " ").trim();
     var hits = [];
     labels.forEach(function (lab) {
       var m = compact.match(lab.re);
@@ -2096,9 +2054,7 @@
 
   function resocontoProposedLabel(item) {
     if (!item) return "";
-    // API: proposedLabel già ricavato dal testo Azione (anche se actionKey resta nl
-    // perché le auto-valutazioni sono già registrate).
-    if (item.proposedLabel) return String(item.proposedLabel);
+            if (item.proposedLabel) return String(item.proposedLabel);
     var fromBody = extractResocontoAzione(item.body || item.content || item.preview || "");
     if (fromBody) {
       var short = shortenResocontoAzioneLabel(fromBody);
@@ -2243,24 +2199,14 @@
     return cleanDiscordText(m[1] || "", { keepCustomEmoji: true });
   }
 
-  /**
-   * Anteprima lista resoconti: stats (Messaggi/Ore/Partner), non solo Azione.
-   * I PM sono corti → "Azione:" c'è sempre nel preview e nascondeva Partner.
-   * Gli staff lunghi spesso tagliano prima di Azione → già si vedevano le stats.
-   */
-  /** Estrae emoji Discord in testa a una stringa. */
-  function splitLeadingDiscordEmojis(text) {
+      function splitLeadingDiscordEmojis(text) {
     var s = String(text || "");
     var m = s.match(/^(?:<a?:[\w~-]+:\d+>\s*)+/);
     if (!m) return { emojis: "", rest: s.trim() };
     return { emojis: m[0].replace(/\s+/g, " ").trim(), rest: s.slice(m[0].length).trim() };
   }
 
-  /**
-   * Resoconti: emoji affianco al valore (come in lista), non a capo sotto.
-   * Su campi multilinea (Costanza) restano nel titolo.
-   */
-  function placeResocontoFieldEmojis(field) {
+    function placeResocontoFieldEmojis(field) {
     if (!field) return field;
     var split = splitLeadingDiscordEmojis(field.name || "");
     var value = String(field.value || "")
@@ -2388,15 +2334,13 @@
     return parts.join(" · ");
   }
 
-  /** Resoconti staff/PM: righe etichettate Discord (Staffer, Ruolo, Azione, …). */
-  function normalizeResocontoBody(text) {
+    function normalizeResocontoBody(text) {
     var s = String(text || "")
       .replace(/\r\n/g, "\n")
       .replace(/\u2028|\u2029/g, "\n")
       .trim();
     if (!s) return "";
-    // Testo appiattito su una riga → spezza prima di ogni label nota.
-    var labels = [
+        var labels = [
       "Staffer",
       "Partner Manager",
       "Ruolo",
@@ -2430,8 +2374,7 @@
       .toLowerCase();
   }
 
-  /** Campi ridondanti: già nel titolo / meta (Staffer, Ruolo, Partner Manager). */
-  function isResocontoIdentityField(name) {
+    function isResocontoIdentityField(name) {
     var key = resocontoFieldLabelKey(name);
     return key === "staffer" || key === "ruolo" || key === "partner manager";
   }
@@ -2442,8 +2385,7 @@
       if (!field) return false;
       if (isResocontoIdentityField(field.name)) return false;
       var value = cleanDiscordText(field.value || "", { keepCustomEmoji: true, keepNewlines: true });
-      // Scarta solo placeholder vuoti.
-      if (!value || value === "\u2014" || value === "-" || value === "—") {
+            if (!value || value === "\u2014" || value === "-" || value === "—") {
         var key = resocontoFieldLabelKey(field.name);
         if (/^(esito revisione)$/i.test(key)) return true;
         return Boolean(cleanDiscordText(field.name || ""));
@@ -2500,16 +2442,13 @@
         };
       }
 
-      // Preferisci l'ultimo "Label:" dopo eventuali emoji protette.
-      var colon = cleaned.match(/^(.*):\s*(.*)$/);
+            var colon = cleaned.match(/^(.*):\s*(.*)$/);
       if (!colon) return null;
       var label = String(colon[1] || "").trim();
       var value = String(colon[2] || "").trim();
-      // Evita label troppo lunghe / non-etichetta (corpo libero).
-      if (!label || label.length > 96) return null;
+            if (!label || label.length > 96) return null;
       if (/[{}]{2}VCEMOJI\d+[{}]{2}\s*$/.test(label) && !/\S/.test(label.replace(/\{\{VCEMOJI\d+\}\}/g, ""))) {
-        // Solo emoji senza testo label → non è una riga etichetta.
-        return null;
+                return null;
       }
       return {
         name: restoreDiscordEmojis(label, emojiSafe.tokens),
@@ -2871,15 +2810,13 @@
           root.classList.add("is-loading");
           root.classList.remove("is-refreshing");
           root.innerHTML = "";
-          // Non riaprire il fullscreen dopo il primo paint (restava su "Carico resoconti…").
-          if (inboxBooting || !initialQueueLoaded) {
+                    if (inboxBooting || !initialQueueLoaded) {
             showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
           }
           schedulePendingListRetry();
           return;
         }
-        // Load terminato ma badge pending: niente skeleton infinito su mobile.
-        schedulePendingListRetry();
+                schedulePendingListRetry();
         if (pendingListRetryCount >= PENDING_LIST_RETRY_MAX) {
           markTabConfirmedEmpty(state.tab);
         } else {
@@ -3002,8 +2939,7 @@
           return itemKey(it) === key;
         });
         if (!item) return;
-        // Secondo click sulla stessa card: chiudi il pannello dettaglio.
-        if (state.selectedKey && state.selectedKey === key && (state.detail || state.detailLoading)) {
+                if (state.selectedKey && state.selectedKey === key && (state.detail || state.detailLoading)) {
           closeDetail();
           return;
         }
@@ -3066,8 +3002,7 @@
     }
   }
 
-  /** Ripara campi spezzati su `:` interno emoji: name=`<:Foo` value=`123> resto`. */
-  function repairBrokenEmojiField(field) {
+    function repairBrokenEmojiField(field) {
     if (!field) return field;
     var name = String(field.name || "");
     var value = String(field.value || "");
@@ -3076,8 +3011,7 @@
     if (!left || !right) return field;
     var emoji = "<" + left[2] + ":" + left[3] + ":" + right[1] + ">";
     var rest = String(right[2] || "").replace(/^\s*/, "");
-    // Se dopo l'emoji c'è ancora "Label: valore", riparti da lì.
-    var relabel = rest.match(/^(.{1,96}?):\s*([\s\S]*)$/);
+        var relabel = rest.match(/^(.{1,96}?):\s*([\s\S]*)$/);
     if (relabel) {
       return {
         name: (left[1] + emoji + " " + relabel[1]).replace(/\s+/g, " ").trim(),
@@ -3126,8 +3060,7 @@
     );
   }
 
-  /** Limiti settimanali per ruolo (allineati al bot). */
-  var RESOCONTO_ROLE_LIMITS = {
+    var RESOCONTO_ROLE_LIMITS = {
     "1442568904311570555": { label: "Helper", messages: 400, hours: 4, sanctions: 1 },
     "1442568901887000618": { label: "Mod", messages: 500, hours: 5, sanctions: 2 },
     "1502321956236824677": { label: "Senior Moderator", messages: 600, hours: 6, sanctions: 2 },
@@ -3360,8 +3293,104 @@
     );
   }
 
+  function dedupeResoRoleRows(rows) {
+        if (!Array.isArray(rows) || !rows.length) return [];
+    var aliases = {
+      mod: "moderator",
+      mods: "moderator",
+      moderator: "moderator",
+      "senior moderator": "senior moderator",
+      "sr moderator": "senior moderator",
+      srmod: "senior moderator",
+      "senior mod": "senior moderator",
+      helper: "helper",
+      "trial helper": "helper",
+      "partner manager": "partner manager",
+      pm: "partner manager",
+      director: "director",
+      admin: "admin",
+      manager: "manager",
+      founder: "founder",
+      member: "member",
+    };
+    function normRole(value) {
+      var s = String(value == null ? "" : value)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+      if (!s) return "";
+      if (aliases[s]) return aliases[s];
+      if (s.charAt(s.length - 1) === "s" && aliases[s.slice(0, -1)]) return aliases[s.slice(0, -1)];
+      return s;
+    }
+    function dayKey(iso) {
+      if (!iso) return "";
+      try {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Europe/Rome",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(iso));
+      } catch (eDay) {
+        return String(iso).slice(0, 10);
+      }
+    }
+    function preferRow(a, b) {
+      var aLen =
+        String(a && (a.to || a.newRole || "")).length + String(a && (a.from || a.oldRole || "")).length;
+      var bLen =
+        String(b && (b.to || b.newRole || "")).length + String(b && (b.from || b.oldRole || "")).length;
+      return bLen > aLen ? b : a;
+    }
+    var out = [];
+    var seen = Object.create(null);
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i];
+      if (!row) continue;
+      var fromRaw = String(row.from || row.oldRole || "").trim();
+      var toRaw = String(row.to || row.newRole || "").trim();
+      var from = normRole(fromRaw);
+      var to = normRole(toRaw);
+      var day = dayKey(row.dateIso || row.date || "");
+      var reason = String(row.reason || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+      var tripKey = from && to ? day + "|" + from + "|" + to : "";
+      var key = day + "|" + from + "|" + to + "|" + reason;
+      var softKey = to ? day + "|*|" + to + "|" + reason : "";
+      if (!from && !to) {
+        out.push(row);
+        continue;
+      }
+      if (tripKey && Object.prototype.hasOwnProperty.call(seen, tripKey)) {
+        out[seen[tripKey]] = preferRow(out[seen[tripKey]], row);
+        continue;
+      }
+      if (Object.prototype.hasOwnProperty.call(seen, key)) {
+        out[seen[key]] = preferRow(out[seen[key]], row);
+        continue;
+      }
+      if (softKey && Object.prototype.hasOwnProperty.call(seen, softKey)) {
+        out[seen[softKey]] = preferRow(out[seen[softKey]], row);
+        continue;
+      }
+      var idx = out.length;
+      if (tripKey) seen[tripKey] = idx;
+      seen[key] = idx;
+      if (softKey) seen[softKey] = idx;
+      out.push(row);
+    }
+    return out;
+  }
+
   function renderRolesChronology(rows) {
-    var list = Array.isArray(rows) ? rows.filter(Boolean).slice(0, 5) : [];
+    var raw = Array.isArray(rows) ? rows.filter(Boolean) : [];
+    var list = dedupeResoRoleRows(raw);
+    list = list.slice(0, 5);
     if (!list.length) return "";
     var items = list
       .map(function (row) {
@@ -3379,7 +3408,7 @@
       })
       .join("");
     return (
-      '<div class="vc-staff-reso-hero__roles" aria-label="Cronologia ruoli">' +
+            '<div class="vc-staff-reso-hero__roles" aria-label="Cronologia ruoli">' +
       '<p class="vc-staff-reso-hero__roles-kicker">Cronologia ruoli</p>' +
       '<ul class="vc-staff-reso-hero__roles-list">' +
       items +
@@ -3441,8 +3470,7 @@
     sheet.hidden = true;
     sheet.setAttribute("hidden", "");
     if (!silent) {
-      /* keep immediate hide; animation already covered by is-in removal */
-    }
+          }
   }
 
   function openResoSheet() {
@@ -3475,23 +3503,26 @@
     var autoTip = isPm
       ? "Esito automatico PM: sotto 30 partner → Richiamo; sotto soglia critica → Depex; altrimenti Nulla o promozione in finestra."
       : "Proposte automatiche da attività/condotta, limiti, pause e compito sanzioni. Conferma o rifiuta sotto.";
+    var sanzioniDone = null;
+    var sanzioniMin = null;
     if (
       !isPm &&
       model.sanctionLimit != null &&
       Number.isFinite(Number(model.sanctionLimit))
     ) {
-      var done =
+      sanzioniMin = Number(model.sanctionLimit);
+      sanzioniDone =
         model.weeklySanctions != null && Number.isFinite(Number(model.weeklySanctions))
           ? Number(model.weeklySanctions)
           : model.sanzioni
             ? Number(String(model.sanzioni).replace(/[^\d]/g, "")) || null
             : null;
-      if (done != null) {
+      if (sanzioniDone != null) {
         autoTip +=
           " Compito sanzioni: " +
-          done +
+          sanzioniDone +
           "/" +
-          Number(model.sanctionLimit) +
+          sanzioniMin +
           " questa settimana.";
       }
     }
@@ -3500,32 +3531,63 @@
         ? parts
             .map(function (part) {
               var isNeg = /valutazione negativa/i.test(part);
-              var isPos = /valutazione positiva|compito sanzioni/i.test(part);
+              var isCompito = /compito sanzioni/i.test(part);
+              var isPos = /valutazione positiva/i.test(part) || isCompito;
               var tone = isNeg ? "is-neg" : isPos ? "is-pos" : "is-neutral";
               var title = isNeg
                 ? "Valutazione negativa"
-                : isPos
-                  ? /compito sanzioni/i.test(part) && !/valutazione positiva/i.test(part)
-                    ? "Compito sanzioni"
-                    : "Valutazione positiva"
-                  : /^nulla/i.test(part)
-                    ? "Nulla"
-                    : /^richiamo/i.test(part)
-                      ? "Richiamo"
-                      : "Esito";
+                : isCompito
+                  ? "Compito sanzioni"
+                  : isPos
+                    ? "Valutazione positiva"
+                    : /^nulla/i.test(part)
+                      ? "Nulla"
+                      : /^richiamo/i.test(part)
+                        ? "Richiamo"
+                        : "Esito";
               var already = /gi[aà]\s*registrat/i.test(part);
-              var detail = part
-                .replace(/^Valutazione (Positiva|Negativa)\s*[—–-]?\s*/i, "")
-                .replace(/^Compito sanzioni\s*/i, "")
-                .replace(/\(\s*gi[aà]\s*registrat[aoe]?\s*\)/gi, "")
-                .replace(/\bgi[aà]\s*registrat[aoe]?\b/gi, "")
-                .replace(/\s{2,}/g, " ")
-                .replace(/\s*[—–-]\s*$/g, "")
-                .trim();
-              if (!detail && /compito sanzioni/i.test(part)) {
-                detail = already ? "già registrata" : "completato";
+                                          var detail = "";
+              var purposeMatch = String(part || "").match(
+                /[—–]\s*(.+?)(?:\s*\(\s*gi[aà]\s*registrat[aoe]?\s*\))?\s*$/i,
+              );
+              if (purposeMatch && purposeMatch[1]) {
+                detail = String(purposeMatch[1] || "")
+                  .replace(/\(\s*gi[aà]\s*registrat[aoe]?\s*\)/gi, "")
+                  .replace(/\bgi[aà]\s*registrat[aoe]?\b/gi, "")
+                  .replace(/\s{2,}/g, " ")
+                  .replace(/\s*[—–-]\s*$/g, "")
+                  .trim();
               }
-              if (!detail && already) detail = "già registrata";
+              if (!detail) {
+                detail = String(part || "")
+                  .replace(/^Valutazione (Positiva|Negativa)\s*[—–-]?\s*/i, "")
+                  .replace(/\(\s*gi[aà]\s*registrat[aoe]?\s*\)/gi, "")
+                  .replace(/\bgi[aà]\s*registrat[aoe]?\b/gi, "")
+                  .replace(/\s{2,}/g, " ")
+                  .replace(/\s*[—–-]\s*$/g, "")
+                  .trim();
+              }
+                            if (isCompito) {
+                if (!detail || /^compito sanzioni\s*$/i.test(detail)) {
+                  detail = "compito sanzioni completato";
+                }
+                                if (sanzioniMin != null && sanzioniDone != null) {
+                  detail =
+                    "minimo sanzioni raggiunto (" + sanzioniDone + "/" + sanzioniMin + ")";
+                } else if (/^completato\.?$/i.test(detail)) {
+                  detail = "compito sanzioni completato";
+                }
+              }
+                            if (!detail || /gi[aà]\s*registrat/i.test(detail)) {
+                detail = isCompito
+                  ? "compito sanzioni completato"
+                  : isPos
+                    ? "valutazione positiva"
+                    : isNeg
+                      ? "valutazione negativa"
+                      : String(part || "").replace(/\bgi[aà]\s*registrat[aoe]?\b/gi, "").trim() ||
+                        "—";
+              }
               return (
                 '<li class="vc-staff-reso-auto__item ' +
                 tone +
@@ -3535,7 +3597,7 @@
                   ? '<span class="vc-staff-reso-flag vc-staff-reso-flag--done">già registrata</span>'
                   : "") +
                 "</span><strong>" +
-                T.esc(detail || part) +
+                T.esc(detail) +
                 "</strong></li>"
               );
             })
@@ -3675,10 +3737,12 @@
     var heroFlags = resocontoFlagBadgesHtml(item);
     var rolesChrono = renderRolesChronology(model.rolesHistory || item.rolesHistory || []);
     body.innerHTML =
-      '<div class="vc-staff-reso-hero">' +
+      '<div class="vc-staff-reso-hero' +
+      (rolesChrono ? " has-roles" : "") +
+      '">' +
       '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--lg">' +
       T.avatarImgHtml(item.avatarUrl, item.userId, { width: 64, height: 64 }) +
-      "</span><div>" +
+      '</span><div class="vc-staff-reso-hero__main">' +
       '<p class="vc-staff-reso-hero__meta">' +
       T.esc(cardMeta(item, { roleOnly: true }) || kindLabel) +
       "</p>" +
@@ -3692,9 +3756,9 @@
       T.esc(statusLabel(item)) +
       "</span>" +
       (heroFlags || "") +
-      "</div>" +
-      rolesChrono +
       "</div></div>" +
+      rolesChrono +
+      "</div>" +
       stats +
       (isPm ? "" : renderCostanzaBarChart(model.chart)) +
       '<section class="vc-staff-reso-section"><div class="vc-staff-reso-section__head"><h3>' +
@@ -3726,8 +3790,7 @@
         if (/utente/i.test(fname)) {
           return { name: "Utente", value: resolveSubjectUserValue(item, field.value) };
         }
-        // Rimuovi ID snowflake orfani lasciati dallo strip menzioni in tutto il corpo appeal.
-        var cleanedVal = String(field.value || "")
+                var cleanedVal = String(field.value || "")
           .replace(/\(\s*`?\d{16,20}`?\s*\)/g, "")
           .replace(/\s{2,}/g, " ")
           .trim();
@@ -3853,8 +3916,7 @@
     var layout = T.byId("vc-staff-inbox");
     if (!panel) return;
 
-    // Resoconti: finestra stile gestione (sheet), non pannello laterale.
-    if (state.tab === "resoconti" && (state.detail || state.detailLoading)) {
+        if (state.tab === "resoconti" && (state.detail || state.detailLoading)) {
       if (layout) layout.classList.remove("has-detail");
       panel.hidden = true;
       panel.innerHTML = "";
@@ -3935,6 +3997,46 @@
     bootChatForDetail(item);
   }
 
+  function scheduleResoStatsSoftRefresh(seq, key, detailId, listItem) {
+    try {
+      var cur = state.detail || listItem || {};
+      var model = parseResocontoDetailModel(cur);
+      var isPm = model.isPm || String(cur.kind || "").toLowerCase() === "p";
+      var needsChart = !isPm && !(Array.isArray(model.chart) && model.chart.length);
+      var needsStats = isPm
+        ? model.partners == null && (!model.partnersLabel || model.partnersLabel === "—")
+        : model.msgs == null;
+      if (!needsChart && !needsStats) return;
+      window.setTimeout(function () {
+        if (seq !== detailSeq || state.selectedKey !== key || state.tab !== "resoconti") return;
+        var url =
+          apiBase() +
+          (apiBase().indexOf("?") >= 0 ? "&" : "?") +
+          "queue=resoconti&itemId=" +
+          encodeURIComponent(detailId || "");
+        T.fetchJson(url, {
+          timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(20000) : 20000,
+        })
+          .then(function (out) {
+            if (seq !== detailSeq || state.selectedKey !== key) return;
+            if (!out.res.ok || !out.data || !out.data.ok || !out.data.item) return;
+            var prevDetail = state.detail || listItem || {};
+            var nextItem = out.data.item || {};
+                        state.detail = Object.assign({}, prevDetail, nextItem, {
+              rolesHistory:
+                Array.isArray(nextItem.rolesHistory) && nextItem.rolesHistory.length
+                  ? nextItem.rolesHistory
+                  : Array.isArray(prevDetail.rolesHistory) && prevDetail.rolesHistory.length
+                    ? prevDetail.rolesHistory
+                    : [],
+            });
+            renderDetail();
+          })
+          .catch(function () {});
+      }, 1100);
+    } catch (eSoft) {}
+  }
+
   function openDetail(listItem) {
     var seq = (detailSeq += 1);
     var key = itemKey(listItem);
@@ -3942,8 +4044,7 @@
       (listItem && (listItem.body || listItem.content || listItem.motivazione || listItem.preview)) ||
         (listItem && Array.isArray(listItem.fields) && listItem.fields.length),
     );
-    // Mostra subito i dati già in lista: niente schermo nero "Caricamento…".
-    state.detailLoading = !hasLocalBody;
+        state.detailLoading = !hasLocalBody;
     state.detailError = "";
     state.detail = listItem;
     state.selectedKey = key;
@@ -3968,8 +4069,7 @@
         if (seq !== detailSeq || state.selectedKey !== key) return;
         state.detailLoading = false;
         if (!out.res.ok || !out.data || !out.data.ok || !out.data.item) {
-          // Se avevamo già dati locali, tieni il dettaglio e mostra solo un warning soft.
-          if (hasLocalBody) {
+                    if (hasLocalBody) {
             state.detailError = "";
             state.detail = listItem;
             renderDetail();
@@ -3987,9 +4087,14 @@
           dedupeKey: out.data.item.dedupeKey || listItem.dedupeKey || "",
           messageId: out.data.item.messageId || listItem.messageId || "",
           channelId: out.data.item.channelId || listItem.channelId || "",
+                    rolesHistory:
+            Array.isArray(out.data.item.rolesHistory) && out.data.item.rolesHistory.length
+              ? out.data.item.rolesHistory
+              : Array.isArray(listItem.rolesHistory) && listItem.rolesHistory.length
+                ? listItem.rolesHistory
+                : [],
         });
-        // Propaga avatar/nome dal dettaglio alla card lista (stesso utente).
-        var detailItem = out.data.item;
+                var detailItem = out.data.item;
         var listIdx = state.items.findIndex(function (it) {
           return itemKey(it) === key;
         });
@@ -4009,10 +4114,27 @@
             decidedBy: detailItem.decidedBy || prev.decidedBy || null,
             decidedByName: detailItem.decidedByName || prev.decidedByName || null,
             decidedAt: detailItem.decidedAt || prev.decidedAt || null,
+            weeklyMessages:
+              detailItem.weeklyMessages != null ? detailItem.weeklyMessages : prev.weeklyMessages,
+            weeklyVoiceSeconds:
+              detailItem.weeklyVoiceSeconds != null
+                ? detailItem.weeklyVoiceSeconds
+                : prev.weeklyVoiceSeconds,
+            costanzaChart:
+              Array.isArray(detailItem.costanzaChart) && detailItem.costanzaChart.length
+                ? detailItem.costanzaChart
+                : prev.costanzaChart,
+            rolesHistory:
+              Array.isArray(detailItem.rolesHistory) && detailItem.rolesHistory.length
+                ? detailItem.rolesHistory
+                : prev.rolesHistory,
           });
           renderList();
         }
         renderDetail();
+                if (state.tab === "resoconti") {
+          scheduleResoStatsSoftRefresh(seq, key, detailId, listItem);
+        }
       })
       .catch(function () {
         if (seq !== detailSeq || state.selectedKey !== key) return;
@@ -4195,13 +4317,10 @@
         break;
       }
     }
-    // Primo ingresso staff: preferisci sempre "In attesa" se c'è coda (anche da cache).
-    // Evita empty "Tutti" da URL sporca (?scope=all) al primo paint.
-    if (anyPending || !String(location.search || "").match(/(?:^|[?&])scope=/)) {
+            if (anyPending || !String(location.search || "").match(/(?:^|[?&])scope=/)) {
       state.scope = "pending";
     }
-    // Tieni il fullscreen loader fino a finishQueueLoad: niente skeleton in lista.
-    var panel = T.byId("vc-staff-inbox");
+        var panel = T.byId("vc-staff-inbox");
     if (panel) {
       panel.classList.add("is-booting");
       panel.hidden = false;
@@ -4431,9 +4550,7 @@
   }
 
   function chainQueueLoad(seq, nextOpts) {
-    // Handoff silenzioso: non chiamare renderList/finishQueueLoad tra un fetch e l'altro,
-    // altrimenti summary cache + lista vuota = skeleton infinito al primo avvio (mobile).
-    if (!nextOpts.quiet && seq === loadSeq) {
+            if (!nextOpts.quiet && seq === loadSeq) {
       loadInFlightNonQuiet = false;
       clearLoadWatchdog();
     }
@@ -4459,8 +4576,7 @@
       if (seq !== loadSeq) return;
       var list = T.byId("vc-staff-inbox-list");
       if (!list || (!list.classList.contains("is-loading") && !isInboxFsLoadingVisible())) return;
-      // Sblocca coalesce/prefetch appesi prima del retry (senza restare sullo stesso promise).
-      forceReleaseStuckInboxLoad();
+            forceReleaseStuckInboxLoad();
       lastQueueLoadFailed = true;
       if (state.tab === "appelli" && !initialQueueLoaded) {
         loadQueue({ soft: false, _internal: true, sync: true, _boot: true, _userIntent: true }).catch(function () {
@@ -4507,6 +4623,11 @@
 
   function safeRenderList() {
     try {
+            if (state.items && state.items.length) {
+        try {
+          hideInboxBootScreen();
+        } catch (eHide) {}
+      }
       renderList();
     } catch (eRender) {
       var list = T.byId("vc-staff-inbox-list");
@@ -4524,8 +4645,7 @@
     opts = opts || {};
     var quiet = Boolean(opts.quiet);
     var soft = Boolean(opts.soft);
-    // Embed: niente fetch/toast mentre sei su Personali.
-    if (isInboxEmbed() && !isStaffScopeActive()) {
+        if (isInboxEmbed() && !isStaffScopeActive()) {
       T.hideStaffToast();
       return Promise.resolve();
     }
@@ -4542,18 +4662,13 @@
       } catch (eTabs) {}
       return syncPuntiToltiMode();
     }
-    // Leaving punti-tolti: restore normal chrome.
-    try {
+        try {
       syncPuntiToltiMode();
     } catch (eLeave) {}
-    // Refresh silenziosi non devono abortire il primo caricamento visibile (tipico su cellulare).
-    if (quiet && loadInFlightNonQuiet) {
+        if (quiet && loadInFlightNonQuiet) {
       return Promise.resolve();
     }
-    // Solo boot esterni concorrenti (init + access-ok) condividono la stessa promise.
-    // Le riprese interne (_waitedPerms / token / cambio tab / retry) NON devono
-    // riagganciarsi a sé stesse → deadlock tipico al primo load su telefono.
-    if (
+                if (
       !quiet &&
       loadInFlightNonQuiet &&
       loadQueueCoalesce &&
@@ -4566,9 +4681,7 @@
       return loadQueueCoalesce;
     }
     var seq = (loadSeq += 1);
-    // Solo i boot esterni concorrenti riusano la promise in corso.
-    // Retry interni (_waitedPerms, cambio tab, empty-retry) devono proseguire, altrimenti deadlock.
-    var keepPriorLoad =
+            var keepPriorLoad =
       !opts._internal &&
       !opts._retried &&
       !opts._retryCount &&
@@ -4614,17 +4727,14 @@
       loadInFlightNonQuiet = true;
       armLoadWatchdog(seq);
     }
-    // Do not re-read tab/filter from URL here: setters already updated state + URL.
-    // Re-reading can race and briefly restore the previous queue.
-    try {
+            try {
       renderTabs();
       renderScopeToggle();
       renderQueueFilters();
       renderWeekNav();
     } catch (eChrome) {}
     if (!quiet && !opts._noSkeleton) {
-      // Anche durante boot: sostituisci lo skeleton generico col testo della tab corrente.
-      showInboxLoading(soft || state.items.length ? "soft" : "skeleton");
+            showInboxLoading(soft || state.items.length ? "soft" : "skeleton");
       if (state.tab === "appelli" && state.scope === "pending" && appealPendingInSummary()) {
         armSkeletonWatchdog();
       }
@@ -4716,8 +4826,7 @@
         if (requestedTab === "resoconti" && requestedWeek) {
           url += "&week=" + encodeURIComponent(requestedWeek);
         }
-        /* Soft/boot: niente sync Discord (lento). Sync dopo il primo paint. */
-        if (opts.sync || (!opts.soft && requestedTab === "appelli" && requestedScope === "pending")) {
+                if (opts.sync || (!opts.soft && requestedTab === "appelli" && requestedScope === "pending")) {
           url += "&sync=1";
         }
 
@@ -4819,13 +4928,11 @@
             return;
           }
           lastQueueLoadFailed = false;
-          // initialQueueLoaded solo in finalizeVisibleQueueLoad (dopo eventuali retry/chain).
-          pendingListRetryCount = 0;
+                    pendingListRetryCount = 0;
           clearSkeletonWatchdog();
           appealFixWaitCount = 0;
           if (out.data.summary) applySummaryPayload(out.data);
-          // Imposta items PRIMA di togliere lo skeleton: altrimenti flash/empty sticky su mobile.
-          state.items = mergeIncomingWorkflowItems(out.data.items || []);
+                    state.items = mergeIncomingWorkflowItems(out.data.items || []);
           if (state.items.length) initialQueueLoaded = true;
           state.pagination = out.data.pagination || null;
           if (state.pagination && state.pagination.page) state.page = state.pagination.page;
@@ -4845,6 +4952,9 @@
           renderPagination();
           renderWeekNav();
           syncDetailWithList();
+                    if (quiet && state.items.length) {
+            safeRenderList();
+          }
           var panel = T.byId("vc-staff-inbox");
           if (panel) panel.hidden = false;
           if (!state.summary && out.data.summary) applySummaryPayload(out.data);
@@ -4874,8 +4984,7 @@
             !opts._emptyRetry &&
             !opts.sync
           ) {
-            // Soft retry senza sync Discord (resoconti sync bloccava il fullscreen).
-            return chainQueueLoad(
+                        return chainQueueLoad(
               seq,
               Object.assign({}, opts, {
                 _emptyRetry: true,
@@ -4908,9 +5017,7 @@
               );
             });
           }
-          // Summary stale (badge > 0 ma coda vuota): non tenere lo skeleton all'infinito.
-          // Al primo boot NON confermare empty (race tipica → empty finché non ricarichi).
-          if (
+                              if (
             !quiet &&
             requestedScope === "pending" &&
             !state.items.length &&
@@ -4947,8 +5054,7 @@
               });
             }
           }
-          // Primo boot ancora vuoto: paint subito, rescue soft in background (no sync block).
-          if (
+                    if (
             !quiet &&
             (opts._boot || !initialQueueLoaded) &&
             requestedScope === "pending" &&
@@ -4960,12 +5066,13 @@
             window.setTimeout(function () {
               if (!isStaffScopeActive()) return;
               if (state.items.length) return;
-              loadQueue({
-                soft: true,
-                sync: requestedTab === "appelli",
-                quiet: true,
+                            loadQueue({
+                soft: false,
+                sync: requestedTab === "appelli" || requestedTab === "resoconti",
+                quiet: false,
                 _internal: true,
                 _bootEmptyRescue: true,
+                _userIntent: true,
               }).catch(function () {});
             }, 180);
             return;
@@ -5033,8 +5140,7 @@
         if (!quiet && seq === loadSeq) {
           if (bootLoadSeq === seq) bootLoadSeq = 0;
           loadQueueCoalesce = null;
-          // Safety: se un path ha risolto senza endNonQuietQueueLoad, non lasciare busy forever.
-          if (loadInFlightNonQuiet && !state.items.length) {
+                    if (loadInFlightNonQuiet && !state.items.length) {
             window.setTimeout(function () {
               if (seq !== loadSeq) return;
               if (!loadInFlightNonQuiet) return;
@@ -5067,8 +5173,7 @@
       return;
     }
     if (isInboxEmbed() && !isStaffScopeActive()) {
-      // Aspetta il tab Staff: evita toast “coda” su Personali.
-      return;
+            return;
     }
     initStarted = true;
     readUrlState();
@@ -5094,8 +5199,7 @@
         connectInboxWebSocket();
         ensureInboxPoll();
         scheduleMobileAppealBootGuarantee();
-        // Solo se il primo load è fallito davvero: niente retry su lista vuota ok.
-        if (lastQueueLoadFailed) {
+                if (lastQueueLoadFailed) {
           window.setTimeout(function () {
             if (!isStaffScopeActive() || initialQueueLoaded) return;
             loadQueue({ soft: Boolean(state.items.length), _internal: true }).catch(function () {});
@@ -5163,7 +5267,9 @@
           if (needsMobileAppealReload()) {
             armMobileAppealBootFix(500);
           }
-          // Coda già ok: ripingere (bfcache / switch tab).
+                    try {
+            hideInboxBootScreen();
+          } catch (eHideBoot) {}
           safeRenderList();
           return;
         }

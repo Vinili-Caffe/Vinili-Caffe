@@ -6,17 +6,13 @@ function alwaysAccessStaffThreadRoleIds() {
 
 function isHighStaffExclusiveThreadSpec(spec) {
   const key = String(spec?.key || "");
-  // Thread “High Staff” (chat + comandi): non per Director (grado parallelo/sopra HS).
-  return key === "high" || key === "highStaff";
+    return key === "high" || key === "highStaff";
 }
 
 function resolveStaffThreadQualifyingRoleIds(spec) {
   return [...new Set([...(spec?.roleIds?.() || []), ...alwaysAccessStaffThreadRoleIds()])];
 }
 
-/**
- * @returns {boolean|null} null se la cache ruoli non è affidabile
- */
 function memberHasStaffThreadAccess(member, spec) {
   const uid = String(member?.id || "").trim();
   const reviewerUserIds = (spec?.reviewerUserIds?.() || []).map(String).filter(Boolean);
@@ -28,8 +24,7 @@ function memberHasStaffThreadAccess(member, spec) {
   const always = alwaysAccessStaffThreadRoleIds();
   if (always.some((rid) => cache.has(String(rid)))) return true;
 
-  // Director non deve entrare nei thread High Staff anche se ha ancora il ruolo HS.
-  if (isHighStaffExclusiveThreadSpec(spec)) {
+    if (isHighStaffExclusiveThreadSpec(spec)) {
     const directorId = String(IDs.roles?.Director || "").trim();
     if (directorId && cache.has(directorId)) return false;
   }

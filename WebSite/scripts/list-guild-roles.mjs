@@ -1,7 +1,3 @@
-/**
- * Stampa ruoli guild (id, nome, position) per compilare staffRoleIds in site.config.json.
- * Uso: DISCORD_WEBSITE_BUILD_BOT_TOKEN=... npm run list-guild-roles
- */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";

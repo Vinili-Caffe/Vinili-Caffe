@@ -80,8 +80,7 @@
       (/cannot read properties of undefined/i.test(msg) && /useCache/i.test(msg)) ||
       (/failed to execute ['"]?removechild['"]?/i.test(msg) && /content(?:_script)?\.js|chrome-extension|moz-extension/i.test(msg)) ||
       (/notfounderror/i.test(msg) && /node to be removed is not a child/i.test(msg)) ||
-      // Cloudflare Turnstile / challenge noise (non app errors)
-      (/font-size:\s*0;\s*color:\s*transparent/i.test(msg) && /NaN/i.test(msg)) ||
+            (/font-size:\s*0;\s*color:\s*transparent/i.test(msg) && /NaN/i.test(msg)) ||
       /challenges\.cloudflare\.com/i.test(msg)
     );
   }

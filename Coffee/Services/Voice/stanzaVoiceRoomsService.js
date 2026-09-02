@@ -12,9 +12,69 @@ const STANZA_LOBBY_VOICE_ID = String(IDs.channels?.stanzaLobbyVoice || "").trim(
 const STANZA_PANEL_CHANNEL_ID = String(IDs.channels?.commands || "").trim();
 const STANZA_MEMBER_ROLE_ID = String(IDs.roles?.Member || "").trim();
 const STANZA_TEARDOWN_MOVE_TARGET_VOICE_IDS = [IDs.channels?.vocaleLounge1, IDs.channels?.vocaleLounge2, IDs.channels?.vocaleLounge3].map((id) => String(id || "").trim()).filter((id) => /^\d{5,30}$/.test(id));
-const STANZA_SUPPORT_CHANNEL_ID = String(IDs.channels?.ticket || "").trim();
+const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef");
 const STANZA_DISCOVERY_EXCLUDE_PARENT_IDS = new Set((Array.isArray(IDs.stanzaDiscoveryExcludeParentIds) ? IDs.stanzaDiscoveryExcludeParentIds : []).map((x) => String(x || "").trim()).filter((x) => /^\d{5,30}$/.test(x)));
-const STANZA_CATEGORY_ID = "1499754323431788736";
+const STANZA_CATEGORY_ID = String(IDs.categories?.categoryPublics || "1442569076902989844").trim();
+
+function getStanzaCategoryParentId() {
+  return STANZA_CATEGORY_ID || "";
+}
+
+function channelCategorySortPosition(ch) {
+  if (!ch) return -1;
+  const raw = Number(ch.rawPosition);
+  if (Number.isFinite(raw)) return raw;
+  const pos = Number(ch.position);
+  return Number.isFinite(pos) ? pos : -1;
+}
+
+function resolveStanzaVoiceCreatePlacement(guild, lobbyCh) {
+  const parentId = getStanzaCategoryParentId() || String(lobbyCh?.parentId || "").trim() || null;
+  let tailPos = -1;
+  if (guild?.channels?.cache && parentId) {
+    for (const ch of guild.channels.cache.values()) {
+      if (!ch || String(ch.parentId || "") !== String(parentId)) continue;
+      const pos = channelCategorySortPosition(ch);
+      if (pos > tailPos) tailPos = pos;
+    }
+  }
+  if (tailPos < 0) {
+    const lobby =
+      String(lobbyCh?.id || "") === STANZA_LOBBY_VOICE_ID
+        ? lobbyCh
+        : guild?.channels?.cache?.get(STANZA_LOBBY_VOICE_ID) || lobbyCh;
+    tailPos = channelCategorySortPosition(lobby);
+  }
+  const position = tailPos + 1;
+  return { parentId, position };
+}
+
+async function applyStanzaVoiceCreatePosition(voiceChannel, position, reason) {
+  if (!voiceChannel || position === undefined || position === null) return;
+  const target = Number(position);
+  if (!Number.isFinite(target)) return;
+  const ok = await voiceChannel
+    .setPosition(target, { reason: reason || "Stanza temporanea in coda categoria" })
+    .then(() => true)
+    .catch((err) => {
+      global.logger?.warn?.("[stanza] setPosition failed:", err?.message || err);
+      return false;
+    });
+  if (!ok && voiceChannel.guild?.channels?.setPositions) {
+    await voiceChannel.guild.channels
+      .setPositions([{ channel: voiceChannel.id, position: target }])
+      .catch((err) => {
+        global.logger?.warn?.("[stanza] setPositions failed:", err?.message || err);
+      });
+  }
+}
+
+function getStanzaDiscoveryParentFilter(guild) {
+  const fromCategory = getStanzaCategoryParentId();
+  if (fromCategory) return fromCategory;
+  const lobby = guild?.channels?.cache?.get(STANZA_LOBBY_VOICE_ID);
+  return lobby?.parentId ? String(lobby.parentId) : "";
+}
 
 function getStanzaMemberRoleId() {
   return STANZA_MEMBER_ROLE_ID || "";
@@ -33,17 +93,11 @@ const stanzaVoiceStatusByChannelId = new Map();
 const stanzaCreateLocks = new Set();
 const stanzaPendingOwnerVoiceId = new Map();
 
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaRenamePending = new Map();
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaEmojiPending = new Map();
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaLimitPending = new Map();
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaDescPending = new Map();
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaVicePending = new Map();
-/** @type {Map<string, { voiceChannelId: string, action: 'include'|'exclude'|'silenzia'|'smuta', expiresAt: number, timerId: ReturnType<typeof setTimeout> | null, interactionApplicationId?: string, interactionToken?: string }>} */
 const stanzaUsersMemberPending = new Map();
 
 const STANZA_NAME_LEAD = "༄";
@@ -57,10 +111,8 @@ const STANZA_EMPTY_TEARDOWN_MS = 10 * 60 * 1000;
 const STANZA_SNAPSHOT_VERSION = 1;
 const STANZA_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "stanzaVoiceRoomsSnapshot.json");
 
-/** @type {Map<string, { timerId: ReturnType<typeof setTimeout> }>} */
 const stanzaEmptyTeardownTimers = new Map();
 
-/** @type {Map<string, { voiceChannelId: string, startedAt: number }>} */
 const stanzaVisitorVoiceSession = new Map();
 
 function ownerKey(guildId, userId) {
@@ -336,15 +388,12 @@ async function fetchVoiceChannelStatusText(client, channelId, meta = null) {
       return s;
     }
   } catch {
-    // voice status non è sul channel object standard; cache locale dopo PUT
-  }
+      }
   return null;
 }
 
 function buildStanzaJoinVisitorDmEmbed(member, voiceChannel, roomNamePlain, ownerId, statusText, totalFormatted) {
-  const supportPart = STANZA_SUPPORT_CHANNEL_ID
-    ? ` in <#${STANZA_SUPPORT_CHANNEL_ID}>`
-    : " tramite ticket";
+  const supportPart = ` aprendo un ${siteTicketsPageDiscordRef("SUPPORTO")}`;
   const ownerMention = `<@${ownerId}>`;
   const safeName = escapeStanzaEmbedPlainText(roomNamePlain);
   const statusLine = statusText
@@ -826,7 +875,6 @@ async function ensureStanzaBotVoiceOverwrite(voiceChannel, botUserId) {
   }
 }
 
-/** Deny Speak alone often leaves people already in VC still audible — force server mute. */
 async function applyStanzaMemberServerMute(member, voiceChannelId, muted, reason) {
   if (!member?.voice) return false;
   if (String(member.voice.channelId || "") !== String(voiceChannelId || "")) return false;
@@ -1401,14 +1449,13 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
       return;
     }
     const lobbyCh = newState.channel;
-    const parentId = lobbyCh?.parentId || STANZA_CATEGORY_ID || null;
+    const { parentId, position } = resolveStanzaVoiceCreatePlacement(guild, lobbyCh);
     const name = buildStanzaChannelName(member);
-    const voiceChannel = await guild.channels
-      .create({
-        name,
-        type: ChannelType.GuildVoice,
-        parent: parentId || undefined,
-        reason: `Stanza temporanea per ${member.user?.tag || uid}`,
+    const createPayload = {
+      name,
+      type: ChannelType.GuildVoice,
+      parent: parentId || undefined,
+      reason: `Stanza temporanea per ${member.user?.tag || uid}`,
         permissionOverwrites: [
           {
             id: guild.roles.everyone.id,
@@ -1431,12 +1478,19 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
             allow: stanzaPermissionAllowArrayFromObject(STANZA_VOICE_BOT_WITH_PANEL_CHAT),
           },
         ],
-      })
-      .catch((err) => {
-        global.logger?.warn?.("[stanza] create failed:", err?.message || err);
-        return null;
-      });
+    };
+    if (position !== undefined) createPayload.position = position;
+    const voiceChannel = await guild.channels.create(createPayload).catch((err) => {
+      global.logger?.warn?.("[stanza] create failed:", err?.message || err);
+      return null;
+    });
     if (!voiceChannel) return;
+
+    await applyStanzaVoiceCreatePosition(
+      voiceChannel,
+      position,
+      `Stanza temporanea in coda categoria per ${member.user?.tag || uid}`,
+    );
 
     stanzaPendingOwnerVoiceId.set(uid, voiceChannel.id);
 
@@ -1975,8 +2029,7 @@ async function tryDiscoverOwnerStanzaVoiceInGuild(guild, ownerUserId) {
   if (!uid || String(guild.id) !== MAIN_GUILD_ID) return false;
   const ok = ownerKey(guild.id, uid);
   if (stanzaOwnerToChannel.has(ok)) return true;
-  const lobby = guild.channels.cache.get(STANZA_LOBBY_VOICE_ID);
-  const parentFilter = lobby?.parentId ? String(lobby.parentId) : "";
+  const parentFilter = getStanzaDiscoveryParentFilter(guild);
   const byAnchor = collectOwnerStanzaVoiceCandidatesForDiscovery(
     guild,
     uid,

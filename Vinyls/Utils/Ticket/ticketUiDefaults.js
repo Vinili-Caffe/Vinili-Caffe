@@ -1,4 +1,3 @@
-/** Shared TicketsBot-style defaults for panels and welcome embeds. */
 
 const {
   DEFAULT_LANGUAGE,
@@ -7,7 +6,6 @@ const {
 } = require("../Partner/tenantPartnershipI18n/languages");
 
 const DEFAULT_TICKET_PANEL_TITLE = "Open a ticket!";
-/** Colore branding Vinili (coffee). */
 const DEFAULT_TICKET_PANEL_COLOR = "#6f4e37";
 const DEFAULT_TICKET_BUTTON_EMOJI = Object.freeze({ name: "📩" });
 const DEFAULT_TICKET_WELCOME_COLOR = "#6f4e37";
@@ -22,7 +20,6 @@ const DEFAULT_TICKET_WELCOME_BY_LANG = Object.freeze({
   pt: "Obrigado por contactar o suporte.\nDescreva o problema e aguarde uma resposta.",
 });
 
-/** @deprecated prefer getDefaultWelcomeDescription(lang) */
 const DEFAULT_TICKET_WELCOME_DESCRIPTION = DEFAULT_TICKET_WELCOME_BY_LANG.it;
 
 const DEFAULT_WELCOME_DESC_SET = new Set(
@@ -47,7 +44,6 @@ function getDefaultTicketPanelFooter(lang = DEFAULT_LANGUAGE) {
   return FALLBACK_TICKET_PANEL_FOOTER;
 }
 
-/** @deprecated use getDefaultTicketPanelFooter(lang) */
 const DEFAULT_TICKET_PANEL_FOOTER = FALLBACK_TICKET_PANEL_FOOTER;
 
 function isDefaultWelcomeDescription(text) {

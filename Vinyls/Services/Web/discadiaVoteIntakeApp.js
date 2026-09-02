@@ -1,8 +1,3 @@
-/*!
- * Intake HTTP Discadia sempre attivo (sopravvive ai restart di `bots`).
- * Accetta POST /webhooks/discadia, accoda in Mongo, risponde 200.
- * Il bot elabora la coda con discadiaVoteQueueService.
- */
 const fs = require("fs");
 const path = require("path");
 const http = require("node:http");

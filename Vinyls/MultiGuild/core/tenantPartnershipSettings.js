@@ -187,8 +187,7 @@ function normalizeContentFilters(raw) {
 
 function contentFiltersToRow(filters) {
   const n = normalizeContentFilters(filters);
-  // Sempre un oggetto (anche vuoto): così “tutti off” resta distinto da “mai configurato”.
-  return {
+    return {
     ...(n.stripMentions ? { m: true } : {}),
     ...(n.stripMassMentions ? { e: true } : {}),
     ...(n.stripNonInviteLinks ? { l: true } : {}),
@@ -240,8 +239,7 @@ function rowToConfig(row) {
     managerBadgeRoleId: normalizeRoleId(row.managerBadgeRoleId ?? row.mbr),
     managerLeaveAction: normalizeLeaveAction(row.managerLeaveAction ?? row.mla),
     behaviorDeleteAction: normalizeLeaveAction(row.behaviorDeleteAction ?? row.bda),
-    // undefined = mai impostato (legacy può usare default 12h); null/0 = disattivo; >0 = ms
-    sameServerCooldownMs: (() => {
+        sameServerCooldownMs: (() => {
       const has =
         Object.prototype.hasOwnProperty.call(row, "sscd") ||
         Object.prototype.hasOwnProperty.call(row, "sameServerCooldownMs");
@@ -395,9 +393,7 @@ async function savePartnershipConfig(guildId, patch) {
       Object.prototype.hasOwnProperty.call(patch, "contentFilters") ||
       prev.contentFiltersConfigured === true,
   };
-  // Se canale + ruolo PM sono presenti, considera il setup operativo anche senza
-  // l'ultimo click del wizard (causa tipica di "+settings" bloccato).
-  if (next.partnershipsChannelId && next.partnerManagerRoleId && !next.setupCompleted) {
+      if (next.partnershipsChannelId && next.partnerManagerRoleId && !next.setupCompleted) {
     next.setupCompleted = true;
     next.setupCompletedAt = next.setupCompletedAt || Date.now();
   }
@@ -596,9 +592,7 @@ async function completePartnershipSetup(guildId, userId) {
 
 function isPartnershipSetupComplete(config) {
   if (!config) return false;
-  // Canale + ruolo PM bastano per operatività. `setupCompleted` resta un flag
-  // di wizard, ma molti admin escono dopo i passi obbligatori senza premere fine.
-  return Boolean(config.partnershipsChannelId && config.partnerManagerRoleId);
+      return Boolean(config.partnershipsChannelId && config.partnerManagerRoleId);
 }
 
 function listConfiguredPartnershipGuildIds() {

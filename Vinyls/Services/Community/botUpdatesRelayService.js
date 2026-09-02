@@ -15,7 +15,6 @@ const SOURCE_CHANNEL_ID = String(IDs.channels?.botUpdatesSource || "152581764721
 const WEBHOOK_NAME_FALLBACK = "Vinili";
 const RELAY_REASON = "Canale aggiornamenti Vinili";
 const RELAY_DEDUPE_TTL_MS = 6 * 60 * 60 * 1000;
-/** @type {Map<string, number>} */
 const recentlyRelayedMessageIds = new Map();
 
 function getRest(client) {
@@ -97,9 +96,7 @@ function readCrossposted(message) {
 function messageBecamePublished(previous, updated) {
   if (!updated) return false;
   if (!readCrossposted(updated)) return false;
-  // Messaggio non in cache: previous è partial senza flag affidabili.
-  // Trattiamo come "appena pubblicato" solo la prima volta (dedupe per message id).
-  if (previous?.partial) return true;
+      if (previous?.partial) return true;
   return !readCrossposted(previous);
 }
 
@@ -149,9 +146,6 @@ async function deleteWebhookQuiet(client, webhookId) {
   } catch (_) {}
 }
 
-/**
- * Crea/riusa un webhook sul canale aggiornamenti (nome + avatar app).
- */
 async function ensureTenantUpdatesWebhook(client, guildId, channelId) {
   const gid = String(guildId || "").trim();
   const cid = String(channelId || "").trim();
@@ -266,7 +260,7 @@ function buildRelayPayload(message, client) {
 
 function isMissingWebhookError(err, reason) {
   const code = Number(err?.code ?? err?.rawError?.code ?? 0);
-  if (code === 10015) return true; // Unknown Webhook
+  if (code === 10015) return true;
   const msg = String(reason || err?.message || "").toLowerCase();
   return (
     msg.includes("unknown webhook") ||
@@ -389,8 +383,7 @@ async function relayPublishedBotUpdate(client, message) {
       }
 
       let result = await deliver(webhookId);
-      // Webhook cancellato a mano / scaduto: ricrea e riprova una volta.
-      if (!result?.ok) {
+            if (!result?.ok) {
         const ensured = await ensureTenantUpdatesWebhook(client, target.guildId, target.channelId);
         if (ensured.ok && ensured.webhookId && ensured.webhookId !== webhookId) {
           result = await deliver(ensured.webhookId);

@@ -152,7 +152,6 @@ function passesTtsContentFilters(message, config, prefix) {
   return true;
 }
 
-/** Chat testuale collegata a un canale vocale (o thread figlio). */
 function resolveTtsMessageVoiceChannel(message) {
   if (!message?.channel) return null;
   if (message.channel.isVoiceBased?.() && !message.channel.isThread?.()) {
@@ -417,8 +416,7 @@ function extractGoogleBatchexecuteMp3FromRaw(raw) {
       }
     }
   } catch {
-    /* ignore */
-  }
+      }
   return null;
 }
 
@@ -689,7 +687,6 @@ async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
   return data;
 }
 
-/** Spezza solo per lunghezza URL (GET); il messaggio completo viene letto in sequenza. */
 const TTS_HTTP_SEGMENT_MAX = 380;
 
 function splitTextForTtsSegments(text, maxLen = TTS_HTTP_SEGMENT_MAX) {
@@ -1167,8 +1164,7 @@ async function handleTtsMessage(message, client, prefix) {
   if (!baseText || !baseText.trim()) return;
   const musicBlock = resolveMusicBlocksTtsForGuild(client, guildId);
   if (musicBlock.blocked) {
-    // Non spammare in chat: la musica ha il vocale. L’avviso resta solo su join TTS.
-    return;
+        return;
   }
   const state = getState(voiceChannel);
   const connection = await ensureConnection(state, voiceChannel).catch(() => null,);
@@ -1403,7 +1399,7 @@ async function catchupTtsMessagesForChannel(client, voiceChannel, lastProcessedA
   const messages = await voiceChannel.messages.fetch({ limit: TTS_CATCHUP_FETCH_LIMIT }).catch(() => null);
   if (!messages) return;
 
-  const cutoffMs = Math.max(0, baseCutoffMs - 1500); // small grace to avoid edge duplicates
+  const cutoffMs = Math.max(0, baseCutoffMs - 1500);
   const sorted = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
   for (const message of sorted) {

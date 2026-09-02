@@ -14,8 +14,7 @@ function requireDotenv() {
       try {
         return require(modPath);
       } catch {
-        // try next candidate
-      }
+              }
     }
     throw new Error("Modulo dotenv mancante: esegui npm install in WebSite/");
   }
@@ -36,8 +35,7 @@ function loadEnvFiles(appRoot = process.cwd()) {
     if (!fs.existsSync(envPath)) continue;
     dotenv.config({ path: envPath, quiet: true, override: false });
   }
-  // Se è stato caricato un *_LOCAL, ha priorità: evita che MONGO_URL/MONGODB_URI ereditati (npm/PM2/shell) sovrascrivano
-  const useLocal = process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL;
+    const useLocal = process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL;
   if (useLocal) {
     delete process.env.MONGO_URL;
     delete process.env.MONGODB_URI;

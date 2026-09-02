@@ -102,11 +102,6 @@ function formatDurationForModLog(ms) {
   return parts.join(" ");
 }
 
-/**
- * Builds the Dyno-style staff action embed (green, Case X | Action | username, User/Moderator/Reason, footer ID • timestamp).
- * @param {Object} modCase - ModCase doc with caseId, action, userId, modId, reason, durationMs
- * @param {Object} [options] - { actionLabel?, moderatorId?, reasonOverride?, extraFields? }
- */
 function buildStaffActionModLogEmbed(modCase, options = {}) {
   const actionLabel = options.actionLabel || String(modCase.action || "Unknown").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
   const moderatorId = options.moderatorId != null ? options.moderatorId : modCase.modId;
@@ -140,12 +135,6 @@ function buildStaffActionModLogEmbed(modCase, options = {}) {
   return embed;
 }
 
-/**
- * Sends the staff-action embed to modLogs. Fetches target user for title username.
- * @param {import("discord.js").Guild} guild
- * @param {Object} modCase - ModCase doc
- * @param {Object} [options] - Same as buildStaffActionModLogEmbed
- */
 async function sendStaffActionToModLogs(guild, modCase, options = {}) {
   const channel = await resolveModLogChannel(guild);
   if (!channel?.isTextBased?.()) {
@@ -164,12 +153,6 @@ async function sendStaffActionToModLogs(guild, modCase, options = {}) {
   await channel.send({ embeds: [embed] }).catch((err) => logModLogSendFailure(guild, channel, err, "staff_action"));
 }
 
-/**
- * Log uso comando moderazione in #modLogs in stile Dyno: autore (avatar + username), "Used `command` in #channel", comando completo, timestamp DD/MM/YYYY HH:MM.
- * @param {import("discord.js").Guild} guild
- * @param {import("discord.js").Message} message - messaggio che ha invocato il comando (author, channel, content)
- * @param {string} commandName - nome comando (es. "warn", "modlogs")
- */
 async function sendModCommandUsageToModLogs(guild, message, commandName) {
   const channel = await resolveModLogChannel(guild);
   if (!channel?.isTextBased?.() || !message?.author) {

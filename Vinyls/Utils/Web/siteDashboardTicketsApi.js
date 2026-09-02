@@ -193,8 +193,7 @@ function scoreTicketCategoryName(name, fancyName) {
   if (!n) return 0;
   if (fancy && n === fancy) return 100;
   if (fancy && nl === fancy.toLowerCase()) return 95;
-  // Preferisci il nome “decorato” Discord rispetto al plain "Tickets".
-  if (nl === "tickets") return 15;
+    if (nl === "tickets") return 15;
   if (nl.includes("tickets")) return 80 + Math.min(10, Math.floor(n.length / 8));
   if (nl.includes("ticket")) return 40;
   return 0;
@@ -236,15 +235,13 @@ function getFancyTicketCategoryFallback() {
   }
 }
 
-/** Arricchisce settings con nome Discord reale (GET e PATCH devono restare allineati). */
 function enrichTicketSettingsCategoryNames(serialized, pickers) {
   const out = serialized && typeof serialized === "object" ? serialized : {};
   const fancyFallback = getFancyTicketCategoryFallback();
   out.defaultDiscordCategoryName = fancyFallback;
   out.categoryNameLive = resolveCategoryNameLive(pickers, out, fancyFallback);
   if (out.overflowCategoryId === "__custom__" || !out.overflowCategoryId) {
-    // In Custom/Auto mostra sempre il nome Discord reale (non il placeholder "Tickets").
-    if (out.categoryNameLive) out.categoryName = out.categoryNameLive;
+        if (out.categoryNameLive) out.categoryName = out.categoryNameLive;
   }
   return out;
 }
@@ -503,8 +500,7 @@ async function listDashboardTickets(client, accessToken, guildId, query = {}) {
   };
 
   const [rows, settings, usernameUserIds, panelsBucket] = await Promise.all([
-    // Preferisci projection in find() (Ticket wrapper custom); .select() è supportato ma non obbligatorio.
-    Ticket.find(filter, listProjection).lean().catch(() => []),
+        Ticket.find(filter, listProjection).lean().catch(() => []),
     getTicketSettingsForGuild(gid).catch(() => null),
     usernamePromise,
     (async () => {
@@ -555,8 +551,7 @@ async function listDashboardTickets(client, accessToken, guildId, query = {}) {
   const anonymise = settings?.anonymiseDashboardResponses === true;
   const panelById = new Map((panelsBucket?.singles || []).map((p) => [String(p.id), p]));
 
-  // Pre-slice sort (activity enrichment happens after slice for priority-ish sorts we approximate).
-  list.sort((a, b) => {
+    list.sort((a, b) => {
     if (status === "closed") {
       const ta = a.closedAt ? new Date(a.closedAt).getTime() : 0;
       const tb = b.closedAt ? new Date(b.closedAt).getTime() : 0;
@@ -575,7 +570,7 @@ async function listDashboardTickets(client, accessToken, guildId, query = {}) {
     if (sort === "unclaimed" || sort === "priority") {
       const ca = String(a.claimedBy || "").trim() ? 1 : 0;
       const cb = String(b.claimedBy || "").trim() ? 1 : 0;
-      if (ca !== cb) return ca - cb; // unclaimed first
+      if (ca !== cb) return ca - cb;
     }
     const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -693,8 +688,7 @@ function readCachedUserLabel(id) {
 function writeCachedUserLabel(id, label) {
   const s = String(label || "").trim();
   if (!s) return;
-  // Mai cache-are lo snowflake come "username": è il fallback UI, non un label.
-  if (s === String(id)) return;
+    if (s === String(id)) return;
   USER_LABEL_CACHE.set(String(id), { at: Date.now(), label: s });
 }
 
@@ -736,9 +730,7 @@ async function resolveDiscordUserLabels(client, userIds, options = {}) {
         if (!user) return;
         const label = discordUserDisplayLabel(user, id);
         if (!label) return;
-        // Cache sempre: anche se la risposta API arriva dopo il timeout della request corrente,
-        // il poll successivo (e le pagine) trovano già il nome.
-        writeCachedUserLabel(id, label);
+                        writeCachedUserLabel(id, label);
         if (!settled) out[id] = label;
       } catch (_) {}
     }),
@@ -776,10 +768,6 @@ async function findGuildUserIdsMatchingUsername(client, guildId, usernameQuery) 
   return [...new Set(hits)];
 }
 
-/**
- * Ticket chiusi senza body transcript (HTML/testo).
- * Usa projection lean: evita di trascinare transcript/html nel Node.
- */
 async function loadSlimClosedTicketsForGuild(guildId, options = {}) {
   const { GuildFeatureBucket } = require("../../Schemas/Guild/guildFeatureBucketSchema");
   const gid = String(guildId || "").trim();
@@ -900,8 +888,7 @@ async function listDashboardTranscripts(client, accessToken, guildId, query = {}
   let list = (Array.isArray(rows) ? rows : []).filter((t) => {
     if (t?.hasTranscript === false) return false;
     if (ticketHasStoredTranscript(t)) return true;
-    // Projection slim: body non incluso → tieni i legacy (open carica il doc pieno).
-    return t?.hasTranscript == null;
+        return t?.hasTranscript == null;
   });
 
   if (ticketIdRaw) {
@@ -993,8 +980,7 @@ async function getDashboardTranscriptHtml(client, accessToken, guildId, ticketId
   const tid = String(ticketId || "").trim();
   if (!tid) return fail(400, "invalid_ticket", "Ticket non valido.");
 
-  // Non usare parseInt su ObjectId hex (es. "6a75…" → 6): solo numeri puri = ticketNumber.
-  const tidNumRaw = tid.replace(/^#/, "");
+    const tidNumRaw = tid.replace(/^#/, "");
   const tidIsTicketNumber = /^\d{1,10}$/.test(tidNumRaw);
   const asNum = tidIsTicketNumber ? Number.parseInt(tidNumRaw, 10) : NaN;
 
@@ -1004,8 +990,7 @@ async function getDashboardTranscriptHtml(client, accessToken, guildId, ticketId
   }
   if (!ticket) return fail(404, "not_found", "Transcript non trovato.");
 
-  // Projection slim esclude i body: ricarica il subdoc completo per path/inline/testo.
-  try {
+    try {
     const full = await Ticket.findById(ticket._id);
     if (full) {
       const plain = full.toObject ? full.toObject() : { ...full };
@@ -1013,8 +998,7 @@ async function getDashboardTranscriptHtml(client, accessToken, guildId, ticketId
       ticket = plain;
     }
   } catch (_) {
-    /* keep slim ticket + apiUrl fallback */
-  }
+      }
 
   const fs = require("fs");
   const { upgradeLegacyTranscriptHtml, resolveExistingTranscriptHtmlPath } = require("../Ticket/transcriptUtils");
@@ -1065,9 +1049,7 @@ async function getDashboardTranscriptHtml(client, accessToken, guildId, ticketId
     };
   }
 
-  // Niente HTML in locale: il client scarica via /ticket-transcript/:token con Bearer
-  // (mai redirect alla pagina gate /dashboard/transcript — finirebbe nell'iframe).
-  const viewTok = String(ticket.transcriptViewToken || "").trim();
+      const viewTok = String(ticket.transcriptViewToken || "").trim();
   const apiUrl =
     viewTok && !transcriptViewExpired(ticket) ? buildTicketTranscriptApiUrl(viewTok) : "";
   if (apiUrl) {

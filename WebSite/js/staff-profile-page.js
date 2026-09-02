@@ -814,8 +814,7 @@
     bootProfileLayout();
     var delayMs = 0;
     if (window.__VC_STAFF_ACCESS_OPTIMISTIC && !window.__VC_STAFF_PERMS) {
-      // Lascia completare il gate staff reale prima del profilo (evita doppio cold-start Discord).
-      delayMs = 450;
+            delayMs = 450;
     }
     if (delayMs > 0) {
       window.setTimeout(loadProfile, delayMs);

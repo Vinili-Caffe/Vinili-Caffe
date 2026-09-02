@@ -10,7 +10,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Istante (ms) dell'ultima mezzanotte Europe/Rome (inizio del giorno corrente lì). */
 function getRomeMidnightTodayUtc() {
   const now = new Date();
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" });
@@ -29,10 +28,6 @@ function getRomeMidnightTodayUtc() {
   return utcMidnightSameDay - offsetMs;
 }
 
-/**
- * A mezzanotte si devono eliminare i messaggi del bot *prima* di quella mezzanotte (giorno appena finito e precedenti).
- * La versione precedente teneva solo msg >= dayStartMs → subito dopo le 00:00 non C'èra quasi nulla da cancellare.
- */
 async function runPartnershipChannelCleanup(client) {
   const channelId = IDs.channels?.partnersChat;
   if (!channelId) {
@@ -73,8 +68,7 @@ async function runPartnershipChannelCleanup(client) {
         if (msg.createdTimestamp >= dayStartMs) continue;
         if (msg.author?.id !== botId) continue;
 
-        // --- FILTRI DI PROTEZIONE 🛡️ ---
-        const content = msg.content || "";
+                const content = msg.content || "";
         const hasButtons = msg.components && msg.components.length > 0;
         const reflectsStability = content.includes("# Benvenutx") || content.includes("# Regolamento") || (msg.embeds && msg.embeds.some(e => {
           const t = (e.title || "").toLowerCase();

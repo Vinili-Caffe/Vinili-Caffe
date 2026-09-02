@@ -7,7 +7,6 @@ const joinAlertConfig = require("../config/joinAlert.json");
 
 const BOT_STATE_KEY = "multiGuildManagedInvites";
 const RECREATE_LOCKS = new Map();
-/** Solo canali testo/annunci: niente vocali (né text-in-voice). */
 const INVITE_CHANNEL_TYPES = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
 
 function isJoinAlertEnabled() {

@@ -7,7 +7,6 @@ const STATS_CANVAS_CACHE_MAX = Math.max(
   Math.min(120, Number(process.env.STATS_CANVAS_CACHE_MAX ?? 40)),
 );
 
-/** @type {Map<string, { buffer: Buffer, expiresAt: number }>} */
 const statsCanvasCache = new Map();
 
 function getStatsCanvasCache(key) {

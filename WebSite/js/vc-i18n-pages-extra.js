@@ -1,13 +1,10 @@
-/**
- * Extra page dictionary for VcI18n.extend
- * (sponsor, legal, seratafilm, hogwarts hub, perks, wiki, dash.ps, status.title).
- */
+
 (function () {
   var IT = {
-    /* ===== STATUS (missing from pages.js) ===== */
+    
     "status.title": "Status",
 
-    /* ===== SPONSOR ===== */
+    
     "sponsor.kicker": "Collaborazioni",
     "sponsor.heroTitle": "Sponsor su<br /><span class=\"text-emerald-300\">Vinili &amp; Caffè</span>",
     "sponsor.lead": "Tipologie, durate e prezzi delle sponsor: apri un ticket <strong class=\"text-white\">High Staff</strong> per maggiori dettagli.",
@@ -44,7 +41,7 @@
     "sponsor.eventsDesc": "Un messaggio promozionale studiato ad hoc per le tue esigenze, divulgato durante le nostre attività con la community.",
     "sponsor.eventsPackage": "Passaggio promozionale",
 
-    /* ===== LEGAL PRIVACY ===== */
+    
     "legal.privacy.h1": "Privacy Policy",
     "legal.privacy.updated": "Ultimo aggiornamento:",
     "legal.privacy.s1.title": "Introduzione",
@@ -74,7 +71,7 @@
     "legal.privacy.s13.title": "Contatti e reclami",
     "legal.privacy.s13.body": "<p>Per domande privacy, richieste GDPR o segnalazioni puoi contattarci tramite Discord o email ({{SUPPORT_EMAIL}}).</p><p>Hai inoltre diritto di proporre reclamo al Garante per la Protezione dei Dati Personali (www.garanteprivacy.it).</p>",
 
-    /* ===== LEGAL TERMS ===== */
+    
     "legal.terms.h1": "Termini di Servizio",
     "legal.terms.updated": "Ultimo aggiornamento:",
     "legal.terms.s1.title": "Accettazione dei termini",
@@ -102,7 +99,7 @@
     "legal.terms.s12.title": "Contatti",
     "legal.terms.s12.body": "<p>Per domande sui Termini di Servizio puoi contattarci tramite Discord o email ({{SUPPORT_EMAIL}}).</p>",
 
-    /* ===== LEGAL COOKIE ===== */
+    
     "legal.cookie.h1": "Cookie Policy",
     "legal.cookie.updated": "Ultimo aggiornamento:",
     "legal.cookie.s1.title": "Cosa sono i cookie?",
@@ -124,7 +121,7 @@
     "legal.cookie.s9.title": "Contatti",
     "legal.cookie.s9.body": "<p>Per domande su questa Cookie Policy: Discord o email ({{SUPPORT_EMAIL}}).</p>",
 
-    /* ===== SERATA FILM ===== */
+    
     "sf.kicker": "Evento",
     "sf.title": "Serata Film",
     "sf.thanks": "Grazie",
@@ -155,7 +152,7 @@
     "sf.thanksPill": "✨ Ci rivediamo al prossimo appuntamento",
     "sf.backCountdown": "Torna al countdown",
 
-    /* ===== HOGWARTS HUB ===== */
+    
     "hw.hub.kicker": "Evento Stagionale",
     "hw.hub.title": "Hogwarts",
     "hw.hub.subtitle": "Calendario settimanale delle attività: si aggiorna automaticamente in base alla data.",
@@ -174,12 +171,12 @@
     "hw.hub.musicAria": "Musica di sottofondo",
     "hw.hub.allWeeksAria": "Calendario completo anteprima",
 
-    /* ===== PERKS (all marked keys) ===== */
+    
     "perks.hero.kicker": "VANTAGGI",
     "perks.hero.titlePrefix": "I perks di",
     "perks.hero.lead": "Qui sono descritti tutti i ruoli ottenibili con i loro vantaggi.",
     "perks.hero.pillar1": "Usa <code class=\"vc-sponsor-code\">+rank</code> per controllare il tuo livello",
-    "perks.hero.pillar2": "Usa <code class=\"vc-sponsor-code\">+profile</code> per la gestione completa del tuo profilo",
+    "perks.hero.pillar2": "Usa <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> per la gestione completa del tuo profilo",
     "perks.hero.asideAria": "Sul server",
     "perks.showcaseAria": "Perks e vantaggi",
     "perks.s1.badge": "Nitro Boost",
@@ -190,9 +187,9 @@
     "perks.s1.b3": "Permesso di allegare immagini e link in chat",
     "perks.s1.b4": "Permesso di mandare emoji e adesivi di altri server",
     "perks.s1.b5": "Permesso di usare le Soundboard del server",
-    "perks.s1.b6": "Possibilità di creare un ruolo <strong class=\"text-white\">custom</strong> con colore <strong class=\"text-amber-200\">GRADIENTE</strong>, scelto da te, tramite il comando <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.b7": "Sblocchi i COLORI <strong class=\"text-white\">PLUS</strong> in <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.b8": "Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3) tramite il comando <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.b6": "Possibilità di creare un ruolo <strong class=\"text-white\">custom</strong> con colore <strong class=\"text-amber-200\">GRADIENTE</strong>, scelto da te, tramite il comando <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.b7": "Sblocchi i COLORI <strong class=\"text-white\">PLUS</strong> in <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.b8": "Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3) tramite il comando <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.b9": "Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi) <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.b10": "Sblocchi i comandi <code class=\"vc-sponsor-code\">+quote</code>, <code class=\"vc-sponsor-code\">+repost</code> e <code class=\"vc-sponsor-code\">+myrepost</code>",
     "perks.s1.b11": "<strong class=\"text-white\">X2</strong> EXP Boost",
@@ -202,9 +199,9 @@
     "perks.s1.c3": "Permesso di usare le Soundboard esterne<span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c4": "Sfondo personalizzato per la tua card del comando <code class=\"vc-sponsor-code\">+rank</code> <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c5": "Possibilità di aggiungere reazioni ai messaggi in chat <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.c6": "Possibilità di creare un secondo ruolo <strong class=\"text-white\">custom</strong> con colore <strong class=\"text-amber-200\">GRADIENTE</strong>, scelto da te, tramite il comando <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.c7": "Possibilità di creare una vocale privata per te e i tuoi amici tramite il comando <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.c8": "Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 5) tramite il comando <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.c6": "Possibilità di creare un secondo ruolo <strong class=\"text-white\">custom</strong> con colore <strong class=\"text-amber-200\">GRADIENTE</strong>, scelto da te, tramite il comando <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.c7": "Possibilità di creare una vocale privata per te e i tuoi amici tramite il comando <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.c8": "Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 5) tramite il comando <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c9": "Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi) <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c10": "Bypass requisiti dei giveaway <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c11": "Ripristina il counting (max <strong class=\"text-white\">1 volta al giorno</strong>) tramite il pulsante <span class=\"vc-support-donate-new\">NEW!</span>",
@@ -218,59 +215,58 @@
     "perks.s2.lvl10.b2": "Permesso di allegare link e immagini in chat",
     "perks.s2.lvl10.b3": "Permesso di inviare messaggi vocali in chat",
     "perks.s2.lvl10.b4": "Sblocchi i comandi <code class=\"vc-sponsor-code\">+quote</code>, <code class=\"vc-sponsor-code\">+repost</code> e <code class=\"vc-sponsor-code\">+myrepost</code>",
-    "perks.s2.lvl10.b5": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Yellow & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl10.b5": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Yellow & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl20": "Livello 20+",
     "perks.common.prevRewards": "Tutte le ricompense precedenti",
     "perks.s2.lvl20.b1": "Possibilità di aggiungere reazioni ai messaggi in chat",
-    "perks.s2.lvl20.b2": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Blue & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl20.b2": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Blue & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl30": "Livello 30+",
     "perks.s2.lvl30.b1": "Permesso di usare le Soundboard di altri server",
     "perks.s2.lvl30.b2": "Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi)",
-    "perks.s2.lvl30.b3": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Red & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl30.b3": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Red & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl50": "Livello 50+",
-    "perks.s2.lvl50.b1": "Possibilità di creare un ruolo <strong class=\"text-white\">custom</strong> e un canale <strong class=\"text-white\">vocale privato custom</strong> (<code class=\"vc-sponsor-code\">+profile</code>)",
+    "perks.s2.lvl50.b1": "Possibilità di creare un ruolo <strong class=\"text-white\">custom</strong> e un canale <strong class=\"text-white\">vocale privato custom</strong> (<code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code>)",
     "perks.s2.lvl50.b2": "Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi)",
-    "perks.s2.lvl50.b3": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ White & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl50.b3": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ White & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl70": "Livello 70+",
     "perks.s2.lvl70.b1": "Permesso di mandare sticker ed emoji di altri server",
     "perks.s2.lvl70.b2": "Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
-    "perks.s2.lvl70.b3": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Pink & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl70.b3": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Pink & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl100": "Livello 100+",
     "perks.s2.lvl100.b1": "Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo)",
     "perks.s2.lvl100.b2": "Bypass requisiti delle candidature",
     "perks.s2.lvl100.b3": "Bonus EXP permanente <strong class=\"text-white\">+15%</strong>",
-    "perks.s2.lvl100.b4": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Purple & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl100.b4": "Nuovo colore gradiente sbloccato con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Purple & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.verifyLabel": "Verifica Selfie",
     "perks.s2.verify.kicker": "Guida rapida",
-    "perks.s2.verify.lead1": "Per verificare il tuo profilo dovrai andare in <span class=\"vc-sponsor-mention\">⁠༄🎫︲tickets</span> e selezionare la categoria <strong>PERKS</strong>.",
+    "perks.s2.verify.lead1": "Per verificare il tuo profilo dovrai andare in <a href=\"/tickets/\" class=\"vc-sponsor-mention\">⁠༄🎫︲tickets</a> e selezionare la categoria <strong>PERKS</strong>.",
     "perks.s2.verify.lead2": "Successivamente, dovrete mandare una vostra foto in cui si vede bene il viso:",
     "perks.s2.verify.li1": "• con il vostro nickname scritto su un foglio cartaceo;",
     "perks.s2.verify.li2": "• oppure con il cellulare nella schermata del vostro profilo Discord.",
     "perks.s2.verify.b1": "Ruolo <span class=\"vc-sponsor-mention\">@༄ Verified ʰᵉᐟʰⁱᵐ</span>, <span class=\"vc-sponsor-mention\">@༄ Verified ˢʰᵉᐟʰᵉʳ</span> o <span class=\"vc-sponsor-mention\">@༄ Verified ⁿ^ᐟꜝ</span> con badge speciale",
     "perks.s2.verify.b2": "Permesso di allegare immagini e link in chat",
-    "perks.s2.verify.b3": "Permesso di scrivere in <span class=\"vc-sponsor-mention\">⁠༄📸︲selfie</span>",
     "perks.s2.ctaUnlock": "SBLOCCALI TUTTI!",
     "perks.s2.ctaVerify": "VERIFICATI ADESSO",
-    "perks.s2.ctaVerifyAria": "Apri Discord sul messaggio dei ticket",
+    "perks.s2.ctaVerifyAria": "Apri la pagina ticket sul sito",
     "perks.s2.lvl125": "Livello 125+",
     "perks.s2.lvl125.b1": "Bypass requisiti dei giveaway",
     "perks.s2.lvl125.b2": "Bonus EXP permanente <strong class=\"text-white\">+20%</strong>",
-    "perks.s2.lvl125.b3": "Possibilità di creare un secondo ruolo <strong class=\"text-white\">custom</strong> tramite il comando <code class=\"vc-sponsor-code\">+profile</code>",
-    "perks.s2.lvl125.b4": "Nuovo colore gradiente con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Orange & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl125.b3": "Possibilità di creare un secondo ruolo <strong class=\"text-white\">custom</strong> tramite il comando <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code>",
+    "perks.s2.lvl125.b4": "Nuovo colore gradiente con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Orange & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl150": "Livello 150+",
     "perks.s2.lvl150.b1": "Bonus EXP permanente <strong class=\"text-white\">+25%</strong>",
-    "perks.s2.lvl150.b2": "Nuovo colore gradiente con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Green & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s2.lvl150.b3": "Decorazione a scelta riscattabile tramite <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
+    "perks.s2.lvl150.b2": "Nuovo colore gradiente con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Green & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl150.b3": "Decorazione a scelta riscattabile tramite <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
     "perks.s2.lvl200": "Livello 200+",
-    "perks.s2.lvl200.b1": "Nuovo colore gradiente con <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Aqua & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s2.lvl200.b2": "Nitro Boost mensile riscattabile tramite <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
+    "perks.s2.lvl200.b1": "Nuovo colore gradiente con <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Aqua & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl200.b2": "Nitro Boost mensile riscattabile tramite <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
     "perks.s3.badge": "Profilo",
     "perks.s3.title": "Badge e altri ruoli",
     "perks.s3.monthlyRange": "Classifica Mensile",
     "perks.s3.weeklyRange": "Classifica Settimanale",
     "perks.s3.topMonth.intro": "Ottenibile arrivando primo per exp in messaggi e exp in vocale nella classifica mensile.",
     "perks.s3.topMonth.b1": "Ruolo esclusivo per <strong class=\"text-white\">1 mese</strong>.",
-    "perks.s3.topMonth.b2": "<strong class=\"text-white\">Nitro Boost</strong> mensile riscattabile tramite <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
+    "perks.s3.topMonth.b2": "<strong class=\"text-white\">Nitro Boost</strong> mensile riscattabile tramite <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
     "perks.s3.topWeek.intro": "Ottenibile arrivando primo per exp in messaggi o exp in vocale nella classifica settimanale.",
     "perks.s3.topWeek.b1": "Ruolo esclusivo per <strong class=\"text-white\">7 giorni</strong>.",
     "perks.s3.extSoundboard": "Permesso di usare soundboard esterne",
@@ -291,11 +287,11 @@
     "perks.s3.attachLinks": "Permesso di allegare link e immagini in chat",
     "perks.s3.changeNick": "Permesso di cambiare nickname",
     "perks.s3.supporter.range": "Bio del Profilo",
-    "perks.s3.supporter.intro": "Ottenibile mettendo \".gg/viniliecaffe\", \"discord.gg/viniliecaffe\" o \"viniliecaffe.it\" nella bio del tuo profilo Discord! Riscattabile tramite <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">PERKS</code>",
+    "perks.s3.supporter.intro": "Ottenibile mettendo \".gg/viniliecaffe\", \"discord.gg/viniliecaffe\" o \"viniliecaffe.it\" nella bio del tuo profilo Discord! Riscattabile tramite <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">PERKS</code>",
     "perks.s3.fan.range": "Status del Profilo",
     "perks.s3.fan.intro": "Ottenibile mettendo \".gg/viniliecaffe\", \"discord.gg/viniliecaffe\" o \"viniliecaffe.it\" nello status del tuo profilo Discord!",
     "perks.s3.follower.range": "Follower del Server",
-    "perks.s3.follower.intro": "Ottenibile seguendo il profilo del server su <a href=\"https://instagram.com/viniliecaffe\" target=\"_blank\" rel=\"noopener noreferrer\">Instagram</a> &amp; <a href=\"https://tiktok.com/@viniliecaffe\" target=\"_blank\" rel=\"noopener noreferrer\">TikTok</a>! Riscattabile tramite <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">PERKS</code>",
+    "perks.s3.follower.intro": "Ottenibile seguendo il profilo del server su <a href=\"https://instagram.com/viniliecaffe\" target=\"_blank\" rel=\"noopener noreferrer\">Instagram</a> &amp; <a href=\"https://tiktok.com/@viniliecaffe\" target=\"_blank\" rel=\"noopener noreferrer\">TikTok</a>! Riscattabile tramite <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">PERKS</code>",
     "perks.s3.guilded.range": "Guild tags",
     "perks.s3.guilded.intro": "Ottenibile mettendo una delle nostre guild tags.",
     "perks.s3.voter.range": "Voti giornalieri",
@@ -310,7 +306,7 @@
     "perks.s3.cta": "ENTRA NEL SERVER!",
     "perks.note.leave": "<i class=\"fa fa-exclamation-circle mr-1.5 align-text-bottom text-amber-400/90\" aria-hidden=\"true\"></i><strong class=\"font-semibold text-slate-300/95\">Importante:</strong> Se esci dal server principale, i ruoli verranno rimossi e <strong class=\"text-slate-100\">non saranno riassegnati automaticamente</strong>.",
 
-    /* ===== WIKI ===== */
+    
     "wiki.kicker": "Documentazione",
     "wiki.lead": "I <strong class=\"font-semibold text-white\">nostri</strong> bot: un'unicità a 360°",
     "wiki.ctaCommands": "Vai ai comandi",
@@ -330,7 +326,7 @@
     "wiki.cmdCountOne": "1 comando",
     "wiki.cmdCountMany": "{n} comandi",
 
-    /* ===== DASH PS + helpers ===== */
+    
     "dash.basics": "Generale",
     "dash.basicsIntro": "Canali, team, ping, opzioni e descrizione partner.",
     "dash.dataTools": "Dati",
@@ -524,7 +520,7 @@
     "dash.ps.actionWarn": "Avvisa",
     "dash.ps.actionDelete": "Elimina (5m)",
 
-    /* ===== DASH MIGRATION ===== */
+    
     "dash.mig.title": "Migrazione dati",
     "dash.mig.sub": "Importazione dello storico partnership dalla cronologia.",
     "dash.mig.intro": "Storico partnership (punti e totali giorno/settimana). Code separate per operazioni lunghe e rapide.",
@@ -676,7 +672,7 @@
     "dash.mig.undoProgressMsg": "Migrazione annullata: rimossi {n} record importati.",
     "dash.mig.errMongo": "Database non disponibile.",
 
-    /* ===== DASH DESCRIZIONE / EMBED ===== */
+    
     "dash.ps.descTitle": "Descrizione partner",
     "dash.ps.descSub": "Testo o canale usato come descrizione del server.",
     "dash.ps.descIntro": "Canale o testo fisso come descrizione partner; vuoto = disattivata.",
@@ -753,7 +749,7 @@
     "dash.ps.embedTsHint": "Mostra data/ora sull\u2019embed",
     "dash.ps.embedTsAria": "Mostra timestamp",
 
-    /* ===== DASH ALTRI HELPER ===== */
+    
     "dash.ps.noCategories": "Nessuna categoria disponibile.",
     "dash.ps.categoriesSelected": "{n} selezionate",
     "dash.ps.maxCategories": "Puoi selezionare al massimo 5 categorie.",
@@ -1160,7 +1156,7 @@
     "perks.hero.titlePrefix": "The perks of",
     "perks.hero.lead": "All obtainable roles and their benefits are listed here.",
     "perks.hero.pillar1": "Use <code class=\"vc-sponsor-code\">+rank</code> to check your level",
-    "perks.hero.pillar2": "Use <code class=\"vc-sponsor-code\">+profile</code> for full profile management",
+    "perks.hero.pillar2": "Use <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> for full profile management",
     "perks.hero.asideAria": "On the server",
     "perks.showcaseAria": "Perks and benefits",
     "perks.s1.badge": "Nitro Boost",
@@ -1171,9 +1167,9 @@
     "perks.s1.b3": "Permission to attach images and links in chat",
     "perks.s1.b4": "Permission to use emoji and stickers from other servers",
     "perks.s1.b5": "Permission to use this server’s Soundboard",
-    "perks.s1.b6": "Ability to create a <strong class=\"text-white\">custom</strong> role with a <strong class=\"text-amber-200\">GRADIENT</strong> color of your choice via <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.b7": "Unlock <strong class=\"text-white\">PLUS</strong> COLORS in <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.b8": "Add reactions to messages when you are @mentioned in chat (max. 3) via <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.b6": "Ability to create a <strong class=\"text-white\">custom</strong> role with a <strong class=\"text-amber-200\">GRADIENT</strong> color of your choice via <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.b7": "Unlock <strong class=\"text-white\">PLUS</strong> COLORS in <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.b8": "Add reactions to messages when you are @mentioned in chat (max. 3) via <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.b9": "Reduced bot command cooldown (from 30 seconds to 15 seconds) <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.b10": "Unlock the <code class=\"vc-sponsor-code\">+quote</code>, <code class=\"vc-sponsor-code\">+repost</code>, and <code class=\"vc-sponsor-code\">+myrepost</code> commands",
     "perks.s1.b11": "<strong class=\"text-white\">X2</strong> EXP Boost",
@@ -1183,9 +1179,9 @@
     "perks.s1.c3": "Permission to use external Soundboards<span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c4": "Custom background for your <code class=\"vc-sponsor-code\">+rank</code> card <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c5": "Ability to add reactions to messages in chat <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.c6": "Ability to create a second <strong class=\"text-white\">custom</strong> role with a <strong class=\"text-amber-200\">GRADIENT</strong> color of your choice via <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.c7": "Ability to create a private voice channel for you and your friends via <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s1.c8": "Add reactions to messages when you are @mentioned in chat (max. 5) via <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.c6": "Ability to create a second <strong class=\"text-white\">custom</strong> role with a <strong class=\"text-amber-200\">GRADIENT</strong> color of your choice via <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.c7": "Ability to create a private voice channel for you and your friends via <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s1.c8": "Add reactions to messages when you are @mentioned in chat (max. 5) via <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c9": "Reduced bot command cooldown (from 30 seconds to 5 seconds) <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c10": "Bypass giveaway requirements <span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s1.c11": "Restore the counting (max <strong class=\"text-white\">1 time per day</strong>) via the button <span class=\"vc-support-donate-new\">NEW!</span>",
@@ -1199,59 +1195,58 @@
     "perks.s2.lvl10.b2": "Permission to attach links and images in chat",
     "perks.s2.lvl10.b3": "Permission to send voice messages in chat",
     "perks.s2.lvl10.b4": "Unlock the <code class=\"vc-sponsor-code\">+quote</code>, <code class=\"vc-sponsor-code\">+repost</code>, and <code class=\"vc-sponsor-code\">+myrepost</code> commands",
-    "perks.s2.lvl10.b5": "New gradient color unlocked with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Yellow & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl10.b5": "New gradient color unlocked with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Yellow & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl20": "Level 20+",
     "perks.common.prevRewards": "All previous rewards",
     "perks.s2.lvl20.b1": "Ability to add reactions to messages in chat",
-    "perks.s2.lvl20.b2": "New gradient color unlocked with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Blue & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl20.b2": "New gradient color unlocked with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Blue & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl30": "Level 30+",
     "perks.s2.lvl30.b1": "Permission to use Soundboards from other servers",
     "perks.s2.lvl30.b2": "Reduced bot command cooldown (from 30 seconds to 15 seconds)",
-    "perks.s2.lvl30.b3": "New gradient color unlocked with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Red & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl30.b3": "New gradient color unlocked with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Red & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl50": "Level 50+",
-    "perks.s2.lvl50.b1": "Ability to create a <strong class=\"text-white\">custom</strong> role and a <strong class=\"text-white\">custom private voice</strong> channel (<code class=\"vc-sponsor-code\">+profile</code>)",
+    "perks.s2.lvl50.b1": "Ability to create a <strong class=\"text-white\">custom</strong> role and a <strong class=\"text-white\">custom private voice</strong> channel (<code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code>)",
     "perks.s2.lvl50.b2": "Reduced bot command cooldown (from 30 seconds to 5 seconds)",
-    "perks.s2.lvl50.b3": "New gradient color unlocked with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ White & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl50.b3": "New gradient color unlocked with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ White & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl70": "Level 70+",
     "perks.s2.lvl70.b1": "Permission to send stickers and emoji from other servers",
     "perks.s2.lvl70.b2": "Add reactions to messages when you are @mentioned in chat (max. 3)",
-    "perks.s2.lvl70.b3": "New gradient color unlocked with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Pink & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl70.b3": "New gradient color unlocked with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Pink & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl100": "Level 100+",
     "perks.s2.lvl100.b1": "Reduced bot command cooldown (from 30 seconds to 1 second)",
     "perks.s2.lvl100.b2": "Bypass application requirements",
     "perks.s2.lvl100.b3": "Permanent EXP bonus <strong class=\"text-white\">+15%</strong>",
-    "perks.s2.lvl100.b4": "New gradient color unlocked with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Purple & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl100.b4": "New gradient color unlocked with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Purple & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.verifyLabel": "Selfie Verification",
     "perks.s2.verify.kicker": "Quick guide",
-    "perks.s2.verify.lead1": "To verify your profile, go to <span class=\"vc-sponsor-mention\">⁠༄🎫︲tickets</span> and select the <strong>PERKS</strong> category.",
+    "perks.s2.verify.lead1": "To verify your profile, go to <a href=\"/tickets/\" class=\"vc-sponsor-mention\">⁠༄🎫︲tickets</a> and select the <strong>PERKS</strong> category.",
     "perks.s2.verify.lead2": "Then send a photo of yourself where your face is clearly visible:",
     "perks.s2.verify.li1": "• with your nickname written on a piece of paper;",
     "perks.s2.verify.li2": "• or with your phone showing your Discord profile screen.",
     "perks.s2.verify.b1": "Role <span class=\"vc-sponsor-mention\">@༄ Verified ʰᵉᐟʰⁱᵐ</span>, <span class=\"vc-sponsor-mention\">@༄ Verified ˢʰᵉᐟʰᵉʳ</span>, or <span class=\"vc-sponsor-mention\">@༄ Verified ⁿ^ᐟꜝ</span> with a special badge",
     "perks.s2.verify.b2": "Permission to attach images and links in chat",
-    "perks.s2.verify.b3": "Permission to write in <span class=\"vc-sponsor-mention\">⁠༄📸︲selfie</span>",
     "perks.s2.ctaUnlock": "UNLOCK THEM ALL!",
     "perks.s2.ctaVerify": "GET VERIFIED NOW",
-    "perks.s2.ctaVerifyAria": "Open Discord on the tickets message",
+    "perks.s2.ctaVerifyAria": "Open the tickets page on the site",
     "perks.s2.lvl125": "Level 125+",
     "perks.s2.lvl125.b1": "Bypass giveaway requirements",
     "perks.s2.lvl125.b2": "Permanent EXP bonus <strong class=\"text-white\">+20%</strong>",
-    "perks.s2.lvl125.b3": "Ability to create a second <strong class=\"text-white\">custom</strong> role via <code class=\"vc-sponsor-code\">+profile</code>",
-    "perks.s2.lvl125.b4": "New gradient color with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Orange & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl125.b3": "Ability to create a second <strong class=\"text-white\">custom</strong> role via <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code>",
+    "perks.s2.lvl125.b4": "New gradient color with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Orange & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
     "perks.s2.lvl150": "Level 150+",
     "perks.s2.lvl150.b1": "Permanent EXP bonus <strong class=\"text-white\">+25%</strong>",
-    "perks.s2.lvl150.b2": "New gradient color with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Green & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s2.lvl150.b3": "Decoration of your choice redeemable via <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
+    "perks.s2.lvl150.b2": "New gradient color with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Green & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl150.b3": "Decoration of your choice redeemable via <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
     "perks.s2.lvl200": "Level 200+",
-    "perks.s2.lvl200.b1": "New gradient color with <code class=\"vc-sponsor-code\">+profile</code> <span class=\"vc-sponsor-mention\">༄ Aqua & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
-    "perks.s2.lvl200.b2": "Monthly Nitro Boost redeemable via <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
+    "perks.s2.lvl200.b1": "New gradient color with <code class=\"vc-sponsor-code\"><a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a></code> <span class=\"vc-sponsor-mention\">༄ Aqua & Blackᵖˡᵘˢ⁺</span><span class=\"vc-support-donate-new\">NEW!</span>",
+    "perks.s2.lvl200.b2": "Monthly Nitro Boost redeemable via <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
     "perks.s3.badge": "Profile",
     "perks.s3.title": "Badges and other roles",
     "perks.s3.monthlyRange": "Monthly leaderboard",
     "perks.s3.weeklyRange": "Weekly leaderboard",
     "perks.s3.topMonth.intro": "Earned by ranking first for message EXP and voice EXP on the monthly leaderboard.",
     "perks.s3.topMonth.b1": "Exclusive role for <strong class=\"text-white\">1 month</strong>.",
-    "perks.s3.topMonth.b2": "Monthly <strong class=\"text-white\">Nitro Boost</strong> redeemable via <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
+    "perks.s3.topMonth.b2": "Monthly <strong class=\"text-white\">Nitro Boost</strong> redeemable via <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">HIGH STAFF</code>",
     "perks.s3.topWeek.intro": "Earned by ranking first for message EXP or voice EXP on the weekly leaderboard.",
     "perks.s3.topWeek.b1": "Exclusive role for <strong class=\"text-white\">7 days</strong>.",
     "perks.s3.extSoundboard": "Permission to use external soundboards",
@@ -1272,11 +1267,11 @@
     "perks.s3.attachLinks": "Permission to attach links and images in chat",
     "perks.s3.changeNick": "Permission to change nickname",
     "perks.s3.supporter.range": "Profile bio",
-    "perks.s3.supporter.intro": "Earned by putting \".gg/viniliecaffe\", \"discord.gg/viniliecaffe\", or \"viniliecaffe.it\" (including /page paths) in your Discord profile bio! Redeemable via <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">PERKS</code>",
+    "perks.s3.supporter.intro": "Earned by putting \".gg/viniliecaffe\", \"discord.gg/viniliecaffe\", or \"viniliecaffe.it\" (including /page paths) in your Discord profile bio! Redeemable via <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">PERKS</code>",
     "perks.s3.fan.range": "Profile status",
     "perks.s3.fan.intro": "Earned by putting \".gg/viniliecaffe\", \"discord.gg/viniliecaffe\", or \"viniliecaffe.it\" (including /page paths) in your Discord profile status!",
     "perks.s3.follower.range": "Server follower",
-    "perks.s3.follower.intro": "Earned by following the server profile on <a href=\"https://instagram.com/viniliecaffe\" target=\"_blank\" rel=\"noopener noreferrer\">Instagram</a> &amp; <a href=\"https://tiktok.com/@viniliecaffe\" target=\"_blank\" rel=\"noopener noreferrer\">TikTok</a>! Redeemable via <code class=\"vc-sponsor-mention\">༄🎫︲tickets</code> <code class=\"vc-sponsor-code\">PERKS</code>",
+    "perks.s3.follower.intro": "Earned by following the server profile on <a href=\"https://instagram.com/viniliecaffe\" target=\"_blank\" rel=\"noopener noreferrer\">Instagram</a> &amp; <a href=\"https://tiktok.com/@viniliecaffe\" target=\"_blank\" rel=\"noopener noreferrer\">TikTok</a>! Redeemable via <a href=\"/tickets/\" class=\"vc-sponsor-mention\">༄🎫︲tickets</a> <code class=\"vc-sponsor-code\">PERKS</code>",
     "perks.s3.guilded.range": "Guild tags",
     "perks.s3.guilded.intro": "Earned by using one of our guild tags.",
     "perks.s3.voter.range": "Daily votes",
@@ -1501,7 +1496,7 @@
     "dash.ps.actionWarn": "Warn",
     "dash.ps.actionDelete": "Delete (5m)",
 
-    /* ===== DASH MIGRATION ===== */
+    
     "dash.mig.title": "Data migration",
     "dash.mig.sub": "Import partnership history from channel history.",
     "dash.mig.intro": "Partnership history (points and day/week totals). Separate queues for long and short jobs.",
@@ -1653,7 +1648,7 @@
     "dash.mig.undoProgressMsg": "Migration undone: removed {n} imported records.",
     "dash.mig.errMongo": "Database unavailable.",
 
-    /* ===== DASH DESCRIPTION / EMBED ===== */
+    
     "dash.ps.descTitle": "Partner description",
     "dash.ps.descSub": "Text or channel used as the server description.",
     "dash.ps.descIntro": "Channel or fixed text as partner description; empty = off.",
@@ -1730,7 +1725,7 @@
     "dash.ps.embedTsHint": "Show date/time on the embed",
     "dash.ps.embedTsAria": "Show timestamp",
 
-    /* ===== DASH OTHER HELPERS ===== */
+    
     "dash.ps.noCategories": "No categories available.",
     "dash.ps.categoriesSelected": "{n} selected",
     "dash.ps.maxCategories": "You can select at most 5 categories.",

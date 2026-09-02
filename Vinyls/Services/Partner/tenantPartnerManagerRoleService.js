@@ -12,11 +12,6 @@ const {
   memberHasPartnerManagerRole,
 } = require("../../Utils/Partner/partnershipConfigResolver");
 
-/**
- * Se il ruolo Partner Manager viene tolto su un tenant:
- * - azzera i punti “attivi” sul server (classifica / spendibili)
- * - lascia `partnerActions` intatte (storico + attribuzione sul profilo)
- */
 async function resetTenantPartnerServerScoreOnRoleRemove(guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
@@ -77,8 +72,7 @@ async function handleTenantPartnerManagerRoleUpdate(oldMember, newMember, client
   const roleId = getPartnerManagerRoleId(guildId) || config?.partnerManagerRoleId;
   if (!roleWasRemoved(oldMember, newMember, roleId)) return;
 
-  // Conferma: non ha più il ruolo PM configurato.
-  if (memberHasPartnerManagerRole(newMember, guildId)) return;
+    if (memberHasPartnerManagerRole(newMember, guildId)) return;
 
   await resetTenantPartnerServerScoreOnRoleRemove(guildId, newMember.id);
 }

@@ -9,6 +9,7 @@ function isBotDev(userId, client) {
 }
 
 module.exports = {
+  skipPrefix: true,
   name: "notify",
   allowEmptyArgs: false,
   hideFromHelp: true,

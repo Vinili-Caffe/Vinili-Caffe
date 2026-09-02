@@ -32,7 +32,8 @@ const { canClaimTicket } = require("../../Prefix/Staff/ticket");
 const { handleOfficialPrefixMessage } = require("../Prefix/officialPrefixDispatcher");
 const { getTicketPanelConfig } = require("../Ticket/ticketPanelConfig");
 const { buildTicketChannelName, sanitizeTicketChannelTail } = require("../Ticket/ticketNamingRuntime");
-const { getPartnerManagerRoleId } = require("../Partner/partnershipConfigResolver");
+const { getPartnerManagerRoleId, memberHasPartnerManagerRole } = require("../Partner/partnershipConfigResolver");
+const { memberIsHighStaffEligible } = require("../Staff/staffRoleHierarchy");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getOrCreateStaffDoc } = require("../Staff/staffDocUtils");
 const {
@@ -44,7 +45,7 @@ const { sendWebTicketDiscordLog, sendWebTicketMessageActivityLog } = require("./
 const MAX_SUBJECT = 120;
 const MAX_CONTENT = 2000;
 const MAX_CLOSE_REASON = 500;
-const MAX_OPEN_PER_USER = 3;
+const MAX_OPEN_PER_USER = 1;
 const MAX_MESSAGES_FETCH = 120;
 const MAX_IMAGES = 3;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -68,8 +69,7 @@ const CATEGORY_LABELS = Object.freeze({
   partnership: "Partnership",
   high: "High Staff",
   perks: "Perks",
-  // legacy web
-  segnalazione: "Supporto",
+    segnalazione: "Supporto",
   tecnico: "Supporto",
   altro: "Supporto",
 });
@@ -139,8 +139,7 @@ function isGenericTicketSubject(name, category) {
   const s = String(name || "").trim().toLowerCase();
   if (!s) return true;
   if (s === "ticket" || s === String(category || "").toLowerCase()) return true;
-  // Import Discord / placeholder: "Discord #1351 · Partnership"
-  if (/^discord(\s|[.#-])/i.test(s)) return true;
+    if (/^discord(\s|[.#-])/i.test(s)) return true;
   if (/importat[oa]\s+da\b/i.test(s)) return true;
   const label = String(CATEGORY_LABELS[normalizeCategory(category) || category] || "").toLowerCase();
   if (s === label) return true;
@@ -154,8 +153,43 @@ function isWeakAuthorName(name) {
   const s = String(name || "").trim();
   if (!s) return true;
   if (/^Utente\s+\d+$/i.test(s)) return true;
+  if (/^utente\s*discord$/i.test(s)) return true;
   if (/^[᲼｜︲༄\s\-_.]+$/u.test(s)) return true;
   return false;
+}
+
+function looksLikeMessageContent(text) {
+  const s = String(text || "").trim();
+  if (!s) return false;
+  if (s.length > 44) return true;
+  const words = s.split(/\s+/).filter(Boolean);
+  if (words.length >= 5) return true;
+  if (/[.!?…]/.test(s) && words.length >= 3) return true;
+  if (/^(c'?è|e\s|ho\s|mi\s|il\s|la\s|lo\s|un\s|una\s|dei\s|della\s|per\s|con\s|sono\s|abbiamo\s)/i.test(s)) return true;
+  return false;
+}
+
+function cleanWebTicketDisplayLabel(raw) {
+  let s = String(raw || "").trim().replace(/#\d+$/, "");
+  if (!s) return "";
+  const sep = s.lastIndexOf("᲼");
+  if (sep !== -1) s = s.slice(sep + 1).trim();
+  s = s.replace(/^[\s\S]*?[︲༄—–\-]+/u, "").trim();
+  s = s.replace(/^(supporto|partnership|highstaff|high|perks)[\s—–\-]+/i, "").trim();
+  s = s.replace(/[\s—–\-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (looksLikeMessageContent(s) || isGenericTicketSubject(s, "")) return "";
+  return s.slice(0, 80);
+}
+
+function formatWebTicketDisplayName(doc) {
+  const author = cleanWebTicketDisplayLabel(String(doc?.authorName || "").trim());
+  if (author && !isWeakAuthorName(author)) return author;
+  const tail = cleanWebTicketDisplayLabel(webTicketNameTail(doc));
+  if (tail && tail !== "utente") return tail;
+  const stored = cleanWebTicketDisplayLabel(String(doc?.subject || "").trim());
+  if (stored && stored !== "utente") return stored;
+  const n = Number(doc?.ticketNumber) || 0;
+  return n > 0 ? `Ticket ${n}` : "Utente";
 }
 
 function webTicketNameTail(doc) {
@@ -165,10 +199,10 @@ function webTicketNameTail(doc) {
     "utente",
   );
   const stored = String(doc?.subject || "").trim();
+  if (looksLikeMessageContent(stored)) return fallback;
   if (looksLikeDiscordTicketName(stored)) {
     const tail = extractTicketNameTail(stored, fallback);
-    // Evita code tipo discord-1351-partnership / utente-3264 da subject importati.
-    const sanitizedTail = sanitizeTicketChannelTail(tail, "");
+        const sanitizedTail = sanitizeTicketChannelTail(tail, "");
     if (/^discord(-\d+)?(-|$)/i.test(sanitizedTail)) return fallback;
     if (/^utente-\d+$/i.test(sanitizedTail)) return fallback;
     if (!sanitizedTail) return fallback;
@@ -288,7 +322,6 @@ const WEB_TICKET_STAFF_ROLE_PRIORITY = [
   .map((id) => String(id || "").trim())
   .filter(Boolean);
 
-/** Tag community generici (ordine = priorità, più alto prima). */
 const WEB_TICKET_COMMUNITY_ROLE_PRIORITY = [
   { id: IDs.roles?.VIPplus, name: "VIP+", key: "vip-plus" },
   { id: IDs.roles?.VIP, name: "VIP", key: "vip" },
@@ -427,8 +460,7 @@ function lookupNameVariants(rawName) {
   push(needle.replace(/^_+|_+$/g, ""));
   push(normalizeLookupName(needle));
   push(normalizeLookupName(needle).replace(/[^a-z0-9]+/g, ""));
-  // simba08062 → simba (prefix letters) per search Discord
-  const letters = needle.replace(/[^a-zA-Z]+/g, "");
+    const letters = needle.replace(/[^a-zA-Z]+/g, "");
   if (letters.length >= 3 && letters.toLowerCase() !== normalizeLookupName(needle)) push(letters);
   const alphaNum = needle.replace(/[^a-zA-Z0-9]+/g, "");
   if (alphaNum.length >= 3) push(alphaNum);
@@ -439,8 +471,7 @@ async function findGuildMemberByName(guild, rawName) {
   const variants = lookupNameVariants(rawName);
   if (!guild || !variants.length) return null;
 
-  // 1) Search API prima (non dipende dalla cache gateway incompleta)
-  for (const v of variants) {
+    for (const v of variants) {
     const q = String(v)
       .replace(/[^\p{L}\p{N}_.-]+/gu, "")
       .slice(0, 32);
@@ -467,8 +498,7 @@ async function findGuildMemberByName(guild, rawName) {
       }
       if (fetched.size === 1 && typeof fetched.first === "function") return fetched.first();
     } catch {
-      /* ignore */
-    }
+          }
   }
 
   for (const v of variants) {
@@ -530,8 +560,7 @@ async function enrichSlugAuthorsFromStaffRoster(client, guild, slugs, nameHints,
         guild.members.cache.get(String(row.userId)) ||
         (await guild.members.fetch(String(row.userId)).catch(() => null));
       if (!member) {
-        // fallback: dati roster anche senza member cache
-        const staffLabel = String(row.displayRoleLabel || "").trim();
+                const staffLabel = String(row.displayRoleLabel || "").trim();
         const staffKey = String(row.profileKind || row.displayRoleId || "staff")
           .toLowerCase()
           .replace(/\s+/g, "-");
@@ -547,8 +576,7 @@ async function enrichSlugAuthorsFromStaffRoster(client, guild, slugs, nameHints,
           avatarUrl: String(row.avatarUrl || "").trim(),
           resolvedId: String(row.userId),
         };
-        // Preferisci chiave partner-manager se isPm
-        if (row.isPm && out[uid].staff) {
+                if (row.isPm && out[uid].staff) {
           out[uid].staff.key = "partner-manager";
           if (!/partner/i.test(out[uid].staff.name)) out[uid].staff.name = "Partner Manager";
         }
@@ -582,8 +610,7 @@ async function buildStaffRoleMapForUserIds(client, guildId, userIds, { nameHints
     const { ensureGuildMembersLoaded } = require("./siteStaffRosterCache");
     await ensureGuildMembersLoaded(guild);
   } catch {
-    /* ignore */
-  }
+      }
   const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 
   const snowflakes = ids.filter((id) => /^\d{5,32}$/.test(id));
@@ -605,8 +632,7 @@ async function buildStaffRoleMapForUserIds(client, guildId, userIds, { nameHints
           avatarUrl: avatarForMember(member) || "",
         };
       } catch {
-        /* ignore */
-      }
+              }
     }),
   );
 
@@ -614,8 +640,7 @@ async function buildStaffRoleMapForUserIds(client, guildId, userIds, { nameHints
     slugs.slice(0, 40).map(async (uid) => {
       try {
         const hint = String(nameHints[uid] || uid.slice(8) || "").trim();
-        // Preferisci search Discord (cache gateway spesso incompleta)
-        const member = await findGuildMemberByName(guild, hint);
+                const member = await findGuildMemberByName(guild, hint);
         if (!member) return;
         const staff = resolveStaffRoleForMember(member, gid);
         const community = resolveCommunityRoleForMember(member);
@@ -625,8 +650,7 @@ async function buildStaffRoleMapForUserIds(client, guildId, userIds, { nameHints
           avatarUrl: avatarForMember(member) || "",
           resolvedId: String(member.id || ""),
         };
-        // Anche sotto snowflake, così badge/avatar restano se il client riparte da id reale
-        const rid = String(member.id || "").trim();
+                const rid = String(member.id || "").trim();
         if (rid && !out[rid]) {
           out[rid] = {
             staff: staff || null,
@@ -635,8 +659,7 @@ async function buildStaffRoleMapForUserIds(client, guildId, userIds, { nameHints
           };
         }
       } catch {
-        /* ignore */
-      }
+              }
     }),
   );
 
@@ -683,9 +706,7 @@ function listAccessibleTicketCategories(member) {
   if (!member || member.user?.bot) return [];
   const cats = WEB_TICKET_CATEGORIES.filter((cat) => hasStaffTicketRole(member, cat));
   if (cats.length) return cats;
-  // Stesso ladder dell’area /staff: se i ruoli ticket non matchano (cache/ID),
-  // comunque inbox Supporto per chi è staff sul sito.
-  if (memberHasWebsiteStaffAccess(member)) return ["supporto"];
+      if (memberHasWebsiteStaffAccess(member)) return ["supporto"];
   return [];
 }
 
@@ -699,19 +720,18 @@ function memberCanAccessTicketCategory(member, category) {
   return hasStaffTicketRole(member, cat);
 }
 
-/** Come Discord: High Staff scrive anche se claimato (non sui ticket highstaff). */
 function memberCanBypassClaimedTicketWrite(member, ticket) {
+  if (memberIsHighStaffEligible(member) || memberIsHighStaff(member)) return true;
   const category = normalizeCategory(ticket?.category);
-  if (category === "partnership" && memberIsResocontoPmReviewer(member)) return true;
-  if (category === "high") return false;
-  return memberIsHighStaff(member);
+  if (category !== "partnership") return false;
+  return memberIsResocontoPmReviewer(member);
 }
 
-/** Close/transfer: High Staff, e gestore PM sui ticket partnership. */
 function memberCanBypassClaimedTicketManage(member, ticket) {
-  if (memberIsHighStaff(member)) return true;
+  if (memberIsHighStaffEligible(member) || memberIsHighStaff(member)) return true;
   const category = normalizeCategory(ticket?.category);
-  return Boolean(category === "partnership" && memberIsResocontoPmReviewer(member));
+  if (category !== "partnership") return false;
+  return memberIsResocontoPmReviewer(member);
 }
 
 function parseMentionTargets(content) {
@@ -727,10 +747,85 @@ function parseMentionTargets(content) {
   return { userIds: [...userIds], roleIds: [...roleIds] };
 }
 
-/** Utenti non-staff: niente ping ruoli / @everyone / @here nei ticket web. */
 function sanitizeWebTicketUserMentions(content) {
+  return sanitizeWebTicketMentionsToScope(content, {
+    allowedUserIds: null,
+    allowedRoleIds: null,
+    allowRoleMentions: false,
+  });
+}
+
+function collectTicketParticipantUserIds(ticket, { messageAuthorIds = [] } = {}) {
+  const ids = new Set();
+  const owner = String(ticket?.userId || "").trim();
+  if (owner) ids.add(owner);
+  const claimer = String(ticket?.claimedBy || "").trim();
+  if (claimer) ids.add(claimer);
+  for (const u of listAddedUsers(ticket)) {
+    if (u?.id) ids.add(String(u.id));
+  }
+  for (const raw of messageAuthorIds) {
+    const id = String(raw || "").trim();
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+async function listTicketMessageAuthorIds(ticketId) {
+  const tid = ticketId && mongoose.isValidObjectId(ticketId) ? ticketId : null;
+  if (!tid) return [];
+  const rows = await SiteWebTicketMessage.find({ ticketId: tid, authorKind: { $ne: "system" } })
+    .select("authorId")
+    .lean()
+    .catch(() => []);
+  return [...new Set(rows.map((r) => String(r?.authorId || "").trim()).filter(Boolean))];
+}
+
+async function collectTicketParticipantRoleIds(guild, userIds) {
+  const roleIds = new Set();
+  if (!guild || !userIds?.size) return roleIds;
+  const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
+  for (const uid of userIds) {
+    const member = await getGuildMemberCached(guild, uid).catch(() => null);
+    if (!member?.roles?.cache) continue;
+    for (const role of member.roles.cache.values()) {
+      const rid = String(role?.id || "").trim();
+      if (!rid || rid === String(guild.id)) continue;
+      roleIds.add(rid);
+    }
+  }
+  return roleIds;
+}
+
+async function resolveTicketMentionScope(client, ticket, { extraUserIds = [] } = {}) {
+  const guildId = String(ticket?.guildId || resolveGuildId(client) || "").trim();
+  const guild = guildId ? await resolveClientGuild(client, guildId) : null;
+  const messageAuthorIds = ticket?._id ? await listTicketMessageAuthorIds(ticket._id) : [];
+  const allowedUserIds = collectTicketParticipantUserIds(ticket, { messageAuthorIds });
+  for (const raw of extraUserIds) {
+    const id = String(raw || "").trim();
+    if (id) allowedUserIds.add(id);
+  }
+  const allowedRoleIds = await collectTicketParticipantRoleIds(guild, allowedUserIds);
+  return { guild, allowedUserIds, allowedRoleIds };
+}
+
+function sanitizeWebTicketMentionsToScope(
+  content,
+  { allowedUserIds = null, allowedRoleIds = null, allowRoleMentions = false } = {},
+) {
+  const users = allowedUserIds instanceof Set ? allowedUserIds : allowedUserIds ? new Set(allowedUserIds) : null;
+  const roles = allowedRoleIds instanceof Set ? allowedRoleIds : allowedRoleIds ? new Set(allowedRoleIds) : null;
   return String(content || "")
-    .replace(/<@&\d{5,32}>/g, "")
+    .replace(/<@!?(\d{5,32})>/g, (full, id) => {
+      if (!users) return full;
+      return users.has(String(id)) ? full : "";
+    })
+    .replace(/<@&(\d{5,32})>/g, (full, id) => {
+      if (!allowRoleMentions) return "";
+      if (!roles) return "";
+      return roles.has(String(id)) ? full : "";
+    })
     .replace(/@(everyone|here)\b/gi, "")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/ *\n{3,}/g, "\n\n")
@@ -743,8 +838,7 @@ function memberCanViewChannelId(member, guild, channelId) {
   try {
     if (member.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
   } catch {
-    /* ignore */
-  }
+      }
   const ch = guild.channels?.cache?.get?.(cid) || null;
   if (!ch) return false;
   try {
@@ -754,7 +848,6 @@ function memberCanViewChannelId(member, guild, channelId) {
   }
 }
 
-/** Rimuove <#id> di canali che l'attore non può vedere. */
 function sanitizeWebTicketChannelMentions(content, member, guild) {
   return String(content || "")
     .replace(/<#(\d{5,32})>/g, (full, id) => (memberCanViewChannelId(member, guild, id) ? full : ""))
@@ -807,9 +900,7 @@ function buildTicketPermissions(member, ticket, viewerId, { isOwner = false, isA
   const isHighStaff = memberIsHighStaff(member);
   const closeRequested = Boolean(ticket?.closeRequestedAt);
   const alreadyRated = Boolean(ticket?.ratingAt) || ticket?.ratingStafferScore != null;
-  // Sul proprio ticket lo staff agisce solo come utente (niente claim/panel/comandi staff).
-  // Anche se «utente aggiunto»: resta ospite, non staff operativo sul ticket.
-  const actingAsStaff = Boolean(isStaff && hasCategory && !isOwner && !isAdded);
+      const actingAsStaff = Boolean(isStaff && hasCategory && !isOwner && !isAdded);
   const canClaim =
     !closed && actingAsStaff && canClaimTicket(member, category, String(ticket?.guildId || ""));
   const canUnclaim = !closed && actingAsStaff && claimer && claimer === viewer;
@@ -818,8 +909,7 @@ function buildTicketPermissions(member, ticket, viewerId, { isOwner = false, isA
   const canStaffWrite = actingAsStaff && ((claimer && claimer === viewer) || bypassWrite);
   const canCloseStaff =
     !closed && actingAsStaff && (bypassManage || !claimer || claimer === viewer);
-  // Gli utenti non chiudono da soli: solo staff (o risposta a richiesta chiusura).
-  const staffPanel = !closed && actingAsStaff;
+    const staffPanel = !closed && actingAsStaff;
   return {
     canClaim: Boolean(canClaim && !claimer),
     canUnclaim: Boolean(canUnclaim),
@@ -956,8 +1046,7 @@ function customEmojiCdnUrl(emojiId, animated, size = 32) {
   const id = String(emojiId || "").trim();
   if (!id) return "";
   const sz = Number(size) > 0 ? Number(size) : 32;
-  // Discord: animate → webp?animated=true (i .gif spesso tornano il logo blurple).
-  if (animated) {
+    if (animated) {
     return `https://cdn.discordapp.com/emojis/${id}.webp?size=${sz}&animated=true`;
   }
   return `https://cdn.discordapp.com/emojis/${id}.webp?size=${sz}`;
@@ -1094,11 +1183,9 @@ function resolveMessageAuthorKind(doc, ticket = null, staffRoles = null) {
   const authorId = String(doc?.authorId || "");
   if (authorId === "bot") return "bot";
   if (cachedBotUserId && authorId === cachedBotUserId) return "bot";
-  // Opener / aggiunti: sempre cliente in chat, anche se hanno ruoli staff Discord
-  if (ticket && isTicketCustomerAuthor(doc, ticket)) return "user";
+    if (ticket && isTicketCustomerAuthor(doc, ticket)) return "user";
   if (authorHasStaffSignals(doc, staffRoles)) return "staff";
-  // Transcript `discord:nome`: staff solo se risolto con ruolo staff reale
-  if (authorId.startsWith("discord:")) {
+    if (authorId.startsWith("discord:")) {
     const bucket = staffRoles && staffRoles[authorId] ? staffRoles[authorId] : null;
     if (bucket?.staff) return "staff";
     return "user";
@@ -1141,7 +1228,6 @@ function personNamesLooselyEqual(a, b) {
   return false;
 }
 
-/** Opener o utente aggiunto al ticket (sempre lato cliente in chat). */
 function isTicketCustomerAuthor(doc, ticket) {
   if (!doc || !ticket) return false;
   const kind = String(doc.authorKind || "");
@@ -1162,7 +1248,6 @@ function isTicketCustomerAuthor(doc, ticket) {
   return false;
 }
 
-/** Staff operativo (non opener, non ospite aggiunto). Automod skip anche sull’opener staff. */
 function webTicketMessageKindForActor(actor, loaded = {}) {
   if (loaded.isOwner || loaded.isAdded) return "user";
   if (actor && actor.isStaff) return "staff";
@@ -1226,9 +1311,7 @@ function serializeMessage(doc, nameMap, staffRatings, staffRoles, ticket = null,
       authorKind === "staff"
         ? bucket?.staff || (bucket?.id ? bucket : null)
         : bucket?.community || null;
-    // Non iniettare l'avatar Discord attuale: i messaggi storici restano
-    // con la foto salvata (o fallback UI). Solo ruoli live.
-    let roleId = String(live?.id || "").trim() || null;
+            let roleId = String(live?.id || "").trim() || null;
     let roleKey = String(live?.key || "").trim() || null;
     let roleName = String(live?.name || "").trim();
     if (authorKind === "staff") {
@@ -1363,8 +1446,7 @@ async function resolveRateableStaffer(ticket) {
       name: String(last?.authorName || "").trim() || "Staff",
     };
   }
-  // Chiusura staff senza claim/messaggi: valuta chi ha chiuso.
-  const closedBy = String(ticket.closedBy || "").trim();
+    const closedBy = String(ticket.closedBy || "").trim();
   if (closedBy && closedBy !== ownerId) {
     return {
       id: closedBy,
@@ -1462,6 +1544,7 @@ function serializeTicket(doc, { includeStaffFields = false, permissions = null, 
     categoryLabel: CATEGORY_LABELS[doc.category] || "Supporto",
     subject: buildWebTicketChannelName(doc),
     channelName: buildWebTicketChannelName(doc),
+    displayName: formatWebTicketDisplayName(doc),
     renameTail: webTicketNameTail(doc),
     status,
     claimedBy: doc.claimedBy ? String(doc.claimedBy) : null,
@@ -1512,8 +1595,7 @@ function previewFromContent(content, imageCount) {
   if (/nessun contenuto/i.test(text) || /^…altre \d+ messaggi/i.test(text)) {
     text = "";
   }
-  // Anteprima lista: togli rumore embed/transcript (Title/Description, id emoji, `\n` letterali)
-  if (text) {
+    if (text) {
     text = text
       .replace(/\\n/gi, " ")
       .replace(/\[Embed\s+\d+\]/gi, " ")
@@ -1527,8 +1609,7 @@ function previewFromContent(content, imageCount) {
       .replace(/\*?Nessun contenuto[^*\n]*/gi, " ")
       .replace(/:\w+:/g, " ")
       .replace(/https?:\/\/\S+/gi, " ")
-      // Placeholder menzioni non risolte (mai in lista).
-      .replace(/\s*@utente\b/gi, " ")
+            .replace(/\s*@utente\b/gi, " ")
       .replace(/\s*@(?:ruolo|canale)\b/gi, " ")
       .replace(/\s*#canale\b/gi, " ")
       .replace(/\s*[·•|]\s*/g, " · ")
@@ -1553,8 +1634,7 @@ function emitTicketEvent(payload) {
     }
     broadcastSiteWebTicketsEvent(next);
   } catch {
-    /* ignore */
-  }
+      }
 }
 
 function unclaimedWebTicketFilter(guildId, category) {
@@ -1594,8 +1674,7 @@ async function listStaffRecipientsForCategory(client, guildId, category, exclude
       }
     }
   } catch {
-    /* ignore */
-  }
+      }
   return [...recipients].filter((id) => id && !excluded.has(id)).slice(0, 60);
 }
 
@@ -1812,7 +1891,6 @@ function serializeTicketForActor(actor, ticket, { isOwner = false, isAdded = fal
   });
 }
 
-/** Snapshot ticket per WS: senza permissions (sono per-viewer e non vanno broadcastati). */
 function ticketBroadcastPayload(serializedOrDoc, { includeStaffFields = true } = {}) {
   const base =
     serializedOrDoc && typeof serializedOrDoc === "object" && serializedOrDoc.id && serializedOrDoc.permissions !== undefined
@@ -1883,8 +1961,7 @@ function extractComponentsHint(components) {
     }
     const label = data.label ? String(data.label).trim() : "";
     const url = data.url ? String(data.url).trim() : "";
-    // Link buttons (style 5) can be shown as markdown on the site.
-    if (url && /^https?:\/\//i.test(url)) {
+        if (url && /^https?:\/\//i.test(url)) {
       links.push(label ? `[${label}](${url})` : url);
     } else if (label) {
       labels.push(label);
@@ -2204,8 +2281,7 @@ async function executeWebTicketPartnershipSlash(client, actor, ticket, rawInput,
     showModal: async () => {},
   };
 
-  // Web partnership tickets are treated like open Discord partnership tickets.
-  fakeChannel.__webTicketPartnership = true;
+    fakeChannel.__webTicketPartnership = true;
   const denied = await partnersChatPartnerCommandDeniedReplyContent(fakeChannel, {
     allowPartnership: true,
   });
@@ -2522,9 +2598,7 @@ async function executeWebTicketPrefixCommand(client, actor, ticket, rawInput) {
   }
 
   try {
-    // On the site there is no Discord select for subcommands: if the staffer
-    // typed only `+random`, auto-run the sole required sub (`server`).
-    const subs = Array.isArray(resolved.subcommands)
+            const subs = Array.isArray(resolved.subcommands)
       ? [
           ...new Set(
             resolved.subcommands
@@ -2655,8 +2729,7 @@ async function resolveMemberOrStaff(client, req) {
     return { ok: false, status: user.status, error: user.error, message: user.message };
   }
   let member = user.member;
-  // site-api è REST-only: forza refresh ruoli così l’inbox non sparisce con cache stale.
-  try {
+    try {
     const guild = member?.guild || user.guild;
     const uid = String(member?.id || user.userId || "").trim();
     if (guild?.members?.fetch && uid) {
@@ -2664,8 +2737,7 @@ async function resolveMemberOrStaff(client, req) {
       if (fresh) member = fresh;
     }
   } catch {
-    /* keep cached member */
-  }
+      }
   return {
     ok: true,
     isStaff: memberIsWebTicketStaff(member),
@@ -2903,6 +2975,7 @@ async function handleSiteWebTicketsMentionsGet(client, req, res) {
     .toLowerCase()
     .slice(0, 40);
   const ticketId = String(req.query?.ticketId || "").trim();
+  const claimEligible = String(req.query?.claimEligible || "") === "1";
   const byUserId = new Map();
 
   const putUser = (row) => {
@@ -2910,123 +2983,135 @@ async function handleSiteWebTicketsMentionsGet(client, req, res) {
     byUserId.set(row.id, row);
   };
 
-  // Partecipanti ticket (sempre utili)
+  let ticket = null;
+  let canAccessTicket = false;
+  let isOwner = false;
+  let isAdded = false;
+  let actingAsStaff = false;
+  let mentionScope = null;
+
   if (mongoose.isValidObjectId(ticketId)) {
-    const ticket = await SiteWebTicket.findById(ticketId).lean().catch(() => null);
-    if (ticket && (actor.isStaff || String(ticket.userId) === String(actor.userId) || ticketHasAddedUser(ticket, actor.userId))) {
-      const authors = await SiteWebTicketMessage.find({ ticketId: ticket._id })
-        .select("authorId authorName authorAvatarUrl authorKind")
-        .limit(80)
-        .lean()
-        .catch(() => []);
-      const seed = [
-        {
-          id: String(ticket.userId || ""),
-          name: String(ticket.authorName || "Utente").trim() || "Utente",
-          avatarUrl: String(ticket.authorAvatarUrl || ""),
-        },
-        ticket.claimedBy
-          ? {
-              id: String(ticket.claimedBy),
-              name: String(ticket.claimedByName || "Staff").trim() || "Staff",
-              avatarUrl: "",
-            }
-          : null,
-        ...listAddedUsers(ticket),
-        ...authors
-          .filter((a) => a && String(a.authorKind || "") !== "system")
-          .map((a) => ({
-            id: String(a.authorId || ""),
-            name: String(a.authorName || "Utente").trim() || "Utente",
-            avatarUrl: String(a.authorAvatarUrl || ""),
-          })),
-      ];
-      for (const s of seed) {
-        if (!s?.id) continue;
-        putUser({
-          type: "user",
-          id: s.id,
-          name: s.name,
-          username: null,
-          avatarUrl: s.avatarUrl || "",
-          markup: `<@${s.id}>`,
-        });
+    ticket = await SiteWebTicket.findById(ticketId).lean().catch(() => null);
+    if (ticket) {
+      isOwner = String(ticket.userId) === String(actor.userId);
+      isAdded = ticketHasAddedUser(ticket, actor.userId);
+      canAccessTicket = Boolean(actor.isStaff || isOwner || isAdded);
+      actingAsStaff = Boolean(actor.isStaff && canAccessTicket && !isOwner && !isAdded);
+      if (canAccessTicket) {
+        mentionScope = await resolveTicketMentionScope(client, ticket);
       }
     }
   }
 
-  // Staff roster (se chi cerca è staff)
-  if (actor.isStaff) {
-    try {
-      const { getCachedStaffRoster } = require("./siteStaffRosterCache");
-      const roster = await getCachedStaffRoster(client);
-      const people = Array.isArray(roster?.sections)
-        ? roster.sections.flatMap((s) => (Array.isArray(s?.members) ? s.members : []))
-        : Array.isArray(roster?.people)
-          ? roster.people
-          : Array.isArray(roster?.staff)
-            ? roster.staff
-            : [];
-      for (const p of people) {
-        const id = String(p?.userId || p?.id || "").trim();
-        if (!id) continue;
-        const roleName = cleanStaffRoleDisplayName(p?.roleName || p?.roleLabel || p?.section || "");
-        putUser({
-          type: "user",
-          id,
-          name: String(p?.displayName || p?.username || p?.name || "Staff").trim() || "Staff",
-          username: String(p?.username || "").trim() || null,
-          avatarUrl: String(p?.avatarUrl || p?.avatar || ""),
-          markup: `<@${id}>`,
-          roleId: p?.roleId ? String(p.roleId) : null,
-          roleName: roleName && roleName !== "Staff" ? roleName : null,
-        });
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
-  // Ricerca membri Discord
-  try {
-    const guild =
-      client?.guilds?.cache?.get?.(guildId) ||
-      (await client?.guilds?.fetch?.(guildId).catch?.(() => null)) ||
-      null;
-    if (guild) {
-      if (q && typeof guild.members?.search === "function") {
-        const found = await guild.members.search({ query: q, limit: 12 }).catch(() => null);
-        const list = found && typeof found.values === "function" ? [...found.values()] : [];
-        for (const m of list) {
-          const row = memberMentionRow(m);
-          if (row) putUser(row);
-        }
-      }
-      if (guild.members?.cache?.size) {
-        for (const m of guild.members.cache.values()) {
-          const row = memberMentionRow(m);
-          if (!row) continue;
-          if (!q) {
-            if (byUserId.size < 24) putUser(row);
-            continue;
+    if (ticket && canAccessTicket && !claimEligible) {
+    const authors = await SiteWebTicketMessage.find({ ticketId: ticket._id, authorKind: { $ne: "system" } })
+      .select("authorId authorName authorAvatarUrl")
+      .lean()
+      .catch(() => []);
+    const seed = [
+      {
+        id: String(ticket.userId || ""),
+        name: String(ticket.authorName || "Utente").trim() || "Utente",
+        avatarUrl: String(ticket.authorAvatarUrl || ""),
+      },
+      ticket.claimedBy
+        ? {
+            id: String(ticket.claimedBy),
+            name: String(ticket.claimedByName || "Staff").trim() || "Staff",
+            avatarUrl: "",
           }
-          const hay = `${row.name} ${row.username || ""}`.toLowerCase();
-          if (hay.includes(q) || row.id.includes(q)) putUser(row);
-        }
-      }
+        : null,
+      ...listAddedUsers(ticket),
+      ...authors.map((a) => ({
+        id: String(a.authorId || ""),
+        name: String(a.authorName || "Utente").trim() || "Utente",
+        avatarUrl: String(a.authorAvatarUrl || ""),
+      })),
+    ];
+    for (const s of seed) {
+      if (!s?.id || !mentionScope?.allowedUserIds?.has?.(String(s.id))) continue;
+      putUser({
+        type: "user",
+        id: s.id,
+        name: s.name,
+        username: null,
+        avatarUrl: s.avatarUrl || "",
+        markup: `<@${s.id}>`,
+      });
     }
-  } catch (err) {
-    global.logger?.warn?.("[WEB TICKETS] mentions members:", err?.message || err);
   }
 
-  // Solo lo staff può menzionare ruoli (evita ping massivi da utenti nel ticket).
-  let roles = [];
-  if (actor.isStaff) {
+    if (claimEligible && ticket && canAccessTicket) {
+    if (actor.isStaff) {
+      try {
+        const { getCachedStaffRoster } = require("./siteStaffRosterCache");
+        const roster = await getCachedStaffRoster(client);
+        const people = Array.isArray(roster?.sections)
+          ? roster.sections.flatMap((s) => (Array.isArray(s?.members) ? s.members : []))
+          : Array.isArray(roster?.people)
+            ? roster.people
+            : Array.isArray(roster?.staff)
+              ? roster.staff
+              : [];
+        for (const p of people) {
+          const id = String(p?.userId || p?.id || "").trim();
+          if (!id) continue;
+          const roleName = cleanStaffRoleDisplayName(p?.roleName || p?.roleLabel || p?.section || "");
+          putUser({
+            type: "user",
+            id,
+            name: String(p?.displayName || p?.username || p?.name || "Staff").trim() || "Staff",
+            username: String(p?.username || "").trim() || null,
+            avatarUrl: String(p?.avatarUrl || p?.avatar || ""),
+            markup: `<@${id}>`,
+            roleId: p?.roleId ? String(p.roleId) : null,
+            roleName: roleName && roleName !== "Staff" ? roleName : null,
+          });
+        }
+      } catch {
+              }
+    }
+
+    try {
+      const guild =
+        client?.guilds?.cache?.get?.(guildId) ||
+        (await client?.guilds?.fetch?.(guildId).catch?.(() => null)) ||
+        null;
+      if (guild) {
+        if (q && typeof guild.members?.search === "function") {
+          const found = await guild.members.search({ query: q, limit: 12 }).catch(() => null);
+          const list = found && typeof found.values === "function" ? [...found.values()] : [];
+          for (const m of list) {
+            const row = memberMentionRow(m);
+            if (row) putUser(row);
+          }
+        }
+        if (guild.members?.cache?.size) {
+          for (const m of guild.members.cache.values()) {
+            const row = memberMentionRow(m);
+            if (!row) continue;
+            if (!q) {
+              if (byUserId.size < 24) putUser(row);
+              continue;
+            }
+            const hay = `${row.name} ${row.username || ""}`.toLowerCase();
+            if (hay.includes(q) || row.id.includes(q)) putUser(row);
+          }
+        }
+      }
+    } catch (err) {
+      global.logger?.warn?.("[WEB TICKETS] mentions members:", err?.message || err);
+    }
+  }
+
+    let roles = [];
+  if (actingAsStaff && mentionScope?.allowedRoleIds?.size) {
     try {
       const { listGuildPickerData } = require("./siteDashboardPartnershipApi");
       const pickers = await listGuildPickerData(client, guildId, { force: false });
       roles = (Array.isArray(pickers?.roles) ? pickers.roles : [])
         .filter((r) => r && String(r.id) !== String(guildId))
+        .filter((r) => mentionScope.allowedRoleIds.has(String(r.id)))
         .filter((r) => {
           if (!q) return true;
           const name = String(r.name || "").toLowerCase();
@@ -3054,9 +3139,7 @@ async function handleSiteWebTicketsMentionsGet(client, req, res) {
     });
   }
 
-  const claimEligible = String(req.query?.claimEligible || "") === "1";
-  if (claimEligible && mongoose.isValidObjectId(ticketId)) {
-    const ticket = await SiteWebTicket.findById(ticketId).lean().catch(() => null);
+  if (claimEligible && ticket && canAccessTicket) {
     const cat = normalizeCategory(ticket?.category) || String(ticket?.category || "supporto");
     const openerId = String(ticket?.userId || "");
     const claimerId = String(ticket?.claimedBy || "");
@@ -3064,7 +3147,7 @@ async function handleSiteWebTicketsMentionsGet(client, req, res) {
       client?.guilds?.cache?.get?.(guildId) ||
       (await client?.guilds?.fetch?.(guildId).catch?.(() => null)) ||
       null;
-    if (guild && ticket) {
+    if (guild) {
       const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
       const filtered = [];
       for (const row of users) {
@@ -3310,9 +3393,7 @@ function listSlashCommandsForStaff(client, member, userId, ticketCategory) {
     const name = String(json?.name || cmd?.data?.name || "")
       .trim()
       .toLowerCase();
-    // Modal Discord: non eseguibili dalla chat ticket web (tranne /partnership,
-    // che sul sito ha un flusso dedicato manager + descrizione).
-    if (cmd?.expectsModal === true && name !== "partnership") continue;
+            if (cmd?.expectsModal === true && name !== "partnership") continue;
     if (!name || seen.has(name)) continue;
     seen.add(name);
     if (
@@ -3481,22 +3562,18 @@ async function handleSiteWebTicketsListGet(client, req, res) {
       filter.status = WEB_TICKET_STATUS.OPEN;
       filter.claimedBy = null;
     } else if (statusFilter === "all" || !statusFilter) {
-      // Tutti i transcript: aperti + chiusi
-    } else {
+          } else {
       filter.status = { $in: [WEB_TICKET_STATUS.OPEN, WEB_TICKET_STATUS.CLAIMED] };
     }
   } else {
-    // Non-staff (o scope utente): anche con ?view=staff / scope=staff non vede l'inbox.
-    if (scope === "staff" || scope === "inbox") {
-      // Segnale esplicito al frontend → redirect /tickets/
-    }
+        if (scope === "staff" || scope === "inbox") {
+          }
     filter.$or = [{ userId: actor.userId }, { "addedUsers.id": actor.userId }];
     if (statusFilter === "closed") filter.status = WEB_TICKET_STATUS.CLOSED;
     else if (statusFilter === "open") {
       filter.status = { $in: [WEB_TICKET_STATUS.OPEN, WEB_TICKET_STATUS.CLAIMED] };
     }
-    // status=all o assente → tutti i ticket dell'utente
-  }
+      }
 
   const total = await SiteWebTicket.countDocuments(filter);
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
@@ -3550,9 +3627,15 @@ async function handleSiteWebTicketsCreatePost(client, req, res) {
   const category = normalizeCategory(req.body?.category);
   const openerIsStaff = Boolean(actor.isStaff);
   let content = sanitizeText(req.body?.content, MAX_CONTENT);
-  content = sanitizeWebTicketUserMentions(content);
   {
-    const guild = await resolveClientGuild(client, guildId);
+    const pseudoTicket = { guildId, userId: actor.userId, addedUsers: [] };
+    const scope = await resolveTicketMentionScope(client, pseudoTicket, { extraUserIds: [actor.userId] });
+    content = sanitizeWebTicketMentionsToScope(content, {
+      allowedUserIds: scope.allowedUserIds,
+      allowedRoleIds: scope.allowedRoleIds,
+      allowRoleMentions: false,
+    });
+    const guild = scope.guild || (await resolveClientGuild(client, guildId));
     content = sanitizeWebTicketChannelMentions(content, actor.member, guild);
   }
   if (!category) {
@@ -3560,8 +3643,7 @@ async function handleSiteWebTicketsCreatePost(client, req, res) {
   }
   const hasImages = Array.isArray(req.body?.images) && req.body.images.length > 0;
   if (!content && !hasImages) {
-    // Apertura immediata come pannello Discord: nessun messaggio iniziale obbligatorio.
-  }
+      }
 
   const openCount = await SiteWebTicket.countDocuments({
     guildId,
@@ -3712,7 +3794,9 @@ async function handleSiteWebTicketsDetailGet(client, req, res) {
     .map((m) => String(m.authorId || "").trim())
     .filter((id) => id && id !== "bot" && id !== "system");
   const mentionedIds = collectMentionUserIdsFromMessages(messages);
-  const roleLookupIds = [...new Set([...authorIds, ...mentionedIds, String(loaded.ticket.userId || "").trim()].filter(Boolean))];
+  const roleLookupIds = [
+    ...new Set([...authorIds, ...mentionedIds, String(loaded.ticket.userId || "").trim()].filter(Boolean)),
+  ].slice(0, 36);
   const nameHints = {};
   for (const m of messages) {
     const id = String(m?.authorId || "").trim();
@@ -3788,8 +3872,7 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
     }
   }
 
-  // Staff invitati come «utente aggiunto» restano ospiti.
-  if (!loaded.isOwner && !perms.canReply) {
+    if (!loaded.isOwner && !perms.canReply) {
     const claimer = String(ticket.claimedBy || "").trim();
     if (claimer && String(claimer) !== String(actor.userId)) {
       return res.status(403).json({
@@ -3808,12 +3891,14 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
     return res.status(403).json({ ok: false, error: "forbidden", message: "Non puoi rispondere a questo ticket." });
   }
   const kind = webTicketMessageKindForActor(actor, loaded);
-  if (kind !== "staff") {
-    content = sanitizeWebTicketUserMentions(content);
-  }
   {
-    const guild = await resolveClientGuild(client, ticket.guildId);
-    content = sanitizeWebTicketChannelMentions(content, actor.member, guild);
+    const scope = await resolveTicketMentionScope(client, ticket);
+    content = sanitizeWebTicketMentionsToScope(content, {
+      allowedUserIds: scope.allowedUserIds,
+      allowedRoleIds: scope.allowedRoleIds,
+      allowRoleMentions: kind === "staff",
+    });
+    content = sanitizeWebTicketChannelMentions(content, actor.member, scope.guild);
   }
   if (!content && !imageUrls.length) {
     return res.status(400).json({
@@ -4076,16 +4161,18 @@ async function handleSiteWebTicketsMessagePatch(client, req, res) {
   }
 
   let content = sanitizeText(req.body?.content, MAX_CONTENT);
-  if (String(msg.authorKind || "") !== "staff") {
-    content = sanitizeWebTicketUserMentions(content);
-  }
   {
-    const guild = await resolveClientGuild(client, ticket.guildId);
-    content = sanitizeWebTicketChannelMentions(content, actor.member, guild);
+    const scope = await resolveTicketMentionScope(client, ticket);
+    const allowRoles = String(msg.authorKind || "") === "staff";
+    content = sanitizeWebTicketMentionsToScope(content, {
+      allowedUserIds: scope.allowedUserIds,
+      allowedRoleIds: scope.allowedRoleIds,
+      allowRoleMentions: allowRoles,
+    });
+    content = sanitizeWebTicketChannelMentions(content, actor.member, scope.guild);
   }
   const imageCount = Array.isArray(msg.imageUrls) ? msg.imageUrls.length : 0;
-  // Come Discord: modifica a vuoto (senza allegati) = elimina il messaggio.
-  if (!content && !imageCount) {
+    if (!content && !imageCount) {
     const deletedSnapshot = {
       _id: msg._id,
       authorId: msg.authorId,
@@ -4139,8 +4226,7 @@ async function handleSiteWebTicketsMessagePatch(client, req, res) {
   msg.editedAt = new Date();
   await msg.save();
 
-  // Se è l'ultimo messaggio, aggiorna anteprima ticket
-  const last = await SiteWebTicketMessage.findOne({ ticketId: ticket._id }).sort({ createdAt: -1 }).select("_id").lean();
+    const last = await SiteWebTicketMessage.findOne({ ticketId: ticket._id }).sort({ createdAt: -1 }).select("_id").lean();
   if (last && String(last._id) === String(msg._id)) {
     ticket.lastMessagePreview = previewFromContent(content, imageCount);
     ticket.lastMessageAt = msg.editedAt;
@@ -4189,8 +4275,7 @@ async function handleSiteWebTicketsMessageDelete(client, req, res) {
 
   const msg = await SiteWebTicketMessage.findOne({ _id: messageId, ticketId: ticket._id });
   if (!msg) {
-    // Idempotent: already deleted (double-click / race) — treat as success for clients.
-    const serializedTicket = serializeTicketForActor(actor, ticket, { isOwner: loaded.isOwner, isAdded: loaded.isAdded });
+        const serializedTicket = serializeTicketForActor(actor, ticket, { isOwner: loaded.isOwner, isAdded: loaded.isAdded });
     emitTicketEvent({
       type: "web_ticket_message_deleted",
       ticketId: serializedTicket.id,
@@ -4389,8 +4474,7 @@ async function handleSiteWebTicketsClosePost(client, req, res) {
   ticket.closedByName = displayNameForMember(actor.member);
   ticket.closedAt = new Date();
   ticket.closeReason = reason;
-  // Import/legacy: rating 0 invalida lo schema (min 1) e fa fallire il save in chiusura.
-  ticket.ratingTicketScore = clampStarRating(ticket.ratingTicketScore);
+    ticket.ratingTicketScore = clampStarRating(ticket.ratingTicketScore);
   ticket.ratingStafferScore = clampStarRating(ticket.ratingStafferScore);
   await ticket.save();
 
@@ -5022,8 +5106,7 @@ async function handleSiteWebTicketsResolvePost(client, req, res) {
         type: Number(ch.type) || 0,
       };
     } catch {
-      /* ignore */
-    }
+          }
   }
 
   const users = {};
@@ -5062,8 +5145,7 @@ async function handleSiteWebTicketsResolvePost(client, req, res) {
         avatarUrl: avatarUrl || "",
       };
     } catch {
-      /* ignore */
-    }
+          }
   }
 
   const roles = {};
@@ -5083,8 +5165,7 @@ async function handleSiteWebTicketsResolvePost(client, req, res) {
         color: Number(role.color) || 0,
       };
     } catch {
-      /* ignore */
-    }
+          }
   }
 
   const links = {};

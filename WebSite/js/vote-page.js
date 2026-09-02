@@ -1,7 +1,6 @@
 (function () {
   "use strict";
-  /* siteSnappyApi1 */
-  var currentUser = null;
+    var currentUser = null;
   var allRows = [];
   var loadedExtra = 0;
   var EXTRA_STEP = 10;
@@ -13,8 +12,26 @@
   }
 
   function t(key, vars) {
-    if (window.VcI18n && typeof window.VcI18n.t === "function") return window.VcI18n.t(key, vars);
-    return key;
+    if (window.VcI18n && typeof window.VcI18n.t === "function") {
+      var out = window.VcI18n.t(key, vars);
+      if (out && out !== key) return out;
+    }
+    var fallbacks = {
+      "vote.topN": "Top {n}",
+      "vote.loadMore": "Carica altri {n}",
+      "vote.votesSuffix": "voti",
+      "vote.notAvailable": "Non disponibile",
+      "vote.statsUnavailable": "Statistiche voti temporaneamente non disponibili.",
+      "vote.loadError": "Non riesco a caricare i voti in questo momento.",
+      "vote.userFallback": "Utente",
+      "vote.minimize": "Minimizza",
+    };
+    var fb = fallbacks[key];
+    if (!fb) return key;
+    vars = vars || {};
+    return String(fb).replace(/\{(\w+)\}/g, function (_m, k) {
+      return vars[k] != null ? String(vars[k]) : "";
+    });
   }
 
   function cfg() {

@@ -109,8 +109,7 @@ async function countOpenTicketsByUser(guildId, userId, guild = null) {
     .catch(() => []);
   for (const doc of Array.isArray(byGuild) ? byGuild : []) pushDoc(doc);
 
-  // Legacy: open tickets with missing/wrong guildId but channel still in this guild.
-  const openByUser = await Ticket.find({ userId: uid, open: true }).limit(30).catch(() => []);
+    const openByUser = await Ticket.find({ userId: uid, open: true }).limit(30).catch(() => []);
   for (const doc of Array.isArray(openByUser) ? openByUser : []) {
     const docGid = String(doc?.guildId || "").trim();
     if (docGid && docGid === gid) {

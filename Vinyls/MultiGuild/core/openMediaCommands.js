@@ -5,7 +5,6 @@ const { resolveGuildAccess } = require("./guildRegistry");
 const MUSIC_PREFIX_COMMANDS = new Set(["play", "pause", "resume", "skip", "stop", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart", "now", "next", "queue", "lyrics", "requested", "upcoming"]);
 const TTS_PREFIX_COMMANDS = new Set(["join", "leave", "set", "voices"]);
 const UTILITY_PREFIX_COMMANDS = new Set(["ping", "avatar", "banner", "afk", "snipe", "quote", "repost", "clip", "myrepost", "myclip", "myquote", "invite", "invites"]);
-/** Sempre disponibili sui tenant gestiti (anche senza feature pack utility). */
 const TENANT_ALWAYS_PREFIX_COMMANDS = new Set([
   "ping",
   "invite",

@@ -1,12 +1,5 @@
 const IDs = require("../Config/ids");
 
-/**
- * Utenti Discord assegnati ai resoconti per segmento (ID utente, non ruolo).
- *
- * 2026-08-03: dopo depex di 1334154605445124121, 778934882671656972 fa
- * PM/Helper/Mod/Senior Mod. Director resta a chi è sopra.
- * Admin: nessun resoconto settimanale.
- */
 const RESOCONTO_SEGMENT_REVIEWER_USER_IDS = {
   pm: ["778934882671656972"],
   helper: ["778934882671656972"],
@@ -28,10 +21,6 @@ function normalizeUserIds(ids) {
   return [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || "").trim()).filter((id) => /^\d{16,22}$/.test(id)))];
 }
 
-/**
- * Scala i revisori di un livello (es. dopo depex del revisore mod).
- * Il segmento director in cima va riassegnato con `topSegmentReviewers`.
- */
 function shiftResocontoReviewersDownOneLevel({ topSegmentReviewers = [] } = {}) {
   const previous = {};
   for (const segment of RESOCONTO_REVIEWER_SHIFT_CHAIN) {
@@ -76,7 +65,6 @@ function getResocontoReviewerUserIdsForSegment(segment, staffRoleId = null) {
   return [];
 }
 
-/** Segmenti per cui `userId` è revisore assegnato. */
 function getResocontoSegmentsForReviewerUserId(userId) {
   const uid = String(userId || "").trim();
   if (!/^\d{16,22}$/.test(uid)) return [];
@@ -85,7 +73,6 @@ function getResocontoSegmentsForReviewerUserId(userId) {
   );
 }
 
-/** @deprecated usa getResocontoReviewerUserIdsForSegment */
 function getResocontoNotifyRoleIdForSegment(segment, staffRoleId = null) {
   const users = getResocontoReviewerUserIdsForSegment(segment, staffRoleId);
   return users[0] || null;
@@ -97,7 +84,6 @@ function memberIsResocontoReviewerForSegment(member, segment, staffRoleId = null
   return getResocontoReviewerUserIdsForSegment(segment, staffRoleId).includes(uid);
 }
 
-/** Founder/Manager possono revisionare ma non ricevono la valutazione automatica del compito. */
 function memberIsExcludedFromResocontoReviewerReward(member) {
   if (!member?.roles?.cache) return false;
   const blockedRoleIds = [
@@ -184,8 +170,7 @@ function hasCandidatureReviewAccess(interaction) {
   const allowed = [IDs.roles?.Admin, IDs.roles?.Manager, IDs.roles?.Founder, IDs.roles?.Director]
     .filter(Boolean)
     .map((id) => String(id));
-  // Admin/Manager/Founder/Director vincono anche se la persona ha altri ruoli staff.
-  return allowed.some((roleId) => member.roles.cache.has(roleId));
+    return allowed.some((roleId) => member.roles.cache.has(roleId));
 }
 
 function isResocontoInteraction(customId) {

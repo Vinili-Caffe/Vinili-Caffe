@@ -1,17 +1,14 @@
-/**
- * Tab Staff su /user/?id= — visibile solo a viewer staff/high staff se il target ha profilo staff.
- */
 (function (global) {
   "use strict";
 
-  var ASSET_VER = "20260830staffBootFast1";
+  var ASSET_VER = "20260901staffProfRetry1";
   var STAFF_ROSTER_CACHE_KEY = "vc_staff_roster_v2";
   var STAFF_ROSTER_CACHE_TTL_MS = 10 * 60 * 1000;
   var sfPostBusy = false;
-  var PROBE_TIMEOUT_MS = 4500;
-  var STAFF_PENDING_FAILSAFE_MS = 12000;
-  var STAFF_FETCH_RETRIES = 2;
-  var STAFF_RETRY_GAP_MS = 500;
+  var PROBE_TIMEOUT_MS = 9000;
+  var STAFF_PENDING_FAILSAFE_MS = 6500;
+  var STAFF_FETCH_RETRIES = 3;
+  var STAFF_RETRY_GAP_MS = 700;
   var STAFF_SESSION_CACHE_KEY = "vc_staff_prof_cache_v1";
   var STAFF_SESSION_CACHE_TTL_MS = 5 * 60 * 1000;
   var staffPendingFailsafeTimer = null;
@@ -100,8 +97,7 @@
       try {
         var htmlEl = global.document && global.document.documentElement;
         if (!htmlEl || !htmlEl.classList.contains("vc-user-profile-staff-tab-pending")) {
-          // Pending già tolto: se siamo ancora sullo spinner staff, sblocca comunque.
-          if (!(root && state.activeTab === "staff" && !staffPanelMounted(root))) return;
+                    if (!(root && state.activeTab === "staff" && !staffPanelMounted(root))) return;
         }
         if (root && staffPanelMounted(root)) {
           clearStaffTabPending();
@@ -185,28 +181,29 @@
     return Boolean(viewer && target && viewer === target);
   }
 
-  /**
-   * Switch Community|Staff solo se il target è staff VERAMENTE (non prospect).
-   * High Staff promuove i non-staff con il CTA Pex dedicato, senza switcher.
-   */
-  function targetIsRealStaff() {
+    function targetIsRealStaff() {
     var p = state.cachedStaffPayload;
     if (p && p.ok && p.prospect) return false;
     if (p && p.ok && !p.prospect) return true;
-    // Dopo paint community il pane staff sparisce: resta staffAvailable dalla sessione peer.
-    if (state.staffAvailable && !state.staffProbePending) return true;
+        if (state.staffAvailable && !state.staffProbePending) return true;
     return false;
   }
 
   function viewerMaySeeStaffTab(userId) {
     if (!getToken()) return false;
     var target = String(userId || state.targetUserId || parseProfileIdFromUrl() || "").trim();
-    if (isViewingSelf(target)) return viewerIsStaff();
+            if (isViewingSelf(target)) {
+      if (viewerIsStaff()) return true;
+      if (targetIsRealStaff()) return true;
+      if (state.staffAvailable || state.staffLoaded) return true;
+      var selfCached = readSessionStaffCache(target);
+      if (selfCached && selfCached.ok && !selfCached.prospect) return true;
+            if (readCachedViewerStaff() || readCachedMenuStaffAllowed()) return true;
+      return false;
+    }
     if (!viewerIsStaff()) return false;
-    // Altri profili: switcher solo a staff reale (mai per prospect).
-    if (targetIsRealStaff()) return true;
-    // Peer raggiunto dalle frecce staff: tieni lo switcher anche se il payload è stato svuotato.
-    if (
+        if (targetIsRealStaff()) return true;
+        if (
       String(state.targetUserId || "") === target &&
       (state.staffLoaded || state.staffAvailable || state.probeDone)
     ) {
@@ -273,7 +270,7 @@
     return url;
   }
 
-  function organicoApiUrl() {
+  function organicoApiUrl(opts) {
     var c = global.__VC_STAFF_ORGANICO || {};
     var local = String(c.apiUrlLocal || "").trim();
     var base = String(c.apiUrl || "/webhooks/site-staff-organico").trim();
@@ -282,6 +279,9 @@
       if ((h === "localhost" || h === "127.0.0.1") && local && !/\{\{/.test(local)) base = local;
     } catch (e) {}
     if (/\{\{/.test(base)) base = "/webhooks/site-staff-organico";
+        if (opts && opts.rosterOnly) {
+      base += (base.indexOf("?") >= 0 ? "&" : "?") + "rosterOnly=1";
+    }
     return base;
   }
 
@@ -309,6 +309,7 @@
               roleLabel: String(p.roleLabel || "").trim(),
               onPause: Boolean(p.onPause),
               isNew: Boolean(p.isNew),
+              isStaffDelMese: Boolean(p.isStaffDelMese),
             };
           })
           .filter(Boolean);
@@ -350,6 +351,7 @@
           roleLabel: String((m && m.displayRoleLabel) || roleLabel || "").trim(),
           onPause: Boolean(m && m.onPause),
           isNew: Boolean(m && m.isNew),
+          isStaffDelMese: Boolean(m && m.isStaffDelMese),
         });
       });
     });
@@ -366,7 +368,7 @@
     if (state.rosterInFlight) return state.rosterInFlight;
     var token = getToken();
     if (!token) return Promise.resolve([]);
-    state.rosterInFlight = fetch(organicoApiUrl(), {
+    state.rosterInFlight = fetch(organicoApiUrl({ rosterOnly: true }), {
       method: "GET",
       headers: { Authorization: "Bearer " + token, Accept: "application/json" },
       credentials: "same-origin",
@@ -400,8 +402,7 @@
   function ensureStaffPeople() {
     return ensureStaffRoster().then(function () {
       if (state.rosterPeople && state.rosterPeople.length) return state.rosterPeople;
-      // Cache solo-id senza people: forza un refresh organico.
-      state.rosterIds = null;
+            state.rosterIds = null;
       state.rosterInFlight = null;
       try {
         global.sessionStorage.removeItem(STAFF_ROSTER_CACHE_KEY);
@@ -480,8 +481,7 @@
       syncStaffListDockForTab(userId);
       return;
     }
-    // Prospect: niente switch Community|Staff — solo CTA Pex per High Staff.
-    if (!mayShow && mayPex) {
+        if (!mayShow && mayPex) {
       bar.hidden = false;
       bar.innerHTML =
         '<div class="vc-user-profile-tabs__inner vc-user-profile-tabs__inner--pex" role="group" aria-label="Pex utente">' +
@@ -535,17 +535,8 @@
     if (!global.VCStaffProfileRender || typeof global.VCStaffProfileRender.syncStaffListDock !== "function") {
       return;
     }
-    var pending = false;
-    try {
-      pending = global.document.documentElement.classList.contains("vc-user-profile-staff-tab-pending");
-    } catch (ePend) {}
     var root = byId("vc-user-profile-view");
-    var ready =
-      state.activeTab === "staff" &&
-      viewerMaySeeStaffTab(userId) &&
-      !state.staffLoading &&
-      !pending &&
-      staffPanelMounted(root);
+        var ready = state.activeTab === "staff" && viewerMaySeeStaffTab(userId);
     global.VCStaffProfileRender.syncStaffListDock({
       visible: ready,
       currentUserId: userId,
@@ -590,8 +581,7 @@
           });
           return;
         }
-        // Fallback: apri UI prospect nel pane staff (senza switcher duale).
-        state.activeTab = "staff";
+                state.activeTab = "staff";
         try {
           global.history.replaceState(null, "", profileUrl(userId, "staff"));
         } catch (eH) {}
@@ -638,8 +628,7 @@
     );
   }
 
-  /** Secondo spinner solo se stai passando Community → Staff a profilo già aperto. */
-  function shouldShowStaffPaneLoader(root) {
+    function shouldShowStaffPaneLoader(root) {
     return communityShellPainted(root) && !pageAlreadyHasProfileLoader(root);
   }
 
@@ -772,8 +761,7 @@
       }
     } catch (eReady) {}
     var pref = global.__VC_STAFF_PROFILE_PREFETCH;
-    // Cold boot: riusa la prefetch una sola volta (se fallisce non restiamo bloccati sul 503).
-    if (pref && String(pref.userId || "") === String(userId || "") && pref.promise && !(opts && opts.fresh)) {
+        if (pref && String(pref.userId || "") === String(userId || "") && pref.promise && !(opts && opts.fresh)) {
       var p = pref.promise;
       try {
         global.__VC_STAFF_PROFILE_PREFETCH = null;
@@ -855,9 +843,7 @@
       return true;
     }
     state.staffAvailable = false;
-    // 403 = davvero non staff profile; altri errori = riprova dopo.
-    // Prospect pex (HS): API può rispondere 200 con prospect:true — già covered by ok.
-    if (status === 403 || status === 401) {
+            if (status === 403 || status === 401) {
       state.probeDone = true;
     } else {
       state.probeDone = false;
@@ -878,8 +864,7 @@
       return state.probeInFlight;
     }
     state.staffProbePending = true;
-    // Un solo fetch (prefetch HTML incluso); niente doppia richiesta.
-    state.probeInFlight = fetchStaffProfile(userId, PROBE_TIMEOUT_MS)
+        state.probeInFlight = fetchStaffProfile(userId, PROBE_TIMEOUT_MS)
       .then(function (out) {
         consumeProbeResponse(out);
         return state.staffAvailable;
@@ -900,8 +885,7 @@
     if (!root) return;
     var isStaff = state.activeTab === "staff";
     if (!isStaff) clearStaffTabPending();
-    // Solo la shell community (figlio diretto): quella nello staff pane è un altro nodo.
-    var shell = root.querySelector(":scope > .vc-user-profile-shell");
+        var shell = root.querySelector(":scope > .vc-user-profile-shell");
     var pane = ensureStaffPane(root);
     if (shell) {
       shell.hidden = isStaff;
@@ -975,8 +959,7 @@
   }
 
   function renderStaffPanel(root, userId, payload) {
-    // First paint: solo renderer. Shop/modal arrivano dopo (non bloccano).
-    return waitForStaffRender(2200, { needShop: false }).then(function (ready) {
+        return waitForStaffRender(2200, { needShop: false }).then(function (ready) {
       var cachedRoster = state.rosterIds || readRosterCache() || [];
       var pane = ensureStaffPane(root);
       var panel = pane.querySelector("#vc-user-profile-staff-panel") || byId("vc-user-profile-staff-panel");
@@ -1048,8 +1031,7 @@
         try {
           global.document.documentElement.classList.remove("vc-user-profile-pending");
         } catch (ePend) {}
-        // Roster organico in background: freccia peer senza bloccare first paint.
-        ensureStaffRoster().then(function (ids) {
+                ensureStaffRoster().then(function (ids) {
           if (!ids || !ids.length) return;
           if (String(state.targetUserId || "") !== String(userId || "")) return;
           if (!staffPanelMounted(root)) return;
@@ -1198,9 +1180,18 @@
     var pane = ensureStaffPane(root);
     pane.hidden = false;
     bindStaffBootActions(root, userId);
-    var quiet = Boolean(opts.quiet) || !shouldShowStaffPaneLoader(root);
-    if (!quiet) pane.innerHTML = staffPaneHtml(true, "");
-    else if (!staffPanelMounted(root) && !pane.querySelector("#vc-user-profile-staff-panel")) {
+        var quiet = Boolean(opts.forceLoader)
+      ? false
+      : Boolean(opts.quiet) || !shouldShowStaffPaneLoader(root);
+    if (!quiet) {
+      if (!pane.querySelector("[data-vc-staff-loading]")) {
+        pane.innerHTML = staffPaneHtml(true, "");
+      }
+    } else if (
+      !staffPanelMounted(root) &&
+      !pane.querySelector("#vc-user-profile-staff-panel") &&
+      !pane.querySelector("[data-vc-staff-loading], :scope > [data-vc-profile-boot]")
+    ) {
       pane.innerHTML = '<div id="vc-user-profile-staff-panel" class="vc-staff-profile" hidden></div>';
     }
     state.staffLoading = true;
@@ -1226,8 +1217,7 @@
     }
     if (sessionHit) {
       state.cachedStaffPayload = sessionHit;
-      // Paint istantaneo dal cache sessione (come F5 caldo), poi refresh quiet.
-      return renderStaffPanel(root, userId, sessionHit).then(function () {
+            return renderStaffPanel(root, userId, sessionHit).then(function () {
         state.staffLoading = false;
         return fetchStaffProfile(userId, PROBE_TIMEOUT_MS, null, { fresh: Boolean(opts.force) }).then(function (out) {
           var data = (out && out.data) || {};
@@ -1250,6 +1240,28 @@
         var data = (out && out.data) || {};
         var ok = Boolean(out && out.res && out.res.ok && data.ok);
         if (!ok) {
+          var status = out && out.res ? Number(out.res.status || 0) : 0;
+          var errCode = String((data && data.error) || "").trim();
+          if (
+            !opts._autoRetried &&
+            (status === 503 || errCode === "member_unavailable") &&
+            isTransientStaffFail(out)
+          ) {
+            if (!quiet) {
+              pane.innerHTML = staffPaneHtml(true, "");
+            }
+            return new Promise(function (resolve) {
+              global.setTimeout(function () {
+                resolve(
+                  loadStaffTab(root, userId, {
+                    force: true,
+                    quiet: quiet,
+                    _autoRetried: true,
+                  }),
+                );
+              }, 900);
+            });
+          }
           clearStaffTabPending();
           pane.innerHTML = staffPaneHtml(
             false,
@@ -1275,7 +1287,6 @@
     if (!root || state.activeTab !== "staff") return;
     var id = String(userId || state.targetUserId || "").trim();
     if (!/^\d{17,20}$/.test(id)) return;
-    if (!staffPanelMounted(root)) return;
     try {
       var roster = state.rosterIds || readRosterCache() || [];
       var neighbors =
@@ -1292,6 +1303,22 @@
     } catch (eDock) {}
   }
 
+  function syncPeerDockEarly(userId) {
+    if (state.activeTab !== "staff") return;
+    var id = String(userId || state.targetUserId || "").trim();
+    if (!/^\d{17,20}$/.test(id)) return;
+    var root = byId("vc-user-profile-view");
+    var roster = state.rosterIds || readRosterCache() || [];
+    if (roster.length >= 2) {
+      remountStaffPeerDock(root, id);
+      return;
+    }
+    ensureStaffRoster().then(function (ids) {
+      if (String(state.targetUserId || "") !== id || state.activeTab !== "staff") return;
+      remountStaffPeerDock(byId("vc-user-profile-view"), id);
+    });
+  }
+
   function paintCommunityChrome(root, userId) {
     if (!root) root = byId("vc-user-profile-view");
     if (!root) return;
@@ -1305,8 +1332,7 @@
       }
       document.documentElement.classList.remove("vc-user-profile-comm-switch");
     } catch (eBody) {}
-    // renderProfile fa root.innerHTML=… e distrugge i tab: rimontali sempre.
-    if (/^\d{17,20}$/.test(id)) {
+        if (/^\d{17,20}$/.test(id)) {
       try {
         renderSwitcher(root, id);
       } catch (eSw) {}
@@ -1367,8 +1393,7 @@
     }
     var mismatch = !shell || shellUser !== tid || !heroOk || shell.getAttribute("data-vc-community-stale") === "1";
 
-    // Prima del wipe: ricorda che questo target aveva lo staff (per lo switcher).
-    var keepStaffSwitch =
+        var keepStaffSwitch =
       Boolean(state.staffAvailable || state.staffLoaded || state.cachedStaffPayload) &&
       !(state.cachedStaffPayload && state.cachedStaffPayload.prospect);
     if (keepStaffSwitch) {
@@ -1379,8 +1404,7 @@
       }
     }
 
-    // Critico: NON togliere staff-tab prima del wipe, altrimenti flash dei dati del peer precedente.
-    if (mismatch || fromStaff) {
+        if (mismatch || fromStaff) {
       try {
         document.documentElement.classList.add("vc-user-profile-comm-switch");
       } catch (eSwCls) {}
@@ -1397,8 +1421,7 @@
       }
     } catch (eComm) {}
 
-    // Ora sì: svela community (già loading o dati giusti).
-    clearStaffTabPending();
+        clearStaffTabPending();
     try {
       if (document.body) {
         document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
@@ -1414,8 +1437,7 @@
       renderSwitcher(root, tid);
     } catch (eSw2) {}
 
-    // Togli il gate SOLO se la shell è del target (niente failsafe 50ms → flash viewer).
-    function clearCommSwitchIfReady() {
+        function clearCommSwitchIfReady() {
       try {
         var shellNow = root.querySelector(":scope > .vc-user-profile-shell");
         var okNow =
@@ -1433,8 +1455,7 @@
           document.documentElement.classList.remove("vc-user-profile-comm-switch");
           return true;
         }
-        // Loader a pieno schermo: togli gate (CSS mostra comunque il loader).
-        if (hasLoader && !shellNow) {
+                if (hasLoader && !shellNow) {
           document.documentElement.classList.remove("vc-user-profile-comm-switch");
           return true;
         }
@@ -1449,8 +1470,7 @@
           try {
             global.clearInterval(gateTimer);
           } catch (eClrT) {}
-          // Ultima spiaggia: se dopo ~4s c'è solo loader, sblocca; mai svelare shell stale.
-          if (gateTries > 40) {
+                    if (gateTries > 40) {
             try {
               var stale = root.querySelector(":scope > .vc-user-profile-shell");
               var staleUser = stale
@@ -1470,8 +1490,7 @@
     if (!root) return false;
     var panel = root.querySelector("#vc-user-profile-staff-panel");
     if (!panel) return false;
-    // Rendered staff content (not empty placeholder / solo loader).
-    return Boolean(
+        return Boolean(
       panel.querySelector(".vc-user-profile-shell, .vc-user-profile-hero, .vc-staff-profile-panel"),
     );
   }
@@ -1480,9 +1499,7 @@
     state.activeTab = "staff";
     try {
       if (global.VCUserProfilePage && typeof global.VCUserProfilePage.unlockCommunityUser === "function") {
-        // Durante staff tab i fetch silent non devono ridipingere community.
-        // Lock resta sul target solo in community; qui sblocchiamo e usiamo onStaffTab guard.
-        global.VCUserProfilePage.unlockCommunityUser();
+                        global.VCUserProfilePage.unlockCommunityUser();
       }
     } catch (eUnlock) {}
     applyTabVisibility(root);
@@ -1491,8 +1508,7 @@
       state.staffLoaded = false;
     }
     if (!state.staffLoaded) {
-      // Se un fetch precedente è rimasto appeso, sblocca e riprova.
-      if (state.staffLoading && !mounted) state.staffLoading = false;
+            if (state.staffLoading && !mounted) state.staffLoading = false;
       if (!state.staffLoading) loadStaffTab(root, userId);
       else {
         var pane = ensureStaffPane(root);
@@ -1502,8 +1518,7 @@
         }
       }
     } else {
-      // Tab community aveva smontato le frecce peer: rimontale.
-      remountStaffPeerDock(root, userId);
+            remountStaffPeerDock(root, userId);
     }
   }
 
@@ -1533,8 +1548,7 @@
   }
 
   function finishSync(root, userId) {
-    // Prospect: niente switcher Staff — resta su Community (CTA Pex per High Staff).
-    if (state.cachedStaffPayload && state.cachedStaffPayload.ok && state.cachedStaffPayload.prospect) {
+        if (state.cachedStaffPayload && state.cachedStaffPayload.ok && state.cachedStaffPayload.prospect) {
       if (state.activeTab === "staff") {
         state.activeTab = "community";
         try {
@@ -1564,8 +1578,7 @@
       if (state.activeTab !== "staff") showCommunity(root, userId);
       renderSwitcher(root, userId);
     }
-    // Togli pending solo quando il contenuto staff è in pagina (o non serve).
-    if (state.activeTab !== "staff" || staffPanelMounted(root) || (state.probeDone && !targetIsRealStaff())) {
+        if (state.activeTab !== "staff" || staffPanelMounted(root) || (state.probeDone && !targetIsRealStaff())) {
       clearStaffTabPending();
     } else {
       armStaffPendingFailsafe(root, userId);
@@ -1581,8 +1594,9 @@
     state.targetUserId = String(userId);
     state.activeTab = parseActiveTabFromUrl();
     maybeRedirectOwnStaffTab();
+        var peerSwitch = Boolean(prevTarget && prevTarget !== state.targetUserId);
 
-    if (prevTarget && prevTarget !== state.targetUserId) {
+    if (peerSwitch) {
       state.probeDone = false;
       state.staffAvailable = false;
       state.staffLoaded = false;
@@ -1603,51 +1617,77 @@
           if (oldPanel) oldPanel.innerHTML = "";
         }
       } catch (ePaneClr) {}
-      // Community shell del peer precedente/viewer: non fidarsi al tab Community.
-      try {
+            try {
         var staleShell = root.querySelector(":scope > .vc-user-profile-shell");
         if (staleShell) {
           var staleFor = String(staleShell.getAttribute("data-vc-community-user") || "").trim();
           if (staleFor && staleFor !== state.targetUserId) {
             staleShell.setAttribute("data-vc-community-stale", "1");
-            // Forza mismatch: al tab Community non fidarsi di questi dati.
-            staleShell.setAttribute("data-vc-community-user", "");
+                        staleShell.setAttribute("data-vc-community-user", "");
           }
         }
       } catch (eStale) {}
     }
 
-    // Dopo renderProfile (innerHTML) il DOM staff sparisce: non fidarsi di staffLoaded.
-    if (!staffPanelMounted(root)) {
+        if (!staffPanelMounted(root)) {
       state.staffLoaded = false;
     }
 
-    // Switcher immediato se viewer staff (non aspettare l'API).
-    if (viewerMaySeeStaffTab()) renderSwitcher(root, userId);
+        if (!state.cachedStaffPayload || !state.cachedStaffPayload.ok) {
+      try {
+        var warm = readSessionStaffCache(userId);
+        if (warm && warm.ok && !warm.prospect) {
+          state.cachedStaffPayload = warm;
+          state.staffAvailable = true;
+          state.probeDone = true;
+        }
+      } catch (eWarm) {}
+    }
+
+            try {
+      renderSwitcher(root, userId);
+    } catch (eSwEarly) {}
 
     if (state.activeTab === "staff" && getToken()) {
-      try {
-        global.document.documentElement.classList.add("vc-user-profile-staff-tab-pending");
-      } catch (eP) {}
+                  var coldBoot = !communityShellPainted(root) && !staffPanelMounted(root);
+      if (coldBoot || peerSwitch) {
+        try {
+          global.document.documentElement.classList.add("vc-user-profile-staff-tab-pending");
+        } catch (eP) {}
+      } else {
+        clearStaffTabPending();
+                renderSwitcher(root, userId);
+      }
       try {
         if (global.VCStaffProfileRender) {
-          if (typeof global.VCStaffProfileRender.unmountStaffListDock === "function") {
-            global.VCStaffProfileRender.unmountStaffListDock();
-          }
-          if (typeof global.VCStaffProfileRender.unmountStaffPeerDock === "function") {
+                    if (peerSwitch && typeof global.VCStaffProfileRender.unmountStaffPeerDock === "function") {
             global.VCStaffProfileRender.unmountStaffPeerDock();
           }
         }
       } catch (eDockHide) {}
       armStaffPendingFailsafe(root, userId);
       applyTabVisibility(root);
-      // Un solo boot di pagina: niente secondo "Caricamento profilo" nel pane.
-      if (!pageAlreadyHasProfileLoader(root) && !communityShellPainted(root) && !staffPanelMounted(root)) {
+            try {
+        ensureStaffRoster();
+      } catch (eRost) {}
+      try {
+        syncPeerDockEarly(userId);
+      } catch (eDockPeerEarly) {}
+      try {
+        syncStaffListDockForTab(userId);
+      } catch (eDockEarly) {}
+            if (!pageAlreadyHasProfileLoader(root) && !communityShellPainted(root) && !staffPanelMounted(root)) {
         root.innerHTML = classicProfileBootHtml({ staff: true });
+                renderSwitcher(root, userId);
+      } else if (peerSwitch && !staffPanelMounted(root)) {
+                try {
+          ensureStaffPane(root).innerHTML = staffPaneHtml(true, "");
+        } catch (ePeerBoot) {}
+        renderSwitcher(root, userId);
       }
       ensureStaffPane(root).hidden = false;
       if (!state.staffLoaded && !state.staffLoading) {
-        loadStaffTab(root, userId, { quiet: true }).then(function () {
+                loadStaffTab(root, userId, { quiet: !peerSwitch, forceLoader: peerSwitch }).then(function () {
           if (state.cachedStaffPayload && state.cachedStaffPayload.ok) {
             state.staffAvailable = true;
             state.probeDone = true;
@@ -1671,8 +1711,7 @@
       return;
     }
 
-    // Se stiamo già caricando il tab staff, non rifare un secondo fetch di probe.
-    if (state.activeTab === "staff" && state.staffLoading) {
+        if (state.activeTab === "staff" && state.staffLoading) {
       return;
     }
 
@@ -1682,11 +1721,14 @@
   }
 
   function onAuthReady() {
-    // Solo profili con ?id= (o /users/:id). Su /user community NON inventare l'id del login:
-    // altrimenti finishSync fa replaceState → /user/?id=me e Users finisce sul profilo.
-    var userId = parseProfileIdFromUrl() || state.targetUserId;
+            var userId = parseProfileIdFromUrl() || state.targetUserId;
     if (!userId) return;
     var root = byId("vc-user-profile-view");
+            if (root) {
+      try {
+        renderSwitcher(root, userId);
+      } catch (eSwAuth) {}
+    }
     if (state.probeDone && state.staffAvailable && state.targetUserId === userId) {
       if (root) finishSync(root, userId);
       return;
@@ -1714,8 +1756,7 @@
       var root = byId("vc-user-profile-view");
       if (!root) return false;
       var wantsStaff = state.activeTab === "staff" || parseActiveTabFromUrl() === "staff";
-      // Tab Staff: NON aspettare il profilo community (era la causa della lentezza).
-      if (wantsStaff) {
+            if (wantsStaff) {
         if (!getToken()) return false;
         state.activeTab = "staff";
         sync(userId, root);
@@ -1758,13 +1799,11 @@
       if (global.document.querySelector("script[" + attr + "]")) return;
       var s = global.document.createElement("script");
       s.src = src;
-      // Critico: sync. Secondari: defer dopo first paint.
-      s.async = false;
+            s.async = false;
       s.setAttribute(attr, "1");
       head.appendChild(s);
     }
-    // Solo renderer sul critical path → first paint velocissimo.
-    loadScript("/js/staff-profile-render.js?v=" + ASSET_VER, "data-vc-staff-prof-render");
+        loadScript("/js/staff-profile-render.js?v=" + ASSET_VER, "data-vc-staff-prof-render");
     function loadSecondary() {
       loadScript("/js/staff-manage-modal.js?v=" + ASSET_VER, "data-vc-staff-manage-modal");
       loadScript("/js/staff-pm-shop-ui.js?v=" + ASSET_VER, "data-vc-staff-pm-shop");
@@ -1816,8 +1855,7 @@
     if (!id) return;
     state.targetUserId = id;
     state.activeTab = parseActiveTabFromUrl();
-    // Dopo bfcache / re-render, la shell community può restare nascosta da classi stale.
-    if (state.activeTab !== "staff") {
+        if (state.activeTab !== "staff") {
       try {
         global.document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
       } catch (ePend) {}

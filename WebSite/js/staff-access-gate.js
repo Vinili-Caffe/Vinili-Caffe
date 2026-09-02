@@ -1,4 +1,3 @@
-/** Compat: boot sincrono + gate centralizzato vc-access-gate.js */
 (function () {
   if (window.__VC_ACCESS_GATE_LOADED) return;
   if (!window.__VC_ACCESS_PENDING_BOOT) {

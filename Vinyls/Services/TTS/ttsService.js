@@ -150,7 +150,6 @@ function passesTtsContentFilters(message, config, prefix) {
   return true;
 }
 
-/** Chat testuale collegata a un canale vocale (o thread figlio). */
 function resolveTtsMessageVoiceChannel(message) {
   if (!message?.channel) return null;
   if (message.channel.isVoiceBased?.() && !message.channel.isThread?.()) {
@@ -167,8 +166,7 @@ function resolveBotTtsVoiceChannelId(guildId, client) {
   const gid = String(guildId);
   const fromLock = getLockedChannelId(gid) || findLockedChannelIdByGuild(gid);
   if (fromLock) return String(fromLock);
-  // Se c’è una sessione musica attiva, la presenza in vocale è della musica: non trattarla come TTS.
-  if (resolveMusicBlocksTtsForGuild(client, gid).blocked) return null;
+    if (resolveMusicBlocksTtsForGuild(client, gid).blocked) return null;
   const me = client?.guilds?.cache?.get(gid)?.members?.me;
   const fromVoice = me?.voice?.channelId;
   return fromVoice ? String(fromVoice) : null;
@@ -481,10 +479,8 @@ function buildGoogleTtsUrl(
 
 const TTS_HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", Accept: "audio/mpeg,audio/*;q=0.9,*/*;q=0.8", Referer: "https://translate.google.com/", };
 
-/** Più valori client: Google spesso risponde 400 se ne accetta solo uno. */
 const GOOGLE_TTS_GET_CLIENTS = ["tw-ob", "gtx"];
 
-/** Stesso RPC usato da gTTS (POST batchexecute) quando il GET non restituisce più MP3. */
 const GOOGLE_TTS_RPC = "jQ1olc";
 const GOOGLE_TTS_BATCH_CHUNK = 100;
 const GOOGLE_TTS_BATCH_HEADERS = {
@@ -524,14 +520,12 @@ function decodeGoogleTtsBase64Candidate(rawB64) {
 
 function extractGoogleBatchexecuteMp3FromLine(line) {
   const s = String(line || "");
-  // Formato classico gTTS / wrb.fr
-  const audioSearch = s.match(/jQ1olc","\[\\"(.*)\\"]/);
+    const audioSearch = s.match(/jQ1olc","\[\\"(.*)\\"]/);
   if (audioSearch?.[1]) {
     const mp3 = decodeGoogleTtsBase64Candidate(audioSearch[1]);
     if (mp3) return mp3;
   }
-  // Variante senza escape doppio
-  const loose = s.match(/jQ1olc","\["([A-Za-z0-9+/=_\-]{32,})"\]/);
+    const loose = s.match(/jQ1olc","\["([A-Za-z0-9+/=_\-]{32,})"\]/);
   if (loose?.[1]) {
     const mp3 = decodeGoogleTtsBase64Candidate(loose[1]);
     if (mp3) return mp3;
@@ -546,14 +540,12 @@ function extractGoogleBatchexecuteMp3FromRaw(raw) {
     const fromLine = extractGoogleBatchexecuteMp3FromLine(line);
     if (fromLine) return fromLine;
   }
-  // MP3 base64 Google spesso inizia con //OE…
-  const oe = text.match(/\/\/OE[A-Za-z0-9+/=]+/);
+    const oe = text.match(/\/\/OE[A-Za-z0-9+/=]+/);
   if (oe?.[0]) {
     const mp3 = decodeGoogleTtsBase64Candidate(oe[0]);
     if (mp3) return mp3;
   }
-  // Fallback: parse JSON wrb.fr → payload → base64
-  try {
+    try {
     let body = text;
     if (body.startsWith(")]}'")) body = body.slice(4).trimStart();
     const first = body.split("\n").find((l) => l.trim().startsWith("["));
@@ -568,8 +560,7 @@ function extractGoogleBatchexecuteMp3FromRaw(raw) {
       }
     }
   } catch {
-    /* ignore */
-  }
+      }
   return null;
 }
 
@@ -840,7 +831,6 @@ async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
   return data;
 }
 
-/** Spezza solo per lunghezza URL (GET); il messaggio completo viene letto in sequenza. */
 const TTS_HTTP_SEGMENT_MAX = 380;
 
 function splitTextForTtsSegments(text, maxLen = TTS_HTTP_SEGMENT_MAX) {
@@ -1327,8 +1317,7 @@ async function handleTtsMessage(message, client, prefix) {
   if (!baseText || !baseText.trim()) return;
   const musicBlock = resolveMusicBlocksTtsForGuild(client, guildId);
   if (musicBlock.blocked) {
-    // Non spammare in chat: la musica ha il vocale. L’avviso resta solo su +tts join.
-    return;
+        return;
   }
   const state = getState(voiceChannel);
   const connection = await ensureConnection(state, voiceChannel).catch(() => null,);
@@ -1580,7 +1569,7 @@ async function catchupTtsMessagesForChannel(
   const messages = await voiceChannel.messages.fetch({ limit: TTS_CATCHUP_FETCH_LIMIT }).catch(() => null);
   if (!messages) return;
 
-  const cutoffMs = Math.max(0, baseCutoffMs - 1500); // small grace to avoid edge duplicates
+  const cutoffMs = Math.max(0, baseCutoffMs - 1500);
   const sorted = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
   for (const message of sorted) {

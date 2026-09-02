@@ -5,15 +5,11 @@ const ONE_TIME_REMINDER_MAX_ENTRIES_PER_USER = Math.max(
   Number(process.env.ONE_TIME_REMINDER_MAX_ENTRIES_PER_USER) || 500,
 );
 
-/**
- * Ensures a one-time reminder is registered for a user (compact storage in ActivityUserProfile).
- */
 async function ensureOneTimeReminder({ key, userId, message, sendAt }) {
   if (!key || !userId || !message || !sendAt) return null;
   const userIdStr = String(userId);
 
-  // Try to update an existing pending reminder with the same key
-  const touchExisting = await ActivityUserProfile.updateOne(
+    const touchExisting = await ActivityUserProfile.updateOne(
     {
       guildId: ACTIVITY_MAIN_GUILD_ID,
       userId: userIdStr,
@@ -31,8 +27,7 @@ async function ensureOneTimeReminder({ key, userId, message, sendAt }) {
     return { ok: true, mode: "compact_existing" };
   }
 
-  // Push a new reminder entry
-  await ActivityUserProfile.findOneAndUpdate(
+    await ActivityUserProfile.findOneAndUpdate(
     { guildId: ACTIVITY_MAIN_GUILD_ID, userId: userIdStr },
     {
       $setOnInsert: { guildId: ACTIVITY_MAIN_GUILD_ID, userId: userIdStr },

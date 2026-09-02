@@ -290,9 +290,7 @@
 
   function onVideoEnded() {
     if (introDone || !userStartedVideo) return;
-    /* Sempre chiudi: se introVideoDurationSec in config è più lungo del video reale,
-       attendere il wall-clock lascerebbe la pagina bloccati a fine riproduzione. */
-    completeIntro();
+        completeIntro();
   }
 
   function onVideoTimeUpdate() {

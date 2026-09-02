@@ -30,6 +30,12 @@
     return k.indexOf("fa-") === 0 ? k : "fa-question-circle";
   }
 
+  function revealAccordion() {
+    if (typeof window.__vcRevealRegoleAccordion === "function") {
+      window.__vcRevealRegoleAccordion();
+    }
+  }
+
   function renderTabs() {
     var root = byId("vc-regole-tabs");
     if (!root) return;
@@ -51,6 +57,7 @@
       });
       root.appendChild(btn);
     });
+    revealAccordion();
   }
 
   function renderList() {
@@ -126,6 +133,7 @@
         });
       });
     });
+    revealAccordion();
   }
 
   function init() {

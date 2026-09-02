@@ -10,7 +10,6 @@ function staffChatChannelId() {
   return String(IDs.channels?.staffChat || "").trim();
 }
 
-/** #staff-chat o thread sotto quel canale. */
 function isChannelOrThreadUnderStaffChat(channel) {
   const chat = staffChatChannelId();
   if (!channel) return false;
@@ -41,10 +40,6 @@ async function resolveStaffChatPmThread(client) {
   return resolved?.isThread?.() ? resolved : null;
 }
 
-/**
- * Nei thread Chat sotto #staff-chat i comandi vanno usati solo nei thread Comandi sotto #staff-cmds.
- * @returns {Promise<string|null>} messaggio di rifiuto o null se il canale è consentito
- */
 async function staffChatCommandsDeniedReplyContent(channel) {
   if (!isChannelOrThreadUnderStaffChat(channel)) return null;
   await ensureStaffCmdsThreadIdsHydrated().catch(() => {});

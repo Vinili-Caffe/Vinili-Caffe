@@ -1,5 +1,5 @@
 (function () {
-  var TOKEN_KEY = "vc_discord_access_token";
+    var TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_KEY = "vc_discord_expires_at";
   var ME_SESSION_KEY = "vc_discord_me_cache_v1";
   var ME_LOCAL_KEY = "vc_discord_me_cache_local_v1";
@@ -71,7 +71,14 @@
   function avatarUrl(user) {
     if (!user) return "";
     if (user.avatar) {
-      var ext = String(user.avatar).indexOf("a_") === 0 ? "gif" : "png";
+      var ext = "png";
+      try {
+        if (!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)) {
+          ext = String(user.avatar).indexOf("a_") === 0 ? "gif" : "png";
+        }
+      } catch (eMob) {
+        ext = String(user.avatar).indexOf("a_") === 0 ? "gif" : "png";
+      }
       return (
         "https://cdn.discordapp.com/avatars/" +
         encodeURIComponent(String(user.id || "")) +
@@ -116,7 +123,8 @@
         "display:flex!important;visibility:visible!important;}" +
         "html.vc-auth-session-pending #discord-login-state[hidden]," +
         "html.vc-auth-session-pending .header-login-state[hidden]{" +
-        "display:flex!important;visibility:visible!important;}";
+        "display:flex!important;visibility:visible!important;}" +
+        "#header-quick-actions{min-width:2.75rem;min-height:2.375rem;}";
       document.head.appendChild(style);
     } catch (eCss) {}
   }
@@ -136,7 +144,9 @@
     var img = avatarUrl(user);
     var label = escAttr(name);
     var avatarVisual = img
-      ? '<img class="discord-avatar-img" src="' +
+      ? '<img class="discord-avatar-img" data-vc-avatar="1"' +
+        (user && user.avatar ? ' data-avatar-hash="' + escAttr(String(user.avatar)) + '"' : "") +
+        ' src="' +
         escAttr(img) +
         '" alt="" width="38" height="38" decoding="async" aria-label="' +
         label +
@@ -248,17 +258,6 @@
     }
     if (document.body) apply();
     else document.addEventListener("DOMContentLoaded", apply);
-    // siteSweep1: non lasciare login nascosto per sempre se discord-auth non arriva.
-    setTimeout(function () {
-      try {
-        if (!document.documentElement.classList.contains("vc-auth-session-pending")) return;
-        if (window.__VC_DISCORD_PROFILE) {
-          document.documentElement.classList.remove("vc-auth-session-pending");
-          return;
-        }
-        document.documentElement.classList.remove("vc-auth-session-pending");
-      } catch (eAuthFs) {}
-    }, 2500);
   }
 
   function isCoarseMobile() {
@@ -276,8 +275,7 @@
       try {
         if (navigator.standalone) return false;
       } catch (eIos) {}
-      // Telefono: mai overlay full-screen / touch-action:none (lag gesture ~2s).
-      if (isCoarseMobile()) return false;
+            if (isCoarseMobile()) return false;
       if (!window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY) return false;
       var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
       if (p.indexOf("/dashboard") === 0) return true;

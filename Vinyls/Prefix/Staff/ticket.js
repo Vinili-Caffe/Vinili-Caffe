@@ -21,6 +21,8 @@ const { buildTicketPanelUnclaimedButtonRow } = require("../../Utils/Ticket/ticke
 const { buildClaimedControlButtons, resolveTicketPanel } = require("../../Utils/Ticket/ticketGuildOptions");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
+const { isDiscordTicketsEnabled, workflowMovedToSiteMessage, buildSiteLinkRow, siteWorkflowUrl } = require("../../Utils/Web/discordWorkflowUiGate");
+const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
@@ -321,9 +323,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
             });
             return false;
           }
-          // auto_unclaim: unclaim se il claimer non ha accesso al nuovo pannello.
-          // remove_on_unclaim / keep_access: consentono sempre il cambio e mantengono il claim.
-          if (panelSwitchBehavior === "auto_unclaim" && !claimerHasNewAccess) {
+                              if (panelSwitchBehavior === "auto_unclaim" && !claimerHasNewAccess) {
             ticketDoc.claimedBy = null;
             claimRemovedForSwitch = true;
           }
@@ -704,10 +704,20 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
 }
 
 module.exports = {
+  skipPrefix: true,
   name: "ticket",
   allowEmptyArgs: true,
 
   async execute(message, args = [], client) {
+    if (!isDiscordTicketsEnabled()) {
+      const url = siteWorkflowUrl("tickets");
+      await safeMessageReply(message, {
+        ...buildSimpleNoticePayload(workflowMovedToSiteMessage("tickets"), message.guild),
+        components: [buildSiteLinkRow("Apri ticket sul sito", url)],
+        allowedMentions: NO_REPLY_MENTIONS,
+      });
+      return;
+    }
     if (!message.inGuild?.() || !message.guild || !message.member) {
       await safeMessageReply(message, {
         content:

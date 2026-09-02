@@ -1,7 +1,6 @@
 const { REST } = require("@discordjs/rest");
 const { Routes } = require("discord-api-types/v10");
 
-/** Slash/context commands visibili su tutti i server tenant (globali). */
 const GLOBAL_TENANT_COMMAND_NAMES = new Set([
   "partnership",
   "elimina partnership",

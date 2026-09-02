@@ -2,11 +2,6 @@ const mongoose = require("mongoose");
 const { Schema, model, models } = mongoose;
 const IDs = require("../../Utils/Config/ids");
 
-/**
- * Guild principale: un solo documento `activityuserprofiles` per (guildId, userId).
- * Automod, sponsor leave e `profile.globalOneTimeReminder` vivono sullo stesso doc del resto (exp, totals, ecc.).
- * Override: env `ACTIVITY_MAIN_GUILD_ID` (es. istanza di test).
- */
 const ACTIVITY_MAIN_GUILD_ID = String(process.env.ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
 
 const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
@@ -161,8 +156,7 @@ const globalSettingsSchema = new Schema(
     expMultiplier: { type: Number, default: 2 },
     expEventMultiplier: { type: Number, default: 1 },
     expEventMultiplierExpiresAt: { type: Date, default: null },
-    /** Chiavi `globalExpEvents[].key` già annunciate a inizio evento (anti-duplicato). */
-    expEventStartAnnouncementsSent: { type: [String], default: [] },
+        expEventStartAnnouncementsSent: { type: [String], default: [] },
     expLockedChannelIds: { type: [String], default: [] },
     expIgnoredRoleIds: { type: [String], default: [] },
     expRoleMultipliers: { type: Schema.Types.Mixed, default: {} },
@@ -170,8 +164,7 @@ const globalSettingsSchema = new Schema(
     personalityPanels: { type: [personalityPanelEntrySchema], default: [] },
     channelSnapshots: { type: [channelSnapshotEntrySchema], default: [] },
     skullboardPosts: { type: [skullboardPostEntrySchema], default: [] },
-    /** Snapshot organico/directory: evita list completo guild su site-api REST. */
-    staffRosterSnapshot: { type: Schema.Types.Mixed, default: null },
+        staffRosterSnapshot: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );
@@ -222,12 +215,10 @@ const staffRolesHistoryEntrySchema = new Schema(
     reason: String,
     kind: { type: String, default: null },
     date: { type: Date, default: Date.now },
-    /** Snapshot at write time (organico history still works if Discord resolve fails). */
-    displayName: { type: String, default: null },
+        displayName: { type: String, default: null },
     username: { type: String, default: null },
     avatarUrl: { type: String, default: null },
-    /** Who performed the pex/depex (when known). */
-    actorId: { type: String, default: null },
+        actorId: { type: String, default: null },
     actorName: { type: String, default: null },
   },
   { _id: false },
@@ -255,8 +246,7 @@ const staffPartnerActionSchema = new Schema(
     partnershipChannelId: String,
     partnerMessageIds: { type: [String], default: [] },
     globalLogId: { type: Number, default: null },
-    /** Id job dashboard migrazione cronologia (solo import automatici). */
-    migrationJobId: { type: String, default: null },
+        migrationJobId: { type: String, default: null },
     auditPenaltyDates: { type: [String], default: [] },
     auditPenaltyLogs: {
       type: [
@@ -285,8 +275,7 @@ const staffPauseEntrySchema = new Schema(
     giorniAggiuntivi: { type: Number, default: 0 },
     ruoloRichiesto: String,
     ruolo: String,
-    /** Discord role id del grado staff mostrato nel messaggio pausa (Mod/Director/…). */
-    ruoloGradeId: { type: String, default: null },
+        ruoloGradeId: { type: String, default: null },
     stafferInPausa: { type: Number, default: 0 },
     status: { type: String, default: "pending" },
     cancelledAt: { type: Date, default: null },
@@ -326,8 +315,7 @@ const staffValutazioneLogEntrySchema = new Schema(
 const staffEmbeddedSchema = new Schema(
   {
     rolesHistory: { type: [staffRolesHistoryEntrySchema], default: [] },
-    /** Append-only: pex/depex/val/warn (add+remove) with actor for /staff/gestione cronologia. */
-    trackHistory: { type: [staffTrackHistoryEntrySchema], default: [] },
+        trackHistory: { type: [staffTrackHistoryEntrySchema], default: [] },
     idCount: { type: Number, default: 0 },
     warnCount: { type: Number, default: 0 },
     warnReasons: { type: [String], default: [] },
@@ -340,13 +328,11 @@ const staffEmbeddedSchema = new Schema(
     negativeValutazioni: { type: [staffValutazioneLogEntrySchema], default: [] },
     valutazioniCount: { type: Number, default: 0 },
     autoValutazioni: { type: [staffAutoValutazioneSchema], default: [] },
-    /** Media rating ticket web (stelle 1–5): sum/count. Si azzera al depex / ladder reset. */
-    webTicketRatingSum: { type: Number, default: 0 },
+        webTicketRatingSum: { type: Number, default: 0 },
     webTicketRatingCount: { type: Number, default: 0 },
     partnerCount: { type: Number },
     partnerRedeemSpend: { type: Number, default: 0 },
-    /** Reset score attivo sul server (ruolo PM rimosso); lo storico partnerActions resta. */
-    partnerServerResetAt: { type: Date, default: null },
+        partnerServerResetAt: { type: Date, default: null },
     managerId: { type: String },
     partnerActions: { type: [staffPartnerActionSchema] },
     partnerMilestoneDmSent: { type: [Number], default: [] },
@@ -396,11 +382,9 @@ const activityUserProfileSchema = new Schema(
         lastAction: { type: String, default: null },
         activeStrikeReasons: { type: [String], default: [] },
         reasons: { type: [String], default: [] },
-        /** Conteggio timeout AutoMod per famiglia regola (chiavi tipo "2_4") */
-        regolaTimeoutStrikes: { type: Schema.Types.Mixed, default: {} },
+                regolaTimeoutStrikes: { type: Schema.Types.Mixed, default: {} },
       },
-      /** Storico case compact. */
-      modCases: { type: [modCaseEntrySchema], default: [] },
+            modCases: { type: [modCaseEntrySchema], default: [] },
       postUnmuteRolesReconciledAt: { type: Date, default: null },
     },
     profile: {
@@ -471,8 +455,7 @@ const activityUserProfileSchema = new Schema(
             totalExp: { type: Number, default: 0 },
             weeklyExp: { type: Number, default: 0 },
             weeklyKey: { type: String, default: "" },
-            /** Copia alla domenica 21 (reset): punteggio della settimana appena chiusa, per embed/refresh dopo azzeramento. */
-            prevWeekExp: { type: Number, default: 0 },
+                        prevWeekExp: { type: Number, default: 0 },
             prevWeekKey: { type: String, default: "" },
             currentStreak: { type: Number, default: 0 },
             bestStreak: { type: Number, default: 0 },
@@ -483,21 +466,17 @@ const activityUserProfileSchema = new Schema(
         lastMessageId: { type: String, default: null },
         lastSentAt: { type: Date, default: null },
         hasLink: { type: Boolean, default: false },
-        /** Scadenza wall-clock rimozione Fan (sopravvive a offline/restart). */
-        removalDueAt: { type: Date, default: null },
+                removalDueAt: { type: Date, default: null },
       },
       countingRestoreLastDayKey: { type: String, default: null },
       countingChannelBanUntil: { type: Date, default: null },
       serverBoostAnnouncedSlotCount: { type: Number, default: null, min: 0 },
-      /** Snapshot ruoli pre-mute (sostituisce la collection comtimeoutrolesnapshots). */
-      muteRoleSnapshot: {
+            muteRoleSnapshot: {
         roleIds: { type: [String], default: [] },
         at: { type: Date, default: null },
       },
-      /** Totale secondi in stanza voice come visitatore (ex collection stanzauservoicetotals). */
-      stanzaVoiceTotalSeconds: { type: Number, default: 0, min: 0 },
-      /** Dopo leave: snapshot ID Discord da ripulire quando scade la finestra di restore (sostituisce customperksdiscordcleanupqueues). */
-      customPerksDiscordCleanup: {
+            stanzaVoiceTotalSeconds: { type: Number, default: 0, min: 0 },
+            customPerksDiscordCleanup: {
         runAt: { type: Date, default: null },
         roleId: { type: String, default: null },
         secondaryRoleId: { type: String, default: null },
@@ -554,13 +533,11 @@ const activityUserProfileSchema = new Schema(
         customRoleEligibilityLostAt: { type: Date, default: null },
         expiresAt: { type: Date, default: null },
       },
-      /** Premi contest (es. 2° posto disegni: sblocco sezioni Custom Role/Voc in +profile senza ruolo Discord). */
-      contestPrizes: {
+            contestPrizes: {
         disegniSecondPlaceUnlock: { type: Boolean, default: false },
         disegniSecondPlaceEventKey: { type: String, default: null },
         disegniSecondPlaceAt: { type: Date, default: null },
-        /** VIP contest: rimozioni programmate (prima in `weeklycontestmetas.finalePrizeRoleRemovals`). */
-        finalePendingRoleRemovals: { type: [contestFinalePendingRoleRemovalEntrySchema], default: [] },
+                finalePendingRoleRemovals: { type: [contestFinalePendingRoleRemovalEntrySchema], default: [] },
       },
       rankCard: {
         type: Schema.Types.Mixed,
@@ -589,8 +566,7 @@ const activityUserProfileSchema = new Schema(
       siteNotifPrefs: {
         mutedKinds: { type: [String], default: [] },
       },
-      /** Preferenze UI chrome sito (musica, kick pip) — sync PC/telefono. */
-      siteChromePrefs: {
+            siteChromePrefs: {
         type: Schema.Types.Mixed,
         default: () => ({}),
       },
@@ -630,8 +606,7 @@ const activityUserProfileSchema = new Schema(
         dmSent: { type: Boolean, default: false },
         dmFailed: { type: Boolean, default: false },
       },
-      /** Economia server (Vinili/Caffè) + sessioni GUI (es. slots bank). Mixed: sotto-chiavi dinamiche. */
-      economy: {
+            economy: {
         type: Schema.Types.Mixed,
         default: () => ({}),
       },
@@ -656,8 +631,7 @@ const activityUserProfileSchema = new Schema(
             type: Schema.Types.Mixed,
             default: () => ({}),
           },
-          /** Boost consumabili personali (housePoints/exp): itemId, expiresAt, … */
-          consumableBoosts: {
+                    consumableBoosts: {
             type: Schema.Types.Mixed,
             default: () => ({}),
           },
@@ -674,8 +648,7 @@ const activityUserProfileSchema = new Schema(
             cooldownUntil: { type: Date, default: null },
             lastRewardAt: { type: Date, default: null },
           },
-          /** Premi timed fine evento (VIP+/VIP/Donator 30g): house + memberTop. */
-          finaleRoleRewards: {
+                    finaleRoleRewards: {
             type: Schema.Types.Mixed,
             default: () => ({}),
           },
@@ -683,10 +656,8 @@ const activityUserProfileSchema = new Schema(
       },
     },
     staff: { type: staffEmbeddedSchema },
-    /** Append-only: `staff.rolesHistory` viene fuso qui prima di `$unset staff` al depex, per regole (es. top weekly) che devono vedere lo storico ruoli. */
-    staffRolesHistoryRetention: { type: [staffRolesHistoryEntrySchema], default: [] },
-    /** Dopo leave con ruolo staff/PM: fino a questa data `staff` resta nel DB; poi purge automatico se non rippexato. */
-    staffPendingPurgeAt: { type: Date, default: null },
+        staffRolesHistoryRetention: { type: [staffRolesHistoryEntrySchema], default: [] },
+        staffPendingPurgeAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -714,8 +685,7 @@ const userLeaveBackupSchema = new Schema(
     userId: { type: String, required: true, index: true },
     backupDoc: { type: Schema.Types.Mixed, default: null },
     restoreRoleIds: { type: [String], default: [] },
-    /** Ruoli RESTORE_ON_REJOIN (stessa TTL del backup). */
-    rejoinTrackedRoleIds: { type: [String], default: [] },
+        rejoinTrackedRoleIds: { type: [String], default: [] },
     leaveDepexMessages: {
       type: [
         new Schema(
@@ -736,7 +706,6 @@ const userLeaveBackupSchema = new Schema(
 userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-/** Aggregati orari per guild (+server / contest): un solo documento per guildId, ore in `hours`. */
 const activityGuildHourlySchema = new Schema(
   {
     guildId: { type: String, required: true },
@@ -746,7 +715,6 @@ const activityGuildHourlySchema = new Schema(
 );
 activityGuildHourlySchema.index({ guildId: 1 }, { unique: true, name: "activityGuildHourly_guildId_unique" });
 
-/** Unifica le vecchie collection site* (notifiche, cooldown ruoli, recensioni, suggerimenti, pagamenti). */
 const SITE_DOCUMENT_TYPE = Object.freeze({
   IN_APP_NOTIFICATION: "in_app_notification",
   ROLE_REQUEST_COOLDOWN: "role_request_cooldown",
@@ -768,14 +736,10 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   HOGWARTS_MINIGAME_SPAWN_WINDOW: "hogwarts_minigame_spawn_window",
   HOGWARTS_HOUSE_CHANNEL_MINIGAME_SCHEDULER: "hogwarts_house_channel_minigame_scheduler",
   HOGWARTS_SERATA_FILM_LB_PUBLISH: "hogwarts_serata_film_lb_publish",
-  /** Ping ruolo minigioco già inviato (anti doppio ping al restart mid-spawn). */
-  MINIGAME_ROLE_PING: "minigame_role_ping",
-  /** Sostituisce la collection countingrestoretokens. */
-  COUNTING_RESTORE_TOKEN: "counting_restore_token",
-  /** Web Push: una riga per endpoint browser (chiavi VAPID). */
-  WEB_PUSH_SUBSCRIPTION: "web_push_subscription",
-  /** Inbox staff: candidature, appelli, resoconti (e mirror pause). */
-  STAFF_WORKFLOW: "staff_workflow",
+    MINIGAME_ROLE_PING: "minigame_role_ping",
+    COUNTING_RESTORE_TOKEN: "counting_restore_token",
+    WEB_PUSH_SUBSCRIPTION: "web_push_subscription",
+    STAFF_WORKFLOW: "staff_workflow",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -817,8 +781,7 @@ const siteDocumentSchema = new Schema(
     guildId: { type: String, default: "" },
     userId: { type: String, default: "", index: true },
 
-    /** Un solo documento per userId: inbox notifiche in-app (array `inAppNotifItems`). */
-    inAppNotifAggregate: { type: Boolean, default: false, index: true },
+        inAppNotifAggregate: { type: Boolean, default: false, index: true },
     inAppNotifItems: { type: [inAppNotifItemSchema], default: undefined },
 
     title: { type: String, trim: true, maxlength: 120 },
@@ -833,16 +796,14 @@ const siteDocumentSchema = new Schema(
     ownerId: { type: String, default: null, index: true },
     lastRequestedAt: { type: Date, default: null },
     cooldownUntil: { type: Date, default: null, index: true },
-    /** Pending site role request (site-api ↔ gateway). */
-    requestToken: { type: String, default: "", index: true },
+        requestToken: { type: String, default: "", index: true },
     expiresAt: { type: Date, default: null, index: true },
     dmChannelId: { type: String, default: "", trim: true, maxlength: 32 },
     dmMessageId: { type: String, default: "", trim: true, maxlength: 32 },
     reason: { type: String, default: "", trim: true, maxlength: 500 },
 
     reviewKind: { type: String, default: null, trim: true, maxlength: 16 },
-    /** Lingua del testo recensione: "it" | "en" (usata soprattutto per reviewKind bot). */
-    contentLang: { type: String, default: null, trim: true, maxlength: 8 },
+        contentLang: { type: String, default: null, trim: true, maxlength: 8 },
     staffUserId: { type: String, default: null, index: true },
     rating: { type: Number, min: 1, max: 5 },
     content: { type: String, trim: true, maxlength: 2000 },
@@ -856,12 +817,9 @@ const siteDocumentSchema = new Schema(
     serverReplyAuthorId: { type: String, default: "" },
 
     status: { type: String, default: null, trim: true, maxlength: 24 },
-    /** bot_feedback: "suggestion" | "bug" */
-    feedbackKind: { type: String, default: null, trim: true, maxlength: 24 },
-    /** bot_feedback bug accettato: missione/badge già conteggiata (idempotenza). */
-    missionRewardGrantedAt: { type: Date, default: null },
-    /** Public image URLs (bot feedback attachments). */
-    imageUrls: { type: [String], default: undefined },
+        feedbackKind: { type: String, default: null, trim: true, maxlength: 24 },
+        missionRewardGrantedAt: { type: Date, default: null },
+        imageUrls: { type: [String], default: undefined },
     staffReason: { type: String, default: "", trim: true, maxlength: 1000 },
     decidedAt: { type: Date, default: null },
     comments: { type: [siteSuggestionCommentSchema], default: [] },
@@ -884,18 +842,15 @@ const siteDocumentSchema = new Schema(
     rawCapture: { type: Schema.Types.Mixed, default: null },
     rawWebhook: { type: Schema.Types.Mixed, default: null },
 
-    /** Annuncio smistamento in canale casata (dedupe persistente su Mongo). */
-    houseAnnounceAt: { type: Date, default: null },
+        houseAnnounceAt: { type: Date, default: null },
     houseAnnounceHouseId: { type: String, default: "", trim: true, maxlength: 24 },
 
-    /** Web Push subscription (browser Push API). */
-    pushEndpoint: { type: String, default: "", trim: true, maxlength: 2048 },
+        pushEndpoint: { type: String, default: "", trim: true, maxlength: 2048 },
     pushP256dh: { type: String, default: "", trim: true, maxlength: 512 },
     pushAuth: { type: String, default: "", trim: true, maxlength: 256 },
     pushUserAgent: { type: String, default: "", trim: true, maxlength: 300 },
 
-    /** staff_workflow: coda inbox (pause|candidature|appelli|resoconti). */
-    workflowQueue: { type: String, default: "", trim: true, maxlength: 24, index: true },
+        workflowQueue: { type: String, default: "", trim: true, maxlength: 24, index: true },
     workflowKind: { type: String, default: "", trim: true, maxlength: 32 },
     workflowType: { type: String, default: "", trim: true, maxlength: 32 },
     workflowMessageId: { type: String, default: "", trim: true, maxlength: 32, index: true },
@@ -903,8 +858,7 @@ const siteDocumentSchema = new Schema(
     workflowPauseId: { type: String, default: "", trim: true, maxlength: 32, index: true },
     workflowRoleId: { type: String, default: "", trim: true, maxlength: 32 },
     workflowActionKey: { type: String, default: "", trim: true, maxlength: 48 },
-    /** staff_workflow resoconti: domenica di chiusura ciclo (YYYY-MM-DD, Europe/Rome). */
-    workflowWeekKey: { type: String, default: "", trim: true, maxlength: 16, index: true },
+        workflowWeekKey: { type: String, default: "", trim: true, maxlength: 16, index: true },
     workflowFields: { type: Schema.Types.Mixed, default: null },
     workflowDecidedBy: { type: String, default: "", trim: true, maxlength: 32 },
     workflowDecidedByName: { type: String, default: "", trim: true, maxlength: 120 },
@@ -974,8 +928,6 @@ siteDocumentSchema.index(
   { docType: 1, guildId: 1, staffUserId: 1, createdAt: -1 },
   { partialFilterExpression: { docType: SITE_DOC.REVIEW, reviewKind: "staff" } },
 );
-// Nomi espliciti: evita warning Mongoose "Duplicate schema index" se lo stesso
-// key pattern venisse registrato anche altrove (partial filter diversi).
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, createdAt: -1 },
   {

@@ -1,7 +1,3 @@
-/*!
- * Drain coda voti Discadia/Top.gg (Mongo + Discord REST).
- * Sopravvive ai restart di `bots`.
- */
 const mongoose = require("mongoose");
 const {
   loadDotEnv,

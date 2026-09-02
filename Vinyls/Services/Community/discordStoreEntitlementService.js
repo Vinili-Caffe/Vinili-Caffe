@@ -1,10 +1,3 @@
-/**
- * Discord Store entitlement handling — DISATTIVATO.
- * Migrazione completata: Premium/Donator/VIP/VIP+ ora si acquistano con crediti
- * (vedi premiumCreditsService.js + tenantPremium.revokeAllPremiumBySource).
- * Le funzioni restano esportate come no-op per non rompere i require/eventi esistenti
- * (entitlementCreate/Delete/Update, guildCreate, guildMemberAdd, ready.js).
- */
 
 function entitlementIsActive() {
   return false;

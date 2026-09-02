@@ -33,32 +33,20 @@ class PcmRingBuffer {
     this.buffer = Buffer.alloc(this.capacity);
     this.head = 0;
     this.size = 0;
-    /** @type {number} wall-clock of last PCM write; 0 until first real audio */
-    this.lastWriteAt = 0;
+        this.lastWriteAt = 0;
   }
 
-  /**
-   * Discord only sends Opus while speaking. Without silence padding, each user
-   * ring is compacted speech — mixing then right-aligns tracks and other voices
-   * land on the wrong timeline (often sounding like “only my voice”).
-   *
-   * Opus frames are ~20ms. Padding every inter-packet gap (~20ms) would insert
-   * one silence frame per audio frame → 2× slow-mo + crackle. Only pad when the
-   * gap is clearly a real pause in speaking.
-   */
-  padSilenceToNow() {
+    padSilenceToNow() {
     if (!this.lastWriteAt) return;
     const now = Date.now();
     const elapsedMs = now - this.lastWriteAt;
-    // >~2 frames of jitter = user stopped talking (or long network gap).
-    const MIN_SILENCE_GAP_MS = 50;
+        const MIN_SILENCE_GAP_MS = 50;
     if (elapsedMs < MIN_SILENCE_GAP_MS) return;
     let silenceBytes = Math.floor((elapsedMs / 1000) * PCM_BYTES_PER_SEC);
     const sampleBytes = PCM_CHANNELS * 2;
     silenceBytes -= silenceBytes % sampleBytes;
     if (silenceBytes <= 0) return;
-    // Cap to one ring fill — older data is already out of the capture window.
-    const toWrite = Math.min(silenceBytes, this.capacity);
+        const toWrite = Math.min(silenceBytes, this.capacity);
     this._writeRaw(Buffer.alloc(toWrite));
     this.lastWriteAt = now;
   }
@@ -116,22 +104,15 @@ function pcmBufferHasAudio(buffer) {
   return false;
 }
 
-/** Soft-clip float sample to int16. */
 function softClipSample(sample) {
   const x = sample / 32768;
-  // tanh-ish limiter: keeps peaks under control without hard brickwall crunch
-  const y = Math.tanh(x * 1.15);
+    const y = Math.tanh(x * 1.15);
   const out = Math.round(y * 32767);
   if (out > 32767) return 32767;
   if (out < -32768) return -32768;
   return out;
 }
 
-/**
- * Mix multi-user PCM.
- * Avoid averaging silent padded tracks (that made 1 speaker / N users → thin/quiet clips).
- * Sum active voices with soft limiting, then peak-normalize.
- */
 function mixPcmBuffers(buffers) {
   const tracks = buffers.filter((buf) => buf?.length);
   if (!tracks.length) return Buffer.alloc(0);
@@ -161,8 +142,7 @@ function mixPcmBuffers(buffers) {
       floats[i / 2] = 0;
       continue;
     }
-    // Mild attenuation only when voices overlap, not while others are silent.
-    floats[i / 2] = active > 1 ? sum / Math.sqrt(active) : sum;
+        floats[i / 2] = active > 1 ? sum / Math.sqrt(active) : sum;
   }
 
   let peak = 1;

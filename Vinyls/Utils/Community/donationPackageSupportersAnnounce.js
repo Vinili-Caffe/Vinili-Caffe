@@ -84,7 +84,7 @@ function buildDonationPackageEmbed(tier, member, isPurchase = false) {
       `<:pinkstar:1470064804835229768> Permesso di mandare **sticker ed emoji** di altri server\n` +
       `<a:reddiamond:1443652837346377841> Bypass dei requisiti nei **giveaway**\n` +
       `<:moon:1470064812615667827> Permesso di cambiare il tuo **nickname**\n` +
-      `<:blueflash:1470064803157643468> Sblocchi i **COLORI PLUS** in \`+profile\`\n` +
+      `<:blueflash:1470064803157643468> Sblocchi i **COLORI PLUS** in [profilo sul sito](https://www.viniliecaffe.it/personalizza/)\n` +
       `<a:reddiamond:1443652837346377841> Sblocchi i comandi \`+quote\`, \`+repost\` e \`+myrepost\`\n` +
       "<:exp:1470067108543987846> X4 EXP boost\n" +
       "\n" +
@@ -252,8 +252,7 @@ function donationAnnounceBlobMatchesTier(blob, tier) {
     return /PACCHETTO\s+VIP\+/i.test(text) || /HAI RICEVUTO IL RUOLO VIP\+/i.test(text);
   }
   if (tier === "vip") {
-    // VIP ma non VIP+
-    return /PACCHETTO\s+VIP(?!\+)/i.test(text) || /HAI RICEVUTO IL RUOLO VIP(?!\+)/i.test(text);
+        return /PACCHETTO\s+VIP(?!\+)/i.test(text) || /HAI RICEVUTO IL RUOLO VIP(?!\+)/i.test(text);
   }
   if (tier === "donator") {
     return /PACCHETTO\s+DONATOR/i.test(text) || /HAI RICEVUTO IL RUOLO DONATOR/i.test(text);
@@ -306,8 +305,7 @@ async function recoverDonationPackageAnnouncesOnStartup(client, opts = {}) {
     const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
     if (!member?.roles?.cache?.has(rid)) continue;
     const bestTier = tierForMemberRoles(member) || tier;
-    // Solo announce dopo questo role-add (evita di saltare per un VIP+/VIP vecchio di settimane).
-    const roleAddMs = Number(row.createdMs || 0);
+        const roleAddMs = Number(row.createdMs || 0);
     const embedSinceMs = Math.max(0, (roleAddMs || Date.now()) - 5 * 60 * 1000);
     const exists = await botSupportersEmbedExistsForUser(channel, uid, botId, embedSinceMs, (blob) =>
       donationAnnounceBlobMatchesTier(blob, bestTier),

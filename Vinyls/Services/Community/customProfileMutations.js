@@ -61,8 +61,6 @@ function resolveCustomEmojiFromValue(value) {
   return null;
 }
 
-// ─────────────────────────────────── CUSTOM ROLE ───────────────────────────────────
-
 async function createCustomRole({ client, guild, member, ownerId, slot = "primary" }) {
   if (!guild || !member) return { ok: false, reason: "server_missing" };
   const targetSlot = String(slot || "primary").toLowerCase() === "secondary" ? "secondary" : "primary";
@@ -182,14 +180,12 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
   if (!guild || !roleId) return { ok: false, reason: "invalid_params" };
   let role = guild.roles.cache.get(roleId) || (await guild.roles.fetch(roleId).catch(() => null));
   if (!role || typeof role.edit !== "function") {
-    // Alcuni fetch restituiscono strutture non-Role: riprova da cache dopo fetch forzato.
-    role = await guild.roles.fetch(roleId, { force: true }).catch(() => null);
+        role = await guild.roles.fetch(roleId, { force: true }).catch(() => null);
   }
   if (!role || typeof role.edit !== "function") return { ok: false, reason: "role_not_found" };
 
   const colorMode = String(mode || "solid").toLowerCase();
-  // Accetta #RGB / #RRGGBB, toglie spazi/ZWSP e caratteri spuri (copy-paste).
-  const norm = (raw) => {
+    const norm = (raw) => {
     let s = String(raw || "")
       .trim()
       .replace(/[\s\u200b\u200c\u200d\ufeff]/g, "");
@@ -240,8 +236,7 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
     return edited ? { ok: true, message: "Gradiente aggiornato." } : { ok: false, reason: "edit_failed" };
   }
 
-  // Solid
-  const h = norm(hex);
+    const h = norm(hex);
   if (!/^#[0-9a-fA-F]{6}$/.test(h)) {
     return { ok: false, reason: "invalid_hex" };
   }
@@ -303,10 +298,6 @@ async function removeCustomRoleMember({ guild, ownerId, roleId, memberId }) {
   return removed ? { ok: true } : { ok: false, reason: "remove_failed" };
 }
 
-/**
- * Aggiunge un membro al ruolo custom inviando una richiesta in DM (come su Discord).
- * Il ruolo viene assegnato solo se l'utente accetta.
- */
 async function addCustomRoleMember({ client, guild, ownerId, roleId, memberId }) {
   if (!guild || !roleId || !memberId) return { ok: false, reason: "invalid_params" };
   if (String(memberId) === String(ownerId)) {
@@ -354,8 +345,6 @@ async function addCustomRoleMember({ client, guild, ownerId, roleId, memberId })
     message: "Richiesta inviata in DM: il ruolo verrà assegnato solo se l'utente accetta.",
   };
 }
-
-// ─────────────────────────────────── CUSTOM VOC ───────────────────────────────────
 
 async function createCustomVoc({ client, guild, member, ownerId }) {
   if (!guild || !member) return { ok: false, reason: "server_missing" };
@@ -456,8 +445,7 @@ async function renameCustomVoc({ guild, ownerId, baseName }) {
 
   const parsedCurrent = parseCustomVocName(channel.name || "");
   const preservedEmoji = parsedCurrent.emoji || vocDoc?.customVocEmoji || "🎧";
-  // Se l'utente ha incollato il nome intero (emoji+separatore), ripulisci al solo base.
-  const rawIn = String(baseName || "").trim();
+    const rawIn = String(baseName || "").trim();
   const parsedIn = parseCustomVocName(rawIn);
   const cleanedBase = sanitizeVoiceBaseName(parsedIn.baseName || rawIn) || parsedCurrent.baseName || "privata";
   const nextName = buildCustomVocName(preservedEmoji, cleanedBase);
@@ -510,8 +498,7 @@ async function setCustomVocEmoji({ guild, ownerId, emoji }) {
     return { ok: true, message: "Emoji vocale aggiornata.", emoji: normalized };
   } catch (err) {
     const code = Number(err?.code || err?.status || 0);
-    // L'emoji è già in DB: se Discord rate-limita il rename, non mentire con "ok" generico.
-    if (code === 429 || /rate.?limit/i.test(String(err?.message || ""))) {
+        if (code === 429 || /rate.?limit/i.test(String(err?.message || ""))) {
       return {
         ok: false,
         reason: "discord_rate_limit",
@@ -542,8 +529,7 @@ async function addCustomVocMember({ guild, ownerId, memberId }) {
   const target = await guild.members.fetch({ user: memberId, force: true }).catch(() => null);
   if (!target) return { ok: false, reason: "member_not_found" };
 
-  // create/edit con fallback (10009 Unknown Overwrite): stessa logica di +profile / customVocPermissionsService.
-  const ok = await applyOverwrite(
+    const ok = await applyOverwrite(
     channel,
     memberId,
     CUSTOM_VOC_MEMBER_PERMS,
@@ -551,8 +537,7 @@ async function addCustomVocMember({ guild, ownerId, memberId }) {
     OverwriteType.Member,
   );
   if (!ok) {
-    // applyOverwrite ritorna false anche se i permessi erano già ok — verifica overwrite presente.
-    const existing = channel.permissionOverwrites?.cache?.get?.(String(memberId));
+        const existing = channel.permissionOverwrites?.cache?.get?.(String(memberId));
     if (existing) return { ok: true, message: "Accesso già presente." };
     return { ok: false, reason: "edit_failed" };
   }
@@ -580,8 +565,7 @@ async function removeCustomVocMember({ guild, ownerId, memberId }) {
     .then(() => true)
     .catch((err) => {
       const code = Number(err?.code || 0);
-      // Già assente = ok
-      if (code === 10009) return true;
+            if (code === 10009) return true;
       global.logger?.warn?.("[customProfile] removeCustomVocMember failed:", code, err?.message || err);
       return false;
     });

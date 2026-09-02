@@ -115,7 +115,7 @@
   "notify_sentRecorded": "<:success:1461731530333229226> Avisering skickad och sparad i profilen.",
   "profile_userNotFound": "<:vegax:1443934876440068179> Användaren hittades inte.",
   "profile_botNotAllowed": "❌ Du kan inte se en bots **profil**!",
-  "profile_tenantPmOnly": "<:vegax:1443934876440068179> På denna server är `+profile` tillgängligt för dig eller Partner Managers.",
+  "profile_tenantPmOnly": "<:vegax:1443934876440068179> På denna server är <a href=\"/personalizza/\" class=\"vc-sponsor-code\">profilo sul sito</a> tillgängligt för dig eller Partner Managers.",
   "admin_denied": "<:vegax:1443934876440068179> Endast **serverägaren**, användare med **Administratör** eller **Hantera server** kan använda denna funktion.",
   "admin_notYourPanel": "Denna panel tillhör inte dig.",
   "admin_cancelled": "Åtgärden avbröts.",

@@ -769,9 +769,7 @@ async function resolveStaffResocontoApplyExecution(guild, payload) {
     };
   }
 
-  // Scelta esplicita dal menu dopo la X (Pex/Depex/Val+/Val-/Nulla): non ricalcolare
-  // il piano automatico, altrimenti "Nulla" viene sovrascritto da un Pex in coda e apre Motivo Pex.
-  if (payload?.explicitChoice === true || String(payload?.actionKey || "") === "nl") {
+      if (payload?.explicitChoice === true || String(payload?.actionKey || "") === "nl") {
     const actionKey = String(payload.actionKey || "").trim();
     if (actionKey === "nl") {
       return {
@@ -1212,11 +1210,6 @@ function buildWebResocontoAlternatives(kind) {
   ];
 }
 
-/**
- * Accetta/Rifiuta resoconto dal sito (stessa logica Discord).
- * reject senza overrideActionKey = sola chiusura ("azione negata").
- * reject/accept con overrideActionKey = azione esplicita (come menu dopo Rifiuta su Discord).
- */
 async function decideResocontoFromWeb(guild, actorMember, opts = {}) {
   const action = String(opts.action || "").trim().toLowerCase();
   const messageId = String(opts.messageId || "").trim();
@@ -1361,8 +1354,7 @@ async function decideResocontoFromWeb(guild, actorMember, opts = {}) {
     }
   };
 
-  // Rifiuta senza alternativa → chiudi come "azione negata" (senza Pex/Depex/VP).
-  if (action === "reject" && !overrideActionKey) {
+    if (action === "reject" && !overrideActionKey) {
     const editedMsg = await appendOutcomeToMessage(guild, channelId, messageId, actorMember.id, false, "");
     const syncedItem = await markWorkflow("rejected", decisionLabel("", true), "", editedMsg);
     void onResocontoOutcomeRecorded(guild, channel, actorMember.id, accessPayload).catch(() => null);

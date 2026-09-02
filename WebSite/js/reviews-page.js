@@ -1,7 +1,6 @@
 (function () {
   "use strict";
-  /* siteSnappyApi1 */
-  var ACCESS_TOKEN_KEY = "vc_discord_access_token";
+    var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var state = {
     payload: null,
@@ -270,6 +269,7 @@
       .then(parseJsonResponse)
       .then(function (body) {
         if (!body || body.ok !== true) return;
+        setStatus("", false);
         var fp = reviewsPayloadFingerprint(body);
         if (fp && fp === state.renderFingerprint && !state.replyOpenId) {
           state.payload = body;
@@ -348,6 +348,7 @@
   }
 
   var statusTimer = null;
+  var fetchPayloadInFlight = null;
   var STATUS_AUTO_MS = 6000;
 
   function clearStatusTimer() {
@@ -410,7 +411,11 @@
       '<div class="vc-reviews-card__head">' +
       '<div class="vc-reviews-card__author">' +
       (review.authorAvatarUrl
-        ? '<img class="vc-reviews-card__avatar" src="' + esc(review.authorAvatarUrl) + '" alt="" width="40" height="40" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" />'
+        ? '<img class="vc-reviews-card__avatar" src="' +
+          esc(review.authorAvatarUrl) +
+          '" alt="" width="40" height="40" loading="eager" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" data-vc-avatar="1"' +
+          (review.userId ? ' data-user-id="' + esc(review.userId) + '"' : "") +
+          " />"
         : '<span class="vc-reviews-card__avatar vc-reviews-card__avatar--fallback"><i class="fa fa-user"></i></span>') +
       '<div><strong>' +
       esc(review.authorName || "Utente") +
@@ -501,8 +506,7 @@
     return parseInt(s.slice(0, 8), 16) * 1000;
   }
 
-  /** Solo creazione: modificare il testo non deve far “saltare” la card in cima. */
-  function dateValueMs(value) {
+    function dateValueMs(value) {
     if (value == null || value === "") return 0;
     if (typeof value === "number" && Number.isFinite(value)) return value > 100000000000 ? value : value * 1000;
     var ms = new Date(value).getTime();
@@ -1027,56 +1031,98 @@
     });
   }
 
+  function reviewsCacheKey() {
+    var url = apiUrl();
+    if (window.VcApiCache && typeof window.VcApiCache.keyFor === "function") {
+      return window.VcApiCache.keyFor(url, {
+        scope: "reviews",
+        auth: getToken(),
+        v: "authorNick2",
+      });
+    }
+    return "reviewsAuthorNick1:" + pageKind();
+  }
+
   function fetchPayload() {
+    if (fetchPayloadInFlight) return fetchPayloadInFlight;
+
     setStatus("", false);
     var url = apiUrl();
-    var cacheKey = "reviews:" + pageKind();
+    var cacheKey = reviewsCacheKey();
+    var loadError = t("reviews.loadError", "Impossibile caricare le recensioni.");
 
     function applyBody(body) {
-      if (!body || body.ok !== true) throw new Error((body && body.message) || t("reviews.loadError", "Impossibile caricare le recensioni."));
+      if (!body || body.ok !== true) throw new Error((body && body.message) || loadError);
       state.payload = body;
       syncDraftFromPayload();
       render();
+      setStatus("", false);
       var wsr = state.reviewsWs ? state.reviewsWs.readyState : 3;
       if (wsr !== 0 && wsr !== 1) {
         connectReviewsWebSocket();
       }
     }
 
-    if (window.VcApiCache) {
-      return window.VcApiCache.fetchWithCache(cacheKey, url, {
-        ttlMs: 60000,
-        staleMs: 600000,
-        fetchInit: { method: "GET", headers: authHeaders(), cache: "no-store" },
-        onStale: function (cached) {
-          if (cached && cached.body && cached.body.ok === true) {
-            try {
-              applyBody(cached.body);
-            } catch (eSt) {}
-          }
-        },
-      })
-        .then(function (out) {
-          if (!out || !out.ok || !out.body) throw new Error(t("reviews.loadError", "Impossibile caricare le recensioni."));
-          applyBody(out.body);
-        })
-        .catch(function (err) {
-          setStatus(err && err.message ? err.message : t("reviews.loadError", "Impossibile caricare le recensioni."), true);
-        });
+    function finishFetch(promise) {
+      fetchPayloadInFlight = promise.finally(function () {
+        if (fetchPayloadInFlight === promise) fetchPayloadInFlight = null;
+      });
+      return fetchPayloadInFlight;
     }
 
-    return fetch(url, {
-      method: "GET",
-      headers: authHeaders(),
-      cache: "no-store",
-    })
-      .then(parseJsonResponse)
-      .then(function (body) {
-        applyBody(body);
+    if (window.VcApiCache) {
+      return finishFetch(
+        window.VcApiCache.fetchWithCache(cacheKey, url, {
+          ttlMs: 60000,
+          staleMs: 120000,
+          persistMs: 15 * 60 * 1000,
+          timeoutMs: 24000,
+          fetchInit: { method: "GET", headers: authHeaders(), cache: "no-store" },
+          onStale: function (cached) {
+            if (cached && cached.body && cached.body.ok === true) {
+              try {
+                applyBody(cached.body);
+              } catch (eSt) {}
+            }
+          },
+        })
+          .then(function (out) {
+            if (!out || !out.body || out.body.ok !== true) {
+              if (state.payload) return state.payload;
+              throw new Error(loadError);
+            }
+            applyBody(out.body);
+            return out.body;
+          })
+          .catch(function (err) {
+            if (state.payload) {
+              setStatus("", false);
+              return state.payload;
+            }
+            setStatus(err && err.message ? err.message : loadError, true);
+          }),
+      );
+    }
+
+    return finishFetch(
+      fetch(url, {
+        method: "GET",
+        headers: authHeaders(),
+        cache: "no-store",
       })
-      .catch(function (err) {
-        setStatus(err && err.message ? err.message : t("reviews.loadError", "Impossibile caricare le recensioni."), true);
-      });
+        .then(parseJsonResponse)
+        .then(function (body) {
+          applyBody(body);
+          return body;
+        })
+        .catch(function (err) {
+          if (state.payload) {
+            setStatus("", false);
+            return state.payload;
+          }
+          setStatus(err && err.message ? err.message : loadError, true);
+        }),
+    );
   }
 
   function submitReview() {
@@ -1110,7 +1156,7 @@
         }
         state.editModalOpen = false;
         if (window.VcFormDrafts) window.VcFormDrafts.clear("reviews:" + pageKind());
-        if (window.VcApiCache) window.VcApiCache.invalidate("reviews:" + pageKind());
+        if (window.VcApiCache) window.VcApiCache.invalidate(reviewsCacheKey());
         setStatus(body.message || t("reviews.saved", "Recensione salvata."), false);
         return fetchPayload();
       })

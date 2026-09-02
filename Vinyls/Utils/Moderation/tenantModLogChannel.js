@@ -11,8 +11,7 @@ function resolveModLogChannelId(guildId) {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
   const mainId = String(IDs.guilds?.main || "").trim();
-  // Solo il main usa i canali catalogo del main: niente spillover da sponsor/tenant.
-  if (mainId && gid === mainId) {
+    if (mainId && gid === mainId) {
     return normalizeModLogChannelId(IDs.channels?.modLogs);
   }
   const fromTenantSettings = normalizeModLogChannelId(getTenantChannelMapSync(gid).modLogs);

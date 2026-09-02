@@ -1,7 +1,6 @@
 const IDs = require("../Config/ids");
 const { collectHogwartsSystemRoleIds } = require("../Web/hogwartsSortingConfig");
 
-/** Marker usato quando l'utente crea un ruolo da +profile. */
 function looksLikeUserCustomRoleName(name) {
   const n = String(name || "");
   return n.includes("༄") || n.startsWith("✦") || n.startsWith("★");
@@ -13,11 +12,10 @@ function stripCustomRoleMarker(name) {
     .trim();
 }
 
-/** Ruoli di sistema che qualcuno ha rinominato con ༄ (es. Bots Ufficiali). */
 const EXTRA_NON_CUSTOM_ROLE_IDS = new Set([
   "1442568888096391260",
   "1442568890075971724",
-  "1472903558792740956", // ༄ Bots Ufficiali
+  "1472903558792740956",
 ]);
 
 const SYSTEMISH_CUSTOM_NAME_RE =
@@ -33,10 +31,6 @@ function collectHogwartsOnlyRoleIds() {
   return collectHogwartsSystemRoleIds(null);
 }
 
-/**
- * Ruoli ammessi su /ruoli e nelle richieste sito:
- * solo custom creati dagli utenti (prefisso ༄ / ✦ / ★), non system/hogwarts/managed.
- */
 function isListableUserCustomRole(role, { blockedRoleIds = null } = {}) {
   if (!role?.id) return false;
   if (role.managed) return false;
@@ -53,8 +47,7 @@ module.exports = {
   stripCustomRoleMarker,
   collectHogwartsOnlyRoleIds,
   collectBlockedSystemRoleIds,
-  /** @deprecated */
-  collectFixedGuildRoleIds: collectBlockedSystemRoleIds,
+    collectFixedGuildRoleIds: collectBlockedSystemRoleIds,
   isListableUserCustomRole,
   EXTRA_NON_CUSTOM_ROLE_IDS,
 };

@@ -335,7 +335,6 @@ function extractUserIdFromText(text) {
   return match ? match[1] : null;
 }
 
-/** Stesso messageId su messageUpdate (embed che si aggiorna): TTL breve faceva ripetere recordBump e slittare il reminder. */
 const BUMP_MESSAGE_DEDUPE_TTL_MS = 48 * 60 * 60 * 1000;
 
 function claimBumpDedupeKey(key, ttlMs = BUMP_MESSAGE_DEDUPE_TTL_MS) {
@@ -386,7 +385,6 @@ function logBumpSkipDebug(tag, message, reason, details = "") {
   } catch (_) { }
 }
 
-/** True se il bot ha già risposto al bump (reply o messaggio di ringraziamento nelle vicinanze). */
 async function hasExistingBumpThanksReply(channel, bumpMessageId, botUserId) {
   if (!channel?.messages?.fetch || !bumpMessageId || !botUserId) return false;
   const bumpId = String(bumpMessageId);
@@ -649,8 +647,7 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   const voteListing = options?.voteListing === "topgg" ? "topgg" : "discadia";
   const voteCooldownMs = getVoteCooldownMs(client, voteListing);
   const userId = String(user?.id || "").trim();
-  // REST/worker: `${user}` → "[object Object]" (niente User#toString di discord.js).
-  const userMention = /^\d{16,22}$/.test(userId) ? `<@${userId}>` : "Utente";
+    const userMention = /^\d{16,22}$/.test(userId) ? `<@${userId}>` : "Utente";
 
   let expValue = 0;
   let resolvedVoteCount = null;
@@ -963,9 +960,7 @@ async function handleDiscadiaBump(message, client) {
   const isLikelyDiscadiaViaAutomation = isAutomatedSource && !looksLikeDisboardSource && (looksLikeDiscadiaSource || (isLikelyCommandChannel && hasBumpSuccessText && hasBumpWord));
   const isLikelyDiscadiaGenericSuccess = isAutomatedSource && !looksLikeDisboardSource && hasBumpSuccessText && (hasBumpWord || isBumpInteraction) && (Boolean(message.webhookId) || isBumpInteraction);
   const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation || isLikelyDiscadiaGenericSuccess;
-  // Fallback: alcuni output Discadia arrivano con formati diversi (bridge/webhook),
-  // ma contengono chiaramente dominio/parola Discadia + testo di successo bump.
-  const isDiscadiaByContentFallback = !looksLikeDisboardSource && hasBumpSuccessText && (hasDiscadiaWord || hasDiscadiaDomain || /\bdiscadia\b/i.test(sourceFingerprint));
+      const isDiscadiaByContentFallback = !looksLikeDisboardSource && hasBumpSuccessText && (hasDiscadiaWord || hasDiscadiaDomain || /\bdiscadia\b/i.test(sourceFingerprint));
   const isBump = !hasFailureWord && hasBumpSuccessText && (isStrictDiscadiaSource || isDiscadiaByContentFallback);
   if (!isBump) {
     const reason = hasFailureWord
@@ -1034,6 +1029,7 @@ async function handleSanzioniChannelMessage(message) {
 
   const content = String(message.content || "");
   const isAutomodTransient =
+    content.includes("AutoMod Discord ha bloccato") ||
     content.includes("AutoMod ha bloccato") ||
     content.includes("Messaggio bloccato da AutoMod");
 
@@ -1056,10 +1052,7 @@ async function handlePauseChannelMessage(message) {
   const isPauseChannel = Boolean(pauseChannelId && String(message.channelId) === pauseChannelId);
   if (!isPauseChannel) return false;
 
-  // Bot notices (annullo/accetta testo) devono riposizionare lo sticky in fondo.
-  // Lo sticky stesso non riposiziona (evita loop). La richiesta Accetta/Rifiuta sì:
-  // serve quando la richiesta arriva da site-api (REST non ripubblica lo sticky).
-  if (message.author?.bot || message.webhookId || message.system) {
+        if (message.author?.bot || message.webhookId || message.system) {
     if (!isPauseStickyPanelMessage(message)) {
       void maybeRepositionPauseSticky(message.channel, message.client).catch(() => null);
     }

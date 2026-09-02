@@ -332,8 +332,7 @@ async function exportClipFromCommand(ctx) {
     if (registered?.ok && registered.boardMessage) {
       boardMsg = registered.boardMessage;
     } else {
-      // Fallback: pubblica senza bottoni piuttosto che perdere la clip.
-      const attachment = new AttachmentBuilder(mp3Path, { name: "clip.mp3" });
+            const attachment = new AttachmentBuilder(mp3Path, { name: "clip.mp3" });
       boardMsg = await postChannel
         .send({
           files: [attachment],

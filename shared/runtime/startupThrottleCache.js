@@ -8,8 +8,7 @@ function ensureCacheDir() {
   try {
     fs.mkdirSync(CACHE_DIR, { recursive: true });
   } catch {
-    // tmp may be read-only
-  }
+      }
 }
 
 function getStatePath(namespace) {
@@ -41,12 +40,6 @@ function writeState(namespace, state) {
   }
 }
 
-/**
- * @param {string} namespace e.g. "vinyls"
- * @param {string} key e.g. "startup-panels"
- * @param {number} ttlMs
- * @returns {{ due: boolean, lastAt: number, ageMs: number }}
- */
 function isStartupThrottleDue(namespace, key, ttlMs) {
   const state = readState(namespace);
   const lastAt = Number(state[key] || 0) || 0;
@@ -89,12 +82,6 @@ function isFullStartupSyncEnabled() {
   return envFlagEnabled("FULL_STARTUP_SYNC");
 }
 
-/**
- * Decide se eseguire un lavoro di startup "pesante ma idempotente".
- * - forceEnv (es. STARTUP_PANELS=1) → sempre
- * - FULL_STARTUP_SYNC → sempre
- * - altrimenti solo se scaduto il TTL
- */
 function shouldRunStartupWork(namespace, key, { ttlMs, forceEnv } = {}) {
   if (forceEnv && envFlagEnabled(forceEnv)) {
     return { run: true, reason: "force_env" };

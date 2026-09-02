@@ -384,8 +384,7 @@ async function createModCaseStore({
   const caseId = cfg.caseCounter;
   const expiresAt = normalizedDurationMs ? new Date(Date.now() + normalizedDurationMs) : null;
 
-  // Un solo mute attivo per utente: ban o nuovo mute chiudono i mute precedenti (il log resta salvato).
-  if (normalizedAction === "BAN" || normalizedAction === "MUTE") {
+    if (normalizedAction === "BAN" || normalizedAction === "MUTE") {
     const closeReason = normalizedAction === "BAN"
       ? "Mute chiuso: utente bannato"
       : "Mute sostituito da nuova sanzione";
@@ -634,10 +633,6 @@ async function findModLogsPage(guildId, userId, skip, perPage) {
   return merged.slice(skip, skip + perPage);
 }
 
-/**
- * Conta azioni di un moderatore. Non scansiona tutta la guild:
- * filtra subito per modId (elemMatch / query legacy).
- */
 async function countModActionsByMod(guildId, modId, action, since) {
   const act = normalizeAction(action);
   const mid = String(modId || "");
@@ -679,10 +674,6 @@ async function countModActionsByMod(guildId, modId, action, since) {
   return n;
 }
 
-/**
- * Una sola passata: conteggi MUTE/BAN/KICK/WARN per finestre 7g / 30g / all.
- * Usato dal profilo staff web (prima faceva 12 full-scan della collection).
- */
 async function summarizeModActionsByModWindows(guildId, modId) {
   const mid = String(modId || "");
   const actions = ["MUTE", "BAN", "KICK", "WARN"];

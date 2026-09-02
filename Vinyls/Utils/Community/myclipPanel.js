@@ -7,7 +7,6 @@ const {
 const { DEFAULT_FOOTER_TEXT } = require("../Embeds/defaultFooter");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
-// Pochi file audio per messaggio: altrimenti payload/edit scoppia.
 const PER_PAGE = 5;
 const PAGE_ACTIONS = new Set(["first", "prev", "next", "last"]);
 const DELETE_BUTTONS_PER_ROW = 5;

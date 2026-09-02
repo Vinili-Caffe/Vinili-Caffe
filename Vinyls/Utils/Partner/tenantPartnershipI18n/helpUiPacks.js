@@ -1,4 +1,3 @@
-/** Traduzioni +help tenant, catalogo partnership, +ping, +invite, +description. */
 function pack(p) {
   return p;
 }
@@ -58,6 +57,8 @@ const HELP_UI_EN = pack({
   help_cmd_ctx_remove_points_desc: "Removes partnership points from a Partner Manager.",
   help_cmd_profile_desc: "Opens the partnership profile of a Partner Manager.",
   help_cmd_profile_syntax: "(@user)",
+  help_cmd_profile_site_desc: "Opens the partnership profile on the website dashboard.",
+  help_cmd_profile_site_syntax: "(dashboard URL)",
   help_cmd_badges_desc: "Lists the partnership badges unlocked by a Partner Manager.",
   help_cmd_badges_syntax: "(@user)",
   help_cmd_history_desc: "Shows the history of recent partnerships.",
@@ -128,6 +129,8 @@ const HELP_UI_IT = pack({
   help_cmd_ctx_remove_points_desc: "Rimuove punti partnership a un Partner Manager.",
   help_cmd_profile_desc: "Apre il profilo partnership di un Partner Manager.",
   help_cmd_profile_syntax: "(@utente)",
+  help_cmd_profile_site_desc: "Apre il profilo partnership dalla dashboard del sito.",
+  help_cmd_profile_site_syntax: "(URL dashboard)",
   help_cmd_badges_desc: "Elenca i badge partnership sbloccati da un Partner Manager.",
   help_cmd_badges_syntax: "(@utente)",
   help_cmd_history_desc: "Mostra la cronologia delle partnership recenti.",

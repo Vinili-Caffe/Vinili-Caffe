@@ -1,10 +1,3 @@
-/**
- * Picker emoji Discord-like (unicode + custom guild).
- *   VcEmojiPicker.open({ anchor, guildEmojis, preferCustom, onPick })
- *   VcEmojiPicker.close()
- *   VcEmojiPicker.formatCustom({ id, name, animated }) → <:name:id>
- *   VcEmojiPicker.customUrl(id, animated, size)
- */
 (function (global) {
   "use strict";
 
@@ -98,8 +91,7 @@
     var idStr = String(id || "").trim();
     if (!idStr) return "";
     var sz = Number(size) > 0 ? Number(size) : 48;
-    // Discord serve le animate come WebP (?animated=true). I .gif spesso tornano il logo blurple.
-    if (animated) {
+        if (animated) {
       return "https://cdn.discordapp.com/emojis/" + idStr + ".webp?size=" + sz + "&animated=true";
     }
     return "https://cdn.discordapp.com/emojis/" + idStr + ".webp?size=" + sz;
@@ -220,8 +212,7 @@
       return;
     }
     var rect = pending.anchor.getBoundingClientRect();
-    // Se l'ancora esce troppo dallo schermo, chiudi (evita picker "a mezz'aria").
-    if (rect.bottom < 8 || rect.top > window.innerHeight - 8 || rect.right < 8 || rect.left > window.innerWidth - 8) {
+        if (rect.bottom < 8 || rect.top > window.innerHeight - 8 || rect.right < 8 || rect.left > window.innerWidth - 8) {
       closePicker();
       return;
     }
@@ -376,8 +367,7 @@
       var name = String(e.name || "emoji");
       var animated = Boolean(e.animated);
       var markup = formatCustom({ id: id, name: name, animated: animated });
-      // WebP (+animated=true): le .gif Discord spesso tornano il logo blurple.
-      var preview = customUrl(id, animated, 48);
+            var preview = customUrl(id, animated, 48);
       var fullUrl = customUrl(id, animated, 48);
       var loading = eagerFirst && i < start + 24 ? "eager" : "lazy";
       html +=
@@ -421,8 +411,7 @@
     panel.style.position = "fixed";
     panel.style.width = w + "px";
     panel.style.maxHeight = maxH + "px";
-    // Forza reflow e usa l'altezza reale del pannello (non lo spazio vuoto).
-    void panel.offsetHeight;
+        void panel.offsetHeight;
     var h = Math.min(Math.max(panel.offsetHeight || 240, 160), maxH);
     var left = Math.min(Math.max(pad, rect.left + rect.width / 2 - w / 2), window.innerWidth - w - pad);
     var top = rect.top - h - gap;
@@ -461,9 +450,7 @@
         if (!pending) return;
         positionNear(pending.anchor);
       });
-      // Non autofocusare "Cerca…": rubava il focus al box testo (Response / chat).
-      // L'utente clicca Cerca solo quando vuole filtrare.
-      var restore = opts.focusTarget || null;
+                  var restore = opts.focusTarget || null;
       if (restore && typeof restore.focus === "function") {
         try {
           restore.focus({ preventScroll: true });

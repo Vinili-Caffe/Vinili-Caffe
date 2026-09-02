@@ -251,9 +251,7 @@ module.exports = {
     const resolvedClient = client || newMessage?.client || oldMessage?.client;
 
     try {
-      // Confronta i flag publish sul messaggio pre-fetch: un fetch di `previous`
-      // dopo la publish restituisce già Crossposted e il relay non partirebbe.
-      const previousForPublishCheck = oldMessage;
+                  const previousForPublishCheck = oldMessage;
 
       if (previous?.partial) {
         previous = await previous.fetch().catch(() => previous);

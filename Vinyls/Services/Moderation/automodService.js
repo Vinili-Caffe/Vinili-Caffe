@@ -39,7 +39,6 @@ let TIMEOUT_THRESHOLD = 100;
 const ACTION_COOLDOWN_MS = 12_000;
 const ACTION_CHANNEL_LOG_COOLDOWN_MS = 6_000;
 const ACTION_CHANNEL_NOTICE_DELETE_MS = 10_000;
-/** Evita spam @Staff in raid sullo stesso utente (canale sanzioni Discord AutoMod). */
 const NATIVE_STAFF_PING_COOLDOWN_MS = 8_000;
 const RUNTIME_CLEANUP_INTERVAL_MS = 30_000;
 let AUTO_TIMEOUTS_ENABLED = true;
@@ -76,9 +75,9 @@ const MENTION_RULES = {
   roleMentions: { enabled: true, heat: 20 },
   everyoneMentions: { enabled: true, heat: 100 },
 };
-const ATTACHMENT_RULES = { enabled: true, timeoutMs: 0, embeds: { enabled: true, heat: 15 }, images: { enabled: true, heat: 10 }, files: { enabled: true, heat: 15 }, links: { enabled: true, heat: 10 }, stickers: { enabled: true, heat: 15 }, };
-const AUTOMOD_IMAGE_ONLY_MAX_COUNT = 10;
-const AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER = 0.45;
+const ATTACHMENT_RULES = { enabled: true, timeoutMs: 0, embeds: { enabled: true, heat: 12 }, images: { enabled: true, heat: 6 }, files: { enabled: true, heat: 12 }, links: { enabled: true, heat: 10 }, stickers: { enabled: true, heat: 12 }, };
+const AUTOMOD_IMAGE_ONLY_MAX_COUNT = 30;
+const AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER = 0.12;
 const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, crossServerForward: { enabled: true, heat: 100, timeoutMs: 0, }, };
 const AUTOMOD_SCAM_CONFIG = loadAutomodScamConfig();
 TEXT_RULES.linkBlacklist.domains = [...new Set([...(TEXT_RULES.linkBlacklist.domains || []), ...(AUTOMOD_SCAM_CONFIG.domains || [])])];
@@ -89,7 +88,7 @@ const AUTOMOD_HOT_SNAPSHOT_DEBOUNCE_MS = 2000;
 let automodHotSnapshotLoaded = false;
 let automodHotSnapshotTimer = null;
 const SHORTENER_HOSTS = new Set(["bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rebrand.ly", "tiny.cc", "shorturl.at", "goo.gl", "ow.ly", "buff.ly",]);
-const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, crossServerForwards: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, crossServerForward: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 45, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 0.85, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: true, heatMultiplier: 0.6, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["word_blacklist", "mention_everyone", "mention_hour_cap"], }, };
+const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, crossServerForwards: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, crossServerForward: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 100, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, attachmentHeatMultiplier: 0.12, attachmentClusterMax: 100, imageOnlyMaxCount: 30, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: true, heatMultiplier: 0.6, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["word_blacklist", "mention_everyone", "mention_hour_cap"], }, };
 
 function deepMerge(base, override) {
   if (!override || typeof override !== "object") return base;
@@ -839,6 +838,18 @@ function applyProfileHeat(heat, profile) {
   return Number(Math.max(0, scaled).toFixed(2));
 }
 
+function resolveAttachmentHeatScale(profile) {
+  const configured = Number(profile?.attachmentHeatMultiplier);
+  if (!Number.isFinite(configured)) return null;
+  return Math.max(0, Math.min(1, configured));
+}
+
+function resolveImageOnlyMaxCount(profile) {
+  const configured = Number(profile?.imageOnlyMaxCount);
+  if (Number.isFinite(configured) && configured > 0) return Math.floor(configured);
+  return AUTOMOD_IMAGE_ONLY_MAX_COUNT;
+}
+
 function applyHeatFactor(key, heat) {
   const factors = automodRuntimeConfig?.heatFactors || {};
   const base = Number(heat || 0);
@@ -847,9 +858,10 @@ function applyHeatFactor(key, heat) {
   return Number(Math.max(0, base * safeFactor).toFixed(2));
 }
 
-function getHeatCaps() {
+function getHeatCaps(profile = null) {
   const c = automodRuntimeConfig?.heatCaps || {};
   const d = DEFAULT_AUTOMOD_RUNTIME.heatCaps;
+  const profileCap = Number(profile?.attachmentClusterMax);
   return {
     maxPerMessage: Number.isFinite(Number(c.maxPerMessage))
       ? Number(c.maxPerMessage)
@@ -860,9 +872,11 @@ function getHeatCaps() {
     textClusterMax: Number.isFinite(Number(c.textClusterMax))
       ? Number(c.textClusterMax)
       : d.textClusterMax,
-    attachmentClusterMax: Number.isFinite(Number(c.attachmentClusterMax))
-      ? Number(c.attachmentClusterMax)
-      : d.attachmentClusterMax,
+    attachmentClusterMax: Number.isFinite(profileCap)
+      ? profileCap
+      : Number.isFinite(Number(c.attachmentClusterMax))
+        ? Number(c.attachmentClusterMax)
+        : d.attachmentClusterMax,
     mentionClusterMax: Number.isFinite(Number(c.mentionClusterMax))
       ? Number(c.mentionClusterMax)
       : d.mentionClusterMax,
@@ -870,7 +884,7 @@ function getHeatCaps() {
 }
 
 function normalizeViolationsForHeat(violations = [], options = {}) {
-  const caps = getHeatCaps();
+  const caps = getHeatCaps(options?.profile || null);
   const legitConversation = Boolean(options?.legitConversation);
   const mergedByKey = new Map();
   for (const entry of Array.isArray(violations) ? violations : []) {
@@ -1694,8 +1708,7 @@ const SCAM_CRYPTO_PATTERNS = [
   /\b(vyro\s+project|linked to our)\b/i,
   /\b(riftroll|betchoco|nozawin|serowin)\b/i,
   /\b(activate\s+code|special\s+promocode|promocode)\b/i,
-  // Non matchare bare "congratulations" (path GIF tipo laughing-congratulations).
-  /\bcongratulations\b.{0,40}\b(reward|bonus|withdraw|crypto|casino|usdt|gift|nitro)\b/i,
+    /\bcongratulations\b.{0,40}\b(reward|bonus|withdraw|crypto|casino|usdt|gift|nitro)\b/i,
   /\b(your reward has been|reward has been successfully)\b/i,
   /\b(give(?:away|ing)\s+(?:away\s+)?\$?\d[\d,.]*\b)/,
   /\b(promo\s+code|special\s+promo)\b/,
@@ -1713,7 +1726,6 @@ const SCAM_CRYPTO_PATTERNS = [
   /\b7884\s*893\s*099\b/,
 ];
 
-/** Segnali deboli: da soli non bastano (es. selfie + "omg"/"wow"/😳). */
 const SCAM_IMAGE_SOFT_BAIT_PATTERNS = [
   /^omg\b/i,
   /\bwow\b/i,
@@ -1721,7 +1733,6 @@ const SCAM_IMAGE_SOFT_BAIT_PATTERNS = [
   /\b(guarda questo|look at this|check this)\b/i,
 ];
 
-/** Segnali forti tipici degli screenshot scam. */
 const SCAM_IMAGE_STRONG_BAIT_PATTERNS = [
   /\b(free money|guadagn)\b/i,
   /[\u{1F4B0}\u{1F911}\u{1F4B5}]/u,
@@ -1757,8 +1768,7 @@ function detectScamImageBait(message, moderationContent, options = {}) {
   const text = String(moderationContent || "").trim();
   const maxLen = Number(AUTOMOD_SCAM_CONFIG.imageBaitMaxTextLength || 48);
   if (!text || text.length > maxLen) return false;
-  // Pattern/domini scam certi + immagine → sempre
-  if (detectScam(text)) return true;
+    if (detectScam(text)) return true;
 
   const hasStrong = SCAM_IMAGE_STRONG_BAIT_PATTERNS.some((re) => re.test(text));
   const hasSoft = SCAM_IMAGE_SOFT_BAIT_PATTERNS.some((re) => re.test(text));
@@ -1767,30 +1777,22 @@ function detectScamImageBait(message, moderationContent, options = {}) {
   const young = isYoungScamAccount(options);
   const suspicious = Boolean(options.suspicious);
 
-  // Soft bait (omg/wow/😳/"guarda questo"): mai su account maturi; solo young+suspicious
-  if (!hasStrong) {
+    if (!hasStrong) {
     return young && suspicious && text.length <= 16;
   }
 
-  // Strong bait: profilo sospetto, oppure account giovane con caption corta.
-  // Non bannare account maturi solo perché la caption è ≤16 caratteri.
-  if (suspicious) return true;
+      if (suspicious) return true;
   if (young && text.length <= 28) return true;
   const strongHits = SCAM_IMAGE_STRONG_BAIT_PATTERNS.filter((re) => re.test(text)).length;
   return strongHits >= 2 && text.length <= 28;
 }
 
-/** Esclude host tipo `do...lo` (puntini sospensivi) che `URL` accetta ma non sono domini reali. */
 function hostnameHasNoEmptyDnsLabels(hostname) {
   const labels = String(hostname || "").split(".");
   if (labels.length < 2) return false;
   return !labels.some((label) => !label || label.length > 63);
 }
 
-/**
- * Senza schema esplicito, "Italia.Studio" / "futuro.Ma" sono fine frase + nuova parola,
- * non URL (la regex li interpreta come host.tld).
- */
 function isAutomodBareDomainSentenceFalsePositive(raw) {
   const match = String(raw || "").trim().replace(/^[*_~|`]+|[*_~|`]+$/g, "");
   if (!match) return false;
@@ -1798,7 +1800,6 @@ function isAutomodBareDomainSentenceFalsePositive(raw) {
   return /[a-zà-öø-ÿ]\.[A-ZÀ-ÖØ-Þ]/.test(match);
 }
 
-/** TLD accettati solo se il dominio è scritto senza http(s):// (es. example.com). */
 const AUTOMOD_BARE_DOMAIN_TRUSTED_TLDS = new Set([
   "com", "org", "net", "edu", "gov", "mil", "int", "it", "io", "me", "tv", "co", "uk", "de", "fr", "es", "eu",
   "app", "dev", "xyz", "info", "biz", "gg", "ly", "to", "cc", "ws", "fm", "ru", "br", "jp", "cn", "au", "ca",
@@ -1835,7 +1836,6 @@ function extractUrls(content) {
     .map((entry) => entry.url);
 }
 
-/** Esclusi dal conteggio attachment_link (2.4); invite/scam/NSFW/blacklist usano extractUrls completo. */
 function isAutomodMediaEmbedUrl(url) {
   if (!url) return false;
   const host = String(url.hostname || "").toLowerCase();
@@ -1845,16 +1845,11 @@ function isAutomodMediaEmbedUrl(url) {
   if (host === "tenor.googleapis.com" || host.endsWith(".tenor.googleapis.com")) return true;
   if (/(?:^|\.)giphy\.com$/i.test(host)) return true;
   if (/(?:^|\.)gfycat\.com$/i.test(host)) return true;
-  // GIF library (Discord embed / share links) — come Tenor/Giphy.
-  if (/(?:^|\.)klipy\.com$/i.test(host)) return true;
+    if (/(?:^|\.)klipy\.com$/i.test(host)) return true;
   if (/\.(gif|webm|mp4|png|jpe?g|jpeg|webp|avif)(?:\?|#|$)/i.test(path)) return true;
   return false;
 }
 
-/**
- * La regex di extractUrls interpreta "1.30", "2.30min", "8=1.30min" come host finti.
- * Per la sola regola 2.4 (attachment_link) non devono contare come link.
- */
 function isAutomodNumericDecimalFalsePositiveUrl(url) {
   if (!url) return false;
   const host = String(url.hostname || "").toLowerCase().trim();
@@ -1935,10 +1930,38 @@ function isImageAttachment(att) {
 
 async function isNsfwUrl(content, preExtractedUrls = null) {
   if (!TEXT_RULES.nsfwLinks.enabled) return false;
-  const nsfwTokens = ["porn", "xvideos", "xnxx", "xhamster", "hentai", "nsfw", "rule34", "redtube", "youporn", "onlyfans",];
+  const nsfwHostTokens = [
+    "porn",
+    "xvideos",
+    "xnxx",
+    "xhamster",
+    "hentai",
+    "nsfw",
+    "rule34",
+    "redtube",
+    "youporn",
+    "onlyfans",
+    "pornhub",
+    "eporner",
+    "brazzers",
+  ];
+  const nsfwPathTokens = [
+    "xvideos",
+    "xnxx",
+    "xhamster",
+    "hentai",
+    "rule34",
+    "redtube",
+    "youporn",
+    "onlyfans",
+    "pornhub",
+    "eporner",
+    "brazzers",
+  ];
   const shortenerConfig = automodRuntimeConfig?.shorteners || {};
   const urls = Array.isArray(preExtractedUrls) ? preExtractedUrls : extractUrls(content);
   for (const url of urls) {
+    if (isAutomodMediaEmbedUrl(url)) continue;
     let host = String(url.hostname || "").toLowerCase();
     const path = String(url.pathname || "").toLowerCase();
     if (!host) continue;
@@ -1949,8 +1972,8 @@ async function isNsfwUrl(content, preExtractedUrls = null) {
       const expandedHost = await expandShortUrl(url.toString(), shortenerConfig);
       if (expandedHost) host = expandedHost;
     }
-    const haystack = `${host}${path}`;
-    if (nsfwTokens.some((t) => haystack.includes(t))) return true;
+    if (nsfwHostTokens.some((t) => host.includes(t))) return true;
+    if (nsfwPathTokens.some((t) => path.includes(t))) return true;
   }
   return false;
 }
@@ -2343,9 +2366,7 @@ async function detectViolations(message, state, profile) {
     state.normHistory.push({ t: at, c: normalized, id: msgId });
     trimNormHistory(state.normHistory, 18_000, at);
     const ratio = TEXT_RULES.similarMessage.ratio;
-    // Avoid warning on the very first resend of an otherwise normal sentence.
-    // We require at least two prior similar messages, and three for legit-looking chat.
-    const similarThreshold = legitConversation ? 3 : 2;
+            const similarThreshold = legitConversation ? 3 : 2;
     let similarCount = 0;
     const similarIds = [];
     for (const x of state.normHistory) {
@@ -2639,6 +2660,8 @@ async function detectViolations(message, state, profile) {
     const imageCount = attachmentList.filter((att) => isImageAttachment(att)).length;
     const fileCount = Math.max(0, attachmentList.length - imageCount);
     const linkCount = filterUrlsForAttachmentLinkRule(extractedUrls).length;
+    const attachmentScale = resolveAttachmentHeatScale(profile);
+    const imageOnlyMax = resolveImageOnlyMaxCount(profile);
     const isImageOnlyGallery =
       hasMeaningfulTextPayload === false &&
       embedCount === 0 &&
@@ -2646,20 +2669,20 @@ async function detectViolations(message, state, profile) {
       fileCount === 0 &&
       linkCount === 0 &&
       imageCount > 0 &&
-      imageCount <= AUTOMOD_IMAGE_ONLY_MAX_COUNT;
-    const profileKey = String(profile?.key || "");
+      imageCount <= imageOnlyMax;
     const imageHeatMultiplier =
-      profileKey === "media"
-        ? 1
+      attachmentScale != null
+        ? attachmentScale
         : isImageOnlyGallery
           ? AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER
           : 1;
+    const scaleAttachmentHeat = (heat) => (attachmentScale != null ? heat * attachmentScale : heat);
 
     if (ATTACHMENT_RULES.embeds.enabled && embedCount > 0) {
       violations.push({
         key: "attachment_embed",
         heat: profileHeat(
-          embedCount * percentToHeat(ATTACHMENT_RULES.embeds.heat),
+          scaleAttachmentHeat(embedCount * percentToHeat(ATTACHMENT_RULES.embeds.heat)),
           "attachments",
         ),
         info: `${embedCount} embed`,
@@ -2669,9 +2692,9 @@ async function detectViolations(message, state, profile) {
       violations.push({
         key: "attachment_image",
         heat: profileHeat(
-          imageCount *
-          percentToHeat(ATTACHMENT_RULES.images.heat) *
-          imageHeatMultiplier,
+          scaleAttachmentHeat(
+            imageCount * percentToHeat(ATTACHMENT_RULES.images.heat) * imageHeatMultiplier,
+          ),
           "attachments",
         ),
         info: `${imageCount} image`,
@@ -2681,7 +2704,7 @@ async function detectViolations(message, state, profile) {
       violations.push({
         key: "attachment_file",
         heat: profileHeat(
-          fileCount * percentToHeat(ATTACHMENT_RULES.files.heat),
+          scaleAttachmentHeat(fileCount * percentToHeat(ATTACHMENT_RULES.files.heat)),
           "attachments",
         ),
         info: `${fileCount} file`,
@@ -2691,7 +2714,7 @@ async function detectViolations(message, state, profile) {
       violations.push({
         key: "attachment_link",
         heat: profileHeat(
-          linkCount * percentToHeat(ATTACHMENT_RULES.links.heat),
+          scaleAttachmentHeat(linkCount * percentToHeat(ATTACHMENT_RULES.links.heat)),
           "attachments",
         ),
         info: `${linkCount} link`,
@@ -2701,7 +2724,7 @@ async function detectViolations(message, state, profile) {
       violations.push({
         key: "attachment_sticker",
         heat: profileHeat(
-          stickerCount * percentToHeat(ATTACHMENT_RULES.stickers.heat),
+          scaleAttachmentHeat(stickerCount * percentToHeat(ATTACHMENT_RULES.stickers.heat)),
           "attachments",
         ),
         info: `${stickerCount} sticker`,
@@ -2779,17 +2802,12 @@ async function resolveLogChannel(guild) {
   return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
 }
 
-/** Canale alert Discord AutoMod (Send Alert) — stesso di discordAutomodRulesService. */
 async function resolveDiscordNativeAutomodAlertChannel(guild) {
   const channelId = String(IDs.channels?.sanzioniUtenti || "").trim();
   if (!guild || !channelId) return null;
   return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
 }
 
-/**
- * Ping @Staff nel canale sanzioni (non nel thread/canale del messaggio bloccato).
- * Cooldown per utente anti-spam in raid.
- */
 async function pingStaffAutomodAlert(message) {
   const roleId = String(IDs.roles?.Staff || "").trim();
   if (!message?.guild || !roleId) {
@@ -2812,7 +2830,7 @@ async function pingStaffAutomodAlert(message) {
   const where = message.channel ? `${message.channel}` : "un canale";
   try {
     const sent = await channel.send({
-      content: `<@&${roleId}> AutoMod ha bloccato un messaggio di ${who} in ${where}.`,
+      content: `<@&${roleId}> AutoMod Discord ha bloccato un messaggio di ${who} in ${where}.`,
       allowedMentions: { parse: [], roles: [roleId], users: [] },
     });
     return Boolean(sent);
@@ -2840,15 +2858,10 @@ function truncateText(input, max = 700) {
   return text.length > max ? `${text.slice(0, max - 1)}...` : text;
 }
 
-/** Evita che il contenuto utente rompa ``` nel corpo dell'embed. */
 function escapeDiscordTripleBackticks(text) {
   return String(text || "").replace(/```/g, "`\u200b``");
 }
 
-/**
- * Elenco URL contati per la regola attachment_link (stesso pipeline di detectViolations:
- * testo dopo strip di citazioni `>` e blocchi codice).
- */
 function buildAutomodAttachmentLinkEvidenceLine(message, violations = []) {
   if (!violations.some((v) => String(v?.key || "") === "attachment_link")) return null;
   const mod = stripQuotedAndCodeText(String(message?.content || ""));
@@ -3546,7 +3559,7 @@ async function runAutoModMessage(message) {
   decayHeat(state);
   const rawViolations = await detectViolations(message, state, profile);
   const legitConversation = looksLikeLegitConversation(stripQuotedAndCodeText(String(message.content || "")) || String(message.content || ""),);
-  const violations = normalizeViolationsForHeat(rawViolations, { legitConversation });
+  const violations = normalizeViolationsForHeat(rawViolations, { legitConversation, profile });
   if (!violations.length) return { blocked: false };
 
   const at = nowMs();
@@ -3611,7 +3624,6 @@ async function runAutoModMessage(message) {
   if (hasInstantLinkViolation) {
     state.heat = MAX_HEAT;
     await markBadUserTrigger(message, violations, state.heat);
-    await pingStaffAutomodAlert(message);
     const instantOverrideMs = resolveInstantTimeoutOverrideMs(violations);
     const done = await timeoutMember(message, state, violations, { ignoreCooldown: true, forceDurationMs: instantOverrideMs, });
     if (done) return { blocked: true, action: "timeout", heat: state.heat };
@@ -3996,4 +4008,4 @@ function updateAutoModConfig(pathExpr, value) {
   return { ok: true, config: getAutoModConfigSnapshot() };
 }
 
-module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, pingStaffForAutomodExecution, pingStaffAutomodAlert, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isCrossServerForwardedMessage, detectScam, detectScamImageBait, buildModerationScanText, isStaffZoneExemptChannel } };
+module.exports = { runAutoModMessage, runDiscordNativeAutomodExecution, pingStaffForAutomodExecution, pingStaffAutomodAlert, isDiscordNativeAutomodEnabled, getDiscordNativeViolationSkipKeys, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl, isNsfwUrl, isCrossServerForwardedMessage, detectScam, detectScamImageBait, buildModerationScanText, isStaffZoneExemptChannel } };

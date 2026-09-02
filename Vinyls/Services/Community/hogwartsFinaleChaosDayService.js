@@ -1,8 +1,3 @@
-/**
- * Finale chaos day (lunedì 31 ago 00:00 → 1 set 00:00 Rome):
- * ogni ora shuffle dei 3 minigame, spawn a :00 / :20 / :40, durata 15m + indizio a metà.
- * Premi: 1000 galeoni + 500 punti casa (pet/consumabili). Boost 2× personale 1h solo sul 1° slot.
- */
 const { EmbedBuilder } = require("discord.js");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
@@ -34,7 +29,6 @@ const DOC = SITE_DOCUMENT_TYPE.HOGWARTS_FINALE_CHAOS;
 const OWNER = "__event__";
 const TIME_ZONE = "Europe/Rome";
 const GAMES = Object.freeze(["reactPress", "forbiddenSection", "spellListHunt"]);
-/** Tutti i minigame chaos: un solo vincitore. */
 const CHAOS_FORBIDDEN_MAX_WINNERS = 1;
 const CHAOS_FIND_SCROLL_WINNERS = 1;
 const loopState = new WeakSet();
@@ -253,8 +247,7 @@ function buildBoostLine(boostType, boostScope) {
 }
 
 function pickForbiddenBookIds(c, seed) {
-  // Solo pagine pubbliche (aperte a tutti + vc-landing): niente user/perks/staff.
-  const configured = filterPublicForbiddenBookIds(c.forbiddenBookIds);
+    const configured = filterPublicForbiddenBookIds(c.forbiddenBookIds);
   if (configured.length >= c.forbiddenBookCount) {
     return shuffleGames(configured, seed).slice(0, c.forbiddenBookCount);
   }
@@ -277,8 +270,7 @@ function gameLabel(game) {
 
 function normalizeChaosGameId(game) {
   const g = String(game || "").trim();
-  // Legacy plan: pergamena → liste (due liste, 1 vincitore).
-  if (g === "findScroll") return "spellListHunt";
+    if (g === "findScroll") return "spellListHunt";
   return g;
 }
 
@@ -604,7 +596,6 @@ async function grantFinaleChaosBoost(client, {
   return activated;
 }
 
-/** @deprecated alias */
 async function grantFinaleChaosPersonalBoost(client, opts) {
   return grantFinaleChaosBoost(client, { ...opts, boostScope: opts.boostScope || "personal" });
 }
@@ -790,8 +781,7 @@ async function resolveFinaleChaosForbiddenRuntime(client, nowMs = Date.now()) {
   const rw = active.rawWebhook || {};
   const closure = await getForbiddenClosure(guildId, rw.booksDedupeKey || `finale_chaos_forbidden:${rw.slotKey}`);
   const winners = Array.isArray(closure?.rawWebhook?.winners) ? closure.rawWebhook.winners : [];
-  // Chaos: 1 vincitore chiude (non usare FORBIDDEN_MAX_WINNERS=2 della caccia lunga).
-  const closed =
+    const closed =
     String(closure?.status || "") === "closed" || winners.length >= CHAOS_FORBIDDEN_MAX_WINNERS;
   const startMs = new Date(active.createdAt || nowMs).getTime();
   const endMs = new Date(rw.expiresAt || 0).getTime();

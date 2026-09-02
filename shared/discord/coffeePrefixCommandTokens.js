@@ -1,7 +1,3 @@
-/**
- * Nomi dei comandi prefix del bot Coffee (cartella Coffee/Prefix/**).
- * Aggiornare se si aggiungono/rimuovono file lì.
- */
 const COFFEE_PREFIX_COMMAND_NAMES = new Set([
   "help",
   "join",

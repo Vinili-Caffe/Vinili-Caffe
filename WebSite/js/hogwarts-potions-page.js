@@ -249,8 +249,7 @@
           window.clearInterval(state.timer);
           state.timer = null;
         }
-        // Soft refresh: niente secondo overlay a tutto schermo.
-        loadPotions(0, { quiet: true });
+                loadPotions(0, { quiet: true });
         return;
       }
       el.textContent = "Prossima prova tra " + formatDuration(left);
@@ -338,8 +337,7 @@
       state.loadSeq += 1;
     }
     var seq = state.loadSeq;
-    // Overlay full-page solo al cold boot (mai se UI già pronta / quiet refresh).
-    if (!quiet && !state.data) showLoading(true);
+        if (!quiet && !state.data) showLoading(true);
     if (tryNo > 0) {
       showToast("Connessione instabile. Riprovo…", "pending");
     }
@@ -369,8 +367,7 @@
         state.loading = false;
         showLoading(false);
         showToast("", "");
-        // Una risposta fallita non deve cancellare una schermata già caricata.
-        if (state.data) {
+                if (state.data) {
           showToast(
             err && err.message ? err.message : "Aggiornamento pozioni non riuscito.",
             "error",
@@ -447,8 +444,7 @@
       started = true;
       loadPotions(0);
     }
-    // Un solo cold boot. Il profilo Discord recupera solo un boot fallito (niente 2° overlay).
-    window.addEventListener("vc-discord-profile", function onProfile() {
+        window.addEventListener("vc-discord-profile", function onProfile() {
       if (state.loading || state.data) return;
       if (!getToken()) return;
       loadPotions(0);
@@ -458,8 +454,7 @@
       return;
     }
     window.addEventListener("vc-discord-profile", start, { once: true });
-    // Fallback: se il profilo Discord non arriva, prova comunque (login gate se manca token).
-    window.setTimeout(start, 1600);
+        window.setTimeout(start, 1600);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

@@ -16,8 +16,7 @@ module.exports = {
   name: "autoModerationActionExecution",
   async execute(execution) {
     try {
-      // Ping @Staff nel canale sanzioni per ogni blocco AutoMod (l'alert nativo non tagga).
-      await pingStaffForAutomodExecution(execution);
+            await pingStaffForAutomodExecution(execution);
 
       const rule = await resolveAutomodExecutionRule(execution);
       const ruleName = String(rule?.name || "");

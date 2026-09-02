@@ -74,8 +74,7 @@ function userAvatarUrl(user) {
     try {
       return user.displayAvatarURL({ size: 64 }) || null;
     } catch {
-      /* fall through */
-    }
+          }
   }
   const avatar = String(user?.avatar || "").trim();
   if (!avatar) return `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(id) >> 22n) % 6}.png`;
@@ -96,7 +95,6 @@ function tenantRegistryName(guildId) {
   }
 }
 
-/** Guild dell’utente OAuth (staff): utile quando il bot ha già lasciato il server blacklistato. */
 async function fetchViewerGuildIndex(accessToken) {
   const token = String(accessToken || "").trim();
   if (!token) return new Map();
@@ -140,8 +138,7 @@ async function fetchGuildPreviewMeta(client, guildId) {
       }
     }
   } catch {
-    /* ignore */
-  }
+      }
   try {
     const rest = client?.rest || client?._rest;
     if (rest && typeof rest.get === "function") {
@@ -155,8 +152,7 @@ async function fetchGuildPreviewMeta(client, guildId) {
       }
     }
   } catch {
-    /* ignore */
-  }
+      }
   return null;
 }
 
@@ -179,11 +175,6 @@ async function fetchGuildWidgetMeta(guildId) {
   }
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {object} row
- * @param {{ partnerMeta?: Map, inviteMeta?: Map, viewerGuilds?: Map }} caches
- */
 async function enrichBotbanEntry(client, row, caches = {}) {
   const partnerMetaCache = caches.partnerMeta instanceof Map ? caches.partnerMeta : new Map();
   const inviteMetaCache = caches.inviteMeta instanceof Map ? caches.inviteMeta : new Map();
@@ -222,15 +213,13 @@ async function enrichBotbanEntry(client, row, caches = {}) {
       base.botPresent = false;
     }
 
-    // Viewer OAuth: spesso lo staff è ancora nel server anche se il bot no.
-    if ((!base.name || !base.iconUrl) && viewerGuilds.has(base.id)) {
+        if ((!base.name || !base.iconUrl) && viewerGuilds.has(base.id)) {
       const vg = viewerGuilds.get(base.id);
       if (!base.name && vg?.name) base.name = vg.name;
       if (!base.iconUrl && vg?.iconUrl) base.iconUrl = vg.iconUrl;
     }
 
-    // Bot assente / nome mancante: partnership, registry, preview, widget, invite.
-    if (!base.name || !base.iconUrl) {
+        if (!base.name || !base.iconUrl) {
       try {
         const {
           extractInviteCode,
@@ -285,12 +274,10 @@ async function enrichBotbanEntry(client, row, caches = {}) {
           }
         }
       } catch {
-        /* ignore enrich fallbacks */
-      }
+              }
     }
 
-    // Persisti il nome recuperato così le visite successive non restano "sconosciuto".
-    if (base.name && !isUsableGuildDisplayName(row?.guildName)) {
+        if (base.name && !isUsableGuildDisplayName(row?.guildName)) {
       void patchGuildBotUsageBlacklistMeta(base.id, { guildName: base.name }).catch(() => null);
     }
     return base;
@@ -306,8 +293,7 @@ async function enrichBotbanEntry(client, row, caches = {}) {
       }
     }
   } catch {
-    /* ignore enrich errors */
-  }
+      }
   return base;
 }
 

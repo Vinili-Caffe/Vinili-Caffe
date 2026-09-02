@@ -254,8 +254,7 @@ async function mutateCustomProfile(client, payload) {
     };
   }
 
-  // Dopo mutate, forza refresh dei soli oggetti custom (evita UI “ok” con dati vecchi).
-  try {
+    try {
     const doc = await CustomRole.findOne(
       { guildId: guild.id, userId: String(userId) },
       { roleId: 1, secondaryRoleId: 1, customVocChannelId: 1 },
@@ -270,8 +269,7 @@ async function mutateCustomProfile(client, payload) {
       guild.members.fetch({ user: userId, force: true }).catch(() => null),
     ]);
   } catch (_) {
-    /* ignore */
-  }
+      }
 
   const [hasExtraUnlock, eventWeek2Grant, eventWeek3Grant, pmPerkLean, customProfile, voiceActivity] = await Promise.all([
     hasExtraCustomPerksUnlock(guild.id, userId),

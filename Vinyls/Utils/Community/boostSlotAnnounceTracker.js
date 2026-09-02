@@ -1,8 +1,3 @@
-/**
- * Conteggio slot boost “annunciati” nel canale supporters (embed bot).
- * Persistito su ActivityUserProfile per la guild principale così dopo un restart
- * il secondo boost non viene trattato come il primo.
- */
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../DB/validateWriteIds");

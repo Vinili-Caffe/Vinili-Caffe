@@ -76,8 +76,7 @@ function applyEmoji(builder, emoji) {
       builder.setEmoji(String(emoji.name));
     }
   } catch (_) {
-    /* ignore invalid emoji */
-  }
+      }
   return builder;
 }
 
@@ -365,8 +364,7 @@ async function publishMultiPanel(client, guildId, multiId, options = {}) {
       { upsert: true },
     );
   } catch (_) {
-    /* ignore */
-  }
+      }
 
   return {
     ok: true,

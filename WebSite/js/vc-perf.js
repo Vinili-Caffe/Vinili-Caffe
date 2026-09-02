@@ -1,15 +1,7 @@
-/**
- * Adaptive perf tier from device + network.
- * Tiers: full | mid | lite
- * Sets html.vc-perf-{tier} and data-vc-perf early for CSS.
- */
 (function (global) {
   if (global.VcPerf && global.VcPerf.__ready) return;
 
-  /* v3: telefono non viene più spinto a mid (look “migliora” / full). */
-  /* sitePerfFlash1 */
-  /* phonePwaLoadFix1 */
-  var STORAGE_KEY = "vc_perf_tier_pref_v3";
+    var STORAGE_KEY = "vc_perf_tier_pref_v3";
   var lastTier = "";
 
   function conn() {
@@ -86,18 +78,25 @@
     return false;
   }
 
-  function detectAutoTier() {
-    /* phonePwaLoadFix1: telefono/PWA resta full; mid solo desktop. */
-    if (isPhoneOrPwa()) return "full";
+    function detectAutoTier() {
     if (saveDataOn()) return "lite";
+    if (isPhoneOrPwa()) {
+      var etP = effectiveType();
+      if (etP === "slow-2g" || etP === "2g" || etP === "3g") return "lite";
+      var memP = deviceMemoryGb();
+      if (memP > 0 && memP <= 3) return "lite";
+      return "mid";
+    }
     var et = effectiveType();
     if (et === "slow-2g" || et === "2g") return "lite";
     if (et === "3g") return "mid";
     var mem = deviceMemoryGb();
     if (mem > 0 && mem <= 2) return "lite";
     if (mem > 0 && mem <= 4) return "mid";
+    if (mem > 0 && mem <= 8) return "mid";
     var cores = cpuCores();
     if (cores > 0 && cores <= 4) return "mid";
+    if (cores > 0 && cores <= 8 && mem > 0 && mem <= 16) return "mid";
     var dl = downlinkMbps();
     if (dl >= 0 && dl > 0 && dl < 0.7) return "lite";
     if (dl >= 0 && dl > 0 && dl < 2.5) return "mid";
@@ -119,15 +118,17 @@
     return t === "lite" || t === "mid";
   }
 
-  function applyToDocument(forceTier) {
+    function applyToDocument(forceTier) {
     var t = forceTier || tier();
     var root = document.documentElement;
     if (!root) return t;
     root.classList.remove("vc-perf-full", "vc-perf-mid", "vc-perf-lite");
     root.classList.add("vc-perf-" + t);
     root.setAttribute("data-vc-perf", t);
-    if (t === "lite") root.classList.add("vc-cursor-trail-off");
+    if (t === "lite" || isPhoneOrPwa()) root.classList.add("vc-cursor-trail-off");
     else root.classList.remove("vc-cursor-trail-off");
+    if (isPhoneOrPwa()) root.classList.add("vc-perf-touch");
+    else root.classList.remove("vc-perf-touch");
     if (t !== lastTier) {
       lastTier = t;
       try {
@@ -153,8 +154,21 @@
     return { fetchTimeoutMs: fetchTimeoutMs, failsafeMs: failsafeMs, tier: t };
   }
 
-  function apiHeaders(extra) {
+  function shouldAttachApiHeaders(url) {
+    try {
+      var base =
+        typeof location !== "undefined" && location.origin ? location.origin : "https://localhost";
+      var u = new URL(String(url || ""), base);
+      if (typeof location !== "undefined" && u.origin !== location.origin) return false;
+      return String(u.pathname || "").indexOf("/webhooks/") === 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function apiHeaders(extra, url) {
     var out = extra && typeof extra === "object" ? Object.assign({}, extra) : {};
+    if (url && !shouldAttachApiHeaders(url)) return out;
     out["X-VC-Perf"] = tier();
     if (saveDataOn()) out["Save-Data"] = "on";
     return out;
@@ -216,6 +230,7 @@
     isMidOrLite: isMidOrLite,
     apply: applyToDocument,
     fetchTimeouts: fetchTimeouts,
+    shouldAttachApiHeaders: shouldAttachApiHeaders,
     apiHeaders: apiHeaders,
     apiQuery: apiQuery,
     leaderboardPerPage: leaderboardPerPage,

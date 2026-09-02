@@ -9,25 +9,46 @@ const {
 } = require("../../Prefix/Level/classifica");
 const { findCustomVoiceByOwner, findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Render/rankCardTheme");
-const { userAvatarUrlStatic, userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
-const { stabilizeDiscordCdnAvatarUrl } = require("./siteLiveAvatars");
+const {
+  userAvatarUrlStatic,
+  userAvatarUrlDynamic,
+  guildMemberDisplayAvatarUrlDynamic,
+  guildMemberDisplayAvatarUrlStatic,
+  guildMemberDisplayAvatarUrlForSite,
+} = require("../Discord/guildDiscordIdentity");
+const { stabilizeDiscordCdnAvatarUrl, animatedDiscordCdnAvatarUrl } = require("./siteLiveAvatars");
 const { getEffectiveJoinedAt } = require("../../Services/Community/effectiveMemberJoinService");
 const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints");
 const {
   fetchWebsiteGuildMember,
   readCachedWebsiteMember,
 } = require("./websiteGuildMemberFetch");
+const { listBirthdaysForMonth } = require("../../Services/Community/profileStore");
+const { getRomeDateParts } = require("../../Services/Community/birthdayService");
 
 const LIST_CACHE_TTL_MS = 90_000;
 const PROFILE_CACHE_TTL_MS = 90_000;
+const BIRTHDAYS_CACHE_TTL_MS = 120_000;
+const IT_MONTH_NAMES = [
+  "",
+  "gennaio",
+  "febbraio",
+  "marzo",
+  "aprile",
+  "maggio",
+  "giugno",
+  "luglio",
+  "agosto",
+  "settembre",
+  "ottobre",
+  "novembre",
+  "dicembre",
+];
 const PROFILE_CACHE_VER = 5;
-/** Max wait Discord member on /board=profile — oltre si risponde senza ruoli (warm in background). */
 const PROFILE_MEMBER_SOFT_TIMEOUT_MS = 400;
-/** Warm membri sulla lista classifica: oltre questo soglia si risponde con cache/default. */
 const LIST_MEMBER_WARM_MS = 180;
 const listCache = new Map();
 
-/** Site API must never ship data: wallpapers (can be 300KB+ each and freeze /user profile). */
 function stripDataUrl(value) {
   const s = String(value || "").trim();
   if (!s || /^data:/i.test(s)) return "";
@@ -47,14 +68,53 @@ function siteSafeResolvedWallpaper(doc) {
 }
 
 function siteMemberAvatarUrl(member, size = 128) {
-  return (
-    stabilizeDiscordCdnAvatarUrl(
-      guildMemberDisplayAvatarUrlStatic(member, { size }) ||
-        guildMemberDisplayAvatarUrlDynamic(member, { size }) ||
-        "",
-      { size },
-    ) || ""
+  const live =
+    guildMemberDisplayAvatarUrlForSite(member, { size, preferAnimated: true }) ||
+    guildMemberDisplayAvatarUrlStatic(member, { size }) ||
+    guildMemberDisplayAvatarUrlDynamic(member, { size }) ||
+    "";
+  return animatedDiscordCdnAvatarUrl(live, { size }) || stabilizeDiscordCdnAvatarUrl(live, { size }) || "";
+}
+
+function identityLooksIncomplete(identity, userId) {
+  const id = String(userId || "").trim();
+  if (!id || !identity) return true;
+  const dn = String(identity.displayName || "").trim();
+  const un = String(identity.username || "").trim();
+  if (!dn || dn === id || un === id) return true;
+  const av = String(identity.avatarUrl || "");
+  if (!String(identity.avatar || "").trim() && /\/embed\/avatars\//.test(av)) return true;
+  return false;
+}
+
+function listMemberWarmBudgetMs(userIds) {
+  const n = Array.isArray(userIds) ? userIds.length : 0;
+  return Math.min(650, Math.max(LIST_MEMBER_WARM_MS, 140 + n * 45));
+}
+
+async function resolveIdentitiesForList(client, guild, userIds, lite) {
+  const ids = [
+    ...new Set(
+      (Array.isArray(userIds) ? userIds : [])
+        .map((x) => String(x || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (!ids.length) return new Map();
+  await warmGuildMembersSoft(guild, ids, listMemberWarmBudgetMs(ids));
+  const entries = await Promise.all(
+    ids.map(async (uid) => [uid, await fetchUserIdentity(client, guild, uid, { skipUserFetch: lite })]),
   );
+  const map = new Map(entries);
+  const missing = ids.filter((uid) => identityLooksIncomplete(map.get(uid), uid));
+  if (!missing.length) return map;
+  await warmGuildMembers(guild, missing).catch(() => {});
+  await Promise.all(
+    missing.map(async (uid) => {
+      map.set(uid, await fetchUserIdentity(client, guild, uid, { skipUserFetch: false }));
+    }),
+  );
+  return map;
 }
 
 function cacheGet(key) {
@@ -77,7 +137,6 @@ function parseIntSafe(v, min, max, def) {
   return Math.min(max, Math.max(min, n));
 }
 
-/** Intero non negativo da Mongo (Number, string, Decimal128, ecc.) */
 function nInt(v) {
   if (v == null || v === "") return 0;
   if (typeof v === "number" && Number.isFinite(v)) return Math.max(0, Math.floor(v));
@@ -96,26 +155,87 @@ function resolveGuildId(client) {
 function parseBoard(raw) {
   const b = String(raw || "level").trim().toLowerCase();
   if (b === "profile") return "profile";
+  if (b === "birthdays") return "birthdays";
   if (b === "weekly" || b === "messages" || b === "voice") return b;
   return "level";
 }
 
-/** Handle account Discord (`User.username`) — resta disponibile per tag/ID tecnici. */
+function parseCalendarMonth(raw, fallback) {
+  const n = Number.parseInt(String(raw || "").trim(), 10);
+  if (Number.isFinite(n) && n >= 1 && n <= 12) return n;
+  return fallback;
+}
+
+function parseCalendarYear(raw, fallback) {
+  const n = Number.parseInt(String(raw || "").trim(), 10);
+  if (Number.isFinite(n) && n >= 1970 && n <= 2100) return n;
+  return fallback;
+}
+
+function computeAgeFromBirthYear(day, month, birthYear, romeToday) {
+  const y = Number(birthYear);
+  if (!Number.isFinite(y) || y < 1900) return null;
+  let age = Number(romeToday.year) - y;
+  if (romeToday.month < month || (romeToday.month === month && romeToday.day < day)) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+function formatPublicBirthdayLabel(day, month, birthYear, showAge) {
+  const d = Number(day);
+  const m = Number(month);
+  if (!d || !m || m < 1 || m > 12) return "";
+  const monthName = IT_MONTH_NAMES[m] || String(m);
+  const canShowYear = showAge !== false && Number.isFinite(Number(birthYear)) && Number(birthYear) >= 1900;
+  return canShowYear ? `${d} ${monthName} ${Number(birthYear)}` : `${d} ${monthName}`;
+}
+
+function buildPublicBirthdayPayload(birthdayRaw, romeToday) {
+  const day = Number(birthdayRaw?.day || 0);
+  const month = Number(birthdayRaw?.month || 0);
+  if (!day || !month || day < 1 || day > 31 || month < 1 || month > 12) return null;
+  const showAge = birthdayRaw?.showAge !== false;
+  const birthYear =
+    showAge && Number.isFinite(Number(birthdayRaw?.birthYear)) && Number(birthdayRaw.birthYear) >= 1900
+      ? Number(birthdayRaw.birthYear)
+      : null;
+  const isToday = romeToday.month === month && romeToday.day === day;
+  const age = birthYear != null ? computeAgeFromBirthYear(day, month, birthYear, romeToday) : null;
+  return {
+    day,
+    month,
+    birthYear,
+    showAge,
+    isToday,
+    age: showAge && age != null ? age : null,
+    label: formatPublicBirthdayLabel(day, month, birthYear, showAge),
+    shortLabel: `${day} ${(IT_MONTH_NAMES[month] || "").slice(0, 3)}`,
+  };
+}
+
 function accountUsernameFromUser(user) {
   if (!user) return "";
   return String(user.username || "").trim();
 }
 
-/** Nome pubblico: nickname server → display name Discord → username. */
+function isUsablePublicDisplayName(name) {
+  const s = String(name || "")
+    .replace(/^\u0F04/u, "")
+    .replace(/^༄/u, "")
+    .trim();
+  if (!s || s.length < 2) return false;
+  if (/^[\u0F00-\u0FFF\uFE00-\uFEFF\u200D\s]+$/u.test(s)) return false;
+  return true;
+}
+
 function publicDisplayNameFromMemberOrUser(member, user) {
   const m = member || null;
   const u = user || m?.user || null;
   const nick = String(m?.nickname || "").trim();
-  if (nick) return nick;
+  if (nick && isUsablePublicDisplayName(nick)) return nick;
   const memberDn = String(m?.displayName || "").trim();
-  if (memberDn) return memberDn;
+  if (memberDn && isUsablePublicDisplayName(memberDn)) return memberDn;
   const global = String(u?.globalName || "").trim();
-  if (global) return global;
+  if (global && isUsablePublicDisplayName(global)) return global;
   return accountUsernameFromUser(u);
 }
 
@@ -204,7 +324,6 @@ function numericSortExpr(board) {
   return null;
 }
 
-/** Prefetch membri Discord in batch per evitare N round-trip sulla classifica. */
 async function warmGuildMembers(guild, userIds) {
   if (!guild?.members?.fetch) return;
   const ids = [
@@ -220,7 +339,6 @@ async function warmGuildMembers(guild, userIds) {
   }
 }
 
-/** Warm con budget breve: la classifica non deve aspettare Discord. */
 async function warmGuildMembersSoft(guild, userIds, budgetMs) {
   const ms = Math.max(50, Number(budgetMs) || LIST_MEMBER_WARM_MS);
   await Promise.race([
@@ -229,7 +347,6 @@ async function warmGuildMembersSoft(guild, userIds, budgetMs) {
   ]);
 }
 
-/** Identità solo da cache (niente round-trip) — utile per stats top della lista. */
 function identityFromCacheOnly(client, guild, userId) {
   const id = String(userId || "").trim();
   const out = {
@@ -258,13 +375,14 @@ function identityFromCacheOnly(client, guild, userId) {
   const userObj = u || member?.user;
   out.avatar = userObj?.avatar ? String(userObj.avatar) : "";
   out.discriminator = String(userObj?.discriminator || "0");
-  out.avatarUrl = stabilizeDiscordCdnAvatarUrl(
+  const rawAvatarUrl =
     (member && siteMemberAvatarUrl(member, 256)) ||
-      userAvatarUrlStatic(userObj, { size: 256 }) ||
-      userAvatarUrlDynamic(userObj, { size: 256 }) ||
-      "",
-    { size: 256 },
-  );
+    userAvatarUrlStatic(userObj, { size: 256 }) ||
+    userAvatarUrlDynamic(userObj, { size: 256 }) ||
+    "";
+  out.avatarUrl =
+    animatedDiscordCdnAvatarUrl(rawAvatarUrl, { size: 256 }) ||
+    stabilizeDiscordCdnAvatarUrl(rawAvatarUrl, { size: 256 });
   return out;
 }
 
@@ -292,8 +410,7 @@ async function fetchUserIdentity(client, guild, userId, opts) {
       ? client?.users?.cache?.get?.(id) || null
       : await fetchDiscordUserForIdentity(client, guild, id));
   if (!u && !member) {
-    // Fallback istantaneo: avatar default da snowflake (niente round-trip Discord).
-    out.username = id;
+        out.username = id;
     out.displayName = id;
     try {
       const idx = Number((BigInt(id) >> 22n) % 6n);
@@ -308,17 +425,19 @@ async function fetchUserIdentity(client, guild, userId, opts) {
   const userObj = u || member?.user;
   out.avatar = userObj?.avatar ? String(userObj.avatar) : "";
   out.discriminator = String(userObj?.discriminator || "0");
-  out.avatarUrl = stabilizeDiscordCdnAvatarUrl(
+  const rawAvatarUrl =
     (member && siteMemberAvatarUrl(member, 256)) ||
-      userAvatarUrlStatic(userObj, { size: 256 }) ||
-      userAvatarUrlDynamic(userObj, { size: 256 }) ||
-      "",
-    { size: 256 },
-  );
+    userAvatarUrlStatic(userObj, { size: 256 }) ||
+    userAvatarUrlDynamic(userObj, { size: 256 }) ||
+    "";
+  out.avatarUrl =
+    animatedDiscordCdnAvatarUrl(rawAvatarUrl, { size: 256 }) ||
+    stabilizeDiscordCdnAvatarUrl(rawAvatarUrl, { size: 256 });
   if (!out.avatarUrl && userObj?.id) {
     const h = userObj.avatar;
     if (h) {
-      out.avatarUrl = `https://cdn.discordapp.com/avatars/${userObj.id}/${h}.png?size=256`;
+      const ext = String(h).startsWith("a_") ? "gif" : "png";
+      out.avatarUrl = `https://cdn.discordapp.com/avatars/${userObj.id}/${h}.${ext}?size=256`;
     } else {
       let idx = 0;
       if (/^\d{5,22}$/.test(String(userObj.id)))
@@ -351,10 +470,8 @@ function roleHexPair(role) {
       color2 = `#${secondaryInt.toString(16).padStart(6, "0")}`.toLowerCase();
     }
   } catch (_) {
-    /* ignore */
-  }
-  // Stessi valori di HOLO in customProfileMutations.js
-  const HOLO_P = 11127295;
+      }
+    const HOLO_P = 11127295;
   const HOLO_S = 16759788;
   const HOLO_T = 16761760;
   let colorMode = "solid";
@@ -366,7 +483,6 @@ function roleHexPair(role) {
   return { color: primary, color2, colorMode };
 }
 
-/** Data creazione Discord da snowflake (canali/ruoli senza createdAt in cache). */
 function snowflakeCreatedAtIso(id) {
   try {
     const sid = String(id || "").trim();
@@ -385,8 +501,7 @@ function entityCreatedAtIso(entity) {
       const d = new Date(entity.createdAt);
       if (Number.isFinite(d.getTime())) return d.toISOString();
     } catch {
-      /* fall through */
-    }
+          }
   }
   return snowflakeCreatedAtIso(entity?.id);
 }
@@ -411,7 +526,6 @@ function countVoiceSharedOverwrites(voice, ownerSid, botSid) {
   return { count, sharedIds };
 }
 
-/** site-api è REST-only: senza hydrate i Role#members restano vuoti e "Condiviso con" resta 0. */
 const customRoleMembersHydrateAt = new Map();
 const customRoleMembersHydrateInflight = new Map();
 const CUSTOM_ROLE_MEMBERS_HYDRATE_TTL_MS = 10 * 60 * 1000;
@@ -463,8 +577,7 @@ async function buildCustomProfileData(guild, userId, opts) {
   const ownerSid = String(userId || "").trim();
   const botSid = String(guild.members?.me?.id || guild.client?.user?.id || "").trim();
 
-  // Profilo pubblico veloce: niente hydrate gateway, ma conti overwrite vocale + date snowflake sì.
-  if (ultraLite) {
+    if (ultraLite) {
     const role = doc.roleId ? guild.roles.cache.get(String(doc.roleId)) || null : null;
     const secondaryRole = doc.secondaryRoleId
       ? guild.roles.cache.get(String(doc.secondaryRoleId)) || null
@@ -497,10 +610,8 @@ async function buildCustomProfileData(guild, userId, opts) {
         }
       }
     } catch {
-      /* optional */
-    }
-    // Conta "condivisi" = membri ruolo escluso owner (come overwrite vocale).
-    if (role?.members?.size) {
+          }
+        if (role?.members?.size) {
       let shared = 0;
       for (const m of role.members.values()) {
         if (m?.user?.bot) continue;
@@ -611,24 +722,21 @@ async function buildCustomProfileData(guild, userId, opts) {
     ).catch(() => null);
   }
 
-  // site-api (REST): popola Role#members altrimenti "Condiviso con" resta 0.
-  await hydrateCustomRoleMembersForSiteApi(guild, [
+    await hydrateCustomRoleMembersForSiteApi(guild, [
     role?.id || doc.roleId,
     secondaryRole?.id || doc.secondaryRoleId,
   ]);
 
   let roleMembers = role?.members ? Array.from(role.members.values()).filter((m) => !m.user?.bot) : [];
   if (role && roleMembers.length === 0) {
-    // Non fare guild.members.fetch() globale: su guild grandi blocca /webhooks/site-custom-profile.
-    const ownerMember =
+        const ownerMember =
       guild.members.cache.get(ownerSid) ||
       (await guild.members.fetch({ user: ownerSid, force: false }).catch(() => null));
     if (ownerMember && !ownerMember.user?.bot && ownerMember.roles?.cache?.has?.(role.id)) {
       roleMembers = [ownerMember];
     }
   }
-  // Snapshot ruoli (se già idratato) senza forzare un fetch gateway lungo.
-  try {
+    try {
     const { getFreshMemberIdSnapshot } = require("../Discord/threadRoleMembers");
     const snap = getFreshMemberIdSnapshot(guild.id);
     if (snap?.byRole && role?.id) {
@@ -653,8 +761,7 @@ async function buildCustomProfileData(guild, userId, opts) {
       }
     }
   } catch {
-    /* optional */
-  }
+      }
   const mapSharedMember = (member, isOwner) => ({
     id: String(member.id || member.user?.id || ""),
     username: String(member.user?.username || "").trim(),
@@ -682,9 +789,7 @@ async function buildCustomProfileData(guild, userId, opts) {
       roleSharedMembers.unshift({ id: ownerSid, username: "", displayName: "Tu", avatarUrl: "", isOwner: true });
     }
   }
-  // "Condiviso con" = altri utenti col ruolo (owner escluso), come la vocale.
-  // Preferisci il conteggio più alto tra lista risolta, cache ruolo e snapshot idratazione.
-  let roleSharedCount = roleSharedMembers.filter((m) => !m.isOwner).length;
+      let roleSharedCount = roleSharedMembers.filter((m) => !m.isOwner).length;
   if (role?.members?.size) {
     let fromCache = 0;
     for (const m of role.members.values()) {
@@ -703,8 +808,7 @@ async function buildCustomProfileData(guild, userId, opts) {
       roleSharedCount = Math.max(roleSharedCount, fromSnap);
     }
   } catch {
-    /* optional */
-  }
+      }
   let secondaryRoleMembers = secondaryRole?.members
     ? Array.from(secondaryRole.members.values()).filter((m) => !m.user?.bot)
     : [];
@@ -743,8 +847,7 @@ async function buildCustomProfileData(guild, userId, opts) {
       }
     }
   } catch {
-    /* optional */
-  }
+      }
   const secondaryRoleSharedMembers = secondaryRoleMembers
     .map((member) => mapSharedMember(member, String(member.id || member.user?.id || "") === ownerSid))
     .filter((member) => member.id)
@@ -780,10 +883,8 @@ async function buildCustomProfileData(guild, userId, opts) {
       secondaryRoleSharedCount = Math.max(secondaryRoleSharedCount, fromSnap);
     }
   } catch {
-    /* optional */
-  }
-  /** Owner sempre in lista; gli altri sono overwrite membro (Connect+ViewChannel, senza Gestisci canali). */
-  const voiceSharedMeta = countVoiceSharedOverwrites(voice, ownerSid, botSid);
+      }
+    const voiceSharedMeta = countVoiceSharedOverwrites(voice, ownerSid, botSid);
   let voiceSharedCount = voiceSharedMeta.count;
   const voiceSharedMembers = [];
   if (voice?.permissionOverwrites?.cache) {
@@ -890,7 +991,6 @@ function parseSearchUserId(raw) {
   return s;
 }
 
-/** Solo sito: messaggi/ore del giorno solare Europa/Roma (00:00–24:00) dai bucket `daily` (lettura), non modifica il bot. */
 function siteRomeDayOverridesFromDoc(doc, board, romeDateKey) {
   if (!doc || (board !== "messages" && board !== "voice")) return {};
   const totals = doc?.profile?.totals || {};
@@ -930,7 +1030,7 @@ function sortHourlyBreakdownForBoard(breakdown, board) {
 }
 
 const SEARCH_SELECT =
-  "userId profile.totals.exp profile.totals.hourly profile.totals.daily profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.messagesDailyKey profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds profile.totals.voiceDailyKey profile.totals.sessionStartedAt profile.rankCard";
+  "userId profile.totals.exp profile.totals.hourly profile.totals.daily profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.messagesDailyKey profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds profile.totals.voiceDailyKey profile.totals.sessionStartedAt profile.rankCard profile.birthday";
 
 function buildWeeklyMultiplierSources(member, settings, fallbackGlobalExpMultiplier) {
   const sources = [];
@@ -1033,7 +1133,6 @@ async function getCachedWeeklyHourlySorted(guild) {
   return sorted;
 }
 
-/** Solo cache calda: il profilo non deve ricalcolare l'intera classifica weekly. */
 function peekCachedWeeklyHourlySorted(guild) {
   if (!guild) return [];
   const cached = cacheGet(`v1:${guild.id}:weekly-hourly-sorted`);
@@ -1144,6 +1243,48 @@ async function computeUserSearchRankMeta({
   return { searchRank, pageMaxSecondary, overrides };
 }
 
+async function buildBirthdaysMonthPayload(client, guildId, month, year) {
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  const romeToday = getRomeDateParts();
+  const rows = await listBirthdaysForMonth(guildId, month);
+  const entries = [];
+  for (const row of rows) {
+    const userId = String(row.userId || "").trim();
+    if (!userId) continue;
+    const member = guild?.members?.cache?.get?.(userId) || readCachedWebsiteMember(userId) || null;
+    const identity = await fetchUserIdentity(client, guild, userId, {
+      member,
+      skipUserFetch: Boolean(member),
+    });
+    const displayName = String(identity?.displayName || identity?.username || userId).trim() || userId;
+    entries.push({
+      userId,
+      day: row.day,
+      month: row.month,
+      birthYear: row.showAge ? row.birthYear : null,
+      showAge: row.showAge !== false,
+      isToday: row.month === romeToday.month && row.day === romeToday.day,
+      displayName,
+      profileUrl: `/user/?id=${encodeURIComponent(userId)}`,
+      label: formatPublicBirthdayLabel(row.day, row.month, row.birthYear, row.showAge),
+    });
+  }
+  entries.sort((a, b) => {
+    if (a.day !== b.day) return a.day - b.day;
+    return String(a.displayName || "").localeCompare(String(b.displayName || ""), "it", { sensitivity: "base" });
+  });
+  return {
+    ok: true,
+    board: "birthdays",
+    month,
+    year,
+    monthLabel: IT_MONTH_NAMES[month] || String(month),
+    todayDay: romeToday.month === month ? romeToday.day : null,
+    total: entries.length,
+    entries,
+  };
+}
+
 async function buildProfileSearchPayload(client, guildId, searchId) {
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   const doc = await ActivityUserProfile.findOne({ guildId, userId: searchId }).select(SEARCH_SELECT).lean().catch(() => null);
@@ -1167,9 +1308,7 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
   const weeklySortedPeek = peekCachedWeeklyHourlySorted(guild);
   const weeklyHourlyExp = computeWeeklyExpFromProfileDoc(doc);
 
-  // Cache-first + soft race: max ~400ms su Discord. Se lento, rispondiamo senza ruoli
-  // e warmiamo in background (niente cache server finché member non c'è).
-  const memberCached =
+      const memberCached =
     (guild && (readCachedWebsiteMember(searchId) || guild.members?.cache?.get?.(searchId))) || null;
   const memberFetchPromise =
     !memberCached && guild
@@ -1191,15 +1330,13 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
   ]);
 
   if (!member && guild) {
-    // Warm lungo in background: popola cache Discord per il silent refresh del client.
-    fetchWebsiteGuildMember(guild, searchId, { timeoutMs: 10_000, retry: false })
+        fetchWebsiteGuildMember(guild, searchId, { timeoutMs: 10_000, retry: false })
       .then((m) => {
         if (!m) return;
         try {
           listCache.delete(`profile:v${PROFILE_CACHE_VER}:${guildId}:${searchId}`);
         } catch {
-          /* ignore */
-        }
+                  }
       })
       .catch(() => null);
   }
@@ -1208,8 +1345,7 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
   if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
 
   const [identity, expMultiplierResolved, ...rankMetas] = await Promise.all([
-    // Niente secondo fetch Discord: riusa member (anche null) + cache user.
-    fetchUserIdentity(client, guild, searchId, {
+        fetchUserIdentity(client, guild, searchId, {
       member,
       skipUserFetch: !member,
     }),
@@ -1271,6 +1407,8 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
     (member && siteMemberAvatarUrl(member, 256)) || String(levelRow.avatarUrl || "").trim();
   const weeklyMultiplierSources = buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier);
   const effectiveJoined = null;
+  const romeToday = getRomeDateParts();
+  const publicBirthday = buildPublicBirthdayPayload(doc?.profile?.birthday, romeToday);
 
   return {
     ok: true,
@@ -1281,8 +1419,7 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
     perPage: 1,
     total: 1,
     totalPages: 1,
-    // Usato dal handler: non mettere in cache server risposte incomplete (senza member Discord).
-    _memberResolved: Boolean(member),
+        _memberResolved: Boolean(member),
     profile: {
       userId: String(levelRow.userId || searchId),
       username: String(levelRow.username || "").trim(),
@@ -1302,6 +1439,7 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
       rankCardResolvedWallpaper: siteSafeResolvedWallpaper(doc),
       roles: profileRoles,
       ...(customProfile ? { customProfile } : {}),
+      ...(publicBirthday ? { birthday: publicBirthday } : {}),
       ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),
       ...(Number.isFinite(Number(expMultiplierResolved)) ? { expMultiplierResolved: Number(expMultiplierResolved) } : {}),
     },
@@ -1463,11 +1601,6 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, ho
   };
 }
 
-/**
- * GET JSON classifica utenti.
- * Query: board=level|weekly|messages|voice|profile, page, perPage, userId (ricerca singolo profilo).
- * Perf: lite=1 | perf=lite|mid|full | header X-VC-Perf / Save-Data → payload più leggero.
- */
 async function handleSiteUsersLeaderboardGet(client, req, res) {
   try {
     const guildId = resolveGuildId(client);
@@ -1479,6 +1612,22 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     const lite = isLitePerf(req);
     const board = parseBoard(q.board);
     const searchId = parseSearchUserId(q.userId ?? q.user_id ?? q.id ?? q.searchUserId ?? q.uid);
+
+    if (board === "birthdays") {
+      const romeToday = getRomeDateParts();
+      const month = parseCalendarMonth(q.month, romeToday.month);
+      const year = parseCalendarYear(q.year, romeToday.year);
+      const birthdaysCacheKey = `birthdays:v1:${guildId}:${year}:${month}`;
+      const cachedBirthdays = cacheGet(birthdaysCacheKey);
+      if (cachedBirthdays) {
+        res.setHeader("Cache-Control", "public, max-age=60");
+        return res.json(cachedBirthdays);
+      }
+      const payload = await buildBirthdaysMonthPayload(client, guildId, month, year);
+      cacheSet(birthdaysCacheKey, payload, BIRTHDAYS_CACHE_TTL_MS);
+      res.setHeader("Cache-Control", "public, max-age=60");
+      return res.json(payload);
+    }
 
     if (searchId && board === "profile") {
       const profileCacheKey = `profile:v${PROFILE_CACHE_VER}:${guildId}:${searchId}`;
@@ -1492,8 +1641,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       if (payload && Object.prototype.hasOwnProperty.call(payload, "_memberResolved")) {
         delete payload._memberResolved;
       }
-      // Cache solo se abbiamo risolto il member: altrimenti il silent refresh prende nick/ruoli.
-      if (!payload.notFound && memberResolved) {
+            if (!payload.notFound && memberResolved) {
         cacheSet(profileCacheKey, payload, PROFILE_CACHE_TTL_MS);
       }
       res.setHeader("Cache-Control", payload.notFound ? "no-store" : "public, max-age=45");
@@ -1706,17 +1854,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
             .catch(() => [])
         : [];
       const docMap = new Map(profileDocs.map((d) => [String(d.userId), d]));
-      if (!lite) {
-        await warmGuildMembersSoft(
-          guild,
-          slice.map((r) => r.userId).concat(userIds),
-          LIST_MEMBER_WARM_MS,
-        );
-      }
-      const identityEntries = await Promise.all(
-        userIds.map(async (uid) => [uid, await fetchUserIdentity(client, guild, uid, { skipUserFetch: lite })]),
-      );
-      const identityMap = new Map(identityEntries);
+      const identityMap = await resolveIdentitiesForList(client, guild, userIds, lite);
       const rows = [];
       for (let i = 0; i < slice.length; i += 1) {
         const agg = slice[i];
@@ -1838,8 +1976,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
 
     if (topDoc) {
       const uid = String(topDoc.userId || "");
-      // Nessun round-trip Discord per il nome top: cache o prima riga dopo.
-      if (uid) {
+            if (uid) {
         const cachedId = identityFromCacheOnly(client, guild, uid);
         topDisplayName = String(cachedId.username || cachedId.displayName || "").trim();
       }
@@ -1878,20 +2015,12 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
       guildExpSettings = lite ? null : await getGuildExpSettings(guildId).catch(() => null);
     }
-    if (!lite) {
-      await warmGuildMembersSoft(
-        guild,
-        docs.map((d) => d.userId).concat(topDoc ? [topDoc.userId] : []),
-        LIST_MEMBER_WARM_MS,
-      );
-    }
-    const identityEntries = await Promise.all(
-      docs.map(async (d) => {
-        const uid = String(d.userId || "");
-        return [uid, await fetchUserIdentity(client, guild, uid, { skipUserFetch: lite })];
-      }),
+    const identityMap = await resolveIdentitiesForList(
+      client,
+      guild,
+      docs.map((d) => d.userId).concat(topDoc ? [topDoc.userId] : []),
+      lite,
     );
-    const identityMap = new Map(identityEntries);
     const rows = await Promise.all(
       docs.map(async (d, i) => {
         const dayOvr = siteRomeDayOverridesFromDoc(d, board, romeDayKey);

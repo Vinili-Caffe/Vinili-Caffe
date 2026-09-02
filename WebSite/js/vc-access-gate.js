@@ -1,11 +1,3 @@
-/**
- * Gate accesso centralizzato (tutto il sito).
- * Policy per path → login / staff / highStaff / …
- * Redirect: referrer same-origin → fallback hub/home (mai restare sulla pagina vietata).
- *
- * Override pagina: window.__VC_ACCESS = { require, loginUrl, denyRedirect }
- * Oppure __VC_STAFF_ACCESS.require (compat staff).
- */
 (function () {
   if (window.__VC_ACCESS_GATE_LOADED) return;
   window.__VC_ACCESS_GATE_LOADED = true;
@@ -51,18 +43,13 @@
     return { fetchTimeoutMs: fetchTimeoutMs, failsafeMs: failsafeMs };
   }
 
-  /**
-   * Ordine: prima match vince. require: public | login | staff | highStaff | candidatureReview | pm | pmOrHighStaff | pmManage
-   * mode: hard (default redirect) | soft (non interviene; pagina gestisce overlay)
-   */
-  var ROUTE_POLICY = [
+    var ROUTE_POLICY = [
     { re: /\/accesso-richiesto(?:\/|$)/i, require: "public" },
     { re: /^\/dashboard\/transcript(?:\/|$)/i, require: "public" },
     { re: /^\/dashboard\/profilo(?:\/|$)/i, require: "public" },
     { re: /^\/staff\/gestione(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/staff\/punti-tolti(?:\/|$)/i, require: "pmOrHighStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/user/" },
-    // Punti tolti vive nell'inbox: il gate sulla vecchia URL lascia passare, poi redirect client.
-    { re: /^\/staff\/?$/i, require: "public" },
+        { re: /^\/staff\/?$/i, require: "public" },
     { re: /^\/staff(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/dashboard(?:\/|$)/i, require: "highStaff", denyFallback: "/" },
     { re: /^\/seratafilm(?:\/|$)/i, require: "highStaff", loginUrl: "/seratafilm/accesso-richiesto/", denyFallback: "/" },
@@ -270,8 +257,7 @@
           p.director,
       ),
       director: Boolean(d.director || p.director),
-      /** Solo flag esplicito — NON confondere con ok (altrimenti ogni staff passa highStaff). */
-      allowed: Boolean(d.allowed === true),
+            allowed: Boolean(d.allowed === true),
     };
   }
 
@@ -377,8 +363,7 @@
   function isTransientAccessFailure(out) {
     if (!out || !out.res) return true;
     var st = Number(out.res.status) || 0;
-    // 404: upstream restart / proxy momentaneo; non trattarlo come deny permanente.
-    if (st === 0 || st === 404 || st === 408 || st === 429 || st >= 500) return true;
+        if (st === 0 || st === 404 || st === 408 || st === 429 || st >= 500) return true;
     if (!out.data || typeof out.data !== "object") return true;
     var err = String(out.data.error || "").toLowerCase();
     if (
@@ -394,8 +379,7 @@
     ) {
       return true;
     }
-    // Body vuoto / non-JSON (es. challenge CDN) con HTTP 200: ritenta, non deny.
-    if (st === 200 && out.data.ok !== true && out.data.allowed !== true && !err && !out.data.message) {
+        if (st === 200 && out.data.ok !== true && out.data.allowed !== true && !err && !out.data.message) {
       return true;
     }
     if (st === 200 && !out.data.ok && (err === "internal" || err === "upstream" || err === "timeout")) return true;
@@ -425,8 +409,7 @@
       return verifyStaffAccess(api, token, attempt, timeoutMs).then(function (out) {
         if (out.res && out.res.ok && out.data && (out.data.ok || out.data.allowed === true)) return out;
         if (isExplicitStaffDenied(out)) return out;
-        // 401 Discord intermittente: ritenta prima di invalidare la sessione.
-        if (out.res && out.res.status === 401) {
+                if (out.res && out.res.status === 401) {
           authFails += 1;
           if (authFails < 3 && attempt < STAFF_VERIFY_ATTEMPTS) {
             return new Promise(function (resolve) {
@@ -735,8 +718,7 @@
         window.__VC_ACCESS_OK = true;
         return;
       }
-      // Mobile Safari / PWA: il token può arrivare qualche tick dopo il boot del gate.
-      var loginTries = 0;
+            var loginTries = 0;
       function retryLoginGate() {
         loginTries += 1;
         var t2 = getToken();
@@ -755,8 +737,7 @@
     }
 
     if (!token) {
-      // Token OAuth a volte arriva un attimo dopo il boot del gate (PWA / cold start).
-      if (isStaffArea || need === "highstaff" || need === "pm" || need === "pmorhighstaff" || need === "pmmanage") {
+            if (isStaffArea || need === "highstaff" || need === "pm" || need === "pmorhighstaff" || need === "pmmanage") {
         unrevealStaff();
         var tokenTries = 0;
         var tokenWaitStarted = Date.now();
@@ -785,9 +766,7 @@
     var revealedFromStale = false;
     var isSeratafilm = isSeratafilmPath(path);
 
-    // Cache hit → reveal subito, senza ri-armare overlay o fetch.
-    // Seratafilm: ammetti dalla cache ma NON uscire — serve ancora filmStreamUrl dal webhook dedicato.
-    if (needsStaffApi(need) && !needsDashboardApi(need, path)) {
+            if (needsStaffApi(need) && !needsDashboardApi(need, path)) {
       var cached = readJsonCache(STAFF_CACHE_KEY, token);
       if (cached && cached.ok) {
         admit(policy, normalizePerms(cached));
@@ -821,15 +800,13 @@
     }
 
     var api = needsDashboardApi(need, path) ? dashboardAccessApi() : staffAccessApi();
-    // Seratafilm: preferisci endpoint dedicato se configurato, altrimenti staff-access.
-    if (isSeratafilm) {
+        if (isSeratafilm) {
       api = staffAccessApi();
       var cSer = window.__VC_SERATAFILM_ACCESS;
       if (cSer && (cSer.apiUrl || cSer.apiUrlLocal)) {
         api = cfgUrl(cSer, "apiUrl", "apiUrlLocal", api);
       }
-      // Bake/deploy errati a volte lasciano /webhooks/seratafilm-access (404).
-      api = String(api || "").replace(
+            api = String(api || "").replace(
         /\/webhooks\/seratafilm-access\/?$/i,
         "/webhooks/site-seratafilm-access",
       );
@@ -887,8 +864,7 @@
       }
       if (out.res && out.res.status === 401) {
         var authErr = String((out.data && out.data.error) || "").toLowerCase();
-        // Solo invalid_token confermato → logout. Altri 401: chiedi Riprova senza bruciare la sessione.
-        if (authErr === "invalid_token" || authErr === "missing_token") {
+                if (authErr === "invalid_token" || authErr === "missing_token") {
           try {
             sessionStorage.removeItem(STAFF_CACHE_KEY);
             sessionStorage.removeItem(DASH_CACHE_KEY);
@@ -914,8 +890,7 @@
       }
       if (out.res && out.res.ok && out.data && (out.data.ok || out.data.allowed === true)) {
         var permsOk = normalizePerms(out.data);
-        // Seratafilm API storica: { ok:true } senza flag highStaff → tratta come high staff.
-        if (isSeratafilm && permsOk.ok && !permsOk.isHighStaff && !permsOk.canManage) {
+                if (isSeratafilm && permsOk.ok && !permsOk.isHighStaff && !permsOk.canManage) {
           permsOk.isHighStaff = true;
           permsOk.canManage = true;
           permsOk.allowed = true;
@@ -959,8 +934,7 @@
           showStaffDenied("Il server impiega troppo. Riprova tra poco.");
           return;
         }
-        // Fallback: non forzare logout su errori ambigui.
-        showStaffDenied(staffDeniedMessage(out, "Verifica non riuscita. Tocca Riprova."));
+                showStaffDenied(staffDeniedMessage(out, "Verifica non riuscita. Tocca Riprova."));
         return;
       }
       if (isSeratafilm && revealedFromStale) return;
@@ -1034,8 +1008,7 @@
         denied.setAttribute("hidden", "");
         denied.classList.remove("vc-staff-denied--visible");
       }
-      // Prima riprova con la sessione attuale (non forzare logout).
-      if (getToken()) {
+            if (getToken()) {
         unrevealStaff();
         setStaffLoadingHint("Nuovo tentativo di verifica\u2026");
         runGate();

@@ -9,7 +9,7 @@ const TICKET_FILE = "<:VC_file:1478515880722698300>";
 const TICKET_ICON = "<:VC_Ticket:1482535175283019888>";
 const TICKET_OPEN = "<:VC_open:1478517277279129712>";
 const TICKET_CLAIM = "<:VC_claim:1478517202016669887>";
-const MAIN_HIGH_STAFF_HELP_CHANNEL = "1442569095068254219";
+const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef");
 
 const DAY_IT = Object.freeze({
   monday: "Lunedì",
@@ -40,9 +40,8 @@ function makeTicketSuccessEmbed(title, description) {
 function resolveBlacklistHelpHint(guildId) {
   const gid = String(guildId || "").trim();
   const mainId = String(IDs?.guilds?.main || "").trim();
-  const helpChannelId = String(IDs?.channels?.ticket || MAIN_HIGH_STAFF_HELP_CHANNEL).trim();
-  if (mainId && gid === mainId && helpChannelId) {
-    return `Se pensi sia un errore apri un <#${helpChannelId}> \`HIGH STAFF\`.`;
+  if (mainId && gid === mainId) {
+    return `Se pensi sia un errore apri un ${siteTicketsPageDiscordRef("HIGH STAFF")}.`;
   }
   return "Se pensi sia un errore, contatta lo staff del server.";
 }

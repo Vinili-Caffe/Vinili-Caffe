@@ -1,7 +1,3 @@
-/**
- * Shared Discord identity for staff web APIs.
- * Never use a snowflake as a visible displayName — keep that only in userId.
- */
 const { getGuildMemberCached, getUserCached } = require("../Interaction/interactionEntityCache");
 const {
   accountUsername,
@@ -14,7 +10,6 @@ const DEFAULT_BATCH = 5;
 const DEFAULT_CAP = 80;
 const DEFAULT_BUDGET_MS = 3500;
 const FALLBACK_LABEL = "Utente";
-/** Process-local cache of successful resolves (survives organico reloads; avoids Discord rate limits). */
 const IDENTITY_OK_TTL_MS = 6 * 60 * 60_000;
 const identityOkCache = new Map();
 
@@ -40,7 +35,6 @@ function safeDisplayLabel(value, userId, fallback = FALLBACK_LABEL) {
   return name;
 }
 
-/** Prefer username when globalName is empty / single punctuation / emoji-only junk. */
 function pickUserDisplayName(user) {
   const global = String(user?.globalName || "").trim();
   const username = String(user?.username || "").trim();
@@ -116,10 +110,6 @@ function retryAfterMs(err) {
   return 1100;
 }
 
-/**
- * Fetch user without caching failures as null (interactionEntityCache would do that for 15s).
- * Retries on Discord 429 so organico history can resolve leavers.
- */
 async function fetchDiscordUserFresh(client, userId) {
   const uid = String(userId || "").trim();
   if (!client || !isDiscordSnowflake(uid)) return null;
@@ -140,11 +130,6 @@ async function fetchDiscordUserFresh(client, userId) {
   return null;
 }
 
-/**
- * Resolve one user: guild member → Discord user cache/fetch.
- * displayName is never a raw snowflake.
- * @param {{ skipGuildMember?: boolean, preferFreshUser?: boolean }} [opts]
- */
 async function resolveWebUserIdentity(client, guild, userId, opts = {}) {
   const uid = String(userId || "").trim();
   if (!isDiscordSnowflake(uid)) return identityFallback(uid);
@@ -181,9 +166,6 @@ async function resolveWebUserIdentity(client, guild, userId, opts = {}) {
   return identityFallback(uid);
 }
 
-/**
- * Batch resolve with small concurrency + time budget (site-api REST friendly).
- */
 async function resolveWebUserIdentitiesBatch(client, guild, userIds, opts = {}) {
   const batchSize = Math.max(1, Number(opts.batchSize) || DEFAULT_BATCH);
   const cap = Math.max(1, Number(opts.cap) || DEFAULT_CAP);
@@ -229,10 +211,8 @@ async function resolveWebUserIdentitiesBatch(client, guild, userIds, opts = {}) 
     const chunk = toFetch.slice(i, i + batchSize);
     await Promise.all(
       chunk.map(async (uid) => {
-        // Prefer fresh users.fetch: do not cache 429/failures as null via getUserCached.
-        const id = await resolveWebUserIdentity(client, guild, uid, {
-          // History includes leavers: skip guild.members.fetch (Unknown Member noise).
-          skipGuildMember: opts.skipGuildMember !== false,
+                const id = await resolveWebUserIdentity(client, guild, uid, {
+                    skipGuildMember: opts.skipGuildMember !== false,
           preferFreshUser: true,
         });
         out.set(uid, id);

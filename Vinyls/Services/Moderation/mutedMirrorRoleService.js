@@ -46,15 +46,12 @@ function syncLocalMemberRolesCache(member, guild, roleIds) {
   } catch (_) {}
 }
 
-/** True only for real role managers (discord.js / REST wrapMember), not Map/Collection.set. */
 function hasUsableRolesSet(member) {
   const roles = member?.roles;
   const setFn = roles?.set;
   if (typeof setFn !== "function") return false;
-  // Stub: roles is the cache map itself.
-  if (typeof roles?.has === "function" && typeof roles?.get === "function" && !roles.cache) return false;
-  // Stub: set is the cache's Map.set.
-  if (roles?.cache && setFn === roles.cache.set) return false;
+    if (typeof roles?.has === "function" && typeof roles?.get === "function" && !roles.cache) return false;
+    if (roles?.cache && setFn === roles.cache.set) return false;
   return true;
 }
 
@@ -84,8 +81,7 @@ async function setMemberRolesSafe(member, roleIds, reason) {
   ];
   const reasonOpt = reason ? String(reason).slice(0, 512) : undefined;
 
-  // REST-first for site-api / bot-scheduler workers (reliable, no gateway RoleManager).
-  if (await setMemberRolesViaRest(guild, userId, ids, reasonOpt)) {
+    if (await setMemberRolesViaRest(guild, userId, ids, reasonOpt)) {
     syncLocalMemberRolesCache(member, guild, ids);
     return true;
   }
@@ -96,8 +92,7 @@ async function setMemberRolesSafe(member, roleIds, reason) {
       return true;
     } catch (err) {
       const msg = String(err?.message || err || "");
-      // Fall through only for stub managers; real Discord errors must propagate.
-      if (!/is not a function/i.test(msg)) throw err;
+            if (!/is not a function/i.test(msg)) throw err;
     }
   }
 
@@ -109,8 +104,7 @@ async function setMemberRolesSafe(member, roleIds, reason) {
     await member.roles.remove(toRemove, reasonOpt);
   }
   if (typeof member?.roles?.add === "function" && toAdd.length) {
-    // Un id per chiamata: su client REST String([a,b]) diventava "a,b" (400 Discord).
-    for (const roleId of toAdd) {
+        for (const roleId of toAdd) {
       await member.roles.add(roleId, reasonOpt);
     }
   }
@@ -203,8 +197,7 @@ async function upsertSnapshot(guildId, userId, roleIds) {
   const key = snapshotKey(gid, uid);
   if (!isValidGuildUserId(gid, uid)) return false;
 
-  // Non sovrascrivere mai uno snapshot pieno con uno più corto (race strip/rejoin).
-  const existingMem = Array.isArray(memorySnapshots.get(key)) ? memorySnapshots.get(key) : [];
+    const existingMem = Array.isArray(memorySnapshots.get(key)) ? memorySnapshots.get(key) : [];
   let existingDb = [];
   await ensureMongoReady({ maxWaitMs: SNAPSHOT_PERSIST_WAIT_MS }).catch(() => false);
   if (dbReady()) {
@@ -286,8 +279,7 @@ function markEmptySnapshotCooldown(guildId, userId) {
   const key = emptySnapshotCooldownKey(guildId, userId);
   if (!key || key === ":") return;
   emptySnapshotCooldownUntil.set(key, Date.now() + EMPTY_SNAPSHOT_COOLDOWN_MS);
-  // Evita crescita infinita della Map.
-  if (emptySnapshotCooldownUntil.size > 2000) {
+    if (emptySnapshotCooldownUntil.size > 2000) {
     const now = Date.now();
     for (const [k, until] of emptySnapshotCooldownUntil) {
       if (!Number.isFinite(until) || until <= now) emptySnapshotCooldownUntil.delete(k);
@@ -299,7 +291,6 @@ function clearEmptySnapshotCooldown(guildId, userId) {
   emptySnapshotCooldownUntil.delete(emptySnapshotCooldownKey(guildId, userId));
 }
 
-/** Ultimo tentativo di snapshot se profilo mute + ruoli live sono vuoti. */
 async function recoverSnapshotRoleIdsFallback(guildId, userId, mutedRoleId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
@@ -335,10 +326,7 @@ function buildRestoreTargetRoleIds(member, me, allowedRoleIds, mutedRoleId) {
     const rid = String(id || "").trim();
     if (!rid || rid === guildId) continue;
     if (muted && rid === muted) continue;
-    // Solo ruoli che non possiamo togliere (managed / sopra il bot).
-    // Unire TUTTI i ruoli correnti faceva restare Member/NuovoUtente
-    // riapplicati per errore durante il mute (rejoin/tenure).
-    if (role?.managed || Number(role?.position || 0) >= highest) target.add(rid);
+                if (role?.managed || Number(role?.position || 0) >= highest) target.add(rid);
   }
   return [...target];
 }
@@ -358,11 +346,6 @@ function isCommunicationTimeoutActive(member) {
   return Boolean(Number.isFinite(until) && until > Date.now());
 }
 
-/**
- * bot-scheduler (REST): a volte il member in cache non ha il timeout → lo sweep
- * credeva finito e “riconciliava” ogni minuto. Conferma via REST raw se manca.
- * @returns {Promise<number|null>} ms epoch fine timeout, 0 se assente, null se sconosciuto
- */
 async function resolveCommunicationTimeoutUntilMs(member, guild) {
   const local =
     Number(member?.communicationDisabledUntilTimestamp || 0) ||
@@ -374,9 +357,7 @@ async function resolveCommunicationTimeoutUntilMs(member, guild) {
   const gid = String(guild?.id || member?.guild?.id || "").trim();
   const uid = String(member?.id || "").trim();
   const rest = guild?.client?._rest || member?.client?._rest || guild?.client?.rest || member?.client?.rest;
-  // Senza REST non possiamo distinguere "timeout finito" da "campo assente in cache".
-  // Restituire 0 qui faceva riconciliare ogni minuto mentre il timeout era ancora attivo.
-  if (!gid || !uid || typeof rest?.get !== "function") return null;
+      if (!gid || !uid || typeof rest?.get !== "function") return null;
   try {
     const { Routes } = require("discord.js");
     const raw = await rest.get(Routes.guildMember(gid, uid));
@@ -405,7 +386,6 @@ function collectSnapshotRoleIds(member, mutedRoleId) {
   return [...new Set(out)];
 }
 
-/** Ruoli che Discord non lascia togliere al bot (sopra il ruolo del bot o managed). */
 function buildRolesWhileMuted(member, me, mutedRoleId) {
   const guildId = String(member?.guild?.id || "");
   const muted = String(mutedRoleId || "").trim();
@@ -457,9 +437,6 @@ async function resolveMutedRoleContext(guild, me, mutedRoleId, mutedRoleOption) 
   return { mutedRoleId: mutedRoleIdNorm, mutedRole };
 }
 
-/**
- * Ripristina i ruoli salvati e rimuove Muted quando il timeout Discord non è più attivo.
- */
 async function resolveGuildBotMember(guild, options = {}) {
   if (!guild) return null;
   if (options.me) return options.me;
@@ -504,8 +481,7 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
       const missingCoreMember = Boolean(memberRoleId && !member.roles.cache.has(memberRoleId) && saved.length > 0);
       if (!missingCoreMember) {
         markRecentUnmuteProfileRecovery(guild.id, member.id);
-        // Clear stale in-memory/Mongo snapshots left by workers that failed mid-restore.
-        if (saved.length > 0) await clearSnapshot(guild.id, member.id);
+                if (saved.length > 0) await clearSnapshot(guild.id, member.id);
         return { ok: true, restored: false, restoreOk: true, reason: "already_reconciled" };
       }
       global.logger?.warn?.(
@@ -589,8 +565,7 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
     global.logger?.warn?.("[mutedMirrorRole] snapshot kept for retry:", guild.id, member.id, saved.length);
   }
 
-  // Conta solo lavoro mute/snapshot: il profileResync da solo generava log 1/min falsi.
-  const muteWorkDone = Boolean(restored || restoreOk);
+    const muteWorkDone = Boolean(restored || restoreOk);
 
   let profileResync = null;
   const shouldProfileResync =
@@ -605,9 +580,7 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
       global.logger?.warn?.("[mutedMirrorRole] profile resync failed:", guild.id, member.id, err?.message || err);
       return null;
     });
-    // Secondo passaggio level roles: dopo roles.set Discord a volte non ha ancora
-    // aggiornato la cache e syncLevelRoles no-op/fail al primo tentativo.
-    if (profileResync?.ok) {
+            if (profileResync?.ok) {
       try {
         const { getUserExpStats, syncLevelRolesForMember } = require("../Community/expService");
         const stats = await getUserExpStats(guild.id, member.id).catch(() => null);
@@ -649,9 +622,6 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
   };
 }
 
-/**
- * Timeout Discord (+mute, AutoMod, client): all'ingresso salva i ruoli, lascia solo Muted; alla fine ripristina e rimuove Muted.
- */
 async function syncMutedMirrorRoleFromMemberUpdate(oldMember, newMember) {
   if (!newMember?.guild || newMember.user?.bot) return;
   try {
@@ -663,15 +633,13 @@ async function syncMutedMirrorRoleFromMemberUpdate(oldMember, newMember) {
   if (!mutedRoleId) return;
 
   if (!didCommunicationTimeoutChange(oldMember, newMember)) {
-    // Ruoli aggiunti mentre timeout/Muted è attivo (es. tenure al rejoin).
-    const nowActive = isCommunicationTimeoutActive(newMember);
+        const nowActive = isCommunicationTimeoutActive(newMember);
     const hasMuted = newMember.roles.cache.has(mutedRoleId);
     if (!(nowActive || hasMuted)) return;
     const oldSize = oldMember?.roles?.cache?.size || 0;
     const newSize = newMember?.roles?.cache?.size || 0;
     if (newSize <= oldSize && hasMuted) {
-      // Possibile swap: controlla comunque se ci sono ruoli extra oltre lo strip set.
-    }
+          }
     await enforceMutedStripIfNeeded(newMember, {
       reason: "Timeout Discord / +mute (ruoli extra)",
     });
@@ -749,9 +717,6 @@ async function syncMutedMirrorRoleFromMemberUpdate(oldMember, newMember) {
   }
 }
 
-/**
- * Sweep snapshot e membri con ruolo Muted ma timeout scaduto (startup + tick periodico).
- */
 async function sweepExpiredCommunicationTimeoutMirrors(client, options = {}) {
   if (muteMirrorSweepInFlight) return muteMirrorSweepInFlight;
   muteMirrorSweepInFlight = runSweepExpiredCommunicationTimeoutMirrors(client, options).finally(() => {
@@ -793,12 +758,10 @@ async function runSweepExpiredCommunicationTimeoutMirrors(client, options = {}) 
     }
     const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
     if (!member) {
-      // Non cancellare lo snapshot mentre l'utente è offline (leave/rejoin mute).
-      continue;
+            continue;
     }
     const untilMs = await resolveCommunicationTimeoutUntilMs(member, guild);
-    // Timeout ancora attivo, o non verificabile: non toccare (evita loop 1/min).
-    if (untilMs == null || untilMs > Date.now()) continue;
+        if (untilMs == null || untilMs > Date.now()) continue;
 
     const result = await restoreRolesAfterCommunicationTimeoutEnd(member, {
       ...options,
@@ -823,8 +786,7 @@ async function runSweepExpiredCommunicationTimeoutMirrors(client, options = {}) 
       } catch (_) {}
 
       let guild = guildStub;
-      // bot-scheduler seeds partial stubs without members — hydrate before touch.
-      if (guild?.partial === true || !guild?.members || typeof guild.members.fetch !== "function") {
+            if (guild?.partial === true || !guild?.members || typeof guild.members.fetch !== "function") {
         guild = await getClientGuildCached(client, guildId).catch(() => null);
         if (!guild?.members) continue;
       }
@@ -840,8 +802,7 @@ async function runSweepExpiredCommunicationTimeoutMirrors(client, options = {}) 
         const key = `${guild.id}:${cachedMember.id}`;
         if (seen.has(key)) continue;
 
-        // REST/worker: role.members può contenere stub senza roles.set — non usarli.
-        const member = await getGuildMemberCached(guild, cachedMember.id, { preferFresh: true }).catch(() => null);
+                const member = await getGuildMemberCached(guild, cachedMember.id, { preferFresh: true }).catch(() => null);
         if (!member?.roles?.cache) {
           await clearSnapshot(guild.id, cachedMember.id);
           mutedRole.members?.delete?.(cachedMember.id);
@@ -954,10 +915,7 @@ async function shouldDeferRoleRestoreForMuteMirror(member) {
 }
 
 async function handleMuteMirrorOnMemberLeave(member) {
-  // Non cancellare lo snapshot al leave: Discord a volte omette
-  // communicationDisabledUntil e cancellavamo il backup pre-mute.
-  // Lo snapshot resta fino all'unmute / restore riuscito.
-  void member;
+        void member;
 }
 
 async function syncMutedMirrorOnMemberJoin(member) {
@@ -975,8 +933,7 @@ async function syncMutedMirrorOnMemberJoin(member) {
   let saved = await loadSnapshot(guild.id, member.id);
   if (!timeoutActive && !saved.length) return;
 
-  // Timeout già scaduto ma snapshot ancora presente → ripristina, non restrippare.
-  if (!timeoutActive && saved.length) {
+    if (!timeoutActive && saved.length) {
     await restoreRolesAfterCommunicationTimeoutEnd(member, {
       me,
       mutedRoleId: ctx.mutedRoleId,
@@ -990,9 +947,7 @@ async function syncMutedMirrorOnMemberJoin(member) {
 
   const reasonIn = "Timeout Discord / +mute (rejoin)";
   if (!saved.length && timeoutActive) {
-    // Preferisci snapshot profilo (vero pre-mute) rispetto ai ruoli attuali
-    // (spesso vuoti / solo @everyone al rejoin).
-    const fromProfile = await loadProfileMuteSnapshotRoleIds(guild.id, member.id);
+            const fromProfile = await loadProfileMuteSnapshotRoleIds(guild.id, member.id);
     const snapshotIds = fromProfile.length
       ? fromProfile
       : collectSnapshotRoleIds(member, ctx.mutedRoleId);
@@ -1018,10 +973,6 @@ async function syncMutedMirrorOnMemberJoin(member) {
   });
 }
 
-/**
- * Se durante un mute attivo vengono riapplicati ruoli base (tenure/rejoin),
- * ritaglia di nuovo a Muted (+ unmanaged).
- */
 async function enforceMutedStripIfNeeded(member, options = {}) {
   if (!member?.guild || member.user?.bot) return false;
   try {
@@ -1043,11 +994,9 @@ async function enforceMutedStripIfNeeded(member, options = {}) {
   const ctx = await resolveMutedRoleContext(guild, me, mutedRoleId);
   if (!ctx) return false;
 
-  // Timeout attivo senza snapshot: prova a salvarlo PRIMA di strippare.
-  if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
+    if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
     if (isEmptySnapshotOnCooldown(guild.id, member.id)) {
-      // Già valutato di recente: assicura solo Muted e stop.
-      if (!member.roles.cache.has(ctx.mutedRoleId)) {
+            if (!member.roles.cache.has(ctx.mutedRoleId)) {
         await member.roles.add(ctx.mutedRoleId, String(options.reason || "Timeout Discord / +mute")).catch(() => null);
       }
       return false;
@@ -1080,16 +1029,14 @@ async function enforceMutedStripIfNeeded(member, options = {}) {
       }
     }
   }
-  // Già solo Muted (+ unmanaged): niente da strippare. Snapshot vuoto non è un errore.
-  if (!needsStrip) {
+    if (!needsStrip) {
     if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
       markEmptySnapshotCooldown(guild.id, member.id);
     }
     return false;
   }
 
-  // Sta per strippare ruoli extra: senza snapshot abortiamo (altrimenti unmute = Unverified).
-  if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
+    if (timeoutActive && !(await hasSnapshot(guild.id, member.id))) {
     markEmptySnapshotCooldown(guild.id, member.id);
     global.logger?.warn?.(
       "[mutedMirrorRole] enforce strip abortito: snapshot vuoto con ruoli extra",
@@ -1110,10 +1057,6 @@ async function enforceMutedStripIfNeeded(member, options = {}) {
   return true;
 }
 
-/**
- * Salva i ruoli attuali PRIMA di applicare timeout/strip.
- * Chiamare da +mute prima di member.timeout().
- */
 async function captureMuteRoleSnapshot(member, options = {}) {
   if (!member?.guild || member.user?.bot) return { ok: false, reason: "bad_member", roleIds: [] };
   try {
@@ -1127,8 +1070,7 @@ async function captureMuteRoleSnapshot(member, options = {}) {
 
   const fromProfile = await loadProfileMuteSnapshotRoleIds(member.guild.id, member.id);
   const current = collectSnapshotRoleIds(member, mutedRoleId);
-  // Preferisci il set più completo tra profilo e ruoli attuali.
-  const roleIds =
+    const roleIds =
     fromProfile.length >= current.length && fromProfile.length
       ? fromProfile
       : current.length
@@ -1144,10 +1086,6 @@ async function captureMuteRoleSnapshot(member, options = {}) {
   return { ok: true, reason: String(options.reason || "captured"), roleIds };
 }
 
-/**
- * Timeout Discord già attivo ma Muted/strip incompleti (es. mute durante restart).
- * Applica snapshot + strip come al rejoin.
- */
 async function applyActiveMuteMirror(member, options = {}) {
   if (!member?.guild || member.user?.bot) return { ok: false, reason: "bad_member" };
   if (!isCommunicationTimeoutActive(member)) return { ok: false, reason: "no_timeout" };
@@ -1157,8 +1095,7 @@ async function applyActiveMuteMirror(member, options = {}) {
     reason,
   });
   if (changed) return { ok: true, reason: "enforced" };
-  // enforce può no-op se già strippati: ok.
-  const mutedRoleId = String(IDs.roles?.Muted || "").trim();
+    const mutedRoleId = String(IDs.roles?.Muted || "").trim();
   if (mutedRoleId && !member.roles.cache.has(mutedRoleId)) {
     await syncMutedMirrorOnMemberJoin(member);
     return { ok: true, reason: "rejoin_apply" };
@@ -1187,10 +1124,6 @@ async function listActiveMuteCaseUserIds(guildId, limit = 50) {
   return rows.map((r) => String(r.userId || "").trim()).filter(Boolean);
 }
 
-/**
- * Riconcilia mute incompleti: timeout Discord sì, ma senza Muted / senza strip ruoli.
- * Utile dopo restart (guildMemberUpdate perso) o race Mongo.
- */
 async function reconcileIncompleteActiveMuteMirrors(client, options = {}) {
   if (activeMuteReconcileInFlight) return activeMuteReconcileInFlight;
   activeMuteReconcileInFlight = runReconcileIncompleteActiveMuteMirrors(client, options).finally(() => {
@@ -1230,8 +1163,7 @@ async function runReconcileIncompleteActiveMuteMirrors(client, options = {}) {
     const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
     if (!member || member.user?.bot) return;
 
-    // REST/scheduler: conferma timeout via raw member se il campo manca in cache.
-    const untilMs = await resolveCommunicationTimeoutUntilMs(member, guild);
+        const untilMs = await resolveCommunicationTimeoutUntilMs(member, guild);
     const timeoutActive =
       untilMs == null
         ? isCommunicationTimeoutActive(member)
@@ -1240,8 +1172,7 @@ async function runReconcileIncompleteActiveMuteMirrors(client, options = {}) {
       skippedNoTimeout += 1;
       return;
     }
-    // Allinea il member locale se abbiamo letto il timeout via REST.
-    if (
+        if (
       Number.isFinite(untilMs) &&
       untilMs > Date.now() &&
       !isCommunicationTimeoutActive(member)
@@ -1271,8 +1202,7 @@ async function runReconcileIncompleteActiveMuteMirrors(client, options = {}) {
     }
   };
 
-  // Mongo-first (come sweep): funziona anche sul bot-scheduler REST senza guild.members pieni.
-  const snapshotDocs = await ActivityUserProfile.find({ "profile.muteRoleSnapshot.roleIds.0": { $exists: true } })
+    const snapshotDocs = await ActivityUserProfile.find({ "profile.muteRoleSnapshot.roleIds.0": { $exists: true } })
     .select("guildId userId")
     .limit(limit)
     .lean()
@@ -1300,8 +1230,7 @@ async function runReconcileIncompleteActiveMuteMirrors(client, options = {}) {
     await queueByIds(doc.guildId, doc.userId, "Timeout Discord / +mute (reconcile case)");
   }
 
-  // Gateway bots: eventuali timeout in cache senza caso/snapshot.
-  if (options.scanTimedOutMembers !== false) {
+    if (options.scanTimedOutMembers !== false) {
     for (const guildStub of client.guilds.cache.values()) {
       if (scanned >= limit) break;
       const guildId = String(guildStub?.id || "").trim();

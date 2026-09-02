@@ -76,10 +76,6 @@ async function removePreMemberRoleIfPresent(member, reason) {
   return (await getGuildMemberCached(guild, member.id, { preferFresh: true }).catch(() => null)) || member;
 }
 
-/**
- * Utente già verificato (Member e/o tenure in DB): togli Unverified e, se serve, ripristina Member.
- * Non toccare durante mute/timeout.
- */
 async function reconcileVerifiedMemberPreMember(member, reason) {
   if (!member?.guild || member.user?.bot || !isMainGuildMemberContext(member)) return member || null;
   if (memberIsInMuteMirrorState(member)) {
@@ -125,8 +121,7 @@ async function applyPreMemberRoleIfNeeded(member) {
   }
   if (memberIsInMuteMirrorState(member)) return member || null;
 
-  // Verificato in DB ma senza Member (unmute fallito / restart): non rimettere Unverified.
-  if (await hasVerifiedTenureInProfile(member.guild.id, member.id)) {
+    if (await hasVerifiedTenureInProfile(member.guild.id, member.id)) {
     return reconcileVerifiedMemberPreMember(member, "Verifica profilo: ripristino post-ingresso.");
   }
 
@@ -169,10 +164,6 @@ async function handlePreMemberRoleOnMemberUpdate(oldMember, newMember) {
   }
 }
 
-/**
- * Toglie Unverified a chi ha già Member (o tenure verificata).
- * Utile dopo restart / race sulla verifica.
- */
 async function sweepStalePreMemberRoles(client, options = {}) {
   const rid = preMemberRoleId();
   const memberRole = mainMemberRoleId();
@@ -197,8 +188,7 @@ async function sweepStalePreMemberRoles(client, options = {}) {
     if (member?.user?.bot) continue;
     candidates.push(member);
   }
-  // Fallback cache: Member + Unverified anche se role.members è incompleto.
-  if (memberRole) {
+    if (memberRole) {
     for (const [, member] of guild.members.cache) {
       if (member?.user?.bot) continue;
       if (!member.roles.cache.has(rid)) continue;

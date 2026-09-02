@@ -1,9 +1,3 @@
-/**
- * Navbar staff = navbar sito (Vinili & Caffè) + menu Area staff
- * (solo Guida). Inbox → /notifications/?view=staff; Organico / Punti tolti /
- * Pause → dal profilo staff. Su mobile/tablet Area staff è nascosto.
- * Attiva su body.vc-staff-area o quando l'utente è staff (dropdown globale).
- */
 (function () {
   "use strict";
 
@@ -17,8 +11,7 @@
     return window.__VC_STAFF_MENU_ALLOWED === true;
   }
 
-  /** Navbar dedicate (Hogwarts /evento): non iniettare Area staff nel centro. */
-  function isSpecializedSiteNav(snav) {
+    function isSpecializedSiteNav(snav) {
     try {
       var raw = String(location.pathname || "/").toLowerCase();
       var p = raw.replace(/\/+$/, "") || "/";
@@ -125,14 +118,12 @@
 
   function ensureSiteBrand(header) {
     var brand =
-      header.querySelector("a.vc-header-site-name") ||
+      header.querySelector(".vc-header-bar > div:first-child a.vc-header-logo-link + a") ||
+      header.querySelector('.vc-header-bar > div:first-child a.vc-header-site-name:not(.vc-snav-item):not(.vc-snav-row)') ||
       header.querySelector('a[href="/staff/"], a[href="/staff"]') ||
       header.querySelector(".vc-staff-nav-wide a.min-w-0.truncate");
     if (!brand) return;
-    var home = "/";
-    try {
-      if (window.__VC_AUTH && window.__VC_AUTH.homeUrl) home = String(window.__VC_AUTH.homeUrl);
-    } catch (e) {}
+        var home = "/";
     brand.setAttribute("href", home);
     brand.classList.add("vc-header-site-name");
     if (!/vinili/i.test(brand.textContent || "")) {
@@ -155,8 +146,7 @@
     return t === "guida" || t === "guida staff" || t === "staff guide";
   }
 
-  /** Area staff dropdown: solo Guida — rimuove Pause/Organico/Inbox/Gestione/ecc. */
-  function enforceStaffMenuGuidaOnly(root) {
+    function enforceStaffMenuGuidaOnly(root) {
     try {
       var scope = root || document;
       var menus = scope.querySelectorAll(
@@ -211,8 +201,7 @@
       );
       for (var i = 0; i < links.length; i++) {
         var a = links[i];
-        // Solo navbar / drawer Area staff — non i link nel profilo staff.
-        var inStaffMenu = a.closest
+                var inStaffMenu = a.closest
           ? a.closest(
               "[data-vc-staff-tools-nav], .vc-snav-details--staff, .vc-header-snav, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, header",
             )
@@ -221,12 +210,10 @@
         if (a.closest && a.closest(".vc-staff-pm-pt-btn, .vc-staff-pm-pt-link, .vc-user-profile, #vc-user-profile-view")) {
           continue;
         }
-        // Non togliere Guida se per errore matchasse un selettore largo.
-        if (isStaffGuideNavHref(a.getAttribute("href"))) continue;
+                if (isStaffGuideNavHref(a.getAttribute("href"))) continue;
         if (a.parentNode) a.parentNode.removeChild(a);
       }
-      // Rimuovi anche summary/link etichettati Gestione / Pause / Organico nei menu staff.
-      var rows = scope.querySelectorAll(
+            var rows = scope.querySelectorAll(
         "[data-vc-staff-tools-nav] a.vc-snav-row, .vc-snav-details--staff a.vc-snav-row, .vc-header-snav a.vc-snav-item, #vc-mobile-nav-drawer a.vc-mobile-nav-tile",
       );
       for (var j = 0; j < rows.length; j++) {
@@ -256,8 +243,7 @@
           if (el.parentNode) el.parentNode.removeChild(el);
         }
       }
-      // Details vuoti o intestati «Gestione» (vecchie navbar).
-      var details = scope.querySelectorAll("header details.vc-snav-details, .vc-header-snav details.vc-snav-details");
+            var details = scope.querySelectorAll("header details.vc-snav-details, .vc-header-snav details.vc-snav-details");
       for (var d = 0; d < details.length; d++) {
         var det = details[d];
         var sum = det.querySelector(".vc-snav-summary span, .vc-snav-summary");
@@ -277,9 +263,7 @@
 
     var bar = shell.querySelector(".vc-header-bar") || shell;
     var snav = bar.querySelector("nav.vc-header-snav");
-    // Su /evento (e hub Hogwarts) la snav centrale è dedicata: non mischiare Area staff.
-    // Check path/body PRIMA di qualsiasi insert (anche se snav ancora assente).
-    if (isSpecializedSiteNav(snav) || isEventDedicatedNavPage()) {
+            if (isSpecializedSiteNav(snav) || isEventDedicatedNavPage()) {
       stripStaffMenuFromSnav(snav);
       var stray = header.querySelectorAll("[data-vc-staff-tools-nav], .vc-snav-details--staff");
       for (var s = 0; s < stray.length; s++) {
@@ -293,9 +277,7 @@
 
     var p = perms();
     var staffOk = Boolean(p.ok) || window.__VC_STAFF_MENU_ALLOWED === true;
-    // Link base sempre visibili per chi ha Area staff (anche se payload perms ancora in arrivo).
-    // Inbox → /notifications/?view=staff ; Organico / Punti tolti PM → solo dal profilo staff.
-    var html =
+            var html =
       '<details class="vc-snav-details vc-snav-details--staff" data-vc-staff-tools-nav>' +
       '<summary class="vc-snav-summary"><span>Area staff</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>' +
       '<div class="vc-snav-panel">' +
@@ -318,8 +300,7 @@
       return;
     }
 
-    // Slim staff header: add a compact snav next to brand.
-    var brandWrap = bar.querySelector(".flex.min-w-0") || bar.firstElementChild;
+        var brandWrap = bar.querySelector(".flex.min-w-0") || bar.firstElementChild;
     var nav = document.createElement("nav");
     nav.className =
       "vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center gap-0.5 px-1.5 py-1 sm:gap-1 sm:px-2";
@@ -483,7 +464,7 @@
 
     if (!document.querySelector('script[src*="vc-header-promo.js"]')) {
       var s = document.createElement("script");
-      s.src = "/js/vc-header-promo.js?v=20260827staffPromoFix1";
+      s.src = "/js/vc-header-promo.js?v=20260902mobilePromoAvatarFix1";
       s.async = false;
       (document.head || document.body || document.documentElement).appendChild(s);
     } else {
@@ -641,8 +622,7 @@
         if (el.tagName === "DETAILS" && el.classList.contains("vc-snav-details")) {
           var sum = el.querySelector(".vc-snav-summary span, .vc-snav-summary");
           var title = sum ? String(sum.textContent || "").trim() : "Menu";
-          // Area staff / Gestione: niente sezione hamburger, ma promuovi Guida.
-          var titleNorm = title.replace(/\s+/g, " ").trim().toLowerCase();
+                    var titleNorm = title.replace(/\s+/g, " ").trim().toLowerCase();
           var isStaffBlock =
             /^area\s*staff$/.test(titleNorm) ||
             titleNorm === "staff area" ||
@@ -695,15 +675,23 @@
           }
           var rows = el.querySelectorAll(".vc-snav-panel .vc-snav-row");
           var detailItems = [];
+          var seenTicket = false;
           for (var r = 0; r < rows.length; r += 1) {
             var row = rows[r];
             var href = row.getAttribute("href");
             if (!href) continue;
-            if (String(href).toLowerCase().indexOf("/staff/gestione") >= 0) continue;
             var lab = row.querySelector("span:not(.vc-snav-row-ico)");
             var labTxt = lab ? String(lab.textContent || "").trim() : String(row.textContent || "").trim();
             var labNorm = labTxt.replace(/\s+/g, " ").trim().toLowerCase();
             if (labNorm === "gestione" || labNorm === "gestione staff" || labNorm === "area staff") continue;
+            var isTicket =
+              labNorm === "tickets" ||
+              Boolean(row.querySelector(".fa-ticket")) ||
+              String(href).toLowerCase().indexOf("/tickets") >= 0;
+            if (isTicket) {
+              if (seenTicket) continue;
+              seenTicket = true;
+            }
             detailItems.push({
               href: href,
               label: labTxt,
@@ -753,8 +741,9 @@
     try {
       var brand = document.getElementById("vc-mobile-nav-drawer-brand");
       if (brand && !brand.childNodes.length) {
-        var logo = document.querySelector("header a.vc-header-logo-link");
-        var name = document.querySelector("header a.vc-header-site-name");
+        var brandCol = document.querySelector(".vc-header-bar > div:first-child");
+        var logo = brandCol && brandCol.querySelector("a.vc-header-logo-link");
+        var name = brandCol && brandCol.querySelector("a.vc-header-logo-link + a");
         if (logo) brand.appendChild(logo.cloneNode(true));
         if (name) brand.appendChild(name.cloneNode(true));
       }
@@ -765,6 +754,12 @@
 
   function staffAvatarUrl(u) {
     if (!u || !u.id) return "";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromUser === "function") {
+        var built = window.VcDiscordAvatar.buildFromUser(u, 64);
+        if (built) return built;
+      }
+    } catch (eBuilt) {}
     if (u.avatar) {
       var ext = String(u.avatar).indexOf("a_") === 0 ? "gif" : "png";
       return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
@@ -910,8 +905,7 @@
       try {
         if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
       } catch (eRebuild) {}
-      // Rebuild può svuotare/riempire: se resta vuoto, fallback locale.
-      var grid = document.getElementById("vc-mobile-nav-drawer-grid");
+            var grid = document.getElementById("vc-mobile-nav-drawer-grid");
       if (!grid || !grid.children.length) fillStaffDrawerFromNav();
       syncStaffDrawerFooter();
 
@@ -955,8 +949,7 @@
     if (!btn) return;
     if (btn.getAttribute("data-vc-staff-ham-wired") === "3") return;
     btn.setAttribute("data-vc-staff-ham-wired", "3");
-    // Staff owns the hamburger: block other capture listeners (open→close race).
-    window.__vcStaffHamburgerOwnsToggle = true;
+        window.__vcStaffHamburgerOwnsToggle = true;
     var lastToggleAt = 0;
 
     function onStaffHam(ev) {
@@ -1020,8 +1013,7 @@
     }
     bindDrawerChrome();
     window.setTimeout(bindDrawerChrome, 200);
-    // Prefill so first open is never blank.
-    try {
+        try {
       ensureStaffDrawerShell();
       fillStaffDrawerFromNav();
       syncStaffDrawerFooter();
@@ -1075,8 +1067,7 @@
       return true;
     }
     if (run()) return;
-    // Prefetch/access possono arrivare prima del body o dello script: ritenta.
-    var tries = 0;
+        var tries = 0;
     var timer = window.setInterval(function () {
       tries += 1;
       if (run() || tries > 40) window.clearInterval(timer);

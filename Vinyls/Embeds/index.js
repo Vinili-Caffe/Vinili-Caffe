@@ -4,7 +4,6 @@ const EMBEDS_DIR = __dirname;
 const SECTION_MENU = "menu";
 const SECTION_EMBED_WITH_BUTTONS = "embedWithButtons";
 const SECTION_EMBED_ONLY = "embedOnly";
-/** @type {{ name: string, order: number, section: string, run: (client: import("discord.js").Client) => Promise<void> }[]} */
 let panels = [];
 const byName = {};
 
@@ -38,10 +37,6 @@ function loadPanels() {
 
 if (panels.length === 0) loadPanels();
 
-/**
- * @param {"menu"|"embedWithButtons"|"embedOnly"} section
- * @returns {{ name: string, run: (client: import("discord.js").Client) => Promise<void> }[]}
- */
 function getPanelsBySection(section) {
   if (panels.length === 0) loadPanels();
   return panels.filter((p) => p.section === section).map((p) => ({ name: p.name, run: p.run }));

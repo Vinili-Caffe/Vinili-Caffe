@@ -1,4 +1,3 @@
-/* v=20260831phoneWipe2 phoneWipe2 */
 .vc-reviews-pager {
   display: flex;
   flex-direction: column;
@@ -94,14 +93,11 @@
   --vc-header-ctrl-bg-hover: #1c1612;
   --vc-header-ctrl-border: rgba(212, 168, 136, 0.28);
   --vc-header-ctrl-border-hover: rgba(212, 168, 136, 0.55);
-  /* 0: blur sui ctrl header flasha (Brave/Chromium) con sfondo animato dietro */
   --vc-header-ctrl-blur: 0px;
-  /* Menu header: base coprente + blur (evita Ã¢â‚¬Å“solo trasparenzaÃ¢â‚¬Â se il backdrop fallisce) */
   --vc-header-menu-frost-blur: 48px;
   --vc-header-menu-frost-bg:
     radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.16), transparent 50%),
     linear-gradient(180deg, rgba(28, 20, 15, 0.9), rgba(10, 8, 6, 0.94));
-  /* Palette Ã¢â‚¬Å“supportoÃ¢â‚¬Â (hero donazioni: smeraldo + teal su blu notte) */
   --vc-support-hero-border: rgba(110, 231, 183, 0.12);
   --vc-support-hero-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
   --vc-support-hero-bg:
@@ -111,7 +107,6 @@
   --vc-support-cta-border: rgba(52, 211, 153, 0.18);
   --vc-support-card-bg: rgba(255, 255, 255, 0.05);
   --vc-support-card-border: rgba(255, 255, 255, 0.1);
-  /* Palette recensioni: smeraldo / teal (caricamenti, sessione, login modulo, home) */
   --vc-reviews-emerald-rgb: 52, 211, 153;
   --vc-reviews-teal-rgb: 5, 150, 105;
   --vc-reviews-glow-rgb: 16, 185, 129;
@@ -137,7 +132,6 @@ html {
   }
 }
 
-/* Vetro: blur solo sui pannelli menu (dropdown), non sullo sfondo della pagina */
 header .vc-header-snav .vc-snav-details[open] .vc-snav-panel,
 header .vc-header-bar details.vc-notif-dropdown[open] .vc-notif-panel,
 header .vc-header-bar .discord-account-menu:hover .discord-account-popover,
@@ -182,19 +176,12 @@ body {
   overflow: visible !important;
 }
 
-/*
- * Non nascondere con prefers-reduced-motion: su Brave/Windows
- * matchMedia viene spesso farblato o ereditato dalle animazioni OS,
- * e spegneva la scia solo su quel browser.
- * Touchphone: il JS ignora pointerType touch.
- */
 @media (hover: none) and (pointer: coarse) and (max-width: 920px) {
   .vc-cursor-trail {
     display: none !important;
   }
 }
 
-/* Suono tastiera (toggle mute) — palette caffè condivisa con BGM FAB */
 .vc-type-sfx-player.vc-bgm-player {
   z-index: 10110;
   right: max(0.85rem, env(safe-area-inset-right, 0px));
@@ -225,7 +212,6 @@ body {
   color: rgba(247, 236, 223, 0.92);
 }
 
-/* Kick PiP di default è in basso a sinistra: non alzare la tastiera (destra). */
 body:has(.vc-hw-music-fab:not([hidden])) .vc-type-sfx-player,
 body:has(.vc-bgm-player--hogwarts:not([hidden])) .vc-type-sfx-player {
   bottom: max(6rem, calc(env(safe-area-inset-bottom, 0px) + 5rem));
@@ -246,7 +232,6 @@ html.vc-type-sfx-off .vc-type-sfx-player {
   }
 }
 
-/* CaffÃƒÂ¨ su link / controlli; campi testo sotto con I-beam */
 a:any-link,
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
@@ -313,7 +298,6 @@ html::-webkit-scrollbar-thumb:hover {
     radial-gradient(ellipse 100% 75% at 100% 32%, rgba(var(--vc-mocha-rgb), 0.22), transparent 56%),
     radial-gradient(ellipse 90% 70% at 0% 68%, rgba(48, 32, 22, 0.26), transparent 58%),
     linear-gradient(180deg, #0a0d10 0%, #100b08 18%, #15100c 38%, #120d0a 55%, #0e0a07 78%, #080605 100%);
-  /* fixed + backdrop/backdrop-filter = flash a riquadro su Brave/Chromium */
   background-attachment: scroll;
   background-repeat: no-repeat;
 }
@@ -326,7 +310,6 @@ html::-webkit-scrollbar-thumb:hover {
   pointer-events: none;
   background:
     radial-gradient(ellipse 85% 70% at 50% 0%, rgba(var(--vc-mocha-rgb), 0.22), transparent 55%);
-  /* multiply su layer fixed full-screen flasha a metÃ  schermo */
   mix-blend-mode: normal;
   opacity: 0.85;
 }
@@ -351,7 +334,6 @@ html::-webkit-scrollbar-thumb:hover {
       rgba(0, 0, 0, 0.05) 3px);
 }
 
-/* Stessi Ã¢â‚¬Å“tokenÃ¢â‚¬Â smeraldo/teal della home: in realtÃƒÂ  panna/sabbia cosÃƒÂ¬ non spunta il verde sulle pagine interne (header, menu, glow, ecc.). */
 body.vc-body {
   --vc-reviews-emerald-rgb: 234, 214, 187;
   --vc-reviews-teal-rgb: 176, 138, 104;
@@ -360,7 +342,6 @@ body.vc-body {
   --vc-unified-emerald-rgb: 234, 214, 187;
 }
 
-/* Icona + testo su piÃ¹ righe: centra lâ€™icona sul blocco (niente mt-0.5 / items-start) */
 body.vc-body li.flex.gap-3,
 body.vc-body .flex.gap-3:has(> i.fa),
 body.vc-body .flex.gap-2:has(> i.fa),
@@ -397,7 +378,6 @@ body.vc-body--home.vc-body::before {
     radial-gradient(ellipse 72% 54% at 100% 100%, rgba(111, 78, 55, 0.14), transparent 46%);
 }
 
-/* Hero Ã¢â‚¬Å“supportoÃ¢â‚¬Â (stesso linguaggio della pagina Donazioni: smeraldo / teal su blu notte) */
 .vc-support-page-hero:not(.vc-vote-page-hero) {
   overflow: hidden;
   border-radius: 2rem;
@@ -532,7 +512,6 @@ body.vc-body--home.vc-body::before {
   margin-right: auto;
 }
 
-/* Dashboard home: testi a sinistra, riquadro a destra (full width) */
 body.vc-dashboard-page .vc-dash-home-hero {
   display: flex;
   flex-direction: column;
@@ -650,7 +629,6 @@ body.vc-body .vc-support-page-hero__icon.vc-perks-hero-rocket i {
   box-shadow: 0 0 34px rgba(var(--vc-sand-rgb), 0.16) !important;
 }
 
-/* Donazioni hero: pannello unico a destra (lista compatta, stesso linguaggio dellÃ¢â‚¬â„¢hero) */
 .vc-support-hero-pillars {
   display: block;
 }
@@ -727,7 +705,6 @@ body.vc-body .vc-support-page-hero__icon.vc-perks-hero-rocket i {
   background: linear-gradient(135deg, rgba(146, 106, 74, 0.42), rgba(95, 65, 44, 0.38));
 }
 
-/* Premium: pannello hero senza alone verde/emerald (come donazioni, sand/mocha) */
 body.vc-dashboard-premium-page .vc-support-hero-pillars__panel {
   border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
   background:
@@ -739,7 +716,6 @@ body.vc-dashboard-premium-page .vc-support-hero-pillars__panel {
     0 0 20px rgba(var(--vc-sand-rgb), 0.1) !important;
 }
 
-/* Premium hero: testi a sinistra, riquadro a destra (full width) */
 body.vc-dashboard-premium-page .vc-dash-premium-hero {
   display: flex;
   flex-direction: column;
@@ -978,7 +954,6 @@ body.vc-dashboard-premium-page .vc-dash-premium-hero__ico {
   background: linear-gradient(155deg, rgba(251, 191, 36, 0.2), rgba(120, 53, 15, 0.32));
 }
 
-/* Pagina Premium: main piÃ¹ largo cosÃ¬ titolo + prezzo stanno affiancati. */
 body.vc-dashboard-premium-page main.relative {
   max-width: 88rem;
 }
@@ -992,7 +967,6 @@ body.vc-dashboard-premium-page main.relative {
   overflow: visible;
 }
 
-/* Titolo e prezzo affiancati; card allargate per tenere il nome intero. */
 .vc-dash-premium-plans .vc-support-donate-role__head {
   flex-direction: row;
   flex-wrap: nowrap;
@@ -1111,7 +1085,6 @@ body.vc-dashboard-premium-page main.relative {
   }
 }
 
-/* Premium credits: selettore durata nella card centrale */
 .vc-dash-premium-plans .vc-support-donate-role__head--credits {
   flex-direction: column;
   flex-wrap: nowrap;
@@ -1245,7 +1218,6 @@ body.vc-dashboard-premium-page main.relative {
 }
 
 .vc-dash-premium-guild {
-  /* native select is visually replaced by fancy picker */
   width: 100%;
 }
 
@@ -1543,7 +1515,6 @@ body.vc-dashboard-premium-page main.relative {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
 }
 
-/* Dashboard navbar: crediti Premium */
 .vc-dash-credits-chip {
   box-sizing: border-box;
   display: inline-flex;
@@ -1692,7 +1663,6 @@ body.vc-dashboard-premium-page main.relative {
   }
 }
 
-
 .vc-support-donate-role--soon {
   position: relative;
   overflow: hidden;
@@ -1756,7 +1726,6 @@ body.vc-body .vc-support-donate-role--premium {
     0 0 80px rgba(217, 119, 6, 0.16) !important;
 }
 
-/* Perks: card a tutta larghezza del main, una sotto l'altra */
 .vc-perks-showcase {
   overflow: visible;
 }
@@ -1861,7 +1830,6 @@ body.vc-body .vc-support-donate-role--premium {
     grid-row: 4;
   }
 
-  /* Uniforma l'altezza percepita delle righe perks tra colonna sinistra/destra */
   body.vc-body.vc-perks-page .vc-perks-deck > article.vc-perks-card:first-of-type > .vc-perks-tier--left > ul.vc-support-donate-role__perks > li.vc-support-donate-perk,
   body.vc-body.vc-perks-page .vc-perks-deck > article.vc-perks-card:first-of-type > .vc-perks-tier:not(.vc-perks-tier--left) > ul.vc-support-donate-role__perks > li.vc-support-donate-perk {
     min-height: 2.45rem;
@@ -2358,7 +2326,6 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
   display: none;
 }
 
-/* Donazioni: podio Ã¢â‚¬â€ 2Ã‚Â° VIP (sinistra) | 1Ã‚Â° VIP+ (centro, in evidenza) | 3Ã‚Â° Donator (destra) */
 .vc-support-donate-roles__grid--podium {
   overflow: visible;
   padding-top: 0.65rem;
@@ -2782,7 +2749,6 @@ body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
   }
 }
 
-/* Donazioni: desktop 3 colonne (VIP | VIP+ | Donator). Mobile resta in colonna. */
 body.vc-donazioni-page:not(.vc-perks-page) .vc-support-donate-roles__grid,
 body.vc-donazioni-page:not(.vc-perks-page) .vc-support-donate-roles__grid--podium,
 body.vc-body.vc-donazioni-page:not(.vc-perks-page) .vc-support-donate-roles__grid--podium {
@@ -2957,7 +2923,6 @@ html.vc-session-verify-pending::before {
   }
 }
 
-/* Con sessione giÃ  presente: niente flash della card login sotto l'overlay. */
 html.vc-session-verify-pending .vc-reviews-gate,
 html.vc-session-verify-pending .vc-auth-required-card {
   visibility: hidden !important;
@@ -2980,7 +2945,6 @@ html.vc-session-verify-pending button[data-vc-discord-login] {
   pointer-events: none;
   transition: opacity 0.12s ease-out;
   isolation: isolate;
-  /* Strato opaco sotto il gradiente: niente pagina sotto in trasparenza */
   background-color: #050403;
   background-image:
     radial-gradient(ellipse 92% 74% at 50% 38%, rgba(6, 58, 46, 0.78) 0%, rgba(6, 18, 20, 0.98) 52%, #030302 100%);
@@ -3280,7 +3244,6 @@ html.vc-session-verify-pending button[data-vc-discord-login] {
 }
 
 .vc-blob {
-  /* Disattivati: pulse/drift creavano una fascia chiara che â€œflashavaâ€ in basso. */
   display: none !important;
   pointer-events: none;
 }
@@ -3383,7 +3346,6 @@ html.vc-session-verify-pending button[data-vc-discord-login] {
   }
 
   to {
-    /* none: translateY(0) lascia comunque transform attivo e rompe backdrop-filter nei menu in header */
     transform: none;
   }
 }
@@ -3413,7 +3375,6 @@ html.vc-session-verify-pending button[data-vc-discord-login] {
   }
 }
 
-/* Dashboard: niente translateY sul main (su Brave/Chromium fa â€œghostâ€ del testo sotto lâ€™header). */
 body.vc-dashboard-page main,
 body.vc-dashboard-faq-page main {
   animation: none;
@@ -3489,13 +3450,11 @@ body.vc-dashboard-faq-page main {
   transform: translateY(-1px);
 }
 
-/* Glass: backdrop-filter su utility bg con opacitÃ  (es. bg-white/5). Esclusa .vc-nav-shell: il blur sulla shell impedisce il backdrop-filter dei menu sotto. */
 .vc-body :is(div:not(.vc-nav-shell), section, article, nav, aside, header, footer, main, details, form)[class*="bg-"][class*="/"]:not([data-vc-no-auto-blur]) {
   backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(140%);
   -webkit-backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(140%);
 }
 
-/* Dashboard: niente auto-blur (causa flash a riquadro continuo su Chromium/Brave). */
 body.vc-dashboard-page :is(div, section, article, nav, aside, header, footer, main, details, form)[class*="bg-"][class*="/"],
 body.vc-dashboard-page .backdrop-blur,
 body.vc-dashboard-page [class*="backdrop-blur"] {
@@ -3508,7 +3467,6 @@ body.vc-dashboard-page [class*="backdrop-blur"] {
   -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(160%);
 }
 
-/* Nav shell: MAI blur/vetro — anche un frame di .vc-glass fa flashare un rettangolo. */
 header .vc-nav-shell,
 header .vc-nav-shell.vc-glass,
 .vc-nav-shell.vc-glass {
@@ -3554,7 +3512,6 @@ body.vc-body header.fixed {
   box-shadow: none !important;
 }
 
-/* La shell: sempre piena (niente transparent che flasha il rettangolo). */
 body.vc-body > header .vc-nav-shell,
 body.vc-body header.fixed .vc-nav-shell {
   isolation: auto;
@@ -3570,7 +3527,6 @@ body.vc-dashboard-page header.fixed .vc-nav-shell.vc-glass {
   background: #140f0c !important;
 }
 
-/* Menu header sopra hero/card con backdrop-filter nel main */
 html.vc-notif-dropdown-open body.vc-body > header,
 html.vc-notif-dropdown-open body.vc-body header.fixed,
 html.vc-header-account-open body.vc-body > header,
@@ -3615,7 +3571,6 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   }
 }
 
-/* Telefono: stessa pillola inset della desktop */
 @media (max-width: 720px) {
   body.vc-body > header,
   body.vc-body header.fixed,
@@ -3673,7 +3628,6 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   text-transform: uppercase;
   text-decoration: none;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-  /* blur sotto header fixed = rettangolo flash continuo su Chromium */
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -3829,6 +3783,66 @@ body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
 .vc-header-promo-btn--event .vc-header-promo-btn__badge {
   background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%);
   color: #1a120e;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 0.62rem;
+  padding: 0.18rem 0.42rem;
+  white-space: nowrap;
+}
+
+.vc-header-promo-btn--event .vc-header-promo-btn__clip {
+  max-width: 7.6rem;
+}
+
+body.vc-hw-page #vc-header-promo-btn {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+@media (max-width: 639.98px) {
+  .vc-header-promo-btn--event {
+    max-width: min(48vw, 8.5rem) !important;
+    min-width: 0;
+    padding-inline: 0.38rem 0.42rem;
+  }
+
+  .vc-header-promo-btn--event .vc-header-promo-btn__clip {
+    max-width: none;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .vc-header-promo-btn--event .vc-header-promo-btn__badge {
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-size: 0.58rem;
+    font-weight: 800;
+    padding: 0.16rem 0.4rem;
+    white-space: nowrap;
+  }
+
+  .vc-header-promo-btn--event.is-marquee .vc-header-promo-btn__unit,
+  .vc-header-promo-btn--event.is-marquee .vc-header-promo-btn__unit.is-clone {
+    display: inline-flex;
+  }
+}
+
+@media (min-width: 721px) {
+  .vc-header-promo-btn--event .vc-header-promo-btn__clip {
+    max-width: none;
+  }
+
+  .vc-header-promo-btn--event .vc-header-promo-btn__badge {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.58rem;
+  }
+
+  .vc-header-promo-btn--event.is-marquee .vc-header-promo-btn__track {
+    animation: none !important;
+    transform: none !important;
+  }
 }
 
 .vc-header-promo-btn[hidden] {
@@ -4169,7 +4183,6 @@ a.vc-header-legal-pill[aria-current="page"] {
   margin-top: 0.4rem;
 }
 
-/* Elenchi legali: bullet visibili, respiro tra voci, niente Ã¢â‚¬Å“buchiÃ¢â‚¬Â tipografici */
 .vc-legal-list {
   list-style: none;
   margin: 1rem 0 0;
@@ -4721,7 +4734,6 @@ a.vc-header-legal-pill[aria-current="page"] {
   background: rgba(0, 0, 0, 0.45);
 }
 
-/* Hero titolo: spaziatura normale e testo centrato nella card */
 .vc-support-intro-shell .vc-brand-glow {
   color: rgba(232, 201, 168, 0.72);
   text-shadow: none;
@@ -4738,7 +4750,6 @@ a.vc-header-legal-pill[aria-current="page"] {
   letter-spacing: inherit;
 }
 
-/* "CaffÃƒÂ¨": stesso tracking del titolo (niente crenatura extra) e colore pieno senza alone. */
 body.vc-body--home .vc-support-intro-shell .vc-brand-glow .vc-hero-brand-caffe {
   letter-spacing: inherit;
   text-shadow: none !important;
@@ -5053,7 +5064,6 @@ header .vc-notif-summary.vc-icon-btn:hover {
   box-shadow: 0 0 20px rgba(var(--vc-reviews-glow-rgb), 0.1);
 }
 
-/* Opaco: niente glass/trasparenza (evita fascia chiara che flasha sullo sfondo). */
 body.vc-body header .vc-notif-summary.vc-icon-btn {
   background: var(--vc-header-ctrl-bg);
   border-color: rgba(var(--vc-sand-rgb), 0.28);
@@ -5117,7 +5127,6 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   box-shadow: 0 0 18px rgba(212, 168, 136, 0.18);
 }
 
-/* Homepage: stessa larghezza massima della barra stats (#stats, max-w-6xl / 72rem) */
 .vc-home-panels-shell {
   max-width: min(98rem, calc(100% - 1rem));
   margin-left: auto;
@@ -5322,7 +5331,6 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
     box-shadow 0.2s ease;
 }
 
-/* Homepage #stats: allineata alla palette sabbia/moka del sito. */
 #stats {
   max-width: min(98rem, calc(100% - 1rem));
   overflow: visible;
@@ -6156,14 +6164,12 @@ a.vc-home-staff-roster__person:focus-visible {
   gap: 0.55rem;
   min-width: 0;
   max-width: 100%;
-  /* spazio dal bordo arrotondato della pillola: altrimenti avatar/campana vengono tagliati */
   padding-inline-end: 0.15rem;
   overflow: visible;
   position: relative;
   z-index: 6;
 }
 
-/* Promo EVENTO/CANDIDATURE non deve mangiare notif + profilo */
 #header-quick-actions > .vc-header-promo-btn {
   flex: 0 1 auto;
   min-width: 0;
@@ -6182,7 +6188,6 @@ a.vc-home-staff-roster__person:focus-visible {
   z-index: 2;
 }
 
-/* Colonna destra header: non comprimere sotto notif+avatar (+ promo) */
 @media (min-width: 1024px) {
   .vc-header-bar.grid {
     grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr) !important;
@@ -6199,7 +6204,6 @@ body.vc-dashboard-page #header-quick-actions {
   flex-wrap: nowrap;
 }
 
-/* Flag a sinistra (brand): non comprimere / non farla finire sotto la nav */
 body.vc-dashboard-page .vc-header-bar > div:first-child {
   flex-wrap: nowrap;
   min-width: 0;
@@ -6236,7 +6240,6 @@ body.vc-dashboard-page .vc-header-snav {
   flex-wrap: wrap;
 }
 
-/* display:inline-flex sopra batte lo UA di [hidden] â†’ Login/avatar â€œfantasmaâ€ */
 #discord-login-btn[hidden],
 button.vc-header-pill#discord-login-btn[hidden],
 .header-login-state[hidden],
@@ -6264,7 +6267,6 @@ button.vc-header-pill#discord-login-btn[hidden],
   }
 }
 
-/* Logout: quadrato accanto all’avatar, visibile in tutte le navbar (anche home trasparente). */
 header .discord-login-row .discord-logout-btn.vc-icon-btn,
 body.vc-body header .discord-login-row .discord-logout-btn.vc-icon-btn,
 html body.vc-body--home header .discord-login-row .discord-logout-btn.vc-icon-btn {
@@ -6636,8 +6638,6 @@ html.vc-notif-dropdown-open.vc-header-account-open .discord-account-popover {
   pointer-events: none !important;
 }
 
-/* Non nascondere il pannello notifiche solo perchÃ© lâ€™avatar Ã¨ in hover: resta aperto fino a click fuori. */
-
 @media (min-width: 640px) {
   html.vc-notif-dropdown-open .vc-notif-dropdown[open] {
     z-index: 10205;
@@ -6691,7 +6691,6 @@ html.vc-notif-dropdown-open.vc-header-account-open .discord-account-popover {
 }
 
 .discord-logout-btn {
-  /* Stile header: vedi header .discord-login-row .discord-logout-btn.vc-icon-btn */
   font: inherit;
 }
 
@@ -6936,6 +6935,16 @@ body.vc-body > footer p {
   grid-template-columns: 1fr;
   gap: 2rem;
   padding: clamp(2rem, 3.8vw, 4rem);
+  align-items: start;
+}
+
+.vc-premium-footer__navcols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem 1rem;
+  align-items: start;
+  min-width: 0;
+  width: 100%;
 }
 
 .vc-premium-footer__brand {
@@ -7036,6 +7045,9 @@ body.vc-body > footer p {
 
 .vc-premium-footer__col h4,
 .vc-premium-footer__col .vc-premium-footer__heading {
+  margin: 0;
+  padding: 0;
+  min-height: 1.05rem;
   color: rgba(212, 168, 136, 0.78);
   font-size: 0.875rem;
   font-weight: 500;
@@ -7175,8 +7187,18 @@ body.vc-body > footer p {
 
 @media (min-width: 768px) {
   .vc-premium-footer__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     padding: 2.5rem;
+  }
+
+  .vc-premium-footer__brand {
+    grid-column: 1 / -1;
+  }
+
+  .vc-premium-footer__navcols {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2rem;
   }
 
   .vc-premium-footer__legal {
@@ -7191,17 +7213,48 @@ body.vc-body > footer p {
 }
 
 @media (min-width: 1024px) {
+  .vc-premium-footer__grid--dashboard:not(:has(.vc-premium-footer__navcols)) {
+    grid-template-columns: minmax(16rem, 1.35fr) repeat(2, minmax(7.5rem, 1fr)) !important;
+  }
+
+  .vc-premium-footer__grid--dashboard:not(:has(.vc-premium-footer__navcols)) > .vc-premium-footer__brand {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  .vc-premium-footer__grid--dashboard:not(:has(.vc-premium-footer__navcols)) > .vc-premium-footer__col:nth-child(2) {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  .vc-premium-footer__grid--dashboard:not(:has(.vc-premium-footer__navcols)) > .vc-premium-footer__col:nth-child(3) {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+  }
+}
+
+@media (min-width: 1024px) {
   .vc-premium-footer__grid {
-    grid-template-columns: minmax(18rem, 1.35fr) repeat(4, minmax(6.5rem, 0.55fr));
+    grid-template-columns: minmax(18rem, 1.35fr) minmax(0, 1fr);
     gap: 2rem;
   }
 
   .vc-premium-footer__grid--dashboard {
-    grid-template-columns: minmax(16rem, 1.35fr) repeat(2, minmax(7.5rem, 0.6fr));
+    grid-template-columns: minmax(16rem, 1.35fr) minmax(0, 1fr);
   }
 
   .vc-premium-footer__brand {
     grid-column: auto;
+  }
+
+  .vc-premium-footer__navcols {
+    grid-column: auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(1.25rem, 2vw, 2rem);
+  }
+
+  .vc-premium-footer__grid--dashboard .vc-premium-footer__navcols {
+    grid-template-columns: repeat(2, minmax(7.5rem, 1fr));
   }
 
   .vc-premium-footer__legal {
@@ -7225,9 +7278,14 @@ body.vc-body > footer p {
   }
 
   .vc-premium-footer__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 2rem;
     padding: 1.5rem;
+  }
+
+  .vc-premium-footer__navcols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem 1rem;
   }
 
   .vc-premium-footer__brand {
@@ -7277,7 +7335,7 @@ body.vc-body > footer p {
 }
 
 @media (max-width: 380px) {
-  .vc-premium-footer__grid {
+  .vc-premium-footer__navcols {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -8307,27 +8365,30 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
 
 .vc-forbidden-book-toast {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 220;
+  left: 50%;
+  right: auto;
+  bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(0.7rem);
+  z-index: 10150;
+  width: min(92vw, 22rem);
   max-width: min(22rem, calc(100vw - 2rem));
-  border: 1px solid rgba(212, 175, 55, 0.34);
-  border-radius: 1rem;
-  padding: 0.8rem 1rem;
-  color: #fff6c8;
-  background: rgba(18, 13, 10, 0.92);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
-  font-size: 0.9rem;
-  font-weight: 800;
+  border: 1px solid rgba(110, 231, 183, 0.42);
+  border-radius: 0.95rem;
+  padding: 0.7rem 0.95rem;
+  color: rgba(241, 245, 249, 0.94);
+  background: linear-gradient(145deg, rgba(16, 24, 20, 0.96), rgba(12, 40, 32, 0.92));
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: left;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(0.7rem);
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 .vc-forbidden-book-toast--show {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 @keyframes vc-forbidden-book-float {
@@ -8505,7 +8566,23 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
     -webkit-appearance: none;
   }
 
-  #header-quick-actions #vc-header-promo-btn {
+  #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--event {
+    z-index: 1;
+    width: auto;
+    max-width: min(48vw, 8.5rem);
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature {
+    z-index: 1;
+    width: auto;
+    max-width: min(28vw, 5.75rem);
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  #header-quick-actions #vc-header-promo-btn:not(.vc-header-promo-btn--event):not(.vc-header-promo-btn--candidature) {
     z-index: 1;
     width: auto;
     max-width: min(24vw, 4.85rem);
@@ -8525,7 +8602,6 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
     justify-content: center;
   }
 
-  /* Su mobile Dashboard / Area Staff solo nel drawer, non nel menu profilo. */
   #discord-dashboard-link,
   #discord-staff-link {
     display: none !important;
@@ -8536,7 +8612,6 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
     pointer-events: none !important;
   }
 
-  /* Campanella chiusa ma ancora su body (bug sheet): nascondi finché JS non la riporta in header. */
   body > #vc-notif-dropdown.vc-notif-dropdown:not([open]) {
     position: absolute !important;
     width: 1px !important;
@@ -8870,7 +8945,6 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
   gap: 0.45rem;
 }
 
-/* hamFooterTrio2: profilo + dashboard + esci — tap target più comodi */
 .vc-mobile-nav-footer__actions.is-trio {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.52rem;
@@ -8964,7 +9038,6 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
   color: #ffe4e6;
 }
 
-/* Legacy hooks (vecchio markup) → non rompere se qualcosa resta in cache. */
 .vc-mobile-nav-footer__profile,
 .vc-mobile-nav-footer__logout {
   display: none;
@@ -9164,7 +9237,6 @@ a.vc-header-logo-link+a[href]:not(.vc-dashboard-header-guild-name) {
   }
 }
 
-/* Header: nome server + voci navigazione sempre in panna (Tailwind text-white / text-emerald-300) */
 .vc-header-bar a.vc-header-logo-link+a[href] {
   color: var(--vc-panna) !important;
 }
@@ -9416,7 +9488,6 @@ a.vc-header-logo-link+a[href]:not(.vc-dashboard-header-guild-name) {
   order: 2;
 }
 
-/* Language switcher (navbar, next to brand) */
 .vc-lang-dropdown {
   position: relative;
   flex-shrink: 0;
@@ -9489,7 +9560,6 @@ a.vc-header-logo-link+a[href]:not(.vc-dashboard-header-guild-name) {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'%3E%3Cpath fill='%23012169' d='M0 0h60v30H0z'/%3E%3Cpath stroke='%23fff' stroke-width='6' d='M0 0l60 30M60 0L0 30'/%3E%3Cpath stroke='%23C8102E' stroke-width='2' d='M0 0l60 30M60 0L0 30'/%3E%3Cpath stroke='%23fff' stroke-width='10' d='M30 0v30M0 15h60'/%3E%3Cpath stroke='%23C8102E' stroke-width='6' d='M30 0v30M0 15h60'/%3E%3C/svg%3E");
 }
 
-/* Extra lingue: SVG/CSS leggibili a 16px (niente emoji Windows) */
 .vc-lang-flag--es {
   background-image: linear-gradient(180deg, #aa151b 0 25%, #f1bf00 25% 75%, #aa151b 75% 100%);
 }
@@ -9503,7 +9573,6 @@ a.vc-header-logo-link+a[href]:not(.vc-dashboard-header-guild-name) {
 }
 
 .vc-lang-flag--pt {
-  /* Brasile */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 42'%3E%3Crect width='60' height='42' fill='%23009b3a'/%3E%3Cpolygon points='30,5 55,21 30,37 5,21' fill='%23fedf00'/%3E%3Ccircle cx='30' cy='21' r='8.5' fill='%23002776'/%3E%3C/svg%3E");
 }
 
@@ -9520,12 +9589,10 @@ a.vc-header-logo-link+a[href]:not(.vc-dashboard-header-guild-name) {
 }
 
 .vc-lang-flag--ko {
-  /* Corea: bianco + taeguk semplificato (rosso/blu) */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'%3E%3Crect width='60' height='40' fill='%23fff'/%3E%3Ccircle cx='30' cy='20' r='10' fill='%23cd2e3a'/%3E%3Cpath d='M30 10a10 10 0 0 0 0 20 5 5 0 0 0 0-10 5 5 0 0 1 0-10z' fill='%230047a0'/%3E%3Ccircle cx='30' cy='15' r='2.4' fill='%23cd2e3a'/%3E%3Ccircle cx='30' cy='25' r='2.4' fill='%230047a0'/%3E%3C/svg%3E");
 }
 
 .vc-lang-flag--ar {
-  /* Arabia Saudita: verde pieno (le 4 fasce UAE a 16px sembravano Italia) */
   background-color: #006c35;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'%3E%3Crect width='60' height='40' fill='%23006c35'/%3E%3Crect x='12' y='28' width='36' height='3' rx='1' fill='%23fff'/%3E%3C/svg%3E");
 }
@@ -9652,7 +9719,6 @@ html.vc-lang-dropdown-open .vc-lang-dropdown.is-open {
   z-index: 260;
 }
 
-/* Arabic RTL: mirror chrome spacing without breaking LTR layouts */
 html[dir="rtl"] .vc-lang-panel {
   left: auto;
   right: 0;
@@ -9684,10 +9750,6 @@ html[dir="rtl"] body.vc-body {
   z-index: 120;
 }
 
-/*
- * Safari/iOS: figli position absolute/fixed di <details> chiuso restano dipinti
- * (es. Ã¢â‚¬Å“Nessuna notificaÃ¢â‚¬Â che filtra sotto/attraverso lÃ¢â‚¬â„¢header). Forziamo hide.
- */
 .vc-notif-dropdown:not([open]) > :not(summary) {
   display: none !important;
   visibility: hidden !important;
@@ -10257,8 +10319,6 @@ html[dir="rtl"] body.vc-body {
     display: none !important;
   }
 
-  /* Portato su body dal JS: fixed rispetto al viewport, non all'header.
-     z-index sopra header (10200) altrimenti lo sheet resta invisibile sotto la pillola. */
   #vc-notif-dropdown.vc-notif-dropdown[open],
   .vc-notif-dropdown[open],
   body > #vc-notif-dropdown.vc-notif-dropdown[open],
@@ -10440,7 +10500,6 @@ html[dir="rtl"] body.vc-body {
   }
 }
 
-/* Wiki: area comandi a tutta larghezza (wrapper esterno). */
 .vc-wiki-cmd-bleed {
   box-sizing: border-box;
   width: 100%;
@@ -10747,7 +10806,6 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
   gap: 0.55rem;
 }
 
-/* display:flex sopra vince sullo user agent di [hidden]: entrambi i tab wiki restavano visibili. */
 .vc-cmd-pane[hidden] {
   display: none !important;
 }
@@ -11079,7 +11137,6 @@ body.vc-body .vc-candidature-hero-users {
     0 0 24px rgba(var(--vc-sand-rgb), 0.2);
 }
 
-/* Appelli: icona hero stessa misura per unlock / mute; colori mocha/sabbia */
 body.vc-body.vc-appelli-page #vc-appelli-hero-icon {
   width: 4rem;
   height: 4rem;
@@ -11178,7 +11235,6 @@ body.vc-body.vc-candidature-page .vc-candidature-req-shell a:hover {
   text-decoration-color: rgba(var(--vc-sand-rgb), 0.7) !important;
 }
 
-/* Hero candidature: stesso linguaggio cromatico mocha/sabbia (niente blocco Ã¢â‚¬Å“supportoÃ¢â‚¬Â smeraldo/teal). */
 body.vc-body.vc-candidature-page .vc-support-page-hero:not(.vc-vote-page-hero) {
   border: 1px solid rgba(var(--vc-sand-rgb), 0.22);
   background:
@@ -11287,7 +11343,6 @@ body.vc-body.vc-candidature-page #vc-candidature-form-inner:hover {
   display: none !important;
 }
 
-/* display:grid su .grid batte lo UA di [hidden] â†’ riquadri unban+unmute insieme */
 .vc-appelli-page #vc-appelli-side-unban[hidden],
 .vc-appelli-page #vc-appelli-side-unmute[hidden],
 .vc-appelli-page #vc-appelli-panel-unban[hidden],
@@ -11299,7 +11354,6 @@ body.vc-body.vc-candidature-page #vc-candidature-form-inner:hover {
   display: none !important;
 }
 
-/* Selettore tipo appello: pill compatta mocha/sabbia, niente tab candidature. */
 .vc-appelli-mode {
   display: inline-flex;
   align-items: center;
@@ -11630,7 +11684,6 @@ textarea.vc-candidature-input {
   animation: vc-spin 0.85s linear infinite;
 }
 
-/* Spinner UI condiviso (sostituisce fa-spinner a puntini). */
 .vc-ui-spinner {
   display: inline-block;
   box-sizing: border-box;
@@ -12146,7 +12199,6 @@ textarea.vc-candidature-input {
   background: rgba(10, 18, 24, 0.44);
 }
 
-/* display:flex sopra annulla lÃ¢â‚¬â„¢effetto dellÃ¢â‚¬â„¢attributo HTML hidden (es. classifica Community con dati). */
 .vc-notify-empty[hidden] {
   display: none !important;
 }
@@ -12408,7 +12460,6 @@ textarea.vc-candidature-input {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(28, 20, 15, 0.92);
   overflow: clip;
-  /* niente backdrop-filter: su Brave flasha un riquadro a metÃ  schermo */
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18), 0 0 22px rgba(var(--vc-sand-rgb), 0.08);
@@ -13140,7 +13191,6 @@ a.vc-palette-link:hover {
   width: min(100%, 920px);
 }
 
-/* Header palette unificata su tutte le pagine */
 :root {
   --vc-header-text-unified: #e8c9a8;
 }
@@ -13204,7 +13254,6 @@ header .vc-snav-row:hover {
   color: rgba(var(--vc-sand-rgb), 0.98) !important;
 }
 
-/* Finestra profilo allineata alla palette notifiche */
 .vc-user-profile-hero,
 .vc-user-profile-block {
   border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2);
@@ -13219,7 +13268,6 @@ header .vc-snav-row:hover {
   background: rgba(16, 34, 46, 0.42);
 }
 
-/* Home: palette notifiche su overlay, card, bottoni, header e dropdown */
 body.vc-body--home .vc-hero-head,
 body.vc-body--home .vc-support-intro-shell .vc-hero-head {
   background: transparent;
@@ -13390,7 +13438,6 @@ body.vc-body--home header .vc-notif-summary.vc-icon-btn:hover {
   border-color: rgba(var(--vc-sand-rgb), 0.36);
 }
 
-/* Home mobile: promo + campanella + hamburger non devono schiacciare la bell. */
 @media (max-width: 639.98px) {
   body.vc-body--home #header-quick-actions {
     flex-wrap: nowrap !important;
@@ -13445,7 +13492,6 @@ body.vc-body--home header .vc-notif-summary.vc-icon-btn:hover {
   }
 }
 
-/* Sheet notifiche anche su telefoni landscape (pointer coarse). */
 @media (max-width: 920px) and (pointer: coarse) {
   html.vc-notif-sheet-open,
   html.vc-notif-sheet-open body {
@@ -14210,7 +14256,6 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   display: block;
 }
 
-/* emoji Discord già tonda: niente alone del dot colorato intorno */
 .vc-user-profile-customcard__dot:has(.vc-user-profile-customicon__img) {
   background: transparent !important;
   box-shadow: none !important;
@@ -14516,20 +14561,22 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 
 .vc-rank-save-toast-host {
   position: fixed;
-  /* Sotto header fisso (pt-4 + shell ~5.5Ã¢â‚¬â€œ7rem); main usa pt-28 / sm:pt-32 */
-  top: calc(6.85rem + env(safe-area-inset-top, 0px));
-  right: 0;
-  left: 0;
-  z-index: 10060;
-  width: min(92vw, 28rem);
-  margin-inline: auto;
-  padding-inline: max(0.75rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+  top: auto;
+  right: auto;
+  left: 50%;
+  bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 10150;
+  width: min(92vw, 22rem);
+  margin: 0;
+  padding: 0;
   pointer-events: none;
 }
 
 @media (min-width: 640px) {
   .vc-rank-save-toast-host {
-    top: calc(8rem + env(safe-area-inset-top, 0px));
+    top: auto;
+    bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -15169,7 +15216,6 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   color: #fca5a5;
 }
 
-/* Compact layout for rank customization page */
 .vc-rank-customize-page .vc-rank-editor-topbar { margin-bottom: 1.15rem; }
 .vc-rank-customize-page .vc-user-profile-backbtn {
   position: relative;
@@ -15329,11 +15375,9 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 }
 
 .vc-rank-editor-preview__image.is-rendering {
-  /* Niente opacity dip: faceva flashare l'anteprima a ogni refresh. */
   opacity: 1;
 }
 
-/* Personalizza / rank: navbar sempre piena, zero transition. */
 body.vc-rank-customize-page > header .vc-nav-shell,
 body.vc-rank-customize-page header.fixed .vc-nav-shell,
 body.vc-users-page.vc-rank-customize-page > header .vc-nav-shell,
@@ -17856,7 +17900,6 @@ body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-guide {
   filter: brightness(1.06);
 }
 
-/* Kick live PIP (mini anteprima) */
 .vc-kick-pip[hidden],
 .vc-kick-pip-reopen[hidden] {
   display: none !important;
@@ -17897,7 +17940,6 @@ body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-guide {
 
 .vc-kick-pip--corner-tl {
   left: max(0.75rem, env(safe-area-inset-left, 0px));
-  /* sotto la navbar: altrimenti copre campana + profilo */
   top: max(5.75rem, calc(env(safe-area-inset-top, 0px) + 5.25rem));
   right: auto;
   bottom: auto;
@@ -18035,7 +18077,6 @@ body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-guide {
   opacity: 1;
 }
 
-/* NON usare opacity:0 sul video in loading: Chrome/PWA Windows non decodifica e resta nero. */
 .vc-kick-pip--playing:not(.vc-kick-pip--ready) .vc-kick-pip__video {
   opacity: 1 !important;
   z-index: 1;
@@ -18228,7 +18269,6 @@ body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-guide {
   text-align: center;
   text-decoration: none;
   color: #f8fafc;
-  /* Un solo frosted layer: niente blur sul thumb sotto (evita due sfocature diverse). */
   background:
     radial-gradient(ellipse at 50% 42%, rgba(18, 32, 14, 0.55), rgba(4, 8, 4, 0.88) 70%),
     rgba(6, 10, 6, 0.72);
@@ -18243,7 +18283,6 @@ body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-guide {
 .vc-kick-pip--locked .vc-kick-pip__thumb,
 .vc-kick-pip--locked .vc-kick-pip__video,
 .vc-kick-pip--locked .vc-kick-pip__player {
-  /* Solo leggero scuro/scala: la sfocatura la fa solo il gate. */
   filter: brightness(0.72) saturate(0.85);
   transform: scale(1.04);
 }
@@ -18411,7 +18450,6 @@ body.vc-body.vc-roles-page.vc-page-cine-layout .vc-roles-hero-guide {
   animation: vc-kick-pip-pulse 1.4s ease-in-out infinite;
 }
 
-/* Solo angolo basso-sx di default: non forzare se l'utente ha spostato la PiP */
 body:has(#vc-live-event-home:not([hidden])) .vc-kick-pip.vc-kick-pip--corner-bl,
 body.vc-site-sponsor-ad-visible .vc-kick-pip.vc-kick-pip--corner-bl,
 body:has(#vc-live-event-home:not([hidden])) .vc-kick-pip-reopen:not([hidden]),
@@ -18433,7 +18471,6 @@ html.vc-header-account-open .vc-kick-pip-reopen:not([hidden]) {
     width: min(16rem, 52vw);
   }
 }
-
 
 html.vc-notif-overlay-active #vc-live-event-home:not([hidden]),
 html.vc-notif-overlay-active #vc-live-event-reopen:not([hidden]) {
@@ -18956,7 +18993,6 @@ html.vc-skip-page-reveal .vc-body > header {
   }
 }
 
-
 .vc-reviews-page-layout {
   display: grid;
   gap: 1.5rem;
@@ -18970,7 +19006,6 @@ body.vc-body.vc-reviews-page > main.vc-reviews-page {
   padding-left: clamp(1rem, 4vw, 4.5rem);
 }
 
-/* Recensioni: palette e card allineate alla pagina Donazioni */
 .vc-reviews-page .vc-reviews-section--lead {
   margin-top: 0;
 }
@@ -19297,7 +19332,6 @@ html.vc-reviews-modal-open body {
   grid-template-columns: 1fr;
 }
 
-/* /recensioni: griglia come .vc-user-profile-grid3 su /user (override regola split sopra) */
 body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
@@ -19404,7 +19438,6 @@ body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/* Griglia Ã¢â‚¬Å“paletteÃ¢â‚¬Â: tessere allineate in alto (testi di lunghezze diverse). */
 .vc-reviews-grid.vc-reviews-palette {
   align-items: stretch;
 }
@@ -19771,7 +19804,6 @@ body.vc-body.vc-suggestions-page .vc-suggestions-staff-delete-card__note {
   color: rgba(240, 222, 201, 0.8) !important;
 }
 
-/* Staff mod bar: una riga compatta (motivo + azioni), niente mega-box. */
 body.vc-body .vc-sug-mod {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -20087,7 +20119,6 @@ body.vc-body.vc-suggestions-page .vc-suggestions-btn-muted {
   padding-right: 0.75rem !important;
 }
 
-/* Notifications page aligned with brown/sandy palette */
 .vc-notifications-page .vc-notify-hero h1 {
   color: rgba(167, 243, 208, 0.98);
   text-shadow: 0 0 18px rgba(var(--vc-reviews-emerald-rgb), 0.16);
@@ -20125,7 +20156,6 @@ body.vc-body.vc-suggestions-page .vc-suggestions-btn-muted {
   color: rgba(248, 250, 252, 0.84);
 }
 
-/* Users + Ruoli aligned to support/reviews brown palette */
 .vc-users-page,
 .vc-roles-page {
   background-color: #090b0f;
@@ -20331,7 +20361,6 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
   background: linear-gradient(180deg, rgba(16, 76, 56, 0.96), rgba(20, 38, 52, 0.96));
 }
 
-/* Profile + Rank Customize aligned to support/vote/reviews palette */
 .vc-user-profile-loader,
 .vc-user-profile-empty {
   border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2);
@@ -20483,7 +20512,6 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
   color: #ecfdf5;
 }
 
-/* Unified emerald text tone across all pages */
 .vc-body [class*="text-emerald-"] {
   color: var(--vc-unified-emerald) !important;
 }
@@ -20510,7 +20538,6 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
   color: var(--vc-unified-emerald) !important;
 }
 
-/* Global alignment: all non-home pages use home palette */
 body.vc-body:not(.vc-body--home) {
   background-image:
     radial-gradient(ellipse 96% 72% at 84% 4%, rgba(244, 224, 196, 0.24), transparent 50%),
@@ -20624,7 +20651,6 @@ body.vc-body:not(.vc-body--home) :where(
   color: #ecfdf5;
 }
 
-/* Global transparent palette for all non-home pages */
 body.vc-body:not(.vc-body--home) :where(
   .vc-support-page-hero,
   .vc-wiki-cmd-shell,
@@ -20650,7 +20676,6 @@ body.vc-body:not(.vc-body--home) :where(
   -webkit-backdrop-filter: blur(14px) saturate(120%);
 }
 
-/* Users / Roles / Profile / Customize: same palette + wider layouts */
 body.vc-body.vc-users-page {
   background-image:
     radial-gradient(ellipse 96% 72% at 84% 4%, rgba(244, 224, 196, 0.24), transparent 50%),
@@ -20702,7 +20727,6 @@ body.vc-body.vc-users-page :where(
     0 0 22px rgba(var(--vc-sand-rgb), 0.08);
 }
 
-/* Users + Ruoli: palette allineata alla homepage (moka/sabbia + emerald). */
 body.vc-body.vc-users-page {
   background-image:
     radial-gradient(ellipse 90% 70% at 88% 6%, rgba(var(--vc-sand-rgb), 0.11), transparent 52%),
@@ -20890,7 +20914,6 @@ body.vc-body.vc-users-page.vc-roles-page .vc-role-request-textarea:focus {
   box-shadow: 0 0 0 3px rgba(var(--vc-reviews-emerald-rgb), 0.16);
 }
 
-/* Notifications: stessa palette della home */
 body.vc-body.vc-users-page.vc-notifications-page :where(
   .vc-notify-hero,
   .vc-notify-filter-bar,
@@ -20922,7 +20945,6 @@ body.vc-body.vc-users-page.vc-notifications-page .vc-notify-home-btn {
   color: rgba(226, 232, 240, 0.94);
 }
 
-/* Profilo + Personalizza: rimuove residui blu/viola */
 body.vc-body.vc-users-page :where(
   .vc-user-profile-notfound__cta,
   .vc-user-profile-customize,
@@ -21037,7 +21059,6 @@ body.vc-body.vc-users-page :where(
   background: linear-gradient(135deg, rgba(40, 28, 20, 0.58), rgba(24, 16, 12, 0.28));
 }
 
-/* Loading + notifications: enforce warm transparent palette */
 html.vc-session-verify-pending::before,
 .vc-reviews-gate,
 .vc-page-transition,
@@ -21115,7 +21136,6 @@ body.vc-body.vc-notifications-page .vc-notify-filter-btn--on {
   background: linear-gradient(135deg, rgba(122, 84, 58, 0.84), rgba(78, 54, 38, 0.82)) !important;
 }
 
-/* Requested global refinements */
 body.vc-body .vc-vote-live-card,
 body.vc-body .vc-vote-live-statbox,
 body.vc-body .vc-vote-progress,
@@ -21129,7 +21149,6 @@ body.vc-body .vc-vote-pager {
     linear-gradient(145deg, rgba(28, 20, 15, 0.62), rgba(14, 10, 8, 0.56)) !important;
 }
 
-/* Vote page: glass depth + homepage-like reveal for center cards. */
 body.vc-body.vc-vote-page .vc-vote-live-card,
 body.vc-body.vc-vote-page .vc-vote-live-statbox,
 body.vc-body.vc-vote-page .vc-vote-progress,
@@ -21240,7 +21259,6 @@ body.vc-body.vc-faq-page .vc-regole-card-ico {
   gap: 1.15rem !important;
 }
 
-/* Users/roles/notifiche: remove ugly rectangular blocks */
 body.vc-body.vc-users-page .vc-notify-hero,
 body.vc-body.vc-users-page .vc-notify-stat,
 body.vc-body.vc-users-page .vc-roles-head,
@@ -21252,7 +21270,6 @@ body.vc-body.vc-notifications-page .vc-notify-stat {
   border-color: rgba(var(--vc-sand-rgb), 0.2) !important;
 }
 
-/* Roles cards: transparent mocha/sand + panna text */
 body.vc-body.vc-users-page .vc-role-card,
 body.vc-body.vc-roles-page .vc-role-card {
   border-color: rgba(var(--vc-sand-rgb), 0.26) !important;
@@ -21282,7 +21299,6 @@ body.vc-body.vc-roles-page .vc-roles-info-list {
   text-shadow: none !important;
 }
 
-/* Notifications text always panna */
 body.vc-body.vc-notifications-page .vc-notify-hero h1,
 body.vc-body.vc-notifications-page #vc-notify-subtitle,
 body.vc-body.vc-notifications-page .vc-notify-stat-label,
@@ -21662,7 +21678,6 @@ body:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) .vc
   pointer-events: none !important;
 }
 
-
 @keyframes vc-notif-pop-in {
   from {
     opacity: 0;
@@ -21713,7 +21728,6 @@ body.vc-body.vc-candidature-page .vc-support-page-hero {
     0 0 20px rgba(var(--vc-sand-rgb), 0.1) !important;
 }
 
-/* Global loading/status palette lock (all pages + single-page panels) */
 html.vc-session-verify-pending::before,
 .vc-session-verify-overlay,
 .vc-page-transition,
@@ -21797,7 +21811,6 @@ html.vc-session-verify-pending::before,
   color: rgba(247, 236, 223, 0.98) !important;
 }
 
-/* Gate accesso Discord (candidature/unban/recensioni/Ã¢â‚¬Â¦): icona + CTA mocha/sabbia (override cache / Tailwind). */
 body.vc-body .vc-auth-required-card .vc-auth-required-icon {
   background: linear-gradient(180deg, #b8927a, var(--vc-mocha)) !important;
   box-shadow: 0 10px 28px rgba(61, 42, 29, 0.52) !important;
@@ -21813,7 +21826,6 @@ body.vc-body .vc-auth-required-card .vc-auth-required-login:hover {
   filter: brightness(1.06);
 }
 
-/* Rank customize page: full moka/panna palette */
 body.vc-body.vc-rank-customize-page :is(
   .vc-rank-customize-loading,
   .vc-rank-editor-previewcard,
@@ -21942,7 +21954,6 @@ body.vc-body.vc-rank-customize-page .vc-rank-editor-previewnote span {
   color: rgba(240, 222, 201, 0.84) !important;
 }
 
-/* Policy pages: titles always moka/panna palette */
 body.vc-body :is(.vc-legal-hero__title, .vc-legal-card__title, .vc-cookie-section-title) {
   color: rgba(247, 236, 223, 0.98) !important;
 }
@@ -21957,7 +21968,6 @@ body.vc-body .vc-legal-card__head .vc-legal-card__icon {
   color: rgba(var(--vc-sand-rgb), 0.95) !important;
 }
 
-/* User profile page: full moka/panna palette + no useless pager */
 body.vc-body.vc-users-page.vc-user-profile-page #vc-ul-pager {
   display: none !important;
 }
@@ -22190,7 +22200,6 @@ body.vc-body.vc-rank-customize-page .vc-rank-editor-card__badge {
     0 0 14px rgba(var(--vc-sand-rgb), 0.1) !important;
 }
 
-/* CPF flat: niente “riquadro” sul valore % dello slider (resta solo il badge in summary). */
 body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-editor-sliderrow span {
   display: inline-flex !important;
   min-width: 2.6rem !important;
@@ -22418,7 +22427,6 @@ body.vc-body.vc-sponsor-page .vc-support-donate-refund-note {
   text-shadow: none !important;
 }
 
-/* /ruoli: hard override panna/moka trasparente */
 body.vc-body.vc-users-page:has(#vc-roles-grid),
 body.vc-body.vc-roles-page {
   background-image:
@@ -22476,12 +22484,10 @@ body.vc-body.vc-roles-page :where(
   text-shadow: none !important;
 }
 
-/* Vote page: hide bottom pager/counter ("x / y") */
 .vc-vote-pager {
   display: none !important;
 }
 
-/* Header active/open state visible + warm dropdown */
 header .vc-header-snav .vc-snav-item[aria-current="page"],
 header .vc-header-snav .vc-snav-item--active,
 header .vc-header-snav .vc-snav-details.vc-snav-details--current > .vc-snav-summary {
@@ -22508,13 +22514,11 @@ header .vc-notif-panel {
   -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(170%) !important;
 }
 
-/* Header profile avatar glow: remove green tint */
 header .discord-profile-link::before {
   background:
     radial-gradient(circle, rgba(236, 205, 176, 0.34) 0%, rgba(var(--vc-mocha-rgb), 0.24) 48%, transparent 72%) !important;
 }
 
-/* Users/Roles/User pages: remove green accents and force panna/moka transparent palette */
 body.vc-body.vc-users-page,
 body.vc-body.vc-roles-page {
   background-image:
@@ -22569,7 +22573,6 @@ body.vc-body.vc-users-page .vc-role-chip--perm {
   background: rgba(var(--vc-mocha-rgb), 0.36) !important;
 }
 
-/* Regole / FAQ: icons + tab selection moka/panna */
 body.vc-body.vc-regole-page .vc-regole-card-ico,
 body.vc-body.vc-faq-page .vc-regole-card-ico {
   background: rgba(var(--vc-mocha-rgb), 0.52) !important;
@@ -22591,7 +22594,6 @@ body.vc-body.vc-faq-page .vc-snav-row.vc-snav-row--active {
   color: rgba(247, 236, 223, 0.98) !important;
 }
 
-/* Hard cleanup requested: remove remaining ugly rectangles */
 body.vc-body.vc-users-page .vc-ul-board-tabs,
 body.vc-body.vc-users-page .vc-notify-hero,
 body.vc-body.vc-roles-page .vc-notify-hero,
@@ -22604,7 +22606,6 @@ body.vc-body.vc-users-page .vc-users-head {
   -webkit-backdrop-filter: none !important;
 }
 
-/* Top category pills: niente pannello Ã¢â‚¬â€ solo chip leggere */
 body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn,
 body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab {
   background: transparent !important;
@@ -22635,7 +22636,6 @@ header .vc-snav-row:hover {
   color: rgba(247, 236, 223, 0.98) !important;
 }
 
-/* /ruoli: full palette lock moka/panna transparent */
 body.vc-body.vc-roles-page {
   background-image:
     radial-gradient(ellipse 98% 74% at 84% 4%, rgba(244, 224, 196, 0.24), transparent 50%) !important,
@@ -22722,7 +22722,6 @@ body.vc-body.vc-roles-page .vc-role-request-submit {
   color: rgba(247, 236, 223, 0.99) !important;
 }
 
-/* /ruoli info panel: testo sempre palette */
 body.vc-body.vc-roles-page .vc-roles-info,
 body.vc-body.vc-roles-page .vc-roles-info-callout {
   border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
@@ -22754,7 +22753,6 @@ body.vc-body.vc-roles-page .vc-roles-info-callout .vc-roles-info-list li:first-c
   box-shadow: none !important;
 }
 
-/* /ruoli cards: piÃƒÂ¹ trasparenti e palette */
 body.vc-body.vc-roles-page .vc-role-card {
   border-color: rgba(var(--vc-sand-rgb), 0.3) !important;
   background:
@@ -22765,7 +22763,6 @@ body.vc-body.vc-roles-page .vc-role-card {
     0 8px 24px rgba(0, 0, 0, 0.18) !important;
 }
 
-/* Profile avatar hover ring: moka/panna (remove green) */
 header .discord-profile-link::before {
   background:
     radial-gradient(circle, rgba(236, 205, 176, 0.34) 0%, rgba(var(--vc-mocha-rgb), 0.24) 48%, transparent 72%) !important;
@@ -22779,7 +22776,6 @@ header .discord-profile-link::after {
     0 0 28px rgba(var(--vc-mocha-rgb), 0.18) !important;
 }
 
-/* /user: tab e toolbar senza contenitore rettangolare */
 body.vc-body.vc-users-page .vc-ul-board-tabs,
 body.vc-body.vc-users-page .vc-ul-toolbar {
   background: transparent !important;
@@ -22790,9 +22786,15 @@ body.vc-body.vc-users-page .vc-ul-toolbar {
   -webkit-backdrop-filter: none !important;
 }
 
-/* Barra header unica: fondo castano pieno (niente testo della pagina che â€œflashaâ€ dietro i link). */
 body.vc-body header .vc-nav-shell,
-body.vc-body header .vc-nav-shell.vc-glass,
+body.vc-body header .vc-nav-shell.vc-glass {
+  background: #140f0c !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.48) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   background: #140f0c !important;
   border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
@@ -22803,7 +22805,6 @@ body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   -webkit-backdrop-filter: none !important;
 }
 
-/* Nav pills: default trasparente; solo pagina corrente / menu aperto evidenziati */
 body.vc-body header .vc-header-snav .vc-snav-item:not(.vc-snav-item--active):not([aria-current="page"]),
 body.vc-body header .vc-header-snav .vc-snav-details:not(.vc-snav-details--current):not([open]) > .vc-snav-summary {
   background: transparent !important;
@@ -22836,7 +22837,6 @@ body.vc-body header .vc-header-snav .vc-snav-details[open] > .vc-snav-summary {
   box-shadow: none !important;
 }
 
-/* Same transparency/palette for every opened menu/dropdown */
 body.vc-body header .vc-header-snav .vc-snav-panel,
 body.vc-body header .discord-account-popover,
 body.vc-body header .vc-notif-panel {
@@ -22873,7 +22873,6 @@ body.vc-body header .vc-notif-dismiss:focus-visible {
   color: rgba(247, 236, 223, 0.98) !important;
 }
 
-/* Profile avatar ring/circle always moka-panna */
 body.vc-body header .discord-profile-link::before {
   background:
     radial-gradient(circle, rgba(236, 205, 176, 0.34) 0%, rgba(var(--vc-mocha-rgb), 0.24) 48%, transparent 72%) !important;
@@ -22887,7 +22886,6 @@ body.vc-body header .discord-profile-link::after {
     0 0 28px rgba(var(--vc-mocha-rgb), 0.18) !important;
 }
 
-/* Sito: lock palette moka/panna + vetro (override classi Tailwind ancora presenti nelle pagine) */
 body.vc-body.text-slate-100 {
   color: rgba(247, 236, 223, 0.94) !important;
 }
@@ -23139,7 +23137,6 @@ html body.vc-body.vc-reviews-page.vc-suggestions-page #vc-suggestions-pager.vc-r
   margin-top: 1.25rem;
 }
 
-/* Suggerimenti: stessa griglia 3 colonne delle recensioni (responsive 1 → 2 → 3). */
 body.vc-body.vc-reviews-page.vc-suggestions-page .vc-reviews-section--split .vc-reviews-grid,
 body.vc-body.vc-suggestions-page #vc-suggestions-list.vc-reviews-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
@@ -23169,7 +23166,6 @@ html body.vc-body.vc-reviews-page.vc-suggestions-page .vc-reviews-grid.vc-review
   min-height: 0;
 }
 
-/* Spazio flessibile sotto il testo: voti + discussione + azioni restano in basso, card allineate. */
 html body.vc-body.vc-reviews-page.vc-suggestions-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__foot {
   margin-top: auto !important;
 }
@@ -23510,7 +23506,6 @@ body.vc-body :where(
   box-shadow: none !important;
 }
 
-/* Campi di scrittura: niente rettangolo esterno al focus (bastano bordo/cursore). */
 body.vc-body :where(
   input:not([type]),
   input[type="text"],
@@ -23892,7 +23887,6 @@ body.vc-body.vc-faq-page .vc-support-page-hero {
     0 0 20px rgba(var(--vc-sand-rgb), 0.1) !important;
 }
 
-/* Header: menu vetro moka (specificitÃƒÂ  massima) */
 html body.vc-body header .vc-header-snav .vc-snav-panel,
 html body.vc-body header .discord-account-popover,
 html body.vc-body header .vc-notif-panel {
@@ -23922,7 +23916,6 @@ html body.vc-body :is(div:not(.vc-nav-shell), section, article, nav, aside, head
   -webkit-backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(145%) !important;
 }
 
-/* Recensioni: blocco finale palette moka/sabbia, senza residui blu-verdi sulle card. */
 html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette > .vc-reviews-card {
   border-color: rgba(var(--vc-sand-rgb), 0.34) !important;
   background:
@@ -24022,7 +24015,6 @@ html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-suggestions-btn-muted:di
   box-shadow: none !important;
 }
 
-/* Recensioni: card tutte alte uguali, con azioni allineate in basso. */
 @media (min-width: 40.01rem) {
   html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette {
     align-items: stretch !important;
@@ -24054,7 +24046,6 @@ html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-suggestions-btn-muted:di
   }
 }
 
-/* Recensioni: paginazione compatta come /user. */
 html body.vc-body.vc-reviews-page .vc-reviews-pager {
   display: flex !important;
   flex-direction: row !important;
@@ -24163,7 +24154,6 @@ html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-pager__meta.vc-n
   }
 }
 
-/* Premium footer palette overrides: keep this at the end so older generic footer rules cannot wash it out. */
 html body.vc-body > footer.vc-premium-footer {
   padding: 1.5rem clamp(0.75rem, 2vw, 1.5rem) 2rem !important;
   border: 0 !important;
@@ -24198,6 +24188,11 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__inner {
 html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid {
   gap: 2rem !important;
   padding: clamp(2rem, 3.8vw, 4rem) !important;
+  align-items: start !important;
+}
+
+html body.vc-body > footer.vc-premium-footer .vc-premium-footer__navcols {
+  align-items: start !important;
 }
 
 html body.vc-body > footer.vc-premium-footer .vc-premium-footer__logo {
@@ -24304,25 +24299,75 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__glass {
 }
 
 @media (min-width: 1024px) {
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid--dashboard:not(:has(.vc-premium-footer__navcols)) {
+    grid-template-columns: minmax(16rem, 1.35fr) repeat(2, minmax(7.5rem, 1fr)) !important;
+  }
+
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid--dashboard:not(:has(.vc-premium-footer__navcols)) > .vc-premium-footer__brand {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid--dashboard:not(:has(.vc-premium-footer__navcols)) > .vc-premium-footer__col:nth-child(2) {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid--dashboard:not(:has(.vc-premium-footer__navcols)) > .vc-premium-footer__col:nth-child(3) {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+  }
+}
+
+@media (min-width: 1024px) {
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid {
-    grid-template-columns: minmax(18rem, 1.35fr) repeat(4, minmax(6.5rem, 0.55fr)) !important;
+    grid-template-columns: minmax(18rem, 1.35fr) minmax(0, 1fr) !important;
     gap: 2rem !important;
   }
 
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid--dashboard {
-    grid-template-columns: minmax(16rem, 1.35fr) repeat(2, minmax(7.5rem, 0.6fr)) !important;
+    grid-template-columns: minmax(16rem, 1.35fr) minmax(0, 1fr) !important;
   }
 
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__brand {
     grid-column: auto !important;
   }
+
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__navcols {
+    grid-column: auto !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid--dashboard .vc-premium-footer__navcols {
+    grid-template-columns: repeat(2, minmax(7.5rem, 1fr)) !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__brand {
+    grid-column: 1 / -1 !important;
+  }
+
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__navcols {
+    grid-column: 1 / -1 !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
 }
 
 @media (max-width: 520px) {
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: 1fr !important;
     gap: 2rem 1rem !important;
     padding: 1.5rem !important;
+  }
+
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__navcols {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 2rem 1rem !important;
   }
 
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__brand {
@@ -24423,7 +24468,7 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__col .vc-premium
 }
 
 @media (max-width: 380px) {
-  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid {
+  html body.vc-body > footer.vc-premium-footer .vc-premium-footer__navcols {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
@@ -24438,7 +24483,6 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__col .vc-premium
     linear-gradient(180deg, #0a0706 0%, #120d0a 45%, #0a0706 100%);
 }
 
-/* eventoThemeBg1: video ambiente full-bleed (hogwarts-theme-bg.js) */
 .vc-hw-theme-bg {
   position: fixed;
   inset: 0;
@@ -24472,7 +24516,6 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__col .vc-premium
 
 html.vc-hw-theme-bg-live body.vc-hw-page,
 body.vc-hw-page.vc-hw-theme-bg-live {
-  /* hwThemeBgOpaque2: mai body trasparente — altrimenti si vede il desktop sotto se il video non parte */
   background-color: #0a0706 !important;
   background-image: none !important;
 }
@@ -25671,7 +25714,6 @@ body.vc-hw-cinema--playing .vc-bgm-player[hidden],
   pointer-events: auto;
 }
 
-/* Mini-player BGM (Hogwarts + shared) — chiuso: solo icona tonda, niente riquadro esterno */
 .vc-bgm-player {
   position: fixed;
   right: 1rem;
@@ -25699,7 +25741,6 @@ body.vc-hw-cinema--playing .vc-bgm-player[hidden],
     background 0.2s ease;
 }
 
-/* Collassato: solo icona. Si apre al hover (desktop) o .is-open (mobile/tap). */
 .vc-bgm-player .vc-bgm-player__meta {
   flex: 1 1 auto;
   min-width: 0;
@@ -25739,7 +25780,6 @@ body.vc-hw-cinema--playing .vc-bgm-player[hidden],
   border-color: rgba(232, 201, 168, 0.72);
 }
 
-/* Mobile / touch: pannello affiancato al FAB (niente stack storto) */
 @media (hover: none), (pointer: coarse) {
   .vc-bgm-player {
     flex-direction: row;
@@ -25890,7 +25930,6 @@ body.vc-hw-cinema--playing .vc-bgm-player[hidden],
   outline: none;
 }
 
-/* chromeFabPalette2: Hogwarts BGM — palette caffè condivisa */
 .vc-bgm-player--hogwarts.vc-bgm-player {
   right: max(0.85rem, env(safe-area-inset-right, 0px));
   bottom: max(0.95rem, env(safe-area-inset-bottom, 0px));
@@ -25969,7 +26008,6 @@ body.vc-hw-cinema--playing .vc-bgm-player[hidden],
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-/* Legacy aliases: old circular FAB markup upgraded by JS */
 .vc-hw-music-btn {
   min-width: 2.5rem;
   padding-inline: 0.65rem;
@@ -26901,7 +26939,6 @@ body.vc-hw-main-reveal #vc-hogwarts-app {
   }
 }
 
-/* /user: final palette lock */
 body.vc-body.vc-users-page :where(
   .vc-notify-hero,
   .vc-notify-stat,
@@ -26983,7 +27020,6 @@ body.vc-body.vc-users-page :where(
   box-shadow: 0 0 12px rgba(var(--vc-sand-rgb), 0.2) !important;
 }
 
-/* /ruoli: request modal login state + warm palette */
 body.vc-body.vc-users-page.vc-roles-page :where(
   .vc-role-request-auth[hidden],
   .vc-role-request-label[hidden],
@@ -27310,7 +27346,6 @@ body.vc-hw-preview-locked #vc-hw-hub-preview-tools {
   margin: 6rem auto 2rem;
 }
 
-/* Ã¢â‚¬â€Ã¢â‚¬â€ Dashboard bot Ã¢â‚¬â€Ã¢â‚¬â€ */
 .vc-dashboard-shell {
   position: relative;
   z-index: 2;
@@ -27346,11 +27381,9 @@ body.vc-hw-preview-locked #vc-hw-hub-preview-tools {
   text-decoration: none;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
   transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-  /* Safari iOS: evita Ã¢â‚¬Å“splitÃ¢â‚¬Â / tint errati con layer semitrasparenti */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
   isolation: isolate;
-  /* nomi lunghi non devono spingere la card oltre il viewport */
   min-width: 0;
   max-width: 100%;
   width: 100%;
@@ -27621,8 +27654,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-sidebar {
   display: none !important;
 }
 
-/* #vc-dashboard-guild-main non va mai nascosto con [hidden]:
-   altrimenti durante il load appare solo in trasparenza e a fine load resta il footer. */
 #vc-dashboard-guild-main[hidden] {
   display: block !important;
 }
@@ -28067,7 +28098,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   pointer-events: none;
 }
 
-/* display:inline-flex batte lo UA di [hidden] â†’ bottoni â€œfantasmaâ€ ancora cliccabili */
 .vc-dashboard-btn[hidden] {
   display: none !important;
 }
@@ -28088,7 +28118,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   overflow: hidden;
   white-space: nowrap;
   text-decoration: none;
-  /* Contiene lo stacking del marquee (transform) cosÃ¬ non copre il toggle lingua. */
   position: relative;
   z-index: 0;
   isolation: isolate;
@@ -28120,7 +28149,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   animation-delay: 0.4s;
-  /* Il testo animato puÃ² uscire dal box e rubare i click al flag lingua. */
   pointer-events: none;
 }
 
@@ -28138,7 +28166,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   }
 }
 
-/* Nome sito / brand in navbar (stesso effetto marquee della dashboard) */
 .vc-header-bar a.vc-header-logo-link + a.vc-header-site-name,
 .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a.vc-header-site-name,
 .vc-header-bar a.vc-header-site-name,
@@ -28191,6 +28218,20 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   text-decoration-color: currentColor;
   text-underline-offset: 0.22em;
   text-decoration-thickness: 1.5px;
+}
+
+@media (min-width: 1024px) {
+  .vc-header-bar a.vc-header-site-name:hover,
+  .vc-header-bar a.vc-header-site-name:focus-visible {
+    text-decoration: none;
+  }
+  .vc-header-bar a.vc-header-site-name:hover > span,
+  .vc-header-bar a.vc-header-site-name:focus-visible > span {
+    text-decoration: underline;
+    text-decoration-color: currentColor;
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: 1.5px;
+  }
 }
 
 .vc-header-bar a.vc-header-site-name.is-marquee .vc-header-site-name__track,
@@ -28256,7 +28297,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   margin-bottom: 1.25rem;
 }
 
-/* display:grid/flex batte lo user-agent di [hidden] Ã¢â€ â€™ senza !important restano visibili */
 #ps-migration-setup[hidden],
 #ps-migration-actions[hidden],
 #ps-migration-progress[hidden],
@@ -28348,7 +28388,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   align-items: center;
 }
 
-/* Ã¢â‚¬â€Ã¢â‚¬â€ Partnership first-time wizard Ã¢â‚¬â€Ã¢â‚¬â€ */
 .vc-ps-wizard {
   max-width: 40rem;
   margin: 0 auto;
@@ -28661,7 +28700,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   }
 }
 
-/* Setup wizard mobile: stessa nav inline del PC (niente card flottante); footer pagina nascosto. */
 @media (max-width: 720px) {
   html body.vc-body.vc-dashboard-page.is-ps-wizard-active > footer,
   html body.vc-body.vc-dashboard-page.is-ps-wizard-active > footer[data-vc-dashboard-footer],
@@ -29524,7 +29562,6 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   line-height: 1.45;
 }
 
-/* legacy form selectors kept harmless if old markup reappears */
 .vc-dash-bl__form input[type="text"] {
   width: 100%;
   min-height: 2.6rem;
@@ -30488,14 +30525,12 @@ body.vc-dashboard-guild-loading-active #vc-dashboard-guild-main {
   margin-top: 2rem;
 }
 
-/* Guild sidebar: rail fissa sotto navbar, si espande al hover */
 body.vc-dashboard-page {
   --vc-dash-header-h: 4.35rem;
   --vc-dash-sidebar-w: 4.35rem;
   --vc-dash-sidebar-w-open: 15.25rem;
 }
 
-/* Evita flash dashboard; resta “pitturabile” per Lighthouse (niente visibility:hidden). */
 html.vc-dash-access-pending body.vc-dashboard-page {
   visibility: visible !important;
 }
@@ -30523,7 +30558,6 @@ html.vc-dash-access-pending body.vc-dashboard-page::after {
   pointer-events: none;
 }
 
-/* Hero lista server: mocha/sabbia (niente alone smeraldo del template supporto). */
 body.vc-body.vc-dashboard-page .vc-support-page-hero:not(.vc-vote-page-hero) {
   border: 1px solid rgba(var(--vc-sand-rgb), 0.22);
   background:
@@ -30540,7 +30574,6 @@ body.vc-body.vc-dashboard-page .vc-support-page-hero__icon {
   box-shadow: 0 0 34px rgba(var(--vc-sand-rgb), 0.16);
 }
 
-/* Solo il cerchio ha fondo: la <i> non deve avere un box rettangolare dietro al glifo. */
 body.vc-body.vc-dashboard-page .vc-support-page-hero__icon i {
   background: transparent !important;
   border: none !important;
@@ -30563,11 +30596,9 @@ main.vc-dashboard-guild-page-main {
   max-width: none;
   padding-left: 1rem;
   padding-right: 1rem;
-  /* Spazio sotto lÃ¢â‚¬â„¢ultima card: il footer premium (z-index uguale) altrimenti la copre. */
   padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Contenuto sopra il footer quando le due zone si sovrappongono in scroll. */
 body.vc-dashboard-page main.vc-dashboard-guild-page-main {
   position: relative;
   z-index: 11;
@@ -30577,7 +30608,6 @@ html body.vc-body.vc-dashboard-page > footer.vc-premium-footer {
   z-index: 5;
 }
 
-/* Offset sidebar / footer / expand: solo desktop (su touch focus-within resta appiccicato). */
 @media (min-width: 721px) {
   body.vc-dashboard-page:has(#vc-dashboard-sidebar:not([hidden])) main.vc-dashboard-guild-page-main {
     padding-left: calc(var(--vc-dash-sidebar-w) + 1.25rem);
@@ -30685,10 +30715,6 @@ html body.vc-body.vc-dashboard-page > footer.vc-premium-footer {
   min-width: 0;
 }
 
-/*
- * Banner intro (Impostazioni, Comandi, Partnership, Profilo, â€¦):
- * kicker a tutta larghezza; titolo e descrizione sullo STESSO piano orizzontale.
- */
 @media (min-width: 640px) {
   .vc-dash-page-intro:not(:has(.vc-dash-page-intro__brand)) {
     display: flex;
@@ -30720,7 +30746,6 @@ html body.vc-body.vc-dashboard-page > footer.vc-premium-footer {
     line-height: 1.35;
   }
 
-  /* Overview (con icona brand): titolo a tutta larghezza, descrizione sotto (nomi lunghi). */
   .vc-dash-page-intro:has(> .vc-dash-page-intro__brand) {
     display: flex;
     flex-direction: column;
@@ -30750,7 +30775,6 @@ html body.vc-body.vc-dashboard-page > footer.vc-premium-footer {
     gap: 0.75rem;
   }
 
-  /* Una sola card nella pagina (es. Embed / Descrizione): tutta la larghezza */
   .vc-dash-page-main .vc-dash-feat-list > .vc-dash-feat:only-child {
     grid-column: 1 / -1;
   }
@@ -30762,7 +30786,6 @@ html body.vc-body.vc-dashboard-page > footer.vc-premium-footer {
   }
 }
 
-/* Migrazione: card + avviso impilati a tutta larghezza (niente colonna vuota) */
 #ps-migration-setup.vc-dash-feat-list {
   grid-template-columns: 1fr;
 }
@@ -30806,27 +30829,56 @@ html body.vc-body.vc-dashboard-page > footer.vc-premium-footer {
 
 .vc-dash-save-toast-host {
   position: fixed;
-  left: 0;
-  right: 0;
+  left: 50%;
+  right: auto;
+  top: auto;
   bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
   z-index: 10150;
   width: min(92vw, 22rem);
-  margin-inline: auto;
+  margin: 0;
+  padding: 0;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
-body.vc-dashboard-page:has(#vc-dashboard-sidebar:not([hidden])) .vc-dash-save-toast-host {
+.vc-site-toast-host,
+.vc-staff-toast-host,
+.vc-wt-toast-host,
+.vc-cpf-toast-host,
+#vc-site-toast-host,
+#vc-staff-toast-host,
+#vc-wt-toast-host,
+#vc-custom-profile-toast-host,
+#vc-profile-extras-toast-host {
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px)) !important;
+  transform: translateX(-50%) !important;
+  z-index: 10150 !important;
+  width: min(92vw, 22rem) !important;
+  max-width: min(92vw, 22rem) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+}
+
+body.vc-dashboard-page:has(#vc-dashboard-sidebar:not([hidden])) .vc-dash-save-toast-host,
+body.vc-dashboard-page:has(#vc-dashboard-sidebar:not([hidden])) .vc-site-toast-host {
   bottom: calc(7.6rem + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 721px) {
-  body.vc-dashboard-page:has(#vc-dashboard-sidebar:not([hidden])) .vc-dash-save-toast-host {
-    bottom: calc(5.35rem + env(safe-area-inset-bottom, 0px));
-    left: var(--vc-dash-sidebar-w, 4.5rem);
+  body.vc-dashboard-page:has(#vc-dashboard-sidebar:not([hidden])) .vc-dash-save-toast-host,
+  body.vc-dashboard-page:has(#vc-dashboard-sidebar:not([hidden])) .vc-site-toast-host {
+    left: calc(50% + (var(--vc-dash-sidebar-w, 4.5rem) / 2));
+    bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
-/* Barra fluttuante: switch rapido tra server */
 .vc-dash-server-switcher {
   position: fixed;
   z-index: 160;
@@ -30876,7 +30928,6 @@ body.vc-dashboard-page:has(#vc-profile-sidebar) .vc-dash-server-switcher {
     0 0 0 1px rgba(212, 168, 136, 0.1) inset;
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
-  /* Tip fuori dallo scroller: overflow-x:auto non deve gonfiare lâ€™altezza */
   overflow: visible;
 }
 
@@ -30997,7 +31048,6 @@ body.vc-dashboard-page:has(#vc-profile-sidebar) .vc-dash-server-switcher {
   background: linear-gradient(145deg, rgba(212, 168, 136, 0.35), rgba(74, 52, 37, 0.7));
 }
 
-/* Tip host unico fuori dallo scroller (evita altezza gonfiata da overflow-x:auto) */
 .vc-dash-server-switcher__inner > .vc-dash-server-switcher__tip {
   position: absolute;
   left: 50%;
@@ -31085,7 +31135,6 @@ body.vc-dashboard-page:has(#vc-profile-sidebar) .vc-dash-server-switcher {
     will-change: auto;
   }
 
-  /* Su touch niente tip fluttuante (aria-label basta) */
   .vc-dash-server-switcher__inner > .vc-dash-server-switcher__tip {
     display: none !important;
   }
@@ -31204,7 +31253,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   display: none !important;
 }
 
-/* Dopo un click di navigazione: resta chiusa finchÃƒÂ© il cursore non esce (evita focus/hover Ã¢â‚¬Å“appiccicatiÃ¢â‚¬Â). */
 .vc-dashboard-sidebar.is-force-collapsed,
 .vc-dashboard-sidebar.is-force-collapsed:hover,
 .vc-dashboard-sidebar.is-force-collapsed:focus-within {
@@ -31561,7 +31609,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   padding: 0.28rem 0.4rem;
 }
 
-/* Badge Premium sulla voce Embed: solo con sidebar espansa (niente overflow sulla rail). */
 .vc-dashboard-sidebar__premium-badge[data-premium-nav-badge] {
   display: inline-flex;
   align-items: center;
@@ -31650,7 +31697,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   display: none !important;
 }
 
-/* Rail chiusa: puntino NEW sull'icona Bacheca / Tickets */
 #vc-dashboard-sidebar-bacheca-toggle,
 #vc-dashboard-sidebar-tickets-toggle {
   position: relative;
@@ -31680,7 +31726,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   padding: 0 !important;
 }
 
-/* Rail chiusa: puntino Premium locked sull'icona */
 .vc-dashboard-sidebar:not(:hover):not(:focus-within) .vc-dashboard-sidebar__sublink.is-premium-locked::after,
 .vc-dashboard-sidebar.is-force-collapsed .vc-dashboard-sidebar__sublink.is-premium-locked::after {
   content: "";
@@ -31772,7 +31817,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   color: #fde68a;
 }
 
-/* Feature cards + switches */
 .vc-dash-feat-list {
   display: grid;
   gap: 0.75rem;
@@ -31804,7 +31848,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   max-width: 28rem;
 }
 
-/* Impostazioni server: identitÃ  in evidenza + righe compatte (niente griglia a 3 card) */
 #vc-dashboard-view-settings .vc-dash-settings-stack {
   display: flex;
   flex-direction: column;
@@ -31872,7 +31915,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   box-sizing: border-box;
 }
 
-/* Banner piÃ¹ basso a tutta larghezza (meno â€œaltezzaâ€) */
 #vc-dashboard-view-settings .vc-dash-bot-identity__banner-frame {
   aspect-ratio: 3.6 / 1;
   max-height: 9.5rem;
@@ -31894,7 +31936,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   height: 68px;
 }
 
-/* Settings rows: Impostazioni + Partnership */
 #vc-dashboard-view-settings .vc-dash-settings-rows,
 .vc-ps-settings-rows {
   display: flex;
@@ -32544,12 +32585,10 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   pointer-events: none;
 }
 
-/* Quote style: blur+CTA come embed, niente overlay ::after sopra il tease */
 .vc-dash-quote-style[data-premium-lock].is-premium-locked::after {
   display: none;
 }
 
-/* Contenuto lungo: limita lâ€™altezza cosÃ¬ la card Premium resta centrata in viewport */
 .vc-dash-quote-style > .vc-dash-premium-tease.is-locked {
   max-height: min(78vh, 44rem);
   overflow: hidden;
@@ -32571,7 +32610,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   padding: 1.25rem 1rem;
 }
 
-/* Avatar: overlay circolare, niente â€œquadratoâ€ dietro al cerchio */
 .vc-dash-bot-identity__avatar-wrap[data-premium-lock].is-premium-locked::after {
   border-radius: 50%;
   background: transparent;
@@ -32684,7 +32722,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   line-height: 1.35;
   overflow-wrap: anywhere;
   word-break: break-word;
-  /* Riserva 2 righe cosÃƒÂ¬ le card chiuse restano allineate anche con testi corti */
   min-height: calc(1.35em * 2);
 }
 
@@ -32822,7 +32859,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   position: relative;
 }
 
-/* display:grid sopra batte [hidden] dello user agent / Tailwind preflight */
 .vc-dash-picker[hidden] {
   display: none !important;
 }
@@ -32871,7 +32907,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
   box-shadow: 0 0 0 2px rgba(212, 168, 136, 0.18);
 }
 
-/* Selettore Discord-like: trigger + menu custom (nomi completi, niente troncamento OS) */
 .vc-dash-select {
   position: relative;
   width: 100%;
@@ -32901,7 +32936,6 @@ body.vc-dashboard-page:has(#vc-dash-server-switcher:not([hidden])) footer[data-v
 
 .vc-dash-select__menu.is-fixed-pos,
 body > .vc-dash-select__menu {
-  /* Portale su body: fuori dallo stacking context di main (z-10), sopra il footer. */
   position: fixed !important;
   right: auto !important;
   z-index: 10350 !important;
@@ -33099,7 +33133,6 @@ body > .vc-dash-select__menu {
   color: rgba(255, 255, 255, 0.88);
 }
 
-/* Lista vuota: voce placeholder evidenziata nel menu (come TicketsBot). */
 .vc-dash-select__option.is-empty-only,
 .vc-dash-select__option.is-empty-only.is-selected {
   background: #5865f2;
@@ -33355,7 +33388,6 @@ body > .vc-dash-select__menu {
     width: 100%;
   }
 
-  /* Header: pillola arrotondata (niente blur: crea containing block e rompe lo sheet notifiche) */
   body.vc-dashboard-page > header.fixed {
     left: 0;
     right: 0;
@@ -33444,7 +33476,6 @@ body > .vc-dash-select__menu {
     gap: 0.45rem 0.35rem;
   }
 
-  /* Su dashboard mobile: hamburger obbligatorio (niente snav scrollabile). */
   body.vc-dashboard-page .vc-header-snav {
     display: none !important;
   }
@@ -33512,8 +33543,6 @@ body > .vc-dash-select__menu {
     white-space: normal;
   }
 
-  /* Bottom dock mobile: pillola compatta centrata + scroll icone.
-     Niente transform sul dock: crea containing block e rompe il foglio fixed del sottomenu. */
   .vc-dashboard-sidebar,
   .vc-dashboard-sidebar:hover,
   .vc-dashboard-sidebar:focus-within,
@@ -33541,7 +33570,6 @@ body > .vc-dash-select__menu {
       0 10px 28px rgba(0, 0, 0, 0.42),
       0 0 0 1px rgba(212, 168, 136, 0.08) inset;
     background: rgba(18, 13, 10, 0.96);
-    /* Niente backdrop-filter: su iOS crea containing block e mangia il foglio fixed */
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     overflow: visible !important;
@@ -33560,11 +33588,9 @@ body > .vc-dash-select__menu {
     gap: 0.2rem;
     padding: 0.38rem 0.42rem;
     max-width: 100%;
-    /* Evita salti di scroll quando cambia lo stato attivo / is-open */
     overflow-anchor: none;
   }
 
-  /* Il foglio partnership ÃƒÂ¨ su <body>: NON togliere overflow-x al nav (causava lo shift delle icone). */
   .vc-dashboard-sidebar__group.is-open ~ *,
   .vc-dashboard-sidebar:has(.vc-dashboard-sidebar__group.is-open) .vc-dashboard-sidebar__nav {
     overflow-x: auto;
@@ -33575,7 +33601,6 @@ body > .vc-dash-select__menu {
     display: none;
   }
 
-  /* Blocca espansione label/chevron da :hover/:focus-within (desktop) sul dock telefono */
   .vc-dashboard-sidebar__label,
   .vc-dashboard-sidebar__chev,
   .vc-dashboard-sidebar:hover .vc-dashboard-sidebar__label,
@@ -33628,7 +33653,6 @@ body > .vc-dash-select__menu {
     -webkit-backdrop-filter: blur(6px) !important;
   }
 
-  /* Mai testo NEW sul dock telefono (rompe layout/scroll e i tap). Solo puntino verde. */
   .vc-dashboard-sidebar__new-badge,
   .vc-dashboard-sidebar:hover .vc-dashboard-sidebar__new-badge,
   .vc-dashboard-sidebar:focus-within .vc-dashboard-sidebar__new-badge {
@@ -33757,7 +33781,6 @@ body > .vc-dash-select__menu {
     color: #f8e7d4;
   }
 
-  /* MenÃ¹ aperto: nessun alone sul toggle (il foglio basta). Solo is-active = pagina partnership. */
   .vc-dashboard-sidebar__group.is-open > .vc-dashboard-sidebar__toggle:not(.is-active),
   .vc-dashboard-sidebar__group.is-open > .vc-dashboard-sidebar__toggle:not(.is-active):hover,
   .vc-dashboard-sidebar__group.is-open > .vc-dashboard-sidebar__toggle:not(.is-active):active,
@@ -33772,7 +33795,6 @@ body > .vc-dash-select__menu {
     color: #f8e7d4;
   }
 
-  /* Blocca lo sticky :hover iOS e le regole desktop hover/focus-within che spostano le icone */
   .vc-dashboard-sidebar:hover .vc-dashboard-sidebar__link,
   .vc-dashboard-sidebar:focus-within .vc-dashboard-sidebar__link,
   .vc-dashboard-sidebar:hover .vc-dashboard-sidebar__sublink,
@@ -33886,13 +33908,11 @@ body > .vc-dash-select__menu {
     overflow: hidden;
   }
 
-  /* Sottomenu partnership: foglio sopra il dock (anche se portato su <body>) */
   .vc-dashboard-partnership-sheet-backdrop {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    /* Non coprire il dock: altrimenti il tap sul bottone Partnership lagga / non chiude */
     bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px)) !important;
     z-index: 100580 !important;
     margin: 0;
@@ -34060,7 +34080,6 @@ body.vc-body.vc-bot-reviews-page .vc-bot-reviews-lang-badge {
   vertical-align: middle;
 }
 
-/* Bot feedback modal (dashboard /suggerimenti) Ã¢â‚¬â€ finestra piÃƒÂ¹ ampia, senza scrollbar inutile */
 body.vc-body.vc-dashboard-suggestions-page #vc-bot-feedback-edit-modal.vc-reviews-modal {
   padding: clamp(0.75rem, 2.2vh, 1.5rem) clamp(0.75rem, 2.5vw, 1.75rem);
   align-items: center;
@@ -34234,7 +34253,6 @@ body.vc-body.vc-dashboard-suggestions-page .vc-bot-feedback-preview__remove:hove
   background: rgba(185, 28, 28, 0.92);
 }
 
-/* Dashboard tenant profile (+profile web) */
 .vc-dash-profile-status {
   margin: 0 0 0.85rem;
   padding: 0.65rem 0.9rem;
@@ -34746,7 +34764,6 @@ body.vc-dashboard-profile-page .vc-tprof-page-head .vc-dash-page-intro__text {
   line-height: 1;
 }
 
-/* ===== Dashboard Classifiche (+leaderboard) ===== */
 .vc-dash-lb {
   display: grid;
   gap: 1rem;
@@ -35105,7 +35122,6 @@ a.vc-dash-lb-card__name:hover {
   }
 }
 
-/* ===== Dashboard Settings â†’ Comandi ===== */
 .vc-dash-lb__status.is-ok {
   color: #8fd6a8;
 }
@@ -35556,7 +35572,6 @@ body.vc-dash-cmds-modal-open {
   box-shadow: 0 0 0 2px rgba(212, 168, 136, 0.18);
 }
 
-/* Allinea la zona team agli altri picker delle feat partnership */
 #ps-pmZoneFeat .vc-dash-feat__panel .vc-dash-picker {
   width: 100%;
   margin: 0;
@@ -35745,7 +35760,6 @@ body.vc-dash-cmds-modal-open {
     grid-template-columns: 1fr;
   }
 }
-/* ===== Profile account sidebar (Profilo / Abbonamento / Premium) ===== */
 body.vc-dashboard-profile-page {
   --vc-dash-header-h: 4.35rem;
   --vc-dash-sidebar-w: 4.35rem;
@@ -35788,7 +35802,6 @@ body.vc-dashboard-profile-page {
     display: none !important;
   }
 
-  /* Sostituisce la sidebar nascosta: Profilo / Abbonamento sempre raggiungibili. */
   .vc-profile-mobile-acc {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -36231,7 +36244,6 @@ main.vc-dashboard-profile-main {
   }
 }
 
-/* ===== Dashboard Bacheca ===== */
 .vc-dash-boards {
   display: flex;
   flex-direction: column;
@@ -36991,7 +37003,6 @@ main.vc-dashboard-profile-main {
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-/* Canvas verticale 768Ã—1280: centrato, dimensione contenuta */
 .vc-dash-quote-style__preview[data-qs-orient="vertical"] {
   width: auto;
   max-width: min(100%, 13.5rem);
@@ -37048,7 +37059,6 @@ main.vc-dashboard-profile-main {
   transform: scale(1.02);
 }
 
-/* Avatar dinamico: leggero Ken Burns (GIF animate giÃ  via background-image) */
 .vc-dash-quote-style__preview[data-qs-avatar="dynamic"] .vc-dash-quote-style__preview-cover-img {
   animation: vc-qs-cover-ken 18s ease-in-out infinite alternate;
   transform-origin: center center;
@@ -37413,7 +37423,6 @@ main.vc-dashboard-profile-main {
   }
 }
 
-/* Dashboard Tickets */
 .vc-dash-tk__stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
@@ -37835,7 +37844,6 @@ main.vc-dashboard-profile-main {
   }
 }
 
-/* Tickets forms */
 #vc-dashboard-view-tickets-forms {
   display: flex;
   flex-direction: column;
@@ -38042,7 +38050,6 @@ main.vc-dashboard-profile-main {
   pointer-events: none;
 }
 .vc-dash-tk-forms__dual-rail {
-  /* Come TicketsBot: barra piena per tutta la larghezza */
   left: 0.55rem;
   right: 0.55rem;
   background: rgba(var(--vc-sand-rgb), 0.95);
@@ -38192,7 +38199,6 @@ main.vc-dashboard-profile-main {
   }
 }
 
-/* Tickets transcripts */
 .vc-dash-tk-tx-card {
   margin-bottom: 1rem;
   padding: 1rem 1.05rem 1.1rem;
@@ -38321,7 +38327,6 @@ main.vc-dashboard-profile-main {
   display: none !important;
 }
 
-/* Transcript pubblico: mai nascosto dal gate High Staff. */
 html.vc-dash-access-pending body.vc-dashboard-transcript-page {
   visibility: visible !important;
 }
@@ -38470,7 +38475,6 @@ body.vc-dashboard-transcript-page {
   transition: transform 0.15s, opacity 0.15s;
 }
 
-/* display:inline-flex sopra batte [hidden] del browser: forza hide in verifica sessione. */
 .vc-tx-gate__login[hidden],
 .vc-tx-gate.is-verifying .vc-tx-gate__login {
   display: none !important;
@@ -38809,7 +38813,6 @@ body.vc-dashboard-transcript-page .vc-dash-tk-tx-viewer__card {
 .vc-dash-tk-panels {
   margin-top: 0;
 }
-/* display:grid sopra batte lo UA di [hidden] â†’ lista + editor insieme */
 .vc-dash-tk-panels__grid[hidden],
 .vc-dash-tk-panel-editor[hidden],
 #tk-panels-intro[hidden] {
@@ -38910,7 +38913,6 @@ body.vc-dashboard-transcript-page .vc-dash-tk-tx-viewer__card {
 .vc-dash-tk-new__menu button:hover {
   background: rgba(255, 255, 255, 0.08);
 }
-/* Non mettere display:flex sul <td>: rompe il layout della tabella (testo sovrapposto). */
 td.vc-dash-tk-panels__actions {
   display: table-cell;
   vertical-align: middle;
@@ -38949,7 +38951,6 @@ td.vc-dash-tk-panels__actions {
   display: none !important;
 }
 
-/* Ticket Toolâ€“style color bar: solid swatch inside dark rounded frame */
 .vc-dash-tk-color {
   display: flex;
   align-items: center;
@@ -39000,7 +39001,6 @@ td.vc-dash-tk-panels__actions {
   border-radius: 0.35rem;
 }
 
-/* Ticket Toolâ€“style button emoji picker */
 .vc-dash-tk-emoji {
   position: relative;
   display: flex;
@@ -39280,7 +39280,6 @@ td.vc-dash-tk-panels__actions {
   justify-content: center;
 }
 
-/* Controlli form: stesso scuro caldo del riquadro (niente Discord #1e1f22 freddo) */
 #vc-dashboard-view-tickets-pannelli .vc-dash-select__trigger,
 #vc-dashboard-view-tickets-pannelli .vc-dash-picker select,
 #vc-dashboard-view-tickets-pannelli .vc-dash-picker input,
@@ -39638,7 +39637,6 @@ td.vc-dash-tk-panels__actions {
   }
 }
 
-/* Editor pannello singolo â€” accordion sezioni stile Ticket Tool */
 .vc-dash-tk-acc {
   border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -39770,7 +39768,6 @@ td.vc-dash-tk-panels__actions {
   color: rgba(212, 168, 136, 0.85);
 }
 
-/* Liste dinamiche: campi embed welcome + regole access control */
 .vc-dash-tk-fields-list,
 .vc-dash-tk-rules-list {
   display: flex;
@@ -39827,7 +39824,6 @@ td.vc-dash-tk-panels__actions {
   }
 }
 
-/* Orari di supporto â€” stile Ticket Tool */
 .vc-dash-tk-hours {
   display: flex;
   flex-direction: column;
@@ -40055,7 +40051,6 @@ td.vc-dash-tk-panels__actions {
   }
 }
 
-/* Tickets settings â€” layout stile Ticket Tool (card unica, sezioni +/âˆ’) */
 .vc-dash-tk-settings {
   width: 100%;
   max-width: none;
@@ -40366,7 +40361,6 @@ td.vc-dash-tk-panels__actions {
   }
 }
 
-/* -- Web tickets (supporto live) ------------------------------------------- */
 body.vc-web-tickets-page.vc-suggestions-page .vc-support-page-hero__icon.vc-wt-hero-icon,
 body.vc-web-tickets-page.vc-suggestions-page .vc-support-page-hero__icon.vc-wt-hero-icon i {
   color: rgba(247, 236, 223, 0.98) !important;
@@ -40383,14 +40377,16 @@ body.vc-web-tickets-page .vc-wt-status[hidden] {
   display: none !important;
 }
 body.vc-web-tickets-page .vc-wt-toast-host {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px));
-  z-index: 10150;
-  width: min(92vw, 22rem);
-  margin-inline: auto;
-  pointer-events: none;
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px)) !important;
+  transform: translateX(-50%) !important;
+  z-index: 10150 !important;
+  width: min(92vw, 22rem) !important;
+  margin: 0 !important;
+  pointer-events: none !important;
 }
 body.vc-web-tickets-page .vc-wt-shell--staff { padding-top: 0.25rem; }
 body.vc-web-tickets-page .vc-wt-app { margin-top: 0.15rem; }
@@ -40403,7 +40399,6 @@ body.vc-web-tickets-page .vc-wt-board > .vc-reviews-section__head {
 body.vc-web-tickets-page .vc-wt-board > .vc-reviews-section__head .vc-reviews-section__title {
   font-size: 1.35rem;
 }
-/* Hero tickets: card grande solo fuori dal layout cine. */
 body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero.vc-wt-page-hero,
 body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero {
   display: block !important;
@@ -40449,7 +40444,6 @@ body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero p.mt-5 
   display: grid;
   grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
   gap: 0.9rem;
-  /* Chat dominante: quasi tutto il viewport sotto header+hero compatto. */
   height: max(42rem, calc(100dvh - 13.5rem));
   max-height: max(42rem, calc(100dvh - 13.5rem));
   min-height: 42rem;
@@ -40571,8 +40565,7 @@ body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero p.mt-5 
   max-width: 100%;
   box-sizing: border-box;
   overflow: visible;
-  padding: 1px; /* evita il clip del bordo sull’ultimo chip */
-}
+  padding: 1px; }
 .vc-wt-chiprow::-webkit-scrollbar { display: none; }
 .vc-wt-chip,
 .vc-wt-filter {
@@ -41083,12 +41076,10 @@ body.vc-web-tickets-page .vc-wt-dd * {
 .vc-wt-chat--closed .vc-wt-chat__log {
   padding-bottom: 0.9rem;
 }
-/* Overlay solo dietro il riquadro valutazione: niente velo nero sull’header/chat sopra. */
 .vc-wt-chat__stage:has(.vc-wt-rate-dock)::before {
   content: none;
   display: none;
 }
-/* Fisso sotto la chat: non scorre col log. */
 .vc-wt-rate-dock {
   position: relative;
   flex: 0 0 auto;
@@ -42480,7 +42471,6 @@ a.vc-wt-msg-mention:hover {
     gap: 0.75rem;
   }
   .vc-wt-sidebar {
-    /* Lista I miei / Inbox: prima era 280px (troppo bassa sul telefono). */
     height: min(62dvh, 34rem);
     max-height: min(62dvh, 34rem);
     min-height: 24rem;
@@ -42505,7 +42495,6 @@ a.vc-wt-msg-mention:hover {
   }
 }
 
-/* Shared emoji picker (tickets chat) */
 .vc-emoji-picker {
   position: fixed;
   inset: 0;
@@ -42729,7 +42718,6 @@ body.vc-web-tickets-page .vc-reviews-gate:not([hidden]):not(.vc-reviews-gate--di
   }
 }
 
-/* Pull-to-refresh (mobile / PWA): vinile sotto la navbar, sopra il contenuto. */
 html.vc-ptr-ready,
 html.vc-ptr-ready body {
   overscroll-behavior-y: contain;
@@ -42860,7 +42848,6 @@ html.vc-ptr-ready body {
   }
 }
 
-/* Home cinematic — atmosfera dietro il testo, non sopra. */
 body.vc-body--home > header,
 body.vc-body--home main {
   animation: none;
@@ -42933,7 +42920,6 @@ body.vc-body--home .vc-home-cine__grain {
   inset: 0;
   z-index: 4;
   opacity: 0.09;
-  /* overlay + canvas rAF = flash a riquadro sotto navbar rounded */
   mix-blend-mode: normal;
   background-image:
     repeating-linear-gradient(0deg, transparent 0 2px, rgba(255, 255, 255, 0.04) 2px 3px),
@@ -42951,27 +42937,51 @@ body.vc-body--home .vc-home-cine-hero {
   padding-bottom: 6.4rem !important;
 }
 
-body.vc-body--home .vc-home-cine-hero .vc-hero-head,
-body.vc-body--home .vc-home-cine-hero .vc-support-intro-shell .vc-hero-head {
-  max-width: 46rem;
-  padding: 0 !important;
+body.vc-body--home .vc-home-cine-hero .vc-support-intro-shell {
+  border: none !important;
   background: transparent !important;
-  border: 0 !important;
+  background-image: none !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  max-width: 44rem;
+  width: 100%;
+}
+body.vc-body--home .vc-home-cine-hero .vc-hero-head,
+body.vc-body--home .vc-home-cine-hero .vc-support-intro-shell .vc-hero-head {
+  max-width: 44rem;
+  width: 100%;
+  margin-inline: auto !important;
+  align-self: center !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.35rem 1.45rem 1.7rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 1.75rem !important;
+  background: rgba(14, 10, 8, 0.78) !important;
+  backdrop-filter: blur(var(--vc-glass-blur, 16px)) saturate(155%) !important;
+  -webkit-backdrop-filter: blur(var(--vc-glass-blur, 16px)) saturate(155%) !important;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  text-align: center;
 }
 
 body.vc-body--home .vc-home-cine-hero .vc-brand-glow {
   font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
   font-weight: 600;
-  font-size: clamp(3.1rem, 10.5vw, 7.4rem);
-  line-height: 0.9;
-  letter-spacing: -0.04em;
+  font-size: clamp(1.85rem, 4.4vw, 2.85rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
   color: #f6eadc !important;
   text-shadow:
-    0 2px 28px rgba(0, 0, 0, 0.55),
-    0 0 64px rgba(212, 168, 136, 0.18);
+    0 2px 22px rgba(0, 0, 0, 0.5),
+    0 0 42px rgba(212, 168, 136, 0.14);
+  animation: none;
 }
 
 body.vc-body--home .vc-home-cine-hero .vc-brand-glow .text-emerald-300,
@@ -42987,18 +42997,31 @@ body.vc-body--home .vc-home-cine-hero .vc-support-intro-shell .vc-brand-glow .vc
 
 body.vc-body--home .vc-home-cine-hero .vc-hero-kicker,
 body.vc-body--home .vc-home-cine-hero .vc-support-intro-shell .vc-hero-kicker {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto !important;
+  padding: 0.18rem 0.72rem;
+  font-size: 0.62rem !important;
+  font-weight: 700;
+  text-transform: uppercase;
   background: transparent;
-  border-color: rgba(212, 168, 136, 0.38);
+  border: 1px solid rgba(212, 168, 136, 0.32);
+  border-radius: 999px;
   color: rgba(244, 232, 218, 0.82);
-  letter-spacing: 0.22em;
+  letter-spacing: 0.16em;
+  box-shadow: none;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55);
 }
 
 body.vc-body--home .vc-home-cine-hero .vc-hero-about {
-  max-width: 34rem;
-  font-size: clamp(0.92rem, 1.7vw, 1.08rem);
-  line-height: 1.7;
-  color: rgba(247, 236, 223, 0.78);
+  max-width: 32rem;
+  margin-inline: auto;
+  font-size: clamp(0.86rem, 1.4vw, 0.98rem);
+  line-height: 1.5;
+  color: rgba(247, 236, 223, 0.78) !important;
   text-shadow: 0 1px 16px rgba(0, 0, 0, 0.55);
+  text-align: center;
 }
 
 body.vc-body--home .vc-home-cine-cta {
@@ -43095,7 +43118,7 @@ body.vc-body--home .vc-home-storycard:hover::after {
       );
   }
   body.vc-body--home .vc-home-cine-hero .vc-brand-glow {
-    font-size: clamp(2.7rem, 14vw, 3.6rem);
+    font-size: clamp(1.85rem, 4.4vw, 2.85rem);
   }
   body.vc-body--home .vc-home-scrollcue {
     left: 0;
@@ -43209,7 +43232,6 @@ body.vc-body--home .vc-home-scrollcue {
     color 0.2s ease;
 }
 
-/* Rise animation must not steal the centering translateX(-50%). */
 body.vc-body--home .vc-home-scrollcue.vc-home-rise,
 body.vc-body--home .vc-home-scrollcue.vc-home-rise.is-in {
   opacity: 1;
@@ -43373,7 +43395,6 @@ html body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__social:ho
   }
 }
 
-/* Home: navbar sempre piena (niente transparent→scroll = flash rettangolo). */
 html body.vc-body--home > header .vc-nav-shell,
 html body.vc-body--home header.fixed .vc-nav-shell {
   position: relative;
@@ -43425,7 +43446,6 @@ html body.vc-body--home header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scroll
   }
 }
 
-/* Home panels: same track + same chrome so nothing looks “narrower”. */
 body.vc-body--home #stats,
 body.vc-body--home main > section {
   max-width: 72rem;
@@ -43647,7 +43667,6 @@ body.vc-body--home .vc-home-index__col a:hover strong {
   border-bottom-color: rgba(232, 201, 168, 0.45);
 }
 
-/* —— Home motion: rise / hover / tilt (not killed by OS “reduce”) —— */
 html.vc-home-motion-ready body.vc-body--home .vc-home-rise {
   opacity: 0;
   transform: translate3d(0, 0.55rem, 0);
@@ -43847,7 +43866,6 @@ body.vc-body--home #stats .vc-stat-strip.is-tilting {
   border-color: rgba(245, 214, 183, 0.36);
 }
 
-/* —— Extra FX: spotlight lives inside .vc-home-cine (never on body::before). —— */
 body.vc-body--home.vc-home-fx {
   --vc-spot-x: 72%;
   --vc-spot-y: 28%;
@@ -43859,7 +43877,7 @@ body.vc-body--home.vc-home-fx::before {
 }
 
 body.vc-body--home .vc-home-cine-hero .vc-brand-glow {
-  animation: vcHomeBrandBreath 5.6s ease-in-out infinite;
+  animation: none;
 }
 
 @keyframes vcHomeBrandBreath {
@@ -44055,7 +44073,6 @@ header #vc-mobile-nav-toggle {
   box-sizing: border-box;
 }
 
-/* Bandiera lingua: subito dopo il nome, non spinta a destra dal marquee. */
 .vc-header-bar > div:first-child {
   flex: 0 1 auto;
   width: auto;
@@ -44101,17 +44118,27 @@ header .vc-lang-toggle,
     flex: 0 1 auto !important;
     flex-grow: 0 !important;
     min-width: 0 !important;
-    max-width: min(52vw, 11.5rem) !important;
+    max-width: min(42vw, 9.75rem) !important;
     overflow: hidden !important;
   }
 
+  .vc-header-bar > div:first-child a.vc-header-site-name.is-marquee,
+  .vc-mobile-nav-drawer__brand a.vc-header-site-name.is-marquee,
+  .vc-header-bar > div:first-child > a.vc-header-logo-link + a.is-marquee {
+    max-width: min(42vw, 9.75rem) !important;
+  }
+
   .vc-header-bar > div:first-child .vc-lang-dropdown,
+  .vc-mobile-nav-drawer__brand .vc-lang-dropdown,
+  header .vc-lang-dropdown {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    flex: 0 0 auto !important;
+  }
+
   .vc-mobile-nav-drawer__brand .vc-lang-dropdown {
-    flex: 0 0 2.15rem !important;
-    width: 2.15rem !important;
-    min-width: 2.15rem !important;
-    margin-inline-start: 0.12rem !important;
-    overflow: visible !important;
+    display: none !important;
   }
 
   #header-quick-actions .vc-lang-dropdown {
@@ -44142,7 +44169,7 @@ header .vc-lang-toggle,
     pointer-events: auto !important;
   }
 
-  body.vc-body--home #vc-header-promo-btn {
+  body.vc-body--home #vc-header-promo-btn:not(.vc-header-promo-btn--event-mobile-split) {
     max-width: min(22vw, 4.35rem);
   }
 }
@@ -44170,7 +44197,6 @@ body.vc-body--home .vc-home-cine-hero .vc-hero-about {
   color: rgba(247, 236, 223, 0.94);
 }
 
-/* Tablet: 3 colonne da desktop non ci stanno (iPad Mini 768, ecc.) */
 @media (min-width: 640px) and (max-width: 1199.98px) {
   .vc-header-bar {
     display: grid !important;
@@ -44224,7 +44250,6 @@ body.vc-body--home .vc-home-cine-hero .vc-hero-about {
   }
 }
 
-/* Desktop: tre colonne allineate — lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] non è in tw-build.css */
 @media (min-width: 1200px) {
   .vc-header-bar {
     display: grid !important;
@@ -44258,7 +44283,6 @@ body.vc-body--home .vc-home-cine-hero .vc-hero-about {
   }
 }
 
-/* Una sola cornice: la shell esterna, non un secondo pill sul nav */
 .vc-nav-shell > .vc-header-bar > nav.vc-header-snav.vc-glass,
 .vc-nav-shell > .vc-header-bar > .vc-header-snav.vc-glass {
   background: transparent !important;
@@ -44268,7 +44292,6 @@ body.vc-body--home .vc-home-cine-hero .vc-hero-about {
   -webkit-backdrop-filter: none !important;
 }
 
-/* —— Site polish: inner public pages (not home / dashboard / staff / tickets / evento / seratafilm) —— */
 html.vc-site-polish body.vc-body {
   --vc-header-ctrl-bg: transparent;
   --vc-header-ctrl-bg-hover: rgba(255, 255, 255, 0.06);
@@ -44344,7 +44367,6 @@ html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass,
 html.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   position: relative;
   isolation: auto !important;
-  /* Sempre opaca: transparent→scrolled flasha un rettangolo vuoto in Chromium. */
   background: #140f0c !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 1rem !important;
@@ -44493,7 +44515,6 @@ html:not(.vc-home-motion-ready).vc-site-polish .vc-home-rise.is-in {
   transform: none;
 }
 
-/* PWA / Vota: niente blur+transform extra (Chromium flash a schermo intero). */
 html.vc-site-polish--pwa .vc-site-atmos,
 body.vc-vote-page .vc-site-atmos {
   display: none !important;
@@ -44586,7 +44607,6 @@ body.vc-vote-page #vc-session-verify-overlay {
   }
 }
 
-/* Navbar: voce selezionata / menu aperto = sabbia, non cioccolato. */
 html body.vc-body header .vc-header-snav .vc-snav-item--active,
 html body.vc-body header .vc-header-snav .vc-snav-item[aria-current="page"],
 html body.vc-body header .vc-header-snav .vc-snav-details.vc-snav-details--current > .vc-snav-summary,
@@ -44609,7 +44629,6 @@ html body.vc-body header .vc-header-snav .vc-snav-details[open] > .vc-snav-summa
   color: #fff6ea !important;
 }
 
-/* Navbar: stesso pill/hover per link diretti (Wiki/Sponsor) e voci dropdown */
 html body.vc-body header .vc-header-snav .vc-snav-item,
 html body.vc-body header .vc-header-snav .vc-snav-summary,
 html body.vc-body--home header .vc-header-snav .vc-snav-item,
@@ -44641,7 +44660,6 @@ html body.vc-body header .vc-header-snav .vc-snav-row:hover {
   color: #f7eadb !important;
 }
 
-/* Menù aperti: la barra resta uguale (niente transition su bg/border = no flash). */
 html body.vc-body--home > header .vc-nav-shell,
 html.vc-site-polish body.vc-body > header .vc-nav-shell {
   transition: none !important;
@@ -44673,7 +44691,6 @@ html.vc-site-polish:has(header .vc-snav-details[open]) body.vc-body > header .vc
   -webkit-backdrop-filter: none !important;
 }
 
-/* Inner pages: same transparent chrome as home (cards/hero/footer, not only the nav). */
 html.vc-site-polish body.vc-body :where(
   .vc-support-page-hero,
   .vc-vote-page-hero,
@@ -44741,7 +44758,6 @@ html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__
   border-color: rgba(245, 214, 183, 0.5) !important;
 }
 
-/* Inner pages: same vinyl atmosphere + type as the homepage. */
 html.vc-site-polish body.vc-body::before,
 html.vc-site-polish body.vc-body::after {
   opacity: 0 !important;
@@ -44856,16 +44872,25 @@ html.vc-site-polish .vc-home-cine::before {
   box-shadow:
     0 0 0 2px rgba(212, 168, 136, 0.22),
     0 0 80px rgba(212, 168, 136, 0.16);
+  opacity: 0 !important;
+  visibility: hidden !important;
+  animation: none !important;
+  pointer-events: none !important;
+}
+
+html.vc-site-polish.vc-cine-static-bg .vc-home-cine::before {
+  opacity: 1 !important;
+  visibility: visible !important;
   animation: vc-polish-vinyl 36s linear infinite;
 }
 
 @media (max-width: 720px) {
-  html.vc-site-polish .vc-home-cine::before {
+  html.vc-site-polish.vc-cine-static-bg .vc-home-cine::before {
     left: 50%;
     top: 56%;
     width: min(84vw, 44vh);
     height: min(84vw, 44vh);
-    opacity: 0.72;
+    opacity: 0.72 !important;
   }
 
   html.vc-site-polish .vc-home-cine {
@@ -45478,7 +45503,6 @@ html.vc-site-polish body.vc-body .vc-support-donate-role__perks {
   gap: 0.55rem !important;
 }
 
-/* Homepage glass language on every polished page (not dashboard / seratafilm). */
 html.vc-site-polish body.vc-hw-page {
   background-color: #080605 !important;
   background-image:
@@ -45592,7 +45616,6 @@ html.vc-site-polish body.vc-body .vc-staff-loading__card {
     #080605 !important;
 }
 
-/* Loading / verifica: blocco scroll unico (pagina sotto non scrolla). */
 html.vc-loader-blocking-live,
 html.vc-loader-blocking-live body,
 html.vc-user-leader-pending,
@@ -45638,7 +45661,6 @@ html.vc-loading-scroll-lock body {
   touch-action: none;
 }
 
-/* phoneFreezeFix1: su telefono mai touch-action:none / body:fixed da lock loader fantasma. */
 @media (max-width: 639.98px), (pointer: coarse) {
   html.vc-loader-blocking-live,
   html.vc-loader-blocking-live body,
@@ -45685,7 +45707,6 @@ html.vc-loading-scroll-lock body {
     touch-action: manipulation !important;
   }
 
-  /* phonePointerUnlock2: drawer hamburger fantasma mai pointer-events. */
   html.vc-mobile-nav-open #vc-mobile-nav-drawer:not(.vc-mobile-nav-drawer--open),
   html.vc-mobile-nav-open body #vc-mobile-nav-drawer:not(.vc-mobile-nav-drawer--open) {
     pointer-events: none !important;
@@ -45716,7 +45737,6 @@ html.vc-loading-scroll-lock body {
     max-height: none !important;
   }
 
-  /* phoneLoadClipFix2: duplicato scroll-lock users (47708+) annullava phoneLoadClipFix1 su telefono. */
   html.vc-loader-blocking-live,
   html.vc-loader-blocking-live body,
   html:has(#vc-roles-loading:not([hidden])),
@@ -46241,7 +46261,6 @@ html.vc-site-polish body.vc-hw-page #vc-hw-potions-app {
   padding-top: 6.5rem !important;
 }
 
-/* Profile load overlay: body-level so fixed positioning covers footer/nav chrome. */
 #vc-user-profile-loading.vc-user-profile-loader,
 body.vc-user-profile-page > .vc-user-profile-loader {
   position: fixed !important;
@@ -46296,7 +46315,6 @@ body:has(> .vc-user-profile-loader:not([hidden])) > footer {
   pointer-events: none !important;
 }
 
-/* Ruoli: stesso fondo delle altre pagine cine, niente viola/smeraldo dedicato. */
 html.vc-site-polish body.vc-body.vc-roles-page,
 html.vc-site-polish body.vc-body.vc-users-page.vc-roles-page {
   background-color: #080605 !important;
@@ -46307,7 +46325,6 @@ html.vc-site-polish body.vc-body.vc-users-page.vc-roles-page {
     linear-gradient(180deg, #120d09 0%, #1a120d 26%, #1e1510 50%, #16100c 78%, #0b0806 100%) !important;
 }
 
-/* Inner public pages: full-viewport hero (solo dopo JS page-cine). */
 body.vc-page-cine-layout main.vc-page-cine-main {
   max-width: none !important;
   padding-top: 0 !important;
@@ -46435,7 +46452,6 @@ body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero-copy--vote .vc-vo
   margin-top: 1.35rem;
 }
 
-/* Hero page-cine: durante boot niente flash; testi rise dopo vc-page-cine-ready. */
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-page-cine-layout .vc-page-cine-hero,
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-page-cine-layout .vc-page-cine-hero .vc-home-rise,
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero__inner,
@@ -46955,7 +46971,6 @@ body.vc-page-cine-layout #vc-page-content .vc-page-cine-aside-stack {
   }
 }
 
-/* phoneWipe2: unico fix half-load — niente hide mid-parse */
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready),
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body {
   background: #100c09 !important;
@@ -46965,7 +46980,6 @@ html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body {
 
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)::before {content:none!important;display:none!important;}
 
-/* Loader sopra l'overlay cine-boot: altrimenti schermo nero senza spinner */
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) #vc-custom-profile-loading.vc-user-profile-loader:not([hidden]),
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body > .vc-user-profile-loader:not([hidden]),
 html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) #vc-rank-customize-loading:not([hidden]) {
@@ -46983,7 +46997,6 @@ html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body > he
   pointer-events: none !important;
 }
 
-/* phoneNavFlashFix1: reveal header only when cine ready (desktop was already gated via main/footer) */
 @media (hover: hover) and (pointer: fine) {
   html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body > main,
   html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body > footer {
@@ -47232,7 +47245,6 @@ body.vc-page-cine-layout main .vc-page-cine-hero > .vc-home-scrollcue.is-away {
     transform 0.08s linear !important;
 }
 
-/* scrollCueHideFast1: hide immediato su telefono */
 @media (max-width: 639.98px), (pointer: coarse) {
   body.vc-body--home .vc-home-scrollcue.is-away,
   body.vc-page-cine-layout .vc-home-scrollcue.is-away,
@@ -47374,7 +47386,6 @@ body.vc-page-cine-layout > .vc-home-scrollcue .vc-home-scrollcue__chev span:nth-
   }
 }
 
-/* Profilo utente: mai layout page-cine, sezioni compatte. */
 html.vc-user-profile-route body.vc-users-page,
 body.vc-users-page.vc-user-profile-route,
 body.vc-users-page.vc-user-profile-page {
@@ -47482,7 +47493,6 @@ body.vc-users-page.vc-user-profile-route .vc-page-cine-hero > .vc-home-scrollcue
   display: none !important;
 }
 
-/* Profilo utente: loader sempre fullscreen opaco, mai vetro sul footer. */
 html.vc-site-polish #vc-user-profile-view:not([hidden]) .vc-user-profile-loader,
 html.vc-site-polish #vc-user-profile-view:not([hidden]) .vc-user-profile-boot,
 html.vc-site-polish #vc-user-profile-view:not([hidden]) .vc-user-profile-boot--inline {
@@ -47503,7 +47513,6 @@ html.vc-site-polish #vc-user-profile-view:not([hidden]) .vc-user-profile-boot--i
     radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
 }
 
-/* CTAs: readable on every page (wins over page-cine glass catch-all). */
 html.vc-site-polish body.vc-body #vc-page-content :is(
   a.vc-support-donate-role__cta,
   .vc-vote-platform-cta,
@@ -47605,7 +47614,6 @@ html.vc-site-polish body.vc-body :is(
   border-radius: 1.35rem !important;
 }
 
-/* Community /user: no scroll cue (copre griglia + paginazione). Ruoli + page-cine: eccezione. */
 body.vc-users-page:not(.vc-user-profile-route):not(.vc-roles-page):not(.vc-page-cine-layout) > .vc-home-scrollcue,
 body.vc-users-page:not(.vc-user-profile-route):not(.vc-roles-page):not(.vc-page-cine-layout) .vc-home-scrollcue {
   display: none !important;
@@ -47658,7 +47666,6 @@ body.vc-users-page:not(.vc-user-profile-route) #vc-ul-pager .vc-notify-filter-bt
   opacity: 1 !important;
 }
 
-/* Hero a tutta larghezza: niente pannello/vetro, così l'atmosfera non si taglia. */
 html.vc-site-polish body.vc-body.vc-page-cine-layout main > .vc-page-cine-hero,
 html.vc-site-polish body.vc-body.vc-page-cine-layout main > .vc-page-cine-hero.vc-support-page-hero,
 html.vc-site-polish body.vc-body.vc-page-cine-layout main > .vc-page-cine-hero.vc-vote-page-hero,
@@ -47762,7 +47769,6 @@ html.vc-loader-blocking-live:has(body.vc-users-page) body {
   width: 100% !important;
 }
 
-/* phoneLoadClipFix2: duplicato scroll-lock users (47708+) annullava phoneLoadClipFix1 su telefono. */
 @media (max-width: 639.98px), (pointer: coarse) {
   html.vc-user-leader-pending,
   html.vc-user-leader-pending body,
@@ -47807,11 +47813,6 @@ html.vc-loader-blocking-live:has(body.vc-users-page) body {
   }
 }
 
-/* phoneLoadClipFix4: vc-loader-blocking-live (JS) al posto di :has(attr) — ghost loader non nasconde main. */
-
-/* phoneLoadClipFix3: :has(.vc-ul-loading:not([hidden])) nascondeva main anche con loader display:none (ghost PWA). */
-
-/* Tickets cine: card vetro centrata a schermo intero + board sotto lo scroll (come FAQ/inbox). */
 body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-support-page-hero,
 body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-wt-page-hero,
 html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero,
@@ -47919,7 +47920,6 @@ body.vc-user-profile-route .vc-user-profile-hero {
   overflow: hidden !important;
 }
 
-/* Brand lockup: icona + nome sempre centrati come sulla Wiki */
 .vc-header-bar > div:first-child,
 .vc-mobile-nav-drawer__brand {
   display: flex !important;
@@ -47965,7 +47965,6 @@ body.vc-user-profile-route .vc-user-profile-hero {
   line-height: 1.05 !important;
 }
 
-/* Scroll cue: the light is the chevron box itself (home + every inner page). */
 html body.vc-body .vc-home-scrollcue,
 html.vc-site-polish .vc-home-scrollcue,
 body.vc-page-cine-layout .vc-home-scrollcue {
@@ -48052,7 +48051,6 @@ body.vc-page-cine-layout > .vc-home-scrollcue {
   bottom: max(1.35rem, calc(env(safe-area-inset-bottom, 0px) + 0.85rem));
 }
 
-/* Community hero: optical vertical center (header vs scroll cue), cue stays fixed. */
 body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero {
   justify-content: center !important;
   padding-top: max(5.35rem, calc(env(safe-area-inset-top, 0px) + 4.05rem)) !important;
@@ -48064,7 +48062,6 @@ body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine
   z-index: 12 !important;
 }
 
-/* Appelli: unmute must keep the same glow/decode treatment as unban. */
 body.vc-appelli-page #vc-appelli-hero-heading,
 body.vc-appelli-page #vc-appelli-hero-heading.vc-home-rise,
 body.vc-appelli-page #vc-appelli-hero-heading.vc-brand-glow {
@@ -48092,8 +48089,6 @@ body.vc-appelli-page .vc-unmute-status {
     0 0 28px rgba(232, 201, 168, 0.22);
 }
 
-/* Uncollapsed: card centered in the first screen. Collapsed: hugs the card.
-   Tickets + staff inbox: esclusi — hanno hero compact (board subito sotto). */
 body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed),
 body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
 body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-vote-page-hero:not(.is-collapsed),
@@ -48173,7 +48168,6 @@ body.vc-page-cine-layout .vc-page-cine-hero.is-collapsed .vc-support-intro-shell
   transition: none !important;
 }
 
-/* JS drives fade/translate — CSS transitions rubber-band on reverse scroll. */
 body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
 body.vc-page-cine-layout .vc-page-cine-hero .vc-support-intro-shell,
 body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head.vc-home-rise,
@@ -48209,7 +48203,6 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-pag
   }
 }
 
-/* Inner pages = homepage: first screen is a centered card + bottom scroll cue. */
 body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero:not(.is-collapsed),
 body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed),
 body.vc-page-cine-layout:not(.vc-web-tickets-page) .vc-page-cine-hero.vc-vote-page-hero:not(.is-collapsed),
@@ -48286,7 +48279,6 @@ body.vc-page-cine-layout #vc-page-content > section[class*="mt-8"] + section[cla
   margin-top: 1.15rem !important;
 }
 
-/* Inner pages: hover sheen. No bottom mask — it clipped hero aside cards. */
 html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
   .vc-fx-card,
   .vc-notify-stat,
@@ -48399,7 +48391,6 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-her
   animation: vcHomeSheen 1.05s cubic-bezier(0.22, 1, 0.36, 1) 1;
 }
 
-/* Touch: niente hover, ma rise + tap sheen restano attivi. */
 @media (hover: none), (pointer: coarse) {
   html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
     .vc-fx-card,
@@ -48449,7 +48440,6 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-her
   }
 }
 
-/* Phone + landscape + tablet: hamburger always visible, desktop links in the drawer. */
 @media (max-width: 1199.98px) {
   html body .vc-header-bar,
   html body.vc-body .vc-header-bar,
@@ -48495,9 +48485,16 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-her
     display: none !important;
   }
 
-  html body #header-quick-actions #vc-header-promo-btn,
-  html body #header-quick-actions .vc-header-promo-btn {
-    max-width: min(24vw, 4.85rem) !important;
+  html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--event,
+  html body #header-quick-actions .vc-header-promo-btn.vc-header-promo-btn--event {
+    max-width: min(48vw, 8.5rem) !important;
+    min-width: 0 !important;
+    flex: 0 1 auto !important;
+  }
+
+  html body #header-quick-actions #vc-header-promo-btn:not(.vc-header-promo-btn--event),
+  html body #header-quick-actions .vc-header-promo-btn:not(.vc-header-promo-btn--event) {
+    max-width: min(28vw, 5.75rem) !important;
     min-width: 0 !important;
     flex: 0 1 auto !important;
   }
@@ -48523,7 +48520,6 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-her
     min-height: 44px !important;
     max-width: 44px !important;
     overflow: visible !important;
-    /* Stesso look degli altri vc-icon-btn header (niente “sempre selezionato”). */
     color: rgba(226, 232, 240, 0.95) !important;
     background: var(--vc-header-ctrl-bg) !important;
     border: 1px solid var(--vc-header-ctrl-border) !important;
@@ -48581,7 +48577,6 @@ html.vc-site-polish body.vc-body:not(.vc-body--home).vc-page-cine-layout .vc-her
   }
 }
 
-/* Drawer sopra header (10200), sheet notifiche (10250) e overlay cine-boot. */
 html body #vc-mobile-nav-drawer,
 html body.vc-body #vc-mobile-nav-drawer,
 .vc-mobile-nav-drawer {
@@ -48597,7 +48592,6 @@ html.vc-mobile-nav-open body #vc-mobile-nav-drawer.vc-mobile-nav-drawer--open {
   display: block !important;
 }
 
-/* phonePointerUnlock2: vc-mobile-nav-open fantasma senza drawer--open = tap blocker invisibile. */
 html.vc-mobile-nav-open #vc-mobile-nav-drawer:not(.vc-mobile-nav-drawer--open),
 html.vc-mobile-nav-open body #vc-mobile-nav-drawer:not(.vc-mobile-nav-drawer--open) {
   visibility: hidden !important;
@@ -48625,8 +48619,6 @@ html body #vc-mobile-nav-toggle {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Homepage: first screen stays full-viewport so the scroll cue sits under the card,
-   not behind it, and #stats does not ride up into the hero. */
 html body.vc-body--home #intro.vc-home-cine-hero,
 html body.vc-body--home .vc-home-cine-hero {
   position: relative !important;
@@ -48677,7 +48669,6 @@ html body.vc-body--home #stats {
   }
 }
 
-/* Inner pages: same panel chrome as homepage stats/deck/feature (below the hero). */
 html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-home-panel:not(.vc-stat-strip):not(.vc-vote-live-stats),
 html.vc-site-polish body.vc-body:not(.vc-body--home) :is(
   .vc-home-panel:not(.vc-stat-strip):not(.vc-vote-live-stats),
@@ -48797,7 +48788,6 @@ html.vc-site-polish body.vc-page-cine-layout #vc-page-content .vc-page-cine-card
     0 16px 36px rgba(0, 0, 0, 0.22) !important;
 }
 
-/* Layout wrappers are not cards — no outer frame around a whole page section. */
 html.vc-site-polish body.vc-body:not(.vc-body--home) #vc-page-content,
 html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-page-cine-body,
 html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-page-cine-aside,
@@ -48864,14 +48854,13 @@ html body.vc-body :is(.vc-home-panel, .vc-fx-card):has(.vc-notify-stat) > .vc-fx
   display: none !important;
 }
 
-/* Griglie stats / liste: niente cornice sul wrapper, solo sui riquadri interni. */
-html.vc-site-polish body.vc-body .vc-stat-strip,
-html.vc-site-polish body.vc-body .vc-stat-strip.vc-home-panel,
-html.vc-site-polish body.vc-body .vc-stat-strip.vc-fx-card,
-html.vc-site-polish body.vc-body .vc-stat-strip.vc-home-rise,
-html body.vc-body .vc-stat-strip,
-html body.vc-body .vc-stat-strip.vc-home-panel,
-html body.vc-body .vc-stat-strip.vc-fx-card,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-stat-strip,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-stat-strip.vc-home-panel,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-stat-strip.vc-fx-card,
+html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-stat-strip.vc-home-rise,
+html body.vc-body:not(.vc-body--home) .vc-stat-strip,
+html body.vc-body:not(.vc-body--home) .vc-stat-strip.vc-home-panel,
+html body.vc-body:not(.vc-body--home) .vc-stat-strip.vc-fx-card,
 html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-home-panel:has(> .vc-notify-stat),
 html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div).vc-fx-card:has(> .vc-notify-stat),
 html.vc-site-polish body.vc-body:not(.vc-body--home) :is(section, div):has(> .vc-notify-stat),
@@ -48938,7 +48927,6 @@ html.vc-site-polish body.vc-body:not(.vc-body--home) .vc-vote-live-stats > .vc-f
   }
 }
 
-/* Community /user: one scroll root. html+body both scrolling left a gap above the card after bounce. */
 html:has(body.vc-users-page:not(.vc-user-profile-route)):not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) {
   overflow-x: hidden !important;
   overflow-y: auto !important;
@@ -48964,7 +48952,6 @@ html:not(.vc-user-leader-pending):not(.vc-user-profile-pending):not(.vc-loading-
   touch-action: auto !important;
 }
 
-/* Profilo utente: ripristina scroll dopo il loader (html+body). */
 html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-lock):not(:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader)) {
   overflow-x: hidden !important;
   overflow-y: auto !important;
@@ -48990,7 +48977,6 @@ html.vc-user-profile-route:not(.vc-user-profile-pending):not(.vc-loading-scroll-
   touch-action: auto !important;
 }
 
-/* Community /user: usa il page-cine shared come homepage. */
 body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) > main.vc-page-cine-main {
   padding-top: 0 !important;
   max-width: none !important;
@@ -49028,23 +49014,23 @@ body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine
   body.vc-body.vc-roles-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed) {
     justify-content: flex-start !important;
     padding-top: max(6.6rem, calc(env(safe-area-inset-top, 0px) + 5.4rem)) !important;
-    padding-bottom: 2.25rem !important;
+    padding-bottom: max(5.4rem, calc(env(safe-area-inset-bottom, 0px) + 3.8rem)) !important;
   }
 
   body.vc-body.vc-roles-page.vc-page-cine-layout:not(.vc-user-profile-route) .vc-page-cine-hero > .vc-home-scrollcue {
-    position: static !important;
-    inset: auto !important;
-    bottom: auto !important;
+    position: absolute !important;
+    inset: auto 0 max(2.35rem, calc(env(safe-area-inset-bottom, 0px) + 1.65rem)) 0 !important;
+    bottom: max(2.35rem, calc(env(safe-area-inset-bottom, 0px) + 1.65rem)) !important;
     left: 0 !important;
     right: 0 !important;
     width: max-content !important;
     max-width: calc(100% - 2rem) !important;
     margin-left: auto !important;
     margin-right: auto !important;
-    margin-top: clamp(1.65rem, 5.5vw, 2.5rem) !important;
-    margin-bottom: 0.25rem !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
     transform: none !important;
-    z-index: 5 !important;
+    z-index: 14 !important;
   }
 }
 
@@ -49083,7 +49069,6 @@ body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) #vc-page-cont
   min-height: 1px;
 }
 
-/* Shared pager: arrows + one jump button (no 1 2 3 4 chips). Same look everywhere. */
 .vc-mini-pager,
 html.vc-site-polish .vc-mini-pager,
 html.vc-site-polish body.vc-users-page #vc-ul-pager,
@@ -49123,7 +49108,6 @@ html.vc-site-polish body.vc-reviews-page .vc-reviews-pager.vc-mini-pager,
   padding: 0 !important;
 }
 
-/* Community tabs: chips only — no outer glass shell. */
 html.vc-site-polish body.vc-body.vc-users-page [data-vc-leader-only]:has(.vc-ul-toolbar),
 html.vc-site-polish body.vc-body.vc-users-page [data-vc-leader-only]:has(.vc-ul-toolbar).vc-home-panel,
 html.vc-site-polish body.vc-body.vc-users-page [data-vc-leader-only]:has(.vc-ul-toolbar).vc-fx-card,
@@ -49301,8 +49285,6 @@ html.vc-site-polish .vc-mini-pager__arrow:disabled {
   margin: 0;
 }
 
-
-/* Fullscreen loaders: same look as profile (no card, centered spinner + title). */
 html.vc-session-verify-pending::before,
 .vc-ul-loading[data-vc-loader-blocking="1"]:not([hidden]),
 .vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden),
@@ -49482,7 +49464,6 @@ body.vc-body.vc-roles-page .vc-ul-loading-card,
   color: rgba(247, 236, 223, 0.78) !important;
 }
 
-/* navflash5: header trasparente; solo la pillola (.vc-nav-shell) resta opaca. */
 html body.vc-body > header,
 html body.vc-body header.fixed,
 html body.vc-body--home > header,
@@ -49521,7 +49502,6 @@ html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell
   max-width: none !important;
   width: 100% !important;
   isolation: auto !important;
-  /* niente glow crema: sul compositor flasha come rettangolo in palette */
   box-shadow: none !important;
 }
 
@@ -49532,7 +49512,6 @@ html body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled::before {
   opacity: 0 !important;
 }
 
-/* Header opaco: atmos/cine full-bleed (non tagliare lo sfondo). */
 html body.vc-body--home .vc-home-cine,
 html.vc-site-polish .vc-site-atmos,
 html.vc-site-polish body.vc-body .vc-home-cine {
@@ -49556,7 +49535,6 @@ html body.vc-body header *::after {
   -webkit-backdrop-filter: none !important;
 }
 
-/* Atmosferici full-screen: niente fascia vuota sotto header (header è opaco). */
 html body.vc-body::before,
 html body.vc-body::after,
 html body.vc-body--home.vc-body::before,
@@ -49565,9 +49543,6 @@ html body.vc-body--home.vc-body::after {
   clip-path: none !important;
 }
 
-/* kickpip-hdr1: anteprima Kick NON sopra campana/profilo.
-   Header z-index era 200, PiP 10120 → con angolo TR o drag in alto copriva i controlli.
-   contain:paint tagliava anche i menu aperti. */
 html body.vc-body > header,
 html body.vc-body header.fixed,
 html body.vc-body--home > header,
@@ -49593,7 +49568,6 @@ html body.vc-body .vc-kick-pip.vc-kick-pip--corner-tr {
   top: max(5.75rem, calc(env(safe-area-inset-top, 0px) + 5.25rem)) !important;
 }
 
-/* Custom role / voice editor — allineato al profilo (sand/mocha) */
 .vc-user-profile-customcard--link {
   display: flex;
   text-decoration: none;
@@ -49609,7 +49583,6 @@ html body.vc-body .vc-kick-pip.vc-kick-pip--corner-tr {
   transform: translateY(-1px);
 }
 
-/* Custom profile editor — layout stage + editor */
 .vc-custom-profile-page {
   --vc-cpf-sand: #e8c49c;
   --vc-cpf-ink: #f6eadc;
@@ -49864,7 +49837,6 @@ html body.vc-body .vc-kick-pip.vc-kick-pip--corner-tr {
 }
 
 .vc-cpf-stage__mark:has(img) {
-  /* l'emoji Discord è già tonda: niente secondo cerchio / alone intorno */
   width: 4.25rem;
   height: 4.25rem;
   padding: 0;
@@ -50073,7 +50045,6 @@ html body.vc-body .vc-kick-pip.vc-kick-pip--corner-tr {
   transform: none;
 }
 .vc-cpf-iconprev[src] {
-  /* stessa logica dell'anteprima stage: solo l'emoji, senza alone */
   border: none;
   background: transparent;
   border-radius: 0;
@@ -50428,17 +50399,16 @@ html body.vc-body .vc-kick-pip.vc-kick-pip--corner-tr {
   left: 50% !important;
   right: auto !important;
   top: auto !important;
-  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px)) !important;
   transform: translateX(-50%) !important;
-  z-index: 120500 !important;
-  width: max-content !important;
-  max-width: min(92vw, 28rem) !important;
+  z-index: 10150 !important;
+  width: min(92vw, 22rem) !important;
+  max-width: min(92vw, 22rem) !important;
   margin: 0 !important;
   padding: 0 !important;
   pointer-events: none !important;
 }
 
-/* Niente riquadro/glass sul contenitore della pagina custom */
 body.vc-custom-profile-page > main,
 body.vc-custom-profile-page #vc-custom-profile-page,
 body.vc-custom-profile-page #vc-custom-profile-app,
@@ -50453,7 +50423,6 @@ body.vc-custom-profile-page .vc-cpf {
   border-radius: 0 !important;
 }
 
-/* Custom profile: loader fullscreen come profilo/users; chrome normale a caricamento finito */
 body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))),
 html:not(:has(#vc-custom-profile-loading:not([hidden]))) body.vc-custom-profile-page {
   position: static !important;
@@ -50476,7 +50445,6 @@ body.vc-custom-profile-page:not(:has(#vc-custom-profile-loading:not([hidden]))) 
   pointer-events: none !important;
 }
 
-/* Loader custom: stesso overlay delle altre pagine */
 body.vc-custom-profile-page > #vc-custom-profile-loading.vc-user-profile-loader:not([hidden]) {
   position: fixed !important;
   inset: 0 !important;
@@ -50530,15 +50498,11 @@ html:not(.vc-pers-tab-rank) body:has(> #vc-custom-profile-loading.vc-user-profil
   display: none;
 }
 
-
-
-/* cpfix 20260821cpfix135802 */
 html body.vc-body--home .vc-home-cine{position:fixed!important;inset:0!important;z-index:0!important;display:block!important;opacity:1!important;visibility:visible!important;pointer-events:none!important}
 html body.vc-body--home .vc-home-cine__canvas{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;display:block!important;opacity:1!important}
 html body.vc-body--home .vc-home-cine__grain{display:none!important}
 html body.vc-body--home .vc-kick-pip{z-index:10120!important}
 
-/* navpill6: pillola OK; header trasparente così il cine passa dietro. */
 html body.vc-body > header,
 html body.vc-body header.fixed,
 html body.vc-body--home > header,
@@ -50588,7 +50552,6 @@ html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-nav-shell--scrolle
 html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   border-radius: 1rem !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  /* niente glow crema: flasha come rettangolo su Chromium */
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
   margin: 0 !important;
   max-width: none !important;
@@ -50613,7 +50576,6 @@ html.vc-site-polish body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled::be
   opacity: 0 !important;
 }
 
-/* Con header opaco il cine può stare full-bleed (niente fascia vuota / sfondo sparito). */
 html body.vc-body--home .vc-home-cine,
 html.vc-site-polish body.vc-body .vc-home-cine,
 html body.vc-body .vc-home-cine {
@@ -50634,7 +50596,6 @@ html.vc-site-polish .vc-site-atmos {
   display: none !important;
 }
 
-/* custom profile: card centrale + settings sotto, scroll pagina libero */
 html:has(body.vc-custom-profile-page),
 html:has(body.vc-custom-profile-page) body,
 body.vc-custom-profile-page {
@@ -50689,8 +50650,6 @@ body.vc-custom-profile-page .vc-cpf-layout.vc-px-layout,
   overflow: hidden;
   gap: 0 !important;
 }
-
-/* Select aperti: il pannello è portato su body (JS). Layout resta clipped. */
 
 body.vc-custom-profile-page .vc-cpf-layout.vc-px-layout .vc-cpf-stage,
 .vc-profile-extras .vc-px-layout .vc-cpf-stage {
@@ -50822,7 +50781,6 @@ body.vc-custom-profile-page > footer {
   pointer-events: auto !important;
 }
 
-/* Custom: sfondo cine sempre pieno (vinile + canvas), mai tagliato/nascosto */
 html.vc-site-polish body.vc-custom-profile-page .vc-home-cine,
 html.vc-site-polish.vc-home-cine-live body.vc-custom-profile-page .vc-home-cine,
 body.vc-custom-profile-page .vc-home-cine {
@@ -50851,7 +50809,6 @@ body.vc-custom-profile-page .vc-blob {
   opacity: 0.22 !important;
   pointer-events: none !important;
 }
-/* Fallback gradient anche con cine-live (altrimenti body trasparente = nero piatto) */
 html.vc-site-polish body.vc-custom-profile-page,
 html.vc-site-polish.vc-home-cine-live body.vc-body.vc-custom-profile-page {
   background-color: #100c09 !important;
@@ -50861,7 +50818,6 @@ html.vc-site-polish.vc-home-cine-live body.vc-body.vc-custom-profile-page {
     linear-gradient(180deg, #120d09 0%, #1a120d 40%, #0b0806 100%) !important;
 }
 
-/* ========== navfix7 SITEWIDE: header trasparente; opaco solo .vc-nav-shell ========== */
 html body.vc-body > header,
 html body.vc-body header.fixed,
 html body.vc-body--home > header,
@@ -50925,7 +50881,6 @@ html body.vc-body--home header .vc-nav-shell::before {
   box-shadow: none !important;
 }
 
-/* Cine/atmos full-bleed ovunque (header opaco → niente flash / fascia vuota) */
 html body.vc-body .vc-home-cine,
 html body.vc-body--home .vc-home-cine,
 html.vc-site-polish body.vc-body .vc-home-cine,
@@ -50961,7 +50916,6 @@ html body.vc-body--home.vc-body::after {
   top: 0 !important;
 }
 
-/* Classifica: feedback hover/press sui tab Top livello / settimanale / … */
 body.vc-body.vc-users-page .vc-ul-board-tabs .vc-notify-filter-btn,
 body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab {
   transition:
@@ -51036,7 +50990,6 @@ body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="tr
   }
 }
 
-/* Unified Personalizza hub (rank + custom roles/voice) */
 .vc-pers-hub {
   display: grid;
   gap: 0.95rem;
@@ -51142,7 +51095,6 @@ html.vc-custom-profile-pending #vc-pers-hub {
   display: none !important;
 }
 
-/* Dopo il boot Personalizza: sblocca scroll solo quando non è più in pending. */
 html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending),
 html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending),
 html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body,
@@ -51177,7 +51129,6 @@ html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-p
   display: none !important;
 }
 
-/* Rank card: shell ampia, anteprima full-width, controlli sabbia come CPF. */
 body.vc-rank-customize-page,
 #vc-rank-customize-page {
   --vc-cpf-sand: #e8c49c;
@@ -51648,7 +51599,6 @@ body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-r
   }
 }
 
-/* ---- Rank opacity row + flat chrome (must stay in repo) ---- */
 #vc-rank-customize-app .vc-rank-as-cpf .vc-rank-opacity-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) minmax(8rem, 1.35fr) 3rem;
@@ -51762,8 +51712,6 @@ body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-r
   }
 }
 
-
-/* Profile extras + DM prefs (site +profile port) */
 .vc-profile-extras__toggles,
 .vc-dm-prefs__list {
   display: grid;
@@ -52212,7 +52160,6 @@ body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-r
   z-index: 40;
 }
 .vc-px-select.is-open .vc-px-select__panel {
-  /* position/size applicati inline in fixed dal JS */
   pointer-events: auto;
 }
 .vc-px-select__trigger {
@@ -52271,19 +52218,16 @@ body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-r
   left: 0;
   right: 0;
   z-index: 50;
-  /* Compatto: scroll interno, non invade footer/card successive */
   max-height: min(11.5rem, 38vh);
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   border-radius: 0.95rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  /* Opaco: niente bleed di icone/testo dallo stage sotto */
   background: #14100c;
   background-image: linear-gradient(165deg, #1c140e 0%, #100c09 100%);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.72);
   padding: 0.35rem;
-  /* Niente freccia/thumb scrollbar: si scrolla con wheel/touch */
   scrollbar-width: none;
   -ms-overflow-style: none;
   isolation: isolate;
@@ -52293,7 +52237,6 @@ body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-r
   height: 0;
   display: none;
 }
-/* Portato su body: fuori da overflow/transform della card Personalizza */
 .vc-px-select__panel.is-portaled {
   position: fixed !important;
   right: auto !important;
@@ -52510,7 +52453,6 @@ body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-r
   color: rgba(247, 236, 223, 0.7);
 }
 
-/* Notification filters dropdown (compact cascading panel) */
 .vc-notif-prefs {
   position: relative;
   display: inline-flex;
@@ -52662,7 +52604,6 @@ body.vc-body.vc-rank-customize-page #vc-rank-customize-app .vc-rank-as-cpf .vc-r
   flex-wrap: wrap;
 }
 
-/* �� Site-wide emoji (Twemoji + Discord custom) �� */
 img.vc-emoji,
 img.vc-twemoji,
 img.vc-discord-emoji,
@@ -52686,15 +52627,12 @@ img.vc-staff-guide-emoji,
   image-rendering: -webkit-optimize-contrast;
 }
 
-/* === safeFixes1: hamburger + profilo/inbox (no phone cascade) === */
-/* safeFixes1: user profile staff tab */
 .vc-user-profile-staff-pane {
   width: 100%;
   max-width: none;
   margin: 0;
 }
 
-/* Tab Staff: stessa larghezza del profilo community (non il vecchio cap 48rem). */
 body.vc-user-profile-page.vc-user-profile-staff-tab > main,
 body.vc-user-profile-page.vc-user-profile-staff-tab main.vc-page-cine-main {
   max-width: min(98rem, calc(100% - 1rem)) !important;
@@ -52710,8 +52648,6 @@ body.vc-user-profile-page.vc-user-profile-staff-tab .vc-user-profile-staff-pane 
   margin-top: 0;
 }
 
-/* Tab Staff: la shell community è sibling diretto — va nascosta con !important
-   (staff-pause.css imposta display:flex su .vc-user-profile-shell quando body.vc-staff-profile-home). */
 body.vc-user-profile-page.vc-user-profile-staff-tab #vc-user-profile-view > .vc-user-profile-shell {
   display: none !important;
   visibility: hidden !important;
@@ -52740,7 +52676,6 @@ html.vc-user-profile-staff-tab-pending body.vc-user-profile-page .vc-user-profil
   display: block !important;
 }
 
-/* Switch Staff→Community: nascondi shell stale finché non c'è loader/dati giusti. */
 html.vc-user-profile-comm-switch body.vc-user-profile-page #vc-user-profile-view > .vc-user-profile-shell {
   display: none !important;
   visibility: hidden !important;
@@ -52748,12 +52683,24 @@ html.vc-user-profile-comm-switch body.vc-user-profile-page #vc-user-profile-view
 }
 html.vc-user-profile-comm-switch body.vc-user-profile-page #vc-user-profile-view .vc-user-profile-loader,
 html.vc-user-profile-comm-switch body.vc-user-profile-page #vc-user-profile-view [data-vc-profile-boot] {
-  display: block !important;
+  display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-/* Tab staff: niente card di boot — loader classico fullscreen come community. */
+html.vc-user-profile-comm-switch body.vc-user-profile-page > header,
+html.vc-user-profile-comm-switch body.vc-users-page > header,
+html.vc-user-profile-comm-switch body.vc-body > header,
+html.vc-user-profile-comm-switch body > footer,
+html.vc-user-profile-comm-switch .vc-home-cine,
+html.vc-user-profile-comm-switch .vc-blob,
+html.vc-user-profile-comm-switch .vc-staff-peer-dock {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 body.vc-user-profile-page.vc-user-profile-staff-tab .vc-user-profile-staff-pane .vc-user-profile-loader,
 html.vc-user-profile-staff-tab-pending body.vc-user-profile-page .vc-user-profile-staff-pane .vc-user-profile-loader {
   display: block !important;
@@ -52761,16 +52708,13 @@ html.vc-user-profile-staff-tab-pending body.vc-user-profile-page .vc-user-profil
   opacity: 1 !important;
 }
 
-/* Boot staff pending: chrome nascosto (come inbox / classifica). */
 html.vc-user-profile-staff-tab-pending body.vc-user-profile-page > header,
 html.vc-user-profile-staff-tab-pending body.vc-users-page > header,
 html.vc-user-profile-staff-tab-pending body.vc-body > header,
 html.vc-user-profile-staff-tab-pending body > footer,
 html.vc-user-profile-staff-tab-pending .vc-home-cine,
 html.vc-user-profile-staff-tab-pending .vc-blob,
-html.vc-user-profile-staff-tab-pending .vc-staff-list-dock,
 html.vc-user-profile-staff-tab-pending .vc-staff-peer-dock,
-html.vc-user-profile-staff-tab-pending .vc-user-profile-tabs,
 html.vc-site-polish.vc-page-cine-boot.vc-user-profile-staff-tab-pending:not(.vc-page-cine-ready) body.vc-body > header,
 html.vc-page-cine-boot.vc-user-profile-staff-tab-pending:not(.vc-page-cine-ready) body.vc-body > header {
   display: none !important;
@@ -52780,7 +52724,6 @@ html.vc-page-cine-boot.vc-user-profile-staff-tab-pending:not(.vc-page-cine-ready
   z-index: 0 !important;
 }
 
-/* Mai card sul boot staff (override legacy vc-staff-prof-boot). */
 body.vc-user-profile-page .vc-user-profile-boot.vc-staff-prof-boot,
 body.vc-user-profile-page .vc-staff-prof-boot.vc-user-profile-loader {
   margin: 0 !important;
@@ -52932,19 +52875,15 @@ body.vc-user-profile-page.vc-user-profile-staff-tab .vc-user-profile-staff-pane 
   text-align: center;
 }
 
-/* safeFixes1: notifications/staff inbox polish */
-
 html.vc-home-cine-live body.vc-notifications-page .vc-home-cine__grain {
   opacity: 0.09 !important;
 }
 
-/* Week nav fantasma: display:inline-flex bucava [hidden] → cerchietto a destra */
 body.vc-notifications-page .vc-staff-inbox-week[hidden],
 body.vc-notifications-page #vc-staff-inbox-week[hidden] {
   display: none !important;
 }
 
-/* —— /notifications: flat come Personali, ZERO card wrapper —— */
 body.vc-notifications-page .vc-home-scrollcue,
 body.vc-notifications-page main > .vc-home-scrollcue {
   display: none !important;
@@ -53169,7 +53108,6 @@ body.vc-notifications-page .vc-staff-inbox-items {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-/* Early Personali: niente flash inbox staff / dock prima del boot JS. */
 html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-notif-pane-staff,
 html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page .vc-notif-staff-inbox,
 html.vc-notif-boot-personal:not(.vc-notif-boot-ready) body.vc-notifications-page #vc-staff-inbox,
@@ -53199,7 +53137,6 @@ html.vc-notif-boot-personal.vc-notif-boot-ready body.vc-notifications-page #vc-n
   pointer-events: auto !important;
 }
 
-/* Early staff: niente flash Personali (resta fino a clear JS / fine loading). */
 html.vc-notif-early-staff body.vc-notifications-page #vc-notif-pane-personal,
 html.vc-notif-staff-loading body.vc-notifications-page #vc-notif-pane-personal {
   display: none !important;
@@ -53275,7 +53212,6 @@ body.vc-notifications-page .vc-notif-staff-head__sub {
   max-width: 40rem;
 }
 
-/* Come profilo/gestione: niente card interna scrollabile — scroll di pagina. */
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-chrome,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-body,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-layout,
@@ -53389,7 +53325,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination {
   color: rgba(247, 236, 223, 0.84);
 }
 
-/* Users + Ruoli aligned to support/reviews brown palette */
 .vc-users-page,
 .vc-roles-page {
   background-color: #090b0f;
@@ -53595,7 +53530,6 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
   background: linear-gradient(180deg, rgba(16, 76, 56, 0.96), rgba(20, 38, 52, 0.96));
 }
 
-/* Profile + Rank Customize aligned to support/vote/reviews palette */
 .vc-user-profile-loader,
 .vc-user-profile-empty {
   border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2);
@@ -53747,7 +53681,6 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
   color: #ecfdf5;
 }
 
-/* Unified emerald text tone across all pages */
 .vc-body [class*="text-emerald-"] {
   color: var(--vc-unified-emerald) !important;
 }
@@ -53774,7 +53707,6 @@ body.vc-body.vc-roles-page .vc-ul-loading-sub {
   color: var(--vc-unified-emerald) !important;
 }
 
-/* Global alignment: all non-home pages use home palette */
 body.vc-body:not(.vc-body--home) {
   background-image:
     radial-gradient(ellipse 96% 72% at 84% 4%, rgba(244, 224, 196, 0.24), transparent 50%),
@@ -53888,7 +53820,6 @@ body.vc-body:not(.vc-body--home) :where(
   color: #ecfdf5;
 }
 
-/* Global transparent palette for all non-home pages */
 body.vc-body:not(.vc-body--home) :where(
   .vc-support-page-hero,
   .vc-wiki-cmd-shell,
@@ -53914,7 +53845,6 @@ body.vc-body:not(.vc-body--home) :where(
   -webkit-backdrop-filter: blur(14px) saturate(120%);
 }
 
-/* Users / Roles / Profile / Customize: same palette + wider layouts */
 body.vc-body.vc-users-page {
   background-image:
     radial-gradient(ellipse 96% 72% at 84% 4%, rgba(244, 224, 196, 0.24), transparent 50%),
@@ -53966,7 +53896,6 @@ body.vc-body.vc-users-page :where(
     0 0 22px rgba(var(--vc-sand-rgb), 0.08);
 }
 
-/* Users + Ruoli: palette allineata alla homepage (moka/sabbia + emerald). */
 body.vc-body.vc-users-page {
   background-image:
     radial-gradient(ellipse 90% 70% at 88% 6%, rgba(var(--vc-sand-rgb), 0.11), transparent 52%),
@@ -54170,7 +54099,6 @@ body.vc-body.vc-users-page.vc-roles-page .vc-role-request-textarea:focus {
   box-shadow: 0 0 0 3px rgba(var(--vc-reviews-emerald-rgb), 0.16);
 }
 
-/* Notifications: stessa palette della home */
 body.vc-body.vc-users-page.vc-notifications-page :where(
   .vc-notify-hero:not(.vc-page-cine-hero),
   .vc-notify-filter-bar,
@@ -54202,7 +54130,6 @@ body.vc-body.vc-users-page.vc-notifications-page .vc-notify-home-btn {
   color: rgba(226, 232, 240, 0.94);
 }
 
-/* Profilo + Personalizza: rimuove residui blu/viola */
 body.vc-body.vc-users-page :where(
   .vc-user-profile-notfound__cta,
   .vc-user-profile-customize,
@@ -54317,7 +54244,6 @@ body.vc-body.vc-users-page :where(
   background: linear-gradient(135deg, rgba(40, 28, 20, 0.58), rgba(24, 16, 12, 0.28));
 }
 
-/* Loading + notifications: enforce warm transparent palette */
 html.vc-session-verify-pending::before,
 .vc-reviews-gate,
 .vc-page-transition,
@@ -54378,7 +54304,6 @@ body.vc-body.vc-notifications-page :where(
     0 0 22px rgba(var(--vc-sand-rgb), 0.08) !important;
 }
 
-/* Lista notifiche: card opache sopra il canvas cine (niente flash trasparente↔colore su Chromium). */
 html.vc-site-polish body.vc-body.vc-notifications-page .vc-notify-row,
 html.vc-site-polish body.vc-body.vc-notifications-page .vc-notify-row.vc-home-panel,
 html.vc-site-polish body.vc-body.vc-notifications-page .vc-notify-row.vc-fx-card,
@@ -54429,7 +54354,6 @@ body.vc-body.vc-notifications-page .vc-notify-filter-btn--on {
   background: linear-gradient(135deg, rgba(122, 84, 58, 0.84), rgba(78, 54, 38, 0.82)) !important;
 }
 
-/* Requested global refinements */
 body.vc-body .vc-vote-live-card,
 body.vc-body .vc-vote-live-statbox,
 body.vc-body .vc-vote-progress,
@@ -54443,7 +54367,6 @@ body.vc-body .vc-vote-pager {
     linear-gradient(145deg, rgba(28, 20, 15, 0.62), rgba(14, 10, 8, 0.56)) !important;
 }
 
-/* Vote page: glass depth + homepage-like reveal for center cards. */
 body.vc-body.vc-vote-page .vc-vote-live-card,
 body.vc-body.vc-vote-page .vc-vote-live-statbox,
 body.vc-body.vc-vote-page .vc-vote-progress,
@@ -54554,7 +54477,6 @@ body.vc-body.vc-faq-page .vc-regole-card-ico {
   gap: 1.15rem !important;
 }
 
-/* Users/roles: remove ugly rectangular blocks — NOTIFICHE: stats restano riquadri mocha */
 body.vc-body.vc-users-page .vc-notify-hero,
 body.vc-body.vc-users-page .vc-notify-stat,
 body.vc-body.vc-users-page .vc-roles-head,
@@ -54565,7 +54487,6 @@ body.vc-body.vc-notifications-page .vc-notify-hero {
   border-color: rgba(var(--vc-sand-rgb), 0.2) !important;
 }
 
-/* Stat card Personali: stessi riquadri mocha delle notify-row */
 body.vc-body.vc-notifications-page .vc-notify-stat,
 body.vc-body.vc-notifications-page .vc-notify-stat--a,
 body.vc-body.vc-notifications-page .vc-notify-stat--b,
@@ -54591,7 +54512,6 @@ body.vc-body.vc-notifications-page .vc-notify-stat:hover {
     0 14px 32px rgba(0, 0, 0, 0.32) !important;
 }
 
-/* Notifications text: palette panna (mocha site) */
 body.vc-body.vc-notifications-page .vc-notify-hero h1,
 body.vc-body.vc-notifications-page #vc-notify-subtitle,
 body.vc-body.vc-notifications-page .vc-notif-pane-sub,
@@ -54618,7 +54538,6 @@ body.vc-body.vc-notifications-page .vc-notify-stat-value {
   color: rgba(247, 236, 223, 0.98) !important;
 }
 
-/* === hamNav1: menu hamburger — tile navigano (niente touch-action:none / focus steal) === */
 html.vc-mobile-nav-open .vc-mobile-nav-tile,
 html.vc-mobile-nav-open .vc-mobile-nav-footer__action {
   pointer-events: auto !important;
@@ -54631,7 +54550,6 @@ html.vc-mobile-nav-open .vc-mobile-nav-drawer__scroll {
   touch-action: pan-y !important;
 }
 
-/* === /user community: card cine DAVVERO al centro (fix padding main + leader-only) === */
 html.vc-site-polish body.vc-users-page:not(.vc-user-profile-route):not(.vc-user-profile-page) > main,
 html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-route) > main.vc-page-cine-main {
   padding-top: 0 !important;
@@ -54654,7 +54572,6 @@ html.vc-site-polish body.vc-users-page.vc-page-cine-layout:not(.vc-user-profile-
   align-self: center !important;
 }
 
-/* Classifica: cornice avatar in palette moka/sabbia (niente ciano/bianco) */
 html.vc-site-polish body.vc-users-page .vc-ul-avatar,
 body.vc-body.vc-users-page .vc-ul-avatar {
   box-shadow:
@@ -54663,8 +54580,6 @@ body.vc-body.vc-users-page .vc-ul-avatar {
     0 0 18px rgba(var(--vc-sand-rgb), 0.32) !important;
 }
 
-
-/* notifUser1 final override */
 body.vc-notifications-page .vc-notif-staff-head__title,
 body.vc-notifications-page.vc-notif-scope-staff .vc-notif-staff-head h1,
 body.vc-notifications-page.vc-notif-scope-staff .vc-notif-staff-head h2 {
@@ -54674,7 +54589,6 @@ body.vc-notifications-page.vc-notif-scope-staff .vc-notif-staff-head h2 {
   color: #ead4c0 !important;
 }
 
-/* tapFix2: su touch niente alone bianco (focus-visible globale era dopo il fix mobile). */
 @media (hover: none), (pointer: coarse) {
   body.vc-body :is(a, button, summary, [role="button"], [tabindex]:not([tabindex="-1"])):is(
       :focus,
@@ -54694,7 +54608,6 @@ body.vc-notifications-page.vc-notif-scope-staff .vc-notif-staff-head h2 {
   }
 }
 
-/* staffStatSheet1: clickable profile stats + list/calendar sheet */
 body.vc-body.vc-users-page .vc-user-profile-stats--staff {
   grid-template-columns: repeat(auto-fit, minmax(8.75rem, 1fr));
   gap: 0.75rem;
@@ -54731,7 +54644,6 @@ html.vc-notif-sheet-open,
 html.vc-notif-sheet-open body {
   overflow: hidden !important;
   overscroll-behavior: none;
-  /* phoneRootUnlock1: overflow basta; touch-action:none su html = freeze se classe resta. */
   touch-action: manipulation;
 }
 
@@ -55258,7 +55170,6 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
   outline-offset: -2px;
 }
 
-/* Mobile: sheet pause / valutazioni / warn più usabili */
 @media (max-width: 719.98px) {
   .vc-staff-stat-sheet {
     place-items: end stretch;
@@ -55295,7 +55206,6 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
     margin: 0;
     padding: 0.7rem 1rem 0.75rem;
     border-bottom: 1px solid rgba(232, 201, 168, 0.16);
-    /* Stesso fondo del pannello: niente barra opaca sotto il titolo (alone angoli). */
     background: transparent;
   }
 
@@ -55417,7 +55327,6 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
     min-height: 2.65rem;
   }
 
-  /* Manage sheet: stessi angoli / header fuori dallo scroll */
   .vc-staff-manage-sheet {
     padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
   }
@@ -55541,7 +55450,6 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
   }
 }
 
-/* === notifBellHide1: campanella nascosta mentre lo sheet mobile è aperto (tutte le navbar) === */
 @media (max-width: 920px) {
   html.vc-notif-sheet-open #header-quick-actions #vc-notif-dropdown[open] .vc-notif-summary,
   html.vc-notif-sheet-open #header-quick-actions #vc-notif-dropdown[open] .vc-notif-summary.vc-icon-btn,
@@ -55567,7 +55475,6 @@ html.vc-notif-sheet-open .vc-staff-peer-dock__btn {
   }
 }
 
-/* === pwaBlack1: mai body “vuoto” senza tinta; html resta #100c09 sotto canvas === */
 html.vc-site-polish.vc-home-cine-live,
 html.vc-home-cine-live,
 html.vc-site-polish--pwa {
@@ -55580,22 +55487,6 @@ body.vc-body--home .vc-home-cine {
   background-color: #100c09 !important;
 }
 
-/* === siteSweep1: rise mai opacity:0 bloccato (IO/PWA a volte non spara is-in) === */
-html.vc-home-motion-ready.vc-site-polish .vc-home-rise,
-html.vc-home-motion-ready body.vc-body--home .vc-home-rise,
-html.vc-site-polish .vc-home-rise,
-body.vc-body--home .vc-home-rise {
-  opacity: 1 !important;
-  visibility: visible !important;
-  transform: none;
-}
-/* Se il failsafe JS marca is-in tardi, evita flash: rise già in viewport restano animabili */
-
-
-/* === safeFixes1 marker === */
-
-
-/* === featureBack1: Community|Staff switcher + staff pane (from pre-wipe) === */
 .vc-user-profile-shell {
   display: flex;
   flex-direction: column;
@@ -55672,7 +55563,6 @@ body.vc-body--home .vc-home-rise {
   margin: 0;
 }
 
-/* Tab Staff: stessa larghezza del profilo community (non il vecchio cap 48rem). */
 body.vc-user-profile-page.vc-user-profile-staff-tab > main,
 body.vc-user-profile-page.vc-user-profile-staff-tab main.vc-page-cine-main {
   max-width: min(98rem, calc(100% - 1rem)) !important;
@@ -55688,8 +55578,6 @@ body.vc-user-profile-page.vc-user-profile-staff-tab .vc-user-profile-staff-pane 
   margin-top: 0;
 }
 
-/* Tab Staff: la shell community è sibling diretto — va nascosta con !important
-   (staff-pause.css imposta display:flex su .vc-user-profile-shell quando body.vc-staff-profile-home). */
 body.vc-user-profile-page.vc-user-profile-staff-tab #vc-user-profile-view > .vc-user-profile-shell {
   display: none !important;
   visibility: hidden !important;
@@ -55718,7 +55606,6 @@ html.vc-user-profile-staff-tab-pending body.vc-user-profile-page .vc-user-profil
   display: block !important;
 }
 
-/* Switch Staff→Community: nascondi shell stale finché non c'è loader/dati giusti. */
 html.vc-user-profile-comm-switch body.vc-user-profile-page #vc-user-profile-view > .vc-user-profile-shell {
   display: none !important;
   visibility: hidden !important;
@@ -55726,12 +55613,24 @@ html.vc-user-profile-comm-switch body.vc-user-profile-page #vc-user-profile-view
 }
 html.vc-user-profile-comm-switch body.vc-user-profile-page #vc-user-profile-view .vc-user-profile-loader,
 html.vc-user-profile-comm-switch body.vc-user-profile-page #vc-user-profile-view [data-vc-profile-boot] {
-  display: block !important;
+  display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-/* Tab staff: niente card di boot — loader classico fullscreen come community. */
+html.vc-user-profile-comm-switch body.vc-user-profile-page > header,
+html.vc-user-profile-comm-switch body.vc-users-page > header,
+html.vc-user-profile-comm-switch body.vc-body > header,
+html.vc-user-profile-comm-switch body > footer,
+html.vc-user-profile-comm-switch .vc-home-cine,
+html.vc-user-profile-comm-switch .vc-blob,
+html.vc-user-profile-comm-switch .vc-staff-peer-dock {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 body.vc-user-profile-page.vc-user-profile-staff-tab .vc-user-profile-staff-pane .vc-user-profile-loader,
 html.vc-user-profile-staff-tab-pending body.vc-user-profile-page .vc-user-profile-staff-pane .vc-user-profile-loader {
   display: block !important;
@@ -55739,23 +55638,38 @@ html.vc-user-profile-staff-tab-pending body.vc-user-profile-page .vc-user-profil
   opacity: 1 !important;
 }
 
-/* Boot staff pending: chrome nascosto (come inbox / classifica). */
 html.vc-user-profile-staff-tab-pending body.vc-user-profile-page > header,
 html.vc-user-profile-staff-tab-pending body.vc-users-page > header,
 html.vc-user-profile-staff-tab-pending body.vc-body > header,
 html.vc-user-profile-staff-tab-pending body > footer,
 html.vc-user-profile-staff-tab-pending .vc-home-cine,
 html.vc-user-profile-staff-tab-pending .vc-blob,
-html.vc-user-profile-staff-tab-pending .vc-staff-list-dock,
-html.vc-user-profile-staff-tab-pending .vc-staff-peer-dock,
+html.vc-user-profile-staff-tab-pending .vc-staff-peer-dock {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+html.vc-site-polish .vc-user-profile-tabs,
+html.vc-site-polish .vc-user-profile-tabs.vc-home-rise,
+html.vc-site-polish .vc-user-profile-tabs.vc-home-rise.is-in,
+html.vc-user-profile-staff-tab-pending .vc-user-profile-tabs:not([hidden]),
+body.vc-user-profile-page .vc-user-profile-tabs:not([hidden]),
+body.vc-users-page .vc-user-profile-tabs:not([hidden]) {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+  transition: none !important;
+}
 
 .vc-user-profile-tabs[hidden] {
   display: none !important;
 }
 
-/* === featureBack1 marker === */
-
-/* navbarFrostUnify1: vetro menu header identico su home / polish / pagine cine */
 html body.vc-body header .vc-header-snav .vc-snav-panel,
 html body.vc-body header .vc-notif-panel,
 html body.vc-body header .discord-account-popover {
@@ -55768,7 +55682,6 @@ html body.vc-body header .discord-account-popover {
   -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(170%) !important;
 }
 
-/* sitePerfFlash1 — tier adaptive: meno blur/animazioni su mid e lite */
 html.vc-perf-mid {
   --vc-glass-blur: 8px;
   --vc-glass-blur-strong: 10px;
@@ -55820,14 +55733,13 @@ html.vc-perf-lite .vc-fx-sheen {
   display: none !important;
 }
 
-html.vc-perf-mid .vc-cursor-trail,
 html.vc-perf-lite .vc-cursor-trail,
-html.vc-perf-mid canvas.vc-cursor-trail-canvas,
-html.vc-perf-lite canvas.vc-cursor-trail-canvas {
+html.vc-perf-lite canvas.vc-cursor-trail-canvas,
+html.vc-cursor-trail-off .vc-cursor-trail,
+html.vc-cursor-trail-off canvas.vc-cursor-trail-canvas {
   display: none !important;
 }
 
-/* siteSnappyApi1 — animazioni più rapide, meno lag */
 html.vc-site-polish.vc-home-motion-ready .vc-home-rise {
   transition-duration: 0.14s, 0.14s, 0.1s, 0.1s !important;
 }
@@ -55840,18 +55752,15 @@ body.vc-body--home .vc-home-index {
 }
 
 @media (hover: none), (pointer: coarse) {
-  html.vc-site-polish.vc-home-motion-ready .vc-home-rise,
-  html.vc-site-polish.vc-home-motion-ready .vc-home-rise.is-in {
-    transition: none !important;
-    opacity: 1 !important;
-    transform: none !important;
+  html.vc-site-polish.vc-home-motion-ready .vc-home-rise {
+    transition-duration: 0.22s, 0.22s, 0.12s, 0.12s !important;
   }
 
   body.vc-body--home #stats .vc-stat-strip,
   body.vc-body--home .vc-home-deck,
   body.vc-body--home .vc-home-feature,
   body.vc-body--home .vc-home-index {
-    transition-duration: 0.08s, 0.08s, 0.06s, 0.06s !important;
+    transition-duration: 0.18s, 0.18s, 0.1s, 0.1s !important;
   }
 
   .vc-mobile-nav-drawer,
@@ -55863,4 +55772,315 @@ body.vc-body--home .vc-home-index {
   body.vc-body--home .vc-home-cine__canvas {
     opacity: 0.72;
   }
+}
+
+html.vc-cine-static-bg .vc-home-cine__canvas {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+html.vc-cine-idle.vc-site-polish .vc-home-cine::before,
+html.vc-perf-lite.vc-site-polish .vc-home-cine::before,
+html.vc-cine-static-bg.vc-site-polish .vc-home-cine::before {
+  animation: none !important;
+}
+
+html.vc-cine-static-bg.vc-site-polish .vc-home-cine::before {
+  opacity: 1 !important;
+  visibility: visible !important;
+  left: 78%;
+  top: 54%;
+}
+
+html.vc-perf-lite.vc-cine-static-bg.vc-site-polish .vc-home-cine::before {
+  opacity: 0.85 !important;
+}
+
+@media (min-width: 721px) {
+  html.vc-cine-static-bg body.vc-body--home .vc-home-cine::before,
+  html.vc-cine-static-bg.vc-site-polish body.vc-body--home .vc-home-cine::before,
+  html.vc-site-polish.vc-cine-static-bg body.vc-body--home .vc-home-cine::before {
+    left: 78% !important;
+    top: 54% !important;
+    width: min(92vw, 46vmax) !important;
+    height: min(92vw, 46vmax) !important;
+    opacity: 0.68 !important;
+  }
+}
+
+html.vc-cine-static-bg body.vc-body--home .vc-home-cine::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 78%;
+  top: 54%;
+  width: min(92vw, 46vmax);
+  height: min(92vw, 46vmax);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      #070504 0 2.4%,
+      #f3e2d0 2.5% 3.4%,
+      #d4a888 3.4% 7.6%,
+      #6f4e37 7.6% 8.4%,
+      #1a120e 8.5% 10%,
+      #0b0806 10% 18%,
+      #2a1c14 18.3% 19.1%,
+      #0b0806 19.2% 28%,
+      #24180f 28.3% 29.1%,
+      #0b0806 29.2% 40%,
+      #1e1510 40.3% 41.2%,
+      #0b0806 41.2% 52%,
+      transparent 52.4%);
+  box-shadow:
+    0 0 0 2px rgba(212, 168, 136, 0.22),
+    0 0 80px rgba(212, 168, 136, 0.16);
+  opacity: 1 !important;
+  visibility: visible !important;
+  animation: vc-polish-vinyl 36s linear infinite;
+  pointer-events: none !important;
+}
+
+@media (max-width: 720px) {
+  html.vc-cine-static-bg body.vc-body--home .vc-home-cine::before,
+  html.vc-cine-static-bg.vc-site-polish body.vc-body--home .vc-home-cine::before,
+  html.vc-site-polish.vc-cine-static-bg body.vc-body--home .vc-home-cine::before {
+    left: 50% !important;
+    top: 56% !important;
+    width: min(84vw, 44vh) !important;
+    height: min(84vw, 44vh) !important;
+    opacity: 0.72 !important;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  body.vc-site-polish:not(.vc-body--home) .vc-home-cine__canvas,
+  html.vc-perf-touch body:not(.vc-body--home) .vc-home-cine__canvas {
+    display: none !important;
+  }
+
+  html.vc-site-polish.vc-cine-static-bg .vc-home-cine::before {
+    left: 50% !important;
+    top: 56% !important;
+    width: min(84vw, 44vh) !important;
+    height: min(84vw, 44vh) !important;
+    opacity: 0.72 !important;
+    animation-duration: 96s;
+  }
+}
+
+@media (max-width: 720px) {
+  html.vc-site-polish.vc-cine-static-bg .vc-home-cine::before {
+    left: 50% !important;
+    top: 56% !important;
+    width: min(84vw, 44vh) !important;
+    height: min(84vw, 44vh) !important;
+    opacity: 0.72 !important;
+  }
+}
+
+html.vc-site-polish body.vc-users-page.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero:not(.is-collapsed),
+html.vc-site-polish body.vc-users-page.vc-roles-page.vc-page-cine-layout .vc-support-page-hero.vc-page-cine-hero:not(.is-collapsed),
+body.vc-users-page.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero:not(.is-collapsed),
+body.vc-users-page.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed) {
+  padding-top: max(6.85rem, calc(env(safe-area-inset-top, 0px) + 5.55rem)) !important;
+  padding-bottom: max(5.5rem, calc(env(safe-area-inset-bottom, 0px) + 4.2rem)) !important;
+  justify-content: center !important;
+}
+
+html.vc-site-polish body.vc-users-page.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero__inner,
+body.vc-users-page.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero .vc-page-cine-hero__inner {
+  transform: none !important;
+  margin-top: 0 !important;
+}
+
+@media (max-width: 639.98px) {
+  html.vc-site-polish body.vc-users-page.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero:not(.is-collapsed),
+  body.vc-body.vc-users-page.vc-roles-page.vc-page-cine-layout .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed) {
+    justify-content: flex-start !important;
+    padding-top: max(7.1rem, calc(env(safe-area-inset-top, 0px) + 5.85rem)) !important;
+    padding-bottom: max(5.2rem, calc(env(safe-area-inset-bottom, 0px) + 3.6rem)) !important;
+  }
+
+  body.vc-body .vc-header-promo-btn--event.vc-header-promo-btn--event-mobile-split .vc-header-promo-btn__label {
+    display: inline-flex !important;
+    flex-shrink: 0 !important;
+  }
+
+  body.vc-body .vc-header-promo-btn--event.vc-header-promo-btn--event-mobile-split .vc-header-promo-btn__clip {
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+    max-width: 5.25rem !important;
+  }
+
+  body.vc-body .vc-header-promo-btn--event.vc-header-promo-btn--event-mobile-split .vc-header-promo-btn__track,
+  body.vc-body .vc-header-promo-btn--event.vc-header-promo-btn--event-mobile-split .vc-header-promo-btn__unit {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  body.vc-body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--event {
+    max-width: min(48vw, 8.5rem) !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+}
+
+html body .vc-header-bar a.vc-header-site-name .vc-header-site-name__text:not(.is-clone),
+html body .vc-mobile-nav-drawer__brand a.vc-header-site-name .vc-header-site-name__text:not(.is-clone),
+html body .vc-header-bar a.vc-header-logo-link + a .vc-header-site-name__text:not(.is-clone),
+html body .vc-header-bar a.vc-header-site-name > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body .vc-mobile-nav-drawer__brand a.vc-header-site-name > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body .vc-header-bar a.vc-header-logo-link + a > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text) {
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
+
+html body header .vc-nav-shell--scrolled .vc-header-bar a.vc-header-site-name .vc-header-site-name__text:not(.is-clone),
+html body header .vc-nav-shell--scrolled .vc-mobile-nav-drawer__brand a.vc-header-site-name .vc-header-site-name__text:not(.is-clone),
+html body header .vc-nav-shell--scrolled .vc-header-bar a.vc-header-site-name > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body header .vc-nav-shell--scrolled .vc-mobile-nav-drawer__brand a.vc-header-site-name > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text) {
+  border-bottom: none !important;
+  padding-bottom: 0.12em !important;
+  text-decoration: none !important;
+}
+
+html body .vc-header-bar a.vc-header-site-name:hover,
+html body .vc-header-bar a.vc-header-site-name:focus-visible,
+html body .vc-mobile-nav-drawer__brand a.vc-header-site-name:hover,
+html body .vc-mobile-nav-drawer__brand a.vc-header-site-name:focus-visible,
+html body .vc-header-bar a.vc-header-logo-link + a:hover,
+html body .vc-header-bar a.vc-header-logo-link + a:focus-visible,
+html body .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a:hover,
+html body .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a:focus-visible {
+  text-decoration: none !important;
+}
+
+html body .vc-header-bar a.vc-header-site-name:hover .vc-header-site-name__text:not(.is-clone),
+html body .vc-header-bar a.vc-header-site-name:focus-visible .vc-header-site-name__text:not(.is-clone),
+html body .vc-mobile-nav-drawer__brand a.vc-header-site-name:hover .vc-header-site-name__text:not(.is-clone),
+html body .vc-mobile-nav-drawer__brand a.vc-header-site-name:focus-visible .vc-header-site-name__text:not(.is-clone),
+html body .vc-header-bar a.vc-header-logo-link + a:hover .vc-header-site-name__text:not(.is-clone),
+html body .vc-header-bar a.vc-header-logo-link + a:focus-visible .vc-header-site-name__text:not(.is-clone),
+html body .vc-header-bar a.vc-header-site-name:hover > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body .vc-header-bar a.vc-header-site-name:focus-visible > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body .vc-mobile-nav-drawer__brand a.vc-header-site-name:hover > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body .vc-mobile-nav-drawer__brand a.vc-header-site-name:focus-visible > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body .vc-header-bar a.vc-header-logo-link + a:hover > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text),
+html body .vc-header-bar a.vc-header-logo-link + a:focus-visible > span:not(.vc-header-site-name__track):not(.vc-header-site-name__text) {
+  border-bottom: none !important;
+  text-decoration: underline !important;
+  text-decoration-color: currentColor !important;
+  text-underline-offset: 0.22em !important;
+  text-decoration-thickness: 1.5px !important;
+}
+
+@media (max-width: 639.98px) {
+  .vc-header-bar > div:first-child {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    overflow: hidden !important;
+  }
+
+  header .vc-lang-dropdown,
+  .vc-header-bar .vc-lang-dropdown {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    flex: 0 0 auto !important;
+  }
+
+  .vc-mobile-nav-drawer__brand .vc-lang-dropdown {
+    display: none !important;
+  }
+
+  .vc-header-bar > div:first-child > a.vc-header-logo-link {
+    flex: 0 0 auto !important;
+  }
+
+  .vc-header-bar > div:first-child > a.vc-header-logo-link + a,
+  .vc-header-bar > div:first-child a.vc-header-site-name,
+  .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a,
+  .vc-mobile-nav-drawer__brand a.vc-header-site-name {
+    flex: 1 1 0 !important;
+    min-width: 3.25rem !important;
+    max-width: 100% !important;
+    width: auto !important;
+    overflow: hidden !important;
+  }
+}
+
+html body.vc-body header .vc-nav-shell:not(.vc-nav-shell--scrolled),
+html body.vc-body--home header .vc-nav-shell:not(.vc-nav-shell--scrolled),
+html body.vc-dashboard-page header .vc-nav-shell:not(.vc-nav-shell--scrolled),
+html.vc-site-polish body.vc-body header .vc-nav-shell:not(.vc-nav-shell--scrolled),
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell:not(.vc-nav-shell--scrolled) {
+  border-color: transparent !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28) !important;
+}
+
+html body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
+html body.vc-body--home header .vc-nav-shell.vc-nav-shell--scrolled,
+html body.vc-dashboard-page header .vc-nav-shell.vc-nav-shell--scrolled,
+html.vc-site-polish body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,
+html.vc-site-polish--pwa body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(212, 168, 136, 0.08) !important;
+}
+
+body.vc-body--home #stats .vc-stat-strip,
+body.vc-body--home .vc-home-deck,
+body.vc-body--home .vc-home-feature,
+body.vc-body--home .vc-home-index,
+html.vc-site-polish body.vc-body--home #stats .vc-stat-strip,
+html.vc-site-polish body.vc-body--home .vc-home-deck,
+html.vc-site-polish body.vc-body--home .vc-home-feature,
+html.vc-site-polish body.vc-body--home .vc-home-index,
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-regole-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-faq-group,
+html.vc-site-polish body.vc-page-cine-layout .vc-role-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-ul-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-reviews-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-reviews-formcard,
+html.vc-site-polish body.vc-page-cine-layout .vc-perks-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-legal-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-wiki-cmd-shell,
+html.vc-site-polish body.vc-page-cine-layout .vc-sponsor-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-candidature-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-staff-block,
+html.vc-site-polish body.vc-page-cine-layout .vc-staff-hub-card,
+html.vc-site-polish body.vc-staff-organico-page .vc-staff-organico-sdm__inner,
+html.vc-site-polish body.vc-staff-organico-page #vc-staff-organico-board {
+  border-radius: 1.75rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(14, 10, 8, 0.78) !important;
+  background-image: none !important;
+  backdrop-filter: blur(var(--vc-glass-blur, 16px)) saturate(155%) !important;
+  -webkit-backdrop-filter: blur(var(--vc-glass-blur, 16px)) saturate(155%) !important;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  filter: none !important;
+}
+
+html.vc-site-polish body.vc-body--home #stats .vc-stat-strip,
+html.vc-site-polish body.vc-body--home .vc-home-deck,
+html.vc-site-polish body.vc-body--home .vc-home-feature,
+html.vc-site-polish body.vc-body--home .vc-home-index,
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-regole-card,
+html.vc-site-polish body.vc-page-cine-layout .vc-faq-group,
+html.vc-site-polish body.vc-staff-organico-page #vc-staff-organico-board {
+  padding: 1.35rem 1.45rem 1.55rem !important;
 }

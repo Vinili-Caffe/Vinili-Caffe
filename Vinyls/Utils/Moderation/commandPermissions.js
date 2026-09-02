@@ -33,15 +33,12 @@ const LIVE_MEMBER_CACHE_TTL_MS = 15_000;
 const liveMemberCache = new Map();
 const PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["help", "profile"]);
 const TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["sezioneproibita", "libriproibiti", "forbiddenbooks"]);
-/** Solo questi prefix hanno senso nei ticket web. */
 const WEB_TICKET_PREFIX_ALLOWED_COMMANDS = new Set([
   "description",
 ]);
-/** Comandi prefix usabili solo in certe categorie di ticket web. */
 const WEB_TICKET_PREFIX_CATEGORY_LIMIT = Object.freeze({
   description: Object.freeze(["partnership"]),
 });
-/** Solo comandi voice-oriented: lo ship e simili restano vincolati ai canali consentiti. */
 const VOICE_STANZA_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set([
   "play",
   "pause",
@@ -70,9 +67,6 @@ const WEB_TICKET_PREFIX_HIDDEN_COMMANDS = new Set([
   "ticket",
   ...VOICE_STANZA_PREFIX_CHANNEL_BYPASS_COMMANDS,
 ]);
-/**
- * Slash usabili nei ticket web (stesso stile allowlist dei prefix).
- */
 const WEB_TICKET_SLASH_ALLOWED_COMMANDS = new Set([
   "partnership",
 ]);
@@ -181,8 +175,7 @@ function isAllowedGuildForComponents(guildId) {
     const { shouldApplyMultiGuildLayer } = require("../../MultiGuild/core/accessPolicy");
     if (isMultiGuildLayerEnabled() && shouldApplyMultiGuildLayer(s)) return true;
   } catch {
-    // multiguild layer unavailable
-  }
+      }
   return false;
 }
 
@@ -773,15 +766,13 @@ function collectMemberRoleIds(member) {
   return ids;
 }
 
-/** true se la cache ruoli sembra completa abbastanza da fidarsi (non solo @everyone). */
 function memberRoleCacheLooksUsable(member) {
   if (!member) return false;
   const cache = member?.roles?.cache;
   const everyoneId = member?.guild?.id ? String(member.guild.id) : null;
   if (cache && typeof cache.size === "number") {
     if (cache.size === 0) return false;
-    // Solo @everyone: spesso stub incompleto → forza fetch fresco.
-    if (cache.size === 1 && everyoneId && cache.has(everyoneId)) return false;
+        if (cache.size === 1 && everyoneId && cache.has(everyoneId)) return false;
     return true;
   }
   const ids = collectMemberRoleIds(member);
@@ -876,12 +867,10 @@ async function hasAnyRoleWithLiveFallback(entity, roleIds) {
 
   if (hasAnyRole(entity?.member, roleIds)) return true;
 
-  // Primo fallback soft (cache Discord locale).
-  let member = await fetchLiveMember(entity, { preferFresh: false });
+    let member = await fetchLiveMember(entity, { preferFresh: false });
   if (member && hasAnyRole(member, roleIds)) return true;
 
-  // Cache incompleta / stale: forza REST e non riusare lo stub.
-  member = await fetchLiveMember(entity, { preferFresh: true });
+    member = await fetchLiveMember(entity, { preferFresh: true });
   if (member && hasAnyRole(member, roleIds)) return true;
   if (member) {
     return hasAnyRoleWithEventGrants(member, roleIds, member.guild?.id, member.id);
@@ -1419,7 +1408,6 @@ function tryResolveMultiGuildTenantPrefixRestriction(guildId, commandName, optio
   }
 }
 
-/** Extra canali/ruoli/enable da dashboard (Mongo). Exclude/disable restano filtri aggiuntivi; la whitelist include sostituisce permissions.json. */
 function resolveDashboardCommandAclDenial(message, commandName, options = {}) {
   try {
     const { resolveTenantCommandAcl } = require("../../MultiGuild/core/tenantCommandAcl");
@@ -1444,10 +1432,6 @@ function resolveDashboardCommandAclDenial(message, commandName, options = {}) {
   }
 }
 
-
-/**
- * Override dashboard sul main: whitelist ruoli (include) sostituisce permissions.json.
- */
 function peekMainDashboardCommandAcl(guildId, commandName) {
   try {
     const { peekDashboardCommandAcl } = require("../../MultiGuild/core/tenantCommandAcl");
@@ -1775,8 +1759,7 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
   const roles = resolvePrefixRoles(data, commandName, subcommandName);
   const permissions = resolvePrefixPermissions(data, commandName, subcommandName);
 
-  // Whitelist ruoli dalla dashboard: sostituisce permissions.json (così puoi aggiungere Helper da UI).
-  if (dashRoleWhitelist) {
+    if (dashRoleWhitelist) {
     if (!message.guild) {
       if (options.returnDetails) {
         return {
@@ -1795,8 +1778,7 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
     } catch (_) {
       roleOk = false;
     }
-    // Live-fallback: se la cache ruoli è stale, riconcilia con gli id della whitelist dashboard.
-    if (!roleOk && Array.isArray(dashAcl.roleIds) && dashAcl.roleIds.length) {
+        if (!roleOk && Array.isArray(dashAcl.roleIds) && dashAcl.roleIds.length) {
       roleOk = await hasAnyRoleWithLiveFallback(message, dashAcl.roleIds);
     }
     const hasPermissions = !Array.isArray(permissions) ? true : await hasAllPermissionsWithLiveFallback(message, permissions);
@@ -1835,8 +1817,7 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
   const hasPermissions = !Array.isArray(permissions) ? true : await hasAllPermissionsWithLiveFallback(message, permissions);
   const allowed = hasRole && hasPermissions;
   if (allowed) {
-    // Exclude / filtri dashboard aggiuntivi (non whitelist: quella è già gestita sopra).
-    const aclDenial = resolveDashboardCommandAclDenial(message, safeCommand, options);
+        const aclDenial = resolveDashboardCommandAclDenial(message, safeCommand, options);
     if (aclDenial !== null) return aclDenial;
   }
   const reason = !hasRole ? "missing_role" : !hasPermissions ? "missing_permission" : null;
@@ -2678,8 +2659,7 @@ function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "co
       value: "<a:VC_Arrow:1482706699365257397> Usa il comando nel thread **Comandi Partner Manager** sotto #staff-cmds.",
     });
   } else if (hasNumericChannels || hasHighStaffZone || hasPmZone) {
-    // Non rivelare canali/thread nascosti a chi non può vederli.
-    embed.addFields({
+        embed.addFields({
       name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
       value: "<a:VC_Arrow:1482706699365257397> Usa il comando in un canale consentito a cui hai accesso.",
     });

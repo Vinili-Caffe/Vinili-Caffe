@@ -18,8 +18,7 @@ const EVENT_NAMES = [
   { name: "channel.subscription.new", version: 1 },
   { name: "channel.subscription.renewal", version: 1 },
   { name: "channel.subscription.gifts", version: 1 },
-  // Badge "subscriber" in chat: unico modo di riconoscere chi era già sub prima dei webhook.
-  { name: "chat.message.sent", version: 1 },
+    { name: "chat.message.sent", version: 1 },
 ];
 
 const loopStarted = new WeakSet();
@@ -117,8 +116,7 @@ function resolveSubSyncConfig(client) {
       "https://www.viniliecaffe.it/webhooks/site-kick-sub/oauth-callback",
   ).trim();
   const graceHours = Math.max(0, Math.min(168, Number(raw.graceHours ?? 48) || 48));
-  // Mod non scrivono spesso in chat: default 14 giorni di grace dopo ultimo badge mod.
-  const moderatorGraceHours = Math.max(
+    const moderatorGraceHours = Math.max(
     24,
     Math.min(720, Number(raw.moderatorGraceHours ?? 336) || 336),
   );
@@ -280,8 +278,7 @@ async function ensureEventSubscriptions(cfg, state) {
   state.broadcasterUserId = broadcasterUserId;
   const token = await getAppAccessToken(cfg);
 
-  // Drop stale subscriptions then recreate — Kick often stops delivering until resub.
-  try {
+    try {
     const listRes = await fetch(`${KICK_API}/events/subscriptions`, {
       headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
     });
@@ -426,8 +423,7 @@ async function grantKickSubRole(client, discordUserId, reason) {
   const alreadyHad = before.roles.cache.has(cfg.roleId);
   const member = await addRolesAndGetMember(guild, discordUserId, [cfg.roleId]);
   if (!member) return { ok: false, error: "member_missing" };
-  // Niente log a ogni reconcile: solo quando il ruolo viene davvero aggiunto.
-  if (!alreadyHad) {
+    if (!alreadyHad) {
     global.logger?.info?.("[KICK SUB] role granted", discordUserId, reason || "");
   }
   return { ok: true, skipped: alreadyHad };
@@ -589,8 +585,7 @@ async function handleSubscriptionEvent(client, eventType, payload, messageId) {
     const badges = Array.isArray(sender?.identity?.badges) ? sender.identity.badges : [];
     const subBadge = badges.find((b) => {
       const t = String(b?.type || "").toLowerCase();
-      // founder = primo mese sub su Kick
-      return t === "subscriber" || t === "founder";
+            return t === "subscriber" || t === "founder";
     });
     const modBadge = badges.find((b) => {
       const t = String(b?.type || "").toLowerCase();

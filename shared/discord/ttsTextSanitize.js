@@ -1,8 +1,3 @@
-/**
- * Filtra script Unicode non coerenti con la lingua TTS scelta.
- * Evita che Ethiopic/Hangul/Myanmar/Malayalam/… (spesso usati come “maschera”)
- * vengano letti ad alta voce quando la voce è it/en/ecc.
- */
 
 const LATIN_LETTER = /\p{Script=Latin}/u;
 const CYRILLIC_LETTER = /\p{Script=Cyrillic}/u;
@@ -30,8 +25,7 @@ const GEORGIAN = /\p{Script=Georgian}/u;
 const ARMENIAN = /\p{Script=Armenian}/u;
 const SINHALA = /\p{Script=Sinhala}/u;
 
-/** Sempre ammessi oltre alle lettere della lingua voce. */
-const ALWAYS_OK = /[^\p{L}]/u; // non-lettere: spazi, numeri, punteggiatura, simboli
+const ALWAYS_OK = /[^\p{L}]/u;
 
 function langBase(lang) {
   return String(lang || "it")
@@ -41,7 +35,7 @@ function langBase(lang) {
 }
 
 function letterAllowedForLang(ch, base) {
-  if (LATIN_LETTER.test(ch)) return true; // nomi/URL residue/loanwords
+  if (LATIN_LETTER.test(ch)) return true;
 
   switch (base) {
     case "ru":
@@ -107,15 +101,10 @@ function letterAllowedForLang(ch, base) {
     case "si":
       return SINHALA.test(ch);
     default:
-      // it, en, es, fr, de, pt, … → solo Latino (+ non-lettere)
-      return false;
+            return false;
   }
 }
 
-/**
- * Rimuove lettere di script non attesi per `lang`.
- * Es.: con voce italiana toglie etiopico/hangul/giapponese usati come obfuscation.
- */
 function filterScriptsForTtsLang(text, lang) {
   const raw = String(text || "");
   if (!raw) return "";
@@ -127,8 +116,7 @@ function filterScriptsForTtsLang(text, lang) {
     }
   }
   out = out.replace(/\s+/g, " ").trim();
-  // Solo punteggiatura residua (dopo aver tolto gli script “maschera”) → non leggere.
-  if (!/\p{L}/u.test(out)) return "";
+    if (!/\p{L}/u.test(out)) return "";
   return out;
 }
 
@@ -136,7 +124,6 @@ const LONG_URL_TLD =
   "com|net|org|gg|io|dev|app|xyz|ly|ai|info|biz|online|site|store|cloud|edu|gov";
 const SHORT_URL_TLD = "it|me|to|es|tv|co|uk|de|fr|ru|jp|br|us|ca|au";
 
-/** Toglie URL veri, non le parole con il punto attaccato (me.ne, ca.zzo). */
 function stripUrlsForTts(text) {
   return String(text || "")
     .replace(/https?:\/\/\S+/gi, " ")
@@ -152,7 +139,6 @@ function stripUrlsForTts(text) {
     .replace(/\b[a-z]{2,}:\/\/\S+/gi, " ");
 }
 
-/** `ora me.ne vado` / `ora.me.ne.vado` → punti tra lettere diventano spazi. */
 function softenAttachedDotsForTts(text) {
   let s = String(text || "");
   for (let n = 0; n < 12; n += 1) {

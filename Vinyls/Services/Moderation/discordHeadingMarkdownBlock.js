@@ -3,7 +3,6 @@ const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 
-/** Titoli Discord: inizio riga con 1–6 `#` seguiti da spazio (testo ingrandito). */
 const DISCORD_HEADING_LINE_RE = /^#{1,6}\s+/m;
 const PATRON_ROLE_ID = String(IDs.roles?.Patron || "").trim();
 
@@ -26,14 +25,9 @@ function memberHasPatronRole(member) {
   return Boolean(PATRON_ROLE_ID && member?.roles?.cache?.has(PATRON_ROLE_ID));
 }
 
-/**
- * Elimina silenziosamente messaggi che usano titoli Markdown (# …) in chat: consentito solo con permesso **Amministratore** (Discord) o ruolo **Patron**.
- * @returns {Promise<boolean>} true se il messaggio è stato rimosso (o tentato).
- */
 async function maybeBlockDiscordHeadingMarkdown(message) {
   if (!message?.guild || message.system) return false;
-  // Server test: niente blocco titoli `#` (usato per bozze / annunci).
-  if (String(message.guild.id) === String(IDs.guilds?.test || "")) return false;
+    if (String(message.guild.id) === String(IDs.guilds?.test || "")) return false;
   if (message.author?.bot || message.webhookId) return false;
   const channel = message.channel;
   if (!channel?.isTextBased?.()) return false;

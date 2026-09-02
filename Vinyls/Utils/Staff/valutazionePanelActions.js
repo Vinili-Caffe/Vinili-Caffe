@@ -30,7 +30,6 @@ function clearWebStaffProfileCache(userId) {
   } catch (_) {}
 }
 
-/** Mention sicura: `${user}` può diventare "[object Object]" se manca il prototype Discord.js. */
 function formatStaffMention(userLike) {
   const id = String(userLike?.id || userLike?.user?.id || "").trim();
   if (/^\d{16,22}$/.test(id)) return `<@${id}>`;
@@ -88,7 +87,6 @@ async function makeLogEmbed(
     .setColor(color);
 }
 
-/** Embed warn automatico: stesso author/descrizione delle valutazioni da pannello (`makeLogEmbed`). */
 async function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount, guild = null) {
   const actorForAuthor = actorLike?.member || actorLike?.user || actorLike;
   const username = accountUsername(actorForAuthor) || "Staff";
@@ -179,10 +177,6 @@ function removeLinkedAutoValutazioneEntry(staff, resolvedEntry) {
   );
 }
 
-/**
- * Nello scambio positive→negativa/pausa la positiva esce dal conteggio,
- * ma la chiave auto resta (spentByTrade) così sync/compito non la riassegnano.
- */
 function markLinkedAutoValutazioneSpentByTrade(staff, resolvedEntry, tradeReason = "") {
   if (!Array.isArray(staff?.autoValutazioni)) return false;
   const messageId = String(resolvedEntry?.messageId || "").trim();
@@ -202,8 +196,7 @@ function markLinkedAutoValutazioneSpentByTrade(staff, resolvedEntry, tradeReason
     entry.spentReason = String(tradeReason || "").slice(0, 300);
     entry.updatedAt = new Date();
     marked = true;
-    // Claim durevole compito: non dipende più dalla sola autoValutazione.
-    const keyStr = String(entry.key || "");
+        const keyStr = String(entry.key || "");
     const m = /^resoconto_reviewer_task:([^:]+):([^:]+):(\d{17,20})$/.exec(keyStr);
     if (m) {
       if (!Array.isArray(staff.resocontoCompitoClaims)) staff.resocontoCompitoClaims = [];
@@ -530,8 +523,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   let fullDepexRoleId = null;
   let fullDepexOk = false;
   if (warnResult.added) {
-    // Conversione vera: le 3 negative più vecchie escono dal profilo (restano solo come log convertito).
-    await syncProfileStaffFromDb(profileDoc, guild.id, staffUser.id);
+        await syncProfileStaffFromDb(profileDoc, guild.id, staffUser.id);
     await convertOldestNegativesToStaffWarn(
       ensureStaff(profileDoc),
       NEGATIVES_PER_STAFF_WARN,
@@ -731,17 +723,12 @@ async function removeOldestPositiveValutazioni(s, count, actor, staffUser, chann
     if (edited) anyEdited = true;
     else needChannelPost = true;
   }
-  // Un solo post in canale se qualche messaggio originale non è editabile (evita N embed identici).
-  if (needChannelPost || !anyEdited) {
+    if (needChannelPost || !anyEdited) {
     await sendChannelEmbed(channel, { embeds: [embed] });
   }
   return { removed: n, finalPos };
 }
 
-/**
- * Rimuove le N negative più vecchie dal profilo (liste + contatori). Nessun warn.
- * @returns {{ removed: number, finalNeg: number, entries: object[], reasons: string[] }}
- */
 function consumeOldestNegativesFromStaff(s, count) {
   if (!s || !Array.isArray(s.negativeReasons)) {
     return { removed: 0, finalNeg: 0, entries: [], reasons: [] };
@@ -781,10 +768,6 @@ function consumeOldestNegativesFromStaff(s, count) {
   };
 }
 
-/**
- * Converte le N negative più vecchie in warn staff: le toglie dal profilo
- * (contatori + liste) e aggiorna i messaggi originali in canale.
- */
 async function convertOldestNegativesToStaffWarn(s, count, actor, staffUser, channel, guild) {
   const consumed = consumeOldestNegativesFromStaff(s, count);
   if (consumed.removed <= 0) return { removed: 0, finalNeg: consumed.finalNeg };

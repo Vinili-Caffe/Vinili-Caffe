@@ -1,6 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
   <head>
+<style id="vc-fa-noflash-css">html:not(.vc-fa-ready) .fa{visibility:hidden!important;opacity:0!important}html:not(.vc-fa-ready) .fa:before{content:""!important}html.vc-fa-ready .fa{visibility:visible!important;opacity:1!important}</style>
+<script id="vc-auth-instant-boot">(function(){try{var t=localStorage.getItem("vc_discord_access_token");if(!t)return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;document.documentElement.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
+<style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}</style>
+
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
     <title>{{DASHBOARD_GUILD_PAGE_TITLE}}</title>
@@ -13,18 +17,16 @@
     <meta property="og:title" content="{{DASHBOARD_GUILD_OG_TITLE}}" />
     <meta property="og:description" content="{{DASHBOARD_GUILD_META_DESCRIPTION}}" />
     <meta property="og:url" content="{{DASHBOARD_GUILD_OG_URL}}" />
-    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Bebas+Neue&amp;family=Bruno+Ace+SC&amp;family=Castoro+Titling&amp;family=Cormorant+Garamond:wght@600&amp;family=Crimson+Text:ital,wght@0,400;0,700;1,400&amp;family=Dancing+Script:wght@500;700&amp;family=Dela+Gothic+One&amp;family=DotGothic16&amp;family=Exo+2:wght@400;700&amp;family=Great+Vibes&amp;family=Hachi+Maru+Pop&amp;family=Inconsolata:wght@400;700&amp;family=Inter:wght@400;500;600;700;800&amp;family=Lato:ital,wght@0,400;0,700;1,400&amp;family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&amp;family=M+PLUS+Rounded+1c:wght@400;700&amp;family=Merriweather:ital,wght@0,400;0,700;1,400&amp;family=Montserrat:ital,wght@0,400;0,700;1,400&amp;family=Nunito:ital,wght@0,400;0,700;1,400&amp;family=Open+Sans:ital,wght@0,400;0,700;1,400&amp;family=Oswald:wght@500;700&amp;family=Pacifico&amp;family=Playfair+Display:ital,wght@0,400;0,700;1,400&amp;family=Poltawski+Nowy:wght@400;700&amp;family=Poppins:ital,wght@0,400;0,700;1,400&amp;family=Rampart+One&amp;family=Reggae+One&amp;family=Roboto:ital,wght@0,400;0,700;1,400&amp;family=RocknRoll+One&amp;family=Rubik:ital,wght@0,400;0,700;1,400&amp;family=Shippori+Mincho:wght@400;700&amp;family=Source+Code+Pro:wght@400;700&amp;family=Ubuntu:ital,wght@0,400;0,700;1,400&amp;family=Vina+Sans&amp;family=Yuji+Syuku&amp;family=Yusei+Magic&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="../../css/quote-miq-fonts.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" /><link rel="stylesheet" href="../../css/quote-miq-fonts.css?v={{BUILD_ASSET_VERSION}}" />
+    <script src="../../js/vc-fa-boot.js?v=20260831faBootFix1"></script>
+<link rel="preload" as="font" type="font/woff2" href="/css/font-awesome/fonts/fontawesome-webfont.woff2?v=4.7.0" crossorigin />
+<link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css?v=20260831faLocal1" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="stylesheet" href="../../css/vc-landing.css?v=20260831sitePerfFlash1">
-    <script>
+    <link rel="stylesheet" href="../../css/vc-landing-core.css?v=20260831cssSplitFix1" />
+    <link rel="stylesheet" href="../../css/vc-landing-ext.css?v=20260902promoCandMobileFix1" /><script>
       window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY = true;
     </script>
-    <script src="../../js/vc-auth-pending.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/vc-auth-pending.js?v=20260831navAuthCacheFix1"></script>
     <script src="/js/vc-access-pending-boot.js?v=20260830phoneBodyParse1"></script>
     <script>
       window.__VC_SITE_DASHBOARD = {
@@ -587,7 +589,7 @@
                 </div>
               </section>
             
-                </div><!--vc-dash-overview-close-->
+                </div>
               </div>
             </div>
 
@@ -714,7 +716,7 @@
               </div>
             </form>
 
-            <!-- Legacy: #bacheca/canali reindirizza a funzioni (canali sotto ogni toggle). -->
+            
             <form id="vc-dashboard-bacheca-form" class="vc-visually-hidden" autocomplete="off" aria-hidden="true" tabindex="-1">
               <select name="boardsMode" id="bc-boardsMode" tabindex="-1" aria-hidden="true">
                 <option value="shared">Unico</option>
@@ -3330,7 +3332,7 @@
                   </article>
                 </div>
               
-                  </div><!--vc-dash-page-close-->
+                  </div>
                 </div>
               </div>
 
@@ -3494,7 +3496,7 @@
                         </div>
                       </div>
                     </section>
-                  </div><!--vc-dash-page-close-->
+                  </div>
                 </div>
               </div>
 
@@ -3531,7 +3533,7 @@
                         </div>
                       </div>
                     </section>
-                  </div><!--vc-dash-page-close-->
+                  </div>
                 </div>
               </div>
 
@@ -3584,7 +3586,7 @@
                         </div>
                       </div>
                     </section>
-                  </div><!--vc-dash-page-close-->
+                  </div>
                 </div>
               </div>
 
@@ -3719,65 +3721,36 @@
       </div>
     </nav>
 
-    <footer class="vc-premium-footer vc-premium-footer--dashboard" data-vc-dashboard-footer aria-label="Footer dashboard" data-i18n-attr="aria-label:footer.aria">
-      <div class="vc-premium-footer__card">
-        <div class="vc-premium-footer__outer">
-          <div class="vc-premium-footer__inner">
-            <div class="vc-premium-footer__grid vc-premium-footer__grid--dashboard">
-              <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
-                <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}" aria-label="Vai alla homepage" data-i18n-attr="aria-label:nav.homeAria">
-                  <span class="vc-premium-footer__logo" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
-                      <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                  </span>
-                  <span class="vc-premium-footer__wordmark">{{SITE_NAME}}</span>
-                </a>
-                <p class="vc-premium-footer__desc" data-i18n="footer.dashboardDesc">Da qui configuri Vinili sui tuoi server: identità e prefisso, accesso alla dashboard, partnership, avvisi e le altre impostazioni del bot.</p>
-              </section>
-              <nav class="vc-premium-footer__col" aria-label="Dashboard" data-i18n-attr="aria-label:footer.dashboard">
-                <h4 data-i18n="footer.dashboard">Dashboard</h4>
-                <ul>
-                  <li><a href="{{DASHBOARD_PAGE_URL}}" data-i18n="footer.yourServers">I tuoi server</a></li>
-                  <li><a href="{{DASHBOARD_PROFILE_PAGE_URL}}" data-i18n="footer.profile">Profilo</a></li>
-                  <li><a href="{{DASHBOARD_PREMIUM_PAGE_URL}}" data-i18n="footer.premium">Premium</a></li>
-                </ul>
-              </nav>
-              <nav class="vc-premium-footer__col" aria-label="Risorse" data-i18n-attr="aria-label:footer.resources">
-                <h4 data-i18n="footer.resources">Risorse</h4>
-                <ul>
-                  <li><a href="{{DASHBOARD_FAQ_PAGE_URL}}" data-i18n="footer.faq">FAQ</a></li>
-                  <li><a href="{{DASHBOARD_SUGGESTIONS_PAGE_URL}}" data-i18n="footer.feedback">Feedback</a></li>
-                  <li><a href="{{BOT_REVIEWS_PAGE_URL}}" data-i18n="footer.botReviews">Recensioni</a></li>
-                  <li><a href="{{STATUS_PAGE_URL}}" data-i18n="footer.status">Status</a></li>
-                  <li><a href="{{SITE_URL}}" data-i18n="footer.site">Sito</a></li>
-                </ul>
-              </nav>
-            </div>
-          </div>
-          <div class="vc-premium-footer__legal">
-            <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
-            <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
-              <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
-              <span aria-hidden="true"></span>
-              <a href="{{PRIVACY_URL}}" data-i18n="footer.privacy">Privacy Policy</a>
-              <span aria-hidden="true"></span>
-              <a href="{{COOKIE_POLICY_URL}}" data-i18n="footer.cookies">Cookie Policy</a>
-            </nav>
-          </div>
-        </div>
+    
+  <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+    <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+      <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5"
+        aria-label="Social e home">
+        {{FOOTER_SOCIAL_LEFT}}
+        <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+          href="{{SITE_URL}}">{{SITE_NAME}}</a>
+        {{FOOTER_SOCIAL_RIGHT}}
       </div>
-    </footer>
+      <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80"
+        aria-label="Link legali">
+        <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
+        <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
+        <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+      </nav>
+      <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+        © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
+        <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
+      </p>
+    </div>
+  </footer>
 <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
-    <script src="../../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/discord-auth.js?v=20260831navAuthCacheFix1"></script>
     <script src="../../js/vc-mobile-nav.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/dashboard-staff-notifs.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/dashboard-premium-credits-nav.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/vc-dialog.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script>
-      /* Emergency: non lasciare mai la guild page a “solo footer”. */
-      (function () {
+            (function () {
         function unlock() {
           try {
             var main = document.getElementById("vc-dashboard-guild-main");
@@ -3792,8 +3765,6 @@
       })();
     </script>
     <script src="../../js/vc-mini-pager.js?v={{BUILD_ASSET_VERSION}}"></script>
-    <script src="../../js/dashboard-guild-page.js?v={{BUILD_ASSET_VERSION}}"></script>
-      <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-    <script src="/js/vc-ptr.js?v=20260830phoneBodyParse1" defer></script>
+    <script src="../../js/dashboard-guild-boot.js?v=20260901guildSplitFix5b" defer></script><script src="/js/vc-ptr.js?v=20260831sitePerfFix1" defer></script>
 </body>
 </html>

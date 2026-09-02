@@ -111,8 +111,7 @@ async function execute(interaction) {
     return true;
   }
 
-  // Ack subito: se defer arriva dopo ~3s Discord risponde 10062 Unknown interaction.
-  try {
+    try {
     if (!interaction.deferred && !interaction.replied) {
       await interaction.deferUpdate();
     }
@@ -135,9 +134,7 @@ async function execute(interaction) {
       ownerId || interaction.user?.id,
     );
     const files = Array.isArray(payload.files) ? payload.files.filter(Boolean) : [];
-    // Sostituisci gli allegati (canvas): senza `attachments: []` Discord può
-    // tenere i vecchi id e fallire con ATTACHMENT_NOT_FOUND sull'edit.
-    await interaction.message?.edit?.({
+            await interaction.message?.edit?.({
       files,
       attachments: [],
       embeds: payload.embeds || [],

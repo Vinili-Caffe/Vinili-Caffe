@@ -24,10 +24,6 @@ function resolveChannel(guild, channelId) {
   return guild.channels?.cache?.get(id) || null;
 }
 
-/**
- * True se il membro può vedere il canale (ViewChannel).
- * Senza member: true se il canale esiste in cache (nessun filtro per-utente).
- */
 function memberCanViewChannel(memberOrGuild, channelId) {
   const id = normalizeChannelId(channelId);
   if (!id) return false;
@@ -44,9 +40,6 @@ function memberCanViewChannel(memberOrGuild, channelId) {
   }
 }
 
-/**
- * Menzione canale solo se il viewer può vederlo; altrimenti fallback (default stringa vuota = ometti).
- */
 function formatVisibleChannelMention(channelId, memberOrGuild, fallback = "") {
   const id = normalizeChannelId(channelId);
   if (!id) return fallback;
@@ -54,9 +47,6 @@ function formatVisibleChannelMention(channelId, memberOrGuild, fallback = "") {
   return `<#${id}>`;
 }
 
-/**
- * Filtra gli ID canale visibili al viewer (ignora token __zone:).
- */
 function filterVisibleChannelIds(channelIds, memberOrGuild) {
   const list = Array.isArray(channelIds) ? channelIds : [];
   const out = [];
@@ -73,18 +63,12 @@ function filterVisibleChannelIds(channelIds, memberOrGuild) {
   return out;
 }
 
-/**
- * Elenco menzioni separate da sep; se nessuna visibile → emptyFallback.
- */
 function formatVisibleChannelMentionsList(channelIds, memberOrGuild, { sep = ", ", emptyFallback = "" } = {}) {
   const visible = filterVisibleChannelIds(channelIds, memberOrGuild);
   if (!visible.length) return emptyFallback;
   return visible.map((id) => `<#${id}>`).join(sep);
 }
 
-/**
- * Riscrive `<#id>` nel testo: tiene solo i canali visibili al viewer, altrimenti li toglie.
- */
 function scrubInvisibleChannelMentionsInText(text, memberOrGuild) {
   const raw = String(text || "");
   if (!raw.includes("<#")) return raw;

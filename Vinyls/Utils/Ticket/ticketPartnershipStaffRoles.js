@@ -26,7 +26,6 @@ const PARTNERSHIP_TICKET_REVIEWER_ALLOW = [
   PermissionFlagsBits.AddReactions,
 ];
 
-/** Gestore PM (revisore resoconto): può leggere e scrivere nei ticket partnership anche senza claim. */
 const PARTNERSHIP_TICKET_REVIEWER_OVERWRITES = Object.freeze({
   ViewChannel: true,
   SendMessages: true,
@@ -114,21 +113,18 @@ function memberIsResocontoPmReviewer(member) {
   return Boolean(uid && RESOCONTO_PM_REVIEWER_USER_IDS.includes(uid));
 }
 
-/** High Staff+ oppure gestore PM (revisore resoconto PM): gestisce punti / pex-depex PM come HS. */
 function memberCanManagePartnerManagers(member) {
   if (!member) return false;
   try {
     const { memberIsHighStaffEligible } = require("../Staff/staffRoleHierarchy");
     if (memberIsHighStaffEligible(member)) return true;
   } catch {
-    /* ignore */
-  }
+      }
   return memberIsResocontoPmReviewer(member);
 }
 
 function memberHasTicketElevatedClosePrivileges(member, ticketDoc = null) {
-  // Chi ha aperto il ticket non chiude “da staff”, anche se High Staff / reviewer.
-  if (
+    if (
     ticketDoc &&
     String(ticketDoc?.userId || "").trim() &&
     String(ticketDoc.userId) === String(member?.id || "")

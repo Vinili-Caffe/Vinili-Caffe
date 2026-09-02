@@ -21,8 +21,7 @@
       var t2 = localStorage.getItem(ACCESS_TOKEN_KEY);
       var exp = Number(localStorage.getItem(EXPIRES_AT_KEY) || "0");
       if (!t2) return "";
-      // Allinea a discord-auth: senza expires_at la sessione resta valida.
-      if (exp && Date.now() >= exp) return "";
+            if (exp && Date.now() >= exp) return "";
       return t2;
     } catch (e) {
       return "";
@@ -261,8 +260,7 @@
     frame.onload = finish;
     frame.onerror = finish;
     frame.src = blobUrl;
-    // blob + sandbox a volte non sparano onload: fallback sicuro.
-    loadingTimer = setTimeout(finish, 600);
+        loadingTimer = setTimeout(finish, 600);
     requestAnimationFrame(function () {
       try {
         if (frame.contentDocument && frame.contentDocument.readyState === "complete") finish();
@@ -373,8 +371,7 @@
     if (btn && !btn.__vcWired) {
       btn.__vcWired = true;
       btn.addEventListener("click", function () {
-        // Re-login: se c’è già una sessione, forziamo OAuth pulito.
-        if (btn.textContent && /cambia account/i.test(btn.textContent)) {
+                if (btn.textContent && /cambia account/i.test(btn.textContent)) {
           clearToken();
         }
         if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
@@ -406,8 +403,7 @@
       showGate("Link transcript non valido.");
       return;
     }
-    // Hash OAuth ancora da processare da discord-auth: aspetta il profilo.
-    try {
+        try {
       if (String(window.location.hash || "").indexOf("access_token=") !== -1) {
         showTxLoading("Completo il login Discord…");
         return;

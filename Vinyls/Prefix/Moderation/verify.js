@@ -213,6 +213,5 @@ module.exports = {
       validVerifyRoleIds,
       requiredVerifyRoleIds,
     });
-    // Confirm buttons handled by Buttons/verifyConfirm.js (survives restart until TTL).
-  },
+      },
 };

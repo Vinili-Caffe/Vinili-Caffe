@@ -170,8 +170,7 @@ function drawArena(ctx, params) {
   drawBoard(ctx, board, layout);
   let footer = "Premi Inizia per giocare";
   let footerColor = "#e2e8f0";
-  // Evita notice lunghe (invite/mention) nel footer canvas: escono dalla pillola.
-  const status = String(params.statusLine || "").trim();
+    const status = String(params.statusLine || "").trim();
   const statusIsInviteNoise =
     /sfida|accetta o rifiuta|Galeoni|@\d{5,}/i.test(status) || status.length > 42;
   if (status && !statusIsInviteNoise) {

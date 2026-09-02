@@ -5,23 +5,19 @@ const BET_INPUT_ID = "bet_amount";
 const BET_ACTION = "bet";
 const BET_MODAL_ACTION = "betmodal";
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
-/** Tetto tecnico se maxBet=0 e non abbiamo ancora il saldo. */
 const UNLIMITED_BET_CEILING = 1_000_000_000;
 
 function resolveConfiguredMaxBet(cfg) {
   const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 5));
   const n = Math.floor(Number(cfg?.maxBet));
-  // 0 / assente = nessun tetto fisso (solo disponibilità/saldo).
-  if (!Number.isFinite(n) || n <= 0) return 0;
+    if (!Number.isFinite(n) || n <= 0) return 0;
   return Math.max(min, n);
 }
 
 function resolveEffectiveMaxBet(cfg, balance = null) {
   const min = Math.max(1, Math.floor(Number(cfg?.minBet) || 5));
   const configured = resolveConfiguredMaxBet(cfg);
-  // Importante: Number(null) === 0 — non trattare null/undefined come saldo 0,
-  // altrimenti max collassa a minBet e +/- restano disabilitati.
-  const hasBal = balance != null && balance !== "" && Number.isFinite(Number(balance));
+      const hasBal = balance != null && balance !== "" && Number.isFinite(Number(balance));
   const bal = hasBal ? Math.max(0, Math.floor(Number(balance))) : null;
   if (configured > 0 && hasBal) return Math.max(min, Math.min(configured, bal));
   if (configured > 0) return configured;

@@ -1,4 +1,3 @@
-/** Placeholder modal partnership (i bottoni solo-emoji non hanno testo traducibile su Discord). */
 const PLACEHOLDER_UI_LOCALES = {
   en: {
     ph_default: "Default",

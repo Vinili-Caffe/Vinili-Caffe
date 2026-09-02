@@ -241,12 +241,13 @@
     "maxCandidateAttempts": 80,
     "minOptions": 2,
     "maxOptions": 10,
-    "windowStartHour": 19,
-    "windowStartMinute": 0,
-    "windowEndHour": 21,
-    "windowEndMinute": 59,
-    "scheduleHour": 20,
-    "scheduleMinute": 0
+    "publishInChat": true,
+    "useNativePoll": false,
+    "nativePollDurationHours": 24,
+    "slots": [
+      { "hour": 14, "minute": 30, "key": "1430" },
+      { "hour": 20, "minute": 0, "key": "2000" }
+    ]
   },
   "threadVote": {
     "enabled": true,
@@ -709,7 +710,7 @@
     "nightQuietEndHour": 8
   },
   "hogwartsSpellListHunt": {
-    "enabled": true,
+    "enabled": false,
     "eventKey": "hogwarts_spell_list_hunt_2026",
     "eventDate": "2026-08-22",
     "eventEndDate": "2026-08-23",
@@ -726,7 +727,7 @@
     "leaderboardChannelId": "1481660281032675510"
   },
   "hogwartsFinaleChaosDay": {
-    "enabled": true,
+    "enabled": false,
     "eventKey": "hogwarts_finale_chaos_20260831",
     "startDate": "2026-08-31T00:00:00",
     "endDate": "2026-09-01T00:00:00",
@@ -742,7 +743,7 @@
     "pingRoleId": "1507000390493798511"
   },
   "hogwartsPotions": {
-    "enabled": true,
+    "enabled": false,
     "startDate": "2026-08-24T12:00:00",
     "cooldownMs": 43200000,
     "rewardGaleoni": 100,
@@ -797,6 +798,14 @@
     "reconcileIntervalMs": 900000,
     "redirectUri": "https://www.viniliecaffe.it/webhooks/site-kick-sub/oauth-callback"
   },
+  "counting": {
+    "enabled": false
+  },
+  "dailyChannelMessageStats": {
+    "scheduleEnabled": false,
+    "reportChannelId": "1502241464724361256",
+    "reportGuildId": "1462458562507964584"
+  },
   "serverEconomy": {
     "enabled": false,
     "earnSplitMinPct": 30,
@@ -834,7 +843,7 @@
     }
   },
   "galeoniEconomy": {
-    "enabled": true,
+    "enabled": false,
     "previewMode": false,
     "startDate": "2026-08-10T14:00:00",
     "channelId": "1505910037665808425",
@@ -879,7 +888,11 @@
     "channelIds": [
       "1442569113108218058",
       "1442569121350025306",
-      "1442569134532726855"
+      "1442569134532726855",
+      "1544076627405971527",
+      "1544077497874776358",
+      "1544077007921487942",
+      "1544076839788617728"
     ]
   },
   "sponsorVerifyPanelsEnabled": false,
@@ -916,7 +929,7 @@
     "1471512808448458958": "1471627711901470781"
   },
   "hogwartsEvent": {
-    "enabled": true,
+    "enabled": false,
     "previewMode": false,
     "timezone": "Europe/Rome",
     "startDate": "2026-06-01T14:00:00",

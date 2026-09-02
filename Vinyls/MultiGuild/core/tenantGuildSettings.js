@@ -5,7 +5,6 @@ const { isViniliProtectedGuild, normalizeGuildId } = require("./viniliProtectedG
 const BOT_STATE_KEY = "multiGuildTenantSettings.v1";
 const DEFAULT_PREFIX = "+";
 const PREFIX_MAX_LEN = 5;
-/** Cache process-local: site-api salva, bots deve riprendere il valore senza restart. */
 const SETTINGS_CACHE_TTL_MS = 4_000;
 
 let settingsCache = Object.freeze({});
@@ -45,8 +44,7 @@ function boardsEnabledFromBlob(b) {
   if (!b || typeof b !== "object") return true;
   if (b.e === false || b.enabled === false) return false;
   if (b.e === true || b.enabled === true) return true;
-  // Default ON: server esistenti senza flag restano attivi.
-  return true;
+    return true;
 }
 
 const BOARD_FEATURE_KINDS = Object.freeze(["quote", "repost", "clip", "skull"]);
@@ -67,7 +65,6 @@ function defaultBoardFeatures() {
   return { quote: true, repost: true, clip: true, skull: true };
 }
 
-/** Trascrizione ASR sulle clip vocali (default ON). */
 function readClipTranscriptionFromBlob(b) {
   if (!b || typeof b !== "object") return true;
   const raw = b.ct ?? b.clipTranscription;
@@ -131,8 +128,7 @@ function normalizeBoardFeaturesPatch(raw) {
 function freeTierQuoteStyle() {
   try {
     const { defaultQuoteStyle } = require("../../Utils/Quote/quoteStyle");
-    // PNG statico: evita palette GIF che tinge di rosa/lavanda il bianco.
-    return { ...defaultQuoteStyle(), avatarMode: "static" };
+        return { ...defaultQuoteStyle(), avatarMode: "static" };
   } catch {
     return {
       bg: "black",
@@ -147,7 +143,6 @@ function freeTierQuoteStyle() {
   }
 }
 
-/** Stile quote custom solo con Premium (o guild Vinili full-feature). */
 function guildAllowsCustomQuoteStyleSync(guildId) {
   const gid = normalizeGuildId(guildId);
   if (!gid) return false;
@@ -156,8 +151,7 @@ function guildAllowsCustomQuoteStyleSync(guildId) {
     const { isViniliFullFeatureGuild } = require("./guildFeatureScope");
     if (isViniliFullFeatureGuild(gid)) return true;
   } catch {
-    /* ignore */
-  }
+      }
   try {
     const { isTenantPremiumActiveSync } = require("./tenantPremium");
     return isTenantPremiumActiveSync(gid) === true;
@@ -205,10 +199,6 @@ function rowToBoards(row, guildId = null) {
   };
 }
 
-/**
- * Main/test/sponsor: runtime quote/repost/clip usano IDs.channels.quotes
- * (vedi quotePostChannel), non il blob Mongo tenant. Overlay per la dashboard.
- */
 function applyProtectedBoardsCatalogOverlay(guildId, boards) {
   const gid = normalizeGuildId(guildId);
   if (!gid || !isViniliProtectedGuild(gid)) return boards;
@@ -229,8 +219,7 @@ function applyProtectedBoardsCatalogOverlay(guildId, boards) {
     repostChannelId: catalogQuotes,
     clipChannelId: catalogQuotes,
     skullChannelId: catalogQuotes,
-    // Funzioni quote/repost/clip/skull restano quelle salvate (non forzare sempre ON).
-    features: boards?.features && typeof boards.features === "object"
+        features: boards?.features && typeof boards.features === "object"
       ? { ...defaultBoardFeatures(), ...boards.features }
       : defaultBoardFeatures(),
   };
@@ -353,9 +342,6 @@ function resolveTenantBoardChannelIdSync(guildId, kind = "quote") {
   return boards.sharedChannelId || boards.quoteChannelId || null;
 }
 
-/**
- * Allinea ACL comandi (+quote/+repost/+clip e my*) allo stato delle funzioni bacheca.
- */
 async function syncBoardFeatureCommandAcls(guildId) {
   const gid = normalizeGuildId(guildId);
   if (!gid) return { ok: true, skipped: true };
@@ -395,10 +381,6 @@ function getTenantPrefixSync(guildId, fallback = DEFAULT_PREFIX) {
   return readRowPrefix(settingsCache[gid]) || fb;
 }
 
-/**
- * Prefix comandi per guild: custom tenant se impostato, altrimenti config globale.
- * Sul main Vinili resta sempre il prefix di config.
- */
 function resolveCommandPrefixForGuild(guildId, clientOrFallback) {
   const fallback =
     typeof clientOrFallback === "string"
@@ -418,7 +400,6 @@ async function resolveCommandPrefixForGuildFresh(guildId, clientOrFallback) {
   return resolveCommandPrefixForGuild(guildId, clientOrFallback);
 }
 
-/** Riscrive `+comando` / +comando nel testo UI col prefix del server. */
 function rewriteDefaultCommandPrefix(text, guildPrefix) {
   const p = String(guildPrefix || DEFAULT_PREFIX);
   const raw = String(text ?? "");
@@ -497,12 +478,6 @@ function listTenantGuildIdsWithDashboardRoleSync() {
   return out;
 }
 
-/**
- * @param {string} guildId
- * @param {(row: object) => object} mutator
- * @param {{ allowProtected?: boolean }} [opts]
- *   allowProtected: salva anche sulle guild Vinili protette (es. ruoli accesso dashboard).
- */
 async function persistGuildRow(guildId, mutator, opts = {}) {
   const gid = normalizeGuildId(guildId);
   const allowProtected = opts?.allowProtected === true;
@@ -562,11 +537,6 @@ function getTenantSettingsSnapshotSync(guildId) {
   };
 }
 
-/**
- * Patch partial command ACL map.
- * @param {string} guildId
- * @param {Record<string, object|null>} patch commands[name] = acl | null to clear
- */
 async function patchTenantCommandAclMap(guildId, patch) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
     return { ok: false, reason: "invalid_commands" };
@@ -651,21 +621,6 @@ async function setTenantQuoteChannel(guildId, channelId) {
   return setTenantChannelField(guildId, "q", channelId);
 }
 
-/**
- * @param {string} guildId
- * @param {{
- *   enabled?: boolean,
- *   mode?: "shared"|"split",
- *   sharedChannelId?: string|null,
- *   quoteChannelId?: string|null,
- *   repostChannelId?: string|null,
- *   clipChannelId?: string|null,
- *   skullChannelId?: string|null,
- *   clipTranscription?: boolean,
- *   features?: { quote?: boolean, repost?: boolean, clip?: boolean, skull?: boolean },
- *   quoteStyle?: object,
- * }} patch
- */
 function applyClipTranscriptionToBoardsBlob(prevB, enabled) {
   delete prevB.clipTranscription;
   if (enabled === false) prevB.ct = 0;
@@ -685,8 +640,7 @@ async function setTenantBoards(guildId, patch) {
     return { ok: false, reason: "invalid_boards" };
   }
 
-  // Server protetti: canali/mode restano sul catalogo IDs; stile + funzioni bacheca sì.
-  if (protectedGuild) {
+    if (protectedGuild) {
     const hasQuoteStyle = Object.prototype.hasOwnProperty.call(patch, "quoteStyle");
     const hasFeatures = Object.prototype.hasOwnProperty.call(patch, "features");
     const hasEnabled = Object.prototype.hasOwnProperty.call(patch, "enabled");
@@ -938,8 +892,7 @@ async function setTenantPrefix(guildId, prefix) {
 
 async function setTenantDashboardRoles(guildId, roleIds) {
   const ids = normalizeRoleIdList(roleIds);
-  // Anche sul server principale: l’accesso dashboard si configura da qui.
-  const result = await persistGuildRow(
+    const result = await persistGuildRow(
     guildId,
     (row) => {
       delete row.dashboardRoleId;

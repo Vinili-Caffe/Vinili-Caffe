@@ -1,5 +1,6 @@
 const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Moderation/commandPermissions");
 const { EmbedBuilder } = require("discord.js");
+const { siteUserProfilePageDiscordRef, siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef");
 const PRIVATE_FLAG = 1 << 6;
 const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;
@@ -15,10 +16,6 @@ function isTicketOpenControlId(customId) {
   const id = String(customId || "");
   return TICKET_OPEN_CONTROLS.has(id) || id.startsWith("tkp:");
 }
-/**
- * Ticket interactions already have their own per-channel action locks.
- * Exclude them from the generic anti-spam guard to avoid silent deferred updates.
- */
 const TICKET_GUARD_BYPASS_EXACT = new Set([
   "claim_ticket",
   "unclaim",
@@ -130,7 +127,7 @@ function resolveNotOwnerPanelHint(customId) {
   const id = String(customId || "").trim();
   if (!id) return { label: "pannello", command: null };
   if (id.startsWith("profile_panel:") || id.startsWith("tprof:")) {
-    return { label: "profilo", command: "+profile" };
+    return { label: "profilo", command: null, siteReopen: siteUserProfilePageDiscordRef() };
   }
   if (
     id.startsWith("customrole_") ||
@@ -144,7 +141,7 @@ function resolveNotOwnerPanelHint(customId) {
     id.startsWith("nodm_") ||
     id.startsWith("no_dm")
   ) {
-    return { label: "pannello", command: "+profile" };
+    return { label: "pannello", command: null, siteReopen: siteUserProfilePageDiscordRef() };
   }
   if (id.startsWith("staff_profile_panel:") || id.startsWith("staff_pm_shop:") || id.startsWith("staff_val_neg_trade:")) {
     return { label: "pannello staff", command: null };
@@ -154,7 +151,9 @@ function resolveNotOwnerPanelHint(customId) {
     return { label: "pannello", command: "+backup" };
   }
   if (id.startsWith("level_panel")) return { label: "pannello", command: "+level" };
-  if (id.startsWith("ticket_panel_") || id.startsWith("ticket_")) return { label: "pannello", command: "+ticket" };
+  if (id.startsWith("ticket_panel_") || id.startsWith("ticket_")) {
+    return { label: "pannello", command: null, siteReopen: siteTicketsPageDiscordRef() };
+  }
   if (id.startsWith("mpr:")) return { label: "pannello", command: null };
   return { label: "pannello", command: null };
 }
@@ -165,16 +164,18 @@ function buildDeniedEmbed(gate, controlLabel, viewer = null, customId = "") {
       .setColor("#6f4e37")
       .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
       .setDescription(
-        `<:VC_Attention:1482534443632558151> Puoi usare solo **il tuo** pannello profilo partner. Esegui di nuovo \`+profile\` per aprirlo.`,
+        `<:VC_Attention:1482534443632558151> Puoi usare solo **il tuo** pannello profilo partner. Esegui di nuovo [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per aprirlo.`,
       );
   }
 
   if (gate.reason === "not_owner") {
     const hint = resolveNotOwnerPanelHint(customId);
     if (gate.ownerId) {
-      const reopen = hint.command
-        ? ` Usa \`${hint.command}\` per aprirne uno tuo.`
-        : " Usa solo i tuoi controlli.";
+      const reopen = hint.siteReopen
+        ? ` Apri il ${hint.siteReopen} per aprirne uno tuo.`
+        : hint.command
+          ? ` Usa \`${hint.command}\` per aprirne uno tuo.`
+          : " Usa solo i tuoi controlli.";
       return new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
@@ -214,8 +215,7 @@ async function sendPrivateInteractionResponse(interaction, payload) {
     }
 
     if (interaction.deferred && !interaction.replied) {
-      // Dopo deferUpdate non usare editReply per avvisi privati (sovrascriverebbe il messaggio).
-      await interaction.followUp(payload);
+            await interaction.followUp(payload);
       return;
     }
 

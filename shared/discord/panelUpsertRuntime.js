@@ -226,22 +226,15 @@ function preparePanelDiscordPayload(payload) {
   delete p.messageId;
   delete p.attachmentName;
   delete p.forceNew;
-  // includeBanner / includeThumbnail / includeAuthor restano fino al patch edit
-  // (replyRuntime li toglie dopo aver applicato il branding).
-  if (!("content" in p) || p.content === undefined) {
+      if (!("content" in p) || p.content === undefined) {
     p.content = "";
   }
-  // In edit Discord *appende* i nuovi `files` agli allegati già presenti.
-  // Per sostituire (es. 1 sola GIF pannello) bisogna azzerare quelli da tenere.
-  // Nota: alcuni payload con `attachments: []` + files invalidi danno 50035 — l’edit
-  // fa retry senza `attachments` se serve (vedi upsertPanelMessage).
-  if (Array.isArray(p.files) && p.files.length > 0) {
+          if (Array.isArray(p.files) && p.files.length > 0) {
     p.attachments = [];
   }
   return p;
 }
 
-/** Se il messaggio ha già la GIF del pannello, non ri-caricarla a ogni edit/startup. */
 function omitPanelFilesIfAttachmentPresent(message, payload) {
   if (!message || !payload || typeof payload !== "object") return payload;
   const attachmentName = String(payload.attachmentName || "").trim().toLowerCase();
@@ -267,8 +260,7 @@ async function editPanelMessageSafe(message, editPayload) {
   let result = await tryEdit(editPayload);
   if (result.ok) return result;
 
-  // 50035 su attachments: riprova senza clear esplicito.
-  if (
+    if (
     Number(result.code) === 50035 &&
     editPayload &&
     Object.prototype.hasOwnProperty.call(editPayload, "attachments")
@@ -279,8 +271,7 @@ async function editPanelMessageSafe(message, editPayload) {
     if (result.ok) return result;
   }
 
-  // Ultimo tentativo: solo embeds/components/content (niente files/attachments).
-  if (editPayload && (editPayload.files || editPayload.attachments)) {
+    if (editPayload && (editPayload.files || editPayload.attachments)) {
     const soft = { ...editPayload };
     delete soft.files;
     delete soft.attachments;
@@ -301,8 +292,7 @@ async function shouldEditMessage(message, payload) {
   if (toComparableComponents(message?.components || []) !== toComparableComponents(payload?.components || [])) return true;
   const expectedFiles = Array.isArray(payload?.files) ? payload.files.length : 0;
   const actualAttachments = Number(message?.attachments?.size || 0);
-  // Pannelli con media: forza replace se Discord ha accumulato allegati multipli.
-  if (expectedFiles > 0 && actualAttachments !== expectedFiles) return true;
+    if (expectedFiles > 0 && actualAttachments !== expectedFiles) return true;
   return false;
 }
 
@@ -321,8 +311,7 @@ async function upsertPanelMessage(channel, client, payload) {
       upsertCachedBotPanelMessage(channel, client, edited.message);
       return { ok: true, message: edited.message };
     }
-    // Unknown Message: non fingere successo e non re-persistare lo stesso id.
-    if (Number(edited.code) === 10008) {
+        if (Number(edited.code) === 10008) {
       global.logger?.warn?.(
         `[panelUpsert] stale message ${existing.id} in #${channel?.id} (10008); clearing.`,
       );
@@ -356,8 +345,7 @@ async function upsertPanelMessage(channel, client, payload) {
     return null;
   }
 
-  // Manda esplicito: non riusare messaggi simili già in canale.
-  if (forceNew) return finalize(await sendNew());
+    if (forceNew) return finalize(await sendNew());
 
   if (messageId) {
     const direct = await channel.messages.fetch(messageId).catch((error) => {
@@ -369,8 +357,7 @@ async function upsertPanelMessage(channel, client, payload) {
         `[panelUpsert] stored messageId ${messageId} missing in #${channel?.id} (10008).`,
       );
       if (editOnly) return finalize({ ok: false, staleMessageId: String(messageId) });
-      // Publish esplicito: ricrea invece di restare bloccati sull'id morto.
-      return finalize(await sendNew());
+            return finalize(await sendNew());
     }
     if (direct) {
       const edited = await editExisting(direct);
@@ -379,8 +366,7 @@ async function upsertPanelMessage(channel, client, payload) {
         if (editOnly) return finalize(edited);
         return finalize(await sendNew());
       }
-      // Altri errori edit: non creare duplicati.
-      return finalize(edited);
+            return finalize(edited);
     }
   }
 

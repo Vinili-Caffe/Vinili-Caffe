@@ -408,8 +408,7 @@
     refresh: refresh,
   };
 
-  // Pagina legacy standalone (prima del redirect): se presente, monta sul panel.
-  try {
+    try {
     if (document.body && document.body.classList.contains("vc-staff-punti-tolti-page") && T()) {
       T().bootPage(function () {
         var panel = document.getElementById("vc-staff-pt-panel");

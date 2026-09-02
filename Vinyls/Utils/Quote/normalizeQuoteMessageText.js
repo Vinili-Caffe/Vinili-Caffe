@@ -1,6 +1,3 @@
-/**
- * @param {import("discord.js").Message} targetMessage
- */
 function normalizeQuoteMessageText(targetMessage) {
   const raw = String(targetMessage?.content || "");
   const users = targetMessage?.mentions?.users;

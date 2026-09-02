@@ -1,8 +1,6 @@
 const mongoose = require("mongoose");
 
-/** Documento `botstates` con `domains` popolato dallo script migrate-domain-states-to-botstate.js */
 const DOMAIN_STATES_BOTSTATE_KEY = "__domain_states__";
-/** Unico documento dopo scripts/compact-botstates.js (value = mappa chiave → payload) */
 const COMPACT_BOTSTATE_KEY = "__bot_state_compact__";
 
 const {

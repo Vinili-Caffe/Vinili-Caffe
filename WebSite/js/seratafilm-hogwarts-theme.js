@@ -402,8 +402,7 @@
 
   function applyThemeBackground() {
     var url = resolveThemeVideoUrl();
-    // Prefer always a local HTML5 file: YouTube embeds are slow and flash the player chrome.
-    if (!url || parseYoutubeVideoId(url)) {
+        if (!url || parseYoutubeVideoId(url)) {
       url = "/images/evento-hogwarts/theme-bg.mp4";
     }
     try {

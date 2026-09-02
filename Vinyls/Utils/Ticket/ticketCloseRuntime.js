@@ -13,7 +13,6 @@ const {
   TICKET_UX_COLOR,
 } = require("./ticketUxMessages");
 
-/** Testo transcript in Mongo: cap stretto (i ticket vivono in un bucket condiviso da 16MB). */
 const TRANSCRIPT_TXT_DB_MAX_CHARS = 2_000;
 
 function compactTranscriptTextForDb(raw) {
@@ -171,8 +170,7 @@ async function closeTicket(targetInteraction, motivo, helpers) {
         : await getNextTicketId(closeGuildId);
     const closedAt = new Date();
 
-    // Claim atomico PRIMA del transcript (evita false "già chiuso" su update fallito dopo transcript).
-    let ticket = await Ticket.findOneAndUpdate(
+        let ticket = await Ticket.findOneAndUpdate(
       { channelId, open: true },
       {
         $set: {
@@ -190,8 +188,7 @@ async function closeTicket(targetInteraction, motivo, helpers) {
     );
 
     if (!ticket) {
-      // DB già closed ma canale ancora vivo → completa la chiusura cancellando il canale.
-      const stuck = await Ticket.findOne({ channelId }).catch(() => null);
+            const stuck = await Ticket.findOne({ channelId }).catch(() => null);
       if (stuck && targetInteraction.channel) {
         await safeEditReply(targetInteraction, {
           embeds: [
@@ -243,8 +240,7 @@ async function closeTicket(targetInteraction, motivo, helpers) {
       transcriptViewToken = secureT.transcriptViewToken || null;
       transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
     }
-    // Sempre una copia testo compatta: se il file HTML viene ripulito dal disco resta un fallback.
-    const transcriptForDb = compactTranscriptTextForDb(transcriptTXT);
+        const transcriptForDb = compactTranscriptTextForDb(transcriptTXT);
     let userTag = null;
     try {
       const opener =
@@ -483,8 +479,7 @@ async function closeOpenTicketsForGuildUser(guild, userId, options = {}) {
         ticketNumber = await getNextTicketId(ticket.guildId || guild?.id || ticketGuild?.id);
       }
       const closedAt = new Date();
-      // Sempre una copia testo compatta come fallback se il file HTML sparisce dal disco.
-      const transcriptForDb = compactTranscriptTextForDb(transcriptTXT);
+            const transcriptForDb = compactTranscriptTextForDb(transcriptTXT);
       let userTag = String(ticket.userTag || "").trim() || null;
       if (!userTag) {
         const user = await getUserCached(client, ticket.userId).catch(() => null);

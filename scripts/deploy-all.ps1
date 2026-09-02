@@ -1,7 +1,4 @@
-# Backend: tarball con Vinyls/Coffee, wait-for-lavalink.js, ecosystem.config.cjs e cartella Lavalink (config + start-lavalink.sh).
-# Sul server: dopo l'estrazione — scarica Lavalink.jar se manca (4.2.2), crea plugins/, normalizza CRLF su start-lavalink.sh,
-# applica opzionale Lavalink/.env.lavalink caricato in /tmp prima dello script remoto (file locale non nel tarball).
-# PM2: reload ecosystem (lavalink = java -jar + spring.config.additional-location; vedi ecosystem.config.cjs).
+
 param(
   [string]$Server = "vinili",
   [string]$User = "root",
@@ -129,8 +126,6 @@ function Get-ProcessArgumentString([string[]]$Parts) {
 }
 
 function Invoke-RemoteBashScript([string]$Target, [string]$Script) {
-  # Drain stdout/stderr while ssh runs. Waiting first then reading deadlocks once
-  # the OS pipe buffer fills (common on long remote deploy scripts with lots of output).
   $normalized = ($Script -replace "`r`n", "`n" -replace "`r", "`n").TrimEnd() + "`n"
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($normalized)
   $argParts = @($sshArgs) + @($Target, "bash -s")

@@ -244,8 +244,7 @@ function stripTrailingManagerLine(text) {
   return String(text || "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
-    // Consenti emoji badge dopo <@id>.
-    .replace(/\n*<:VC_Mention:\d+>\s*Manager:\s*<@!?\d+>(?:\s+[^\n]*)?\s*$/gi, "")
+        .replace(/\n*<:VC_Mention:\d+>\s*Manager:\s*<@!?\d+>(?:\s+[^\n]*)?\s*$/gi, "")
     .replace(/\n*Manager:\s*<@!?\d+>(?:\s+[^\n]*)?\s*$/gi, "")
     .trim();
 }
@@ -265,7 +264,6 @@ function formatPartnershipManagerLine(managerId, badgeEmojis = null) {
   return `\n\n<:VC_Mention:1482526855289634997> Manager: <@${managerId}>${formatManagerBadgeSuffix(badgeEmojis)}`;
 }
 
-/** Ping automatici + riga Manager da mettere nel `content` sopra l'embed thank-you. */
 function buildPartnershipAboveEmbedContent({
   managerId = null,
   pingPlan = null,
@@ -347,10 +345,8 @@ function resolvePartnershipDescriptionForPublish({
   legacy = false,
   contentFilters = null,
 } = {}) {
-  // Pulisci dump inoltri Discord (`> # …`) prima dei filtri contenuti.
-  const raw = unwrapDiscordForwardQuoteDump(String(description || "").trim());
-  // Legacy/main: usa i filtri salvati in dashboard se presenti, altrimenti i default storici.
-  const filters = legacy
+    const raw = unwrapDiscordForwardQuoteDump(String(description || "").trim());
+    const filters = legacy
     ? normalizePartnershipContentFilters(
         contentFilters && typeof contentFilters === "object"
           ? contentFilters

@@ -9,9 +9,18 @@ const { broadcastSiteReviewsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService");
 const { syncPersistentAutoValutazioniForMember, removeAutoValutazione } = require("../../Services/Staff/staffAutoValutazioniService");
-const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
+const {
+  userAvatarUrlDynamic,
+  guildMemberDisplayAvatarUrlDynamic,
+  guildMemberDisplayAvatarUrlStatic,
+  memberDisplayName,
+} = require("../Discord/guildDiscordIdentity");
 const {
   applyLiveAvatarToSuggestionLike,
+  applyLiveAvatarToSuggestionLikeAsync,
+  collectUserIdsFromSuggestionLikeDocs,
+  prefetchGuildMembersForIds,
+  prefetchUsersForIds,
   resolveSiteAvatarUrl,
   stabilizeDiscordCdnAvatarUrl,
 } = require("./siteLiveAvatars");
@@ -61,7 +70,6 @@ function sanitizeReplyContent(value) {
     .slice(0, 800);
 }
 
-/** Risposta ufficiale a nome del server: solo Admin / High Staff / owner (non staff normale). */
 function memberCanReplyAsServer(member) {
   if (!member || member.user?.bot) return false;
   const hasRole = (id) => {
@@ -73,13 +81,12 @@ function memberCanReplyAsServer(member) {
   try {
     if (String(member.guild?.ownerId || "") === String(member.id)) return true;
   } catch (_) {
-    /* ignore */
-  }
+      }
   return false;
 }
 
 function displayNameForMember(member) {
-  return String(member?.user?.username || "").trim() || "Utente";
+    return memberDisplayName(member) || "Utente";
 }
 
 async function resolveGuild(client) {
@@ -116,12 +123,7 @@ async function getStaffTargets(client, guild) {
       id: String(member.id),
       name: displayNameForMember(member),
       avatarUrl:
-        stabilizeDiscordCdnAvatarUrl(
-          guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
-            guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) ||
-            "",
-          { size: 128 },
-        ) || "",
+        resolveSiteAvatarUrl(guild, member.id, "", { size: 128, preferAnimated: true }) || "",
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "it", { sensitivity: "base" }));
   const ids = new Set(list.map((entry) => entry.id));
@@ -408,6 +410,10 @@ async function getSiteReviews(client, payload = {}) {
     : Promise.resolve(null);
   const [kindDocs, resolved] = await Promise.all([docsP, viewerP]);
 
+  const reviewUserIds = collectUserIdsFromSuggestionLikeDocs(kindDocs);
+  await prefetchGuildMembersForIds(guild, reviewUserIds);
+  await prefetchUsersForIds(client, reviewUserIds);
+
   let viewer = null;
   let viewerUserId = "";
   if (resolved && resolved.ok) {
@@ -428,20 +434,30 @@ async function getSiteReviews(client, payload = {}) {
       botReview: null,
       staffReviews: [],
     };
-    viewerDocs.forEach((doc) => {
-      const entry = applyLiveAvatarToSuggestionLike(enrichPublicReviewDoc(doc, staffMap, viewerUserId), guild, {
-        size: 128,
-      });
+    for (const doc of viewerDocs) {
+      const entry = await applyLiveAvatarToSuggestionLikeAsync(
+        enrichPublicReviewDoc(doc, staffMap, viewerUserId),
+        guild,
+        client,
+        { size: 128 },
+      );
       if (entry.kind === "server") viewer.serverReview = entry;
       if (entry.kind === "bot") viewer.botReview = entry;
-    });
+    }
   }
 
-  function enrichPublicReview(doc) {
-    return applyLiveAvatarToSuggestionLike(enrichPublicReviewDoc(doc, staffMap, viewerUserId), guild, { size: 128 });
+  async function enrichPublicReview(doc) {
+    return applyLiveAvatarToSuggestionLikeAsync(
+      enrichPublicReviewDoc(doc, staffMap, viewerUserId),
+      guild,
+      client,
+      { size: 128 },
+    );
   }
 
-  const serialized = sortSerializedReviewsNewestFirst((Array.isArray(kindDocs) ? kindDocs : []).map((doc) => enrichPublicReview(doc)));
+  const serialized = sortSerializedReviewsNewestFirst(
+    await Promise.all((Array.isArray(kindDocs) ? kindDocs : []).map((doc) => enrichPublicReview(doc))),
+  );
   return {
     ok: true,
     status: 200,
@@ -540,8 +556,7 @@ async function submitSiteReview(client, payload = {}) {
   if (reviewKind === "server") {
     const prevRating = Math.floor(Number(existing?.rating || 0));
     const nextRating = Math.floor(Number(nextDoc?.rating || payload?.rating || 0));
-    // Crea la val solo al primo passaggio ≥4 (nuova o upgrade). Gli edit non devono ripubblicarla.
-    const crossedIntoEligible = nextRating >= 4 && (!existing || prevRating < 4);
+        const crossedIntoEligible = nextRating >= 4 && (!existing || prevRating < 4);
     if (crossedIntoEligible) {
       await syncPersistentAutoValutazioniForMember(resolved.member, {
         allowCreate: true,

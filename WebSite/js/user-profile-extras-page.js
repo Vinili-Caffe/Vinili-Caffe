@@ -96,10 +96,20 @@
     if (!host) {
       host = document.createElement("div");
       host.id = "vc-profile-extras-toast-host";
-      host.className = "vc-cpf-toast-host";
+      host.className = "vc-dash-save-toast-host vc-site-toast-host vc-cpf-toast-host";
       document.body.appendChild(host);
     }
-    host.innerHTML = '<div class="vc-cpf-toast' + (isError ? " is-error" : "") + '">' + esc(msg) + "</div>";
+    host.className = "vc-dash-save-toast-host vc-site-toast-host vc-cpf-toast-host";
+    host.innerHTML =
+      '<div class="vc-dash-save-toast' +
+      (isError ? " is-error" : "") +
+      ' is-visible" role="status">' +
+      '<span class="vc-dash-save-toast__icon" aria-hidden="true"><i class="fa fa-' +
+      (isError ? "times" : "check") +
+      '"></i></span>' +
+      '<p class="vc-dash-save-toast__text">' +
+      esc(msg) +
+      "</p></div>";
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(function () {
       host.innerHTML = "";
@@ -116,17 +126,58 @@
     return opts;
   }
 
+  function mapExtrasGetPayload(status, httpOk, data) {
+    if (data && typeof data === "object") {
+      data.status = status;
+      if (!data.message && !data.ok) {
+        if (status === 401) data.message = "Sessione Discord scaduta: effettua di nuovo il login.";
+        else if (status === 429) data.message = "Troppe richieste. Riprova tra poco.";
+        else if (status >= 500) data.message = "Il server non risponde. Riprova tra poco.";
+        else data.message = "Impossibile caricare (HTTP " + status + ").";
+      }
+      if (status === 429) data.error = data.error || "rate_limited";
+      return data;
+    }
+    return {
+      ok: false,
+      status: status,
+      message:
+        status === 401
+          ? "Sessione Discord scaduta: effettua di nuovo il login."
+          : status === 429
+            ? "Troppe richieste. Riprova tra poco."
+            : "Risposta non valida dal server (HTTP " + status + ").",
+      error: status === 429 ? "rate_limited" : undefined,
+    };
+  }
+
   async function apiGet() {
     var token = getToken();
     if (!token) return { ok: false, error: "missing_token", message: "Accedi con Discord." };
-    var res;
     var url = apiUrl();
-    try {
-      var tab = parseTab();
-      if (tab) {
-        url += (url.indexOf("?") >= 0 ? "&" : "?") + "section=" + encodeURIComponent(tab);
-      }
-    } catch (eSec) {}
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      try {
+        var cacheKey = window.VcApiCache.keyFor(url, { scope: "profileExtras", auth: token, v: "extrasFull1" });
+        var payload = await window.VcApiCache.fetchWithCache(cacheKey, url, {
+          ttlMs: 120000,
+          staleMs: 900000,
+          persistMs: 30 * 60 * 1000,
+          timeoutMs: 22000,
+          fetchInit: fetchOpts({ headers: { Accept: "application/json", Authorization: "Bearer " + token } }),
+        });
+        if (payload && payload.blocked) {
+          var blockedBody = payload.body && typeof payload.body === "object" ? payload.body : { ok: false, error: "rate_limited" };
+          return mapExtrasGetPayload(429, false, blockedBody);
+        }
+        return mapExtrasGetPayload(
+          Number((payload && payload.status) || 0),
+          Boolean(payload && payload.ok),
+          payload && payload.body,
+        );
+      } catch (eCache) {
+              }
+    }
+    var res;
     try {
       res = await fetch(
         url,
@@ -152,24 +203,7 @@
     } catch (e) {
       data = null;
     }
-    if (data && typeof data === "object") {
-      data.status = res.status;
-      if (!data.message && !data.ok) {
-        if (res.status === 401) data.message = "Sessione Discord scaduta: effettua di nuovo il login.";
-        else if (res.status === 429) data.message = "Troppe richieste. Riprova tra poco.";
-        else if (res.status >= 500) data.message = "Il server non risponde. Riprova tra poco.";
-        else data.message = "Impossibile caricare (HTTP " + res.status + ").";
-      }
-      return data;
-    }
-    return {
-      ok: false,
-      status: res.status,
-      message:
-        res.status === 401
-          ? "Sessione Discord scaduta: effettua di nuovo il login."
-          : "Risposta non valida dal server (HTTP " + res.status + ").",
-    };
+    return mapExtrasGetPayload(res.status, res.ok, data);
   }
 
   async function apiPost(body) {
@@ -194,6 +228,13 @@
       data = null;
     }
     if (data && typeof data === "object") data.status = res.status;
+    if (data && data.ok && window.VcApiCache && typeof window.VcApiCache.invalidate === "function") {
+      try {
+        window.VcApiCache.invalidate(
+          window.VcApiCache.keyFor(apiUrl(), { scope: "profileExtras", auth: token, v: "extrasFull1" }),
+        );
+      } catch (eInv) {}
+    }
     return data || { ok: false, status: res.status, message: "Risposta non valida." };
   }
 
@@ -225,23 +266,56 @@
       return Promise.resolve(guildEmojis);
     }
     guildEmojisLoading = true;
-    return fetch(emojisApiUrl(), {
-      method: "GET",
-      headers: { Accept: "application/json", Authorization: "Bearer " + token },
-      credentials: "omit",
-    })
-      .then(function (res) {
-        return res.json().catch(function () {
-          return null;
+    var emojiUrl = emojisApiUrl();
+    var fetchEmojis = function () {
+      return fetch(emojiUrl, {
+        method: "GET",
+        headers: { Accept: "application/json", Authorization: "Bearer " + token },
+        credentials: "omit",
+      })
+        .then(function (res) {
+          return res.json().catch(function () {
+            return null;
+          });
+        })
+        .then(function (data) {
+          guildEmojisLoading = false;
+          guildEmojisLoaded = true;
+          guildEmojis = data && data.ok && Array.isArray(data.emojis) ? data.emojis : [];
+          return guildEmojis;
         });
-      })
-      .then(function (data) {
-        guildEmojisLoading = false;
-        guildEmojisLoaded = true;
-        guildEmojis = data && data.ok && Array.isArray(data.emojis) ? data.emojis : [];
-        return guildEmojis;
-      })
-      .catch(function () {
+    };
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      var emojiKey = window.VcApiCache.keyFor(emojiUrl, { scope: "profileEmojis", auth: token, v: "1" });
+      return window.VcApiCache
+        .fetchWithCache(emojiKey, emojiUrl, {
+          ttlMs: 300000,
+          staleMs: 3600000,
+          persistMs: 24 * 60 * 60 * 1000,
+          timeoutMs: 18000,
+          fetchInit: {
+            method: "GET",
+            headers: { Accept: "application/json", Authorization: "Bearer " + token },
+            credentials: "omit",
+          },
+        })
+        .then(function (payload) {
+          guildEmojisLoading = false;
+          guildEmojisLoaded = true;
+          var body = payload && payload.body;
+          guildEmojis = body && body.ok && Array.isArray(body.emojis) ? body.emojis : [];
+          return guildEmojis;
+        })
+        .catch(function () {
+          return fetchEmojis().catch(function () {
+            guildEmojisLoading = false;
+            guildEmojisLoaded = true;
+            guildEmojis = [];
+            return guildEmojis;
+          });
+        });
+    }
+    return fetchEmojis().catch(function () {
         guildEmojisLoading = false;
         guildEmojisLoaded = true;
         guildEmojis = [];
@@ -306,6 +380,15 @@
       return window.VcEmojiPicker.customUrl(String(id), animated === true, size || 32);
     }
     var n = Math.min(128, Math.max(16, Number(size) || 32));
+    if (animated === true) {
+      return (
+        "https://cdn.discordapp.com/emojis/" +
+        encodeURIComponent(String(id)) +
+        ".webp?size=" +
+        n +
+        "&animated=true"
+      );
+    }
     return (
       "https://cdn.discordapp.com/emojis/" + encodeURIComponent(String(id)) + ".webp?size=" + n + "&quality=lossless"
     );
@@ -326,7 +409,9 @@
     return ch ? "unicode:" + ch : "";
   }
 
-  function tokenToPreviewHtml(token) {
+  function tokenToPreviewHtml(token, displayHint) {
+    var hint = String(displayHint || "").trim();
+    if (hint && hint.indexOf("<") >= 0) return renderDiscordContentHtml(hint);
     var raw = String(token || "");
     if (raw.startsWith("custom:")) {
       var id = raw.slice(7);
@@ -344,11 +429,11 @@
     return esc(raw);
   }
 
-  function reactionTokensToHtml(tokens) {
+  function reactionTokensToHtml(tokens, displays) {
     if (!tokens || !tokens.length) return "";
     return tokens
-      .map(function (t) {
-        return tokenToPreviewHtml(t);
+      .map(function (t, i) {
+        return tokenToPreviewHtml(t, displays && displays[i]);
       })
       .join("");
   }
@@ -544,11 +629,11 @@
     }
   }
 
-  function reactionSlotHtml(index, token, isAdd) {
+  function reactionSlotHtml(index, token, displayHint, isAdd) {
     return (
       '<div class="vc-px-reaction-slot">' +
       '<div class="vc-px-reaction-slot__preview">' +
-      (token ? tokenToPreviewHtml(token) : '<span class="vc-px-reaction-slot__empty">—</span>') +
+      (token ? tokenToPreviewHtml(token, displayHint) : '<span class="vc-px-reaction-slot__empty">—</span>') +
       "</div>" +
       '<button type="button" class="vc-cpf-btn vc-cpf-btn--ghost vc-px-reaction-slot__pick" data-px="reactions-pick" data-index="' +
       esc(String(index)) +
@@ -608,9 +693,20 @@
       document.documentElement.classList.remove("vc-loading-scroll-lock");
       document.documentElement.classList.remove("vc-page-cine-boot");
       document.documentElement.classList.add("vc-page-cine-ready");
+      document.documentElement.classList.add("vc-styles-ready");
+      document.documentElement.classList.add("vc-core-styles-ready");
       document.documentElement.classList.add("vc-pers-extras-ready");
       document.body.classList.add("vc-custom-profile-page");
     } catch (e) {}
+    try {
+      var persMain = byId("vc-personalizza-root");
+      if (persMain) {
+        persMain.style.removeProperty("visibility");
+        persMain.style.removeProperty("opacity");
+        persMain.style.removeProperty("pointer-events");
+        persMain.style.removeProperty("display");
+      }
+    } catch (eMain) {}
     try {
       var page = byId("vc-custom-profile-page");
       if (page) page.hidden = false;
@@ -1143,13 +1239,14 @@
       );
     }
     var tokens = Array.isArray(r.reactions) ? r.reactions : [];
+    var displays = Array.isArray(r.display) ? r.display : [];
     var max = Number(r.max) || 3;
     var previewHtml = tokens.length
-      ? reactionTokensToHtml(tokens)
+      ? reactionTokensToHtml(tokens, displays)
       : '<span class="vc-px-muted">Nessuna reaction attiva</span>';
     var slotsHtml = "";
-    for (var si = 0; si < tokens.length; si++) slotsHtml += reactionSlotHtml(si, tokens[si], false);
-    if (tokens.length < max) slotsHtml += reactionSlotHtml(tokens.length, null, true);
+    for (var si = 0; si < tokens.length; si++) slotsHtml += reactionSlotHtml(si, tokens[si], displays[si], false);
+    if (tokens.length < max) slotsHtml += reactionSlotHtml(tokens.length, null, "", true);
     return layout(
       stageCard("fa-smile-o", "Mention Reactions", previewHtml, { rich: true }),
       blockBody(
@@ -1425,8 +1522,7 @@
         if (!t || !t.closest) return;
         if (t.closest("[data-vc-px-select]")) return;
         if (t.closest(".vc-px-select__panel.is-portaled")) {
-          // Pick from portaled panel (outside app.onclick tree).
-          var pickBtn = t.closest("[data-px='select-pick']");
+                    var pickBtn = t.closest("[data-px='select-pick']");
           if (pickBtn) {
             var panel = pickBtn.closest(".vc-px-select__panel.is-portaled");
             var root = panel && panel._vcPxRoot;
@@ -1467,9 +1563,25 @@
     }
   }
 
+  function readCachedExtrasPayload(token) {
+    if (!window.VcApiCache || typeof window.VcApiCache.keyFor !== "function") return null;
+    try {
+      var keys = ["extrasFull1", "429fix4"];
+      for (var i = 0; i < keys.length; i += 1) {
+        var cacheKey = window.VcApiCache.keyFor(apiUrl(), { scope: "profileExtras", auth: token, v: keys[i] });
+        var raw = sessionStorage.getItem("vc:apicache:" + cacheKey);
+        if (!raw) continue;
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.value && parsed.value.body && parsed.value.body.ok) return parsed.value.body;
+      }
+    } catch (eCacheRead) {}
+    return null;
+  }
+
   function isRetryableExtrasError(data) {
     if (!data || data.ok === true) return false;
-    if (data.error === "timeout" || data.error === "network" || data.status === 429) return true;
+    if (data.error === "rate_limited" || data.status === 429) return false;
+    if (data.error === "timeout" || data.error === "network") return true;
     var msg = String((data && data.message) || "").toLowerCase();
     return msg.indexOf("timeout") >= 0 || msg.indexOf("rete") >= 0 || msg.indexOf("riprova") >= 0;
   }
@@ -1498,12 +1610,17 @@
         return boot(attempt + 1);
       }
       if (!data || !data.ok) {
+        var cachedExtras = readCachedExtrasPayload(getToken());
+        if (cachedExtras) {
+          state.data = cachedExtras;
+          render();
+          return;
+        }
         showExtrasFatal((data && data.message) || "Impossibile caricare.");
         return;
       }
       state.data = data;
-      // Emoji in background: non bloccare il primo paint di Response/Reactions.
-      if (parseTab() === "reactions" || parseTab() === "response") {
+            if (parseTab() === "reactions" || parseTab() === "response") {
         void ensureGuildEmojis().then(function () {
           try {
             if (parseTab() === "reactions" || parseTab() === "response") render();

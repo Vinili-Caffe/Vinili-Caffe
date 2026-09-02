@@ -11,7 +11,10 @@ const NUMBER_EMOJIS = ["<:1_:1444099163116535930>", "<:2_:1444099161673826368>",
 const POLL_VOTE_EMOJI_IDS = new Set(
   NUMBER_EMOJIS.map((entry) => String(entry.match(/:(\d+)>$/)?.[1] || "").trim()).filter(Boolean),
 );
-const pollChannelCache = new Map();
+const POLL_ROLE_ID = "1442569014474965033";
+const NATIVE_POLL_QUESTION_MAX = 300;
+const NATIVE_POLL_ANSWER_MAX = 55;
+const DEFAULT_NATIVE_POLL_DURATION_HOURS = 24;
 
 function errorEmbed(description) {
   return new EmbedBuilder()
@@ -27,6 +30,52 @@ function successEmbed(description) {
 
 async function getPollChannel(interaction) {
   return getPollChannelFromGuild(interaction?.guild);
+}
+
+async function getChatChannelFromGuild(guild) {
+  if (!guild) return null;
+  const channelId = IDs.channels?.chat;
+  if (!channelId) return null;
+  const client = guild.client;
+  if (!client) return null;
+  let ch =
+    client.channels.cache.get(channelId) ||
+    (await getClientChannelCached(client, String(channelId), { ttlMs: POLL_CHANNEL_CACHE_TTL_MS }));
+  if (!ch) {
+    ch = await client.channels.fetch(String(channelId)).catch(() => null);
+  }
+  if (ch && ch.guildId && ch.guildId !== guild.id) ch = null;
+  if (!ch || !ch.isTextBased?.()) return null;
+  return ch;
+}
+
+function truncateNativePollText(value, maxLen) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, Math.max(0, maxLen - 1)).trim()}…`;
+}
+
+function buildNativePollMessageOptions(question, answers, durationHours = DEFAULT_NATIVE_POLL_DURATION_HOURS) {
+  const safeQuestion = truncateNativePollText(question, NATIVE_POLL_QUESTION_MAX);
+  const safeAnswers = answers
+    .map((entry) => truncateNativePollText(entry, NATIVE_POLL_ANSWER_MAX))
+    .filter(Boolean);
+  const duration = Math.max(1, Math.min(168, Math.floor(Number(durationHours) || DEFAULT_NATIVE_POLL_DURATION_HOURS)));
+  return {
+    poll: {
+      question: { text: safeQuestion },
+      answers: safeAnswers.map((text) => ({ text })),
+      duration,
+      allowMultiselect: false,
+    },
+  };
+}
+
+function buildChatNativePollContent(pollNumber) {
+  return `<a:VC_Ping:1482694298687246377>︲<@&${POLL_ROLE_ID}>
+
+<:VC_id:1478517313618575419> **Poll #${pollNumber}**`;
 }
 
 async function getPollChannelFromGuild(guild) {
@@ -256,9 +305,20 @@ async function createPollForGuild(guild, payload = {}) {
   if (!guildId) {
     return { ok: false, error: "<:vegax:1443934876440068179> Guild non valida." };
   }
-  const channel = await getPollChannelFromGuild(guild);
+
+  const useNativePoll = payload.useNativePoll === true;
+  const publishInChat = payload.publishInChat === true || useNativePoll;
+  const skipReactions = payload.skipReactions === true || publishInChat;
+  const channel = publishInChat
+    ? await getChatChannelFromGuild(guild)
+    : await getPollChannelFromGuild(guild);
   if (!channel) {
-    return { ok: false, error: "<:vegax:1443934876440068179> Canale poll non trovato o non valido." };
+    return {
+      ok: false,
+      error: publishInChat
+        ? "<:vegax:1443934876440068179> Canale chat non trovato o non valido."
+        : "<:vegax:1443934876440068179> Canale poll non trovato o non valido.",
+    };
   }
 
   const question = String(payload.question || "").trim();
@@ -276,7 +336,10 @@ async function createPollForGuild(guild, payload = {}) {
     };
   }
 
-  const { text: answersText, validEmojis } = buildAnswersSection(answers);
+  const filledAnswers = answers.filter((entry) => entry != null && String(entry).trim() !== "");
+  if (filledAnswers.length < 2) {
+    return { ok: false, error: "<:vegax:1443934876440068179> Servono almeno 2 risposte." };
+  }
 
   const counter = await Poll.findOneAndUpdate(
     { guildId, domanda: COUNTER_FILTER_QUESTION },
@@ -288,18 +351,46 @@ async function createPollForGuild(guild, payload = {}) {
   );
 
   const pollNumber = Number(counter?.pollcount || 1);
-  const pollMessage = await channel
-    .send({ content: buildPollMessageContent(pollNumber, question, answersText) })
-    .catch((err) => {
-      global.logger?.warn?.("[poll] channel.send failed:", {
-        guildId,
-        channelId: channel?.id,
-        source,
-        err: err?.message || err,
-        code: err?.code,
+  let pollMessage = null;
+
+  if (useNativePoll) {
+    const nativeDurationHours = Number(payload.nativePollDurationHours || DEFAULT_NATIVE_POLL_DURATION_HOURS);
+    const nativeOptions = buildNativePollMessageOptions(question, filledAnswers, nativeDurationHours);
+    pollMessage = await channel
+      .send({
+        content: buildChatNativePollContent(pollNumber),
+        ...nativeOptions,
+        allowedMentions: { roles: [POLL_ROLE_ID] },
+      })
+      .catch((err) => {
+        global.logger?.warn?.("[poll] native chat poll send failed:", {
+          guildId,
+          channelId: channel?.id,
+          source,
+          err: err?.message || err,
+          code: err?.code,
+        });
+        return null;
       });
-      return null;
-    });
+  } else {
+    const { text: answersText, validEmojis } = buildAnswersSection(answers);
+    pollMessage = await channel
+      .send({ content: buildPollMessageContent(pollNumber, question, answersText) })
+      .catch((err) => {
+        global.logger?.warn?.("[poll] channel.send failed:", {
+          guildId,
+          channelId: channel?.id,
+          source,
+          err: err?.message || err,
+          code: err?.code,
+        });
+        return null;
+      });
+    if (pollMessage && !skipReactions) {
+      await applyPollReactions(pollMessage, validEmojis);
+    }
+  }
+
   if (!pollMessage) {
     await Poll.findOneAndUpdate(
       { guildId, domanda: COUNTER_FILTER_QUESTION },
@@ -312,10 +403,8 @@ async function createPollForGuild(guild, payload = {}) {
     };
   }
 
-  await applyPollReactions(pollMessage, validEmojis);
-
-  const skipThread = payload.skipThread === true;
-  const skipChatAlert = payload.skipChatAlert === true;
+  const skipThread = payload.skipThread === true || useNativePoll || publishInChat;
+  const skipChatAlert = payload.skipChatAlert === true || publishInChat;
   const thread = skipThread ? null : await createPollDiscussionThread(pollMessage, question);
   if (!skipChatAlert) {
     await announcePollPublishedInChat(guild, pollMessage, question);
@@ -328,7 +417,10 @@ async function createPollForGuild(guild, payload = {}) {
       domanda: question,
       ...buildPollAnswersUpdate(answers),
       messageId: pollMessage.id,
+      channelId: String(channel.id || ""),
       source,
+      autoSlot: payload.autoSlot ? String(payload.autoSlot) : null,
+      nativePoll: useNativePoll,
     });
   } catch (err) {
     global.logger?.error?.("[poll] Poll.create failed:", err?.message || err);
@@ -344,7 +436,7 @@ async function createPollForGuild(guild, payload = {}) {
     };
   }
 
-  return { ok: true, pollNumber, messageId: pollMessage.id, threadId: thread?.id || null };
+  return { ok: true, pollNumber, messageId: pollMessage.id, threadId: thread?.id || null, channelId: channel.id };
 }
 
 async function handleCreate(interaction) {
@@ -650,5 +742,6 @@ module.exports = {
   },
   createPollForGuild,
   getPollChannelFromGuild,
+  getChatChannelFromGuild,
   POLL_VOTE_EMOJI_IDS,
 };

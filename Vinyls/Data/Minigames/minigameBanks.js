@@ -351,7 +351,6 @@ const CAPITAL_QUIZ_BANK = [
   { country: "Nuova Zelanda", answers: ["Wellington"] },
 ];
 
-/** Nome capitale in italiano (per display) */
 const CAPITAL_ITALIAN = {
   London: "Londra", Rome: "Roma", Paris: "Parigi", Berlin: "Berlino", Madrid: "Madrid",
   Lisbon: "Lisbona", Amsterdam: "Amsterdam", Brussels: "Bruxelles", Vienna: "Vienna",
@@ -537,8 +536,7 @@ const HOGWARTS_CIPHER_BANK = [
   { word: "Cicatrice", answers: ["Cicatrice"] },
   { word: "Naso", answers: ["Naso"] },
 
-  // Incantesimi
-  { word: "Nox", answers: ["Nox"] },
+    { word: "Nox", answers: ["Nox"] },
   { word: "Expecto", answers: ["Expecto", "Expecto Patronum"] },
   { word: "Patronum", answers: ["Patronum", "Expecto Patronum"] },
   { word: "Avada", answers: ["Avada", "Avada Kedavra"] },
@@ -624,8 +622,7 @@ const HOGWARTS_CIPHER_BANK = [
   { word: "Leviosa", answers: ["Leviosa", "Wingardium Leviosa"] },
   { word: "Stupefy", answers: ["Stupefy", "Stupeficium"] },
 
-  // Personaggi
-  { word: "Harry", answers: ["Harry", "Harry Potter"] },
+    { word: "Harry", answers: ["Harry", "Harry Potter"] },
   { word: "Potter", answers: ["Potter", "Harry Potter"] },
   { word: "Hermione", answers: ["Hermione", "Hermione Granger", "Granger"] },
   { word: "Granger", answers: ["Granger", "Hermione", "Hermione Granger"] },
@@ -774,8 +771,7 @@ const HOGWARTS_CIPHER_BANK = [
   { word: "Vampire", answers: ["Vampire", "Vampiro"] },
   { word: "Vampiro", answers: ["Vampiro", "Vampire"] },
 
-  // Luoghi e oggetti
-  { word: "Hogwarts", answers: ["Hogwarts"] },
+    { word: "Hogwarts", answers: ["Hogwarts"] },
   { word: "Grifondoro", answers: ["Grifondoro", "Gryffindor"] },
   { word: "Gryffindor", answers: ["Gryffindor", "Grifondoro"] },
   { word: "Serpeverde", answers: ["Serpeverde", "Slytherin"] },

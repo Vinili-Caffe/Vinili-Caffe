@@ -94,36 +94,139 @@
     return "";
   }
 
+  function readCachedOwnUserId() {
+    try {
+      var t = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (!t || (exp && Date.now() >= exp)) return "";
+      var fp = exp + "|" + t.slice(0, 32);
+      var raw = sessionStorage.getItem("vc_discord_me_cache_v1");
+      if (raw) {
+        var o = JSON.parse(raw);
+        if (o && o.v === 1 && o.user && String(o.fp || "") === fp) {
+          var uid = String(o.user.id || "").trim();
+          if (/^\d{17,20}$/.test(uid)) return uid;
+        }
+      }
+      var uidRaw = localStorage.getItem("vc_discord_uid_v1");
+      if (uidRaw) {
+        var uo = JSON.parse(uidRaw);
+        if (uo && String(uo.fp || "") === fp && /^\d{17,20}$/.test(String(uo.uid || ""))) {
+          return String(uo.uid);
+        }
+      }
+    } catch (e) {}
+    return "";
+  }
+
+  function resolveOwnUserId() {
+    var fromUrl = userIdFromSearch(window.location.search || "");
+    if (fromUrl) return fromUrl;
+    try {
+      if (window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) {
+        var live = String(window.__VC_DISCORD_PROFILE.id || "").trim();
+        if (/^\d{17,20}$/.test(live)) return live;
+      }
+    } catch (eLive) {}
+    return readCachedOwnUserId();
+  }
+
+  var PERSONALIZZA_BASE = "/personalizza/";
+
+  function isPersonalizzaHubPath() {
+    try {
+      var path = String(window.location.pathname || "")
+        .replace(/\/index\.html?$/i, "")
+        .replace(/\/+$/, "") || "/";
+      return (
+        path === "/personalizza" ||
+        path === "/user/personalizza" ||
+        path === "/user/customize" ||
+        path === "/user/custom"
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function maybeRedirectOwnPersonalizza() {
+    if (!isPersonalizzaHubPath()) return false;
+    try {
+      var path = String(window.location.pathname || "")
+        .replace(/\/index\.html?$/i, "")
+        .replace(/\/+$/, "") || "/";
+      if (path === "/user/personalizza" || path === "/user/customize" || path === "/user/custom") {
+        var legacyQ = new URLSearchParams(window.location.search || "");
+        window.location.replace(PERSONALIZZA_BASE + (legacyQ.toString() ? "?" + legacyQ.toString() : ""));
+        return true;
+      }
+      var q = new URLSearchParams(window.location.search || "");
+      if (userIdFromSearch(q.toString())) return false;
+      var uid = resolveOwnUserId();
+      if (!/^\d{17,20}$/.test(uid)) return false;
+      q.set("id", uid);
+      if (!q.has("target")) q.set("target", parseTabFromSearch(q.toString()));
+      window.location.replace(PERSONALIZZA_BASE + "?" + q.toString());
+      return true;
+    } catch (e) {}
+    return false;
+  }
+
   function hrefForTab(tab) {
     var q = new URLSearchParams();
-    var uid = userIdFromSearch(window.location.search || "");
+    var uid = resolveOwnUserId();
     if (uid) q.set("id", uid);
-    if (tab && tab !== "rank") q.set("target", tab);
-    else q.set("target", "rank");
+    var next = String(tab || "rank").trim().toLowerCase();
+    if (!next || next === "rank") q.set("target", "rank");
+    else q.set("target", next);
     var s = q.toString();
-    return "/user/personalizza/" + (s ? "?" + s : "");
+    return PERSONALIZZA_BASE + (s ? "?" + s : "");
+  }
+
+  function applyHubTabClasses(tab) {
+    var isRank = tab === "rank";
+    var isCustom = Boolean(CUSTOM_TABS[tab]);
+    var isExtras = Boolean(EXTRAS_TABS[tab]);
+    try {
+      var html = document.documentElement;
+      html.classList.remove("vc-pers-tab-rank", "vc-pers-tab-custom");
+      html.classList.add(isRank ? "vc-pers-tab-rank" : "vc-pers-tab-custom");
+      html.setAttribute("data-vc-pers-tab", tab);
+      if (isRank) html.classList.remove("vc-custom-profile-pending");
+      else html.classList.remove("vc-rank-customize-pending");
+    } catch (eCls) {}
+    return { isRank: isRank, isCustom: isCustom, isExtras: isExtras };
+  }
+
+  function navigateToTab(tab) {
+    var next = String(tab || "rank").trim().toLowerCase();
+    if (!next) next = "rank";
+    var dest = hrefForTab(next);
+    try {
+      var cur = window.location.pathname + window.location.search;
+      var nxt = new URL(dest, window.location.origin).pathname + new URL(dest, window.location.origin).search;
+      if (cur === nxt) {
+        var hub = ensureHubState();
+        syncPanels(hub);
+        syncTabUi(hub);
+        syncDocumentTitle(hub);
+        return;
+      }
+    } catch (eSame) {}
+    window.location.assign(dest);
   }
 
   function ensureHubState() {
     var tab = parseTabFromSearch(window.location.search || "");
-    var isRank = tab === "rank";
-    var isCustom = Boolean(CUSTOM_TABS[tab]);
-    var isExtras = Boolean(EXTRAS_TABS[tab]);
+    var flags = applyHubTabClasses(tab);
     window.__VC_PERS_HUB = {
       enabled: true,
       tab: tab,
-      isRank: isRank,
-      isCustom: isCustom,
-      isExtras: isExtras,
+      isRank: flags.isRank,
+      isCustom: flags.isCustom,
+      isExtras: flags.isExtras,
       hrefForTab: hrefForTab,
     };
-    try {
-      document.documentElement.setAttribute("data-vc-pers-tab", tab);
-      document.documentElement.classList.toggle("vc-pers-tab-rank", isRank);
-      document.documentElement.classList.toggle("vc-pers-tab-custom", isCustom || isExtras);
-      if (isRank) document.documentElement.classList.remove("vc-custom-profile-pending");
-      else document.documentElement.classList.remove("vc-rank-customize-pending");
-    } catch (e) {}
     return window.__VC_PERS_HUB;
   }
 
@@ -138,20 +241,28 @@
       if (customPage) customPage.hidden = true;
       hardHideEl(customLoading);
       allById("vc-custom-profile-loading").forEach(hardHideEl);
-      setLoaderCopy(rankLoading, "Caricamento Personalizza", "Sto preparando rank card, ruoli e vocale...");
-      /* Do not force-show rank loader: boot may already have finished. */
-    } else {
+      setLoaderCopy(rankLoading, "Caricamento Personalizza", "Sto preparando rank card, ruoli e impostazioni profilo…");
+          } else {
       if (rankPage) rankPage.hidden = true;
       if (customPage) customPage.hidden = false;
       hardHideEl(rankLoading);
       allById("vc-rank-customize-loading").forEach(hardHideEl);
-      setLoaderCopy(customLoading, "Caricamento Personalizza", "Sto preparando ruoli e vocale...");
+      setLoaderCopy(customLoading, "Caricamento Personalizza", "Sto preparando rank card, ruoli e impostazioni profilo…");
     }
   }
 
   function syncTabUi(hub) {
     var nav = byId("vc-pers-hub-tabs");
     if (!nav) return;
+    if (!nav._vcPersTabNavWired) {
+      nav._vcPersTabNavWired = true;
+      nav.addEventListener("click", function (ev) {
+        var link = ev.target && ev.target.closest ? ev.target.closest("[data-pers-tab]") : null;
+        if (!link || !nav.contains(link)) return;
+        ev.preventDefault();
+        navigateToTab(link.getAttribute("data-pers-tab"));
+      });
+    }
     var links = nav.querySelectorAll("[data-pers-tab]");
     for (var i = 0; i < links.length; i++) {
       var el = links[i];
@@ -236,18 +347,40 @@
   window.__VC_PERS_HUB_API = {
     parseTab: parseTabFromSearch,
     hrefForTab: hrefForTab,
+    navigateToTab: navigateToTab,
     ensure: ensureHubState,
     sync: boot,
     getToken: getDiscordAccessToken,
     whenSessionReady: whenDiscordSessionReady,
+    resolveOwnUserId: resolveOwnUserId,
+    maybeRedirectOwnPersonalizza: maybeRedirectOwnPersonalizza,
     TABS: TABS,
   };
 
+  if (maybeRedirectOwnPersonalizza()) return;
+
   ensureHubState();
-  /* Hide inactive loaders ASAP so :has(...:not([hidden])) cannot lock scroll. */
-  try {
+    try {
     boot();
   } catch (eBootNow) {}
+  window.addEventListener("pageshow", function (ev) {
+    try {
+      boot();
+    } catch (eShow) {}
+    if (ev && ev.persisted) {
+      try {
+        var hubNow = ensureHubState();
+        syncPanels(hubNow);
+        syncTabUi(hubNow);
+        syncDocumentTitle(hubNow);
+      } catch (eBf) {}
+    }
+  });
+  window.addEventListener("vc-discord-profile", function () {
+    try {
+      maybeRedirectOwnPersonalizza();
+    } catch (eProf) {}
+  });
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   }

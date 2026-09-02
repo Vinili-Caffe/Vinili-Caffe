@@ -88,10 +88,6 @@ async function writeStoredJoin(guildId, userId, payload) {
   });
 }
 
-/**
- * Primo ingresso effettivo: conservato se l'utente rientra entro REJOIN_GRACE_MS dall'uscita.
- * @param {import("discord.js").GuildMember} member
- */
 async function recordEffectiveMemberJoin(member) {
   if (!member?.guild?.id || !member?.id || member.user?.bot) return null;
   const guildId = getMainGuildId();
@@ -128,9 +124,6 @@ async function recordEffectiveMemberJoin(member) {
   return firstJoinedAt;
 }
 
-/**
- * @param {import("discord.js").GuildMember} member
- */
 async function recordEffectiveMemberLeave(member) {
   if (!member?.guild?.id || !member?.id || member.user?.bot) return;
   const guildId = getMainGuildId();
@@ -147,11 +140,6 @@ async function recordEffectiveMemberLeave(member) {
   });
 }
 
-/**
- * Data usata per anzianità (candidature, tenure, display).
- * @param {import("discord.js").GuildMember | { guild: { id: string }, id: string, joinedAt?: Date, joinedTimestamp?: number }} member
- * @returns {Promise<Date | null>}
- */
 async function getEffectiveJoinedAt(member) {
   if (!member?.guild?.id || !member?.id) return null;
   const guildId = getMainGuildId();

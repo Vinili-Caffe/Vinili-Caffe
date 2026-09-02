@@ -1,9 +1,3 @@
-/**
- * Discord Premium Apps / Store SKUs (Vinili) — DISATTIVATO.
- * Migrazione completata: Premium/Donator/VIP/VIP+ ora si acquistano con crediti
- * (vedi Services/Community/premiumCreditsService.js). Le funzioni restano esportate
- * (return vuoto/null) per non rompere i require esistenti.
- */
 const DISCORD_STORE_SKUS = Object.freeze({});
 
 function isDurableRoleSku() {

@@ -239,8 +239,7 @@ function renderRichTextPlain(message, text) {
   return String(text || "").replace(
     RICH_TOKEN_REGEX,
     (full, emojiName, emojiId, userId, roleId, channelId) => {
-      // Mantieni token Discord risolvibili (web ticket / re-import).
-      if (emojiId) return `:${emojiName}:`;
+            if (emojiId) return `:${emojiName}:`;
       if (userId) return `<@${userId}>`;
       if (roleId) return `<@&${roleId}>`;
       if (channelId) return `<#${channelId}>`;
@@ -874,7 +873,6 @@ async function saveTranscriptHtml(channel, html) {
   return filepath;
 }
 
-/** CSS overlay: allinea i transcript pre-upgrade allo stile chat Discord (senza inventare bottoni assenti). */
 const LEGACY_TRANSCRIPT_UPGRADE_CSS = `
 html, body { height: 100% !important; }
 body {
@@ -934,7 +932,6 @@ body, body * {
 .att-media a, .att-file a, .embed-title { color: #00a8fc !important; }
 `;
 
-/** Layout telefono + anti letter-spacing (iOS a volte “allarga” i glifi). */
 const TRANSCRIPT_MOBILE_CSS = `
 html, body, body * {
   letter-spacing: normal !important;
@@ -1064,8 +1061,7 @@ function injectHeadSnippet(html, snippet) {
 function ensureTranscriptMobileCss(html) {
   let raw = String(html || "");
   if (!raw) return raw;
-  // Sempre re-inject: così i fix CSS arrivano anche ai transcript già salvati.
-  raw = raw.replace(/<style\s+data-vc-tx-mobile="[^"]*"[\s\S]*?<\/style>/gi, "");
+    raw = raw.replace(/<style\s+data-vc-tx-mobile="[^"]*"[\s\S]*?<\/style>/gi, "");
   raw = raw.replace(/<script\s+data-vc-tx-mobile="[^"]*"[\s\S]*?<\/script>/gi, "");
   return injectHeadSnippet(
     raw,
@@ -1077,8 +1073,7 @@ function ensureTranscriptMobileCss(html) {
 function upgradeMarkdownInStoredHtml(html) {
   const raw = String(html || "");
   if (!raw) return raw;
-  // Transcript già salvati: converte markdown Discord rimasto come testo.
-  return raw
+    return raw
     .replace(/\*\*([^*<>\n]+)\*\*/g, "<strong>$1</strong>")
     .replace(/__([^_<>\n]+)__/g, "<u>$1</u>")
     .replace(/~~([^~<>\n]+)~~/g, "<s>$1</s>");
@@ -1097,10 +1092,6 @@ function upgradeLegacyTranscriptHtml(html) {
   return ensureTranscriptMobileCss(raw);
 }
 
-/**
- * Path in DB possono essere assoluti vecchi (pterodactyl `/home/container/...`).
- * Prova il path salvato, poi local_transcripts/<guild>/<basename>.
- */
 function resolveExistingTranscriptHtmlPath(ticketDoc) {
   const fp = String(ticketDoc?.transcriptHtmlPath || "").trim();
   if (fp && fs.existsSync(fp)) return fp;
@@ -1124,4 +1115,5 @@ module.exports = {
   upgradeLegacyTranscriptHtml,
   isModernTranscriptHtml,
   resolveExistingTranscriptHtmlPath,
+  fetchAllMessages,
 };

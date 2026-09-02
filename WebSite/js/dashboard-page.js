@@ -88,8 +88,7 @@
   }
 
   function showGate() {
-    // Non mostrare il gate pubblico: l'URL dashboard resta oscurato.
-    obscureDashboard();
+        obscureDashboard();
   }
 
   function hideLocked() {
@@ -118,8 +117,7 @@
   function setLoading(on) {
     var el = byId("vc-dashboard-loading");
     if (el) el.hidden = !on;
-    // Non svuotare la lista se stiamo solo rifacendo il fetch (evita flash/errore “fantasma”).
-  }
+      }
 
   var errorTimer = null;
   var ERROR_AUTO_MS = 6000;

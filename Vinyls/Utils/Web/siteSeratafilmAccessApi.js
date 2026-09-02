@@ -208,12 +208,6 @@ async function verifySeratafilmHighStaffAccess(client, accessToken) {
   return { ok: true, userId };
 }
 
-/**
- * GET Bearer: verifica login Discord, appartenenza al server e ruolo staff anteprima (High Staff+).
- * @param {import("discord.js").Client} client
- * @param {import("express").Request} req
- * @param {import("express").Response} res
- */
 async function handleSiteSeratafilmAccessGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -250,12 +244,6 @@ async function handleSiteSeratafilmAccessGet(client, req, res) {
   }
 }
 
-/**
- * GET ?st=<token> | Bearer: stream MP4 Serata Film con supporto Range.
- * @param {import("discord.js").Client} client
- * @param {import("express").Request} req
- * @param {import("express").Response} res
- */
 async function handleSiteSeratafilmFilmGet(client, req, res) {
   try {
     const st = String(req.query?.st || "").trim();

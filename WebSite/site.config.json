@@ -22,7 +22,7 @@
   "unmuteSubmitApiUrl": "/webhooks/site-unmute",
   "unmuteSubmitApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-unmute",
   "discordInviteUrl": "https://discord.gg/viniliecaffe",
-  "discordSponsorTicketsMessageUrl": "https://discord.com/channels/1329080093599076474/1442569095068254219/1469836204873744404",
+  "discordSponsorTicketsMessageUrl": "https://www.viniliecaffe.it/tickets/",
   "wikiUrl": "/wiki",
   "sponsorUrl": "/sponsor",
   "wikiBotViniliAvatarUrl": "https://cdn.discordapp.com/avatars/1329118940110127204/a_2f3825915a41d0f9bcbf9f2675e6d6f0.gif?size=128",
@@ -74,6 +74,7 @@
   "hogwartsSortingApiUrl": "/webhooks/site-hogwarts-sorting",
   "hogwartsSortingApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-hogwarts-sorting",
   "hogwartsEvent": {
+    "enabled": false,
     "previewMode": false,
     "startDate": "2026-06-01T14:00:00",
     "sortingStartDate": "2026-06-01T12:00:00",
@@ -206,7 +207,8 @@
     "staffListShowEachRole": true,
     "showEmptyStaffRoles": true
   },
-  "openGraphImageUrl": "/og.gif?v=oggif1",
+  "openGraphImageUrl": "https://cdn.discordapp.com/icons/1329080093599076474/a_152fffe587276d12887237d53390e495.png?size=256&v=ogguild1",
+  "rankCardApiUrl": "/webhooks/site-rank-card",
   "openGraphImageWidth": 128,
   "openGraphImageHeight": 128,
   "openGraphSiteName": "Vinili & Caffè",
@@ -219,7 +221,7 @@
   "foundedDisplay": "10 dicembre 2025",
   "liveStats": {
     "enabled": true,
-    "inviteProxyPath": "",
+    "inviteProxyPath": "/discord-invite.json",
     "extraStatsPath": "/live-stats-extra.json",
     "pollIntervalMs": 45000,
     "introFallbackMs": 45000,

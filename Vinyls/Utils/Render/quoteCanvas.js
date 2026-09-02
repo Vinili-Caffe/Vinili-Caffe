@@ -65,7 +65,6 @@ function stripFormattingForQuoteCanvas(text) {
   return s.replace(/\s+/g, " ").trim();
 }
 
-/** Ordine testo / emoji con spazi espliciti solo dove c’erano whitespace nel messaggio. */
 function tokenizeQuoteForWrap(raw) {
   const prepared = prepareVisibleText(String(raw || "").trim());
   const tokens = tokenizeEmojiText(prepared === "-" ? "" : prepared);
@@ -177,8 +176,7 @@ function resolveQuoteFgPaint(ctx, layout) {
   const colors = layout?.colors || {};
   const fg = colors.fg || "#f7f7f7";
   if (!colors.fgGradTo) return fg;
-  // Come in dashboard: il gradiente testo è relativo al pannello testo, non all’intera card.
-  const box = layout.textBox || { x: 0, y: 0, w: layout.width, h: layout.height };
+    const box = layout.textBox || { x: 0, y: 0, w: layout.width, h: layout.height };
   return createQuoteLinearGradient(
     ctx,
     box.x,
@@ -265,7 +263,6 @@ function drawImageCover(ctx, image, x, y, w, h) {
   ctx.drawImage(image, sx, sy, sw, sh, x, y, w, h);
 }
 
-/** URL copertina che punta a asset Discord animato (`a_…` / .gif). */
 function isAnimatedCoverUrl(url) {
   const raw = String(url || "").trim();
   if (!raw) return false;
@@ -303,16 +300,10 @@ function clearQuoteFrameFiles(tmpDir, prefix) {
     try {
       fs.unlinkSync(path.join(tmpDir, name));
     } catch {
-      /* ignore */
-    }
+          }
   }
 }
 
-/**
- * Estrae frame dalla cover animata. I GIF Nitro molto corti (es. 0.03s)
- * con solo `fps=N` producono 0 frame: si ri-loopa la sorgente fino a
- * riempire QUOTE_GIF_FRAMES.
- */
 function extractQuoteCoverFrames(inPath, tmpDir, cw, ch) {
   const framePattern = path.join(tmpDir, "qf_%03d.png");
   const scaleCrop = `scale=${cw}:${ch}:flags=lanczos:force_original_aspect_ratio=increase,crop=${cw}:${ch}`;
@@ -440,8 +431,7 @@ function drawQuoteInviteWatermark(ctx, layout) {
   const { width, height, style } = layout;
   if (!width || !height) return;
 
-  // Basso a destra, grigio neutro discreto (leggibile su chiaro e scuro)
-  const fontSize = Math.max(11, Math.min(14, Math.round(Math.min(width, height) * 0.02)));
+    const fontSize = Math.max(11, Math.min(14, Math.round(Math.min(width, height) * 0.02)));
   const padX = 16;
   const padY = 12;
   const x = width - padX;
@@ -466,15 +456,11 @@ function drawQuoteInviteWatermark(ctx, layout) {
   ctx.restore();
 }
 
-/** Smoothstep 0..1 → curva più naturale sulla fascia. */
 function fadeEase(t) {
   const u = Math.max(0, Math.min(1, Number(t) || 0));
   return u * u * (3 - 2 * u);
 }
 
-/**
- * Sfumatura RGB opaca (putImageData) — meglio per frame GIF prima di paletteuse.
- */
 function blendCoverEdgeToPanel(ctx, coverRect, vertical, flip, intoCover, edgeHex, opacity) {
   const edge = hexToRgb(edgeHex);
   if (!edge || intoCover <= 0 || opacity <= 0.001) return;
@@ -542,9 +528,6 @@ function blendCoverEdgeToPanel(ctx, coverRect, vertical, flip, intoCover, edgeHe
   }
 }
 
-/**
- * Sfumatura alpha (linearGradient) — path PNG: morbida e fedele alla preview dashboard.
- */
 function drawCoverFadeAlpha(ctx, coverRect, vertical, flip, width, height, intoCover, edgeHex, opacity) {
   if (intoCover <= 0 || opacity <= 0.001) return;
   const edge = colorWithAlpha(edgeHex, opacity);
@@ -611,8 +594,7 @@ function drawCoverFade(ctx, layout) {
   const { intoCover } = fade;
   if (intoCover <= 0 || fade.opacity <= 0.001) return;
 
-  // GIF: blend RGB opaco (resiste alla palette). PNG: gradient alpha (si vede davvero).
-  if (layout.fadeMode === "opaque") {
+    if (layout.fadeMode === "opaque") {
     blendCoverEdgeToPanel(
       ctx,
       coverRect,
@@ -636,8 +618,7 @@ function drawCoverFade(ctx, layout) {
     );
   }
 
-  // Risigilla solo il pannello testo (niente spill fade).
-  const box = textBox || null;
+    const box = textBox || null;
   if (box && box.w > 0 && box.h > 0) {
     const bgSolid = colors?.bg || "#070707";
     ctx.fillStyle = colors?.bgGradTo
@@ -746,10 +727,6 @@ async function fetchCoverBuffer(url) {
   }
 }
 
-/**
- * Ramp colori per palettegen GIF: forza i mezzi-toni della sfumatura
- * (senza questi la quantizzazione collassa la fade in una fascia piatta).
- */
 function writeQuotePaletteRamp(tmpDir, colors, layout) {
   const h = Math.max(256, Math.round(layout?.height || 512));
   const w = 96;
@@ -772,8 +749,7 @@ function writeQuotePaletteRamp(tmpDir, colors, layout) {
 
   for (let y = 0; y < h; y += 1) {
     const t = h <= 1 ? 0 : y / (h - 1);
-    // Fade tipica su nero (avatar scuro) + ramp bg + mid alpha simulati
-    ctx.fillStyle = lerpHexColor("#000000", fadeEdge, t);
+        ctx.fillStyle = lerpHexColor("#000000", fadeEdge, t);
     ctx.fillRect(0, y, 32, 1);
     ctx.fillStyle = lerpHexColor("#404040", fadeEdge, t);
     ctx.fillRect(32, y, 16, 1);
@@ -858,8 +834,7 @@ async function tryRenderAnimatedQuoteGif(coverImageUrl, layout) {
 
     let frameFiles = extractQuoteCoverFrames(inPath, tmpDir, cw, ch);
     if (!quoteCoverFramesAreDistinct(tmpDir, frameFiles)) {
-      // WebP statico / frame identici: ritenta col GIF Discord.
-      const gifUrl = toDiscordAnimatedGifUrl(coverImageUrl);
+            const gifUrl = toDiscordAnimatedGifUrl(coverImageUrl);
       if (gifUrl) {
         const gifBuf =
           (await fetchHttpImageBufferAnimatedFirst(gifUrl, { timeoutMs: 12_000 })) ||
@@ -874,8 +849,7 @@ async function tryRenderAnimatedQuoteGif(coverImageUrl, layout) {
       }
     }
     if (!quoteCoverFramesAreDistinct(tmpDir, frameFiles)) {
-      // Meglio PNG fedele ai colori che una “gif” ferma con palette sporca.
-      return null;
+            return null;
     }
 
     const cardPattern = path.join(tmpDir, "card_%03d.png");
@@ -893,9 +867,7 @@ async function tryRenderAnimatedQuoteGif(coverImageUrl, layout) {
     }
 
     const rampPath = writeQuotePaletteRamp(tmpDir, layout?.colors, layout);
-    // Palette = frame + ramp sfumatura (hstack solo per palettegen).
-    // floyd_steinberg tiene i mezzi-toni; bayer li schiacciava in fasce piatte.
-    const outGifPath = path.join(tmpDir, "quote.gif");
+            const outGifPath = path.join(tmpDir, "quote.gif");
     const gifOk = runFfmpeg([
       "-y",
       "-framerate",
@@ -950,16 +922,11 @@ async function tryRenderAnimatedQuoteGif(coverImageUrl, layout) {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       } catch {
-        /* ignore */
-      }
+              }
     }
   }
 }
 
-/**
- * @param {{ coverImageUrl: string, message: string, username: string, footerText?: string, style?: object }} params
- * @returns {Promise<{ buffer: Buffer, format: 'gif'|'png' }>}
- */
 module.exports = async function renderQuoteCanvas(params) {
   if (!canvasModule) throw new Error("Canvas module not available");
   registerCanvasFonts(canvasModule);

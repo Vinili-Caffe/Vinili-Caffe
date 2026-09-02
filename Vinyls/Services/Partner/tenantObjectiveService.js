@@ -331,9 +331,7 @@ async function syncObjectiveFlagsFromTenantState(client, guildId, userId) {
   if (!client || !gid || !uid) return false;
   if (!(await userQualifiesForTenantMissions(client, uid))) return false;
 
-  // Il profilo dashboard usa spesso il main guild id, mentre setup/desc/thank-you
-  // vivono sulla config del tenant: scorri tutte le config partnership in cache.
-  const configs = [];
+      const configs = [];
   const primary = getPartnershipConfigSync(gid);
   if (primary) configs.push(primary);
   try {
@@ -356,8 +354,7 @@ async function syncObjectiveFlagsFromTenantState(client, guildId, userId) {
       stats.flags.descSet = true;
       changed = true;
     }
-    // enabled=true = utente ha salvato l'embed (Discord/sito). I default del setup non bastano.
-    if (config?.thankYouEmbed?.enabled === true && !stats.flags.thankYouSet) {
+        if (config?.thankYouEmbed?.enabled === true && !stats.flags.thankYouSet) {
       stats.flags.thankYouSet = true;
       changed = true;
     }

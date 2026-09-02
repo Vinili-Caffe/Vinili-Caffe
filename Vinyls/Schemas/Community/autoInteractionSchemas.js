@@ -54,8 +54,7 @@ const MentionReaction = {
       const gid = String(filter?.guildId || "");
       const uid = String(filter?.userId || "");
       const safeFilter = { guildId: gid, userId: uid };
-      // Never wipe reactions when caller omits `$set.reactions` (previous default `[]` erased data).
-      if (!Object.prototype.hasOwnProperty.call(setPayload, "reactions")) {
+            if (!Object.prototype.hasOwnProperty.call(setPayload, "reactions")) {
         const existing = await ActivityUserProfile.findOne(safeFilter)
           .select("guildId userId profile.mentionReaction.reactions")
           .lean()

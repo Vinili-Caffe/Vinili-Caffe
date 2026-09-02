@@ -1,18 +1,9 @@
-/**
- * node-cron 4.x logs WARN "missed execution" whenever the heartbeat timer
- * fires a bit late. Brief event-loop stalls (startup, catalog write, Discord
- * bursts) trigger noisy false positives without meaning jobs were skipped.
- *
- * Logger is not on the package "exports" map, so we load it via createRequire
- * from the installed package root (plain require("node-cron/dist/...") fails).
- */
 const Module = require("module");
 const path = require("path");
 
 function resolveNodeCronPackageRoot() {
   const entry = require.resolve("node-cron");
-  // .../node-cron/dist/cjs/node-cron.js → package root
-  return path.resolve(path.dirname(entry), "..", "..");
+    return path.resolve(path.dirname(entry), "..", "..");
 }
 
 function loadNodeCronLogger() {
@@ -39,9 +30,7 @@ function installNodeCronMissFilter(options = {}) {
 
   const bootAt = Date.now();
   const bootGraceMs = Math.max(0, Number(options.bootGraceMs) || 180_000);
-  // Di default silenzia quasi tutti i miss: su questo host arrivano a ondate
-  // da 2–4s di jitter e intasano pm2 senza segnalare job saltati.
-  const softMissMs = Math.max(250, Number(options.softMissMs) || 120_000);
+      const softMissMs = Math.max(250, Number(options.softMissMs) || 120_000);
   const suppressAllMisses = options.suppressAllMisses !== false;
 
   const logger = loadNodeCronLogger();
@@ -51,8 +40,7 @@ function installNodeCronMissFilter(options = {}) {
         "[cron] node-cron miss filter non installato (logger non caricabile)",
       );
     } catch {
-      /* ignore */
-    }
+          }
     return;
   }
 

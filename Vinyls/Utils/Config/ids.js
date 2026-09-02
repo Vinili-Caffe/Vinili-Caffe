@@ -147,8 +147,7 @@ const ids = {
     candidatureStaff: "1442569232507473951",
     visioneModuli: "1442569278049095913",
     news: "1442569115972669541",
-    /** Canale news sorgente: messaggi pubblicati → relay ai tenant (canale aggiornamenti). */
-    botUpdatesSource: "1525817647210561711",
+        botUpdatesSource: "1525817647210561711",
     eventAnnouncements: "1481660281032675510",
     contestBonusVotesAnnounce: "1497360710500618381",
     staffNews: "1442569239063167139",
@@ -159,8 +158,7 @@ const ids = {
     counting: "1442569179743125554",
     riunioneStaff: "1443958044802420798",
     commands: "1442569138114662490",
-    /** Chat testo collegata al palco / live dello streamer (no automod). */
-    streamerChat: "1539973769588908082",
+        streamerChat: "1539973769588908082",
     stanzaLobbyVoice: "1499754530076626964",
     staffCmds: "1442569262689554444",
     partnerships: "1442569193470824448",
@@ -173,6 +171,10 @@ const ids = {
     midChat: "1442569268666568897",
     vocaleTrio1: "1442569121350025306",
     vocaleQuad1: "1442569134532726855",
+    vocalePenta1: "1544076627405971527",
+    vocaleHexa1: "1544077497874776358",
+    vocaleSetta1: "1544077007921487942",
+    vocaleOcta1: "1544076839788617728",
     supporters: "1442569123426074736",
     moderazioneStaff: "1442569243626307634",
     modLogs: "1442569294796820541",
@@ -348,12 +350,9 @@ const ids = {
     Live: "1522594136006594580",
     KickSub: "1539781035360002089",
     KickModerator: "1540420675313860618",
-    /** Ex-Changelogs; Status migrato qui e ruolo Status eliminato. */
-    Updates: "1525971161761058826",
-    /** @deprecated alias di Updates */
-    Changelogs: "1525971161761058826",
-    /** @deprecated migrato in Updates */
-    Status: "1525971161761058826",
+        Updates: "1525971161761058826",
+        Changelogs: "1525971161761058826",
+        Status: "1525971161761058826",
     HobbyAnimeManga: "1522300283693039736",
     HobbyLettura: "1522300334683455680",
     HobbyScrittura: "1522300393860759613",
@@ -371,6 +370,7 @@ const ids = {
     Fidanzato: "1442569028173299732",
     Single: "1442569029263818906",
     zodiacAries: "1495106531941941359",
+    birthdayFlair: "1544353983663964230",
     zodiacTaurus: "1495106754038599841",
     zodiacGemini: "1495106875488731206",
     zodiacCancer: "1495106892786303139",
@@ -425,8 +425,7 @@ const ids = {
     links: { ...(meta?.links || {}) },
   },
   allowedPrefixCommandsChannelId: "1442569138114662490",
-  /** User Discord esclusi dal resoconto **solo** Partner Manager (canale + promemoria DM). */
-  resocontoExcludePmUserIds: ["295500038401163264"],
+    resocontoExcludePmUserIds: ["295500038401163264"],
 };
 
 let sponsorConfig = {};
@@ -610,7 +609,6 @@ ids.aliasEntries = {
   ),
 };
 
-/** Ruoli che sbloccano il sito in manutenzione (build-time da build-site.mjs). */
 ids.websiteMaintenanceBypassRoleIds = [
   ids.roles.Founder,
   ids.roles.Manager,
@@ -629,6 +627,10 @@ ids.publicVoiceHubChannelIds = [
   ids.channels.vocaleDuo1,
   ids.channels.vocaleTrio1,
   ids.channels.vocaleQuad1,
+  ids.channels.vocalePenta1,
+  ids.channels.vocaleHexa1,
+  ids.channels.vocaleSetta1,
+  ids.channels.vocaleOcta1,
 ].map((id) => String(id || "").trim()).filter(Boolean);
 
 module.exports = ids;

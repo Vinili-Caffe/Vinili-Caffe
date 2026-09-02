@@ -7,7 +7,6 @@ const { getTicketSettingsSync } = require("../../MultiGuild/core/tenantTicketSet
 const { TRANSCRIPT_VIEW_TTL_MS } = require("../../Utils/Ticket/ticketTranscriptSecure");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const TRANSCRIPTS_ROOT = path.join(BOT_ROOT, "local_transcripts");
-/** Allineato al TTL del link pubblico: non cancellare file ancora raggiungibili via token. */
 const MAX_AGE_MS = Number(TRANSCRIPT_VIEW_TTL_MS) > 0 ? Number(TRANSCRIPT_VIEW_TTL_MS) : 90 * 24 * 60 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let promptLoopHandle = null;
@@ -60,8 +59,7 @@ async function processTickets(client) {
     try {
       const settings = getTicketSettingsSync(ticket.guildId);
       if (settings.autoCloseEnabled === false) continue;
-      // 0 = timer spento (non ricade sui default 24h / 2h).
-      const openForMs = Number(settings.autoCloseSinceOpenMs);
+            const openForMs = Number(settings.autoCloseSinceOpenMs);
       const inactiveForMs = Number(settings.autoCloseSinceLastMessageMs);
       if (!(openForMs > 0) || !(inactiveForMs > 0)) continue;
       const createdMs = ticket.createdAt ? new Date(ticket.createdAt).getTime() : 0;
@@ -75,9 +73,7 @@ async function processTickets(client) {
 
       if (ticket.autoClosePromptSentAt) continue;
 
-      // Claim del "slot" PRIMA del messaggio: se il $set fallisce (arrayFilter/BSON)
-      // non inviamo nulla e ritentiamo al tick successivo, invece di spammare ogni 10m.
-      const promptSentAt = new Date();
+                  const promptSentAt = new Date();
       const claimed = await Ticket.findOneAndUpdate(
         { _id: ticket._id, open: true },
         { $set: { autoClosePromptSentAt: promptSentAt } },

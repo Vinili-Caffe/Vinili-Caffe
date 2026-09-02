@@ -1,8 +1,7 @@
 (function () {
   if (window.__vcLoadYoutubeIframeApi) return;
 
-  // Prefer nocookie first when browsers block third-party youtube.com cookies.
-  var API_SOURCES = [
+    var API_SOURCES = [
     { api: "https://www.youtube-nocookie.com/iframe_api", host: "https://www.youtube-nocookie.com" },
     { api: "https://www.youtube.com/iframe_api", host: "https://www.youtube.com" },
   ];

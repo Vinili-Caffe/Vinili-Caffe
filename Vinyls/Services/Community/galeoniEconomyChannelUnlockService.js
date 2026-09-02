@@ -22,20 +22,13 @@ function channelAlreadyUnlocked(channel, everyoneId, writerRoleId) {
   const everyone = channel.permissionOverwrites?.cache?.get?.(String(everyoneId));
   const writer = channel.permissionOverwrites?.cache?.get?.(String(writerRoleId));
   if (!everyone || !writer) return false;
-  // Everyone: può vedere, non scrivere.
-  if (!everyone.deny?.has?.(Flags.SendMessages)) return false;
+    if (!everyone.deny?.has?.(Flags.SendMessages)) return false;
   if (everyone.deny?.has?.(Flags.ViewChannel)) return false;
-  // Ruolo evento: può vedere e scrivere.
-  if (!writer.allow?.has?.(Flags.ViewChannel)) return false;
+    if (!writer.allow?.has?.(Flags.ViewChannel)) return false;
   if (!writer.allow?.has?.(Flags.SendMessages)) return false;
   return true;
 }
 
-/**
- * Everyone: vede, non scrive.
- * Ruolo evento (smistati/partecipanti): vede e scrive.
- * I comandi restano gated da assertSortedEconomyAccess.
- */
 async function unlockGaleoniEconomyChannel(client, { force = false } = {}) {
   const guildId = String(IDs.guilds?.main || "").trim();
   const channelId = resolveEconomyChannelId(client);
@@ -110,6 +103,8 @@ async function unlockGaleoniEconomyChannel(client, { force = false } = {}) {
 
 function startGaleoniEconomyChannelUnlockLoop(client) {
   if (!client || startedClients.has(client)) return;
+  const cfg = economyConfig(client);
+  if (cfg?.enabled !== true) return;
   startedClients.add(client);
 
   const schedule = (ms) => {

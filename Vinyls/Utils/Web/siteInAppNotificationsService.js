@@ -251,22 +251,13 @@ function isReminderNotificationKind(kind, title, body) {
   return /promemoria|reminder|puoi votare|pozioni disponibili|puoi tornare in aula/.test(hay);
 }
 
-/**
- * Append atomico (evita VersionError su inbox condivisa tra bot e site-api).
- * Se `dedupeKey` + `since` sono valorizzati, inserisce solo se non c’è già
- * un item con la stessa chiave nella finestra (anti doppio reminder).
- * @param {string} userId
- * @param {object} newItem
- * @param {{ dedupeKey?: string, since?: Date }} [dedupe]
- */
 async function pushInboxItemAtomic(userId, newItem, dedupe = null) {
   const uid = normalizeUserId(userId);
   if (!uid || !newItem) return false;
   const dedupeKey = dedupe?.dedupeKey ? String(dedupe.dedupeKey).trim() : "";
   const since = dedupe?.since instanceof Date ? dedupe.since : null;
 
-  // Crea l’inbox se manca, SENZA filtro dedupe (upsert+$nor creerebbe un secondo doc).
-  await SiteDocument.updateOne(
+    await SiteDocument.updateOne(
     inboxQuery(uid),
     {
       $setOnInsert: {
@@ -293,9 +284,7 @@ async function pushInboxItemAtomic(userId, newItem, dedupe = null) {
       },
     ];
   }
-  // No $sort here: mixed/legacy items without createdAt can make $push+$sort fail.
-  // Ordering is applied on read in listSiteInAppNotificationsForUser.
-  const res = await SiteDocument.findOneAndUpdate(
+      const res = await SiteDocument.findOneAndUpdate(
     filter,
     {
       $push: {
@@ -318,8 +307,7 @@ async function pushInboxItemAtomic(userId, newItem, dedupe = null) {
     if (items.some((it) => itemMatchesDedupeWindow(it, dedupeKey, since))) return true;
   }
 
-  // Fallback non-atomico se $push fallisce (schema legacy / cast).
-  const inbox = await SiteDocument.findOne(inboxQuery(uid)).catch(() => null);
+    const inbox = await SiteDocument.findOne(inboxQuery(uid)).catch(() => null);
   const existing = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
   if (dedupeKey && since && existing.some((it) => itemMatchesDedupeWindow(it, dedupeKey, since))) {
     return true;
@@ -431,21 +419,6 @@ async function removeInboxItemByDedupeKey(userId, dedupeKey) {
   return changed;
 }
 
-/**
- * @param {object} opts
- * @param {string} opts.guildId
- * @param {string} opts.userId destinatario Discord
- * @param {string} opts.title
- * @param {string} opts.body
- * @param {string} [opts.kind]
- * @param {string} [opts.openUrl] path o URL assoluto
- * @param {string} [opts.dedupeKey]
- * @param {number} [opts.dedupeWindowMs]
- * @param {boolean} [opts.replaceDedupe] aggiorna l’item esistente con la stessa dedupeKey (chat)
- * @param {boolean} [opts.push] se false aggiorna solo la campanella, senza push di sistema
- * @param {string} [opts.ticketId]
- * @returns {Promise<boolean>}
- */
 async function enqueueSiteInAppNotification(opts = {}) {
   const userId = normalizeUserId(opts.userId);
   if (!userId) return false;
@@ -465,9 +438,7 @@ async function enqueueSiteInAppNotification(opts = {}) {
   const replaceDedupe = opts.replaceDedupe === true && Boolean(dedupeKeyRaw);
 
   const prefsGuildId = guildId !== "global" ? guildId : String(IDs.guilds?.main || "").trim();
-  // Preferenze mute: salva comunque in inbox (visibile solo in /notifications → Filtrate),
-  // ma non inviare push di sistema né far apparire la notifica “attiva” in campanella.
-  const softFiltered = await shouldSkipSiteInAppNotif(prefsGuildId, userId, {
+      const softFiltered = await shouldSkipSiteInAppNotif(prefsGuildId, userId, {
     kind,
     title,
     body,
@@ -516,8 +487,7 @@ async function enqueueSiteInAppNotification(opts = {}) {
     const items = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
     const existing = items.find((it) => itemMatchesDedupeWindow(it, dedupeKeyRaw, since));
     if (existing) {
-      // Idempotente in DB, ma se la push è fallita (es. PWA chiusa) ritenta per reminder/non lette.
-      const shouldRetryPush =
+            const shouldRetryPush =
         sendPush &&
         !existing.readAt &&
         (isReminderNotificationKind(existing.notifKind || kind, existing.title || title, existing.body || body) ||

@@ -47,8 +47,7 @@ async function handleSiteStaffValTradePost(client, req, res) {
     if (!isSelf && !isHighStaff) {
       return res.status(403).json({ ok: false, error: "forbidden", message: "Non autorizzato." });
     }
-    // Self-service: solo compensazione 3 val+ → 1 val−. Niente scambi warn / pausa.
-    if (isSelf && action !== "neg_trade") {
+        if (isSelf && action !== "neg_trade") {
       return res.status(403).json({
         ok: false,
         error: "forbidden",

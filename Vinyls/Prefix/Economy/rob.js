@@ -34,8 +34,7 @@ module.exports = {
       const rawTargetJoined = targetArgs.join(" ").trim();
       let targetId = msg.mentions.users.first()?.id || extractUserId(rawTarget);
       if (rawTarget && !targetId && !isRobBankTarget(rawTarget)) {
-        // Preferisci il nome intero (display name con spazi), poi il solo primo token.
-        const byFullName = rawTargetJoined && rawTargetJoined !== rawTarget
+                const byFullName = rawTargetJoined && rawTargetJoined !== rawTarget
           ? await resolveEconomyUserArg(msg, rawTargetJoined)
           : null;
         const byName = byFullName || (await resolveEconomyUserArg(msg, rawTarget));
@@ -58,8 +57,7 @@ module.exports = {
         if (targetId && isSoftRobTargetBlock(resolved) && resolved.id) {
           softNotice = `${EMOJI_DENY} ${resolved.error}`;
           await clearRobCooldown(c, msg.guild.id, msg.author.id).catch(() => {});
-          // Resta sul bersaglio scelto: niente switch a Gringott.
-          sessionTarget = {
+                    sessionTarget = {
             id: resolved.id,
             name: resolved.name || "Bersaglio",
             user: resolved.user || null,
@@ -86,8 +84,7 @@ module.exports = {
         currency,
       });
       if (softNotice) session.softBlocked = true;
-      // Soft-block: niente warmup/GIF — pannello subito con blocco.
-      if (softNotice) {
+            if (softNotice) {
         const payload = await buildRobGuiPayload(session, softNotice, false, { bypassCache: true });
         await post(msg, { payload, session, setSession, label: "furto" });
         return;

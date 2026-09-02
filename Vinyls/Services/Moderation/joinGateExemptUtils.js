@@ -10,7 +10,6 @@ const CORE_EXEMPT_USER_IDS = new Set([
   "1329118940110127204",
 ]);
 
-/** Server sponsor (config `sponsorGuildIds`): nessun JoinGate / lock ingresso da questa logica. */
 function isSponsorJoinGateGuildId(guildId) {
   const g = String(guildId || "").trim();
   if (!g) return false;

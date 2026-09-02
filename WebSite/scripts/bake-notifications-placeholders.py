@@ -17,7 +17,6 @@ CFG = BOT / "site.config.json"
 VER_NOTIF = "20260828notifBoot1"
 VER_INBOX = "20260828inboxMobile3"
 
-
 def grab(text: str, pattern: str, default: str = "") -> str:
     m = re.search(pattern, text, flags=re.S)
     if not m:
@@ -26,7 +25,6 @@ def grab(text: str, pattern: str, default: str = "") -> str:
     if "{{" in val or "}}" in val:
         return default
     return val or default
-
 
 def main() -> None:
     if not TARGET.exists():
@@ -67,7 +65,7 @@ def main() -> None:
             "a_152fffe587276d12887237d53390e495.gif?size=256"
         )
     discord_invite = grab(donor, r'aria-label="Entra su Discord"[^>]*href="([^"]+)"', "https://discord.gg/viniliecaffe")
-    og_image = grab(donor, r'property="og:image"\s+content="([^"]+)"', "/images/og-banner.jpg")
+    og_image = grab(donor, r'property="og:image"\s+content="([^"]+)"', "https://cdn.discordapp.com/icons/1329080093599076474/a_152fffe587276d12887237d53390e495.png?size=256&v=ogguild1")
     build_ver = grab(donor, r'vc-fonts\.css\?v=([^"\']+)', VER_NOTIF)
     client_id = grab(donor, r'clientId:\s*"([0-9]+)"', str(cfg.get("discordOAuthClientId", "")))
     redirect_uri = grab(donor, r'redirectUri:\s*"([^"]+)"', site_url)
@@ -141,7 +139,6 @@ def main() -> None:
     if missing:
         raise SystemExit(f"still missing placeholders: {missing}")
 
-    # Keep our deployed asset versions
     out = re.sub(
         r"notifications-page\.js\?v=[^\"']+",
         f"notifications-page.js?v={VER_NOTIF}",
@@ -176,7 +173,6 @@ def main() -> None:
     assert "{{" not in out
     assert "notifications-page.js?v=" + VER_NOTIF in out
     print("ok")
-
 
 if __name__ == "__main__":
     main()

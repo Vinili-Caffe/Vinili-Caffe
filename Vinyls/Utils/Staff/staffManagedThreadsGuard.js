@@ -12,10 +12,6 @@ const {
   resolveStaffThreadQualifyingRoleIds,
 } = require("./staffThreadQualification");
 
-/**
- * @param {import("discord.js").AnyThreadChannel} channel
- * @returns {Promise<{ zone: "chat" | "cmds", spec: object, memberQualifiesForSpec: Function } | null>}
- */
 async function resolveManagedStaffThreadContext(channel) {
   if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return null;
 
@@ -85,7 +81,6 @@ function stripRoleMentionsFromContent(content, roleCollection) {
 
 const DISCORD_MESSAGE_CONTENT_MAX = 2000;
 
-/** Prefissa l'autore e tronca sotto il limite Discord (2000). */
 function buildStaffThreadRepostContent(author, strippedBody) {
   const mention = author?.toString?.() || (author?.id ? `<@${author.id}>` : "");
   const body = String(strippedBody || "").trim();
@@ -120,12 +115,6 @@ function buildRoleMentionRepostPayload(message, content) {
   return payload;
 }
 
-/**
- * Rimuove dal thread i membri che non appartengono al ruolo previsto per quel thread.
- * @param {import("discord.js").AnyThreadChannel} thread
- * @param {{ spec: object, memberQualifiesForSpec: Function }} ctx
- * @param {Iterable<import("discord.js").ThreadMember>} [addedMembers]
- */
 async function pruneUnauthorizedStaffThreadMembers(thread, ctx, addedMembers = null) {
   if (!thread?.members?.remove || !ctx?.spec || !thread.guild) return;
   const targets = [];
@@ -151,12 +140,6 @@ async function pruneUnauthorizedStaffThreadMembers(thread, ctx, addedMembers = n
   }
 }
 
-/**
- * Discord aggiunge automaticamente i membri di un ruolo menzionato nei thread privati.
- * Blocca solo menzioni di ruoli non previsti per quel thread (es. @Helper nel thread High Staff).
- * @param {import("discord.js").Message} message
- * @returns {Promise<boolean>} true se gestito
- */
 async function handleStaffManagedThreadRoleMentionMessage(message) {
   if (!message || message.author?.bot || message.system || message.webhookId) return false;
   if (!message.mentions?.roles?.size) return false;
@@ -165,9 +148,7 @@ async function handleStaffManagedThreadRoleMentionMessage(message) {
   if (!ctx) return false;
 
   if (areRoleMentionsAllowedForStaffThread(ctx, message.mentions.roles)) {
-    // Discord aggiunge da solo i membri del ruolo pingato (es. @HighStaff):
-    // ripulisci subito chi non dovrebbe stare in quel thread (es. Director con HS residuo).
-    await pruneUnauthorizedStaffThreadMembers(message.channel, ctx, null);
+            await pruneUnauthorizedStaffThreadMembers(message.channel, ctx, null);
     return false;
   }
 

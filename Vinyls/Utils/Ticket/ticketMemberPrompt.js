@@ -3,6 +3,7 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { isTicketOpenedByMember, memberCanActAsTicketStaff } = require("./ticketStaffPanelBuild");
 const { editTicketMemberOverwrite } = require("./ticketHighStaffOverwrites");
+const { isDiscordTicketsEnabled } = require("../Web/discordWorkflowUiGate");
 
 const TICKET_MEMBER_PROMPT_TTL_MS = 90_000;
 const pendingTicketMemberPrompts = new Map();
@@ -54,6 +55,7 @@ function extractMentionOrId(message) {
 }
 
 async function handleTicketMemberPromptMessage(message) {
+  if (!isDiscordTicketsEnabled()) return false;
   if (!message?.guild || message.author?.bot || message.webhookId || message.system) return false;
   const key = ticketMemberPromptKey(message.guild.id, message.author.id);
   const pending = pendingTicketMemberPrompts.get(key);

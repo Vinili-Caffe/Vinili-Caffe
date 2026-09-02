@@ -1,7 +1,3 @@
-/**
- * Limita render canvas/GIF economy concorrenti (bloccano l'event loop).
- * VC_ECONOMY_RENDER_CONCURRENCY=2 (default) — alza solo se la VPS ha CPU libera.
- */
 const MAX_ACTIVE = Math.max(
   1,
   Math.min(4, Math.floor(Number(process.env.VC_ECONOMY_RENDER_CONCURRENCY) || 2)),

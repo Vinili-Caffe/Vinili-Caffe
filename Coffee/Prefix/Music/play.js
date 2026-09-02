@@ -26,8 +26,7 @@ function extractSpotifyMetaFromDiscordEmbeds(embeds) {
 async function resolveSpotifyMetaHint(message, query) {
   const q = String(query || "").trim();
   if (!/open\.spotify\.com/i.test(q) && !/^spotify:/i.test(q)) return null;
-  // Solo embed già presenti: niente sleep — LavaSrc risolve i link Spotify da solo.
-  return extractSpotifyMetaFromDiscordEmbeds(message?.embeds);
+    return extractSpotifyMetaFromDiscordEmbeds(message?.embeds);
 }
 
 module.exports = {

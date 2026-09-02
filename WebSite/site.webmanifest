@@ -1,9 +1,9 @@
 {
-  "id": "/?app=vinili-caffe-v9",
-  "name": "‌",
+  "id": "/?app=vinili-caffe-v10",
+  "name": "Vinili & Caffè",
   "short_name": "Vinili & Caffè",
   "description": "Community Discord Vinili & Caffè",
-  "start_url": "/?app=vinili-caffe-v9",
+  "start_url": "/?app=vinili-caffe-v10",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],

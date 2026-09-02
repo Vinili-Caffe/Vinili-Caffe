@@ -56,7 +56,6 @@ function parseUserDateInput(raw) {
   return { day, month, year, hasYear: year !== null };
 }
 
-/** Prova a consumare una data dall'array di token (1–3 token: es. `01/02`, `1 agosto`, `1 agosto 2027`). */
 function tryParseDateFromTokens(tokens, startIndex) {
   for (let n = 1; n <= 3 && startIndex + n <= tokens.length; n++) {
     const candidate = tokens.slice(startIndex, startIndex + n).join(" ");
@@ -112,9 +111,6 @@ function parsePauseContentByDateScan(trimmed) {
   return { rawStart, rawEnd, reason };
 }
 
-/**
- * Messaggio canale pause: accetta date e motivo anche con etichette/separatori liberi.
- */
 function parsePauseChannelMessageContent(raw) {
   const trimmed = String(raw || "").trim();
   if (!trimmed) return null;
@@ -320,8 +316,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
           reason: "Richiesta pausa staff",
         });
       } catch (e) {
-        // Thread opzionale.
-      }
+              }
       if (thread) {
         await thread.members.add(uid).catch(() => null);
         const highStaffRoleId = String(IDs.roles.HighStaff || "");

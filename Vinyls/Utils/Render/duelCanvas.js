@@ -485,7 +485,6 @@ function duelClashPushProgress(frameIndex, totalFrames) {
   return easeInOutCubic((frameIndex - pushStart) / Math.max(1, pushEnd - pushStart));
 }
 
-/** +1 = pallino verso destra (sopraffà il sinistro), -1 = verso sinistra (sopraffà il destro). */
 function clashPushDirection(winnerSide, leftPower, rightPower) {
   if (winnerSide === "left") return 1;
   if (winnerSide === "right") return -1;
@@ -607,10 +606,7 @@ function formatDuelPowerLabel(value) {
 }
 
 function animatedDuelPower(basePower, frameIndex, totalFrames, side, winnerSide, leftPower, rightPower) {
-  // Le % sulle barre = probabilità/potenza reale del duello.
-  // Non driftare col push del clash: in vittoria sembrava 76% e in sconfitta ~30%
-  // con la stessa bacchetta (solo teatro dell'animazione).
-  void frameIndex;
+        void frameIndex;
   void totalFrames;
   void side;
   void winnerSide;

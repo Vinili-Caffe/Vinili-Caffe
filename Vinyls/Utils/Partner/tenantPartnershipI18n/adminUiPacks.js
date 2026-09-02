@@ -1,4 +1,3 @@
-// Auto-generated admin/setup/settings locales for partnership partnership
 const ADMIN_UI_LOCALES = {
   "sv": {
     "admin_denied": "<:vegax:1443934876440068179> Endast **serverägaren**, användare med **Administratör** eller **Hantera server** kan använda denna funktion.",
@@ -3354,7 +3353,6 @@ const { ADMIN_EN, ADMIN_IT } = require("./adminPacks");
 const { TENANT_LANGUAGES } = require("./languages");
 const { ADMIN_LOCALE_OVERRIDES } = require("./adminLocaleOverrides");
 
-/** Solo pacchetti verificati completi — ignora blocchi auto-generati it+XX misti. */
 const VERIFIED_ADMIN_LOCALES = {
   sv: ADMIN_UI_LOCALES.sv,
   es: ADMIN_UI_LOCALES.es,

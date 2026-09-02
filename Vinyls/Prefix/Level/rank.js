@@ -27,8 +27,7 @@ module.exports = {
 
     const messageGuildId = String(message.guild.id).trim();
     const mainGuildId = String(message.client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
-    /** Stesso contesto del sito (siteRankCardApi): exp, classifiche, rankCard e moltiplicatore sulla guild principale se il membro C'è'. */
-    let statsGuild = message.guild;
+        let statsGuild = message.guild;
     let statsGuildId = messageGuildId;
     if (mainGuildId && mainGuildId !== messageGuildId) {
       const mainG =
@@ -56,8 +55,7 @@ module.exports = {
     const weeklyText = weeklyRank ? `#${weeklyRank}` : "Fuori dalla classifica";
     const allTimeText = allTimeRank ? `#${allTimeRank}` : "Fuori dalla classifica";
 
-    /** Sito e comando devono leggere la stessa personalizzazione: preferisci sempre la guild principale. */
-    const themeGuildCandidates = [];
+        const themeGuildCandidates = [];
     if (mainGuildId) themeGuildCandidates.push(mainGuildId);
     if (statsGuildId && !themeGuildCandidates.includes(statsGuildId)) themeGuildCandidates.push(statsGuildId);
     if (messageGuildId && !themeGuildCandidates.includes(messageGuildId)) themeGuildCandidates.push(messageGuildId);

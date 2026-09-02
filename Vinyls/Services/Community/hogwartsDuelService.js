@@ -55,8 +55,7 @@ function computeVsBotWinChance(playerWinChance, vsBotCfg = {}) {
   const shopMin = 42;
   const shopMax = 100;
   const t = Math.max(0, Math.min(1, (shop - shopMin) / Math.max(1, shopMax - shopMin)));
-  // Leggera curva favorevole in alto: la Phoenix deve sentirsi meglio della salice.
-  const curved = Math.pow(t, 0.82);
+    const curved = Math.pow(t, 0.82);
   return Math.round(min + curved * (max - min));
 }
 
@@ -111,8 +110,7 @@ async function loadDuelFighter(client, guildId, userId, displayName, username = 
     username: username || displayName,
     houseId,
     wand: inventory.wand,
-    // Boost esaurito = piccola penalità, non bacchetta prestata (bug: Voldemort vinceva troppo).
-    wandBoostPenalty: wandBoost.boostExhausted ? 8 : 0,
+        wandBoostPenalty: wandBoost.boostExhausted ? 8 : 0,
   });
   if (wandBoost.boostExhausted) fighter.wandBoostExhausted = true;
   if (Number.isFinite(wandBoost.boostUsesRemaining)) fighter.wandBoostUsesRemaining = wandBoost.boostUsesRemaining;
@@ -140,11 +138,6 @@ function isBotDuelToken(raw) {
   return BOT_ALIASES.has(t);
 }
 
-/**
- * PvP: un vincitore c'è sempre (niente pareggio). A parità di roll (tipico con bacchette uguali)
- * lo spareggio è pesato sulla potenza; se anche quella è uguale, 50/50.
- * @returns {{ winnerId: string, loserId: string, draw: boolean, leftRoll: number, rightRoll: number, leftPower: number, rightPower: number, spellLine: string }}
- */
 function resolveDuelOutcome(left, right, seed = "") {
   const lPow = Math.max(1, Math.min(100, Math.floor(Number(left?.power) || 1)));
   const rPow = Math.max(1, Math.min(100, Math.floor(Number(right?.power) || 1)));
@@ -160,8 +153,7 @@ function resolveDuelOutcome(left, right, seed = "") {
       : randomInt(0, totalPow);
     const leftWinsTie = tieBreak < lPow;
     winnerId = leftWinsTie ? String(left.userId || "") : String(right.userId || "");
-    // Differenza minima sui roll mostrati così canvas/animazione non restano in stallo.
-    if (leftWinsTie) leftRoll += 1;
+        if (leftWinsTie) leftRoll += 1;
     else rightRoll += 1;
   } else if (leftRoll > rightRoll) {
     winnerId = String(left.userId || "");
@@ -196,8 +188,7 @@ function resolveBotDuelOutcome(left, right, seed = "", vsBotCfg = {}) {
     draw: false,
     leftRoll: roll,
     rightRoll: threshold,
-    // % mostrate = probabilità reale del duello vs bot (non potenza shop).
-    leftPower: winPct,
+        leftPower: winPct,
     rightPower: Math.max(1, Math.min(99, 100 - winPct)),
     spellLine,
     winnerSide: playerWins ? "left" : "right",
@@ -379,8 +370,7 @@ async function reserveDuelCooldown(client, guildId, userId) {
   const untilMs = readDuelCooldownUntilMs(live);
   const left = Math.max(0, untilMs - Date.now());
   if (left <= 0) {
-    // Non inventare 30m finti: riprova a riservare una volta sola.
-    const retry = await ActivityUserProfile.findOneAndUpdate(
+        const retry = await ActivityUserProfile.findOneAndUpdate(
       { guildId: gid, userId: uid },
       { $set: { [DUEL_COOLDOWN_UNTIL_PATH]: until } },
       { new: true, upsert: true, setDefaultsOnInsert: true },
@@ -489,9 +479,6 @@ function formatDuelRewardLine(rewards) {
   return `🎁 Ricompensa: ${parts.join(" · ")}`;
 }
 
-/**
- * @returns {Promise<{ awarded: boolean, galeoni: number, housePoints: number, houseLabel: string, petMultiplier: number, cooldownMs: number, message: string }|null>}
- */
 async function settleDuelVictoryRewards(client, { guildId, winnerId, vsBot = false, dedupeKey = "" }) {
   const gid = String(guildId || "").trim();
   const uid = String(winnerId || "").trim();

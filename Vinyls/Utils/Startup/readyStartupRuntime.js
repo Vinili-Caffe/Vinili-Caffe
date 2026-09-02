@@ -95,10 +95,6 @@ function sortStartupTasksByWeight(tasks) {
   });
 }
 
-/**
- * Esegue i task di startup in fasi per peso: veloci in sequenza, medi in pool parallelo,
- * pesanti in parallelo senza bloccare il resto del bot.
- */
 async function runPhasedStartupTasks(tasks, hooks = {}, options = {}) {
   const fastMax = Number.isFinite(Number(options.fastMax)) ? Number(options.fastMax) : 20;
   const mediumMax = Number.isFinite(Number(options.mediumMax)) ? Number(options.mediumMax) : 55;
@@ -124,8 +120,7 @@ async function runPhasedStartupTasks(tasks, hooks = {}, options = {}) {
           onSuccess: hooks.onSuccess,
           onError: hooks.onError,
         });
-        // Cede l'event loop tra task pesanti (evita miss node-cron).
-        await new Promise((resolve) => setImmediate(resolve));
+                await new Promise((resolve) => setImmediate(resolve));
       }
     })();
   }

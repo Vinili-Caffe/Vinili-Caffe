@@ -54,14 +54,6 @@ async function getOrCreateStaffDoc(guildId, userId) {
   return doc;
 }
 
-/**
- * Incremento atomico contatori valutazione (evita ID duplicati con sync auto + manuale in parallelo).
- * @param {string} guildId
- * @param {string} userId
- * @param {"positive"|"negative"} kind
- * @param {string} [reason]
- * @returns {Promise<{ valutazioniCount: number, sectionCount: number }|null>}
- */
 async function incrementStaffValutazioneCounters(guildId, userId, kind, reason = "") {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
@@ -117,7 +109,6 @@ async function deleteThreadForMessage(guild, messageIdOrMessage) {
   }
 }
 
-/** Elimina dal canale pausa i messaggi (e thread collegati) delle richieste salvate nel profilo, usando i dati in DB. */
 async function deleteStaffPauseRequestChannelMessages(guild, userId) {
   const gid = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
@@ -178,8 +169,7 @@ function messageLooksRelatedToUser(msg, userId) {
   ) {
     return true;
   }
-  // Resoconti / azioni staff: userId nei customId dei bottoni (Accetta/Rifiuta).
-  for (const row of msg.components || []) {
+    for (const row of msg.components || []) {
     for (const c of row.components || []) {
       if (String(c?.customId || "").includes(uid)) return true;
     }
@@ -252,7 +242,6 @@ async function deleteUserRelatedMessagesInChannel(guild, channelId, userId) {
 
 const STAFF_ROLES_HISTORY_RETENTION_CAP = 400;
 
-/** Campi partnership da conservare al depex completo (cronologia +profile pm / classifica storica). */
 const PARTNERSHIP_STAFF_RETENTION_KEYS = Object.freeze([
   "partnerActions",
   "partnerCount",
@@ -302,12 +291,6 @@ function extractPartnershipStaffRetention(staff) {
   return keep ? out : null;
 }
 
-/**
- * Prima di rimuovere il tracciamento staff al depex:
- * - archivia `rolesHistory` in `staffRolesHistoryRetention`
- * - conserva cronologia/punti partnership (`partnerActions`, ecc.)
- * - elimina valutazioni/warn/pause e il resto di `staff`
- */
 async function archiveStaffRolesHistoryThenUnsetStaff(guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
@@ -400,9 +383,7 @@ const STAFF_LADDER_TRACK_RESET_SET = {
   "staff.bestStaffPauseBonusYears": [],
   "staff.serataFilmAttendanceSaturdayKey": null,
   "staff.serataFilmWillAttend": null,
-  // Non toccare staff.pauses: il reset ladder (re-pex) non deve cancellare
-  // pause accettate/storiche usate da calendario e conteggio giorni.
-};
+    };
 
 function buildStaffLadderTrackResetUpdate() {
   return { $set: { ...STAFF_LADDER_TRACK_RESET_SET } };
@@ -428,8 +409,7 @@ function applyStaffLadderTrackResetToObject(staffObj) {
   staffObj.bestStaffPauseBonusYears = [];
   staffObj.serataFilmAttendanceSaturdayKey = null;
   staffObj.serataFilmWillAttend = null;
-  // Keep staffObj.pauses (accepted/history) across re-pex ladder resets.
-}
+  }
 
 async function resetStaffLadderTrackInDb(guildId, userId) {
   const gid = String(guildId || "").trim();

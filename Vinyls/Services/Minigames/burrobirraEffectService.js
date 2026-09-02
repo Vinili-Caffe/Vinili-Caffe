@@ -236,7 +236,6 @@ function slotsOverlapWithGap(a, b, gapMs) {
   return !(a.startAtMs >= b.endAtMs + gap || b.startAtMs >= a.endAtMs + gap);
 }
 
-/** Aggiunge slot futuri se il piano giornaliero è sotto maxOccurrences (es. dopo aumento config). */
 function topUpDaySlots(existingSlots, dateKey, cfg, nowMs = Date.now()) {
   const current = normalizeSlots(existingSlots);
   if (current.length >= cfg.maxOccurrencesPerDay) return { slots: current, changed: false };
@@ -261,7 +260,6 @@ function topUpDaySlots(existingSlots, dateKey, cfg, nowMs = Date.now()) {
   return { slots: normalizeSlots(merged), changed };
 }
 
-/** Se maxOccurrences scende, elimina gli slot futuri in eccesso (non quelli già partiti). */
 function pruneExcessFutureSlots(existingSlots, cfg, nowMs = Date.now()) {
   const all = normalizeSlots(existingSlots);
   const started = all.filter((s) => s.startAtMs <= nowMs);
@@ -365,8 +363,7 @@ function findActiveSlot(slots, nowMs) {
 }
 
 function findLiveEffectSlot(slots, nowMs) {
-  // Resta "live" finché l'end notice non è stato inviato (anche oltre endAtMs se #chat è occupata).
-  return (
+    return (
     slots.find((slot) => slot?.disclaimerSent && !slot.endSent && nowMs >= slot.startAtMs) || null
   );
 }
@@ -563,8 +560,7 @@ async function runBurrobirraTick(client) {
 
   for (const slot of plan.slots) {
     if (slot.disclaimerSent && !slot.endSent && nowMs >= slot.endAtMs) {
-      // Non chiudere / annunciare a metà minigame: aspetta che #chat sia libera.
-      if (chatBusy) continue;
+            if (chatBusy) continue;
       const sent = await publishEndNotice(client, cfg);
       if (sent) {
         slot.endSent = true;
@@ -577,8 +573,7 @@ async function runBurrobirraTick(client) {
 
     if (nowMs < slot.startAtMs) continue;
 
-    // Non parte sopra un minigame in corso.
-    if (chatBusy) {
+        if (chatBusy) {
       if (withinDayWindow) continue;
       slot.disclaimerSent = true;
       slot.endSent = true;
@@ -586,11 +581,9 @@ async function runBurrobirraTick(client) {
       continue;
     }
 
-    // Un solo effetto live alla volta.
-    if (hasLiveEffect) continue;
+        if (hasLiveEffect) continue;
 
-    // Durata piena da quando parte davvero.
-    const endAtMs = nowMs + cfg.durationMs;
+        const endAtMs = nowMs + cfg.durationMs;
     const sent = await publishDisclaimer(client, cfg, endAtMs);
     if (sent) {
       slot.disclaimerSent = true;

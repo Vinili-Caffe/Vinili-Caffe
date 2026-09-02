@@ -238,8 +238,7 @@ async function collectRecentPartnerActionsForUser(guildId, userId, limit = 16) {
       const credited = resolvePartnerActionCreditUserId(action, row.userId);
       const onOwn = String(row.userId) === uid;
       if (!onOwn && credited !== uid) continue;
-      // Su profilo altrui: solo create attribuite come manager (evita rumore).
-      if (!onOwn && String(action.action || "").toLowerCase() !== "create") continue;
+            if (!onOwn && String(action.action || "").toLowerCase() !== "create") continue;
       const when = action.date != null ? new Date(action.date).getTime() : 0;
       items.push({ action, when: Number.isFinite(when) ? when : 0 });
     }
@@ -722,8 +721,7 @@ async function handleSiteStaffManagePost(client, req, res) {
 
     const viewerId = String(accessBase.member?.id || "").trim();
     const actingOnSelf = Boolean(viewerId && /^\d{16,22}$/.test(targetId) && targetId === viewerId);
-    // Chiunque nello staff può annullare le proprie pause (anche in sola lettura).
-    const selfPauseCancel = Boolean(actingOnSelf && action === "pause_cancel");
+        const selfPauseCancel = Boolean(actingOnSelf && action === "pause_cancel");
 
     let access = accessBase;
     if (!selfPauseCancel) {
@@ -744,8 +742,7 @@ async function handleSiteStaffManagePost(client, req, res) {
       return res.status(400).json({ ok: false, error: "bad_action", message: "Azione non valida." });
     }
     if (selfPauseCancel) {
-      // ok
-    } else if (access.pmManageOnly && !PM_GESTORE_MANAGE_ACTIONS.has(action)) {
+          } else if (access.pmManageOnly && !PM_GESTORE_MANAGE_ACTIONS.has(action)) {
       return res.status(403).json({
         ok: false,
         error: "forbidden",
@@ -941,8 +938,7 @@ async function handleSiteStaffManagePost(client, req, res) {
       });
     }
 
-    // Sempre: dopo qualsiasi azione il profilo web deve rifare fetch fresco.
-    try {
+        try {
       clearStaffProfileCacheForUser(targetId);
     } catch (_) {}
 

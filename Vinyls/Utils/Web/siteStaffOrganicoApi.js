@@ -12,6 +12,7 @@ const {
   isSnowflakeLabel,
   FALLBACK_LABEL,
 } = require("./siteWebUserIdentity");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const PM_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();
 const LADDER_IDS = staffLadderRoleIds();
@@ -29,6 +30,24 @@ function defaultAvatarForUserId(userId, size = 128) {
     }
   }
   return `https://cdn.discordapp.com/embed/avatars/${index}.png?size=${size}`;
+}
+
+function hasRealDiscordAvatarUrl(url) {
+  return /^https:\/\/cdn\.discordapp\.com\/avatars\//i.test(String(url || "").trim());
+}
+
+function isEmbedDiscordAvatarUrl(url) {
+  return /cdn\.discordapp\.com\/embed\/avatars\//i.test(String(url || "").trim());
+}
+
+function pickHistoryAvatarUrl(snapAvatar, identityAvatar, userId) {
+  const snap = String(snapAvatar || "").trim();
+  const idAv = String(identityAvatar || "").trim();
+  if (hasRealDiscordAvatarUrl(snap)) return snap;
+  if (hasRealDiscordAvatarUrl(idAv)) return idAv;
+  if (/^https:\/\//i.test(snap) && !isEmbedDiscordAvatarUrl(snap)) return snap;
+  if (/^https:\/\//i.test(idAv) && !isEmbedDiscordAvatarUrl(idAv)) return idAv;
+  return defaultAvatarForUserId(userId, 128);
 }
 
 function organicoCacheKey(filterUserId) {
@@ -227,8 +246,7 @@ async function persistHistoryIdentitySnapshots(guildId, identityCache) {
       doc.markModified("staffRolesHistoryRetention");
       await doc.save().catch(() => null);
     } catch {
-      /* ignore single-user stamp failures */
-    }
+          }
   }
 }
 
@@ -271,18 +289,36 @@ async function resolveHistoryIdentitiesBatch(guild, client, userIds, rosterById 
       }
     }
 
+    try {
+      const member = guild?.members?.cache?.get(uid);
+      if (member) {
+        const name = safeDisplayLabel(member.displayName || member.user?.username, uid, "");
+        if (name) {
+          const memberAvatar = String(userAvatarUrlDynamic(member, { size: 128 }) || "").trim();
+          cache.set(uid, {
+            userId: uid,
+            displayName: name,
+            username: String(member.user?.username || "").trim(),
+            avatarUrl:
+              (hasRealDiscordAvatarUrl(memberAvatar) ? memberAvatar : "") ||
+              defaultAvatarForUserId(uid, 128),
+          });
+          continue;
+        }
+      }
+    } catch {
+          }
+
     needFetch.push(uid);
   }
 
-  // Request path: only fetch users still missing a name, with a short budget.
-  // Full Discord resolve for ~100+ leavers belongs in background warm + Mongo stamp.
-  if (needFetch.length) {
+      if (needFetch.length) {
     const fetched = await resolveWebUserIdentitiesBatch(client, guild, needFetch, {
-      cap: 40,
-      budgetMs: 2_500,
-      batchSize: 3,
+      cap: 80,
+      budgetMs: 5_000,
+      batchSize: 4,
       paceMs: 0,
-      skipGuildMember: true,
+      skipGuildMember: false,
     });
     for (const [uid, id] of fetched.entries()) {
       if (!id) continue;
@@ -350,8 +386,7 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
     .lean()
     .catch(() => []);
 
-  // Seed snaps from Mongo history rows (backfilled) so we rarely need Discord on the hot path.
-  const snapByUserId = new Map();
+    const snapByUserId = new Map();
   for (const doc of docs || []) {
     const uid = String(doc?.userId || "").trim();
     if (!uid) continue;
@@ -398,8 +433,7 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
       if (!kind) continue;
       const d = row?.date ? new Date(row.date) : null;
       const iso = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
-      // Prefer per-row Mongo snapshot (fast + durable); live Discord only as fallback.
-      const snapName = safeDisplayLabel(row.displayName || row.username, uid, "");
+            const snapName = safeDisplayLabel(row.displayName || row.username, uid, "");
       const liveOk =
         identity.displayName &&
         !isSnowflakeLabel(identity.displayName, uid) &&
@@ -407,11 +441,11 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
       const displayName = snapName || (liveOk ? identity.displayName : identity.displayName);
       const username = String(row.username || identity.username || "").trim();
       const snapAvatar = String(row.avatarUrl || "").trim();
-      const avatarUrl =
-        (/^https:\/\//i.test(snapAvatar) ? snapAvatar : "") ||
-        (liveOk && identity.avatarUrl) ||
-        identity.avatarUrl ||
-        defaultAvatarForUserId(uid, 128);
+      const avatarUrl = pickHistoryAvatarUrl(
+        snapAvatar,
+        (liveOk && identity.avatarUrl) || identity.avatarUrl,
+        uid,
+      );
       rows.push({
         kind,
         userId: uid,
@@ -439,8 +473,7 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
     truncated: false,
   };
 
-  // Only stamp identities we actually resolved live (not roster/snap seeds).
-  const fetchedOnly = new Map();
+    const fetchedOnly = new Map();
   for (const [uid, id] of identityCache.entries()) {
     if (!snapByUserId.has(uid) && !rosterById?.get?.(uid)) fetchedOnly.set(uid, id);
   }
@@ -479,6 +512,7 @@ function historyIdentityIncomplete(items) {
   for (const it of list) {
     const name = String(it?.displayName || "").trim();
     if (!name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId)) bad += 1;
+    else if (!hasRealDiscordAvatarUrl(it?.avatarUrl)) bad += 1;
   }
   return bad >= Math.max(3, Math.ceil(list.length * 0.12));
 }
@@ -489,7 +523,9 @@ function warmMissingHistoryIdentities(client, guild, items) {
       (items || [])
         .filter((it) => {
           const name = String(it?.displayName || "").trim();
-          return !name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId);
+          const nameBad = !name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId);
+          const avBad = !hasRealDiscordAvatarUrl(it?.avatarUrl);
+          return nameBad || avBad;
         })
         .map((it) => String(it?.userId || "").trim())
         .filter(Boolean),
@@ -526,9 +562,17 @@ async function handleSiteStaffOrganicoGet(client, req, res) {
       return res.status(400).json({ ok: false, error: "bad_user", message: "userId non valido." });
     }
 
-    const cached = readOrganicoCache(filterUserId || null);
+        const rosterOnlyRaw = String(req.query?.rosterOnly || req.query?.light || "").trim().toLowerCase();
+    const rosterOnly =
+      rosterOnlyRaw === "1" || rosterOnlyRaw === "true" || rosterOnlyRaw === "yes" || rosterOnlyRaw === "roster";
+    const t0 = Date.now();
+
+    const cacheKey = rosterOnly ? `roster:${filterUserId || "all"}` : filterUserId || null;
+    const cached = readOrganicoCache(cacheKey);
     if (cached) {
       res.setHeader("Cache-Control", "private, max-age=20");
+      res.setHeader("X-VC-Organico-Ms", String(Date.now() - t0));
+      if (rosterOnly) res.setHeader("X-VC-Organico-Mode", "roster-cache");
       return res.status(200).json({ ...cached, cached: true });
     }
 
@@ -539,22 +583,48 @@ async function handleSiteStaffOrganicoGet(client, req, res) {
       return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
     }
 
-    // Roster prima: così la cronologia riusa i nomi dalla roster/snapshot.
-    const roster = await buildRoster(client);
+        const roster = await buildRoster(client);
+
+    if (rosterOnly) {
+      const lightPayload = {
+        ok: true,
+        rosterOnly: true,
+        viewer: identityFromMember(access.member),
+        counts: roster.counts,
+        sections: roster.sections,
+        staffDelMese: roster.staffDelMese || buildStaffDelMeseBlock(guild),
+        pexHistory: [],
+        historyStats: null,
+        historyFilterUserId: filterUserId || null,
+      };
+      writeOrganicoCache(cacheKey, lightPayload);
+      res.setHeader("Cache-Control", "private, max-age=20");
+      res.setHeader("X-VC-Organico-Ms", String(Date.now() - t0));
+      res.setHeader("X-VC-Organico-Mode", "roster");
+      return res.status(200).json(lightPayload);
+    }
+
     const byId = rosterMembersById(roster);
     const historyResult = await buildPexDepexHistory(guild, client, filterUserId || null, byId);
 
-    // Arricchisci displayName dalla roster se ancora = userId.
-    for (const item of historyResult.items || []) {
+        for (const item of historyResult.items || []) {
       const live = byId.get(String(item.userId || ""));
-      if (!live) {
-        item.displayName = safeDisplayLabel(item.displayName, item.userId);
-        continue;
-      }
+      item.displayName = safeDisplayLabel(item.displayName, item.userId);
+      if (!live) continue;
       if (isSnowflakeLabel(item.displayName, item.userId) || item.displayName === FALLBACK_LABEL) {
         item.displayName = safeDisplayLabel(live.displayName, item.userId);
         item.username = live.username || item.username;
-        item.avatarUrl = live.avatarUrl || item.avatarUrl;
+      }
+      const liveAvatar = String(live.avatarUrl || "").trim();
+      if (hasRealDiscordAvatarUrl(liveAvatar)) {
+        item.avatarUrl = liveAvatar;
+      } else if (
+        /^https:\/\//i.test(liveAvatar) &&
+        (!hasRealDiscordAvatarUrl(item.avatarUrl) || isEmbedDiscordAvatarUrl(item.avatarUrl))
+      ) {
+        item.avatarUrl = liveAvatar;
+      } else if (!hasRealDiscordAvatarUrl(item.avatarUrl)) {
+        item.avatarUrl = pickHistoryAvatarUrl(item.avatarUrl, liveAvatar, item.userId);
       }
     }
 
@@ -570,13 +640,14 @@ async function handleSiteStaffOrganicoGet(client, req, res) {
     };
 
     if (historyIdentityIncomplete(historyResult.items)) {
-      // Non fissare in cache una risposta con tanti "Utente"; continua in background.
-      warmMissingHistoryIdentities(client, guild, historyResult.items);
+            warmMissingHistoryIdentities(client, guild, historyResult.items);
     } else {
       writeOrganicoCache(filterUserId || null, payload);
     }
 
     res.setHeader("Cache-Control", "private, max-age=20");
+    res.setHeader("X-VC-Organico-Ms", String(Date.now() - t0));
+    res.setHeader("X-VC-Organico-Mode", "full");
     return res.status(200).json(payload);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-organico GET:", err);

@@ -26,7 +26,6 @@ const QUEUE_LANES = Object.freeze({
   small: QUEUE_STATE_KEY_SMALL,
   large: QUEUE_STATE_KEY_LARGE,
 });
-/** Sotto questa soglia di messaggi (partnership+log) → coda small. */
 const SMALL_QUEUE_MAX_MESSAGES = 1200;
 const GLOBAL_PARTNERSHIP_LOG_SEQ_KEY = "globalPartnershipLogSeq.v1";
 const FETCH_BATCH = 100;
@@ -189,9 +188,6 @@ async function findJobById(jobId) {
   return null;
 }
 
-/**
- * Stima messaggi partnership+log (fino a SMALL_QUEUE_MAX+1) per scegliere la coda.
- */
 async function classifyMigrationLane(guild, channelIds) {
   const ids = [...new Set((channelIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
   let total = 0;
@@ -278,7 +274,6 @@ function extractDiscordMessageUrlParts(text) {
   return { guildId: m[1], channelId: m[2], messageId: m[3] };
 }
 
-/** Testo completo messaggio (content + embed + bottoni link) per trovare invite. */
 function collectInviteScanText(message) {
   const parts = [collectPartnershipMessageText(message)];
   for (const embed of message?.embeds || []) {
@@ -292,7 +287,6 @@ function collectInviteScanText(message) {
   return parts.filter(Boolean).join("\n");
 }
 
-/** Solo link discord.gg / discord.com/invite (niente token alfanumerici sparsi). */
 function extractInviteCodeFromMessage(message) {
   return extractInviteCodeFromUrl(collectInviteScanText(message));
 }
@@ -309,10 +303,6 @@ function normalizePersonLookup(value) {
     .replace(/\s+/g, " ");
 }
 
-/**
- * Indice nome → userId dei Partner Manager (username / globalName / displayName).
- * Nomi ambigui (due PM uguali) vengono esclusi.
- */
 function buildPartnerManagerNameIndex(guild, pmUserIds) {
   const byLookup = new Map();
   const add = (raw, id) => {
@@ -366,10 +356,6 @@ function findPmUserIdsInText(text, pmUserIds, nameIndex, excludeUserId) {
   return found;
 }
 
-/**
- * Se la partner è pubblicata da un bot, cerca il Partner Manager nei messaggi successivi
- * (testo/embed: menzione, id, nome). Esclude sempre il Manager del server partner.
- */
 function findPmUserIdAfterBotPartnership(messages, index, { pmUserIds, nameIndex, managerId, windowMs = 3 * 60 * 1000 } = {}) {
   const base = messages?.[index];
   const baseTs = Number(base?.createdTimestamp || 0);
@@ -389,8 +375,7 @@ function findPmUserIdAfterBotPartnership(messages, index, { pmUserIds, nameIndex
     const ts = Number(m?.createdTimestamp || 0);
     if (!ts || ts - baseTs > windowMs) break;
 
-    // Nuova partner con invite = fine della finestra (non mischiare partnership diverse).
-    if (extractInviteCodeFromMessage(m) && !isThankYouPartnershipMessage(m)) break;
+        if (extractInviteCodeFromMessage(m) && !isThankYouPartnershipMessage(m)) break;
 
     const blob = collectInviteScanText(m);
     const followManager = extractManagerIdFromPartnershipText(blob);
@@ -400,9 +385,7 @@ function findPmUserIdAfterBotPartnership(messages, index, { pmUserIds, nameIndex
     const authorId = m?.author && !m.author.bot ? String(m.author.id) : null;
     const authorIsPm = Boolean(authorId && pmUserIds.has(authorId) && authorId !== exclude);
 
-    // Autore umano PM del messaggio successivo: segnale forte (es. conferma dopo bot),
-    // ma mai se coincide col Manager del partner.
-    if (authorIsPm) {
+            if (authorIsPm) {
       if (!hits.length || hits.includes(authorId)) return authorId;
       return hits[0];
     }
@@ -411,12 +394,6 @@ function findPmUserIdAfterBotPartnership(messages, index, { pmUserIds, nameIndex
   return null;
 }
 
-/**
- * @param {object} [opts]
- * @param {string|null} [opts.followUpPmUserId]
- * @param {Set<string>|null} [opts.pmUserIds]
- * @param {string|null} [opts.managerId]
- */
 function resolvePmUserIdFromMessage(message, opts = {}) {
   const followUpPmUserId = String(opts?.followUpPmUserId || "").trim() || null;
   const pmUserIds = opts?.pmUserIds || null;
@@ -424,8 +401,7 @@ function resolvePmUserIdFromMessage(message, opts = {}) {
 
   if (message?.author && !message.author.bot) return String(message.author.id);
 
-  // Thank-you del bot: l'attore è nell'author icon dell'embed (guild avatar URL).
-  const embedAuthorId = extractPmUserIdFromThankYouEmbedAuthor(message);
+    const embedAuthorId = extractPmUserIdFromThankYouEmbedAuthor(message);
   if (embedAuthorId && (!pmUserIds?.size || pmUserIds.has(embedAuthorId))) {
     return embedAuthorId;
   }
@@ -452,8 +428,7 @@ function parseExecuteLogEvent(message) {
   const blob = collectPartnershipMessageText(message);
   const globalLogId = extractPartnershipLogIdFromMessage(message);
   const mentions = extractMentionIds(blob);
-  // Log format: User (PM), Manager — first user mention ≈ PM, labeled Manager overrides.
-  const managerId = extractManagerIdFromPartnershipText(blob) || (mentions.length > 1 ? mentions[1] : null);
+    const managerId = extractManagerIdFromPartnershipText(blob) || (mentions.length > 1 ? mentions[1] : null);
   let pmUserId = mentions[0] || null;
   if (managerId && pmUserId && pmUserId === managerId && mentions.length > 1) {
     pmUserId = mentions.find((id) => id !== managerId) || pmUserId;
@@ -506,10 +481,6 @@ function parseThankYouEvent(message, resolveOpts) {
   };
 }
 
-/**
- * Qualsiasi messaggio nel canale partnership con un invite Discord
- * (fatto a mano, con Vinili, o con altri bot).
- */
 function parsePublishInviteEvent(message, nearbyThankYou, resolveOpts) {
   const blob = collectInviteScanText(message);
   const inviteCode = extractInviteCodeFromMessage(message);
@@ -601,8 +572,7 @@ async function persistImportedEvent(guildId, ev, opts = {}) {
   const migrationJobId = String(opts.migrationJobId || "").trim() || null;
   const existing = findMatchingCreateAction(s.partnerActions, ev);
   if (existing) {
-    // Già in DB senza tag: aggancialo a questo job così «Annulla migrazione» può toglierlo.
-    if (migrationJobId && !String(existing.migrationJobId || "").trim()) {
+        if (migrationJobId && !String(existing.migrationJobId || "").trim()) {
       existing.migrationJobId = migrationJobId;
       staffDoc.markModified("staff");
       await staffDoc.save();
@@ -672,13 +642,11 @@ async function resolvePartnerManagerUserIds(guild, roleId) {
   const rid = String(roleId || "").trim();
   if (!rid || !guild) return new Set();
   try {
-    // Serve la cache membri per role.members / filter affidabile.
-    if (guild.members?.cache?.size < (guild.memberCount || 0) * 0.5) {
+        if (guild.members?.cache?.size < (guild.memberCount || 0) * 0.5) {
       await guild.members.fetch().catch(() => null);
     }
   } catch {
-    /* ignore */
-  }
+      }
   const out = new Set();
   const role = guild.roles.cache.get(rid) || (await guild.roles.fetch(rid).catch(() => null));
   if (role?.members?.size) {
@@ -717,8 +685,7 @@ async function runMigrationJob(client, job) {
     return;
   }
 
-  // Prima di scansionare la cronologia: senza PM attuali non c’è nulla da importare.
-  const pmUserIds = await resolvePartnerManagerUserIds(guild, roleId);
+    const pmUserIds = await resolvePartnerManagerUserIds(guild, roleId);
   if (!pmUserIds.size) {
     await markJob(job.id, "failed", {
       error: "Nessun membro ha il ruolo Partner Manager configurato: niente da importare.",
@@ -825,9 +792,7 @@ async function runMigrationJob(client, job) {
         ? extractManagerIdFromPartnershipText(collectPartnershipMessageText(pairedThankYou))
         : null);
 
-    // Partner pubblicate da bot: cerca il PM nei messaggi successivi (menzione/id/nome),
-    // escludendo il Manager del server partner anche se ha il ruolo PM.
-    const followUpPmUserId =
+            const followUpPmUserId =
       msg?.author?.bot
         ? findPmUserIdAfterBotPartnership(publishMessages, i, {
             pmUserIds,
@@ -845,8 +810,7 @@ async function runMigrationJob(client, job) {
     if (thankYou) {
       const ev = parseThankYouEvent(msg, resolveOpts);
       if (ev?.pmUserId) {
-        // Don't override stronger log events with same publish message.
-        const clash = [...eventsByKey.values()].some(
+                const clash = [...eventsByKey.values()].some(
           (e) => e.publishMessageId && ev.partnerMessageIds.includes(e.publishMessageId),
         );
         const key = eventDedupeKey(ev);
@@ -1073,10 +1037,8 @@ function startPartnershipHistoryMigrationWorker(client) {
   const external =
     String(process.env.PARTNERSHIP_MIGRATION_EXTERNAL || "").trim() === "1";
 
-  // Con worker PM2 dedicato, bots/site-api non devono processare la coda.
-  if (external && !dedicated) return;
-  // Senza processo dedicato: solo gateway (il REST di site-api restava disabilitato).
-  if (!dedicated && (!client || client._isSiteApiRestClient)) return;
+    if (external && !dedicated) return;
+    if (!dedicated && (!client || client._isSiteApiRestClient)) return;
 
   clientRef = client || clientRef;
   if (tickTimer) return;
@@ -1113,8 +1075,7 @@ async function enqueuePartnershipHistoryMigration({
   const cfg = getPartnershipConfigSync(gid) || {};
   const useConfigured = String(mode || "configured") !== "custom";
 
-  // Prefer saved config; fall back to IDs sent by the dashboard (covers empty cache).
-  const resolvedChannelId = String(
+    const resolvedChannelId = String(
     (useConfigured ? cfg.partnershipsChannelId : channelId) ||
       channelId ||
       cfg.partnershipsChannelId ||

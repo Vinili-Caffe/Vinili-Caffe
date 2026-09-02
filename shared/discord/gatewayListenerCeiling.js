@@ -11,8 +11,7 @@ function raiseAsyncEventEmitterDefaults(maxListeners) {
     const mod = require("@vladfrangu/async_event_emitter");
     const Ctor = mod?.AsyncEventEmitter || mod?.default;
     if (Ctor && typeof Ctor === "function") {
-      // Some builds expose a static; constructor still defaults to 10 per instance.
-      if ("defaultMaxListeners" in Ctor) {
+            if ("defaultMaxListeners" in Ctor) {
         Ctor.defaultMaxListeners = Math.max(Number(Ctor.defaultMaxListeners) || 0, maxListeners);
       }
     }
@@ -30,7 +29,6 @@ function pushUniqueEmitter(list, emitter) {
   list.push(emitter);
 }
 
-/** Collect every gateway-related emitter discord.js / @discordjs/ws may attach listeners to. */
 function collectGatewayEmitters(client) {
   const out = [];
   pushUniqueEmitter(out, client);
@@ -85,8 +83,7 @@ function installGatewayShardListenerCeiling(client) {
   client.on("shardReconnecting", apply);
   client.on("shardDisconnect", apply);
 
-  // @discordjs/ws shards appear at login/connect — keep applying briefly after boot.
-  let passes = 0;
+    let passes = 0;
   const bootTimer = setInterval(() => {
     apply();
     passes += 1;

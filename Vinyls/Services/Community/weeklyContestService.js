@@ -30,15 +30,12 @@ function parseEnvFlag(raw, defaultWhenEmpty = false) {
   return s === "1" || s === "true" || s === "yes";
 }
 
-/** `sfondi` (default) = due canali mobile/pc. `disegni` | `outfit` = contest a canale unico (categoria `mobile` in DB); `outfit` implica anche UI/premi outfit. */
 const ACTIVE_CONTEST_PROFILE = (String(process.env.WEEKLY_CONTEST_ACTIVE_PROFILE ?? "").trim().toLowerCase() || "sfondi");
 const IS_OUTFIT_PROFILE = ACTIVE_CONTEST_PROFILE === "outfit";
 const IS_DISEGNI_CONTEST = ACTIVE_CONTEST_PROFILE === "disegni" || IS_OUTFIT_PROFILE;
-/** `disegni` = 2° unlock profilo + 3° +10 livelli (niente VIP). `outfit` = solo 3° ruolo VIP 30 giorni (nessun unlock / livelli automatici). */
 const DISEGNI_FINALE_PRIZE_MODE = String(process.env.WEEKLY_CONTEST_DISEGNI_FINALE_PRIZE_MODE || "disegni").trim().toLowerCase();
 const IS_OUTFIT_FINALE_PRIZES =
   IS_DISEGNI_CONTEST && (IS_OUTFIT_PROFILE || DISEGNI_FINALE_PRIZE_MODE === "outfit");
-/** Titoli "Contest outfit" (+evento classifica, classifica finale): `outfit` oppure chiave evento che contiene "outfit". Non usare solo FINALE_PRIZE_MODE per evitare label errate su eventi disegni-… passati. */
 const DISEGNI_UI_BRAND = String(process.env.WEEKLY_CONTEST_DISEGNI_UI_BRAND || "").trim().toLowerCase();
 
 const SFONDI_EVENT_KEY_PRODUCTION = String(process.env.WEEKLY_CONTEST_SFONDI_EVENT_KEY || "sfondi-2026-04-13").trim();
@@ -99,14 +96,12 @@ function createUtcFromRomeLocal(year, month, day, hour, minute, second) {
   return new Date(utcMs);
 }
 
-// Sfondi default: lunedì 13 aprile 2026, 12:00 Europe/Rome → domenica 19, 21:00 Roma
 const SFONDI_WINDOW_START_MS =
   parseOptionalContestEpochMs(process.env.WEEKLY_CONTEST_SFONDI_START_MS) ??
   createUtcFromRomeLocal(2026, 4, 13, 12, 0, 0).getTime();
 const SFONDI_WINDOW_END_MS =
   parseOptionalContestEpochMs(process.env.WEEKLY_CONTEST_SFONDI_END_MS) ??
   createUtcFromRomeLocal(2026, 4, 19, 21, 0, 0).getTime();
-// Disegni: come sfondi — lunedì 20 aprile 12:00 Europe/Rome → domenica 26, 21:00 Roma
 const DISEGNI_WINDOW_START_MS =
   parseOptionalContestEpochMs(process.env.WEEKLY_CONTEST_DISEGNI_START_MS) ??
   createUtcFromRomeLocal(2026, 4, 20, 12, 0, 0).getTime();
@@ -128,10 +123,6 @@ const CHANNEL_MOBILE_ID = String(
 const CHANNEL_PC_ID = String(
   IS_DISEGNI_CONTEST ? "" : process.env.WEEKLY_CONTEST_SFONDI_PC_CHANNEL_ID || IDs.channels?.contestSfondiPc || "",
 ).trim();
-/**
- * Contest outfit (profilo disegni con branding outfit) può usare un canale submission dedicato
- * diverso da `contestDisegni`. Se configurato, viene trattato come categoria `mobile`.
- */
 const CHANNEL_OUTFIT_ID = String(
   process.env.WEEKLY_CONTEST_OUTFIT_CHANNEL_ID ||
     IDs.channels?.contestOutfitSubmission ||
@@ -173,11 +164,9 @@ const STAFF_ROLE_IDS = new Set(
     .map((id) => String(id)),
 );
 
-/** Contest sfondi (submission): vietati Admin / HighStaff / Founder; con ruolo Staff serve Helper o Mod. */
 const SFONDI_SUBMIT_BLOCK_ALWAYS = new Set(
   [IDs.roles?.Admin, IDs.roles?.HighStaff, IDs.roles?.Founder].filter(Boolean).map((id) => String(id)),
 );
-/** Contest outfit (submission): vietato Founder; Admin/Helper/Mod sì; con ruolo Staff serve almeno uno tra Admin, Helper e Mod. */
 const OUTFIT_SUBMIT_BLOCK_ALWAYS = new Set(
   [IDs.roles?.Founder].filter(Boolean).map((id) => String(id)),
 );
@@ -576,7 +565,6 @@ async function ensureContestChannelsHideReactionCounts(client) {
   }
 }
 
-/** Il primo giorno del contest (CONTEST_FIRST_DAY), da mezzogiorno Roma: consente a Member di inviare messaggi nei due canali submission. */
 async function runContestMemberSendChannelsOpenJob(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
@@ -1311,8 +1299,7 @@ async function runDailyTopThreeBonusJob(client, options = {}) {
   const gid = contestGuildId();
   if (!gid || !client) return;
   if (CONTEST_TEST_MODE) return;
-  // Per il bonus giornaliero serve solo il canale annuncio bonus; non bloccare su channel submission.
-  if (!CHANNEL_BONUS_ANNOUNCE_ID) return;
+    if (!CHANNEL_BONUS_ANNOUNCE_ID) return;
   if (!IS_DISEGNI_CONTEST && !CHANNEL_MOBILE_ID && !CHANNEL_PC_ID) return;
   if (isRomeSunday()) return;
 
@@ -1858,8 +1845,7 @@ async function runContestFinalePrizeGrantJob(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
   if (CONTEST_TEST_MODE) return;
-  // Hard guard: premi finali solo domenica alle 21:00 Europe/Rome.
-  if (!isRomeSunday() || getRomeHour(new Date()) !== 21) return;
+    if (!isRomeSunday() || getRomeHour(new Date()) !== 21) return;
   if (Date.now() <= getContestWindowMs().end) return;
 
   const meta0 = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION }).lean().catch(() => null);
@@ -1936,7 +1922,7 @@ async function runContestFinalePrizeGrantJob(client) {
         { upsert: true, setDefaultsOnInsert: true },
       ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] finale meta disegni:", err));
       global.logger?.info?.(
-        `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (disegni): 1°=${first?.userId || "-"} (Decorazione NO BUNDLE), 2°=${second?.userId || "-"} (Custom role + voc da +profile, unlock DB ${secondUnlock ? "ok" : "fallito"}), 3°=${third?.userId || "-"} (+10 livelli, assegnati ${Number(thirdAward?.awardedLevels || 0)} livelli / ${Number(thirdAward?.deltaExp || 0)} exp).`,
+        `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (disegni): 1°=${first?.userId || "-"} (Decorazione NO BUNDLE), 2°=${second?.userId || "-"} (Custom role + voc dal [profilo sul sito](https://www.viniliecaffe.it/personalizza/), unlock DB ${secondUnlock ? "ok" : "fallito"}), 3°=${third?.userId || "-"} (+10 livelli, assegnati ${Number(thirdAward?.awardedLevels || 0)} livelli / ${Number(thirdAward?.deltaExp || 0)} exp).`,
       );
       continue;
     }
@@ -1973,8 +1959,7 @@ async function runContestFinaleClassificaAnnounceJob(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
   if (!IS_DISEGNI_CONTEST || CONTEST_TEST_MODE) return;
-  // Hard guard: annuncio classifica finale solo domenica alle 21:00 Europe/Rome.
-  if (!isRomeSunday() || getRomeHour(new Date()) !== 21) return;
+    if (!isRomeSunday() || getRomeHour(new Date()) !== 21) return;
   const channelId = CHANNEL_FINALE_CLASSIFICA_ID.trim();
   if (!channelId) return;
   if (Date.now() <= getContestWindowMs().end) return;
@@ -2087,8 +2072,7 @@ function startWeeklyContestCron(client) {
   void backfillContestFinaleMissingVipRoles(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] backfill VIP finale (catch-up avvio):", err?.message || err),
   );
-  // Catch-up al riavvio: pubblica/assegna il bonus Top 3 giornaliero (msg+voice -> exp) se dovuto.
-  void runDailyTopThreeBonusJob(client, { recoveryOnStartup: true }).catch((err) =>
+    void runDailyTopThreeBonusJob(client, { recoveryOnStartup: true }).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] bonus giornaliero (catch-up avvio):", err?.message || err),
   );
   return { evening: contestCronEveningTask, noon: contestCronNoonTask };
@@ -2541,7 +2525,6 @@ async function removeContestSfondiSubmissionsOnMemberLeave(client, guildId, user
   }
 }
 
-/** Budget voti weekly contest (base per ruoli + bonus giornalieri). Ritorna voti ancora assegnabili per categoria. */
 function contestVoteRemainingSlots(member, voterLean) {
   const base = resolveBaseVoteCap(member);
   const bonusTotal = totalBonusSlotsForContest(voterLean || {});

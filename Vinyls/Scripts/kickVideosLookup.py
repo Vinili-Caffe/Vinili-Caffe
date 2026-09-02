@@ -12,7 +12,6 @@ UA = (
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
-
 def main() -> int:
     slug = (sys.argv[1] if len(sys.argv) > 1 else "").strip().lower().lstrip("@")
     if not slug:
@@ -42,7 +41,6 @@ def main() -> int:
     except Exception as e:
         print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False))
         return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

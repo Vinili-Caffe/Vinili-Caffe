@@ -5,12 +5,12 @@ const { normalizeGuildId } = require("./viniliProtectedGuilds");
 
 const BOT_STATE_KEY = "multiGuildTicketForms.v1";
 const MAX_FORMS = 40;
-const MAX_FIELDS = 5; // Discord modal limit
+const MAX_FIELDS = 5;
 const MAX_OPTIONS = 25;
 const MAX_OPTIONS_RADIO = 10;
 const MAX_OPTIONS_CHECKBOX = 10;
 const MAX_TITLE = 100;
-const MAX_LABEL = 45; // Discord text input label max
+const MAX_LABEL = 45;
 const MAX_DESCRIPTION = 100;
 const MAX_PLACEHOLDER = 100;
 const MAX_OPTION_LABEL = 100;

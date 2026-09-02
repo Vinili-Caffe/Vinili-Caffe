@@ -532,6 +532,7 @@ function pickThemedGameType(client, houseId, state, spawnCfg) {
 async function trySpawnHouseChannelMinigame(client, houseId, mode, state) {
   const cfgRaw = readHouseChannelMinigameCfg(client);
   if (!cfgRaw || !isHogwartsEventLiveForHouseChannels(client)) return { ok: false, reason: "inactive" };
+  if (isHouseChannelQuietHours(client)) return { ok: false, reason: "quiet_hours" };
   const channelId = resolveHouseChannelId(houseId);
   if (!channelId) return { ok: false, reason: "missing_channel" };
   const { isMinigameChannelBusy, isMainChatMinigameChannelBusy, spawnHouseChannelMinigame } = require("../Minigames/minigameService");
@@ -637,6 +638,16 @@ function isWithinHouseChannelMinigameHours(client, nowMs = Date.now()) {
   return parts.hour >= hourStart && parts.hour <= lastHour;
 }
 
+function isHouseChannelQuietHours(client, nowMs = Date.now()) {
+  const cfg = readHouseChannelMinigameCfg(client);
+  if (!cfg || !isHogwartsEventLiveForHouseChannels(client)) return false;
+  return !isWithinHouseChannelMinigameHours(client, nowMs);
+}
+
+function listHouseChannelIds() {
+  return [...HOUSE_CHANNEL_MAP.keys()];
+}
+
 module.exports = {
   bootstrapHogwartsHouseChannelMinigameScheduler,
   buildHouseChannelSpawnCfg,
@@ -644,6 +655,8 @@ module.exports = {
   isHogwartsHouseChannelId,
   isHogwartsEventLiveForHouseChannels,
   isWithinHouseChannelMinigameHours,
+  isHouseChannelQuietHours,
+  listHouseChannelIds,
   resolveHouseChannelMinigameCfg,
   resolveHouseRoleId,
   HOUSE_CHANNEL_MAP,

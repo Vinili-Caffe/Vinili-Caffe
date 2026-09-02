@@ -9,7 +9,6 @@ const path = require('path');
 const os = require('os');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true, override: true });
 const baseDir = __dirname;
-// Default: disabilitato. Attivabile via env quando vuoi.
 const ENABLE_LOADER_GIT_PULL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_GIT_PULL || "").trim().toLowerCase());
 const ENABLE_LOADER_NPM_INSTALL =
@@ -97,7 +96,6 @@ function resolveNodeExecutable() {
 
     return 'node';
 }
-
 
 function runSyncFromServerIfConfigured() {
     const syncServer = process.env.SYNC_SERVER || '';

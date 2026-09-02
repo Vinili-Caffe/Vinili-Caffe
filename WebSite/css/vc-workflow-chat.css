@@ -1,4 +1,3 @@
-/* Workflow chat standalone (subject deep-link + inbox) */
 .vc-wfc {
   display: flex;
   flex-direction: column;
@@ -171,7 +170,6 @@
   position: relative;
 }
 
-/* Niente direction:rtl: spezzava/tagliava gli avatar (foto “tagliata”). */
 .vc-wfc-msg.is-mine {
   grid-template-columns: minmax(0, 1fr) 2rem;
 }

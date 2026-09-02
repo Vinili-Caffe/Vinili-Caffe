@@ -1408,8 +1408,7 @@ async function resolveForbiddenBookParticipant(client, req, options = {}) {
     if (!participation.ok) return participation;
   }
   if (!previewViewer) {
-    // Finale chaos: round lampo indipendente dallo schedule Sezione proibita (enabled:false / endDate).
-    if (runtime?.mode !== "finale_chaos") {
+        if (runtime?.mode !== "finale_chaos") {
       const { endMs } = resolveForbiddenBooksSchedule(client);
       if (Number.isFinite(endMs) && Date.now() > endMs) {
         return {

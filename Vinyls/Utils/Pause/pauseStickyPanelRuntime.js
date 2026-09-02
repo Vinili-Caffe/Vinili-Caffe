@@ -37,8 +37,7 @@ function isPauseStickyPanelMessage(message) {
   for (const c of iterMessageComponents(message)) {
     const id = componentCustomId(c);
     if (id === PAUSE_REQUEST_OPEN_ID) return true;
-    // Link panel (sito): stesso sticky senza customId di richiesta.
-    if (String(c?.url || c?.data?.url || "").includes("/staff/pause")) return true;
+        if (String(c?.url || c?.data?.url || "").includes("/staff/pause")) return true;
   }
   const sig = String(
     message?.embeds?.[0]?.title || message?.embeds?.[0]?.data?.title || "",
@@ -48,7 +47,6 @@ function isPauseStickyPanelMessage(message) {
   return sig.includes("richiesta pausa");
 }
 
-/** Messaggio richiesta Accetta/Rifiuta — non deve triggerare un nuovo sticky. */
 function isPauseDecisionRequestMessage(message) {
   if (!message?.author?.bot) return false;
   for (const c of iterMessageComponents(message)) {
@@ -177,8 +175,7 @@ async function maybeRepositionPauseSticky(channelRef, client) {
       return;
     }
 
-    // Prima pubblica il nuovo sticky, poi cancella i vecchi (se send fallisce resta almeno uno).
-    const payload = buildPauseStickyPanelPayload();
+        const payload = buildPauseStickyPanelPayload();
     const sent = await channel
       .send({ ...payload, __skipNoticeEmbed: true })
       .catch((err) => {

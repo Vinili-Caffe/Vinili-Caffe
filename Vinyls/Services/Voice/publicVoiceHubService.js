@@ -57,6 +57,10 @@ const HUB_GROUP_LABELS = {
   duo: "Duo",
   trio: "Trio",
   quad: "Quad",
+  penta: "Penta",
+  hexa: "Hexa",
+  setta: "Setta",
+  octa: "Octa",
   lounge: "Lounge",
   squad: "Squad",
 };
@@ -66,6 +70,10 @@ const HUB_CHANNEL_GROUP_KEYS = Object.fromEntries(
     [String(IDs.channels?.vocaleDuo1 || "").trim(), "duo"],
     [String(IDs.channels?.vocaleTrio1 || "").trim(), "trio"],
     [String(IDs.channels?.vocaleQuad1 || "").trim(), "quad"],
+    [String(IDs.channels?.vocalePenta1 || "").trim(), "penta"],
+    [String(IDs.channels?.vocaleHexa1 || "").trim(), "hexa"],
+    [String(IDs.channels?.vocaleSetta1 || "").trim(), "setta"],
+    [String(IDs.channels?.vocaleOcta1 || "").trim(), "octa"],
   ].filter(([id]) => id),
 );
 
@@ -85,6 +93,10 @@ function voiceHubGroupKey(name, channelId) {
   if (/\bduo\b/i.test(raw)) return "duo";
   if (/\btrio\b/i.test(raw)) return "trio";
   if (/\bquad\b/i.test(raw)) return "quad";
+  if (/\bpenta\b/i.test(raw)) return "penta";
+  if (/\bhexa\b/i.test(raw)) return "hexa";
+  if (/\bsetta\b/i.test(raw)) return "setta";
+  if (/\bocta\b/i.test(raw)) return "octa";
   if (/\blounge\b/i.test(raw)) return "lounge";
   if (/\bsquad\b/i.test(raw)) return "squad";
   return "";
@@ -683,8 +695,7 @@ async function recoverPublicVoiceHubOnStartup(client) {
       }
     }
 
-    // hub.members dipende dalla GuildMember cache (limitata): usare voiceStates.
-    const lobbyUserIds = [
+        const lobbyUserIds = [
       ...new Set(
         [...guild.voiceStates.cache.values()]
           .filter((vs) => String(vs.channelId || "") === String(hubId))
@@ -789,11 +800,6 @@ function resolveVoiceStateUser(guild, vs) {
   return { member: member || null, user };
 }
 
-/**
- * Conta umani in una vocale hub-spawn.
- * Non conta bot. Voice state “orfani” (niente User/Member in cache) NON contano:
- * altrimenti canali vuoti restano eterni (00/02) perché la delete non parte.
- */
 function countHumanMembers(channel) {
   const guild = channel?.guild;
   const channelId = String(channel?.id || "");
@@ -809,7 +815,6 @@ function countHumanMembers(channel) {
   return n;
 }
 
-/** Come countHumanMembers, ma risolve i voice state senza member in cache. */
 async function countHumanMembersResolved(channel) {
   const guild = channel?.guild;
   const channelId = String(channel?.id || "");
@@ -824,8 +829,7 @@ async function countHumanMembersResolved(channel) {
     }
     if (user?.bot || member?.user?.bot) continue;
     if (!member && !user) continue;
-    // Dopo fetch: se non è più in questo canale, ignora.
-    const stillHere = String(member?.voice?.channelId || guild.voiceStates.cache.get(vs.id)?.channelId || "") === channelId;
+        const stillHere = String(member?.voice?.channelId || guild.voiceStates.cache.get(vs.id)?.channelId || "") === channelId;
     if (!stillHere) continue;
     n += 1;
   }
@@ -1047,7 +1051,6 @@ async function handlePublicVoiceHubEmpty(oldState, newState, client) {
   scheduleSpawnedChannelDelete(channel, client);
 }
 
-/** Sweep periodico: cancella spawn hub rimasti a 00/0x dopo leave persi / reload. */
 async function sweepEmptySpawnedHubChannels(client) {
   if (client?.config?.publicVoiceHubs?.enabled === false) return 0;
   const guildId = String(IDs.guilds?.main || "");

@@ -129,8 +129,7 @@ function cacheNameKey(session) {
 function spinPreviewCacheKey(session) {
   const kind = session?.isBank ? "bank" : "user";
   const chance = Math.max(1, Math.min(99, Math.floor(Number(session?.successChance) || 35)));
-  // Deve includere il nome: altrimenti la GIF warmup con stub "Bersaglio" viene riusata per tutti.
-  return `preview:spin:${kind}:${chance}:${cacheNameKey(session)}`;
+    return `preview:spin:${kind}:${chance}:${cacheNameKey(session)}`;
 }
 
 function idlePanelCacheKey(session) {
@@ -175,8 +174,7 @@ async function renderPanel(session, opts = {}, notice = "", panelClosed = false)
   const last = session.lastResult;
   const previewSpin = Boolean(opts.previewSpin);
   const status = canvasStatusLine(notice || buildRobContent(session, notice, panelClosed));
-  // Notice soft-block non deve riusare una idle cache “Premi Colpo”.
-  const noticeKey = status && (session.softBlocked || /protetto|casata|blocc/i.test(status))
+    const noticeKey = status && (session.softBlocked || /protetto|casata|blocc/i.test(status))
     ? status.slice(0, 48).toLowerCase()
     : "";
   const key = renderCacheKey(session, { previewSpin, noticeKey });
@@ -184,8 +182,7 @@ async function renderPanel(session, opts = {}, notice = "", panelClosed = false)
     const cached = renderCache.get(key);
     if (cached) return attachmentFromCache(cached);
   }
-  // Solo la cassaforte può riusare la idle cache di warmup: altrimenti +rob @utente mostrava Gringott/Server.
-  if (!opts.bypassCache && !last && !previewSpin && !session.panelAnimating && !noticeKey && session.isBank && defaultIdleCache) {
+    if (!opts.bypassCache && !last && !previewSpin && !session.panelAnimating && !noticeKey && session.isBank && defaultIdleCache) {
     return attachmentFromCache(defaultIdleCache);
   }
   try {
@@ -244,8 +241,7 @@ async function buildRobGuiPayload(session, notice = "", panelClosed = false, ren
     files: attachment.files || [],
     components: buildRows(session, panelClosed),
   });
-  // Soft-block: testo subito in chat, senza aspettare/animare la GIF.
-  if (session.softBlocked && String(notice || "").trim()) {
+    if (session.softBlocked && String(notice || "").trim()) {
     payload.content = String(notice).trim().slice(0, 180);
   }
   return payload;
@@ -279,8 +275,7 @@ function scheduleRobIdlePanel(message, session, notice = "", delayMs = null) {
 }
 
 async function warmupSpinPreviews() {
-  // Solo cassaforte: i colpi utente devono renderizzare la GIF col nome reale (niente stub "Bersaglio").
-  for (const targetName of ["Gringott", "Cassaforte"]) {
+    for (const targetName of ["Gringott", "Cassaforte"]) {
     const stub = {
       isBank: true,
       targetName,
@@ -334,8 +329,7 @@ async function pushRobHitAnimation(message, session, attemptFn, options = {}) {
   const messageId = String(message?.id || "");
   if (!message?.edit || !messageId) return { ok: false, message: "Messaggio non modificabile." };
 
-  // Soft-block / bersaglio non valido: MAI GIF. Mostra subito il blocco sul pannello.
-  if (typeof options.preflightFn === "function") {
+    if (typeof options.preflightFn === "function") {
     let pre;
     try {
       pre = await options.preflightFn();
@@ -441,8 +435,7 @@ async function pickRandomTarget(client, message, excludeId, cfg, currency = "caf
       .filter(Boolean),
   );
 
-  // Galeoni: parti dai ricchi in DB (non da 40 membri a caso su migliaia).
-  if (resolveEconomyMode(client) === "galeoni") {
+    if (resolveEconomyMode(client) === "galeoni") {
     const candidates = await listRobCandidateUserIds(client, guild.id, excludeId, cfg).catch(() => []);
     const pool = Array.isArray(candidates) ? candidates : [];
     for (let i = 0; i < pool.length; i += 1) {
@@ -517,8 +510,7 @@ function resetForNewAttempt(session) {
   session.lastResult = null;
   session.panelAnimating = false;
   session.updatedAt = now();
-  // softBlocked resta: se il bersaglio è scudato, Colpo resta disabilitato finché non cambi target.
-}
+  }
 
 function formatRobNotice(result, targetName, modeHint = null) {
   const galeoniMode = modeHint?.galeoni === true;

@@ -32,12 +32,10 @@ function buildStaffGuideEmbed() {
     )
     .setFooter({ text: DEFAULT_FOOTER_TEXT });
 
-  // Niente banner/thumbnail/icona footer su questo pannello.
-  embed.__skipFooterIcon = true;
+    embed.__skipFooterIcon = true;
   return embed;
 }
 
-/** Payload upsert/update senza GIF branding né allegati residui. */
 function buildStaffGuidePanelPayload(extra = {}) {
   return {
     embeds: [buildStaffGuideEmbed()],

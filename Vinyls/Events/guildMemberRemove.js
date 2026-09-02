@@ -255,7 +255,6 @@ async function handleTrackedStaffLeave(member) {
   }
 }
 
-/** Solo main: PM uscito → cancella tutte le sue partner (DB + messaggi canale). */
 async function handlePmStaffPartnershipWipeOnLeave(member, client) {
   const guild = member?.guild;
   if (!guild?.id || String(guild.id) !== String(MAIN_GUILD_ID)) return;
@@ -403,6 +402,10 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId, client) {
     .catch(() => null);
   if (!doc) return;
 
+  const pendingCustomPerksCleanup = doc?.profile?.customPerksDiscordCleanup?.runAt
+    ? doc.profile.customPerksDiscordCleanup
+    : null;
+
   const staffBlock = doc.staff;
   const staffPendingPurgeAt = doc.staffPendingPurgeAt;
   const keepStaffGrace =
@@ -414,8 +417,9 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId, client) {
   const keepEventWeekWinners =
     Array.isArray(doc?.profile?.totals?.exp?.event?.weekWinners) && doc.profile.totals.exp.event.weekWinners.length > 0;
   const keepHogwarts = await shouldRetainHogwartsProfileOnLeave(client, doc, { guildId: gid, userId: uid });
+  const keepCustomPerksCleanup = Boolean(pendingCustomPerksCleanup);
 
-  if (!keepModeration && !keepEventWeekWinners && !keepStaffGrace && !keepHogwarts) {
+  if (!keepModeration && !keepEventWeekWinners && !keepStaffGrace && !keepHogwarts && !keepCustomPerksCleanup) {
     await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
     return;
   }
@@ -441,6 +445,9 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId, client) {
       const cfg = client ? resolveHogwartsEventConfig(client) : null;
       profile.events = { hogwarts: attachHogwartsRetentionMarkers(hogwartsSlice, cfg) };
     }
+  }
+  if (keepCustomPerksCleanup) {
+    profile.customPerksDiscordCleanup = pendingCustomPerksCleanup;
   }
   if (Object.keys(profile).length) payload.profile = profile;
 

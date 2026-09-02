@@ -182,10 +182,6 @@ function ownedTierPrice(ownedRow) {
   return Math.max(shopItemPrice(catalog), paid);
 }
 
-/**
- * @param {{ id?: string, pricePaid?: number }|null} ownedRow
- * @param {{ id: string, price: number, name?: string }} item
- */
 function resolveShopPurchaseOffer(ownedRow, item) {
   if (!item?.id) return { ok: false, code: "invalid_item", message: "Oggetto shop non valido." };
   const newPrice = shopItemPrice(item);

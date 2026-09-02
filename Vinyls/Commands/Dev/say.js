@@ -17,7 +17,6 @@ function parseMessageLink(link) {
   };
 }
 
-/** Spezza il testo in chunk ≤ 2000 (limite Discord), preferendo tagli su spazi. */
 function splitDiscordContent(text, max = DISCORD_CONTENT_MAX) {
   const raw = String(text || "");
   if (!raw) return [];

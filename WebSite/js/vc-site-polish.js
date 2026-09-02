@@ -1,4 +1,3 @@
-/* Public inner pages: glass nav + light atmosphere + card rise. Skips home / tools. */
 (function () {
   if (window.__vcSitePolish) return;
   window.__vcSitePolish = true;
@@ -39,8 +38,7 @@
     return Boolean(navigator.standalone);
   }
 
-  /** phoneAllPages1: telefono browser + PWA — niente rise/MO (congela dopo tap/secondi). */
-  function isPhoneTouchUi() {
+    function isPhoneTouchUi() {
     if (isStandalonePwa()) return true;
     try {
       if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
@@ -58,14 +56,7 @@
   }
 
   function skipHeavyPolishFx() {
-    /* sitePerfFlash1: mid/lite desktop — niente sheen/MO/rise pesanti. */
-    if (isPhoneTouchUi()) return true;
-    try {
-      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
-        return true;
-      }
-    } catch (ePerfSkip) {}
-    return false;
+        return isPhoneTouchUi();
   }
 
   function isVotePage() {
@@ -83,7 +74,7 @@
     if (!el || !el.closest) return true;
     return Boolean(
       el.closest(
-        "header, footer, .vc-nav-shell, .vc-snav-panel, .vc-notif-panel, dialog, .vc-site-atmos, .vc-home-cine, .vc-ul-loading, .vc-reviews-gate, .vc-rank-customize-loading, .vc-user-profile-loader, .vc-session-verify-overlay, #vc-user-profile-view, .vc-rank-customize-page"
+        "header, footer, .vc-nav-shell, .vc-snav-panel, .vc-notif-panel, dialog, .vc-site-atmos, .vc-home-cine, .vc-ul-loading, .vc-reviews-gate, .vc-rank-customize-loading, .vc-user-profile-loader, .vc-session-verify-overlay, #vc-user-profile-view, .vc-rank-customize-page, .vc-user-profile-tabs"
       )
     );
   }
@@ -91,8 +82,7 @@
   function pickRiseNodes() {
     var root = document.querySelector("main") || document.querySelector(".vc-page");
     if (!root) return [];
-    // /notifications: layout flat come profilo — niente card wrapper sui pane.
-    if (document.body && document.body.classList.contains("vc-notifications-page")) {
+        if (document.body && document.body.classList.contains("vc-notifications-page")) {
       return [];
     }
     var found = root.querySelectorAll(
@@ -136,7 +126,7 @@
     try {
       var r = el.getBoundingClientRect();
       var fold = window.innerHeight || 800;
-      return r.top < fold * 0.98 && r.bottom > 12;
+            return r.top < fold * 0.88 && r.bottom > 24 && r.top > -40;
     } catch (e) {
       return true;
     }
@@ -144,10 +134,8 @@
 
   function decorateFxCard(el) {
     if (!el || skipChrome(el)) return;
-    /* Notify rows over cine canvas: home-panel transparent chrome = continuous flash on Chromium. */
-    if (el.classList && el.classList.contains("vc-notify-row")) return;
-    // riseLoop1: già decorata → zero DOM (altrimenti MO ↔ initRise loop infinito).
-    if (el.classList && el.classList.contains("vc-fx-card") && el.querySelector(":scope > .vc-fx-sheen")) {
+        if (el.classList && el.classList.contains("vc-notify-row")) return;
+        if (el.classList && el.classList.contains("vc-fx-card") && el.querySelector(":scope > .vc-fx-sheen")) {
       return;
     }
     if (el.closest && el.closest(".vc-page-cine-hero, .vc-wt-board, dialog")) return;
@@ -248,6 +236,36 @@
     if (typeof delayMs === "number") {
       el.style.setProperty("--vc-rise-delay", Math.max(0, delayMs) + "ms");
     }
+  }
+
+  function isAccordionFx(el) {
+    if (!el) return false;
+    if (
+      el.id === "vc-regole-tabs" ||
+      el.id === "vc-regole-list" ||
+      el.id === "vc-staff-guide-tabs" ||
+      el.id === "vc-staff-guide-list"
+    ) {
+      return true;
+    }
+    if (
+      el.classList &&
+      (el.classList.contains("vc-regole-tab") ||
+        el.classList.contains("vc-regole-card") ||
+        el.classList.contains("vc-regole-acc-ready"))
+    ) {
+      return true;
+    }
+    if (
+      el.closest &&
+      (el.closest("#vc-regole-list") ||
+        el.closest("#vc-staff-guide-list") ||
+        el.closest("#vc-regole-tabs") ||
+        el.closest("#vc-staff-guide-tabs"))
+    ) {
+      return true;
+    }
+    return false;
   }
 
   function ensureAtmos() {
@@ -379,8 +397,7 @@
     );
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
-      // Mai togliere la cornice alle card stesse.
-      if (
+            if (
         el.classList &&
         (el.classList.contains("vc-role-card") ||
           el.classList.contains("vc-ul-card") ||
@@ -410,16 +427,11 @@
 
   function initRise() {
     if (excluded()) return;
-    if (skipHeavyPolishFx()) {
-      forceRevealStaleRises();
-      return;
-    }
     if (riseBusy) return;
     riseBusy = true;
     riseMoPaused = true;
     try {
-      // riseLoop1: NON undress ad ogni pass (toglie sheen → MO → initRise → freeze totale).
-      if (!risePassDone) {
+            if (!risePassDone) {
         try {
           undressLayoutWrappers();
         } catch (eUndress) {}
@@ -437,7 +449,22 @@
       }
       function touch(el, delayMs) {
         if (!el || seenHas(el)) return;
+        if (isAccordionFx(el)) {
+          if (typeof window.__vcRevealRegoleAccordion === "function") {
+            window.__vcRevealRegoleAccordion(el);
+          }
+          return;
+        }
+        if (el.getAttribute("data-vc-body-cascade") === "1") return;
         seen.push(el);
+        if (isPhoneTouchUi()) {
+          el.classList.add("is-in");
+          el.classList.remove("vc-home-rise");
+          try {
+            el.style.removeProperty("--vc-rise-delay");
+          } catch (eSnapDelay) {}
+          return;
+        }
         decorateFxCard(el);
         markRise(el, delayMs);
         if (inView(el)) el.classList.add("is-in");
@@ -457,7 +484,9 @@
 
       var riseNodes = document.querySelectorAll(".vc-home-rise");
       if (!riseNodes.length) {
-        window.setTimeout(forceRevealStaleRises, 1200);
+        window.setTimeout(function () {
+          forceRevealStaleRises(false);
+        }, 900);
         return;
       }
       if (typeof IntersectionObserver === "undefined") {
@@ -467,6 +496,7 @@
 
       function reveal(el) {
         if (!el || el.classList.contains("is-in")) return;
+        if (el.getAttribute("data-vc-body-cascade") === "1") return;
         el.classList.add("is-in");
       }
 
@@ -478,9 +508,10 @@
             io.unobserve(entries[e].target);
           }
         },
-        { root: null, rootMargin: "160px 0px", threshold: 0.01 }
+        { root: null, rootMargin: "48px 0px", threshold: 0.06 }
       );
       for (var n = 0; n < riseNodes.length; n++) {
+        if (riseNodes[n].getAttribute("data-vc-body-cascade") === "1") continue;
         if (riseNodes[n].dataset.vcRiseIo === "1") continue;
         riseNodes[n].dataset.vcRiseIo = "1";
         if (
@@ -495,21 +526,26 @@
         io.observe(riseNodes[n]);
       }
 
-      window.setTimeout(forceRevealStaleRises, 1200);
-      window.setTimeout(forceRevealStaleRises, 2800);
+      window.setTimeout(function () {
+        forceRevealStaleRises(false);
+      }, 900);
+      window.setTimeout(function () {
+        forceRevealStaleRises(true);
+      }, 12000);
     } finally {
       riseBusy = false;
-      // Riprendi MO dopo un tick: evita di vedere le nostre stesse mutazioni sheen.
-      window.setTimeout(function () {
+            window.setTimeout(function () {
         riseMoPaused = false;
       }, 50);
     }
   }
 
-  function forceRevealStaleRises() {
+  function forceRevealStaleRises(forceAll) {
     try {
       var nodes = document.querySelectorAll(".vc-home-rise:not(.is-in)");
       for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].getAttribute("data-vc-body-cascade") === "1" && !window.__vcPageBodyCascadeDone) continue;
+        if (!forceAll && !inView(nodes[i])) continue;
         nodes[i].classList.add("is-in");
       }
     } catch (eForce) {}
@@ -523,15 +559,9 @@
       root.classList.add("vc-home-motion-ready");
       root.classList.remove("vc-cine-idle");
     } catch (eReady) {}
-    forceRevealStaleRises();
-    try {
-      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
-    } catch (eUnpin) {}
-    // riseLoop1: NON richiamare initRise qui (undress/sheen → freeze).
-    forceRevealStaleRises();
-    try {
-      // pwaResume1: ripristina sfondo solido se il canvas è morto dopo background.
-      var body = document.body;
+    forceRevealStaleRises(true);
+        try {
+            var body = document.body;
       if (body && isStandalonePwa()) {
         body.style.setProperty("background-color", "#100c09");
       }
@@ -544,18 +574,31 @@
       if (document.querySelector('script[src*="vc-home-cine"]')) return;
     } catch (e0) {}
     var s = document.createElement("script");
-    s.src = "/js/vc-home-cine.js?v=20260830phoneAllPages1";
+    s.src = "/js/vc-home-cine.js?v=20260901bodySnappyFx1";
     s.defer = true;
     (document.body || document.documentElement).appendChild(s);
   }
 
   function watchDynamicRise() {
-    var roots = document.querySelectorAll("#vc-page-content, #vc-ul-grid, #vc-roles-grid, #vc-regole-list, #wiki-comandi-panel");
+    var roots = document.querySelectorAll(
+      "#vc-page-content, #vc-ul-grid, #vc-roles-grid, #vc-regole-list, #vc-regole-tabs, #vc-staff-guide-list, #vc-staff-guide-tabs, #wiki-comandi-panel"
+    );
     if (!roots.length || typeof MutationObserver === "undefined") return;
     for (var r = 0; r < roots.length; r++) {
       (function (root) {
         var obs = new MutationObserver(function (mutations) {
           if (riseMoPaused || riseBusy) return;
+          var isAccRoot =
+            root.id === "vc-regole-list" ||
+            root.id === "vc-regole-tabs" ||
+            root.id === "vc-staff-guide-list" ||
+            root.id === "vc-staff-guide-tabs";
+          if (isAccRoot) {
+            if (typeof window.__vcRevealRegoleAccordion === "function") {
+              window.__vcRevealRegoleAccordion(root);
+            }
+            return;
+          }
           var meaningful = false;
           for (var m = 0; m < mutations.length; m++) {
             var mut = mutations[m];
@@ -578,7 +621,7 @@
           }
           if (!meaningful) return;
           clearTimeout(riseMoTimer);
-          riseMoTimer = window.setTimeout(initRise, 320);
+          riseMoTimer = window.setTimeout(initRise, 720);
         });
         obs.observe(root, { childList: true, subtree: true });
       })(roots[r]);
@@ -605,20 +648,16 @@
     } catch (eMotion) {}
     ensureAtmos();
     loadHomeCine();
-    // phoneAllPages1: su telefono/PWA salta sheen/MO/rise (DOM thrash + :has → freeze).
-    if (skipHeavyPolishFx()) {
-      try {
-        var all = document.querySelectorAll(".vc-home-rise");
-        for (var i = 0; i < all.length; i++) all[i].classList.add("is-in");
-      } catch (eIn) {}
-      window.setTimeout(forceRevealStaleRises, 400);
-      window.setTimeout(forceRevealStaleRises, 1600);
-    } else {
-      initRise();
+        initRise();
+    if (!skipHeavyPolishFx()) {
       watchDynamicRise();
-      window.setTimeout(forceRevealStaleRises, 900);
-      window.setTimeout(forceRevealStaleRises, 2200);
     }
+    window.setTimeout(function () {
+      forceRevealStaleRises(false);
+    }, 900);
+    window.setTimeout(function () {
+      forceRevealStaleRises(true);
+    }, 12000);
     try {
       window.addEventListener("pageshow", function () {
         recoverBlackScreen();
@@ -644,12 +683,8 @@
   }
   function onDynamicContentReady() {
     if (excluded()) return;
-    // phoneAllPages1: cine-ready dopo 1–3s riattivava initRise e congelava il telefono.
-    if (skipHeavyPolishFx()) {
-      forceRevealStaleRises();
-      return;
-    }
     initRise();
+    if (skipHeavyPolishFx()) return;
     try {
       if (typeof window.__vcInitPanelTilt === "function") window.__vcInitPanelTilt();
     } catch (eTilt) {}
@@ -659,4 +694,5 @@
   document.addEventListener("vc:page-content-ready", onDynamicContentReady);
   document.addEventListener("vc:roles-ready", onDynamicContentReady);
   document.addEventListener("vc:ul-ready", onDynamicContentReady);
+  document.addEventListener("vc:regole-acc-ready", onDynamicContentReady);
 })();

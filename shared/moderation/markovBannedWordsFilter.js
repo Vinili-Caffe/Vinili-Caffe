@@ -1,7 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 
-/** Extra tokens Markov must never emit (slur bypasses that are not exact automod tokens). */
 const MARKOV_EXTRA_BANNED_TOKENS = Object.freeze([
   "negroni",
   "negrona",
@@ -11,10 +10,6 @@ const MARKOV_EXTRA_BANNED_TOKENS = Object.freeze([
   "niger",
 ]);
 
-/**
- * Slur roots that must never appear even as substring inside another token
- * (e.g. "monteniger"). Do NOT put "negro" here — would false-positive "montenegro".
- */
 const MARKOV_SUBSTRING_BANNED_TERMS = Object.freeze([
   "niger",
   "nigger",
@@ -23,12 +18,9 @@ const MARKOV_SUBSTRING_BANNED_TERMS = Object.freeze([
   "niggers",
 ]);
 
-/** Hard-coded English slur patterns (same as Vinyls automod + substring-safe variants). */
 const RACIST_WORD_PATTERNS = [
-  // Classic n-word (word-ish; separators allowed between letters).
-  /\bn[\W_]*[i1l!|][\W_]*g[\W_]*g[\W_]*([e3a@][\W_]*)?r?\b/iu,
-  // Same roots as substring anywhere (catches monteniger / xxnigerxx).
-  /n[\W_]*[i1l!|][\W_]*g[\W_]*g[\W_]*([e3a@][\W_]*)?r?/iu,
+    /\bn[\W_]*[i1l!|][\W_]*g[\W_]*g[\W_]*([e3a@][\W_]*)?r?\b/iu,
+    /n[\W_]*[i1l!|][\W_]*g[\W_]*g[\W_]*([e3a@][\W_]*)?r?/iu,
   /n[\W_]*[i1l!|][\W_]*g[\W_]*[e3][\W_]*r/iu,
   /\bk[\W_]*i[\W_]*k[\W_]*e\b/iu,
   /\bc[\W_]*h[\W_]*i[\W_]*n[\W_]*k\b/iu,
@@ -89,7 +81,6 @@ function normalizeTerm(term) {
   );
 }
 
-/** Letters+digits only — catches "n i g e r" / "n.i.g.e.r" inside longer blobs. */
 function compactAlnum(text) {
   return String(text || "").replace(/[^\p{L}\p{N}]+/gu, "");
 }
@@ -131,8 +122,7 @@ function loadSubstringBannedTerms() {
   const all = new Set(
     MARKOV_SUBSTRING_BANNED_TERMS.map(normalizeTerm).filter((t) => t && t.length >= 4),
   );
-  // Also treat known automod n-slurs as substring-banned.
-  for (const term of loadBannedTerms()) {
+    for (const term of loadBannedTerms()) {
     if (!term || /\s/.test(term)) continue;
     if (/^n+i+g+/.test(term) && term.length >= 4) all.add(term);
   }
@@ -152,11 +142,6 @@ function normalizeForCheck(text) {
   );
 }
 
-/**
- * True if token is an exact banned term, or a short suffix extension of one
- * (e.g. negro → negroni). Suffix capped so "montenegro"-style compounds stay safe
- * for token-prefix matching of "negro".
- */
 function tokenMatchesBannedTerm(token, term) {
   if (!token || !term) return false;
   if (token === term) return true;

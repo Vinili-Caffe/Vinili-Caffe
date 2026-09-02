@@ -25,7 +25,6 @@ async function replyDeny(message, text, opts = {}) {
   await safeMessageReply(message, { content: `${icon} ${text}`, ...replyOptions() });
 }
 
-/** Prima puntata della sessione GUI applica il cooldown; le successive no. */
 function sessionSpendOptions(session) {
   return { skipCooldown: Boolean(session?.stakeCooldownApplied) };
 }
@@ -34,10 +33,6 @@ function markSessionStakeCooldown(session) {
   if (session && typeof session === "object") session.stakeCooldownApplied = true;
 }
 
-/**
- * Chiudi GUI economia: se annulli una mano/partita in corso, lascia il pannello
- * riusabile (idle). Solo la chiusura “vera” (fuori partita) disabilita i bottoni.
- */
 async function finalizeEconomyGuiClose({
   interaction,
   session,
@@ -115,10 +110,6 @@ async function runIncomeCommand(client, message, incomeType) {
   });
 }
 
-/**
- * Risolve un utente da menzione, snowflake o username/displayName (guild).
- * @returns {Promise<import("discord.js").User|null>}
- */
 async function resolveEconomyUserArg(message, raw) {
   const token = String(raw || "").trim();
   if (!token || !message?.guild) return null;
@@ -127,10 +118,6 @@ async function resolveEconomyUserArg(message, raw) {
   return resolved?.user || null;
 }
 
-/**
- * Prova menzione o gli args tipici (0/1), saltando token non-utente.
- * @param {(token: string) => boolean} [options.skipToken]
- */
 async function resolveEconomyOpponentArg(message, args, options = {}) {
   const mentioned = message?.mentions?.users?.first();
   if (mentioned) return mentioned;

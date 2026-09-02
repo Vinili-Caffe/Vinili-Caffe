@@ -5,8 +5,24 @@ const IDs = require("../../Utils/Config/ids");
 const DISCORD_CONTENT_MAX = 2000;
 const TIME_ZONE = "Europe/Rome";
 
+const { getHouseMeta } = require("../../Utils/Web/hogwartsSortingBank");
+
 function normalizeId(value) {
   return String(value || "").trim();
+}
+
+function houseDisplayName(cfg, houseId) {
+  const id = normalizeId(houseId).toLowerCase();
+  const meta = getHouseMeta(id);
+  if (meta?.label) return meta.label;
+  const fromCfg = normalizeId(cfg?.houses?.[id]?.label);
+  if (fromCfg) return fromCfg;
+  return id || "—";
+}
+
+function houseDisplayBold(cfg, houseId) {
+  const name = houseDisplayName(cfg, houseId);
+  return name === "—" ? name : `**${name}**`;
 }
 
 function roleMention(roleId) {
@@ -73,11 +89,6 @@ function splitDiscordContent(text, maxLen = DISCORD_CONTENT_MAX) {
   return parts.filter(Boolean);
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {object} cfg
- * @param {{ houseRanking: { houseId: string, points: number }[], memberTop: { userId: string, place: number }[] }} data
- */
 function buildHogwartsFinaleAnnounceContent(client, cfg, data) {
   const ranked = Array.isArray(data?.houseRanking) ? data.houseRanking : [];
   const memberTop = Array.isArray(data?.memberTop) ? data.memberTop : [];
@@ -96,7 +107,7 @@ function buildHogwartsFinaleAnnounceContent(client, cfg, data) {
     cfg?.finaleLotteryChannelId || IDs.channels?.vocaleLounge1 || "1442569101225496819",
   );
   const lotteryWhen = formatLotteryWhen(cfg?.finaleLotteryAt, cfg?.timezone || TIME_ZONE);
-  const winningHouse = houseRoleMention(cfg, h1);
+  const winningHouse = houseDisplayBold(cfg, h1);
 
   return [
     "# <a:VC_Rule:1482706839928967280> VERBALE DI HOGWARTS DEL MINISTERO DELLA MAGIA DI VINILI&CAFFÈ <a:VC_Rule:1482706839928967280>",
@@ -106,9 +117,9 @@ function buildHogwartsFinaleAnnounceContent(client, cfg, data) {
     "il percorso ad Hogwarts per tutti voi termina qui, oggi. Lo Staff del Ministero della Magia di Vinili&Caffè vi ha osservato durante tutto il vostro percorso di studi ed è grato e onorato di condividere con voi l’esito di tutto il vostro, e nostro, lavoro. Come potete vedere nel tabellone della **[Coppa delle Casate](<https://www.viniliecaffe.it/evento/coppa/>)**, i vincitori si portano a casa i seguenti premi:",
     "",
     "**LE MIGLIORI CASATE**",
-    `• <:VC_Podio1:1482694399283433582> **Primo posto**: ${vipPlus} per 30 giorni (valore 20€) + ${winnerBonus} __vinto dalla casata ${houseRoleMention(cfg, h1)}__`,
-    `• <:VC_Podio2:1482694424411635712> **Secondo posto**: ${vip} per 30 giorni (valore 10€) __aggiudicato dai ${houseRoleMention(cfg, h2)}__`,
-    `• <:VC_Podio3:1482694450806259744> **Terzo posto**: ${donator} per 30 giorni (valore 3€) __conseguito dai ${houseRoleMention(cfg, h3)}__`,
+    `• <:VC_Podio1:1482694399283433582> **Primo posto**: ${vipPlus} per 30 giorni (valore 20€) + ${winnerBonus} __vinto dalla casata ${houseDisplayBold(cfg, h1)}__`,
+    `• <:VC_Podio2:1482694424411635712> **Secondo posto**: ${vip} per 30 giorni (valore 10€) __aggiudicato dalla casata ${houseDisplayBold(cfg, h2)}__`,
+    `• <:VC_Podio3:1482694450806259744> **Terzo posto**: ${donator} per 30 giorni (valore 3€) __conseguito dalla casata ${houseDisplayBold(cfg, h3)}__`,
     "",
     "**I MIGLIORI UTENTI:**",
     `• <:VC_Podio1:1482694399283433582> **Primo posto**: ${userMention(u1?.userId)} si porta a casa un __Nitro Boost__ e la possibilità di creare un ruolo custom e una vocale personale per un mese (in caso di boost)`,
@@ -129,12 +140,6 @@ function buildHogwartsFinaleAnnounceContent(client, cfg, data) {
   ].join("\n");
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild} guild
- * @param {object} summary
- * @param {{ force?: boolean }} [options]
- */
 async function publishHogwartsFinaleAnnounce(client, guild, summary, options = {}) {
   const cfg = resolveHogwartsEventConfig(client);
   const channelId = normalizeId(cfg.finaleAnnounceChannelId || IDs.channels?.eventAnnouncements);
@@ -163,10 +168,6 @@ async function publishHogwartsFinaleAnnounce(client, guild, summary, options = {
     IDs.roles?.Events,
     cfg?.finaleWinnerHouseBonusRoleId || IDs.roles?.HogwartsFinaleWinnerBonus,
     cfg?.finaleCommemorativoRoleId || cfg?.completionRoleId || IDs.roles?.HogwartsEventParticipant,
-    cfg?.houses?.gryffindor?.roleId,
-    cfg?.houses?.ravenclaw?.roleId,
-    cfg?.houses?.hufflepuff?.roleId,
-    cfg?.houses?.slytherin?.roleId,
   ];
   const extraUsers = (summary?.memberTop || []).map((row) => row.userId);
   const parts = splitDiscordContent(content);
@@ -206,4 +207,8 @@ async function publishHogwartsFinaleAnnounce(client, guild, summary, options = {
 module.exports = {
   buildHogwartsFinaleAnnounceContent,
   publishHogwartsFinaleAnnounce,
+  houseDisplayName,
+  houseDisplayBold,
+  splitDiscordContent,
+  collectAllowedMentions,
 };

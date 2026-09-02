@@ -1,4 +1,4 @@
-const { parseBadgesCustomId, handleBadgesNavInteraction } = require("../Prefix/Utility/badges");
+const { parseBadgesCustomId, handleBadgesNavInteraction } = require("../Prefix/Staff/badges");
 
 module.exports = {
   name: "badgesNav",

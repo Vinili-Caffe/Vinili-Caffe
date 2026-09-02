@@ -17,6 +17,9 @@ const pollEntrySchema = new Schema(
     risposta10: String,
     messageId: { type: String, default: null },
     source: { type: String, default: "manual" },
+    autoSlot: { type: String, default: null },
+    channelId: { type: String, default: null },
+    nativePoll: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -110,7 +113,6 @@ const guildFeatureBucketSchema = new Schema(
 
 guildFeatureBucketSchema.index({ "tickets.transcriptViewToken": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.channelId": 1 }, { unique: true, sparse: true });
-// Unicità per-guild: #1 può esistere su server diversi.
 guildFeatureBucketSchema.index({ guildId: 1, "tickets.ticketNumber": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.open": 1, "tickets.createdAt": 1 });
 guildFeatureBucketSchema.index({ "giveaways.messageId": 1 }, { unique: true, sparse: true });

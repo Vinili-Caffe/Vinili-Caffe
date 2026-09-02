@@ -12,12 +12,10 @@ const MAIN_GUILD_ID = IDs.guilds.main;
 const ROLE_STAGE_1 = IDs.roles.NuovoUtente;
 const ROLE_STAGE_2 = IDs.roles.Veterano;
 const ROLE_STAGE_3 = IDs.roles.OG;
-/** Tenure server principale: basta il ruolo Member (verifica join/captcha). I ruoli selfie Verified* non entrano qui. */
 const VERIFIED_ROLE_IDS = [IDs.roles.Member,].filter(Boolean);
 const DAY_MS = 24 * 60 * 60 * 1000;
 const VERIFICATION_TENURE_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const SPONSOR_VERIFY_NICKNAME = ".gg/viniliecaffe";
-/** Da `max(join, verifiedAt)`: dopo STAGE_1_DAYS → Veterano (toglie NuovoUtente); dopo STAGE_2_DAYS → OG. */
 const STAGE_1_DAYS = 30;
 const STAGE_2_DAYS = 365;
 const SUPERSCRIPT_MAP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹", };
@@ -132,10 +130,6 @@ async function upsertVerifiedMember(guildId, userId, verifiedAt = new Date()) {
   return ActivityUserProfile.findOne({ guildId, userId });
 }
 
-/**
- * Server TAG sponsor: ruolo verificato da config + nickname convenzione, senza flusso verifica Discord.
- * @param {import("discord.js").GuildMember} member
- */
 async function ensureSponsorVerificatoForMember(member) {
   if (!member?.guild || member.user?.bot) return;
   const guildId = String(member.guild.id || "");
@@ -162,7 +156,6 @@ async function ensureSponsorVerificatoForMember(member) {
   await m.setNickname(SPONSOR_VERIFY_NICKNAME).catch(() => {});
 }
 
-/** Chiamata da guildMemberAdd: assegna verificato sponsor all’ingresso. */
 async function applySponsorGuildAutoVerificato(member) {
   await ensureSponsorVerificatoForMember(member);
 }
@@ -170,8 +163,7 @@ async function applySponsorGuildAutoVerificato(member) {
 async function applyTenureForMember(member, record) {
   if (!member || !record) return;
   if (mongoose.connection?.readyState !== 1) return;
-  // Durante mute/timeout non assegnare NuovoUtente/Veterano/OG (rompe lo strip mute).
-  const mutedRoleId = String(IDs.roles?.Muted || "").trim();
+    const mutedRoleId = String(IDs.roles?.Muted || "").trim();
   if (mutedRoleId && member.roles?.cache?.has?.(mutedRoleId)) return;
   const timeoutUntil =
     Number(member?.communicationDisabledUntilTimestamp || 0) ||
@@ -402,7 +394,7 @@ function replaceNumberSuffixOnly(name, nextNumber) {
 }
 
 const PUBLIC_VOICE_SEPARATOR_NAME = "〝";
-const PUBLIC_VOICE_NUMBERING_GROUPS = ["Lounge", "Duo", "Trio", "Quad", "Squad"];
+const PUBLIC_VOICE_NUMBERING_GROUPS = ["Lounge", "Duo", "Trio", "Quad", "Penta", "Hexa", "Setta", "Octa", "Squad"];
 const PUBLIC_VOICE_HUB_CHANNEL_IDS = new Set(
   (Array.isArray(IDs.publicVoiceHubChannelIds) ? IDs.publicVoiceHubChannelIds : [])
     .map((id) => String(id || "").trim())
@@ -443,7 +435,7 @@ function looksLikeCorruptedPublicVoiceSeparatorName(stripped) {
   if (/^[⁰¹²³⁴⁵⁶⁷⁸⁹0-9]+$/.test(value)) return true;
   if (
     value.startsWith(PUBLIC_VOICE_DECORATIVE_PREFIX) &&
-    !/(Lounge|Duo|Trio|Quad|Squad)/i.test(value) &&
+    !/(Lounge|Duo|Trio|Quad|Penta|Hexa|Setta|Octa|Squad)/i.test(value) &&
     !/[\p{Extended_Pictographic}]/u.test(value.slice(PUBLIC_VOICE_DECORATIVE_PREFIX.length))
   ) {
     return true;
@@ -470,6 +462,10 @@ function resolvePublicVoiceNumberingGroup(channel) {
   if (/\bDuo\b/i.test(name)) return "Duo";
   if (/\bTrio\b/i.test(name)) return "Trio";
   if (/\bQuad\b/i.test(name)) return "Quad";
+  if (/\bPenta\b/i.test(name)) return "Penta";
+  if (/\bHexa\b/i.test(name)) return "Hexa";
+  if (/\bSetta\b/i.test(name)) return "Setta";
+  if (/\bOcta\b/i.test(name)) return "Octa";
   if (/\bSquad\b/i.test(name)) return "Squad";
   return "";
 }
@@ -608,7 +604,7 @@ async function normalizePublicVoiceSeparatorName(channel) {
   if (!channel?.manageable || !isPublicVoiceNumberingSeparator(channel)) return;
   const raw = String(channel.name || "").trim();
   const stripped = stripPublicVoiceNumberingMarks(raw);
-  if (/(Lounge|Duo|Trio|Quad|Squad)/i.test(stripped)) return;
+  if (/(Lounge|Duo|Trio|Quad|Penta|Hexa|Setta|Octa|Squad)/i.test(stripped)) return;
   if (raw === PUBLIC_VOICE_SEPARATOR_NAME) return;
   await renameVoiceChannelWithGap(channel, PUBLIC_VOICE_SEPARATOR_NAME, "separator");
 }
@@ -684,7 +680,6 @@ function ticketsCategoryCoreLabel(name) {
     .toLowerCase();
 }
 
-/** Tickets usano schema proprio `⁰⁰・TICKETS・` — non vanno strippate né rinumerate. */
 function resolveRestoredTicketsCategoryName(name) {
   const {
     TICKETS_CATEGORY_NAME,
@@ -707,8 +702,7 @@ function resolveRestoredTicketsCategoryName(name) {
 
 function shouldSkipCategoryNumbering(category) {
   if (!category) return true;
-  // Solo tickets restano fuori (usano schema proprio ⁰⁰・TICKETS・).
-  if (isTicketsCategoryName(category.name)) return true;
+    if (isTicketsCategoryName(category.name)) return true;
   return false;
 }
 
@@ -723,8 +717,7 @@ async function renumberGuildCategoryNames(guild, options) {
     const category = categories[index];
     if (!category?.manageable) continue;
     if (shouldSkipCategoryNumbering(category)) {
-      // Non togliere ⁰⁰: al massimo ripristina il nome fancy se era stato corrotto.
-      const restored = resolveRestoredTicketsCategoryName(category.name);
+            const restored = resolveRestoredTicketsCategoryName(category.name);
       if (restored && restored !== category.name) {
         await renameChannelNameForNumbering(category, restored, "category");
       }
@@ -742,8 +735,7 @@ async function renumberGuildCategories(guild, options, client = null) {
   if (!guild) return { pending: 0 };
   const guildId = String(guild.id || "");
   if (!guildId) return { pending: 0 };
-  // Solo server principale Vinili: mai sui tenant / altri guild.
-  if (!isCategoryNumberingGuild(guildId)) return { pending: 0 };
+    if (!isCategoryNumberingGuild(guildId)) return { pending: 0 };
   if (guildRenumberInflight.has(guildId)) {
     guildRenumberPending.add(guildId);
     return { pending: 0, skipped: true };
@@ -931,11 +923,6 @@ function startSponsorKickLoop(client) {
   return sponsorKickLoopHandle;
 }
 
-/**
- * Tutti i membri (non bot) nei guild sponsor in config: ruolo verificato se mancante + nickname promozionale.
- * Chiamata periodica e dopo avvio (stagger tra richieste per rate limit).
- * @param {import("discord.js").Client} client
- */
 async function runSponsorGuildNicknameSweep(client) {
   if (!client) return;
   const sponsorGuildIds = Array.isArray(IDs.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : [];

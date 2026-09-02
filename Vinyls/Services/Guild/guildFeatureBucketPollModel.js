@@ -32,6 +32,7 @@ function matchPollEntry(p, filter) {
     if (!re.test(String(p.domanda || ""))) return false;
   }
   if (filter.source === "auto" && String(p.source || "") !== "auto") return false;
+  if (filter.autoSlot != null && String(p.autoSlot || "") !== String(filter.autoSlot)) return false;
   if (Array.isArray(filter.$or)) {
     const ok = filter.$or.some((clause) => matchesSourceOrClause(p, clause));
     if (!ok) return false;

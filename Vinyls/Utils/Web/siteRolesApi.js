@@ -114,7 +114,6 @@ async function fetchUserIdentitiesBatch(client, guild, userIds) {
   return out;
 }
 
-/** Ordine badge (dall'alto della scaletta). Allineato a discordStaffListBuild.staffRoleIds principale. */
 function staffBadgeRoleOrder(ids) {
   const R = ids.roles;
   return [

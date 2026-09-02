@@ -41,7 +41,6 @@ async function nextGlobalPartnershipLogId() {
   }
 }
 
-/** Assegna sempre globalLogId alla partnership appena creata, anche senza canale log configurato. */
 async function reserveAndPersistPartnershipLogId(staffDoc, actionIndex) {
   const index = Math.floor(Number(actionIndex));
   if (!staffDoc?.staff || index < 0) return null;

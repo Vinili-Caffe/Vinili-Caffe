@@ -63,8 +63,7 @@ async function fetchInviteMeta(inviteCode, client = null) {
     rawCount === null || rawCount === undefined || rawCount === "" || !(Number(rawCount) > 0)
       ? null
       : Math.max(0, Math.floor(Number(rawCount)));
-  // Anche senza meta Discord (429), procedi con label invite — niente placeholder "Server Sconosciuto".
-  return {
+    return {
     guildId: String(meta?.guildId || "").trim() || null,
     serverName: String(meta?.guildName || "").trim() || `discord.gg/${code}`,
     serverIcon: meta?.iconUrl || null,
@@ -231,8 +230,7 @@ async function finalizeManualPartnership(message, managerId, inviteMeta, _option
     legacyPingRoleId: getPartnershipPingRoleId(guildId),
   });
   const pingRoleId = pingPlan.customRoleId;
-  // Descrizione senza ping/manager: vanno nel content sopra l'embed thank-you.
-  const descriptionContent = stripManagerReferencesFromDescription(
+    const descriptionContent = stripManagerReferencesFromDescription(
     publishDescription,
     resolvedManagerId,
   );

@@ -1,10 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema, model, models } = mongoose;
 
-/**
- * Chat web-only collegata a una pratica staff inbox (pause/candidature/appelli/resoconti).
- * Chiave = workflow dedupeKey (es. pause:userId:pauseId, candidature:messageId).
- */
 const siteWorkflowChatMessageSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },

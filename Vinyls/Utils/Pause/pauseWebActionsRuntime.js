@@ -49,8 +49,7 @@ function notifyStaffPauseCalendarChanged() {
     const { broadcastSiteStaffPausesChanged } = require("../Web/siteSuggestionsBroadcast");
     broadcastSiteStaffPausesChanged();
   } catch {
-    /* ignore */
-  }
+      }
 }
 
 async function deletePauseThreadIfAny(guild, requestThreadId) {
@@ -114,8 +113,7 @@ async function listPendingStaffPauses(client, guildId) {
       const ruoloRichiesto = String(pause.ruoloRichiesto || pause.ruolo || "Staff").trim();
       if (presence) {
         if (presence.uncertain && !presence.member) {
-          /* keep on network uncertainty */
-        } else if (presence.left || !presence.member || !memberEligibleForPauseRole(presence.member, ruoloRichiesto)) {
+                  } else if (presence.left || !presence.member || !memberEligibleForPauseRole(presence.member, ruoloRichiesto)) {
           continue;
         }
       }
@@ -180,8 +178,7 @@ async function listStaffPausesForInbox(client, guildId, opts = {}) {
       const ruoloRichiesto = String(pause.ruoloRichiesto || pause.ruolo || "Staff").trim();
       if (status === "pending" && presence) {
         if (presence.uncertain && !presence.member) {
-          /* keep */
-        } else if (presence.left || !presence.member || !memberEligibleForPauseRole(presence.member, ruoloRichiesto)) {
+                  } else if (presence.left || !presence.member || !memberEligibleForPauseRole(presence.member, ruoloRichiesto)) {
           if (!presenceByUser.get(`${userId}:cancelled`)) {
             presenceByUser.set(`${userId}:cancelled`, true);
             await autoCancelPendingPausesIfNotEligible(guild, userId, { decidedBy: "system" }).catch(() => 0);

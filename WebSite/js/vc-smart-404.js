@@ -49,8 +49,7 @@
       .then(function (r) {
         if (!r.ok) return false;
         var ct = String(r.headers.get("content-type") || "").toLowerCase();
-        // Evita di trattare JSON/API come “pagina”.
-        if (ct && ct.indexOf("text/html") === -1 && ct.indexOf("text/plain") === -1) return false;
+                if (ct && ct.indexOf("text/html") === -1 && ct.indexOf("text/plain") === -1) return false;
         return true;
       })
       .catch(function () {

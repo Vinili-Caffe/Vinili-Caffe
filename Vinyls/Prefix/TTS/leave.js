@@ -32,9 +32,7 @@ function hasActiveTtsOrMusicSession(message, botChannelId) {
 
 module.exports = {
   name: "leave",
-  // `+leave partnership` è tenant-only: non dichiararlo come subcomando TTS
-  // (altrimenti finisce nell'help main sotto TTS al posto di `+leave`).
-  allowEmptyArgs: true,
+      allowEmptyArgs: true,
   async execute(message, args = []) {
     const sub = String(args[0] || "").toLowerCase();
     if (sub === "partnership") {

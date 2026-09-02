@@ -85,10 +85,7 @@ async function getGuildMemberCached(guild, userId, options = {}) {
       if (!guild.members || typeof guild.members.fetch !== "function") {
         return Promise.resolve(null);
       }
-      // Prefer force when available (REST wrap + discord.js) so workers never reuse stubs.
-      // Never fall back to a soft fetch after force fails: that can return a ghost from
-      // guild.members.cache and then roles.set throws Unknown Member forever.
-      if (preferFresh && typeof guild.members.fetch === "function") {
+                        if (preferFresh && typeof guild.members.fetch === "function") {
         return guild.members.fetch({ user: uid, force: true }).catch((err) => {
           if (isUnknownDiscordMemberError(err)) {
             try {
@@ -104,10 +101,6 @@ async function getGuildMemberCached(guild, userId, options = {}) {
   });
 }
 
-/**
- * Distingue uscita dal server (Unknown Member) da timeout/rete Discord.
- * @returns {{ member: import("discord.js").GuildMember|null, left: boolean, uncertain: boolean }}
- */
 async function resolveGuildMemberPresence(guild, userId, options = {}) {
   const uid = String(userId || "").trim();
   if (!guild || !uid) return { member: null, left: false, uncertain: true };
@@ -150,9 +143,7 @@ async function getGuildRoleCached(guild, roleId, options = {}) {
 }
 
 function isUsableClientGuild(guild) {
-  // REST worker seeds lightweight stubs (`partial: true`, no members manager).
-  // Never treat those as a warm cache hit — callers expect guild.members.me / fetch.
-  if (!guild?.id) return false;
+      if (!guild?.id) return false;
   if (guild.partial === true) return false;
   if (!guild.members || typeof guild.members.fetch !== "function") return false;
   return true;
@@ -197,7 +188,6 @@ async function getClientChannelCached(client, channelId, options = {}) {
   });
 }
 
-/** Aggiunge ruoli al member e restituisce il member aggiornato (fetch fresco). Utile per evitare cache ruoli stale dopo add. */
 async function addRolesAndGetMember(guild, userId, roleIds) {
   if (!guild || !userId) return null;
   const member = await getGuildMemberCached(guild, userId).catch(() => null);

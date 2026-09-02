@@ -93,10 +93,6 @@ function isUpcomingActiveFilter(filter) {
   );
 }
 
-/**
- * Build atomic update for one giveaway subdoc via arrayFilters.
- * Avoids load-modify-save VersionError under concurrent joins.
- */
 function buildAtomicGiveawayUpdate(filter, update) {
   const oid = toObjectId(filter?._id);
   if (!oid) return null;

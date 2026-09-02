@@ -107,8 +107,7 @@ async function handleStaffProofRequestMessage(message) {
 
   await ensureBotJoinedThread(thread, targetGuild);
 
-  // Solo add al thread: le system message di aggiunta notificano già (no doppio ping).
-  const threadMemberIds = [...new Set([authorId, ...staffIds].filter((id) => /^\d{16,22}$/.test(id)))];
+    const threadMemberIds = [...new Set([authorId, ...staffIds].filter((id) => /^\d{16,22}$/.test(id)))];
   await addUserIdsToThread(thread, threadMemberIds, {
     logTag: "[STAFF PROOF THREAD]",
     throttleEvery: 6,

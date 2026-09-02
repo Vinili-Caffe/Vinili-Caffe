@@ -74,7 +74,6 @@ function isStaffMember(member) {
   );
 }
 
-/** Manager esclusi dalla valutazione automatica serata film. */
 function isExemptFromSerataFilmAutoValutazione(member) {
   const managerId = String(IDs.roles?.Manager || "").trim();
   return Boolean(managerId && member?.roles?.cache?.has(managerId));
@@ -145,7 +144,6 @@ function findPositiveLogEntryForReason(staff, reason) {
   return log;
 }
 
-/** True se ha già una positiva equivalente (testo esatto o stessa “recensione sito”). */
 function staffAlreadyHasMatchingPositiveReason(staff, reason) {
   const reasonStr = String(reason || "").trim();
   if (!reasonStr) return false;
@@ -473,24 +471,19 @@ function shouldRemoveSupportAutoValutazione(member) {
   return true;
 }
 
-
 async function syncPersistentAutoValutazioniForMember(member, context = {}) {
   if (!member?.guild || member.user?.bot) return;
   if (MAIN_GUILD_ID && String(member.guild.id) !== MAIN_GUILD_ID) return;
 
-  // Ruoli spesso assenti dalla cache limitata: senza fetch l'auto-valutazione site/review non parte.
-  let staffMember = member;
+    let staffMember = member;
   try {
     const fetched = await member.guild.members.fetch(member.id);
     if (fetched) staffMember = fetched;
   } catch {
-    /* keep provided member */
-  }
+      }
   if (!isStaffMember(staffMember)) return;
 
-  // Default sicuro: niente nuove create da sync/cron/presence.
-  // Solo eventi di transizione (ruolo appena preso, vanity appena messa, review nuova) passano allowCreate.
-  const allowCreate = context.allowCreate === true;
+      const allowCreate = context.allowCreate === true;
   const allowRemove = context.allowRemove === true;
   const createKeys =
     context.createKeys instanceof Set
@@ -557,7 +550,6 @@ async function syncPersistentAutoValutazioniForMember(member, context = {}) {
   });
 }
 
-/** Ruoli/condizioni appena acquisite → sole chiavi per cui è lecito creare. */
 function resolveAutoValutazioneCreateKeysFromMemberUpdate(oldMember, newMember) {
   const keys = new Set();
   if (!oldMember || !newMember) return keys;
@@ -608,8 +600,7 @@ async function syncAllStaffAutoValutazioni(client, options = {}) {
   });
   if (autoValutazioniSuspended || !isMongoReady()) return 0;
   const reviewUserIds = await loadFourStarSiteReviewUserIds(MAIN_GUILD_ID, members.map((member) => member.id));
-  // Mai creare in bulk: dopo un DB incompleto ripubblicherebbe tutto da #1.
-  const context = { reviewUserIds, allowCreate: false, allowRemove: false };
+    const context = { reviewUserIds, allowCreate: false, allowRemove: false };
   for (const member of members) {
     if (autoValutazioniSuspended || !isMongoReady()) break;
     await syncPersistentAutoValutazioniForMember(member, context).catch((err) => {
@@ -664,9 +655,7 @@ function startStaffAutoValutazioniLoop(client) {
       { timezone: "Europe/Rome", noOverlap: true },
     );
   };
-  // Mai fare full sync a ogni boot: su DB vuoto/sbagliato ripubblica tutte le valutazioni.
-  // Solo con STAFF_AUTO_VALUTAZIONI_SYNC_ON_STARTUP=1 o FULL_STARTUP_SYNC=1.
-  const forceStartupSync = ["1", "true", "yes"].includes(
+      const forceStartupSync = ["1", "true", "yes"].includes(
     String(process.env.STAFF_AUTO_VALUTAZIONI_SYNC_ON_STARTUP || process.env.FULL_STARTUP_SYNC || "")
       .trim()
       .toLowerCase(),
@@ -681,7 +670,6 @@ function startStaffAutoValutazioniLoop(client) {
   scheduleCron();
 }
 
-/** Chiama in shutdown prima di closeMongoGraceful. */
 function suspendStaffAutoValutazioni() {
   autoValutazioniSuspended = true;
 }

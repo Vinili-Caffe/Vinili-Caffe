@@ -1,4 +1,3 @@
-/** Dati FAQ bot per la dashboard web. Nessuna dipendenza Discord. */
 
 const BOT_FAQ_SECTIONS = Object.freeze([
   {
@@ -60,8 +59,7 @@ const BOT_FAQ_SECTIONS = Object.freeze([
 const BOT_FAQ_SECTION_IDS = new Set(BOT_FAQ_SECTIONS.map((section) => section.id));
 
 const BOT_FAQ_ITEMS = Object.freeze([
-  // —— Inizio ——
-  {
+    {
     category: "faq_start",
     title: "Cos’è Vinili e a cosa serve la dashboard?",
     icon: "fa-info-circle",
@@ -100,8 +98,7 @@ const BOT_FAQ_ITEMS = Object.freeze([
     ].join("\n\n"),
   },
 
-  // —— Dashboard ——
-  {
+    {
     category: "faq_dashboard",
     title: "Come è organizzata la dashboard di un server?",
     icon: "fa-th-large",
@@ -132,8 +129,7 @@ const BOT_FAQ_ITEMS = Object.freeze([
     ].join("\n\n"),
   },
 
-  // —— Impostazioni ——
-  {
+    {
     category: "faq_settings",
     title: "Cosa posso cambiare nelle Impostazioni server?",
     icon: "fa-cog",
@@ -154,8 +150,7 @@ const BOT_FAQ_ITEMS = Object.freeze([
     ].join("\n\n"),
   },
 
-  // —— Comandi ——
-  {
+    {
     category: "faq_commands",
     title: "Come funziona la sezione Comandi?",
     icon: "fa-terminal",
@@ -186,8 +181,7 @@ const BOT_FAQ_ITEMS = Object.freeze([
     ].join("\n\n"),
   },
 
-  // —— Partnership ——
-  {
+    {
     category: "faq_partnership",
     title: "Come configuro le partnership la prima volta?",
     icon: "fa-rocket",
@@ -251,8 +245,7 @@ const BOT_FAQ_ITEMS = Object.freeze([
     ].join("\n\n"),
   },
 
-  // —— Team e punti ——
-  {
+    {
     category: "faq_team",
     title: "Come funzionano i punti partnership?",
     icon: "fa-trophy",
@@ -273,8 +266,7 @@ const BOT_FAQ_ITEMS = Object.freeze([
     ].join("\n\n"),
   },
 
-  // —— Premium ——
-  {
+    {
     category: "faq_premium",
     title: "Cosa sblocca Premium sulla dashboard?",
     icon: "fa-diamond",
@@ -285,8 +277,7 @@ const BOT_FAQ_ITEMS = Object.freeze([
     ].join("\n\n"),
   },
 
-  // —— Dati ——
-  {
+    {
     category: "faq_data",
     title: "A cosa serve la sezione Dati (migrazione)?",
     icon: "fa-database",
@@ -307,8 +298,7 @@ const BOT_FAQ_ITEMS = Object.freeze([
     ].join("\n\n"),
   },
 
-  // —— Aiuto ——
-  {
+    {
     category: "faq_help",
     title: "Il bot non risponde o l’interazione fallisce: cosa controllo?",
     icon: "fa-heartbeat",
@@ -369,7 +359,6 @@ function sectionBody(sectionId) {
     .join("\n\n");
 }
 
-/** Compat: mappa id → corpo testo (Discord embed / legacy). */
 const BOT_FAQ_SECTION_BODIES = Object.freeze(
   Object.fromEntries(BOT_FAQ_SECTIONS.map((section) => [section.id, sectionBody(section.id)])),
 );

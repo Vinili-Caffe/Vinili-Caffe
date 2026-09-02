@@ -1,4 +1,3 @@
-/** Titoli sezioni e hint per la lista variabili embed partnership. */
 const VAR_HELP_ITEM_DEFS = [
   [
     { token: "{guild}", key: "guildName", hintKey: "varHelp_h_guild" },

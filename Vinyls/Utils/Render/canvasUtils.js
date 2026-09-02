@@ -1,7 +1,7 @@
 const CANVAS_COMPAT_REPLACEMENTS = new Map([
-  ["\u0F04", "\u2736"], // Tibetan mark → ✶
-  ["\uFE32", "\u2502"], // vertical presentation form → │
-  ["\u1CBC", "\u00B7"], // Sundanese virama (tofu "1C BC") → ·
+  ["\u0F04", "\u2736"],
+  ["\uFE32", "\u2502"],
+  ["\u1CBC", "\u00B7"],
 ]);
 
 function replaceCanvasCompatChars(value) {
@@ -18,8 +18,7 @@ function stripCanvasNoiseChars(value) {
     .replace(/[\u00AD\u034F\u200B-\u200D\u2060\uFEFF]/g, "")
     .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ")
     .replace(/\uFFFD/g, "")
-    // Sundanese / other blocks that node-canvas often paints as hex tofu (e.g. "1CBC").
-    .replace(/[\u1B80-\u1BBF\u1CC0-\u1CC7]/g, "")
+        .replace(/[\u1B80-\u1BBF\u1CC0-\u1CC7]/g, "")
     .replace(/ {2,}/g, " ")
     .trim();
 }
@@ -70,8 +69,7 @@ function normalizeTextForCanvas(str) {
       out.push(ch);
       continue;
     }
-    // Drop private-use / tag chars that canvas often draws as hex tofu boxes.
-    if ((cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0xf0000 && cp <= 0xffffd) || (cp >= 0x100000 && cp <= 0x10fffd)) {
+        if ((cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0xf0000 && cp <= 0xffffd) || (cp >= 0x100000 && cp <= 0x10fffd)) {
       continue;
     }
     if (cp >= 0xff01 && cp <= 0xff5e) {

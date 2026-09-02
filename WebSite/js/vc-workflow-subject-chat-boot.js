@@ -1,7 +1,3 @@
-/**
- * Deep-link chat richiedente: /candidature/?chat=<dedupeKey> | /appelli/?chat=<dedupeKey>
- * Carica CSS/JS chat solo se presente il parametro.
- */
 (function (global) {
   "use strict";
 

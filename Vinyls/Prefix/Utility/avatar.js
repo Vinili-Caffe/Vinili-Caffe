@@ -2,6 +2,7 @@ const { safeChannelSend } = require("../../../shared/discord/replyRuntime");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { AvatarPrivacy } = require("../../Schemas/Community/communitySchemas");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { siteUserProfilePagePlainRef } = require("../../../shared/web/siteTicketsPageRef");
 const AVATAR_MODE_PREFIX = "avatar_mode:";
 
 function normalize(text) {
@@ -108,7 +109,6 @@ function encodeViewState(state) {
   return `${normalized.user ? 1 : 0}${normalized.server ? 1 : 0}`;
 }
 
-/** Hash Discord: `a_` = avatar animato (GIF sul CDN). */
 function avatarExtensionFromHash(hash) {
   if (!hash || typeof hash !== "string") return "png";
   return hash.startsWith("a_") ? "gif" : "png";
@@ -214,7 +214,7 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
     })
     .setColor("#6f4e37")
     .setFooter({
-      text: `Puoi disabilitare la visualizzazione del tuo avatar tramite il comando +profile.\n${totalViews} Views 👁️`,
+      text: `Puoi disabilitare la visualizzazione del tuo avatar tramite il ${siteUserProfilePagePlainRef()}.\n${totalViews} Views 👁️`,
     });
   if (activeMode === "server" && !hasServerAvatar) {
     embed.setDescription("<:vegax:1443934876440068179> Non ha un avatar impostato solo per questo server.");

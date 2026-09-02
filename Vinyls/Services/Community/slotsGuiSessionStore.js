@@ -97,9 +97,7 @@ async function persistSlotsGuiSession(messageId, session) {
   if (!isValidGuildUserId(g, u) || !mid) return false;
   const bank = Math.max(0, Math.floor(Number(session.bank) || 0));
 
-  // Solo dopo cashout/chiusura esplicita senza banco: altrimenti i pannelli
-  // aperti (bank=0, spins=0) sparivano al restart → "sessione scaduta".
-  if (session?.cashedOut && bank <= 0) {
+      if (session?.cashedOut && bank <= 0) {
     await clearSlotsGuiSession(g, u, mid);
     return true;
   }

@@ -280,7 +280,6 @@ async function resolveValidVerifyRoleIds(guild) {
   return Array.from(new Set(valid));
 }
 
-/** Ruoli che devono risultare assegnati affinché la verifica sia considerata riuscita (es. Member nel main; ruolo sponsor altrove). I separatori nel main sono opzionali se il bot non può gestirli. */
 function resolveRequiredVerifyRoleIds(guild) {
   if (!guild) return [];
   const gid = String(guild.id || "");

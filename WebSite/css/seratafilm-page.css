@@ -324,7 +324,6 @@ body.vc-seratafilm-final-fullscreen .vc-seratafilm-fs-countdown {
     display: flex;
 }
 
-/* Overlay countdown: niente scroll pagina sotto (wheel/touch/overscroll). */
 html.vc-seratafilm-final-fullscreen,
 html.vc-seratafilm-final-fullscreen body,
 body.vc-seratafilm-final-fullscreen {
@@ -369,7 +368,6 @@ body.vc-seratafilm-final-fullscreen #vc-seratafilm-app .seratafilm-canvas {
     display: flex;
 }
 
-/* Preload film: non usare display:none (il browser non bufferizza). Offscreen ma “vivo”. */
 .vc-seratafilm-film.is-preloading {
     display: block !important;
     visibility: hidden !important;
@@ -488,7 +486,6 @@ body.vc-seratafilm-hogwarts-event .vc-seratafilm-film__loading-text {
     display: flex;
 }
 
-/* Preload early: parent non deve restare display:none (altrimenti lo spot non bufferizza). */
 .vc-seratafilm-ad-break.is-warming {
     display: flex !important;
     opacity: 0;
@@ -500,7 +497,6 @@ body.vc-seratafilm-ad-break-active .vc-seratafilm-film__video {
     visibility: hidden;
 }
 
-/* Durante lo spot: nascondi solo card/veil, tieni l'overlay e il video ad. */
 body.vc-seratafilm-ad-spot-playing .vc-seratafilm-ad-break__card,
 body.vc-seratafilm-ad-spot-playing .vc-seratafilm-ad-break__veil {
     display: none !important;
@@ -638,7 +634,6 @@ body.vc-seratafilm-ad-spot-playing .vc-seratafilm-ad-break__video,
     display: block !important;
 }
 
-/* Preload senza hidden: altrimenti molti browser non scaricano/decodificano lo spot. */
 .vc-seratafilm-ad-break__video.is-preloading {
     opacity: 0;
     z-index: 0;
@@ -650,7 +645,6 @@ body.vc-seratafilm-ad-spot-playing .vc-seratafilm-ad-break__video,
     z-index: 3;
 }
 
-/* Durante lo spot togli il veil scuro: altrimenti sembra “nero vuoto”. */
 .vc-seratafilm-ad-break:has(.vc-seratafilm-ad-break__video.is-playing) .vc-seratafilm-ad-break__veil {
     opacity: 0;
     visibility: hidden;
@@ -727,7 +721,6 @@ body.vc-seratafilm-hogwarts-event .vc-seratafilm-ad-break__title {
     min-width: 0;
 }
 
-/* Twemoji su seratafilm (senza vc-landing.css) → SVG senza size = emoji giganti. */
 img.vc-emoji,
 img.vc-twemoji,
 img.vc-discord-emoji {
@@ -1136,7 +1129,6 @@ body.vc-seratafilm-app-revealed #vc-seratafilm-loading {
     color: var(--text);
 }
 
-/* Mini-player BGM Serata Film — stesso FAB delle altre pagine (cerchio + popover). */
 body.vc-seratafilm-page .vc-bgm-player.vc-bgm-player--seratafilm {
     position: fixed;
     right: max(1rem, env(safe-area-inset-right, 0px));
@@ -1285,7 +1277,6 @@ body.vc-seratafilm-page .vc-bgm-player--seratafilm .vc-bgm-player__range::-moz-r
     background: linear-gradient(160deg, #f0d7b0, #d4a878); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-/* Seek UI condiviso (Hogwarts / altri player YT su landing) */
 .vc-bgm-player .vc-bgm-player__seek-row {
     display: flex;
     align-items: center;
@@ -1572,7 +1563,6 @@ body.vc-seratafilm-hogwarts-event #vc-seratafilm-app {
     isolation: isolate;
 }
 
-/* Il video YT di sfondo non deve mai dipingere sopra UI/countdown. */
 body.vc-seratafilm-hogwarts-event .vc-seratafilm-hogwarts-bg {
     z-index: 0 !important;
 }
@@ -1731,7 +1721,6 @@ body.vc-seratafilm-hogwarts-event.vc-seratafilm-final10 #vc-seratafilm-app .tile
     text-shadow: 0 12px 38px rgba(212, 168, 136, 0.35);
 }
 
-/* Hogwarts: scrollbar + mini-player BGM in tema caldo */
 html.vc-seratafilm-hogwarts-event {
     scrollbar-width: thin;
     scrollbar-color: #7a5a45 #140f0c;
@@ -1758,7 +1747,6 @@ html.vc-seratafilm-hogwarts-event::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #8f6b52 0%, #5c4033 100%);
 }
 
-/* Spot fullscreen sul body: niente parent opacity/hidden che lo mangia. */
 .vc-seratafilm-ad-video--fs {
   position: fixed !important;
   inset: 0 !important;
@@ -1809,7 +1797,6 @@ body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading {
     radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
 }
 
-/* Dopo lo stile hogwarts: se l'app è rivelata il loading non deve ripresa overflow nero. */
 html.vc-seratafilm-loading-done #vc-seratafilm-loading,
 body.vc-seratafilm-app-revealed #vc-seratafilm-loading,
 body.vc-seratafilm-app-revealed.vc-seratafilm-hogwarts-event #vc-seratafilm-loading,

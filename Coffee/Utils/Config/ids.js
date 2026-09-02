@@ -21,6 +21,7 @@ function parseSnowflakeIdList(raw) {
 }
 
 const stanzaDiscoveryExcludeParentIds = parseSnowflakeIdList(config.stanzaDiscoveryExcludeParentIds);
+const STANZA_CATEGORY_ID = String(config.stanzaCategoryId || "1442569076902989844").trim();
 
 const IDs = {
   guilds: {
@@ -51,6 +52,9 @@ const IDs = {
     Member: (config.roles && config.roles.Member) || "1442568949605597264",
     HighStaff: (config.roles && config.roles.HighStaff) || "1442568894349840435",
     Founder: (config.roles && config.roles.Founder) || "1442568886988963923",
+  },
+  categories: {
+    categoryPublics: STANZA_CATEGORY_ID,
   },
   stanzaDiscoveryExcludeParentIds,
 };

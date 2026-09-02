@@ -4,7 +4,6 @@ const { normalizeGuildId } = require("./viniliProtectedGuilds");
 const IDs = require("../../Utils/Config/ids");
 const { TICKETS_CATEGORY_NAME } = require("../../Utils/Ticket/ticketCategoryUtils");
 
-/** Default leggibile in dashboard; il nome “fancy” Discord resta solo come fallback create su main. */
 const DASHBOARD_DEFAULT_CATEGORY_NAME = "Tickets";
 const DEFAULT_EMBED_COLOR = "#6f4e37";
 
@@ -22,8 +21,7 @@ const PANEL_SWITCH_BEHAVIORS = [
   "deny_switch",
   "remove_on_unclaim",
   "keep_access",
-  // legacy alias (pre-Ticket Tool labels)
-  "keep_claim",
+    "keep_claim",
 ];
 
 let configCache = Object.freeze({});
@@ -33,7 +31,6 @@ function normalizeId(value) {
   return id && /^\d{16,20}$/.test(id) ? id : null;
 }
 
-/** null = auto; "__custom__" = nome personalizzato; snowflake = categoria fissa Discord. */
 function normalizeTicketCategoryRef(value) {
   const raw = String(value || "").trim();
   if (!raw) return null;

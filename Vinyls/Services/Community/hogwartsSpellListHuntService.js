@@ -13,7 +13,7 @@ const SORTING_DOC = SITE_DOCUMENT_TYPE.HOGWARTS_SORTING;
 const EVENT_OWNER_ID = "__event__";
 const TIME_ZONE = "Europe/Rome";
 const BUTTON_PREFIX = "hogwarts_spell_list";
-const SPELL_LIST_CLAIM_FIX_MARKER = "spellListClaimFix1";
+const SPELL_LIST_CLAIM_FIX_MARKER = "spellListChaosContest1";
 const DEFAULT_CONFIG = {
   enabled: true,
   eventKey: "hogwarts_spell_list_hunt_2026",
@@ -232,6 +232,15 @@ async function pickRandomHuntChannel(guild, c) {
   await guild.channels.fetch().catch(() => null);
   const me = guild.members.me || guild.members.cache.get(guild.client?.user?.id);
   const excluded = new Set(c.excludedChannelIds);
+  const client = guild.client;
+  if (client) {
+    try {
+      const { isHouseChannelQuietHours, listHouseChannelIds } = require("./hogwartsHouseChannelMinigameService");
+      if (isHouseChannelQuietHours(client)) {
+        for (const id of listHouseChannelIds()) excluded.add(id);
+      }
+    } catch (_) {}
+  }
   const memberRoleId = normalizeId(IDs.roles?.Member);
   const roleToCheck = memberRoleId ? guild.roles.cache.get(memberRoleId) : guild.roles.everyone;
   const channels = guild.channels.cache.filter((channel) => {
@@ -311,7 +320,6 @@ async function loadRound(guildId, eventKey, roundId) {
     .catch(() => null);
 }
 
-/** Trova un round attivo per roundId (anche Finale Chaos con eventKey diverso). */
 async function loadActiveRoundByRoundId(guildId, roundId) {
   const rid = normalizeId(roundId);
   if (!rid) return null;
@@ -336,7 +344,6 @@ function readClaims(doc) {
   return doc?.rawWebhook?.claims && typeof doc.rawWebhook.claims === "object" ? doc.rawWebhook.claims : {};
 }
 
-/** Aggiorna un solo slot claim (evita race che sovrascrivono l'altro slot). */
 async function atomicClaimSlot(docId, slot, claim, expectedSlotUserId = null) {
   if (!docId || (slot !== "a" && slot !== "b") || !claim?.userId) return null;
   const userField = `rawWebhook.claims.${slot}.userId`;
@@ -745,10 +752,9 @@ async function spawnRound(client, guild, c, parts) {
   return true;
 }
 
-/**
- * Finale Chaos: due liste, un solo vincitore (stesso mago deve trovare entrambe).
- */
 async function spawnFinaleChaosSpellListHunt(client, guild, opts = {}) {
+  const { isHouseChannelQuietHours } = require("./hogwartsHouseChannelMinigameService");
+  if (isHouseChannelQuietHours(client)) return false;
   const base = cfg(client);
   const chaosEventKey = normalizeId(opts.chaosEventKey) || "hogwarts_finale_chaos";
   const eventKey = `${chaosEventKey}_spell`;
@@ -842,6 +848,7 @@ async function spawnFinaleChaosSpellListHunt(client, guild, opts = {}) {
         "Sono state nascoste **due liste di incantesimi** in **due canali** del server.",
         "",
         "Vince **un solo mago**: deve trovare **entrambe** le liste e premere i bottoni.",
+        "Finché nessuno ha chiuso il turno, le liste restano **contendibili** (puoi riprendere uno slot già segnalato).",
         "",
         `Premio: **${formatGaleoni(huntCfg.rewardGaleoni)}** + **${huntCfg.rewardHousePoints} punti casa**.`,
         firstSlot
@@ -1087,26 +1094,18 @@ async function handleSpellListHuntButton(interaction, client) {
         .catch(() => null);
       return true;
     }
-    const canStealToComplete =
-      Boolean(slotClaim?.userId) &&
-      Boolean(otherClaim?.userId) &&
-      normalizeId(otherClaim.userId) === uid;
-    if (slotClaim?.userId && normalizeId(slotClaim.userId) !== uid && !canStealToComplete) {
-      await interaction
-        .reply({ content: spellListAlreadyFoundReply(), ...ephemeral })
-        .catch(() => null);
-      return true;
-    }
+            const stoleSlot = Boolean(slotClaim?.userId);
     const updated = await atomicClaimSlot(
       doc._id,
       slot,
       claimPayload,
-      canStealToComplete || slotClaim?.userId ? normalizeId(slotClaim.userId) : null,
+      stoleSlot ? normalizeId(slotClaim.userId) : null,
     );
     if (!updated) {
       await interaction
         .reply({
-          content: "<a:VC_Alert:1482706673176150077> Un altro mago ha appena segnalato questa lista. Riprova sull'altra lista se serve.",
+          content:
+            "<a:VC_Alert:1482706673176150077> Un altro mago ha appena preso questa lista. Riprova subito o cerca l'altra.",
           ...ephemeral,
         })
         .catch(() => null);
@@ -1115,20 +1114,24 @@ async function handleSpellListHuntButton(interaction, client) {
     doc = updated;
     const freshClaims = readClaims(doc);
     const label = houseLabel(houseId, client);
-    if (!freshClaims[otherSlot]?.userId) {
+    const otherOwner = normalizeId(freshClaims[otherSlot]?.userId);
+    if (!otherOwner) {
       await interaction
         .reply({
-          content: `<a:VC_Events:1482706144953897223> Lista segnalata! Ora trova **l'altra lista** tu stesso per vincere (**${label}**).`,
+          content: stoleSlot
+            ? `<a:VC_Events:1482706144953897223> Hai **ripreso** questa lista (**${label}**)! Ora trova **l'altra lista** tu stesso per vincere.`
+            : `<a:VC_Events:1482706144953897223> Lista segnalata! Ora trova **l'altra lista** tu stesso per vincere (**${label}**).`,
           ...ephemeral,
         })
         .catch(() => null);
       return true;
     }
-    if (normalizeId(freshClaims[otherSlot].userId) !== uid) {
+    if (otherOwner !== uid) {
       await interaction
         .reply({
-          content:
-            "<a:VC_Alert:1482706673176150077> In Finale Chaos serve lo **stesso mago** su entrambe le liste. L'altra \u00e8 gi\u00e0 di un altro giocatore: chi ha la prima pu\u00f2 riprendere questa.",
+          content: stoleSlot
+            ? `<a:VC_Events:1482706144953897223> Hai preso questa lista, ma l'altra \u00e8 di un altro mago. **Trovala e riprendila** per chiudere il turno (**${label}**).`
+            : `<a:VC_Events:1482706144953897223> Lista segnalata, ma l'altra \u00e8 di un altro mago. **Trovala e riprendila** per vincere (**${label}**).`,
           ...ephemeral,
         })
         .catch(() => null);
@@ -1137,7 +1140,7 @@ async function handleSpellListHuntButton(interaction, client) {
     await finalizeChaosSpellListWin(client, interaction.guild, c, doc, houseId, uid);
     await interaction
       .reply({
-        content: canStealToComplete
+        content: stoleSlot
           ? `<a:VC_Events:1482706144953897223> **Hai ripreso la seconda lista!** Vittoria Finale Chaos per la **${label}**.`
           : `<a:VC_Events:1482706144953897223> **Hai trovato entrambe le liste!** Vittoria Finale Chaos per la **${label}**.`,
         ...ephemeral,

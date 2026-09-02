@@ -3,7 +3,6 @@ const { initLavalinkMusicIfEnabled, isLavalinkUsable } = require("./lavalinkMusi
 const LRCLIB_BASE = "https://lrclib.net/api";
 const LYRICS_PAGE_MAX = 3800;
 
-/** @type {Map<string, { pages: string[], title: string, authorId: string }>} */
 const lyricsUiSessions = new Map();
 
 function lrclibHeaders() {
@@ -91,11 +90,6 @@ function resolveNode(client) {
   );
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild | null} guild
- * @param {string} query vuoto = brano in riproduzione
- */
 async function resolveGuildLyrics(client, guild, query) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   const guildId = guild.id;

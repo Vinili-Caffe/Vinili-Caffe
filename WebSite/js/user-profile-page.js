@@ -7,7 +7,7 @@
   var LIVE_PROFILE_POLL_MS = 60000;
   var PROFILE_CACHE_TTL_MS = 90000;
   var PROFILE_CACHE_LOCAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-  var PROFILE_CACHE_LOCAL_PREFIX = "vc:profilecache-local:";
+  var PROFILE_CACHE_LOCAL_PREFIX = "vc:profilecache-local:v3:";
   var PROFILE_FETCH_TIMEOUT_MS = 20000;
   var PROFILE_FETCH_MAX_RETRIES = 2;
   var PROFILE_RANK_PREVIEW_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -22,8 +22,7 @@
   var profilePendingWatchdogAttempts = 0;
   var profileMainInFlight = false;
   var profileBootSettled = false;
-  /** Solo questo userId può aggiornare la shell community (blocca race peer/own). */
-  var lockedCommunityUserId = "";
+    var lockedCommunityUserId = "";
   var communityPaintSeq = 0;
 
   function armProfilePendingWatchdog() {
@@ -57,9 +56,7 @@
           clearProfilePending();
           return;
         }
-        // Non riavviare un fetch già in corso: su first boot cancellava la richiesta buona
-        // e lo splash restava fino al timeout (F5 poi era istantaneo grazie alla cache).
-        if (profileMainInFlight) {
+                        if (profileMainInFlight) {
           armProfilePendingWatchdog();
           return;
         }
@@ -80,7 +77,7 @@
   }
 
   function profileFetchTimeoutMs() {
-    return isCoarseMobileProfile() ? 12000 : PROFILE_FETCH_TIMEOUT_MS;
+    return isCoarseMobileProfile() ? 22000 : PROFILE_FETCH_TIMEOUT_MS;
   }
 
   function setProfilePageTitle(pageLabel) {
@@ -224,6 +221,7 @@
   function cachedJsonFetch(url, ttlMs, opts) {
     var ttl = Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS);
     var bypass = Boolean(opts && opts.bypassCache);
+    var fetchTimeoutMs = Math.max(profileFetchTimeoutMs() + 8000, 32000);
     if (window.VcApiCache && typeof window.VcApiCache.fetchHttpOk === "function") {
       var cacheKey = window.VcApiCache.keyFor(String(url || ""), { scope: "profile" });
       if (bypass) window.VcApiCache.invalidate(cacheKey);
@@ -234,7 +232,7 @@
           staleMs: Math.max(ttl * 8, 10 * 60 * 1000),
           persistMs: 30 * 60 * 1000,
           useCache: !bypass,
-          timeoutMs: 28000,
+          timeoutMs: fetchTimeoutMs,
           fetchInit: { credentials: "omit", cache: "no-store" },
         })
         .then(function (row) {
@@ -267,8 +265,7 @@
     if (!base || !/^\d{17,20}$/.test(id)) return "";
     var root = base.split("?")[0];
     var endpoint = root.replace(/\/site-users\/?$/i, "/site-rank-card-public");
-    // niente Date.now(): altrimenti ogni poll/auth event rifà fetch + flash della card
-    return endpoint + "?userId=" + encodeURIComponent(id);
+        return endpoint + "?userId=" + encodeURIComponent(id);
   }
 
   function profileRenderSignature(userId, payload, viewerId) {
@@ -300,6 +297,13 @@
       secondary ? String(secondary.id || "") + ":" + String(secondary.name || "") + ":" + String(secondary.memberCount || 0) : "",
       cvoice ? String(cvoice.id || "") + ":" + String(cvoice.name || "") + ":" + String(cvoice.memberCount || 0) : "",
       String((profile.displayName || profile.username || "")),
+      profile.birthday
+        ? String(profile.birthday.day || "") +
+          "/" +
+          String(profile.birthday.month || "") +
+          ":" +
+          String(profile.birthday.shortLabel || profile.birthday.label || "")
+        : "",
       String(profile.avatarUrl || ""),
       String(profile.expMultiplierResolved || weekly.expMultiplier || ""),
       Array.isArray(profile.weeklyMultiplierSources)
@@ -378,8 +382,7 @@
       .replace(/"/g, "&quot;");
   }
 
-  /** Per url('…') in CSS custom property: non usare esc() HTML (rompe data:/SVG con &). */
-  function escForSingleQuotedCssUrl(s) {
+    function escForSingleQuotedCssUrl(s) {
     return String(s == null ? "" : s)
       .replace(/\\/g, "\\\\")
       .replace(/'/g, "\\'");
@@ -418,24 +421,34 @@
 
   function profilePublicUrl(userId) {
     var id = String(userId || "").trim();
-    // /user/?id= evita il redirect /users/:id → /user/?id= (doppio boot lento).
-    return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
+        return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
   }
 
   function profileCustomizeUrl(userId) {
     var id = String(userId || "").trim();
-    return id ? "/user/personalizza/?id=" + encodeURIComponent(id) + "&target=rank" : "/user/personalizza/?target=rank";
+    return id ? "/personalizza/?id=" + encodeURIComponent(id) + "&target=rank" : "/personalizza/?target=rank";
   }
 
   function profilePersonalizzaHubUrl(userId) {
     var id = String(userId || "").trim();
-    return id ? "/user/personalizza/?id=" + encodeURIComponent(id) : "/user/personalizza/";
+    return id ? "/personalizza/?id=" + encodeURIComponent(id) : "/personalizza/";
   }
 
   function customProfileEditorUrl(target) {
     var t = String(target || "primary").trim().toLowerCase();
     if (t !== "primary" && t !== "secondary" && t !== "voice") t = "primary";
-    return "/user/personalizza/?target=" + encodeURIComponent(t);
+    var q = new URLSearchParams();
+    var uid = parseProfileId();
+    if (!uid) {
+      try {
+        if (window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) {
+          uid = String(window.__VC_DISCORD_PROFILE.id || "").trim();
+        }
+      } catch (eProf) {}
+    }
+    if (/^\d{17,20}$/.test(uid)) q.set("id", uid);
+    q.set("target", t);
+    return "/personalizza/?" + q.toString();
   }
 
   function getDiscordToken() {
@@ -551,8 +564,7 @@
     return "x" + String(x.toFixed(1));
   }
 
-  /** Match WebSite/js/user-rank-customize-page.js previewStatIcon (+rank canvas uses same shapes). */
-  function rankCardStatIcon(type) {
+    function rankCardStatIcon(type) {
     var svg = "";
     if (type === "trophy") {
       svg =
@@ -667,6 +679,33 @@
       }
     }
     return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+  }
+
+  function profileAvatarSrc(url, avatarHash, userId, size) {
+    var raw = String(url || "").trim();
+    var hash = String(avatarHash || "").trim();
+    var uid = String(userId || "").trim();
+    var n = Number(size) || 256;
+    var resolved = "";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
+        resolved = window.VcDiscordAvatar.resolveUrl(raw, n, hash, uid) || "";
+      }
+    } catch (eAv) {}
+    if (!resolved && raw) resolved = raw;
+    if (!resolved && hash && uid) {
+      var ext = hash.indexOf("a_") === 0 ? "gif" : "png";
+      resolved = "https://cdn.discordapp.com/avatars/" + uid + "/" + hash + "." + ext + "?size=" + n;
+    }
+    if (!resolved) resolved = uid ? defaultEmbedAvatarUrl(uid) : "";
+    return resolved;
+  }
+
+  function scanProfileAvatars(root) {
+    try {
+      if (!window.VcDiscordAvatar || typeof window.VcDiscordAvatar.scan !== "function") return;
+      window.VcDiscordAvatar.scan(root || byId("vc-user-profile-view") || document);
+    } catch (eScan) {}
   }
 
   function hideLeaderOnlySections() {
@@ -844,7 +883,7 @@
     } catch (ePref) {}
 
     var fetchPromise = firstUsableProfileResult(sources);
-    var timeoutMs = profileFetchTimeoutMs();
+    var timeoutMs = Math.max(profileFetchTimeoutMs() + 8000, 32000);
     return new Promise(function (resolve) {
       var settled = false;
       var timer = setTimeout(function () {
@@ -937,8 +976,7 @@
     return false;
   }
 
-  /** Solo shell community (ignora hero staff) — usato per wipe Staff→Community. */
-  function communityShellLooksReadyFor(root, userId) {
+    function communityShellLooksReadyFor(root, userId) {
     if (!root) return false;
     var want = String(userId || "").trim();
     var shell = root.querySelector(":scope > .vc-user-profile-shell");
@@ -962,8 +1000,7 @@
     if (!root) return true;
     if (root.hidden) return true;
     if (profileViewLooksReady(root)) return false;
-    // Solo loader / vuoto / shell nascosta da tab staff stale.
-    var shell = root.querySelector(":scope > .vc-user-profile-shell");
+        var shell = root.querySelector(":scope > .vc-user-profile-shell");
     var hasOnlyBoot = Boolean(root.querySelector("[data-vc-profile-boot]")) && !shell;
     if (hasOnlyBoot) return true;
     if (!root.innerHTML || !String(root.innerHTML).trim()) return true;
@@ -980,16 +1017,34 @@
 
   function clearProfileLoading() {
     var overlay = byId("vc-user-profile-loading");
-    if (overlay) overlay.remove();
+    if (overlay) {
+      overlay.hidden = true;
+      overlay.setAttribute("hidden", "");
+      overlay.remove();
+    }
     try {
       var boots = document.querySelectorAll("[data-vc-profile-boot]");
       for (var i = 0; i < boots.length; i += 1) {
-        // Non toccare lo spinner del tab Staff (stesso look, altro marker).
-        if (boots[i].closest && boots[i].closest("[data-vc-profile-staff-pane]")) continue;
+                if (boots[i].closest && boots[i].closest("[data-vc-profile-staff-pane]")) continue;
         if (boots[i].getAttribute && boots[i].getAttribute("data-vc-staff-loading")) continue;
+        if (boots[i].id === "vc-user-profile-loading") continue;
         boots[i].remove();
       }
     } catch (eBoot) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      if (typeof window.__vcSyncLoaderBlockingLiveClass === "function") {
+        window.__vcSyncLoaderBlockingLiveClass();
+      }
+    } catch (eLock) {}
+  }
+
+  function ensureProfileLoadGate() {
+    try {
+      document.documentElement.classList.add("vc-user-profile-pending", "vc-user-profile-route");
+      document.documentElement.classList.remove("vc-page-cine-boot");
+      hideLeaderOnlySections();
+    } catch (eGate) {}
   }
 
   function renderInlineLoading(root, opts) {
@@ -997,19 +1052,39 @@
     opts = opts || {};
     var force = Boolean(opts.force);
     root.hidden = false;
+    ensureProfileLoadGate();
     if (!force) {
-      var existing = root.querySelector("[data-vc-profile-boot]");
-      if (existing && !(existing.closest && existing.closest("[data-vc-profile-staff-pane]"))) {
+      var bodyOverlay = byId("vc-user-profile-loading");
+      if (bodyOverlay && !(bodyOverlay.hidden || bodyOverlay.hasAttribute("hidden"))) {
         return;
       }
     }
-    // Wipe sempre: altrimenti Staff→Community lascia la shell del viewer sotto un boot stale.
-    root.innerHTML =
-      '<div class="vc-user-profile-loader vc-user-profile-boot vc-user-profile-boot--inline" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento profilo">' +
+        var overlay = byId("vc-user-profile-loading");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "vc-user-profile-loading";
+      document.body.appendChild(overlay);
+    }
+    overlay.className = "vc-user-profile-loader vc-user-profile-boot";
+    overlay.setAttribute("data-vc-profile-boot", "1");
+    overlay.setAttribute("role", "status");
+    overlay.setAttribute("aria-live", "polite");
+    overlay.setAttribute("aria-label", "Caricamento profilo");
+    overlay.hidden = false;
+    overlay.removeAttribute("hidden");
+    overlay.innerHTML =
       '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
       '<p class="vc-user-profile-loader__title">Caricamento profilo</p>' +
-      '<p class="vc-user-profile-loader__sub">Sto recuperando le statistiche dell\'utente...</p>' +
-      "</div>";
+      '<p class="vc-user-profile-loader__sub">Sto recuperando le statistiche dell\'utente...</p>';
+        if (force || !profileViewLooksReady(root)) {
+      root.innerHTML = "";
+    }
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      if (typeof window.__vcSyncLoaderBlockingLiveClass === "function") {
+        window.__vcSyncLoaderBlockingLiveClass();
+      }
+    } catch (eLock) {}
   }
 
   function parseWantsStaffTab() {
@@ -1025,8 +1100,7 @@
   }
 
   function renderLoading(root, opts) {
-    // Un solo boot anche su tab=staff (niente secondo spinner dopo).
-    clearProfileLoading();
+        clearProfileLoading();
     renderInlineLoading(root, opts);
   }
 
@@ -1139,7 +1213,487 @@
     );
   }
 
-  function buildProfileBadges(rank, roles) {
+  var CUSTOM_VOC_SEPARATORS = ["\uFE32", "︲", "|", "│", "｜", "⠂", "•", "·", "—", "–"];
+
+  function parseCustomVocName(rawName) {
+    var name = String(rawName || "").trim();
+    if (!name) return { emoji: "", baseName: "privata" };
+    var i;
+    for (i = 0; i < CUSTOM_VOC_SEPARATORS.length; i += 1) {
+      var separator = CUSTOM_VOC_SEPARATORS[i];
+      if (name.indexOf(separator) === -1) continue;
+      var parts = name.split(separator);
+      var left = String(parts.shift() || "")
+        .replace(/^\u0F04/u, "")
+        .replace(/^༄/u, "")
+        .trim();
+      var right = parts.join(separator).trim();
+      return { emoji: left, baseName: right || "privata" };
+    }
+    return {
+      emoji: "",
+      baseName: name.replace(/^\u0F04/u, "").replace(/^༄/u, "").trim() || "privata",
+    };
+  }
+
+  function isUsableProfileDisplayName(name) {
+    var s = String(name || "")
+      .replace(/^\u0F04/u, "")
+      .replace(/^༄/u, "")
+      .trim();
+    if (!s || s.length < 2) return false;
+    if (/^[\u0F00-\u0FFF\uFE00-\uFEFF\u200D\s]+$/u.test(s)) return false;
+    return true;
+  }
+
+  function resolveProfileDisplayName(profile, level) {
+    var profileObj = profile || {};
+    var levelObj = level || {};
+    var raw = String(
+      profileObj.displayName || profileObj.username || levelObj.username || "",
+    ).trim();
+    if (!isUsableProfileDisplayName(raw)) {
+      raw = String(profileObj.username || levelObj.username || "Utente").trim() || "Utente";
+    }
+    return raw;
+  }
+
+  function formatCustomVoiceTitleHtml(voice, fallbackName) {
+    if (!voice) return esc(String(fallbackName || "Canale vocale privato"));
+    var parsed = parseCustomVocName(voice.name);
+    var emoji = String(voice.emoji || parsed.emoji || "").trim();
+    var baseName = String(parsed.baseName || voice.name || fallbackName || "Canale vocale privato").trim();
+    if (!emoji) return esc(baseName);
+    return (
+      '<span class="vc-user-profile-voice-title">' +
+      '<span class="vc-user-profile-voice-title__emoji">' +
+      esc(emoji) +
+      "</span>" +
+      '<span class="vc-user-profile-voice-title__sep" aria-hidden="true">\uFE32</span>' +
+      '<span class="vc-user-profile-voice-title__name">' +
+      esc(baseName) +
+      "</span></span>"
+    );
+  }
+
+  var PROFILE_BDAY_MONTHS_IT = [
+    "",
+    "Gennaio",
+    "Febbraio",
+    "Marzo",
+    "Aprile",
+    "Maggio",
+    "Giugno",
+    "Luglio",
+    "Agosto",
+    "Settembre",
+    "Ottobre",
+    "Novembre",
+    "Dicembre",
+  ];
+  var birthdayCalendarPopEl = null;
+  var birthdayCalendarFetchToken = 0;
+
+  function buildBirthdaysCalendarUrl(month, year) {
+    var base = resolvedApiUrl();
+    if (!base) return "";
+    var root = base.split("?")[0];
+    return (
+      root +
+      (base.indexOf("?") >= 0 ? "&" : "?") +
+      "board=birthdays&month=" +
+      encodeURIComponent(String(month)) +
+      "&year=" +
+      encodeURIComponent(String(year))
+    );
+  }
+
+  function closeBirthdayCalendar() {
+    if (birthdayCalendarPopEl && birthdayCalendarPopEl.parentNode) {
+      birthdayCalendarPopEl.parentNode.removeChild(birthdayCalendarPopEl);
+    }
+    birthdayCalendarPopEl = null;
+    try {
+      document.documentElement.classList.remove("vc-user-profile-bday-open");
+      document.body.classList.remove("vc-user-profile-bday-open");
+    } catch (eClose) {}
+  }
+
+  function formatBirthdayBadgeLabel(birthday) {
+    if (!birthday || !birthday.day || !birthday.month) return "";
+    var day = Number(birthday.day) || 0;
+    var month = Number(birthday.month) || 0;
+    if (!day || !month) return "";
+    var monthName = String(PROFILE_BDAY_MONTHS_IT[month] || "").trim();
+    if (!monthName) return String(birthday.label || birthday.shortLabel || "").trim();
+    var out = day + " " + monthName;
+    var showYear = birthday.showAge !== false;
+    var year = Number(birthday.birthYear);
+    if (showYear && Number.isFinite(year) && year >= 1900) out += " " + year;
+    return out;
+  }
+
+  function buildBirthdayBadgeHtml(birthday) {
+    if (!birthday || !birthday.day || !birthday.month) return "";
+    var label = formatBirthdayBadgeLabel(birthday);
+    if (!label) return "";
+    var todayClass = birthday.isToday ? " vc-user-profile-bday-badge--today" : "";
+    var title = label;
+    if (birthday.isToday) title = "Oggi è il compleanno — " + title;
+    return (
+      '<button type="button" class="vc-user-profile-bday-badge' +
+      todayClass +
+      '" data-vc-bday-badge aria-haspopup="dialog" aria-expanded="false" aria-label="Compleanno: ' +
+      esc(title) +
+      ' — apri calendario">' +
+      '<span class="vc-user-profile-bday-badge__icon" aria-hidden="true"><i class="fa fa-birthday-cake"></i></span>' +
+      '<span class="vc-user-profile-bday-badge__label">' +
+      esc(label) +
+      "</span></button>"
+    );
+  }
+
+  function daysInCalendarMonth(month, year) {
+    return new Date(year, month, 0).getDate();
+  }
+
+  function calendarLeadingBlanks(month, year) {
+    var dow = new Date(year, month - 1, 1).getDay();
+    return dow === 0 ? 6 : dow - 1;
+  }
+
+  function groupBirthdaysByDay(entries) {
+    var map = {};
+    (entries || []).forEach(function (entry) {
+      var day = Number(entry && entry.day);
+      if (!day) return;
+      if (!map[day]) map[day] = [];
+      map[day].push(entry);
+    });
+    return map;
+  }
+
+  function shiftCalendarMonth(month, year, delta) {
+    var m = Number(month) + Number(delta);
+    var y = Number(year);
+    while (m < 1) {
+      m += 12;
+      y -= 1;
+    }
+    while (m > 12) {
+      m -= 12;
+      y += 1;
+    }
+    return { month: m, year: y };
+  }
+
+  function formatBirthdayEntryMeta(entry, calendarYear) {
+    var meta = String((entry && entry.label) || "").trim();
+    if (!meta && entry && entry.day) {
+      var monthIdx = Number(entry.month) || 0;
+      meta = String(entry.day) + " " + String(PROFILE_BDAY_MONTHS_IT[monthIdx] || "").toLowerCase();
+    }
+    var showAge = !entry || entry.showAge !== false;
+    var birthYear = Number(entry && entry.birthYear);
+    var viewYear = Number(calendarYear);
+    if (showAge && Number.isFinite(birthYear) && birthYear >= 1900 && Number.isFinite(viewYear)) {
+      var turning = viewYear - birthYear;
+      if (turning >= 0 && turning <= 120) {
+        meta += " · compie " + turning + " anni";
+      }
+    }
+    return meta;
+  }
+
+  function renderBirthdayCalendarHtml(data, highlightUserId) {
+    var month = Number(data && data.month) || 1;
+    var year = Number(data && data.year) || new Date().getFullYear();
+    var monthLabel = String((data && data.monthLabel) || PROFILE_BDAY_MONTHS_IT[month] || month);
+    var entries = Array.isArray(data && data.entries) ? data.entries : [];
+    var byDay = groupBirthdaysByDay(entries);
+    var totalDays = daysInCalendarMonth(month, year);
+    var lead = calendarLeadingBlanks(month, year);
+    var todayDay = Number(data && data.todayDay) || -1;
+    var weekdays = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+    var head = weekdays
+      .map(function (w) {
+        return '<span class="vc-user-profile-bday-pop__wd">' + esc(w) + "</span>";
+      })
+      .join("");
+    var cells = "";
+    var i;
+    for (i = 0; i < lead; i += 1) {
+      cells += '<span class="vc-user-profile-bday-pop__cell is-empty" aria-hidden="true"></span>';
+    }
+    for (i = 1; i <= totalDays; i += 1) {
+      var dayEntries = byDay[i] || [];
+      var isToday = i === todayDay;
+      var hasMine = highlightUserId
+        ? dayEntries.some(function (e) {
+            return String(e.userId || "") === String(highlightUserId);
+          })
+        : false;
+      var cellClass = "vc-user-profile-bday-pop__cell";
+      if (isToday) cellClass += " is-today";
+      if (dayEntries.length) cellClass += " has-birthdays";
+      if (hasMine) cellClass += " is-profile-day";
+      var listHtml = dayEntries
+        .slice(0, 3)
+        .map(function (entry) {
+          var name = String(entry.displayName || entry.userId || "Utente").trim();
+          var href = String(entry.profileUrl || "/user/?id=" + encodeURIComponent(entry.userId || ""));
+          return (
+            '<a class="vc-user-profile-bday-pop__person" href="' +
+            esc(href) +
+            '" title="' +
+            esc(entry.label || name) +
+            '">' +
+            esc(name) +
+            "</a>"
+          );
+        })
+        .join("");
+      if (dayEntries.length > 3) {
+        listHtml +=
+          '<span class="vc-user-profile-bday-pop__more">+' +
+          esc(String(dayEntries.length - 3)) +
+          "</span>";
+      }
+      cells +=
+        '<div class="' +
+        cellClass +
+        '"><span class="vc-user-profile-bday-pop__daynum">' +
+        esc(String(i)) +
+        "</span>" +
+        (listHtml ? '<div class="vc-user-profile-bday-pop__people">' + listHtml + "</div>" : "") +
+        "</div>";
+    }
+    var listSection;
+    if (entries.length) {
+      listSection =
+        '<div class="vc-user-profile-bday-pop__list"><p class="vc-user-profile-bday-pop__list-title">Compleanni in ' +
+        esc(monthLabel) +
+        "</p>" +
+        entries
+          .map(function (entry) {
+            var name = String(entry.displayName || entry.userId || "Utente").trim();
+            var href = String(entry.profileUrl || "/user/?id=" + encodeURIComponent(entry.userId || ""));
+            var meta = formatBirthdayEntryMeta(entry, year);
+            var mine =
+              highlightUserId && String(entry.userId || "") === String(highlightUserId)
+                ? " is-profile-user"
+                : "";
+            return (
+              '<a class="vc-user-profile-bday-pop__row' +
+              mine +
+              '" href="' +
+              esc(href) +
+              '"><span class="vc-user-profile-bday-pop__row-name">' +
+              esc(name) +
+              '</span><span class="vc-user-profile-bday-pop__row-meta">' +
+              esc(meta) +
+              "</span></a>"
+            );
+          })
+          .join("") +
+        "</div>";
+    } else {
+      listSection =
+        '<p class="vc-user-profile-bday-pop__empty">Nessun compleanno registrato per questo mese.</p>';
+    }
+    return (
+      '<div class="vc-user-profile-bday-pop" role="dialog" aria-modal="true" aria-label="Calendario compleanni ' +
+      esc(monthLabel) +
+      " " +
+      esc(String(year)) +
+      '" data-vc-bday-month="' +
+      esc(String(month)) +
+      '" data-vc-bday-year="' +
+      esc(String(year)) +
+      '">' +
+      '<div class="vc-user-profile-bday-pop__panel">' +
+      '<div class="vc-user-profile-bday-pop__head">' +
+      '<div class="vc-user-profile-bday-pop__head-main">' +
+      '<button type="button" class="vc-user-profile-bday-pop__nav" data-vc-bday-prev aria-label="Mese precedente"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>' +
+      '<div class="vc-user-profile-bday-pop__title"><i class="fa fa-birthday-cake" aria-hidden="true"></i><span>' +
+      esc(monthLabel) +
+      " " +
+      esc(String(year)) +
+      "</span></div>" +
+      '<button type="button" class="vc-user-profile-bday-pop__nav" data-vc-bday-next aria-label="Mese successivo"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>' +
+      "</div>" +
+      '<button type="button" class="vc-user-profile-bday-pop__close" data-vc-bday-close aria-label="Chiudi"><i class="fa fa-times" aria-hidden="true"></i></button>' +
+      "</div>" +
+      '<div class="vc-user-profile-bday-pop__body">' +
+      '<div class="vc-user-profile-bday-pop__grid" aria-label="Calendario mensile">' +
+      head +
+      cells +
+      "</div>" +
+      listSection +
+      "</div></div></div>"
+    );
+  }
+
+  function setBirthdayCalendarLoading(isLoading) {
+    if (!birthdayCalendarPopEl) return;
+    var panel = birthdayCalendarPopEl.querySelector(".vc-user-profile-bday-pop__panel");
+    if (!panel) return;
+    panel.classList.toggle("vc-user-profile-bday-pop__panel--loading-month", Boolean(isLoading));
+    panel.setAttribute("aria-busy", isLoading ? "true" : "false");
+  }
+
+  function loadBirthdayCalendarMonth(month, year, profileUserId) {
+    if (!birthdayCalendarPopEl) return;
+    var url = buildBirthdaysCalendarUrl(month, year);
+    if (!url) return;
+    var token = ++birthdayCalendarFetchToken;
+    birthdayCalendarPopEl.__vcBdayMonth = month;
+    birthdayCalendarPopEl.__vcBdayYear = year;
+    birthdayCalendarPopEl.__vcBdayProfileUserId = profileUserId;
+    setBirthdayCalendarLoading(true);
+    cachedJsonFetch(url, 60000)
+      .then(function (out) {
+        if (token !== birthdayCalendarFetchToken || !birthdayCalendarPopEl) return;
+        var body = out && out.body ? out.body : {};
+        if (!out || !out.httpOk || !body || body.ok !== true) {
+          setBirthdayCalendarLoading(false);
+          if (
+            birthdayCalendarPopEl &&
+            birthdayCalendarPopEl.querySelector(".vc-user-profile-bday-pop__panel--loading")
+          ) {
+            closeBirthdayCalendar();
+          }
+          return;
+        }
+        birthdayCalendarPopEl.innerHTML = renderBirthdayCalendarHtml(body, profileUserId);
+        wireBirthdayCalendarPop(profileUserId);
+        setBirthdayCalendarLoading(false);
+      })
+      .catch(function () {
+        if (token !== birthdayCalendarFetchToken) return;
+        setBirthdayCalendarLoading(false);
+        if (
+          birthdayCalendarPopEl &&
+          birthdayCalendarPopEl.querySelector(".vc-user-profile-bday-pop__panel--loading")
+        ) {
+          closeBirthdayCalendar();
+        }
+      });
+  }
+
+  function wireBirthdayCalendarPop(profileUserId) {
+    if (!birthdayCalendarPopEl) return;
+    var closeBtn = birthdayCalendarPopEl.querySelector("[data-vc-bday-close]");
+    if (closeBtn && !closeBtn.__vcBdayCloseWired) {
+      closeBtn.__vcBdayCloseWired = true;
+      closeBtn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        closeBirthdayCalendar();
+      });
+    }
+    var prevBtn = birthdayCalendarPopEl.querySelector("[data-vc-bday-prev]");
+    var nextBtn = birthdayCalendarPopEl.querySelector("[data-vc-bday-next]");
+    if (prevBtn && !prevBtn.__vcBdayNavWired) {
+      prevBtn.__vcBdayNavWired = true;
+      prevBtn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var m = Number(birthdayCalendarPopEl.__vcBdayMonth) || 1;
+        var y = Number(birthdayCalendarPopEl.__vcBdayYear) || new Date().getFullYear();
+        var shifted = shiftCalendarMonth(m, y, -1);
+        loadBirthdayCalendarMonth(shifted.month, shifted.year, profileUserId);
+      });
+    }
+    if (nextBtn && !nextBtn.__vcBdayNavWired) {
+      nextBtn.__vcBdayNavWired = true;
+      nextBtn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var m = Number(birthdayCalendarPopEl.__vcBdayMonth) || 1;
+        var y = Number(birthdayCalendarPopEl.__vcBdayYear) || new Date().getFullYear();
+        var shifted = shiftCalendarMonth(m, y, 1);
+        loadBirthdayCalendarMonth(shifted.month, shifted.year, profileUserId);
+      });
+    }
+    if (!wireBirthdayCalendarPop._keydownWired) {
+      wireBirthdayCalendarPop._keydownWired = true;
+      document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape") closeBirthdayCalendar();
+      });
+    }
+  }
+
+  function wireBirthdayCalendarHost() {
+    if (!birthdayCalendarPopEl || birthdayCalendarPopEl.__vcBackdropWired) return;
+    birthdayCalendarPopEl.__vcBackdropWired = true;
+    birthdayCalendarPopEl.addEventListener("click", function (ev) {
+      if (ev.target && ev.target.classList && ev.target.classList.contains("vc-user-profile-bday-pop")) {
+        closeBirthdayCalendar();
+      }
+    });
+  }
+
+  function openBirthdayCalendar(anchor, profileUserId) {
+    if (!anchor) return;
+    closeBirthdayCalendar();
+    var now = new Date();
+    var month = now.getMonth() + 1;
+    var year = now.getFullYear();
+    anchor.setAttribute("aria-expanded", "true");
+    birthdayCalendarPopEl = document.createElement("div");
+    birthdayCalendarPopEl.className = "vc-user-profile-bday-pophost";
+    birthdayCalendarPopEl.__vcBdayAnchor = anchor;
+    birthdayCalendarPopEl.__vcBdayMonth = month;
+    birthdayCalendarPopEl.__vcBdayYear = year;
+    birthdayCalendarPopEl.__vcBdayProfileUserId = profileUserId;
+    birthdayCalendarPopEl.innerHTML =
+      '<div class="vc-user-profile-bday-pop" role="dialog" aria-busy="true" aria-label="Calendario compleanni"><div class="vc-user-profile-bday-pop__panel vc-user-profile-bday-pop__panel--loading"><span>Caricamento calendario…</span></div></div>';
+    document.body.appendChild(birthdayCalendarPopEl);
+    document.documentElement.classList.add("vc-user-profile-bday-open");
+    try {
+      document.body.classList.add("vc-user-profile-bday-open");
+    } catch (eBodyLock) {}
+    wireBirthdayCalendarHost();
+    loadBirthdayCalendarMonth(month, year, profileUserId);
+  }
+
+  function wireBirthdayBadge(root, profileUserId) {
+    if (!root) return;
+    var btn = root.querySelector("[data-vc-bday-badge]");
+    if (!btn || btn.__vcBdayWired) return;
+    btn.__vcBdayWired = true;
+    btn.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (birthdayCalendarPopEl) {
+        closeBirthdayCalendar();
+        btn.setAttribute("aria-expanded", "false");
+        return;
+      }
+      openBirthdayCalendar(btn, profileUserId);
+    });
+  }
+
+  var PROFILE_ROLE_IDS = {
+    founder: "1442568886988963923",
+    manager: "1521562607339704442",
+    staffDelMese: "1442568895251611924",
+    director: "1502322782602530977",
+    highStaff: "1442568894349840435",
+    staff: "1442568910070349985",
+    partnerManager: "1442568905582317740",
+    donator: "1442568916114346096",
+    vip: "1442568950805430312",
+    vipPlus: "1495472189347074119",
+    serverBooster: "1329497467481493607",
+    doubleBooster: "1494996567214788818",
+    topWeeklyText: "1468674837957574757",
+    topWeeklyVoc: "1468674787399172208",
+    mvp: "1500843454014423101",
+    memberOfTheMonth: "1500848813680758836",
+  };
+
+  function buildProfileBadges(rank, roles, birthday) {
     var out = [];
     var seen = {};
     var names = Array.isArray(roles)
@@ -1167,73 +1721,111 @@
           })
           .filter(Boolean)
       : [];
-    var hasFounder = includesAnyRole(names, ["founder", "fondatore"]);
-    if (hasFounder) add("founder", "fa-star-o", "Founder");
 
-    var hasPartnerManager =
-      hasRoleId(roles, "1442568905582317740") ||
-      hasNormalizedRole(roleNames, function (name) {
-        return name.indexOf("partner manager") !== -1;
-      });
-    var hasStaffManager =
-      hasRoleId(roles, "1521562607339704442") ||
-      (!hasPartnerManager &&
+    var hasFounder =
+      hasRoleId(roles, PROFILE_ROLE_IDS.founder) ||
+      includesAnyRole(names, ["founder", "fondatore"]);
+    var hasManager =
+      hasRoleId(roles, PROFILE_ROLE_IDS.manager) ||
         hasNormalizedRole(roleNames, function (name) {
           return name === "manager";
-        }));
-    if (hasPartnerManager) add("pm", "fa-handshake-o", "Partner Manager");
-    if (hasStaffManager) add("manager", "fa-briefcase", "Manager");
-
+      });
     var hasStaffDelMese =
-      hasRoleId(roles, "1442568895251611924") ||
+      hasRoleId(roles, PROFILE_ROLE_IDS.staffDelMese) ||
       hasNormalizedRole(roleNames, function (name) {
         return name.indexOf("staffer del mese") !== -1 || name.indexOf("staff del mese") !== -1;
       });
-    if (hasStaffDelMese) add("sdm", "fa-trophy", "Staff del Mese");
-
     var hasDirector =
-      hasRoleId(roles, "1502322782602530977") ||
+      hasRoleId(roles, PROFILE_ROLE_IDS.director) ||
       hasNormalizedRole(roleNames, function (name) {
         return name === "director";
       });
-    if (hasDirector) add("director", "fa-shield", "Director");
-
     var hasHighStaff =
-      hasRoleId(roles, "1442568894349840435") ||
+      hasRoleId(roles, PROFILE_ROLE_IDS.highStaff) ||
       hasNormalizedRole(roleNames, function (name) {
         return name === "high staff" || name.indexOf("high staff") !== -1;
       });
-    if (hasHighStaff) add("highstaff", "fa-shield", "High Staff");
-
     var hasStaffRole =
-      hasRoleId(roles, "1442568910070349985") ||
+      hasRoleId(roles, PROFILE_ROLE_IDS.staff) ||
       hasNormalizedRole(roleNames, function (name) {
         return name === "staff";
       });
-    if (hasStaffRole) add("staff", "fa-shield", "Staff");
+    var hasPartnerManager =
+      hasRoleId(roles, PROFILE_ROLE_IDS.partnerManager) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name.indexOf("partner manager") !== -1;
+      });
+    var hasMemberOfTheMonth =
+      hasRoleId(roles, PROFILE_ROLE_IDS.memberOfTheMonth) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name.indexOf("member of the month") !== -1 || name.indexOf("membro del mese") !== -1;
+      });
+    var hasTopWeeklyText =
+      hasRoleId(roles, PROFILE_ROLE_IDS.topWeeklyText) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name.indexOf("top weekly text") !== -1;
+      });
+    var hasTopWeeklyVoc =
+      hasRoleId(roles, PROFILE_ROLE_IDS.topWeeklyVoc) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name.indexOf("top weekly voc") !== -1;
+      });
+    var hasMvp =
+      hasRoleId(roles, PROFILE_ROLE_IDS.mvp) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name === "mvp";
+      });
+    var hasVipPlus =
+      hasRoleId(roles, PROFILE_ROLE_IDS.vipPlus) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name === "vip+" || name === "vip plus";
+      });
+    var hasVip =
+      !hasVipPlus &&
+      (hasRoleId(roles, PROFILE_ROLE_IDS.vip) ||
+        hasNormalizedRole(roleNames, function (name) {
+          return name === "vip";
+        }));
+    var hasDoubleBooster =
+      hasRoleId(roles, PROFILE_ROLE_IDS.doubleBooster) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name.indexOf("double booster") !== -1;
+      });
+    var hasServerBooster =
+      hasRoleId(roles, PROFILE_ROLE_IDS.serverBooster) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name === "server booster" || name.indexOf("server booster") !== -1;
+      });
+    var hasDonator =
+      hasRoleId(roles, PROFILE_ROLE_IDS.donator) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return name === "donator" || name === "donatore";
+      });
 
+    if (hasFounder) add("founder", "fa-star-o", "Founder");
+    if (hasManager) add("manager", "fa-briefcase", "Manager");
+    if (hasStaffDelMese) add("sdm", "fa-trophy", "Staff del Mese");
+    if (hasDirector) add("director", "fa-shield", "Director");
+    if (hasHighStaff) add("highstaff", "fa-shield", "High Staff");
     if (
-      !hasDirector &&
+      hasStaffRole ||
+      (!hasDirector &&
       !hasHighStaff &&
-      !hasStaffRole &&
-      includesAnyRole(names, ["admin", "mod", "moderator", "helper", "community manager"])
+        includesAnyRole(names, ["admin", "mod", "moderator", "helper", "community manager"]))
     ) {
       add("staff", "fa-shield", "Staff");
     }
-
-    if (includesAnyRole(names, ["booster", "boost"])) {
-      add("booster", "fa-rocket", "Booster");
-    }
-
-    if (
-      includesAnyRole(names, [
-        "donator",
-        "donatore",
-        "vip",
-      ])
-    ) {
-      add("donator", "fa-heart", "Donator");
-    }
+    if (hasPartnerManager) add("pm", "fa-handshake-o", "Partner Manager");
+    if (hasMemberOfTheMonth) add("motm", "fa-calendar", "Member of The Month");
+    if (hasTopWeeklyText) add("topweeklytext", "fa-comments-o", "Top Weekly Text");
+    if (hasTopWeeklyVoc) add("topweeklyvoc", "fa-microphone", "Top Weekly Voc");
+    if (hasMvp) add("mvp", "fa-star", "MVP");
+    if (hasVipPlus) add("vipplus", "fa-diamond", "VIP+");
+    if (hasVip) add("vip", "fa-diamond", "VIP");
+    if (hasDoubleBooster) add("doublebooster", "fa-rocket", "Double Booster");
+    if (hasServerBooster) add("booster", "fa-rocket", "Booster");
+    if (hasDonator) add("donator", "fa-heart", "Donator");
+    if (birthday && birthday.isToday) add("birthday", "fa-birthday-cake", "Compleanno");
 
     return out.length ? '<div class="vc-user-profile-badges">' + out.join("") + "</div>" : "";
   }
@@ -1333,11 +1925,8 @@
     } catch (eTab) {
       wantsStaffTab = false;
     }
-    // Se stiamo dipingendo community per un peer, non preservare pane staff di altri.
-    if (opts.communityOnly) wantsStaffTab = false;
-    // Preserva il pane staff già in paint (prefetch): non farlo demolire dal render community.
-    // Solo se il pane appartiene allo stesso userId — altrimenti resta lo staffer sbagliato.
-    var savedStaffPane = null;
+        if (opts.communityOnly) wantsStaffTab = false;
+            var savedStaffPane = null;
     try {
       var existingPane = root.querySelector("[data-vc-profile-staff-pane]");
       if (existingPane && wantsStaffTab) {
@@ -1349,8 +1938,7 @@
     } catch (eSave) {
       savedStaffPane = null;
     }
-    // Non azzerare il tab Staff se l'URL lo richiede (prima spazzava pending e sembrava lentissimo).
-    if (!wantsStaffTab) {
+        if (!wantsStaffTab) {
       try {
         if (document.body) {
           document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
@@ -1363,9 +1951,14 @@
     var messages = payload.messages || {};
     var voice = payload.voice || {};
     var profile = payload.profile || {};
-    var profileNick = String(profile.displayName || profile.username || level.username || "Utente").trim() || "Utente";
+    var profileNick = resolveProfileDisplayName(profile, level);
     var profileHandle = String(profile.username || level.username || "").trim();
-    var avatar = String(profile.avatarUrl || level.avatarUrl || "").trim();
+    var avatar = profileAvatarSrc(
+      String(profile.avatarUrl || level.avatarUrl || "").trim(),
+      String(profile.avatar || level.avatar || "").trim(),
+      userId,
+      256,
+    );
     var progressPct = formatPct(level.progressPercent || 0);
     var rankText = level.rank ? "#" + formatIntIt(level.rank) : "-";
     var weeklyRankText = weekly.rank ? "#" + formatIntIt(weekly.rank) : "-";
@@ -1379,8 +1972,7 @@
     var customRole = customProfile && customProfile.role ? customProfile.role : null;
     var customSecondaryRole = customProfile && customProfile.secondaryRole ? customProfile.secondaryRole : null;
     var customVoice = customProfile && customProfile.voice ? customProfile.voice : null;
-    // Anello avatar profilo = palette sito (mocha), non i colori custom della rank card.
-    var avatarRingStyle = ' style="--vc-rank-ring:#e8c49c"';
+        var avatarRingStyle = ' style="--vc-rank-ring:#e8c49c"';
     var multiplier = Number(
       (weekly && weekly.expMultiplier != null && weekly.expMultiplier !== "" ? weekly.expMultiplier : null) ||
         profile.expMultiplierResolved ||
@@ -1391,7 +1983,8 @@
       ? profile.weeklyMultiplierSources
       : [];
     var multiplierHtml = buildMultiplierSourcesHtml(multiplierSources, multiplier);
-    var badgesHtml = buildProfileBadges(level.rank, roles);
+    var badgesHtml = buildProfileBadges(level.rank, roles, profile.birthday || null);
+    var birthdayBadgeHtml = buildBirthdayBadgeHtml(profile.birthday || null);
     var customRoleCount = (customRole ? 1 : 0) + (customSecondaryRole ? 1 : 0);
     var customRoleIconHtml = customRole
       ? customRole.iconUrl
@@ -1432,7 +2025,7 @@
             var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
             var username = String(member.username || "").trim();
             var href = profilePublicUrl(member.id);
-            var avatarUrl = String(member.avatarUrl || "").trim();
+            var avatarUrl = profileAvatarSrc(String(member.avatarUrl || "").trim(), "", member.id, 128);
             return (
               '<a class="vc-user-profile-shared__user" href="' +
               esc(href) +
@@ -1460,6 +2053,7 @@
       var count = Math.max(0, Number(voice.memberCount || 0));
       var created = voice.createdAt ? formatDateIt(voice.createdAt) : "—";
       var name = String(voice.name || customVoiceName || "Canale vocale privato").trim() || "Canale vocale privato";
+      var voiceTitleHtml = formatCustomVoiceTitleHtml(voice, name);
       var cardOpen = viewerOwns
         ? '<a class="vc-user-profile-customcard vc-user-profile-customcard--link" href="' +
           esc(customProfileEditorUrl("voice")) +
@@ -1474,7 +2068,7 @@
         "</span>" +
         '<div class="vc-user-profile-customcard__copy">' +
         '<strong class="vc-user-profile-customcard__title">' +
-        esc(name) +
+        voiceTitleHtml +
         "</strong>" +
         '<span class="vc-user-profile-customcard__meta vc-user-profile-customcard__meta--id">ID ' +
         esc(vid || "—") +
@@ -1629,7 +2223,7 @@
       (avatar
         ? '<img class="vc-user-profile-avatar" src="' +
           esc(avatar) +
-          '" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
+          '" alt="" width="256" height="256" loading="eager" decoding="async" referrerpolicy="no-referrer" vcAvatarStatic="1" onerror="this.onerror=null;this.src=\'' +
           esc(defaultEmbedAvatarUrl(userId)) +
           '\'" />'
         : '<span class="vc-user-profile-avatar vc-user-profile-avatar--fallback"><i class="fa fa-user"></i></span>') +
@@ -1637,7 +2231,10 @@
       "</div>" +
       '<div class="vc-user-profile-hero__copy">' +
       '<h1 class="vc-user-profile-name">' +
+      '<span class="vc-user-profile-name__text">' +
       esc(profileNick) +
+      "</span>" +
+      birthdayBadgeHtml +
       "</h1>" +
       (profileHandle
         ? '<p class="vc-user-profile-handle">@' + esc(profileHandle) + "</p>"
@@ -1760,6 +2357,7 @@
     unlockProfileChrome();
     clearProfilePending();
     if (viewerOwns) wireProfileCustomCreate(root);
+    wireBirthdayBadge(root, userId);
     if (opts.skipStaffSync) {
       try {
         if (
@@ -1769,6 +2367,7 @@
           window.VCUserProfileStaffTab.paintCommunityChrome(root, userId);
         }
       } catch (eChrome) {}
+      scanProfileAvatars(root);
       return;
     }
     try {
@@ -1776,6 +2375,7 @@
         window.VCUserProfileStaffTab.sync(userId, root);
       }
     } catch (eStaffTab) {}
+    scanProfileAvatars(root);
   }
 
   function syncProfileStaffTab(userId, root) {
@@ -1828,8 +2428,7 @@
     if (!img || !status) return;
     var uid = String(userId || "").trim();
     if (!/^\d{17,20}$/.test(uid)) return;
-    // Durante lock community: niente rank di altri user.
-    if (lockedCommunityUserId && lockedCommunityUserId !== uid) return;
+        if (lockedCommunityUserId && lockedCommunityUserId !== uid) return;
     var now = Date.now();
     var markedFor = String(img.getAttribute("data-vc-rank-for") || "").trim();
     if (uid && markedFor && markedFor !== uid) {
@@ -1953,8 +2552,7 @@
     var voice = result && result.voice ? result.voice : null;
     var profile = (result && result.profile ? result.profile : {}) || {};
 
-    // Lock: mentre forziamo community di un peer, ignora paint di altri userId (race).
-    if (
+        if (
       lockedCommunityUserId &&
       String(userId || "") !== lockedCommunityUserId &&
       !(
@@ -1974,6 +2572,16 @@
     if (!result || !result.ok) {
       if (silent) return false;
       if (profileInitialLoadDone) return false;
+      if (
+        root &&
+        profileViewLooksReady(root) &&
+        String(communityShellUserId(root) || "") === String(userId || "")
+      ) {
+        return false;
+      }
+      if (lastRenderedProfile && String(lastRenderedProfile.userId || "") === String(userId || "")) {
+        return false;
+      }
       renderError(
         root,
         result && result.timedOut
@@ -2023,9 +2631,7 @@
     var shellUserNow = communityShellUserId(root);
     var shellOk = shellUserNow === String(userId);
 
-    // Tab Staff attivo: aggiorna solo la cache in memoria, NON la shell community visibile.
-    // Altrimenti un fetch silent del peer aggiorna la rank card lasciando i dati del viewer.
-    var onStaffTab = Boolean(
+            var onStaffTab = Boolean(
       document.body && document.body.classList.contains("vc-user-profile-staff-tab"),
     );
     if (onStaffTab && silent) {
@@ -2159,8 +2765,7 @@
     var allowRetry = options.retry !== false;
     var retryCount = Math.max(0, Number(options.retryCount) || 0);
     if ((profileBootGaveUp || window.__VC_PROFILE_GAVE_UP) && !silent && !force) {
-      // Mai lasciare lo spinner forever: sblocca e riprova una volta.
-      profileBootGaveUp = false;
+            profileBootGaveUp = false;
       try {
         window.__VC_PROFILE_GAVE_UP = false;
       } catch (eGave) {}
@@ -2221,8 +2826,7 @@
           renderLoading(root);
         }
       } else if (!profileInitialLoadDone && !keepVisible) {
-        // Non svuotare un profilo già in pagina (indietro / bfcache): evita flash e pagina bianca.
-        renderLoading(root);
+                renderLoading(root);
       }
     }
 
@@ -2275,14 +2879,17 @@
       })
       .finally(function () {
         if (silent || !parseProfileId()) return;
+        var root = byId("vc-user-profile-view");
         if (profileInitialLoadDone || profileBootSettled) {
           clearProfilePending();
           clearProfileLoading();
-        } else {
-          // Mai lasciare overlay fullscreen se la promise è comunque terminata.
+        } else if (root && profileViewLooksReady(root)) {
+          profileInitialLoadDone = true;
+          profileBootSettled = true;
           clearProfilePending();
+          clearProfileLoading();
         }
-        try {
+                try {
           if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
         } catch (eLock) {}
       });
@@ -2411,8 +3018,7 @@
       return;
     }
 
-    // Nessun DOM utilizzabile: ricarica senza wipe forzato se c'è cache sessione.
-    profileInitialLoadDone = false;
+        profileInitialLoadDone = false;
     main({ force: false });
   }
 
@@ -2421,8 +3027,7 @@
     currentViewer = ev && ev.detail ? ev.detail.user || null : null;
     var nextViewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
     if (!lastRenderedProfile || !lastRenderedProfile.root) return;
-    // Solo se cambia ownership (login/logout): evita re-render continuo della rank card
-    if (prevViewerId === nextViewerId) return;
+        if (prevViewerId === nextViewerId) return;
     var sig = profileRenderSignature(lastRenderedProfile.userId, lastRenderedProfile.payload, nextViewerId);
     if (sig === lastProfileRenderSignature && lastRenderedProfile.root.querySelector("#vc-user-rankcard-image")) {
       return;
@@ -2433,8 +3038,7 @@
     loadProfileRankCardPreview(lastRenderedProfile.userId, { force: false });
   });
 
-  // Failsafe: se il boot resta appeso (JS parziale / API morta / PWA Brave), sblocca la UI.
-  try {
+    try {
     window.setTimeout(function () {
       try {
         if (!document.documentElement.classList.contains("vc-user-profile-pending")) return;
@@ -2468,13 +3072,11 @@
 
   window.addEventListener("pageshow", function (ev) {
     if (!parseProfileId()) return;
-    // Sempre su bfcache: non svuotare il profilo già in memoria.
-    if (ev && ev.persisted) {
+        if (ev && ev.persisted) {
       repairProfileAfterBack();
       return;
     }
-    // Su alcuni mobile il back non setta persisted: ripara solo se sembra pagina vuota/stale.
-    window.setTimeout(function () {
+        window.setTimeout(function () {
       if (!parseProfileId()) return;
       var r = byId("vc-user-profile-view");
       if (!r) return;
@@ -2538,8 +3140,7 @@
     },
     profilePublicUrl: profilePublicUrl,
     repairAfterBack: repairProfileAfterBack,
-    /** Assicura che la shell community in DOM sia del userId richiesto (peer → Community). */
-    ensureCommunityFor: function (userId, root, opts) {
+        ensureCommunityFor: function (userId, root, opts) {
       var id = String(userId || "").trim();
       if (!/^\d{17,20}$/.test(id)) return false;
       if (!root) root = byId("vc-user-profile-view");
@@ -2589,8 +3190,7 @@
         if (lockedCommunityUserId && lockedCommunityUserId !== id) return false;
         lastProfileRenderSignature = "";
         lastRenderedProfile = { root: root, userId: id, payload: payload };
-        // Invalida subito rank card di altri peer prima del paint.
-        profileRankRenderToken += 1;
+                profileRankRenderToken += 1;
         lastRankPreviewUserId = "";
         lastRankPreviewLoadedAt = 0;
         renderProfile(root, id, payload, { skipStaffSync: true, communityOnly: true });
@@ -2601,8 +3201,7 @@
         return true;
       }
 
-      // Solo se la cache in memoria è DAVVERO di questo userId.
-      if (
+            if (
         lastRenderedProfile &&
         String(lastRenderedProfile.userId || "") === id &&
         lastRenderedProfile.payload
@@ -2627,8 +3226,7 @@
         }
       } catch (eCache) {}
 
-      // Shell sbagliata: wipe FORZATO (niente early-return su boot stale → flash viewer).
-      try {
+            try {
         lastProfileRenderSignature = "";
         if (
           lastRenderedProfile &&
@@ -2643,8 +3241,7 @@
         renderLoading(root, { force: true });
       } catch (eLoad) {}
 
-      // Solo ora togli staff-tab: la community è già loader (o dati giusti).
-      try {
+            try {
         document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
         if (document.body) {
           document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");

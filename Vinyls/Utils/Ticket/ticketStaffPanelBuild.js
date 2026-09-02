@@ -9,7 +9,6 @@ const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
-/** Supporto web/Discord: ladder staff (non solo il ruolo generico Staff). PM escluso. */
 const SUPPORT_TICKET_STAFF_ROLE_IDS = [
   IDs.roles.Founder,
   IDs.roles.Manager,
@@ -29,8 +28,7 @@ function hasStaffTicketRole(member, ticketType) {
   const type = String(ticketType || "")
     .trim()
     .toLowerCase();
-  // Stesso gating dei canali Discord (permission overwrites + canClaimTicket).
-  if (type === "perks") {
+    if (type === "perks") {
     return memberCanAccessPerksTicket(member);
   }
   if (type === "partnership") {
@@ -39,11 +37,9 @@ function hasStaffTicketRole(member, ticketType) {
   if (type === "high" || type === "highstaff") {
     return Boolean(HIGHSTAFF_ROLE_ID && member.roles.cache.has(HIGHSTAFF_ROLE_ID));
   }
-  // supporto (default): ladder staff. Partner Manager escluso.
-  return SUPPORT_TICKET_STAFF_ROLE_IDS.some((id) => member.roles.cache.has(id));
+    return SUPPORT_TICKET_STAFF_ROLE_IDS.some((id) => member.roles.cache.has(id));
 }
 
-/** Apertore del ticket: mai azioni staff sul proprio ticket, anche con ruoli staff/HS. */
 function isTicketOpenedByMember(ticketDoc, memberOrUserId) {
   const openerId = String(ticketDoc?.userId || "").trim();
   const actorId = String(memberOrUserId?.id || memberOrUserId || "").trim();

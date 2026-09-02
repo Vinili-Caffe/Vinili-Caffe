@@ -1,4 +1,4 @@
-# Deploy rapido: solo file toccati (SCP diretto, niente tarball / build sito completa).
+
 param(
   [string]$Server = "vinili",
   [string]$User = "root",

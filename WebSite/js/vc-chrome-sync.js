@@ -1,7 +1,3 @@
-/**
- * Sync chrome widgets (musica, kick pip, type-sfx) tra tab/pagine e, se loggato, PC↔telefono.
- * chromeWidgetsSync1
- */
 (function (global) {
   "use strict";
   if (global.__VC_CHROME_SYNC) return;
@@ -116,6 +112,9 @@
   function pullServer() {
     var token = getToken();
     if (!token || hydratedServer) return;
+    if (global.VcApiCache && typeof global.VcApiCache.isWebhookBlocked === "function") {
+      if (global.VcApiCache.isWebhookBlocked()) return;
+    }
     hydratedServer = true;
     var cacheKey =
       global.VcApiCache && typeof global.VcApiCache.keyFor === "function"
@@ -157,11 +156,22 @@
       cache: "no-store",
     })
       .then(function (r) {
+        if (r && r.status === 429) {
+          hydratedServer = false;
+          try {
+            if (global.VcApiCache && typeof global.VcApiCache.noteWebhook429 === "function") {
+              global.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"));
+            }
+          } catch (e429) {}
+          return null;
+        }
         return r.json().catch(function () {
           return {};
         });
       })
-      .then(applyData)
+      .then(function (data) {
+        if (data) applyData(data);
+      })
       .catch(function () {});
   }
 
@@ -208,8 +218,7 @@
       };
     },
     pullServer: pullServer,
-    /** FAB musica / type-sfx: PC = hover CSS; telefono = tap apre/chiude. */
-    bindExpandablePlayer: function (shell, toggleBtn) {
+        bindExpandablePlayer: function (shell, toggleBtn) {
       if (!shell || shell.__vcExpandBound) return;
       shell.__vcExpandBound = true;
       function close() {
@@ -229,8 +238,7 @@
         toggleBtn.addEventListener(
           "click",
           function (ev) {
-            // Desktop fine-pointer: il popover si apre con :hover CSS, non serve toggle click.
-            if (!isCoarseUi()) return;
+                        if (!isCoarseUi()) return;
             if (!shell.classList.contains("is-open")) {
               ev.preventDefault();
               ev.stopImmediatePropagation();
@@ -246,8 +254,7 @@
           true,
         );
       }
-      // Slider: non chiudere / non rubare i gesture mentre si regola il volume
-      function stopRangeBubble(ev) {
+            function stopRangeBubble(ev) {
         if (ev.target && ev.target.closest && ev.target.closest(".vc-bgm-player__range")) {
           try {
             ev.stopPropagation();
@@ -335,8 +342,7 @@
         } catch (ePs) {}
       } catch (eMs) {}
     },
-    /** Applica volume 0–1 al player YT (unmute se > 0). */
-    applyYtVolume: function (player, vol01) {
+        applyYtVolume: function (player, vol01) {
       if (!player) return;
       var v = Math.round(Math.min(1, Math.max(0, Number(vol01) || 0)) * 100);
       try {

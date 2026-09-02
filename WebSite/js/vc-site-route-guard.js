@@ -3,7 +3,7 @@
   var cfg = window.__VC_SITE_ROUTES;
   if (!cfg || typeof cfg !== "object") return;
 
-  /** Percorsi rimossi / rinominati → destinazione stabile (senza pagina intermedia). */
+  
   var DEFAULT_ALIASES = {
     "/richieste": "/staff/pause/",
     "/richieste/stato": "/staff/pause/",
@@ -14,8 +14,9 @@
     "/staff/profilo": "/user/?tab=staff",
     "/staff/pm": "/staff/organico/",
     "/staff/moderazione": "/staff/organico/",
-    "/staff/gestione": "/staff/organico/",
-  };
+    "/user/personalizza": "/personalizza/",
+    "/user/customize": "/personalizza/?target=rank",
+    "/user/custom": "/personalizza/?target=primary",
 
   function normPath(pathname) {
     var p = String(pathname || "/").split("?")[0].split("#")[0];

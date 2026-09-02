@@ -1,6 +1,3 @@
-/*!
- * Shared env bootstrap for lightweight Vinyls worker apps (PM2).
- */
 const fs = require("fs");
 const path = require("path");
 
@@ -56,7 +53,6 @@ function installConsoleLogger() {
   };
 }
 
-/** Stesso patch EmbedBuilder.toJSON del gateway: marrone legacy → brand #826bc2 + footer default. */
 function installWorkerEmbedPatches() {
   try {
     const discord = require("discord.js");

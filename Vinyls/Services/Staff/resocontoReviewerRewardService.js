@@ -36,8 +36,7 @@ async function hasGlobalCompitoClaim(weekKey, segment, userId) {
   const claims = state?.claims && typeof state.claims === "object" ? state.claims : {};
   const exact = buildGlobalCompitoClaimId(wk, segment, uid);
   if (claims[exact]) return true;
-  // Qualsiasi segmento della stessa settimana per lo stesso utente.
-  const needle = `:${uid}`;
+    const needle = `:${uid}`;
   return Object.keys(claims).some((key) => key.startsWith(`${wk}:`) && key.endsWith(needle));
 }
 
@@ -178,10 +177,6 @@ async function collectResocontoSegmentStats(channel, sinceMs) {
   return stats;
 }
 
-/**
- * Stats compito da inbox Mongo (source of truth quando Discord workflow posts sono OFF).
- * Esclude il resoconto del revisore stesso ("escluso lui"): non deve gestirlo per il premio.
- */
 async function collectResocontoSegmentStatsFromSite(guildId, weekKey, { excludeUserId = null } = {}) {
   const stats = Object.fromEntries(
     RESOCONTO_SEGMENTS.map((segment) => [segment, { total: 0, handled: 0, handlers: [] }]),
@@ -239,8 +234,7 @@ function mergeResocontoSegmentStats(primary, fallback) {
   for (const segment of RESOCONTO_SEGMENTS) {
     const a = primary?.[segment] || { total: 0, handled: 0, handlers: [] };
     const b = fallback?.[segment] || { total: 0, handled: 0, handlers: [] };
-    // Preferisci la sorgente con più pratiche (sito vs Discord).
-    const use = Number(a.total || 0) >= Number(b.total || 0) ? a : b;
+        const use = Number(a.total || 0) >= Number(b.total || 0) ? a : b;
     out[segment] = {
       total: Number(use.total || 0),
       handled: Number(use.handled || 0),
@@ -280,8 +274,7 @@ async function reviewerAlreadyHasCompitoForWeekSegment(guild, staff, weekKey, se
     const key = buildCompitoAutoKey(wk, seg, uid);
     const entry = findAutoValutazioneEntry(staff, key);
     if (!entry) return true;
-    // Positiva già assegnata e poi spesa in uno scambio: non riassegnare.
-    if (entry.spentByTrade) return true;
+        if (entry.spentByTrade) return true;
 
     const claim = await weeklyResocontoService().classifyResocontoReviewerAutoEntry(
       guild,
@@ -291,8 +284,7 @@ async function reviewerAlreadyHasCompitoForWeekSegment(guild, staff, weekKey, se
     if (claim === "active" || claim === "spent") {
       return true;
     }
-    // Solo "stale" (weekKey di un altro ciclo): libera e riprova.
-    return false;
+        return false;
   }
 
   const reasons = Array.isArray(staff?.positiveReasons) ? staff.positiveReasons : [];
@@ -303,17 +295,14 @@ async function reviewerAlreadyHasCompitoForWeekSegment(guild, staff, weekKey, se
     if (String(reasons[index] || "") !== COMPITO_SETTIMANALE_REASON) continue;
     const log = logs[index];
     if (!log?.messageId) continue;
-    // reasons[] e logs[] possono desincronizzarsi in race: il log.reason / Discord
-    // devono confermare che è davvero il Compito resoconti, non Limiti/Sanzioni.
-    const logReason = String(log?.reason || "").trim();
+            const logReason = String(log?.reason || "").trim();
     if (logReason && logReason !== COMPITO_SETTIMANALE_REASON) continue;
     const linked = autoRows.find((row) => String(row?.messageId || "") === String(log.messageId));
     const parsed = linked ? parseResocontoReviewerTaskKey(String(linked.key || "")) : null;
     if (parsed?.weekKey === wk && parsed.segment === seg && parsed.userId === uid) {
       return true;
     }
-    // Senza auto-key: accetta solo se il log.reason è esatto (già filtrato sopra).
-    if (!parsed && logReason === COMPITO_SETTIMANALE_REASON) {
+        if (!parsed && logReason === COMPITO_SETTIMANALE_REASON) {
       const logMs = log?.createdAt ? new Date(log.createdAt).getTime() : 0;
       if (logMs > 0) {
         const logWeekKey = weeklyResocontoService().getResocontoCycleWeekKey(new Date(logMs));
@@ -349,9 +338,7 @@ async function channelHasActiveCompitoForWeekSegment(guild, staff, weekKey, segm
 
   for (const row of entries) {
     const rowWeekKey = weeklyResocontoService().getResocontoCycleWeekKey(new Date(row.createdAt || Date.now()));
-    // Qualsiasi compito attivo di questa settimana per l'utente = già rewardato.
-    // (prima richiedeva match segmento/config e falliva → recovery riassegnava)
-    if (rowWeekKey === wk) return true;
+            if (rowWeekKey === wk) return true;
   }
 
   return false;
@@ -367,8 +354,7 @@ async function grantCompitoSettimanaleIfEligible(guild, reviewerUserId, segment,
     return { ok: false, skipped: "not_assigned_reviewer" };
   }
 
-  // Claim globale (Mongo bot-state): sopravvive a wipe profilo / scambi / restart.
-  if (await hasGlobalCompitoClaim(wk, seg, uid)) {
+    if (await hasGlobalCompitoClaim(wk, seg, uid)) {
     return { ok: true, skipped: "global_compito_claim" };
   }
 
@@ -403,9 +389,7 @@ async function grantCompitoSettimanaleIfEligible(guild, reviewerUserId, segment,
     reason: COMPITO_SETTIMANALE_REASON,
     force: false,
   });
-  // Claim globale solo dopo esito positivo: altrimenti un fallimento/race
-  // (es. reasons[] sporchi) blocca il compito per tutta la settimana.
-  if (result?.created || result?.skipped === "exists" || result?.skipped === "spent_by_trade" || result?.skipped === "compito_claim") {
+      if (result?.created || result?.skipped === "exists" || result?.skipped === "spent_by_trade" || result?.skipped === "compito_claim") {
     await rememberGlobalCompitoClaim(wk, seg, uid);
     const freshDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, uid), guild.id, uid);
     const freshStaff = ensureStaff(freshDoc);
@@ -425,11 +409,6 @@ async function reviewerIsEligibleForCompito(guild, userId) {
   return !memberIsExcludedFromResocontoReviewerReward(member);
 }
 
-/**
- * Il compito del segmento va SOLO al revisore assegnato che ha davvero
- * cliccato i resoconti di quel segmento. Se li fa Founder/Manager (o un
- * altro ruolo), nessuno ruba il premio al nominato in config.
- */
 async function resolveCompitoRecipientForSegment(guild, segment, segmentStats) {
   const assignedIds = new Set(
     getResocontoReviewerUserIdsForSegment(segment).map((id) => String(id)),
@@ -452,18 +431,13 @@ async function resolveCompitoRecipientForSegment(guild, segment, segmentStats) {
   return null;
 }
 
-/**
- * Se un revisore ha più segmenti (es. tutti tranne director), il compito
- * scatta solo quando ha gestito TUTTI i resoconti di quei segmenti attivi.
- */
 async function reviewerCompletedAllAssignedSegments(guild, reviewerId, scanStats, weekKey = null) {
   const uid = String(reviewerId || "").trim();
   if (!uid || !scanStats) return false;
   const segments = getResocontoSegmentsForReviewerUserId(uid);
   if (!segments.length) return false;
 
-  // Ricalcola da sito escludendo il proprio resoconto (non deve gestirlo per il premio).
-  let stats = scanStats;
+    let stats = scanStats;
   try {
     const wk = String(weekKey || weeklyResocontoService().getResocontoCycleWeekKey() || "").trim();
     if (wk && guild?.id) {
@@ -512,9 +486,8 @@ async function maybeGrantCompitoSettimanaleForSegment(
     return { ok: false, skipped: "no_eligible_handler" };
   }
 
-  // Revisore multi-segmento: un solo compito quando ha chiuso TUTTI i suoi segmenti.
-  if (!(await reviewerCompletedAllAssignedSegments(guild, reviewerId, scanStats, weekKey))) {
-    return { ok: false, skipped: "assigned_segments_incomplete" }; // atteso finché restano segmenti aperti
+    if (!(await reviewerCompletedAllAssignedSegments(guild, reviewerId, scanStats, weekKey))) {
+    return { ok: false, skipped: "assigned_segments_incomplete" };
   }
 
   const result = await grantCompitoSettimanaleIfEligible(guild, reviewerId, seg, weekKey, {
@@ -571,8 +544,7 @@ async function runDebouncedCompitoSegmentChecks(guild, channel = null) {
 async function onResocontoOutcomeRecorded(guild, channel, reviewerUserId, payload) {
   try {
     const segment = resolveSegmentFromPayload(payload);
-    // Site-only: channel può essere null — il check usa Mongo inbox.
-    if (!segment || !guild) return;
+        if (!segment || !guild) return;
     scheduleDebouncedCompitoSegmentChecks(guild, channel || null);
   } catch (err) {
     global.logger?.warn?.("[RESOCONTO REVIEWER REWARD] onOutcome failed:", err?.message || err);
@@ -607,9 +579,7 @@ async function runResocontoReviewerRewardRecovery(client) {
 }
 
 function startResocontoReviewerRewardRecoveryLoop(client) {
-  // Non rilanciare il grant a boot: dopo scambi/wipe la recovery riassegnava il Compito.
-  // L'assegnazione resta su onResocontoOutcomeRecorded (segmento completato).
-  void client;
+      void client;
 }
 
 module.exports = {

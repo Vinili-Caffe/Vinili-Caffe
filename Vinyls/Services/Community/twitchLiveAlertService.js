@@ -191,10 +191,6 @@ function parseIsoMs(value) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
-/**
- * Evita spam quando Twitch chiude e riapre la live (nuovo stream.id a ogni reconnect).
- * @returns {{ publish: boolean, silentStreamIdUpdate: boolean, reason: string }}
- */
 function evaluateLiveAnnouncementDecision(prev, streamId, reannounceCooldownSec, { ignoreCooldown = false } = {}) {
   const sid = String(streamId || "").trim();
   if (!sid) return { publish: false, silentStreamIdUpdate: false, reason: "no_stream" };

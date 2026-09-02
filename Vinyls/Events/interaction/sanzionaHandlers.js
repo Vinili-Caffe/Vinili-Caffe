@@ -81,7 +81,10 @@ async function handleSanzionaModal(interaction, client) {
     await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Sanzione non supportata.");
     return true;
   }
-  await runDynoFromInteraction(interaction, client, dyno.cmd, dyno.args, guild, { useSanctionPermChannel: true });
+  await runDynoFromInteraction(interaction, client, dyno.cmd, dyno.args, guild, {
+    useSanctionPermChannel: true,
+    fromSanzionaAppCommand: true,
+  });
   return true;
 }
 

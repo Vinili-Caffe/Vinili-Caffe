@@ -319,8 +319,7 @@ module.exports = {
           const nativeSlots = Math.max(1, Number(nativeBoost.slots || 1));
           const combinedBurst = nativeSlots >= 2;
           const nativeTs = Number(message.createdTimestamp || Date.now());
-          // Un solo avviso Discord "2 volte" = due slot, non un incremento +1.
-          void guildMemberUpdateExtras
+                    void guildMemberUpdateExtras
             .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
               knownNativeSlots: nativeSlots,
               expectedSlots: nativeSlots,
@@ -517,8 +516,7 @@ module.exports = {
         if (await handleProfileMentionResponsePromptMessage(message)) return;
         if (await handleCustomProfilePromptMessage(message)) return;
         if (await handleTicketMemberPromptMessage(message)) return;
-        // prompt rename/emoji/limit stanza → solo Caffè
-      } catch (error) {
+              } catch (error) {
         logEventError(resolvedClient, "CUSTOM PROFILE PROMPT ERROR", error);
       }
     }
@@ -613,8 +611,7 @@ module.exports = {
           }
         });
 
-      // Dopo i riavvii i minigiochi/counting possono bloccarsi secondi: i +comandi non devono aspettare.
-      const isPrefixLike = String(message.content || "").trim().startsWith(String(defaultPrefix || "+"));
+            const isPrefixLike = String(message.content || "").trim().startsWith(String(defaultPrefix || "+"));
       if (isPrefixLike) {
         setImmediate(() => {
           runCommunitySideEffects().catch(() => null);

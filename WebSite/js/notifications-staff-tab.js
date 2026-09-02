@@ -1,19 +1,10 @@
-/**
- * Notifiche: tab Personali | Staff (inbox staff embedded).
- * Deep link: /notifications/?view=staff  (legacy: ?tab=staff)
- * Inbox categories use ?inbox=… so they don't clash with the switcher.
- *
- * Switcher sits in the content area under the cine hero (second viewport),
- * never on the scroll cue.
- */
 (function () {
   "use strict";
 
-  var ASSET_V = "20260830inboxBootOne1b";
+  var ASSET_V = "20260831resoRolesDedupe2";
   var TOKEN_KEY = "vc_discord_access_token";
   var SCOPE_PREF_KEY = "vc_notif_scope_pref";
-  // inboxBootOne1: scope subito da URL/early-staff (niente default personal → flash).
-  var scope = (function initScope() {
+          var scope = (function initScope() {
     try {
       if (
         document.documentElement.classList.contains("vc-notif-early-staff") ||
@@ -144,8 +135,7 @@
   }
 
   function preferInitialScope() {
-    // Sempre Personali all'apertura; Staff solo con deep link ?view=staff (o switch manuale).
-    if (readTabFromUrl() === "staff") return "staff";
+        if (readTabFromUrl() === "staff") return "staff";
     return "personal";
   }
 
@@ -267,10 +257,9 @@
 
   function applyPaneVisibility(next) {
     if (next === "staff") {
-      showInboxBootPlaceholder();
+      if (!staffBooted) showInboxBootPlaceholder();
     } else {
-      // inboxBootOne1: non spezzare il boot staff se URL/early chiedono ancora Staff.
-      var keepStaffBoot = false;
+            var keepStaffBoot = false;
       try {
         keepStaffBoot =
           staffBooting ||
@@ -486,8 +475,7 @@
           "queue=" +
           encodeURIComponent(targetTab) +
           "&scope=pending&page=1&pageSize=20";
-        // Soft prefetch: no sync=1 (lento). Sync dopo paint.
-        var prefetchCtrl =
+                var prefetchCtrl =
           typeof AbortController !== "undefined" ? new AbortController() : null;
         var prefetchTimer = window.setTimeout(function () {
           try {
@@ -640,6 +628,7 @@
     staffDeferredPromise = Promise.all([
       loadCss("/css/vc-workflow-chat.css?v=" + ASSET_V),
       loadScript("/js/staff-punti-tolti-page.js?v=" + ASSET_V),
+      loadScript("/js/vc-discord-avatar.js?v=" + ASSET_V),
       loadScript("/js/vc-avatar-fallback.js?v=" + ASSET_V),
       loadScript("/js/vc-emoji-render.js?v=20260824emoji1"),
       loadScript("/js/vc-site-toast.js?v=20260825siteToast1"),
@@ -653,8 +642,7 @@
   function ensureStaffAssetsCritical() {
     if (staffCriticalPromise) return staffCriticalPromise;
     ensureStaffConfig();
-    // Critico minimo: CSS inbox + tools + inbox page. Chat/punti-tolti dopo il primo paint.
-    var cssPromise = Promise.all([
+        var cssPromise = Promise.all([
       loadCss("/css/staff-pause.css?v=" + ASSET_V),
       loadCss("/css/notif-staff-embed.css?v=" + ASSET_V),
     ]);
@@ -677,6 +665,16 @@
   }
 
   function showInboxBootPlaceholder() {
+    try {
+                  if (staffBooted) {
+        var panelDone = byId("vc-staff-inbox");
+        if (panelDone) {
+          panelDone.hidden = false;
+          panelDone.removeAttribute("hidden");
+        }
+        return;
+      }
+    } catch (eKeep) {}
     try {
       var panel = byId("vc-staff-inbox");
       if (panel) {
@@ -716,8 +714,7 @@
       } catch (eSync) {}
       var boot = byId("vc-staff-inbox-boot");
       if (boot) boot.remove();
-      // Failsafe telefono: se l'inbox non apre entro 14s, togli overlay (evita freeze totale).
-      try {
+            try {
         window.clearTimeout(window.__vcNotifStaffLoadWatch);
         window.__vcNotifStaffLoadWatch = window.setTimeout(function () {
           try {
@@ -733,8 +730,11 @@
             window.__VC_NOTIF_EARLY_STAFF = false;
             if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
             if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+            if (window.VCStaffInboxEmbed && typeof window.VCStaffInboxEmbed.boot === "function") {
+              window.VCStaffInboxEmbed.boot();
+            }
           } catch (eWatch) {}
-        }, 14000);
+        }, 9000);
       } catch (eWatchArm) {}
     } catch (eBootPh) {}
   }
@@ -754,8 +754,7 @@
     } catch (eEarlyClass) {}
     applyPaneVisibility("staff");
     showInboxBootPlaceholder();
-    // Avvia subito gli asset critici; accesso in parallelo (cache = istantaneo).
-    var assetsP = ensureStaffAssetsCritical();
+        var assetsP = ensureStaffAssetsCritical();
     var accessP = softStaffAccess();
     return Promise.all([assetsP, accessP])
       .then(function (results) {
@@ -785,8 +784,7 @@
             window.VCStaffInboxEmbed.boot();
           }
         } catch (eBoot) {}
-        // Non bloccante: chat / punti tolti / emoji dopo il primo paint.
-        try {
+                try {
           ensureStaffAssetsDeferred();
         } catch (eDef) {}
         return true;
@@ -897,8 +895,7 @@
   function setScope(next, opts) {
     var want = next === "staff" ? "staff" : "personal";
     if (want === "staff" && !canStaff()) {
-      // Resta su Staff + loader mentre verifica accesso (niente flash Personali).
-      showInboxBootPlaceholder();
+            showInboxBootPlaceholder();
       applyPaneVisibility("staff");
       writeTabToUrl("staff");
       softStaffAccess().then(function (ok) {
@@ -913,8 +910,7 @@
       return;
     }
     scope = want;
-    // inboxBootOne1: URL prima della visibility, altrimenti keepStaffBoot resta true su personal.
-    if (!opts || opts.push !== false) writeTabToUrl(scope);
+        if (!opts || opts.push !== false) writeTabToUrl(scope);
     if (!opts || opts.remember !== false) writeScopePref(scope);
     applyPaneVisibility(scope);
     placeDockInContent();
@@ -936,8 +932,7 @@
     var tabs = byId("vc-notif-scope-tabs");
     placeDockInContent();
     if (!canStaff()) {
-      // Non nascondere se Area staff è già in navbar (cache/nav in ritardo su canStaff).
-      var staffNav = document.querySelector(
+            var staffNav = document.querySelector(
         "[data-vc-staff-tools-nav], .vc-snav-details--staff, #discord-staff-link:not([hidden])",
       );
       if (!staffNav && window.__VC_STAFF_MENU_ALLOWED !== true) {
@@ -1031,8 +1026,7 @@
       } catch (ePrefetch) {}
       revealTabs();
       schedulePlaceDock();
-      // Un solo percorso boot: niente doppio softStaffAccess / setScope che flasha Personali.
-      softStaffAccess()
+            softStaffAccess()
         .then(function (ok) {
           revealTabs();
           if (ok || canStaff()) {
@@ -1114,7 +1108,21 @@
     if (wantStaff) {
       scope = "staff";
       applyPaneVisibility("staff");
-      showInboxBootPlaceholder();
+            if (staffBooted) {
+        var listPainted = byId("vc-staff-inbox-list");
+        var hasPaint =
+          listPainted &&
+          listPainted.querySelector &&
+          listPainted.querySelector(".vc-staff-inbox-items, .vc-staff-inbox-empty, .vc-staff-pt-inbox-host");
+        if (hasPaint) hideInboxBootOverlay();
+        try {
+          if (window.VCStaffInboxEmbed && typeof window.VCStaffInboxEmbed.boot === "function") {
+            window.VCStaffInboxEmbed.boot();
+          }
+        } catch (eCineBoot) {}
+      } else {
+        showInboxBootPlaceholder();
+      }
       schedulePlaceDock();
       revealTabs();
       return;
@@ -1135,8 +1143,7 @@
     boot();
   }
 
-  // Prefetch immediato se early-staff (prima del DOMContentLoaded).
-  try {
+    try {
     if (window.__VC_NOTIF_EARLY_STAFF || document.documentElement.classList.contains("vc-notif-early-staff")) {
       ensureStaffConfig();
       ensureStaffAssets();

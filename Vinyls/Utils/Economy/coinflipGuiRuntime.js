@@ -122,8 +122,7 @@ async function renderCoinflipAttachment(session, { animating = false } = {}) {
 }
 
 async function resolvePanelAttachment(session, animating = false) {
-  // Non riusare idle cache globale: la puntata cambia e deve essere ridisegnata.
-  const out = await renderCoinflipAttachment(session, { animating });
+    const out = await renderCoinflipAttachment(session, { animating });
   if (out.files?.length) return out;
   if (defaultIdleCache) return attachmentFromCache(defaultIdleCache);
   return out;

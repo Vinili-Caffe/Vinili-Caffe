@@ -37,11 +37,6 @@ function parseHistoryArgs(args = []) {
   };
 }
 
-/**
- * @param {string} guildId
- * @param {number} [days]
- * @returns {Promise<{ ids: string[], days: number }>}
- */
 async function listRecentPartnerGuildIds(guildId, days = DEFAULT_HISTORY_DAYS) {
   const gid = String(guildId || "").trim();
   const safeDays = clampHistoryDays(days);
@@ -84,11 +79,6 @@ const DEFAULT_HISTORY_LIST_LIMIT = 250;
 const DEFAULT_HISTORY_PAGE_SIZE = 10;
 const MAX_HISTORY_PAGE_SIZE = 50;
 
-/**
- * Giorni di finestra per la dashboard: `null`/`all` = tutto lo storico.
- * @param {unknown} raw
- * @returns {number|null}
- */
 function resolveHistoryRangeDays(raw) {
   if (raw == null) return null;
   const token = String(raw).trim().toLowerCase();
@@ -110,19 +100,12 @@ function resolveHistoryPageSize(raw) {
   return Math.min(MAX_HISTORY_PAGE_SIZE, n);
 }
 
-/**
- * Chiave di raggruppamento per una partnership create.
- * Preferisce partnerGuildId; in fallback invite normalizzato o nome (dati legacy/migrati senza guild id).
- * @param {{ partnerGuildId?: unknown, invite?: unknown, partner?: unknown }} action
- * @returns {{ key: string, guildId: string|null, invite: string|null, guildName: string|null }|null}
- */
 function resolvePartnerHistoryGroupKey(action) {
   const guildIdRaw = String(action?.partnerGuildId || "").trim();
   const guildId = /^\d{17,22}$/.test(guildIdRaw) ? guildIdRaw : null;
   const invite = String(action?.invite || "").trim() || null;
   const nameRaw = String(action?.partner || "").trim();
-  // Placeholder da migrazione / UI: non contarli come nome reale (serve invite enrich).
-  const guildName =
+    const guildName =
     nameRaw && !/^(server\s+sconosciuto|partner)$/i.test(nameRaw) ? nameRaw : null;
 
   if (guildId) {
@@ -146,21 +129,6 @@ function resolvePartnerHistoryGroupKey(action) {
   return null;
 }
 
-/**
- * Aggrega i server partner (create) con conteggio e ultima partnership.
- * Conta azioni `create` pubblicate (con guild id, invite o nome partner), non i join via invite.
- * @param {string} guildId
- * @param {{ days?: unknown, limit?: number, page?: unknown, pageSize?: unknown }} [options]
- * @returns {Promise<{
- *   days: number|null,
- *   entries: Array<{ guildId: string|null, count: number, lastAt: string|null, firstAt: string|null, guildName: string|null, invite: string|null }>,
- *   uniqueServers: number,
- *   totalPartnerships: number,
- *   page: number,
- *   pageSize: number,
- *   totalPages: number,
- * }>}
- */
 async function listPartnerGuildHistory(guildId, options = {}) {
   const gid = String(guildId || "").trim();
   const days = resolveHistoryRangeDays(options?.days);
@@ -182,8 +150,7 @@ async function listPartnerGuildHistory(guildId, options = {}) {
   const since = days != null ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : null;
   const dateMatch = since ? { "staff.partnerActions.date": { $gte: since } } : {};
 
-  // Carica create grezze: il raggruppamento in JS supporta anche legacy senza partnerGuildId.
-  const rawActions = await ActivityUserProfile.aggregate([
+    const rawActions = await ActivityUserProfile.aggregate([
     { $match: { guildId: gid } },
     { $unwind: { path: "$staff.partnerActions", preserveNullAndEmptyArrays: false } },
     {

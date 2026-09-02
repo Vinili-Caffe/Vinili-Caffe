@@ -308,8 +308,7 @@ async function saveCountingRow(row) {
     Count: row.Count,
     LastUser: row.LastUser,
   };
-  // Update posizionale: evita di riscrivere tutto l'array (race tra guild / save concorrenti).
-  const updated = await coll.updateOne(
+    const updated = await coll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY, "countschemas.Guild": g },
     { $set: { "countschemas.$": payload } },
   );

@@ -1,6 +1,3 @@
-/**
- * Guida staff — layout stile /faq (tab categorie + accordion).
- */
 (function () {
   var T = window.VCStaffTools;
   if (!T) return;
@@ -96,6 +93,12 @@
     });
   }
 
+  function revealAccordion() {
+    if (typeof window.__vcRevealRegoleAccordion === "function") {
+      window.__vcRevealRegoleAccordion();
+    }
+  }
+
   function renderTabs() {
     var root = T.byId("vc-staff-guide-tabs");
     if (!root) return;
@@ -120,6 +123,7 @@
       });
       root.appendChild(btn);
     });
+    revealAccordion();
   }
 
   function makeCard(opts) {
@@ -247,6 +251,7 @@
       });
       bindExclusiveOpen(cards);
       if (cards[0]) loadCardContent(cards[0]);
+      revealAccordion();
       return;
     }
 
@@ -261,6 +266,7 @@
     root.appendChild(placeholder);
     bindExclusiveOpen(cards);
     loadCardContent(placeholder);
+    revealAccordion();
   }
 
   function selectTab(tabId, opts) {

@@ -1,9 +1,3 @@
-/**
- * Generate tenant partnership i18n packs from Italian master → 19 languages (gtx).
- *
- * node Vinyls/Utils/Partner/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs
- * node Vinyls/Utils/Partner/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs --lang=en --force
- */
 const fs = require("fs");
 const path = require("path");
 
@@ -144,8 +138,7 @@ function atomicWriteJson(filePath, obj) {
 }
 
 function flattenNestedCopy(itObj) {
-  /** Flatten { id: { title, desc, emoji? } } → title/desc keys; emoji kept from IT at apply time. */
-  const flat = {};
+    const flat = {};
   for (const [id, row] of Object.entries(itObj || {})) {
     if (!row || typeof row !== "object") continue;
     if (row.title != null) flat[`${id}.title`] = String(row.title);
@@ -218,12 +211,9 @@ async function translateFlatDict(itDict, outPath, target, { force, concurrency, 
 }
 
 function loadItMasters() {
-  // Load packs without applying generated (generated may not exist yet).
-  // Temporarily unset env to avoid cycles.
-  const packsPath = path.join(ROOT, "packs.js");
+      const packsPath = path.join(ROOT, "packs.js");
   delete require.cache[require.resolve(packsPath)];
-  // Also clear nested requires that packs pulls in
-  for (const key of Object.keys(require.cache)) {
+    for (const key of Object.keys(require.cache)) {
     if (key.includes(`${path.sep}tenantPartnershipI18n${path.sep}`)) {
       delete require.cache[key];
     }

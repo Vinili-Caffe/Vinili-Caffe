@@ -1,6 +1,5 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
-/** Unlock extra perk (es. 2° classificato contest disegni): stesso criterio usato in +profile / migrazione perks. */
 async function hasExtraCustomPerksUnlock(guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();

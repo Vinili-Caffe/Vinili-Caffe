@@ -171,11 +171,6 @@ async function sendPremiumActivatedInGuildChannel(guild, user, embed, lang) {
   return sent;
 }
 
-/**
- * DM all'utente che ha attivato Premium; se i DM sono chiusi, fallback
- * in un canale testuale scrivibile del server attivato.
- * Lingua: stessa risoluzione del bot tenant (preferenza profilo → locale guild → Discord).
- */
 async function sendPremiumActivatedDm(client, { userId, guildId, plan, premium, creditsLeft } = {}) {
   const uid = String(userId || "").trim();
   const gid = String(guildId || "").trim();

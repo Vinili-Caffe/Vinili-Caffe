@@ -11,8 +11,7 @@ function getLegacyTicketModel() {
     LegacyTicketModel = mongoose.models.LegacyTicketDoc;
     return LegacyTicketModel;
   }
-  // Collection storica `tickets` (pre feature-bucket). Lettura/scrittura duale finché non migrata.
-  const schema = new mongoose.Schema(
+    const schema = new mongoose.Schema(
     {
       ticketNumber: Number,
       guildId: String,
@@ -59,8 +58,7 @@ function legacyMongoFilter(filter) {
     q.claimedBy = filter.claimedBy;
   }
   if (filter.open !== undefined) {
-    // In legacy i flag open sono boolean; accetta anche 1/0 storici.
-    if (coerceTicketOpen(filter.open)) {
+        if (coerceTicketOpen(filter.open)) {
       q.open = { $in: [true, 1, "1", "true"] };
     } else {
       q.open = { $in: [false, 0, "0", "false", null] };
@@ -182,16 +180,13 @@ function projectTicketFields(row, projection) {
 }
 
 function guildFeatureBucketListProjection() {
-  // Evita di caricare transcript HTML/testo enormi quando si listano i ticket.
-  // NON escludere transcriptHtmlPath: è un path corto e serve ad aprire i transcript in dashboard.
-  return {
+      return {
     "tickets.transcript": 0,
     "tickets.transcriptHtmlInline": 0,
     "tickets.descriptionText": 0,
   };
 }
 
-/** Query Mongo su tickets._id: in DB mischiati String e ObjectId. */
 function ticketIdMongoQuery(ticketId) {
   const clause = ticketIdArrayFilterClause(ticketId);
   return clause == null || clause === "" ? ticketId : clause;
@@ -200,8 +195,7 @@ function ticketIdMongoQuery(ticketId) {
 async function findBucketsForTicketFilter(filter) {
   const slim = guildFeatureBucketListProjection();
   if (filter._id) {
-    // Native + $elemMatch: evita cast ObjectId e non scarica tutto il bucket (OOM).
-    const idQuery = ticketIdMongoQuery(filter._id);
+        const idQuery = ticketIdMongoQuery(filter._id);
     const raw = await GuildFeatureBucket.collection
       .findOne(
         { "tickets._id": idQuery },
@@ -217,8 +211,7 @@ async function findBucketsForTicketFilter(filter) {
     if (filter.guildId != null && String(raw.guildId || "") !== String(filter.guildId)) {
       return [];
     }
-    // Projection già limitata a 1 ticket; togli solo body enormi se presenti.
-    for (const t of raw.tickets) {
+        for (const t of raw.tickets) {
       if (!t || typeof t !== "object") continue;
       delete t.transcript;
       delete t.transcriptHtmlInline;
@@ -272,10 +265,6 @@ function isEmptyClaimedByFilterValue(value) {
   return String(value).trim() === "";
 }
 
-/**
- * In DB alcuni ticket._id sono String, altri ObjectId; Mongoose li espone spesso come ObjectId.
- * Gli arrayFilters fanno match tipizzato → senza $in l'update risulta matchedCount:1 / modifiedCount:0.
- */
 function ticketIdArrayFilterClause(ticketId) {
   const vals = [];
   const seen = new Set();
@@ -294,8 +283,7 @@ function ticketIdArrayFilterClause(ticketId) {
       const oid = new mongoose.Types.ObjectId(s);
       if (String(oid) === s) push(oid);
     } catch (_) {
-      /* ignore */
-    }
+          }
   }
   return vals.length <= 1 ? vals[0] : { $in: vals };
 }
@@ -305,17 +293,13 @@ function buildTicketArrayFilter(filter, ticketId) {
   if (Object.prototype.hasOwnProperty.call(filter, "channelId")) {
     arrayFilter["t.channelId"] = String(filter.channelId);
   }
-  // Non mettere `open` nell'arrayFilter: resolveTicketRef già filtra con coerceTicketOpen.
-  // Un mismatch di tipo (true vs 1/"true") faceva fallire l'update con modifiedCount:0.
-  if (Object.prototype.hasOwnProperty.call(filter, "userId")) {
+      if (Object.prototype.hasOwnProperty.call(filter, "userId")) {
     arrayFilter["t.userId"] = String(filter.userId);
   }
   if (Object.prototype.hasOwnProperty.call(filter, "ticketNumber")) {
     arrayFilter["t.ticketNumber"] = Number(filter.ticketNumber);
   }
-  // claimedBy null/"": usa $in (uguaglianza a null negli arrayFilters è inaffidabile).
-  // Claimer Id non vuoto resta uguaglianza stretta (unclaim / takeover condizionale).
-  if (Object.prototype.hasOwnProperty.call(filter, "claimedBy")) {
+      if (Object.prototype.hasOwnProperty.call(filter, "claimedBy")) {
     if (isEmptyClaimedByFilterValue(filter.claimedBy)) {
       arrayFilter["t.claimedBy"] = { $in: [null, ""] };
     } else {
@@ -388,7 +372,6 @@ function ticketReflectsDesiredSet(ticket, $set) {
   return true;
 }
 
-/** Chiusura ticket: basta path/token/scadenza se il body transcript è stato slimato per BSON. */
 function ticketReflectsTranscriptCloseSet($set, ticket) {
   if (!ticket || !$set) return false;
   const desired = {};
@@ -488,7 +471,6 @@ function isBsonDocTooLargeError(err) {
   return /16777216|larger than/i.test(msg);
 }
 
-/** Cap aggressivo: i ticket condividono un solo documento Mongo da max 16MB. */
 const TRANSCRIPT_TXT_COMPACT_MAX = 2_000;
 
 function compactTicketTranscriptFields(ticket) {
@@ -498,17 +480,12 @@ function compactTicketTranscriptFields(ticket) {
   if (typeof next.transcript === "string" && next.transcript.length > TRANSCRIPT_TXT_COMPACT_MAX) {
     next.transcript = `${next.transcript.slice(0, TRANSCRIPT_TXT_COMPACT_MAX)}\n…[troncato]`;
   }
-  // descriptionText può gonfiare: tieni un tetto ragionevole.
-  if (typeof next.descriptionText === "string" && next.descriptionText.length > 4_000) {
+    if (typeof next.descriptionText === "string" && next.descriptionText.length > 4_000) {
     next.descriptionText = `${next.descriptionText.slice(0, 4_000)}\n…[troncato]`;
   }
   return next;
 }
 
-/**
- * Sgonfia TUTTI i ticket del bucket (HTML inline storici + transcript enormi).
- * Necessario quando il documento è già vicino/oltre i 16MB: lo slim sul singolo ticket non basta.
- */
 async function compactBucketTicketBloat(bucketId) {
   const col = GuildFeatureBucket.collection;
   const raw = await col.findOne(
@@ -564,8 +541,7 @@ function slimTicketSetForBsonLimit($set) {
 }
 
 async function updateBucketTicketSet(bucketId, $set, arrayFilter) {
-  // Native collection: evita casting Mongoose su arrayFilters (es. claimedBy:null).
-  const tryUpdate = async (payload) =>
+    const tryUpdate = async (payload) =>
     GuildFeatureBucket.collection
       .updateOne({ _id: bucketId }, { $set: payload }, { arrayFilters: [arrayFilter] })
       .catch((err) => {
@@ -579,20 +555,17 @@ async function updateBucketTicketSet(bucketId, $set, arrayFilter) {
 
   global.logger?.warn?.("[Ticket.findOneAndUpdate]", result.__err?.message || result.__err);
 
-  // 1) Slim solo i campi di questo update
-  const slim = slimTicketSetForBsonLimit($set);
+    const slim = slimTicketSetForBsonLimit($set);
   result = await tryUpdate(slim);
   if (!result?.__bsonTooLarge) return result;
   global.logger?.warn?.("[Ticket.findOneAndUpdate.slim]", result.__err?.message || result.__err);
 
-  // 2) Compattazione bucket-wide (HTML inline storici) poi retry
-  await compactBucketTicketBloat(bucketId);
+    await compactBucketTicketBloat(bucketId);
   result = await tryUpdate(slim);
   if (!result?.__bsonTooLarge) return result;
   global.logger?.warn?.("[Ticket.findOneAndUpdate.afterCompact]", result.__err?.message || result.__err);
 
-  // 3) Solo metadati (niente transcript body)
-  const metaOnly = {};
+    const metaOnly = {};
   for (const [k, v] of Object.entries(slim)) {
     if (k.endsWith(".transcript") || k.endsWith(".transcriptHtmlInline")) {
       metaOnly[k] = k.endsWith(".transcriptHtmlInline") ? null : "";
@@ -604,8 +577,7 @@ async function updateBucketTicketSet(bucketId, $set, arrayFilter) {
   if (!result?.__bsonTooLarge) return result;
   global.logger?.warn?.("[Ticket.findOneAndUpdate.meta]", result.__err?.message || result.__err);
 
-  // 4) Ultimo tentativo: ricompact + meta
-  await compactBucketTicketBloat(bucketId);
+    await compactBucketTicketBloat(bucketId);
   result = await tryUpdate(metaOnly);
   if (result?.__bsonTooLarge) {
     global.logger?.warn?.("[Ticket.findOneAndUpdate.meta.afterCompact]", result.__err?.message || result.__err);
@@ -777,8 +749,7 @@ const Ticket = {
   findById(id) {
     const idQuery = ticketIdMongoQuery(id);
     if (idQuery == null || idQuery === "") return Promise.resolve(null);
-    // Native + $elemMatch: non caricare l'intero bucket (OOM / 16MB).
-    return GuildFeatureBucket.collection
+        return GuildFeatureBucket.collection
       .findOne(
         { "tickets._id": idQuery },
         { projection: { guildId: 1, tickets: { $elemMatch: { _id: idQuery } } } },
@@ -793,8 +764,7 @@ const Ticket = {
             return hit;
           }
         }
-        // Fallback: $elemMatch con ObjectId puro a volte non matcha String _id (e viceversa).
-        const raw = await GuildFeatureBucket.collection
+                const raw = await GuildFeatureBucket.collection
           .findOne({ "tickets._id": idQuery }, { projection: { guildId: 1, "tickets._id": 1 } })
           .catch(() => null);
         if (raw?.tickets?.length) {
@@ -827,8 +797,7 @@ const Ticket = {
   findOneByTranscriptViewToken(token) {
     const t = String(token || "").trim().toLowerCase();
     if (!/^[a-f0-9]{64}$/.test(t)) return Promise.resolve(null);
-    // Native + $elemMatch: solo il ticket col token (il bucket intero fa OOM → 404).
-    return GuildFeatureBucket.collection
+        return GuildFeatureBucket.collection
       .findOne(
         { "tickets.transcriptViewToken": t },
         { projection: { guildId: 1, tickets: { $elemMatch: { transcriptViewToken: t } } } },
@@ -861,8 +830,7 @@ const Ticket = {
   async findOneAndUpdate(filter, update, opts = {}) {
     const ref = await resolveTicketRef(filter);
     if (!ref) {
-      // Fallback collection legacy `tickets`.
-      try {
+            try {
         const Legacy = getLegacyTicketModel();
         const doc = await Legacy.findOneAndUpdate(filter, update, {
           new: opts.new !== false,
@@ -879,19 +847,15 @@ const Ticket = {
     }
     const arrayFilter = buildTicketArrayFilter(filter, ref.ticketId);
     let result = await updateBucketTicketSet(ref.bucketId, $set, arrayFilter);
-    // matchedCount può essere 1 anche se arrayFilters non hanno matchato nulla.
-    if (result && Number(result.modifiedCount || 0) < 1) {
+        if (result && Number(result.modifiedCount || 0) < 1) {
       const current = await readTicketByRef(ref.bucketId, ref.ticketId);
       if (current && ticketUpdateSatisfied(current, $set)) {
-        // Idempotente: valore già allineato.
-        return opts.new !== false ? current : null;
+                return opts.new !== false ? current : null;
       }
       if (filter.open === true && current && coerceTicketOpen(current.open) !== true) {
-        // Condizione open:true non più vera (race): fallisce come un update condizionale.
-        return null;
+                return null;
       }
-      // Retry forzato sull'_id (string|ObjectId) + fallback channelId.
-      result = await updateBucketTicketSet(ref.bucketId, $set, {
+            result = await updateBucketTicketSet(ref.bucketId, $set, {
         "t._id": ticketIdArrayFilterClause(ref.ticketId),
       });
       if (result && Number(result.modifiedCount || 0) < 1 && filter.channelId) {
@@ -935,9 +899,7 @@ const Ticket = {
   },
 
   async updateOne(filter, update) {
-    // Stesso path resilient di findOneAndUpdate (retry id string|ObjectId, slim BSON).
-    // Prima era un update "thin" → matchedCount:1/modifiedCount:0 silenzioso (es. auto-close spam).
-    const doc = await this.findOneAndUpdate(filter, update, { new: true });
+            const doc = await this.findOneAndUpdate(filter, update, { new: true });
     if (!doc) return { modifiedCount: 0, matchedCount: 0 };
     return { modifiedCount: 1, matchedCount: 1 };
   },

@@ -73,7 +73,6 @@ async function fetchDiscordMe(accessToken) {
   }
 }
 
-/** OAuth guild member (ruoli) senza passare dal bot gateway — veloce quando members.fetch va in timeout. */
 async function fetchOAuthGuildMemberJson(accessToken, guildId, timeoutMs = 2500) {
   const token = String(accessToken || "").trim();
   const gid = String(guildId || "").trim();
@@ -817,10 +816,6 @@ async function handleStartButton(interaction, type, step = 1, forceStep = false)
   return true;
 }
 
-/**
- * Invia in #visioneModuli come il flusso Discord (embed, bottoni HS, thread, reazioni, cooldown).
- * @returns {{ ok: true, nextAllowedAt: number } | { ok: false, code: "no_channel" | "send_failed" }}
- */
 async function postCandidatureToVisioneModuli(client, guild, user, type, answers, stateKey) {
   const cfg = APPLICATIONS[type];
   if (!cfg) return { ok: false, code: "send_failed" };
@@ -1017,14 +1012,6 @@ async function checkMemberCandidatureEligibility(member, type) {
   return { ok: true };
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {string} accessToken
- * @returns {Promise<
- *   | { ok: true, userId: string, member: import("discord.js").GuildMember, guild: import("discord.js").Guild }
- *   | { ok: false, status: number, error: string, message: string, userId?: string }
- * >}
- */
 async function resolveWebsiteCandidatureMember(client, accessToken) {
   const token = String(accessToken || "").trim();
   if (!token) {
@@ -1036,8 +1023,7 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
   }
 
-  // Cold path veloce: /@me + OAuth member in parallelo (niente attesa del bot gateway).
-  const oauthPromise = fetchOAuthGuildMemberJson(token, guildId, 3500);
+    const oauthPromise = fetchOAuthGuildMemberJson(token, guildId, 3500);
   let meJson;
   try {
     const meRes = await fetchDiscordMe(token);
@@ -1060,8 +1046,7 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
   }
 
-  // Guild: budget corto — serve solo come contenitore; i ruoli arrivano da OAuth.
-  const guild = await ensureWebsiteGuild(client, guildId, 2500);
+    const guild = await ensureWebsiteGuild(client, guildId, 2500);
 
   let member = null;
   if (guild) {
@@ -1070,16 +1055,14 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     member = readCachedWebsiteMember(userId) || null;
   }
 
-  // Preferisci subito OAuth (spesso già pronto) prima di eventuali bot fetch.
-  if (!member) {
+    if (!member) {
     const oauthJson = await oauthPromise;
     if (oauthJson) {
       member = synthMemberFromOAuth(guild, meJson, oauthJson);
     }
   }
 
-  // Ultimo tentativo: bot fetch (con un retry breve) solo se OAuth non ha dato ruoli.
-  if (!member && guild) {
+    if (!member && guild) {
     try {
       member = await fetchWebsiteGuildMember(guild, userId, { timeoutMs: 1400, retry: false });
     } catch (err) {
@@ -1128,11 +1111,6 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
   return { ok: true, userId, member, guild: guild || member.guild || null };
 }
 
-/**
- * Preflight per il sito (GET + Bearer): stessi controlli di invio, per tipo Helper e Partner Manager.
- * @param {import("discord.js").Client} client
- * @param {string} accessToken
- */
 async function getCandidatureEligibilitySummary(client, accessToken) {
   const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
   if (!resolved.ok) {
@@ -1174,11 +1152,6 @@ async function getCandidatureEligibilitySummary(client, accessToken) {
   };
 }
 
-/**
- * Stesso effetto del completamento moduli su Discord, con token OAuth utente (scope identify).
- * @param {import("discord.js").Client} client
- * @param {{ accessToken: string, type: string, answers: Record<string, string> }} payload
- */
 async function submitCandidatureWebsite(client, payload) {
   const accessToken = String(payload?.accessToken || "").trim();
   const typeRaw = String(payload?.type || "").trim().toLowerCase();
@@ -1260,8 +1233,7 @@ async function sendCandidatePexWelcome(guild, member, targetRoleId) {
 }
 
 async function sendCandidatePexLog(guild, member, targetRoleId, roleBeforeId, reason) {
-  // Stesso formato/emoji dei comandi e del resoconto (`<:success:…>` / `<:cancel:…>`).
-  const { sendPexDepexLog } = require("./resocontoHandlers");
+    const { sendPexDepexLog } = require("./resocontoHandlers");
   await sendPexDepexLog(
     guild,
     "pex",

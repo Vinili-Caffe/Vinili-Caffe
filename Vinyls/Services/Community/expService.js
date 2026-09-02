@@ -24,7 +24,50 @@ const PERKS_CHANNEL_ID = IDs.channels.supporters;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const LEVEL_ROLE_MAP = new Map([[10, IDs.roles.Level10], [20, IDs.roles.Level20], [30, IDs.roles.Level30], [50, IDs.roles.Level50], [70, IDs.roles.Level70], [100, IDs.roles.Level100], [125, IDs.roles.Level120], [150, IDs.roles.Level150], [200, IDs.roles.Level200],]);
 const PERK_NEAR_LEVEL_DISTANCE = 2;
-const ROLE_MULTIPLIERS = new Map([ [IDs.roles.ServerBooster, 2], [IDs.roles.MVP, 2], [IDs.roles.DoubleBooster, 3], [IDs.roles.Donator, 4], [IDs.roles.VIP, 5], [IDs.roles.VIPplus, 6], [IDs.roles.Level100, 1.15], [IDs.roles.Level120, 1.2], [IDs.roles.Level150, 1.25], [IDs.roles.Level200, 1.3], [IDs.roles.Level250, 1.35], [IDs.roles.Level300, 1.4], [IDs.roles.Level350, 1.45], [IDs.roles.Level400, 1.5], [IDs.roles.Level450, 1.55], [IDs.roles.Level500, 1.6], [IDs.roles.Level550, 1.65], [IDs.roles.Level600, 1.7], [IDs.roles.Level650, 1.75], [IDs.roles.Level700, 1.8], [IDs.roles.Level750, 1.85], [IDs.roles.Level800, 1.9], [IDs.roles.Level850, 1.95], [IDs.roles.Level900, 2], [IDs.roles.Level950, 2.05], [IDs.roles.Level1000, 2.1], ]);
+const ROLE_MULTIPLIER_DEFS = [
+  ["ServerBooster", 2],
+  ["MVP", 2],
+  ["DoubleBooster", 3],
+  ["Donator", 4],
+  ["VIP", 5],
+  ["VIPplus", 6],
+  ["Level100", 1.15],
+  ["Level120", 1.2],
+  ["Level150", 1.25],
+  ["Level200", 1.3],
+  ["Level250", 1.35],
+  ["Level300", 1.4],
+  ["Level350", 1.45],
+  ["Level400", 1.5],
+  ["Level450", 1.55],
+  ["Level500", 1.6],
+  ["Level550", 1.65],
+  ["Level600", 1.7],
+  ["Level650", 1.75],
+  ["Level700", 1.8],
+  ["Level750", 1.85],
+  ["Level800", 1.9],
+  ["Level850", 1.95],
+  ["Level900", 2],
+  ["Level950", 2.05],
+  ["Level1000", 2.1],
+];
+
+function isDiscordSnowflake(value) {
+  return /^\d{16,20}$/.test(String(value || "").trim());
+}
+
+function buildRoleMultipliersFromIds() {
+  const out = new Map();
+  for (const [roleKey, mult] of ROLE_MULTIPLIER_DEFS) {
+    const id = String(IDs.roles?.[roleKey] || "").trim();
+    if (!isDiscordSnowflake(id)) continue;
+    out.set(id, mult);
+  }
+  return out;
+}
+
+const ROLE_MULTIPLIERS = buildRoleMultipliersFromIds();
 
 function normalizeExpGuildId(guildOrId) {
   if (guildOrId && typeof guildOrId === "object" && guildOrId.id) return String(guildOrId.id).trim();
@@ -37,7 +80,6 @@ function isLevelExpGuild(guildOrId) {
   return Boolean(gid && mainId && gid === mainId);
 }
 
-/** Mention sicura: `${member}` può diventare "[object Object]" se manca il prototype Discord.js. */
 function formatMemberMention(member) {
   const id = String(member?.id || member?.user?.id || "").trim();
   if (/^\d{16,22}$/.test(id)) return `<@${id}>`;
@@ -185,7 +227,8 @@ function buildRoleMultipliersMerged(doc) {
       : {};
   const merged = new Map();
   for (const [roleId, value] of ROLE_MULTIPLIERS.entries()) {
-    const id = String(roleId);
+    const id = String(roleId || "").trim();
+    if (!isDiscordSnowflake(id)) continue;
     if (Object.prototype.hasOwnProperty.call(dbObj, id)) {
       const n = Number(dbObj[id]);
       merged.set(id, Number.isFinite(n) && n > 0 ? n : Number(value));
@@ -539,12 +582,6 @@ function combineWeeklyExpMultiplier(globalExpMultiplier, roleMultiplier) {
   return Math.min(MAX_COMBINED_MULTIPLIER, Math.max(1, safeGlobal + roleBonus));
 }
 
-/**
- * Moltiplicatore XP effettivo (weekly) per l’utente: allinea rank card web, +rank e leaderboard.
- * @param {import("discord.js").Guild|null} guild
- * @param {string} userId
- * @param {Awaited<ReturnType<typeof getGuildExpSettings>>|null} [guildSettings] cache opzionale
- */
 async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = null, memberHint = null) {
   if (!userId) return 1;
   const settings =
@@ -560,8 +597,7 @@ async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = nul
         ? Number(await getGlobalMultiplier(guild.id).catch(() => 1)) || 1
         : 1;
   if (!guild) return combineWeeklyExpMultiplier(globalMulti, 1);
-  // Prefer member già risolto (API sito REST): evita un secondo guild.members.fetch force.
-  let member =
+    let member =
     memberHint ||
     guild.members?.cache?.get?.(String(userId)) ||
     null;
@@ -826,8 +862,7 @@ async function addLevelRoleIfPossible(member, roleId) {
     if (isMemberGoneError(addErr)) return false;
     return false;
   }
-  // API ok → cache locale aggiornata; un force-fetch fallito non è un fail di assign.
-  if (member.roles.cache.has(roleId)) return true;
+    if (member.roles.cache.has(roleId)) return true;
   const refreshedMember = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
   if (!refreshedMember) return true;
   return Boolean(refreshedMember.roles?.cache?.has(roleId));
@@ -863,8 +898,7 @@ async function addPerkRoleIfPossible(member) {
   }
   if (member.roles.cache.has(PERK_ROLE_ID)) return;
   const refreshedMember = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
-  // Fetch fresco fallito (rate limit / blip): non loggare come assign fail.
-  if (!refreshedMember) return;
+    if (!refreshedMember) return;
   if (refreshedMember.roles?.cache?.has(PERK_ROLE_ID)) return;
   await member.roles.add(role).catch(() => null);
   const again = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
@@ -926,9 +960,7 @@ async function syncLevelRolesForMember(guild, userId, level) {
     if (!roleId) continue;
     const alreadyHad = Boolean(mem?.roles?.cache?.has(roleId));
     const ok = await addLevelRoleIfPossible(mem, roleId);
-    // Solo ruoli davvero aggiunti: altrimenti i sweep post-mute/restart
-    // pensano sempre di aver "cambiato" qualcosa e rilanciano il restore.
-    if (ok && !alreadyHad) awarded.push(roleId);
+            if (ok && !alreadyHad) awarded.push(roleId);
     mem = (await getGuildMemberCached(guild, userId, { preferFresh: true })) || mem;
   }
   const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true });

@@ -65,7 +65,6 @@ function isValidPartnerCreate(action, period, weekBounds, afterMs = 0) {
   return t >= weekBounds.weekStart.getTime() && t < weekBounds.weekEndExclusive.getTime();
 }
 
-/** Credito create: managerId (migrazione / skip-manager) oppure owner del profilo. */
 function resolvePartnerActionCreditUserId(action, profileUserId) {
   const managerId = String(action?.managerId || "").trim();
   if (/^\d{16,22}$/.test(managerId)) return managerId;
@@ -77,8 +76,7 @@ function scorePartnerPeriod(staff, period, weekBounds) {
   const actions = Array.isArray(staff?.partnerActions) ? staff.partnerActions : [];
   const afterMs = getPartnerServerResetMs(staff);
   if (period === "total") {
-    // All Time: create valide − riscatti (allineato a +c / +points).
-    return resolvePartnerPointsShown(staff);
+        return resolvePartnerPointsShown(staff);
   }
   return actions.reduce(
     (total, action) => total + (isValidPartnerCreate(action, period, weekBounds, afterMs) ? 1 : 0),
@@ -86,10 +84,6 @@ function scorePartnerPeriod(staff, period, weekBounds) {
   );
 }
 
-/**
- * Aggiunge allo score map i punti partnership di un profilo (daily/weekly: conteggio create).
- * Se le create hanno `managerId`, attribuisce a quei manager (dati migrati su un unico profilo).
- */
 function accumulatePartnerProfileScores(scores, profileUserId, staff, period, weekBounds) {
   const actions = Array.isArray(staff?.partnerActions) ? staff.partnerActions : [];
   const afterMs = getPartnerServerResetMs(staff);
@@ -115,10 +109,6 @@ function accumulatePartnerProfileScores(scores, profileUserId, staff, period, we
   }
 }
 
-/**
- * Stessa logica di getUserPartnershipScoresForGuild, su rows già caricate (no N+1).
- * @returns {{ points: number, total: number, daily: number, weekly: number }}
- */
 function computeUserPartnershipScoresFromRows(rows, userId, weekBounds) {
   const uid = String(userId || "").trim();
   if (!/^\d{16,22}$/.test(uid)) {
@@ -170,8 +160,7 @@ function computeUserPartnershipScoresFromRows(rows, userId, weekBounds) {
 }
 
 async function listTargetGuildIds() {
-  // site-api parte con configCache vuota: senza refresh resta solo la main → classifica “a 1 riga”.
-  await refreshPartnershipConfigCache().catch(() => null);
+    await refreshPartnershipConfigCache().catch(() => null);
   const ids = new Set();
   for (const gid of listConfiguredPartnershipGuildIds()) ids.add(String(gid));
   for (const gid of listOperationalPartnershipGuildIds()) ids.add(String(gid));
@@ -179,9 +168,7 @@ async function listTargetGuildIds() {
 }
 
 async function aggregateServerPartnershipScores(period) {
-  // Refresh + target list PRIMA della cache: evita di servire per 45s una classifica
-  // costruita quando configCache era ancora vuota (solo main).
-  const guildIds = await listTargetGuildIds();
+      const guildIds = await listTargetGuildIds();
   const key = cacheKey({ kind: "servers", period, targets: guildIds.length });
   const cached = readCache(key);
   if (cached) return cached;
@@ -197,8 +184,7 @@ async function aggregateServerPartnershipScores(period) {
   for (const row of rows) {
     const gid = String(row.guildId || "").trim();
     if (!gid) continue;
-    // Classifica server: conteggio create valide (non saldo shop dopo redeem).
-    const actions = Array.isArray(row?.staff?.partnerActions) ? row.staff.partnerActions : [];
+        const actions = Array.isArray(row?.staff?.partnerActions) ? row.staff.partnerActions : [];
     const afterMs = getPartnerServerResetMs(row?.staff);
     let score = 0;
     for (const action of actions) {
@@ -332,8 +318,7 @@ async function getUserPartnershipScores(userId) {
   for (const row of rows) {
     const staff = row?.staff || null;
     const actions = Array.isArray(staff?.partnerActions) ? staff.partnerActions : [];
-    // Profilo: le partner restano attribuite anche dopo reset score sul server.
-    const attributed = resolvePartnerHistoryAttributed(staff);
+        const attributed = resolvePartnerHistoryAttributed(staff);
     partnerships += attributed;
     earned += attributed;
     points += resolvePartnerPointsShown(staff);
@@ -394,10 +379,6 @@ async function getUserPartnershipScoresForGuild(guildId, userId) {
   return computeUserPartnershipScoresFromRows(rows, uid, weekBounds);
 }
 
-/**
- * Stesso perimetro di `+c` sul guild (partnerLeaderboardRuntime): solo il profilo di quel server,
- * senza sommare altri guild. Totale = partnership guadagnate; daily/weekly = create nel periodo.
- */
 async function getUserPartnershipScoresGuildLocal(guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();

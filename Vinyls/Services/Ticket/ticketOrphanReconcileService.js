@@ -27,8 +27,7 @@ function parseTicketTypeFromChannelName(name) {
   const raw = String(name || "");
   const match = raw.match(/︲([^᲼]+)᲼/i);
   let token = match ? String(match[1]).trim().toLowerCase() : "supporto";
-  // Nuovo formato: type-123 → togli la numerazione
-  token = token.replace(/-\d+$/, "");
+    token = token.replace(/-\d+$/, "");
   return getTicketPanelConfig(token)?.type || "supporto";
 }
 

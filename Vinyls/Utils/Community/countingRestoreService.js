@@ -172,9 +172,7 @@ async function fetchRestoreMessage(client, entry) {
 async function updateFailureEmbedAfterRestore(client, entry, { restoredByUserId, restoredCount }) {
   const message = await fetchRestoreMessage(client, entry);
   if (!message?.editable) return;
-  // safeMessageEdit ri-applica banner + files e svuota attachments orfani
-  // (un edit grezzo lasciava standard.gif fuori dall'embed).
-  try {
+      try {
     const { safeMessageEdit } = require("../../../shared/discord/replyRuntime");
     await safeMessageEdit(
       message,

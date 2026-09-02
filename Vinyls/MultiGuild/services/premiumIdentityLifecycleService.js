@@ -67,10 +67,6 @@ async function fetchAsDataUri(url) {
   }
 }
 
-/**
- * Se non c’è ancora uno snapshot salvato, cattura nick/avatar/banner Discord
- * prima del reset visuale (migrazione guild già personalizzate).
- */
 async function ensureIdentitySnapshotFromDiscord(client, guildId) {
   await ensureTenantPremiumIdentityCacheFresh().catch(() => null);
   const existing = getTenantPremiumIdentitySync(guildId);
@@ -129,7 +125,6 @@ async function ensureIdentitySnapshotFromDiscord(client, guildId) {
   return saved.ok ? saved.identity : existing;
 }
 
-/** Reset visuale Discord → default bot; snapshot premium resta in store. */
 async function suspendPremiumIdentityVisual(client, guildId, opts = {}) {
   const gid = String(guildId || "").trim();
   if (!client || !gid) return { ok: false, reason: "bad_args" };
@@ -157,7 +152,6 @@ async function suspendPremiumIdentityVisual(client, guildId, opts = {}) {
   return { ok: true, suspended: true };
 }
 
-/** Riapplica snapshot salvato su Discord (riattivazione Premium). */
 async function restorePremiumIdentityVisual(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!client || !gid) return { ok: false, reason: "bad_args" };
@@ -172,8 +166,7 @@ async function restorePremiumIdentityVisual(client, guildId) {
     avatar: identity.avatar,
     banner: identity.banner,
   };
-  // Discord rifiuta body vuoto; se solo nick null e no media, skip.
-  if (body.nick == null && body.avatar == null && body.banner == null) {
+    if (body.nick == null && body.avatar == null && body.banner == null) {
     return { ok: true, skipped: true };
   }
 
@@ -187,9 +180,6 @@ async function restorePremiumIdentityVisual(client, guildId) {
   return { ok: true, restored: true };
 }
 
-/**
- * Guild con Premium scaduto (until passato) ma look custom ancora applicato → reset visuale.
- */
 async function runPremiumIdentityExpirySweep(client) {
   if (!client) return { checked: 0, suspended: 0 };
   await ensureTenantPremiumCacheFresh({ force: true }).catch(() => null);
@@ -203,10 +193,8 @@ async function runPremiumIdentityExpirySweep(client) {
     const gid = String(guild?.id || "").trim();
     if (!gid) continue;
     const premium = getTenantPremiumSync(gid);
-    // Ancora attivo → skip.
-    if (premium.active) continue;
-    // Nessuna scadenza nota e mai stato premium “timed” → skip se identity non applied.
-    const identity = getTenantPremiumIdentitySync(gid);
+        if (premium.active) continue;
+        const identity = getTenantPremiumIdentitySync(gid);
     const expiredTimed =
       premium.until != null && Number(premium.until) > 0 && Number(premium.until) <= now;
     const shouldSuspend =

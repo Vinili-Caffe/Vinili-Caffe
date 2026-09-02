@@ -39,13 +39,11 @@ function rewritePrefixInText(text, guildId, client) {
   return out;
 }
 
-/** Resolve i18n string (no Discord payload). */
 async function replyTenantMessage(message, key, vars = {}) {
   const lang = await resolveTenantLanguageForMessage(message);
   return rewritePrefixInText(t(lang, key, vars), message.guild?.id, message.client);
 }
 
-/** Branded notice embed payload for prefix replies. */
 async function tenantNoticePayload(message, key, vars = {}, options = {}) {
   const text = await replyTenantMessage(message, key, vars);
   return buildSimpleNoticePayload(text, message.guild, {
@@ -54,7 +52,6 @@ async function tenantNoticePayload(message, key, vars = {}, options = {}) {
   });
 }
 
-/** Branded notice embed for interactions (ephemeral by default). */
 async function interactionTenantNoticePayload(interaction, key, vars = {}, options = {}) {
   const lang = await resolveTenantLanguageForInteraction(interaction);
   const text = rewritePrefixInText(t(lang, key, vars), interaction.guild?.id, interaction.client);
@@ -65,7 +62,6 @@ async function interactionTenantNoticePayload(interaction, key, vars = {}, optio
   });
 }
 
-/** Sync helper when lang is already resolved. */
 function tenantI18nNoticePayload(lang, key, guild, vars = {}, options = {}) {
   const text = rewritePrefixInText(t(lang, key, vars), guild?.id, guild?.client || options.client);
   return buildSimpleNoticePayload(text, guild, {

@@ -318,13 +318,12 @@ function collectHogwartsSystemRoleIds(client = null) {
     pushExpanded(house?.roleId);
   }
   pushExpanded(cfg.completionRoleId);
-  // Fallback hardcoded IDs if config empty on a cold client
-  for (const id of [
-    "1504791825657888898", // Grifondoro
-    "1504791921246339072", // Corvonero
-    "1504791899100155987", // Tassorosso
-    "1504791872671973537", // Serpeverde
-    "1507000390493798511", // Evento Hogwarts
+    for (const id of [
+    "1504791825657888898",
+    "1504791921246339072",
+    "1504791899100155987",
+    "1504791872671973537",
+    "1507000390493798511",
   ]) {
     ids.add(id);
   }

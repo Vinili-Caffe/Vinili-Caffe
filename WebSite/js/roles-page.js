@@ -1,7 +1,6 @@
 (function () {
   "use strict";
-  /* siteSnappyApi1 */
-  var PER_PAGE = 9;
+    var PER_PAGE = 9;
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
   var state = {
@@ -186,8 +185,7 @@
     return ROLE_EMOJI_TWEMOJI_BASE + parts.join("-") + ".svg";
   }
 
-  /** rolesEmojiTwemoji1: ZWJ/emoji complesse → Twemoji SVG (niente testo spezzato su Windows/mobile). */
-  function roleEmojiMarkup(emoji, classPrefix, px) {
+    function roleEmojiMarkup(emoji, classPrefix, px) {
     emoji = String(emoji || "").trim();
     if (!emoji) return "";
     var url = emojiToTwemojiUrl(emoji);
@@ -288,13 +286,17 @@
       if (state.loading) {
         try {
           overlay.removeAttribute("hidden");
+          overlay.setAttribute("data-vc-loader-blocking", "1");
           overlay.style.removeProperty("display");
+          overlay.style.removeProperty("visibility");
           overlay.style.removeProperty("pointer-events");
         } catch (eShow) {}
       } else {
         try {
           overlay.setAttribute("hidden", "");
+          overlay.removeAttribute("data-vc-loader-blocking");
           overlay.style.setProperty("display", "none", "important");
+          overlay.style.setProperty("visibility", "hidden", "important");
           overlay.style.setProperty("pointer-events", "none", "important");
         } catch (eHide) {}
         try {
@@ -328,7 +330,11 @@
     var title = overlay ? overlay.querySelector(".vc-ul-loading-title") : null;
     var subtitle = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
     var grid = byId("vc-roles-grid");
-    if (overlay) overlay.hidden = false;
+    if (overlay) {
+      overlay.hidden = false;
+      overlay.setAttribute("data-vc-loader-blocking", "1");
+      overlay.removeAttribute("hidden");
+    }
     if (title) title.textContent = "Caricamento ruoli";
     if (subtitle) subtitle.textContent = "Sto recuperando tutti i ruoli personalizzati della community...";
     if (grid) grid.setAttribute("aria-busy", "true");
@@ -443,7 +449,7 @@
     var rid = esc(String(row.roleId || ""));
     if (viewerIsRoleOwner(row)) {
       return (
-        '<button type="button" class="vc-role-card-cta vc-role-card-cta--owner-self" disabled title="Ruolo che hai creato con +profile: non puoi richiederlo a te stesso">' +
+        '<button type="button" class="vc-role-card-cta vc-role-card-cta--owner-self" disabled title="Ruolo che hai creato con <a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a>: non puoi richiederlo a te stesso">' +
         '<i class="fa fa-user" aria-hidden="true"></i> Il tuo ruolo</button>'
       );
     }
@@ -1109,7 +1115,7 @@
     });
   }
 
-  async function load(options) {
+    async function load(options) {
     var opts = options && typeof options === "object" ? options : {};
     var silent = Boolean(opts.silent);
     var api = resolvedApiUrl();
@@ -1129,12 +1135,37 @@
       var snapshot = buildDataSnapshot(state.rows, state.summary);
       var sameData = snapshot && state.lastSnapshot && snapshot === state.lastSnapshot;
       state.lastSnapshot = snapshot;
+            setState("", false);
       if (silent && sameData) return true;
       state.page = 1;
       applyFilter();
       setSummary(state.summary);
       renderGrid();
       return true;
+    }
+
+    async function fetchDirect() {
+      var lastErr = null;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          return await fetchJsonWithTimeout(
+            api,
+            { headers: { Accept: "application/json" }, cache: "no-store", credentials: "omit" },
+            attempt === 0 ? 22000 : attempt === 1 ? 28000 : 32000,
+          );
+        } catch (fetchErr) {
+          lastErr = fetchErr;
+          var msg = String((fetchErr && fetchErr.message) || "").toLowerCase();
+          if (msg !== "timeout" && attempt === 0) {
+            await new Promise(function (r) {
+              window.setTimeout(r, 400);
+            });
+            continue;
+          }
+          if (msg !== "timeout") throw fetchErr;
+        }
+      }
+      throw lastErr || new Error("timeout");
     }
 
     if (!silent) {
@@ -1147,44 +1178,32 @@
       var out = null;
       if (window.VcApiCache && opts.bypassCache !== true) {
         out = await window.VcApiCache.fetchWithCache(
-          window.VcApiCache.keyFor(api, { scope: "roles" }),
+          window.VcApiCache.keyFor(api, { scope: "roles", v: "roles2" }),
           api,
           {
-          ttlMs: 90000,
-          staleMs: 600000,
-          persistMs: 20 * 60 * 1000,
-          timeoutMs: 22000,
-          onStale: function (cached) {
-            if (silent || !cached || !cached.body) return;
-            try {
-              applyRolesPayload(cached.body, true);
-            } catch (eSt) {}
+            ttlMs: 90000,
+            staleMs: 600000,
+            persistMs: 20 * 60 * 1000,
+            timeoutMs: 22000,
+            onStale: function (cached) {
+              if (silent || !cached || !cached.body) return;
+              try {
+                applyRolesPayload(cached.body, true);
+              } catch (eSt) {}
+            },
           },
-        },
         );
-      } else {
-        var lastErr = null;
-        for (var attempt = 0; attempt < 2; attempt++) {
-          try {
-            out = await fetchJsonWithTimeout(
-              api,
-              { headers: { Accept: "application/json" }, cache: "no-store", credentials: "omit" },
-              attempt === 0 ? 22000 : 28000,
-            );
-            lastErr = null;
-            break;
-          } catch (fetchErr) {
-            lastErr = fetchErr;
-            if (!(fetchErr && String(fetchErr.message || "").toLowerCase() === "timeout")) throw fetchErr;
-          }
+        var body = out && (out.body || out.data);
+        if (!body || body.ok !== true) {
+                    out = await fetchDirect();
         }
-        if (lastErr) throw lastErr;
+      } else {
+        out = await fetchDirect();
       }
       applyRolesPayload(out && (out.body || out.data), false);
     } catch (err) {
       if (silent && Array.isArray(state.rows) && state.rows.length) {
-        // Keep last good grid on background poll failures.
-        return;
+                return;
       }
       var timedOut = err && String(err.message || "").toLowerCase() === "timeout";
       setState(
@@ -1227,8 +1246,7 @@
     bindModal();
     load();
     startLiveRolesPolling();
-    // phoneBootReveal1: se l'API resta appesa, togli comunque il fullscreen loader.
-    try {
+        try {
       window.setTimeout(function () {
         if (state.loading) setLoading(false);
       }, 9000);

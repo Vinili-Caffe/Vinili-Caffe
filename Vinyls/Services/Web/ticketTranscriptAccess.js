@@ -200,8 +200,7 @@ async function canUserViewTicketTranscript(client, userId, ticketDoc) {
     return { ok: true };
   }
 
-  // Chi apre la dashboard High Staff può sempre leggere i transcript.
-  if (await userIsDashboardHighStaff(client, uid)) {
+    if (await userIsDashboardHighStaff(client, uid)) {
     return { ok: true };
   }
 

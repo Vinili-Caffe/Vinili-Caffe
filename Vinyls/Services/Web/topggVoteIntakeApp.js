@@ -1,8 +1,3 @@
-/*!
- * Intake HTTP Top.gg sempre attivo (sopravvive ai restart di `bots`).
- * Accetta POST /webhooks/topgg, verifica firma/secret, accoda in Mongo, risponde 200.
- * Il drain elabora la coda con vote-drain / discadiaVoteQueueService.
- */
 const http = require("node:http");
 const express = require("express");
 const mongoose = require("mongoose");
@@ -22,8 +17,7 @@ loadDotEnv();
 installConsoleLogger();
 
 async function main() {
-  // 3011 = Coffee health; 3012/3013 = markov. Top.gg intake: 3014.
-  const port = Number(process.env.TOPGG_VOTE_INTAKE_PORT || 3014) || 3014;
+    const port = Number(process.env.TOPGG_VOTE_INTAKE_PORT || 3014) || 3014;
   const mongo = resolveMongoUrl();
   if (!mongo) {
     console.error("[TOPGG INTAKE] Missing MONGO_URL");

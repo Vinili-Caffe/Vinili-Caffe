@@ -198,7 +198,6 @@ async function markBirthdayCelebratedByIds(ids = [], year) {
   ).catch(() => ({ modifiedCount: 0 }));
 }
 
-/** Profili con compleanno salvato (data + anno) per sync ruoli zodiacali all'avvio. */
 async function listBirthdayProfilesForZodiacSync() {
   const docs = await ActivityUserProfile.find({
     "profile.birthday.month": { $gte: 1, $lte: 12 },
@@ -228,7 +227,39 @@ async function listBirthdayProfilesForZodiacSync() {
     );
 }
 
-/** Profili con compleanno + anno per sync ruoli fascia d'età (13-14, 15-16, 17-18, 19+). */
+async function listBirthdaysForMonth(guildId, month) {
+  const m = Number(month);
+  if (!Number.isFinite(m) || m < 1 || m > 12) return [];
+  const docs = await ActivityUserProfile.find({
+    guildId: String(guildId),
+    "profile.birthday.month": m,
+    "profile.birthday.day": { $gte: 1, $lte: 31 },
+  })
+    .select(
+      "userId profile.birthday.day profile.birthday.month profile.birthday.birthYear profile.birthday.showAge",
+    )
+    .limit(400)
+    .lean()
+    .catch(() => []);
+  return (docs || [])
+    .map((doc) => {
+      const bday = doc?.profile?.birthday || {};
+      const day = Number(bday.day);
+      const monthNum = Number(bday.month);
+      if (!day || !monthNum) return null;
+      const showAge = bday.showAge !== false;
+      const birthYear = Number(bday.birthYear);
+      return {
+        userId: String(doc.userId || ""),
+        day,
+        month: monthNum,
+        showAge,
+        birthYear: showAge && Number.isFinite(birthYear) && birthYear >= 1900 ? birthYear : null,
+      };
+    })
+    .filter(Boolean);
+}
+
 async function listBirthdayProfilesForAgeBracketSync() {
   const docs = await ActivityUserProfile.find({
     "profile.birthday.month": { $gte: 1, $lte: 12 },
@@ -306,6 +337,7 @@ module.exports = {
   setBirthdayProfile,
   clearBirthdayProfile,
   listBirthdayDue,
+  listBirthdaysForMonth,
   listBirthdayProfilesForZodiacSync,
   listBirthdayProfilesForAgeBracketSync,
   markBirthdayCelebratedByIds,

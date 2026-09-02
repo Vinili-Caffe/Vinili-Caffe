@@ -5,12 +5,10 @@ const MONGO_CONNECT_OPTIONS = {
   serverSelectionTimeoutMS: 8_000,
   connectTimeoutMS: 8_000,
   socketTimeoutMS: 20_000,
-  // Pool ridotto: su VPS 4GB ci sono più processi Node sullo stesso mongod.
-  maxPoolSize: 8,
+    maxPoolSize: 8,
   minPoolSize: 0,
   maxIdleTimeMS: 30_000,
-  // Evita rebuild indici a ogni boot (Vinili registra molti schema prima del connect).
-  autoIndex: false,
+    autoIndex: false,
   autoCreate: false,
   family: 4,
 };
@@ -319,7 +317,6 @@ async function connectMongo(client) {
   return connectInFlight;
 }
 
-/** Chiude il pool in modo ordinato (PM2 reload / SIGTERM). MongoDB resta su; solo questo processo si scollega. */
 async function closeMongoGraceful(reason = "shutdown") {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
@@ -337,7 +334,6 @@ async function closeMongoGraceful(reason = "shutdown") {
   }
 }
 
-/** One-shot / weekly: crea indici mancanti senza autoIndex a runtime. */
 async function ensureMongoIndexes({ reason = "manual" } = {}) {
   if (!isMongoReady()) return { ok: false, reason: "not_ready" };
   const models = Object.values(mongoose.models || {});

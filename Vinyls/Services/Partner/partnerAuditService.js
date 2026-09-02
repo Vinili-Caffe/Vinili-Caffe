@@ -40,7 +40,6 @@ function getPreviousRomeDateKey(baseDate = new Date()) {
   return getRomeDateKey(romeNow);
 }
 
-/** Minuti tra un passaggio e l’altro dell’audit sul giorno corrente (Roma). `0` / env assente = disattivato. Clamp 5–120. */
 function resolvePartnerAuditIntradayIntervalMinutes() {
   const raw = String(process.env.PARTNER_AUDIT_INTRADAY_MINUTES ?? "30").trim().toLowerCase();
   if (!raw || ["0", "false", "no", "off"].includes(raw)) return 0;
@@ -73,7 +72,6 @@ function extractInviteCodes(text) {
   return Array.from(out);
 }
 
-/** Solo la riga "Manager: <@...>"; mai tutti i mention (evita falsi positivi sulla regola "con te stesso"). */
 function extractDesignatedManagerIdsFromText(sourceText) {
   const text = String(sourceText || "");
   const managerLineMatches = Array.from(text.matchAll(/Manager:\s*<@!?(\d+)>/gi));
@@ -106,8 +104,7 @@ async function fetchPartnerActionText(guild, action) {
       const msgText = String(err?.message || "").trim();
       const httpStatus = String(err?.status || err?.httpStatus || "").trim();
       const detail = `${code} ${httpStatus} ${msgText}`.trim();
-      // Messaggio già cancellato/non più accessibile: caso normale durante l'audit, evita spam nei log.
-      if (
+            if (
         code === "10008" ||
         httpStatus === "404" ||
         /unknown message/i.test(detail) ||
@@ -262,8 +259,7 @@ async function auditSingleProfilePartnerDay(guild, doc, targetDateKey, opts = {}
 
   if (!dayCreates.length) return { checked, removed, logsSent };
 
-  // Ex Partner Manager: niente rimozione punti (restano come storico).
-  const staffMember = await guild.members.fetch(String(doc.userId || "")).catch(() => null);
+    const staffMember = await guild.members.fetch(String(doc.userId || "")).catch(() => null);
   if (!memberHasPartnerManagerRole(staffMember, guild.id)) {
     return { checked: dayCreates.length, removed: 0, logsSent: 0 };
   }

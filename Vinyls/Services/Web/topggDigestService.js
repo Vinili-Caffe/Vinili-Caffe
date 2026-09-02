@@ -21,7 +21,6 @@ function toFiniteNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Conteggio e media aggregati se l’API li espone (chiavi legacy / camelCase). */
 function extractReviewAggregate(data) {
   const countRaw = readFirstDefined(data, ["review_count", "reviewCount", "reviews_count", "reviewsCount"]);
   const scoreRaw = readFirstDefined(data, ["review_score", "reviewScore", "reviews_average", "reviewsAverage"]);
@@ -57,7 +56,6 @@ function pickTopggStatsFields(data) {
   return rows.slice(0, 25);
 }
 
-/** Scheda Top.gg per digest statistiche: non usare votePageUrl (hub sul sito). */
 function resolveTopggStatsDigestSchedaUrl(client, botId) {
   const explicit = String(client?.config?.topgg?.statsDigestListingUrl || "").trim();
   if (explicit) return explicit.replace(/\/+$/, "");
@@ -69,7 +67,6 @@ function resolveTopggBotUrl(client) {
   return resolveTopggStatsDigestSchedaUrl(client, client?.user?.id);
 }
 
-/** URL tab recensioni: override `topgg.reviewsPageUrl`, altrimenti `/reviews` sulla scheda digest. */
 function resolveTopggReviewsUrl(client, botId) {
   const explicit = String(client?.config?.topgg?.reviewsPageUrl || "").trim();
   if (explicit) return explicit.replace(/\/+$/, "");
@@ -82,12 +79,6 @@ function resolveTopggReviewsUrl(client, botId) {
   return `${base.replace(/\/+$/, "")}/reviews`;
 }
 
-/**
- * Opzionale: se in .env c’è TOPGG_API_TOKEN e in config `topgg.statsDigestChannelId`,
- * invia un embed con statistiche pubbliche + link recensioni.
- * L’API non espone in modo stabile il **testo** delle singole recensioni; non esiste webhook recensioni documentato.
- * Confronta `review_count` con l’ultimo digest salvato in BotState e segnala incrementi.
- */
 async function postTopggStatsDigestIfConfigured(client) {
   const channelId = String(client?.config?.topgg?.statsDigestChannelId || "").trim();
   const token = String(process.env.TOPGG_API_TOKEN || "").trim();

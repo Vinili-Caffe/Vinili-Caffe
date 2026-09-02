@@ -147,7 +147,6 @@ async function migrateFileToDbOnce() {
 }
 
 let voteTopggSplitMigrationPromise = null;
-/** Chi aveva solo `bump` off riceve anche `vote_topgg` (prima i reminder Top.gg seguivano la stessa leva). */
 async function migrateVoteTopggNoDmSplitOnce() {
   if (!isDbReady()) return;
   if (voteTopggSplitMigrationPromise) return voteTopggSplitMigrationPromise;
@@ -196,10 +195,6 @@ async function getNoDmSet(guildId) {
   return new Set(list);
 }
 
-/**
- * Preferenze no-DM per un utente. blockAll = nessun DM; disabled = set di categorie disattivate.
- * @returns {{ blockAll: boolean, disabled: Set<string> }}
- */
 async function getNoDmPreferences(guildId, userId) {
   const key = String(guildId);
   const uid = String(userId);
@@ -336,13 +331,6 @@ async function deliverUserDm(user, payload, options = {}) {
   });
 }
 
-/**
- * Invia un DM all'utente. Con bypassNoDm: true non applica il filtro no-dm (per moderazione, ticket, security, ecc.).
- * @param {import("discord.js").User} user
- * @param {import("discord.js").MessageCreateOptions} payload
- * @param {{ guildId?: string, bypassNoDm?: boolean, category?: string, client?: import("discord.js").Client, notifyOnPrivacyBlock?: boolean, skipIfWebPush?: boolean, webPushNotifMeta?: object }} options - category: chiave categoria (bump, broadcast, invites, perks); skipIfWebPush: evita DM se push sito attiva
- * @returns {Promise<import("discord.js").Message|null>} Il messaggio inviato o null
- */
 async function sendDm(user, payload, options = {}) {
   const { guildId, bypassNoDm = false, category = null } = options;
   if (!user?.send) return null;

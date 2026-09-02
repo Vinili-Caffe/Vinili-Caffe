@@ -1,9 +1,3 @@
-/**
- * Hub WebSocket (stessa porta degli altri /webhooks/*).
- * Path canonico: /webhooks/site-realtime-ws — alias: /webhooks/site-suggestions-ws (nginx già configurato).
- * Messaggi: suggestions_changed, notifications_changed, reviews_changed, staff_pauses_changed,
- * staff_workflow_changed, web_ticket_*, web_tickets_list_changed, workflow_chat_message, + hello iniziali.
- */
 const SITE_REALTIME_WS_PATH = "/webhooks/site-realtime-ws";
 const LEGACY_SUGGESTIONS_WS_PATH = "/webhooks/site-suggestions-ws";
 const WS_UPGRADE_PATHS = new Set([SITE_REALTIME_WS_PATH, LEGACY_SUGGESTIONS_WS_PATH]);
@@ -45,8 +39,7 @@ function attachSiteSuggestionsWsServer(server) {
       ws.send(JSON.stringify({ type: "suggestions_hello", t: helloT }));
       ws.send(JSON.stringify({ type: "realtime_hello", t: helloT }));
     } catch (e) {
-      /* ignore */
-    }
+          }
     ws.on("error", () => {});
   });
   wssSingleton = wss;
@@ -74,16 +67,11 @@ function broadcastSiteRealtime(payload) {
       try {
         client.send(json);
       } catch (e) {
-        /* ignore */
-      }
+              }
     }
   }
 }
 
-/**
- * Con SITE_API_EXTERNAL i browser WS sono su site-api (3020), mentre bot scrive voti/reminder.
- * Notifica localhost così il realtime arriva comunque ai client collegati a site-api.
- */
 function notifyExternalSiteRealtime(payload) {
   if (!isTruthyEnv("SITE_API_EXTERNAL")) return;
   if (isTruthyEnv("SITE_API_PROCESS")) return;
@@ -125,8 +113,7 @@ function broadcastSiteStaffPausesChanged() {
     const { invalidateStaffPauseCalendarCache } = require("./siteStaffPauseApi");
     invalidateStaffPauseCalendarCache();
   } catch {
-    /* ignore */
-  }
+      }
   broadcastSiteRealtime(payload);
   notifyExternalSiteRealtime(payload);
 }

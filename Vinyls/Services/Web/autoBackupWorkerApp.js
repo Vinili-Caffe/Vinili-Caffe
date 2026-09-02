@@ -1,7 +1,3 @@
-/*!
- * Auto-backup giornaliero (solo guild protette: main / test / sponsor).
- * Discord REST + filesystem. Sopravvive ai reload di `bots`.
- */
 const mongoose = require("mongoose");
 const {
   loadDotEnv,

@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
 const { sendDm } = require("../../Utils/noDmList");
-const { resolveHogwartsEventConfig } = require("../../Utils/Web/hogwartsSortingConfig");
+const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../../Utils/Web/hogwartsSortingConfig");
 const { resolveSitePublicUrl } = require("../../Utils/Web/hogwartsEventAssets");
 const IDs = require("../../Utils/Config/ids");
 
@@ -12,14 +12,12 @@ const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   startDate: "2026-08-24T12:00:00",
   cooldownMs: 12 * 60 * 60 * 1000,
-  /** Backup sweep only; primary delivery is per-user setTimeout at nextAvailableAt. */
-  reminderSweepMs: 60 * 1000,
+    reminderSweepMs: 60 * 1000,
   reminderDmCategory: "perks",
   pageUrl: "/evento/pozioni",
 });
 const HOUSE_IDS = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"];
 const loopState = new WeakSet();
-/** @type {Map<string, NodeJS.Timeout>} */
 const potionReminderTimers = new Map();
 
 function normalizeId(value) {
@@ -49,6 +47,21 @@ function eventOpen(c, nowMs = Date.now()) {
   return Boolean(c.enabled) && Number.isFinite(Number(c.startMs)) && Number(nowMs || Date.now()) >= Number(c.startMs);
 }
 
+function potionRemindersAllowed(client, nowMs = Date.now()) {
+  const c = cfg(client);
+  if (!eventOpen(c, nowMs)) return false;
+  const eventCfg = resolveHogwartsEventConfig(client);
+  const window = isEventWindowOpen(eventCfg, nowMs, null, null);
+  return Boolean(window?.open);
+}
+
+function clearAllPotionReminderTimers() {
+  for (const [key, timer] of potionReminderTimers.entries()) {
+    clearTimeout(timer);
+    potionReminderTimers.delete(key);
+  }
+}
+
 function reminderSlotKey(eventKey, c, nowMs = Date.now()) {
   return `${normalizeId(eventKey) || "hogwarts"}:potions:${Math.floor(Number(nowMs || Date.now()) / c.cooldownMs)}`;
 }
@@ -62,7 +75,6 @@ function isPotionAvailable(state, nowMs = Date.now()) {
   return !(Number.isFinite(nextMs) && nextMs > Number(nowMs || Date.now()));
 }
 
-/** Remind once per availability window (after cooldown), not on a global wall-clock bucket. */
 function shouldSendPotionReminder(state, c, nowMs = Date.now()) {
   if (!isPotionAvailable(state, nowMs)) return false;
   const lastRem = new Date(state?.lastReminderAt || 0).getTime();
@@ -70,8 +82,7 @@ function shouldSendPotionReminder(state, c, nowMs = Date.now()) {
   if (Number.isFinite(nextAt) && nextAt > 0) {
     return !(Number.isFinite(lastRem) && lastRem >= nextAt);
   }
-  // Sorted but never played: at most once per cooldown window.
-  if (Number.isFinite(lastRem) && Number(nowMs) - lastRem < Number(c.cooldownMs)) return false;
+    if (Number.isFinite(lastRem) && Number(nowMs) - lastRem < Number(c.cooldownMs)) return false;
   return true;
 }
 
@@ -100,7 +111,7 @@ function buildPotionReminderEmbed(client, c) {
       ].join("\n"),
     )
     .setFooter({
-      text: "DM Hogwarts: +profile → Privacy / Notifiche DM.",
+      text: "DM Hogwarts: [profilo sul sito](https://www.viniliecaffe.it/personalizza/) → Privacy / Notifiche DM.",
     });
 
   const url = resolvePotionsAbsoluteUrl(client, c);
@@ -198,8 +209,8 @@ async function remindUser(client, guild, sortingDoc, c, eventKey, slotKey) {
 }
 
 async function fireScheduledPotionReminder(client, guildId, userId) {
+  if (!potionRemindersAllowed(client)) return;
   const c = cfg(client);
-  if (!eventOpen(c)) return;
   const gid = normalizeId(guildId);
   const uid = normalizeId(userId);
   if (!gid || !uid) return;
@@ -211,22 +222,19 @@ async function fireScheduledPotionReminder(client, guildId, userId) {
   await remindUser(client, guild, { userId: uid }, c, eventKey, slotKey);
 }
 
-/**
- * Schedule site+DM reminder exactly when potions cooldown ends (same idea as vote reminders).
- * @param {import("discord.js").Client} client
- * @param {string} guildId
- * @param {string} userId
- * @param {Date|string|number} nextAvailableAt
- */
 function schedulePotionReminder(client, guildId, userId, nextAvailableAt) {
   if (!client) return;
   const c = cfg(client);
   if (!c.enabled) return;
+  if (!potionRemindersAllowed(client)) return;
   const gid = normalizeId(guildId);
   const uid = normalizeId(userId);
   if (!gid || !uid) return;
   const targetMs = new Date(nextAvailableAt || 0).getTime();
   if (!Number.isFinite(targetMs) || targetMs <= 0) return;
+  const eventCfg = resolveHogwartsEventConfig(client);
+  const eventEndMs = Number(eventCfg?.endMs);
+  if (Number.isFinite(eventEndMs) && targetMs > eventEndMs) return;
 
   const key = timerKey(gid, uid);
   const existing = potionReminderTimers.get(key);
@@ -261,8 +269,11 @@ function schedulePotionReminder(client, guildId, userId, nextAvailableAt) {
 }
 
 async function restorePendingPotionReminders(client) {
+  if (!potionRemindersAllowed(client)) {
+    clearAllPotionReminderTimers();
+    return;
+  }
   const c = cfg(client);
-  if (!eventOpen(c)) return;
   const guildId = normalizeId(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id);
   if (!guildId) return;
 
@@ -300,8 +311,11 @@ async function restorePendingPotionReminders(client) {
 }
 
 async function runPotionReminderSweep(client) {
+  if (!potionRemindersAllowed(client)) {
+    clearAllPotionReminderTimers();
+    return;
+  }
   const c = cfg(client);
-  if (!eventOpen(c)) return;
   const eventCfg = resolveHogwartsEventConfig(client);
   const eventKey = normalizeId(eventCfg?.eventKey) || "hogwarts";
   const guildId = normalizeId(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id);
@@ -332,8 +346,7 @@ function startPotionReminderLoop(client) {
       global.logger?.warn?.("[HOGWARTS POTIONS] reminder sweep:", err?.message || err);
     });
   };
-  // Keep timers referenced so restarts/idle GC cannot drop the reminder loop.
-  setTimeout(() => {
+    setTimeout(() => {
     restorePendingPotionReminders(client).catch((err) => {
       global.logger?.warn?.("[HOGWARTS POTIONS] restore reminders:", err?.message || err);
     });

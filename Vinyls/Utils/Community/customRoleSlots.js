@@ -12,7 +12,6 @@ function uniqDiscordRoleIds(list) {
   return out;
 }
 
-/** Tier premium: max 2 custom role totali (primario + secondario), non cumulabili con altri ruoli. */
 const CUSTOM_ROLE_DOUBLE_SLOT_ROLE_IDS = uniqDiscordRoleIds([
   IDs?.roles?.DoubleBooster,
   IDs?.roles?.VIPplus,
@@ -20,7 +19,6 @@ const CUSTOM_ROLE_DOUBLE_SLOT_ROLE_IDS = uniqDiscordRoleIds([
   IDs?.roles?.Level120,
 ]);
 
-/** Tier base: max 1 custom role totale (anche se ne hai più di uno tra Level 50 / Booster / VIP). */
 const CUSTOM_ROLE_SINGLE_SLOT_ROLE_IDS = uniqDiscordRoleIds([
   IDs?.roles?.VIP,
   IDs?.roles?.ServerBooster,
@@ -47,7 +45,6 @@ function normalizeCustomRoleExtraUnlocks(arg) {
   return Boolean(arg);
 }
 
-/** Unlock contest / vincita settimana evento 2 o 3: al massimo +1 slot rispetto a zero (non si somma ad altri tier). */
 function getCustomRoleSlotCapWithContest(member, extraUnlocks) {
   const fromRoles = getCustomRoleSlotCapFromRoles(member);
   return Math.max(fromRoles, normalizeCustomRoleExtraUnlocks(extraUnlocks) ? 1 : 0);
@@ -57,7 +54,6 @@ function memberHasCustomRolePanelAccess(member, extraUnlocks) {
   return getCustomRoleSlotCapWithContest(member, extraUnlocks) >= 1;
 }
 
-/** Il secondo slot esiste solo col tier premium (2 totali), mai da cumulo Level50+Booster ecc. */
 function memberHasCustomRoleSecondarySlot(member) {
   return getCustomRoleSlotCapFromRoles(member) >= 2;
 }

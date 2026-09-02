@@ -6,9 +6,7 @@ const GIVEAWAY_LEAVE_PREFIX = "giveaway_leave:";
 const GIVEAWAY_COUNT_PREFIX = "giveaway_count:";
 const GIVEAWAY_REROLL_PREFIX = "giveaway_reroll:";
 
-/** Timeout max di Node (~24.8g): oltre si riprogramma. */
 const MAX_TIMEOUT_MS = 2_147_483_647;
-/** @type {Map<string, NodeJS.Timeout>} */
 const pendingEndTimers = new Map();
 
 function parseDuration(input) {
@@ -317,9 +315,6 @@ function clearScheduledGiveawayEnd(giveawayId) {
   }
 }
 
-/**
- * Programma la fine esatta del giveaway (non aspetta il poll ogni minuto).
- */
 function scheduleGiveawayEnd(client, giveawayId, endAt) {
   const id = String(giveawayId || "").trim();
   if (!client || !id) return;
@@ -434,10 +429,6 @@ async function rerollGiveaway(interaction, client) {
   return true;
 }
 
-/**
- * Termina forzatamente un giveaway attivo (estrazione vincitori) via messageId.
- * @returns {{ ok: boolean, winnerIds?: string[], error?: string }}
- */
 async function endGiveawayByMessageId(messageId, client) {
   if (!messageId || !client) return { ok: false, error: "Parametri mancanti." };
   const giveaway = await Giveaway.findOne({ messageId: String(messageId) }, GIVEAWAY_READ_PROJECTION).lean();
@@ -450,10 +441,6 @@ async function endGiveawayByMessageId(messageId, client) {
   return { ok: true, winnerIds: result.winnerIds || [] };
 }
 
-/**
- * Modifica campi di un giveaway attivo via messageId.
- * @returns {{ ok: boolean, giveaway?: object, error?: string }}
- */
 async function editGiveawayByMessageId(messageId, client, patch = {}) {
   if (!messageId || !client) return { ok: false, error: "Parametri mancanti." };
   const giveaway = await Giveaway.findOne({ messageId: String(messageId) }, GIVEAWAY_READ_PROJECTION).lean();
@@ -519,10 +506,6 @@ async function editGiveawayByMessageId(messageId, client, patch = {}) {
   return { ok: true, giveaway: plain };
 }
 
-/**
- * Cancella un giveaway attivo (senza vincitori) via messageId.
- * @returns {{ ok: boolean, deletedMessage?: boolean, error?: string }}
- */
 async function deleteGiveawayByMessageId(messageId, client, options = {}) {
   const deleteMessage = options.deleteMessage !== false;
   if (!messageId || !client) return { ok: false, error: "Parametri mancanti." };
@@ -564,9 +547,6 @@ async function deleteGiveawayByMessageId(messageId, client, options = {}) {
   return { ok: true, deletedMessage };
 }
 
-/**
- * Reroll via messageId (comando slash). Restituisce { ok, newWinnerId?, error? }.
- */
 async function rerollGiveawayByMessageId(messageId, client) {
   if (!messageId || !client) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Parametri mancanti." };
   const giveaway = await Giveaway.findOne({ messageId: String(messageId) }, GIVEAWAY_READ_PROJECTION).lean();
@@ -614,8 +594,7 @@ async function runScheduledEnds(client) {
       global.logger?.warn?.("[Giveaway] endGiveaway failed:", g._id, err?.message),
     );
   }
-  // Riprogramma gli attivi (utile dopo restart / timeout lunghi).
-  const upcoming = await Giveaway.find({ ended: false, cancelled: { $ne: true }, endAt: { $gt: now } }, { _id: 1, endAt: 1 }).lean();
+    const upcoming = await Giveaway.find({ ended: false, cancelled: { $ne: true }, endAt: { $gt: now } }, { _id: 1, endAt: 1 }).lean();
   for (const g of upcoming) {
     if (!pendingEndTimers.has(String(g._id))) {
       scheduleGiveawayEnd(client, g._id.toString(), g.endAt);

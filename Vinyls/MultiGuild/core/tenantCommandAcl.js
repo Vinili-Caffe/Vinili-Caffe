@@ -40,7 +40,6 @@ const CATEGORY_META = {
 
 const PREFIX_TYPE_LABEL = "Prefix";
 
-/** Comandi applicazione tenant (globali) e metadati dashboard. */
 const TENANT_SLASH_COMMAND_DEFS = Object.freeze([
   {
     name: "partnership",
@@ -103,7 +102,6 @@ const SLASH_TYPE_LABELS = Object.freeze({
 const MODE_INCLUDE = "include";
 const MODE_EXCLUDE = "exclude";
 
-/** Prefix economia (Vinyls/Prefix/Economy): in modalità Galeoni non devono essere bloccati dall'ACL dashboard. */
 const GALEONI_ECONOMY_PREFIX_COMMANDS = new Set([
   "bal",
   "work",
@@ -144,7 +142,6 @@ function normalizeCommandName(commandName) {
     .replace(/[^a-z0-9_-]/g, "");
 }
 
-/** Prefix → normalized name; slash → `s:<type>:<exactName>`. */
 function normalizeCommandAclKey(raw) {
   const s = String(raw || "").trim();
   const m = /^s:([123]):(.+)$/i.exec(s);
@@ -234,16 +231,10 @@ function cloneCommandAcl(acl) {
   };
 }
 
-/** Slash chat partnership: fonte ereditata dai prefix partnership senza ACL esplicita. */
 function partnershipSlashAclKey() {
   return "s:1:partnership";
 }
 
-/**
- * Su main/full-feature questi prefix sono comandi community (Member), non toolkit PM.
- * Non devono ereditare l'ACL di `/partnership` (es. solo Partner Manager), altrimenti
- * `+profile` / `+help` risultano bloccati a tutti i member.
- */
 const VINILI_SKIP_PARTNERSHIP_ACL_INHERIT = new Set([
   "profile",
   "help",
@@ -348,8 +339,7 @@ function folderToCategoryId(folderName) {
   if (raw === "dev" || raw === "developer") return "dev";
   if (raw === "community") return "community";
   if (CATEGORY_META[raw]) return raw;
-  // Partnership-oriented prefix files live under Staff but are also seeded as partnership.
-  return raw;
+    return raw;
 }
 
 function loadPrefixCommandMeta() {
@@ -395,8 +385,7 @@ function loadPrefixCommandMeta() {
           if (typeof cooldownRaw === "number" && Number.isFinite(cooldownRaw) && cooldownRaw > 0) {
             cooldownSeconds = cooldownRaw >= 1000 ? Math.round(cooldownRaw / 1000) : Math.round(cooldownRaw);
           }
-          // Preferisci la prima definizione; non sovrascrivere se già presente.
-          if (map[name]) continue;
+                    if (map[name]) continue;
           map[name] = {
             description: resolvePrefixCommandDescription(name, mod?.description),
             usage: String(mod?.usage || "").trim(),
@@ -467,8 +456,7 @@ function loadSlashCommandMeta() {
           const aclKey = `s:${discordType}:${discordName}`;
           if (seen.has(aclKey)) continue;
           seen.add(aclKey);
-          // Partnership slash/context: usa categoria partnership anche se il file è in Staff.
-          let cat = category;
+                    let cat = category;
           const nameLc = discordName.toLowerCase();
           if (
             GLOBAL_TENANT_COMMAND_NAMES.has(nameLc) ||
@@ -528,8 +516,7 @@ function resolveCatalogFeatures(guildId) {
       const featureKey = mapCategoryToFeature(key) || key;
       all[featureKey] = true;
     }
-    // Feature catalog keys non mappati da categoria.
-    for (const extra of [
+        for (const extra of [
       "ticket",
       "security",
       "community_automations",
@@ -553,9 +540,7 @@ function resolveCatalogFeatures(guildId) {
   if (access?.managed && access?.entry?.features && typeof access.entry.features === "object") {
     return access.entry.features;
   }
-  // Dashboard/site-api may resolve before the dynamic registry cache is warm.
-  // Fall back to registry defaults so enabled packs (e.g. partnership) still appear.
-  try {
+      try {
     const defaults = readRegistryFile()?.defaults?.features;
     if (defaults && typeof defaults === "object") return { ...defaults };
   } catch (_) {}
@@ -666,8 +651,7 @@ function buildFullViniliCommandCatalog() {
       resolveTenantPrefixFeatureCategory(name) ||
       String(meta.category || "utility").toLowerCase() ||
       "utility";
-    // Partnership-facing prefix commands even if file lives under Staff/Utility.
-    const catId = PARTNERSHIP_PREFIX_COMMANDS.has(name) ? "partnership" : category;
+        const catId = PARTNERSHIP_PREFIX_COMMANDS.has(name) ? "partnership" : category;
     const row = ensureCategory(catId);
     row.commands.push({
       name,
@@ -801,10 +785,6 @@ function channelPassesChannelAcl(channel, channelId, acl) {
   return true;
 }
 
-/**
- * ACL Mongo grezza per un comando (senza fallback permissions.json).
- * Usata sul main: se c'è un override dashboard, è autoritativo.
- */
 function peekDashboardCommandAcl(guildId, commandName) {
   if (!isMultiGuildLayerEnabled()) return null;
   const gid = String(guildId || "").trim();
@@ -826,10 +806,6 @@ function peekDashboardCommandAcl(guildId, commandName) {
   return cloneCommandAcl(acl);
 }
 
-/**
- * Su guild main/evento: i canali "consentiti" della dashboard devono poter
- * ampliare la whitelist di permissions.json (altrimenti #economy nel modal non conta).
- */
 function dashboardChannelIncludeAllows(message, commandName) {
   if (!isMultiGuildLayerEnabled()) return false;
   const guildId = String(message?.guild?.id || "").trim();
@@ -856,9 +832,7 @@ function resolveTenantCommandAcl(message, commandName, options = {}) {
   const cmd = normalizeCommandName(commandName);
   if (!cmd) return null;
 
-  // Durante l'economia Galeoni i comandi economy restano su permissions.json
-  // (già verificato): l'ACL dashboard non deve disabilitarli / ristringerli.
-  if (protectedOrMain && shouldSkipAclForGaleoniEconomy(message, cmd)) {
+      if (protectedOrMain && shouldSkipAclForGaleoniEconomy(message, cmd)) {
     return null;
   }
 
@@ -908,10 +882,7 @@ function resolveTenantCommandAcl(message, commandName, options = {}) {
     if (inherited) {
       acl = inherited;
     } else if (protectedOrMain) {
-      // permissions.json è già applicato da checkPrefixPermission (con live-fallback ruoli).
-      // Non riapplicarlo qui: causava deny spurii (cache ruoli / grant evento).
-      // Solo override Mongo dalla dashboard devono passare da questo gate.
-      acl = null;
+                        acl = null;
     }
   }
   if (!acl || isAclEmpty(acl)) return null;

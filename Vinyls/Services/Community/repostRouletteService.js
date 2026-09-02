@@ -142,9 +142,6 @@ function scheduleRepostAttempt(client, guildId, channelId, delayMs, attempt) {
   pendingByChannel.set(cid, timer);
 }
 
-/**
- * Dopo la fine di un minigame: attesa lunga + coordinamento con reminder Coffee e altri post bot.
- */
 function scheduleRepostRouletteAfterMinigame(client, guildId, channelId) {
   const gid = String(guildId || "").trim();
   const cid = String(channelId || "").trim();

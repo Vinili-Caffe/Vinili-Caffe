@@ -151,9 +151,6 @@ async function removeHogwartsRolesFromMember(member, cfg) {
   return { removed };
 }
 
-/**
- * Blacklist permanente + wipe completo progressi Hogwarts (galeoni, shop, punti casa, sorting, ruoli).
- */
 async function blacklistAndWipeHogwartsUser(client, userId, options = {}) {
   const uid = String(userId || "").trim();
   const gid = String(options.guildId || IDs.guilds?.main || "").trim();

@@ -396,7 +396,6 @@ function broomRobSuccessBonus(broomItem) {
   return BROOM_ROB_SUCCESS_BONUS[id] ?? 0;
 }
 
-/** Multa più bassa se la chance (con scopa) è alta: Aurora ~5, base piena a ~35%. */
 function scaleRobFailPenalty(basePenalty, chance) {
   const penalty = Math.max(0, Math.floor(Number(basePenalty) || 0));
   if (penalty <= 0) return 0;
@@ -405,10 +404,6 @@ function scaleRobFailPenalty(basePenalty, chance) {
   return Math.max(5, Math.floor(penalty * factor));
 }
 
-/**
- * Applica moltiplicatore animale ai punti casa (solo se evento live).
- * @returns {Promise<{ points: number, multiplier: number, petName: string }>}
- */
 async function applyPetHousePointsBoost(client, guildId, userId, basePoints) {
   const base = Math.max(0, Math.floor(Number(basePoints) || 0));
   if (base <= 0 || !isHogwartsShopBoostActive(client)) {
@@ -445,10 +440,6 @@ async function applyPetHousePointsBoost(client, guildId, userId, basePoints) {
   };
 }
 
-/**
- * Calcola chance furto con bonus scopa (senza consumare usi).
- * @returns {Promise<{ chance: number, bonus: number, broomName: string, boostUsesRemaining: number|null, boostExhausted: boolean }>}
- */
 async function peekRobSuccessChance(client, guildId, userId, baseChance) {
   const base = Math.max(1, Math.min(ROB_SUCCESS_CAP, Math.floor(Number(baseChance) || 35)));
   if (!isHogwartsShopBoostActive(client)) {
@@ -477,9 +468,6 @@ async function peekRobSuccessChance(client, guildId, userId, baseChance) {
   };
 }
 
-/**
- * @returns {Promise<{ chance: number, bonus: number, broomName: string }>}
- */
 async function resolveRobSuccessChance(client, guildId, userId, baseChance) {
   const peeked = await peekRobSuccessChance(client, guildId, userId, baseChance);
   if (peeked.bonus <= 0) {
@@ -507,9 +495,6 @@ async function resolveRobSuccessChance(client, guildId, userId, baseChance) {
   };
 }
 
-/**
- * Consuma un utilizzo bacchetta per il duello e indica se il boost tier è ancora attivo.
- */
 async function resolveDuelWandBoost(client, guildId, userId, wandItem) {
   const wandId = String(wandItem?.id || "").trim();
   if (!wandId || !isHogwartsShopBoostActive(client)) {

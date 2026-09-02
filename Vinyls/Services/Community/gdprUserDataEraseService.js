@@ -220,8 +220,7 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
   const uid = String(userId || "").trim();
   const scopeGuildId = String(guildId || "").trim();
   const profileQuery = { userId: uid };
-  // Self-service / founder erase passano il guild main: non toccare i profili degli altri server.
-  if (scopeGuildId) profileQuery.guildId = scopeGuildId;
+    if (scopeGuildId) profileQuery.guildId = scopeGuildId;
   const profiles = await ActivityUserProfile.find(profileQuery).lean().catch(() => []);
   let deleted = 0;
   let trimmed = 0;
@@ -291,8 +290,7 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
         profile.events = { hogwarts: attachHogwartsRetentionMarkers(hogwartsSlice, cfg) };
       }
     }
-    // Progress/badge/prefs partnership: restano sul profilo anche dopo erase community.
-    if (keepTenantPartnership) profile.tenantPartnership = tenantPartnership;
+        if (keepTenantPartnership) profile.tenantPartnership = tenantPartnership;
     if (Object.keys(profile).length) payload.profile = profile;
     await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => null);
   }
@@ -364,16 +362,12 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
           const row = JSON.parse(trimmed);
           if (String(row?.userId || "").trim() === uid) deleted.hogwartsJsonlRows += 1;
         } catch {
-          /* skip */
-        }
+                  }
       }
     }
   } else {
     deleted.userLeaveBackups = countRows(await UserLeaveBackup.deleteMany({ userId: uid }).catch(() => null));
-    // Mute snapshot & custom perks cleanup queue vivono su ActivityUserProfile: se il profilo
-    // viene cancellato/troncato da eraseActivityUserProfiles() qui sotto, spariscono con esso;
-    // altrimenti (profilo trimmed/retained) vanno ripuliti esplicitamente.
-    deleted.muteRoleSnapshotProfiles = countRows(
+                deleted.muteRoleSnapshotProfiles = countRows(
       await ActivityUserProfile.updateMany(
         { userId: uid, "profile.muteRoleSnapshot.roleIds.0": { $exists: true } },
         { $set: { "profile.muteRoleSnapshot.roleIds": [], "profile.muteRoleSnapshot.at": null } },
@@ -435,7 +429,7 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
     site,
     notes: [
       "I casi moderazione e i pagamenti non vengono cancellati automaticamente.",
-      "Storico partnership (staff.partnerActions) e progressi +profile pm restano conservati.",
+      "Storico partnership (staff.partnerActions) e progressi [profilo sul sito](https://www.viniliecaffe.it/personalizza/) pm restano conservati.",
       "Con guildId impostato, i profili ActivityUser degli altri server non vengono toccati.",
       "Durante l'evento Hogwarts attivo, smistamento e profilo evento possono restare conservati.",
       "I transcript ticket su disco non vengono eliminati: solo il testo descrizione nel DB viene oscurato.",

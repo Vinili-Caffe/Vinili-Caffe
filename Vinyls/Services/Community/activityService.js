@@ -165,8 +165,7 @@ function isMongoUnavailableError(err) {
 }
 
 function logActivityBumpError(label, err) {
-  // Shutdown / reconnect: non spammare stack inutili.
-  if (isMongoUnavailableError(err) || !isMongoReady()) return;
+    if (isMongoUnavailableError(err) || !isMongoReady()) return;
   const msg = err instanceof Error ? err.stack || err.message : String(err);
   const line = `[ACTIVITY] ${label}: ${msg}`;
   try {
@@ -207,7 +206,6 @@ function getLastNHourKeys(hours) {
   return keys;
 }
 
-/** Hour keys (Rome) from startInclusive to endExclusive, capped to now. */
 function getHourKeysBetween(startDate, endDate) {
   const startMs = new Date(startDate).getTime();
   let endMs = new Date(endDate).getTime();
@@ -237,8 +235,7 @@ function getDayKeysBetween(startDate, endDate) {
     keys.push(getDayKey(new Date(t)));
     t += DAY_MS;
   }
-  // unique preserving order
-  return Array.from(new Set(keys));
+    return Array.from(new Set(keys));
 }
 
 function secondsOverlappingRange(startedAt, rangeStartMs, rangeEndMs, nowMs = Date.now()) {
@@ -845,8 +842,7 @@ async function getOrCreateActivityUser(guildId, userId) {
     try {
       const doc = await ActivityUserProfile.findOneAndUpdate(filter, update, options);
       if (doc) return doc;
-      // Alcune race/upsert restituiscono null senza throw: rileggi o crea.
-      const existing = await ActivityUserProfile.findOne(filter).catch(() => null);
+            const existing = await ActivityUserProfile.findOne(filter).catch(() => null);
       if (existing) return existing;
       try {
         const created = await ActivityUserProfile.create({ guildId: gid, userId: uid });
@@ -1955,7 +1951,6 @@ async function syncLiveVoiceSessionsFromGateway(client) {
 }
 
 const LIVE_VOICE_EXP_BATCH_SIZE = Math.max(10, Math.min(200, Number(process.env.LIVE_VOICE_EXP_BATCH_SIZE) || 80));
-/** Minimo secondi “live” prima di scrivere daily/hourly mentre sei ancora in vocale (default 15). */
 const VOICE_ACTIVITY_BUCKET_FLUSH_SEC = Math.max(5, Math.min(120, Number(process.env.VOICE_ACTIVITY_BUCKET_FLUSH_SEC) || 15));
 
 async function runLiveVoiceExpTick(client) {
@@ -2052,7 +2047,6 @@ function stopLiveVoiceExpLoop(client) {
   return true;
 }
 
-/** Chiama in shutdown prima di closeMongoGraceful. */
 function suspendAllLiveVoiceExp() {
   liveVoiceExpSuspended = true;
   for (const client of liveVoiceExpClients) {

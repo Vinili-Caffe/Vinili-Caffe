@@ -36,7 +36,6 @@ function successText(subject, verb, reason) {
   return `${left} • ${String(reason).trim()}`;
 }
 
-/** Nuova durata totale dal momento della case: il tempo già passato viene scontato. */
 function resolveCaseDurationChange(row, nextDurationMs) {
   const now = Date.now();
   const next = Math.max(0, Math.floor(Number(nextDurationMs) || 0));
@@ -181,21 +180,23 @@ async function validateModerationTarget(message, member, actionLabel, targetUser
 async function successReply(message, subject, verb, reason = "") {
   const description = successText(subject, verb, String(reason || "").trim());
   const { PREFIX_DISPATCH_BRANDING_DONE_KEY } = require("../../MultiGuild/utils/tenantEmbedBranding");
+  const embed = new EmbedBuilder()
+    .setColor("#57F287")
+    .setDescription(description);
+  if (message?.fromSanzionaAppCommand && message?.author) {
+    const authorLabel = String(
+      message.member?.displayName || message.author.globalName || message.author.username || "Staff",
+    ).trim();
+    embed.setFooter({ text: `Eseguito da ${authorLabel}`.slice(0, 2048) });
+  }
   const payload = {
-    embeds: [
-      new EmbedBuilder()
-        .setColor("#57F287")
-        .setDescription(description),
-    ],
-    // Conferme mod: solo testo + footer. Niente author/banner/thumbnail brand.
-    includeAuthor: false,
+    embeds: [embed],
+        includeAuthor: false,
     includeBanner: false,
     includeThumbnail: false,
     [PREFIX_DISPATCH_BRANDING_DONE_KEY]: true,
   };
-  // Prefer reply so pending-prefix recovery can detect completion via message.reference.
-  // Interaction proxies (Sanziona modal) only expose channel.send.
-  if (typeof message?.reply === "function") {
+      if (typeof message?.reply === "function") {
     const replied = await message.reply(payload).catch(() => null);
     if (replied) return replied;
   }
@@ -206,9 +207,7 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
   if (!user) return false;
   const safeReason = String(reason || "").trim();
   const safeDuration = String(durationText || "").trim();
-  // Il nome server può contenere `|` (es. "Hogwarts | Nitro"): sostituiscilo così
-  // l'unico `|` nel DM resta il separatore del motivo, come nei mute.
-  const safeGuildName = String(guildName || "").replace(/\|/g, "•").trim() || "questo server";
+      const safeGuildName = String(guildName || "").replace(/\|/g, "•").trim() || "questo server";
   const actionKey = String(action || "").toLowerCase();
   const withReason = safeReason ? ` | **${safeReason}**` : "";
   let baseText = "";
@@ -609,8 +608,7 @@ async function runNamed(name, message, args, client) {
     if (!reason || !reason.trim()) {
       return reply(message, client, "Mute", "Il motivo è obbligatorio per il mute. Uso: `+mute [utente] [durata] [motivo]`", "Red");
     }
-    // Snapshot PRIMA del timeout: dopo timeout/strip i ruoli non sono più recuperabili.
-    try {
+        try {
       const { captureMuteRoleSnapshot } = require("../../Services/Moderation/mutedMirrorRoleService");
       await captureMuteRoleSnapshot(member, { reason: "Timeout Discord / +mute (pre-timeout)" });
     } catch (err) {
@@ -1025,8 +1023,7 @@ async function runNamed(name, message, args, client) {
     const target = await pickUser(message, args, 0);
     if (cmd === "moderations") {
       const limit = target.userId ? 10 : 25;
-      // Fetch extra: i mute di chi ha lasciato il server restano in DB ma non si mostrano.
-      const candidates = await findActiveModerations(message.guild.id, target.userId || null, Math.max(limit * 4, 50));
+            const candidates = await findActiveModerations(message.guild.id, target.userId || null, Math.max(limit * 4, 50));
       const rows = [];
       for (const row of candidates) {
         if (rows.length >= limit) break;

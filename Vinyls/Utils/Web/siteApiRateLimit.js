@@ -9,6 +9,24 @@ function webhookPath(req) {
   return String(req.originalUrl || req.url || req.path || "").split("?")[0];
 }
 
+function isReadOnlySiteGet(req) {
+  if (String(req.method || "").toUpperCase() !== "GET") return false;
+  const path = webhookPath(req);
+  if (path.includes("/push/vapid-public-key")) return true;
+  if (path === "/webhooks/site-chrome-prefs") return true;
+  if (path.startsWith("/webhooks/site-rank-card")) return true;
+  if (path.startsWith("/webhooks/site-custom-profile")) return true;
+  if (path.startsWith("/webhooks/site-profile-extras")) return true;
+  if (path.startsWith("/webhooks/site-users")) return true;
+  if (path.startsWith("/webhooks/site-reviews")) return true;
+  if (path.startsWith("/webhooks/site-hogwarts-sorting/forbidden-books")) return true;
+  if (path === "/webhooks/site-rules") return true;
+  if (path.startsWith("/webhooks/site-notifications") && !path.includes("/push/subscribe")) return true;
+  if (path.startsWith("/webhooks/site-live-event")) return true;
+  if (path.startsWith("/webhooks/site-kick-live")) return true;
+  return false;
+}
+
 function shouldSkipRateLimit(req) {
   if (String(req.method || "").toUpperCase() === "OPTIONS") return true;
   const path = webhookPath(req);
@@ -17,11 +35,12 @@ function shouldSkipRateLimit(req) {
     path === "/webhooks/site-api/health" ||
     path === "/webhooks/health" ||
     path === "/webhooks/status" ||
-    // Kick chat webhooks: volume alto, non devono mai prendere 429.
-    path === "/webhooks/site-kick-sub/events" ||
-    // Area staff: molte GET parallele (access + manage + organico + inbox + poll).
-    // I POST restano rate-limitati.
-    (method === "GET" && path.startsWith("/webhooks/site-staff-"))
+        path === "/webhooks/site-kick-sub/events" ||
+        (method === "POST" &&
+      path.startsWith("/webhooks/site-notifications") &&
+      (path.includes("/push/subscribe") || path.includes("/push/unsubscribe"))) ||
+    isReadOnlySiteGet(req) ||
+            (method === "GET" && path.startsWith("/webhooks/site-staff-"))
   );
 }
 
@@ -41,12 +60,11 @@ function createSiteApiRateLimiters() {
     legacyHeaders: false,
     skip: shouldSkipRateLimit,
     handler: rateLimitedJson,
-    // App behind nginx with trust proxy=true; IP spoofing is mitigated at the edge.
-    validate: { trustProxy: false },
+        validate: { trustProxy: false },
   };
 
-  const globalMax = parsePositiveInt(process.env.SITE_API_RATE_GLOBAL_MAX, 250);
-  const strictMax = parsePositiveInt(process.env.SITE_API_RATE_STRICT_MAX, 60);
+  const globalMax = parsePositiveInt(process.env.SITE_API_RATE_GLOBAL_MAX, 600);
+  const strictMax = parsePositiveInt(process.env.SITE_API_RATE_STRICT_MAX, 240);
 
   return {
     global: rateLimit({
@@ -71,8 +89,7 @@ const STRICT_WEBHOOK_PREFIXES = [
   "/webhooks/site-unmute",
   "/webhooks/site-users",
   "/webhooks/site-notifications",
-  // site-custom-profile: fuori dallo strict — editor fa GET+emojis+mutate in sequenza
-];
+  ];
 
 function mountSiteApiRateLimit(app) {
   const { global, strict } = createSiteApiRateLimiters();
@@ -80,7 +97,10 @@ function mountSiteApiRateLimit(app) {
   app.use((req, res, next) => {
     const path = webhookPath(req);
     if (!path.startsWith("/webhooks/")) return next();
-    const useStrict = STRICT_WEBHOOK_PREFIXES.some((prefix) => path.startsWith(prefix));
+    const method = String(req.method || "").toUpperCase();
+    const useStrict =
+      method !== "GET" &&
+      STRICT_WEBHOOK_PREFIXES.some((prefix) => path.startsWith(prefix));
     return (useStrict ? strict : global)(req, res, next);
   });
 }

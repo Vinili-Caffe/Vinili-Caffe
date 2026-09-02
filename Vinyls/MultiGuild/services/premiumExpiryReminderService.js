@@ -234,15 +234,10 @@ async function resolveNotifyUserId(client, guild, premium) {
   return null;
 }
 
-/**
- * Scansiona abbonamenti Premium con scadenza e invia DM 7/3/1 giorno prima.
- * Idempotente per (guild, until, soglia): un rinnovo (until nuovo) resetta i reminder.
- */
 async function runPremiumExpiryReminderSweep(client) {
   if (!client || !isMongoReady()) return { checked: 0, sent: 0, identitySuspended: 0 };
 
-  // Reset visuale Premium scaduto (nick/avatar/banner → default, snapshot resta).
-  let identitySuspended = 0;
+    let identitySuspended = 0;
   try {
     const { runPremiumIdentityExpirySweep } = require("./premiumIdentityLifecycleService");
     const idResult = await runPremiumIdentityExpirySweep(client);
@@ -296,8 +291,7 @@ async function runPremiumExpiryReminderSweep(client) {
     if (!delivered) continue;
 
     row.sent[String(days)] = Date.now();
-    // Catch-up: se mandiamo la soglia più urgente, marca quelle più lontane come fatte.
-    for (const larger of THRESHOLDS_DAYS) {
+        for (const larger of THRESHOLDS_DAYS) {
       if (larger > days) row.sent[String(larger)] = row.sent[String(larger)] || Date.now();
     }
     state[gid] = row;
@@ -334,8 +328,7 @@ function startPremiumExpiryReminderLoop(client, opts = {}) {
       });
   };
 
-  // Ritarda il primo giro: evita load subito al boot.
-  const firstDelay = Math.min(sweepMs, 3 * 60 * 1000);
+    const firstDelay = Math.min(sweepMs, 3 * 60 * 1000);
   const bootTimer = setTimeout(tick, firstDelay);
   if (typeof bootTimer.unref === "function") bootTimer.unref();
   const timer = setInterval(tick, sweepMs);

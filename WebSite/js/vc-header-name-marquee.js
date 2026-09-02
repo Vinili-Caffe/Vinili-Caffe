@@ -1,7 +1,3 @@
-/**
- * Marquee del nome brand in navbar (come il nome guild in dashboard).
- * Attiva lo scorrimento solo se il testo viene tagliato.
- */
 (function () {
   if (typeof window === "undefined") return;
   if (window.__vcHeaderSiteNameMarqueeWired) return;
@@ -12,12 +8,27 @@
   var TRACK_CLASS = "vc-header-site-name__track";
   var ROOT_CLASS = "vc-header-site-name";
 
+  function isMobileNavViewport() {
+    try {
+      if (window.matchMedia && window.matchMedia("(max-width: 1199.98px)").matches) return true;
+    } catch (e) {}
+    return false;
+  }
+
+    function wantsHeaderNavMarquee() {
+    return isMobileNavViewport();
+  }
+
   function isBrandNameLink(el) {
     if (!el || el.tagName !== "A") return false;
     if (el.classList.contains("vc-dashboard-header-guild-name")) return false;
     if (el.classList.contains("vc-header-logo-link")) return false;
-    var prev = el.previousElementSibling;
-    return Boolean(prev && prev.classList && prev.classList.contains("vc-header-logo-link"));
+    if (el.classList.contains("vc-header-site-name")) {
+      var prev = el.previousElementSibling;
+      return Boolean(prev && prev.classList && prev.classList.contains("vc-header-logo-link"));
+    }
+    var prev2 = el.previousElementSibling;
+    return Boolean(prev2 && prev2.classList && prev2.classList.contains("vc-header-logo-link"));
   }
 
   function collectBrandNameLinks(root) {
@@ -50,6 +61,19 @@
     } catch (e) {}
   }
 
+  function brandFallbackText(nameEl) {
+    var fallback = "Vinili & Caffè";
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var branded = String(window.VcI18n.t("brand.name") || "").trim();
+        if (branded && branded !== "brand.name") return branded;
+      }
+    } catch (eBrand) {}
+    var aria = String((nameEl && nameEl.getAttribute("aria-label")) || "").trim();
+    if (!aria || /vai alla homepage|go to homepage|homepage/i.test(aria)) return fallback;
+    return aria;
+  }
+
   function ensureStructure(nameEl) {
     if (!nameEl) return null;
     nameEl.classList.add(ROOT_CLASS);
@@ -65,7 +89,7 @@
     text.className = TEXT_CLASS;
     while (nameEl.firstChild) text.appendChild(nameEl.firstChild);
     if (!String(text.textContent || "").trim()) {
-      text.textContent = String(nameEl.getAttribute("aria-label") || "Vinili & Caffè");
+      text.textContent = brandFallbackText(nameEl);
     }
     track.appendChild(text);
     nameEl.appendChild(track);
@@ -78,10 +102,25 @@
     var trackEl = parts.track;
     var textEl = parts.text;
     var textNodes = trackEl.querySelectorAll("." + TEXT_CLASS);
+    var nextText = String(textEl.textContent || "").trim();
+
+    if (wantsHeaderNavMarquee() && nameEl.classList.contains("is-marquee")) {
+      var prevText = String(nameEl.getAttribute("data-vc-marquee-text") || "");
+      var hasClone = trackEl.querySelector("." + TEXT_CLASS + ".is-clone");
+      var stored = Number(nameEl.getAttribute("data-vc-marquee-dist") || 0);
+      if (prevText === nextText && hasClone && Number.isFinite(stored) && stored > 0) {
+        void trackEl.offsetWidth;
+        var liveDist = Math.max(Math.round(trackEl.scrollWidth / 2), 36);
+        if (Math.abs(liveDist - stored) <= 3) {
+          return;
+        }
+      }
+    }
 
     nameEl.classList.remove("is-marquee");
     nameEl.style.removeProperty("--vc-marquee-distance");
     nameEl.style.removeProperty("--vc-marquee-duration");
+    nameEl.removeAttribute("data-vc-marquee-dist");
     for (var i = textNodes.length - 1; i >= 1; i--) {
       textNodes[i].parentNode.removeChild(textNodes[i]);
     }
@@ -90,7 +129,19 @@
 
     void nameEl.offsetWidth;
     var containerW = nameEl.clientWidth || 0;
-    if (containerW <= 0) return;
+    if (containerW <= 0) {
+      containerW = Math.floor(nameEl.getBoundingClientRect().width || 0);
+    }
+    if (containerW <= 0) {
+      if (wantsHeaderNavMarquee()) {
+        window.setTimeout(function () {
+          syncOne(nameEl);
+        }, 120);
+      }
+      return;
+    }
+
+    if (!wantsHeaderNavMarquee()) return;
 
     var probe = document.createElement("span");
     probe.textContent = textEl.textContent || "";
@@ -115,22 +166,25 @@
     probe.parentNode.removeChild(probe);
 
     var active = nameEl.classList.contains("is-marquee");
-    if (textW <= containerW + 2) return;
-    if (active && textW <= containerW + 6) return;
-    if (!active && textW <= containerW + 8) return;
+    var forceNav = wantsHeaderNavMarquee();
+    if (!forceNav && textW <= containerW + 2) return;
+    if (!forceNav && active && textW <= containerW + 6) return;
+    if (!forceNav && !active && textW <= containerW + 8) return;
 
     var clone = textEl.cloneNode(true);
     clone.setAttribute("aria-hidden", "true");
     clone.classList.add("is-clone");
-    trackEl.appendChild(clone);
     textEl.style.paddingInlineEnd = "2rem";
+    trackEl.appendChild(clone);
 
-    var segmentW = Math.ceil(textEl.getBoundingClientRect().width || textEl.scrollWidth || textW);
-    if (segmentW <= 0) segmentW = textW + 32;
+    void trackEl.offsetWidth;
+    var segmentW = Math.max(Math.round(trackEl.scrollWidth / 2), 36);
     nameEl.style.setProperty("--vc-marquee-distance", segmentW + "px");
     var duration = Math.max(8, Math.min(30, segmentW / 26));
     nameEl.style.setProperty("--vc-marquee-duration", duration.toFixed(1) + "s");
     nameEl.classList.add("is-marquee");
+    nameEl.setAttribute("data-vc-marquee-text", nextText);
+    nameEl.setAttribute("data-vc-marquee-dist", String(segmentW));
   }
 
   function syncAll(root) {
@@ -143,7 +197,7 @@
     timer = setTimeout(function () {
       timer = null;
       syncAll(root);
-    }, 150);
+    }, 320);
   }
 
   window.__vcSyncHeaderSiteNameMarquee = function (root) {
@@ -182,6 +236,16 @@
     document.addEventListener("vc:langchange", function () {
       schedule(document);
     });
+    try {
+      if (typeof MutationObserver === "function") {
+        var mo = new MutationObserver(function () {
+          schedule(document);
+        });
+        var links = collectBrandNameLinks(document);
+        for (var li = 0; li < links.length; li += 1) mo.observe(links[li], { childList: true, subtree: true, characterData: true });
+        window.__vcHeaderSiteNameMo = mo;
+      }
+    } catch (eMo) {}
     setTimeout(function () {
       schedule(document);
     }, 120);
@@ -200,9 +264,6 @@
   }
 })();
 
-/**
- * Marquee generico per testi lunghi (`[data-vc-marquee]`), stesso effetto del nome in navbar.
- */
 (function () {
   if (typeof window === "undefined") return;
   if (window.__vcNameMarqueeWired) return;

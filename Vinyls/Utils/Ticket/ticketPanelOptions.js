@@ -387,8 +387,7 @@ function collectDiscordMentionIds(text) {
   const raw = String(text || "");
   for (const m of raw.matchAll(/<@&(\d{16,22})>/g)) roles.push(m[1]);
   for (const m of raw.matchAll(/<@!?(\d{16,22})>/g)) {
-    // skip role mentions already captured as <@&id>
-    if (raw.includes(`<@&${m[1]}>`)) continue;
+        if (raw.includes(`<@&${m[1]}>`)) continue;
     users.push(m[1]);
   }
   return {
@@ -397,11 +396,6 @@ function collectDiscordMentionIds(text) {
   };
 }
 
-/**
- * Replace plain role names (and markdown-wrapped names) with real <@&id> mentions.
- * Prefer the given role IDs (dashboard mentionOnOpen / support roles); never leave
- * "SENIOR MODERATOR"-style plain text when we know the role id.
- */
 function rewriteRoleNamesToMentions(text, guild, roleIds = []) {
   let out = String(text || "");
   const mentioned = new Set(collectDiscordMentionIds(out).roles);

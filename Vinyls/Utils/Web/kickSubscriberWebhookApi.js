@@ -121,8 +121,7 @@ async function handleKickSubEventsWebhook(client, req, res) {
       req.headers["kick-event-type"] || req.headers["x-event-type"] || "",
     ).trim();
 
-    // Probe / health (senza header Kick): 200, non 401 — altrimenti Kick può disattivare i delivery.
-    if (!messageId && !timestamp && !signature && !eventType) {
+        if (!messageId && !timestamp && !signature && !eventType) {
       return res.status(200).json({ ok: true, ignored: "missing_kick_headers" });
     }
 

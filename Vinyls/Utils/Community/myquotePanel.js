@@ -6,7 +6,6 @@ const {
 const { DEFAULT_FOOTER_TEXT } = require("../Embeds/defaultFooter");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
-// 10 embed + setImage full-size → Discord 500 su edit/paginazione. 5 resta stabile.
 const PER_PAGE = 5;
 const PAGE_ACTIONS = new Set(["first", "prev", "next", "last"]);
 const DELETE_BUTTONS_PER_ROW = 5;
@@ -156,7 +155,6 @@ function isUsableQuoteImageUrl(url) {
   return /discord(?:app)?\.com|discord\.media/i.test(u) || /\.(png|jpe?g|gif|webp)(\?|$)/i.test(u);
 }
 
-/** URL più leggeri per lista embed (meno 500 Discord). */
 function toDisplayQuoteImageUrl(url) {
   const raw = String(url || "").trim();
   if (!isUsableQuoteImageUrl(raw)) return "";

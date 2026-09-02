@@ -174,8 +174,7 @@
       state.unread = Number(data.unread) || 0;
       render();
     } catch (e) {
-      /* ignore */
-    } finally {
+          } finally {
       state.loading = false;
     }
   }
@@ -205,8 +204,7 @@
         return;
       }
     } catch (e) {
-      /* ignore */
-    }
+          }
     await fetchNotifications();
   }
 

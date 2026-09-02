@@ -1,25 +1,14 @@
-/**
- * Markov noise from game bots (Pokétwo catch spam, etc.).
- * Block at collect + generate + disk purge.
- */
 
-/** Official Pokétwo application id (top.gg / poketwo.net). */
 const POKETWO_BOT_ID = "716390085896962058";
-/** Legacy / mistaken id previously used in filters — still blocked if present. */
 const POKETWO_BOT_ID_LEGACY = "716390085825232906";
 
 const BLOCKED_BOT_IDS = Object.freeze([POKETWO_BOT_ID, POKETWO_BOT_ID_LEGACY]);
 
 const BLOCKED_BOT_ID_SET = new Set(BLOCKED_BOT_IDS);
 
-/** Mentions / names that must never enter or leave the corpus. */
 const POKETWO_TEXT_RE =
   /pok[eéèêë]two|poke[\s._-]*two|<@!?716390085896962058>|<@!?716390085825232906>/iu;
 
-/**
- * Pokétwo CLI-style commands users type in chat (with or without @mention).
- * Keep narrow: do not match casual words like "pokemon" / "trade".
- */
 const POKETWO_COMMAND_RE =
   /(?:^|[\s|@])p\s*--\s*[a-z0-9]{1,16}\b|(?:^|\s)p!\s*[a-z]/iu;
 
@@ -47,8 +36,7 @@ function messageMentionsBlockedBot(message) {
   for (const id of BLOCKED_BOT_IDS) {
     if (users.has(id)) return true;
   }
-  // Fallback: any mentioned bot whose username looks like Pokétwo.
-  try {
+    try {
     for (const user of users.values()) {
       if (!user?.bot) continue;
       const name = String(user.username || user.globalName || "")
@@ -59,8 +47,7 @@ function messageMentionsBlockedBot(message) {
       if (BLOCKED_BOT_ID_SET.has(String(user.id || ""))) return true;
     }
   } catch {
-    // ignore
-  }
+      }
   return false;
 }
 

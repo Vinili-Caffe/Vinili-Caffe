@@ -929,9 +929,7 @@ async function maybeAnnouncePersistentCurseEndAfterMinigame(client, game) {
 }
 
 function isBasiliskBlockActiveForGame(game) {
-  // Non legare a game.endsAt: a fine round (es. Torre) il riconteggio deve
-  // ancora escludere i pietrificati anche dopo lo scadere del timer.
-  return Boolean(game?.basilisk);
+      return Boolean(game?.basilisk);
 }
 
 async function resolvePhoenixPetOwnerIds(guildId, userIds) {
@@ -1057,9 +1055,7 @@ async function isBasiliskBlockedForUser(client, guildId, userId, game) {
   if (!basilisk || !isBasiliskBlockActiveForGame(game)) return false;
   const uid = String(userId || "").trim();
   if (!uid) return false;
-  // Snapshot sul game = verità per questo round (anche se la maledizione persistente
-  // è già stata consumata/annunciata come terminata all'avvio).
-  if (basilisk.mode === "whole_house") {
+      if (basilisk.mode === "whole_house") {
     const blockedHouseIds = Array.isArray(basilisk.blockedHouseIds) && basilisk.blockedHouseIds.length
       ? basilisk.blockedHouseIds
       : [String(basilisk.struckHouseId || basilisk.announceHouseId || "").trim()].filter(Boolean);
@@ -1106,9 +1102,7 @@ async function runMinigameStartWithBasilisk(client, cfg, gameType, startFn, opti
       const ended = planScope === SCOPE_HOUSE
         ? consumePersistentCurseRound(client, planScope, curseHouseId)
         : consumePersistentCurseRound(client, planScope);
-      // Anche l'ultimo round della maledizione deve bloccare i pietrificati.
-      // L'annuncio "terminata" va a FINE minigioco, non all'avvio (sennò sembra già liberi).
-      if (ended) {
+                  if (ended) {
         plan.announceEndOnFinish = true;
         plan.endedAnnounceHouseId = ended.announceHouseId || plan.announceHouseId;
         plan.endedAnnounceScope = planScope;

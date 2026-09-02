@@ -33,8 +33,7 @@ const DEFAULT_THANK_YOU_DESCRIPTION_MAIN_EXTRA =
 
 function resolveDefaultThankYouDescription(guildId = null) {
   const gid = String(guildId || "").trim();
-  // Nei tenant la riga sui premi non c’è. Solo sul server principale (default).
-  if (gid && !isViniliFullFeatureGuild(gid)) {
+    if (gid && !isViniliFullFeatureGuild(gid)) {
     return DEFAULT_THANK_YOU_DESCRIPTION_BASE;
   }
   return `${DEFAULT_THANK_YOU_DESCRIPTION_BASE}\n${DEFAULT_THANK_YOU_DESCRIPTION_MAIN_EXTRA}`;
@@ -107,7 +106,6 @@ function truncateModalValue(value, max = 4000) {
   return text.length > max ? text.slice(0, max) : text;
 }
 
-/** Discord modals often hide values with custom emoji markup — strip for prefill display. */
 function formatThankYouEmbedValueForModal(value) {
   return String(value ?? "")
     .replace(/<a?:[^\s>]+:\d+>/g, "")

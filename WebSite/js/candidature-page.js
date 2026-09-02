@@ -209,8 +209,7 @@
     tiers.innerHTML = window.VCPartnerManagerRewards.buildWebsiteTierHtml();
   }
 
-  /** Contenuto markup in <template> in candidature/index.html (evita HTML in stringhe JS). */
-  function setRoleIntroFromTemplate(kind) {
+    function setRoleIntroFromTemplate(kind) {
     var intro = byId("vc-candidature-role-intro");
     if (!intro) return;
     intro.replaceChildren();
@@ -333,8 +332,7 @@
     }
   }
 
-  /** In locale (localhost) usa submitApiUrlLocal se valorizzato, così niente CORS verso il dominio pubblico. */
-  function resolvedSubmitApiUrl() {
+    function resolvedSubmitApiUrl() {
     var c = cfgCandidature();
     var local = String(c.submitApiUrlLocal || "").trim();
     if (isLocalFrontendOrigin() && local) {
@@ -358,8 +356,7 @@
     return String(c.submitApiUrl || "").trim();
   }
 
-  /** Bot su IP/dominio diverso dalla pagina: senza CORS il fetch fallisce anche se /webhooks/status si apre in un tab. */
-  function hintCorsOriginForRemoteApi(apiUrl) {
+    function hintCorsOriginForRemoteApi(apiUrl) {
     var pageOrigin = "";
     try {
       pageOrigin = window.location.origin;
@@ -392,8 +389,7 @@
     );
   }
 
-  /** localhost/127: o proxy dev (3042) o promemoria VPS. */
-  function hintLocalApiHostnameMismatch(api) {
+    function hintLocalApiHostnameMismatch(api) {
     try {
       var u = new URL(String(api || ""));
       var host = String(u.hostname || "").toLowerCase();
@@ -443,8 +439,7 @@
     return Boolean(row && row.eligible === true);
   }
 
-  /** Tab selezionabile: invio possibile, oppure solo lettura (cooldown, già ruolo, blocco Helper con altri ruoli, ecc.). */
-  function isKindInteractive(d, kind) {
+    function isKindInteractive(d, kind) {
     if (!d || d.ok !== true) return false;
     var row = kind === "partnermanager" ? d.partnermanager : d.helper;
     if (!row) return false;
@@ -463,8 +458,7 @@
     ) {
       return true;
     }
-    /* Code sconosciuto ma messaggio da API: mostra comunque tab + campi (sola lettura + avviso). */
-    if (String((row && row.message) || "").trim()) return true;
+        if (String((row && row.message) || "").trim()) return true;
     return false;
   }
 
@@ -507,8 +501,7 @@
     var b1 = byId("vc-candidature-tab-helper");
     var b2 = byId("vc-candidature-tab-pm");
     if (!b1 || !b2) return;
-    // Sempre entrambi i tab cliccabili: così si vedono i due moduli (anche già Helper/PM o con altri blocchi). L’invio resta disattivato dal bottone e dall’API.
-    b1.disabled = false;
+        b1.disabled = false;
     b2.disabled = false;
     b1.setAttribute("aria-disabled", "false");
     b2.setAttribute("aria-disabled", "false");

@@ -288,8 +288,7 @@ async function processVoiceTranscriptionMessage(message, client, cfg, options = 
         "[VOICE TRANSCRIBE] Nessuna API configurata: imposta OPENAI_API_KEY o GROQ_API_KEY nel .env",
       );
     } else if (err?.code === "ATTACHMENT_GONE" || /attachment_download_failed status=404/.test(code)) {
-      // CDN Discord scaduto / allegato rimosso (tipico su catchup di messaggi vecchi).
-      saveVoiceTranscriptionCheckpoint(message.channelId, message.id, message.createdTimestamp);
+            saveVoiceTranscriptionCheckpoint(message.channelId, message.id, message.createdTimestamp);
       global.logger?.info?.("[VOICE TRANSCRIBE] Skip: allegato vocale non più scaricabile (404 CDN).");
     } else {
       global.logger?.warn?.("[VOICE TRANSCRIBE]", err?.message || err);

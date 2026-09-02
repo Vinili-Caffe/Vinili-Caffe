@@ -55,17 +55,6 @@ async function saveStore(store) {
   return setBotState(BOT_STATE_KEY, normalizeStore(store));
 }
 
-/**
- * @param {{
- *   type: string,
- *   guildId: string,
- *   guildName?: string|null,
- *   ownerId?: string|null,
- *   memberCount?: number|null,
- *   actorId?: string|null,
- *   note?: string|null,
- * }} input
- */
 async function appendBotGuildLifecycleEvent(input) {
   const event = normalizeEvent({
     ...input,

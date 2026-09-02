@@ -3,6 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require(
 const { BannerPrivacy } = require("../../Schemas/Community/communitySchemas");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { siteUserProfilePagePlainRef } = require("../../../shared/web/siteTicketsPageRef");
 const BANNER_MODE_PREFIX = "banner_mode:";
 
 function normalize(text) {
@@ -89,7 +90,6 @@ function encodeViewState(state) {
   return `${normalized.user ? 1 : 0}${normalized.server ? 1 : 0}`;
 }
 
-/** Banner profilo/server: se hash `a_*` è animato → URL `.gif`, altrimenti PNG statico ad alta risoluzione. */
 function resolveDisplayBannerUrl(subject, size = 4096) {
   if (!subject?.banner) return null;
   const animated = String(subject.banner || "").startsWith("a_");
@@ -195,7 +195,7 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
     .setAuthor({ name: authorLabel, iconURL: userAvatarUrlDynamic(user) || undefined })
     .setColor("#6f4e37")
     .setFooter({
-      text: `Puoi disabilitare la visualizzazione del tuo banner tramite il comando +profile.\n${totalViews} Views 👁️`,
+      text: `Puoi disabilitare la visualizzazione del tuo banner tramite il ${siteUserProfilePagePlainRef()}.\n${totalViews} Views 👁️`,
     });
   const imageUrl = activeMode === "server" ? serverBanner : userBanner;
   if (!imageUrl) {

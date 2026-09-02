@@ -7,14 +7,16 @@ server {
     root /var/www/viniliecaffe;
     index index.html;
     location ~ "^/user/(\d{17,20})/personalizza/?$" {
-        try_files /user/personalizza/index.html =404;
+        return 301 /personalizza/?id=$1;
     }
     location ~ "^/users/(\d{17,20})/customize/?$" {
-        return 301 /user/personalizza/?id=$1&target=rank;
+        return 301 /personalizza/?id=$1&target=rank;
     }
-    location = /user/customize { return 301 /user/personalizza/?target=rank; }
-    location = /user/customize/ { return 301 /user/personalizza/?target=rank; }
-    location = /user/custom { return 301 /user/personalizza/?target=primary; }
+    location = /user/personalizza { return 301 /personalizza/; }
+    location = /user/personalizza/ { return 301 /personalizza/; }
+    location = /user/customize { return 301 /personalizza/?target=rank; }
+    location = /user/customize/ { return 301 /personalizza/?target=rank; }
+    location = /user/custom { return 301 /personalizza/?target=primary; }
     location = /user/custom/ {
         # Keep ?target= via client stub; nginx can't easily rewrite query here.
         try_files /user/custom/index.html =404;
@@ -25,12 +27,15 @@ server {
     location = /users { return 301 /user/; }
     location = /users/ { return 301 /user/; }
     # Stesso codice invite di site.config.json (path /api/v10/invites/CODICE?with_counts=true).
+    # resolver + variabile: nginx -t non fallisce se discord.com non risolve al reload.
+    resolver 127.0.0.53 valid=300s ipv6=off;
     location = /discord-invite.json {
-        proxy_pass https://discord.com/api/v10/invites/viniliecaffe?with_counts=true;
+        set $discord_host discord.com;
+        proxy_pass https://$discord_host/api/v10/invites/viniliecaffe?with_counts=true;
         proxy_ssl_server_name on;
         proxy_set_header Host discord.com;
         proxy_set_header Accept application/json;
-        add_header Cache-Control "no-store";
+        add_header Cache-Control "public, max-age=60";
     }
     add_header X-Content-Type-Options nosniff;
     add_header Referrer-Policy strict-origin-when-cross-origin;
@@ -56,6 +61,10 @@ server {
     location = /richieste/ { return 302 /staff/pause/; }
     location = /richieste/stato { return 302 /staff/pause/; }
     location = /richieste/stato/ { return 302 /staff/pause/; }
+
+    # Dopo chiusura evento Hogwarts (attivare a fine stagione):
+    # location ^~ /evento { return 302 /; }
+
     location = /staff/directory { return 302 /staff/organico/; }
     location = /staff/directory/ { return 302 /staff/organico/; }
     location = /staff/valutazioni { return 302 /staff/; }
@@ -73,15 +82,15 @@ server {
         try_files $uri $uri/index.html =404;
     }
 
-    # JS/CSS: revalidate subito (il ?v= invalida comunque la cache).
+    # JS/CSS versionati (?v=): cache lunga — il query string invalida al deploy.
     location ^~ /js/ {
-        add_header Cache-Control "public, max-age=0, must-revalidate" always;
-        add_header CDN-Cache-Control "max-age=0, must-revalidate" always;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header CDN-Cache-Control "max-age=31536000, immutable" always;
         try_files $uri =404;
     }
     location ^~ /css/ {
-        add_header Cache-Control "public, max-age=0, must-revalidate" always;
-        add_header CDN-Cache-Control "max-age=0, must-revalidate" always;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header CDN-Cache-Control "max-age=31536000, immutable" always;
         try_files $uri =404;
     }
 

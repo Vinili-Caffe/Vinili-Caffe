@@ -88,11 +88,6 @@ function resolveNode(client) {
   );
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild | null} guild
- * @param {string} query vuoto = brano in riproduzione
- */
 async function resolveGuildLyrics(client, guild, query) {
   if (!guild?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const guildId = guild.id;

@@ -182,7 +182,7 @@ const UI_EN = {
   notify_sentRecorded: "<:success:1461731530333229226> Notification sent and recorded in profile.",
   profile_userNotFound: "<:vegax:1443934876440068179> User not found.",
   profile_botNotAllowed: "❌ You cannot view a **bot**'s profile!",
-  profile_tenantPmOnly: "<:vegax:1443934876440068179> On this server `+profile` is available for you or users with the Partner Manager role.",
+  profile_tenantPmOnly: "<:vegax:1443934876440068179> On this server [profilo sul sito](https://www.viniliecaffe.it/personalizza/) is available for you or users with the Partner Manager role.",
 };
 
 const UI_IT = {
@@ -302,7 +302,7 @@ const UI_IT = {
   notify_sentRecorded: "<:success:1461731530333229226> Notifica inviata e registrata nel profilo.",
   profile_userNotFound: "<:vegax:1443934876440068179> Utente non trovato.",
   profile_botNotAllowed: "❌ Non puoi vedere il **profilo** di un bot!",
-  profile_tenantPmOnly: "<:vegax:1443934876440068179> Su questo server `+profile` è disponibile per te o per utenti con ruolo Partner Manager.",
+  profile_tenantPmOnly: "<:vegax:1443934876440068179> Su questo server [profilo sul sito](https://www.viniliecaffe.it/personalizza/) è disponibile per te o per utenti con ruolo Partner Manager.",
 };
 
 const BADGE_IT = {

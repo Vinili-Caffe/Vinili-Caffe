@@ -113,8 +113,7 @@ async function execute(interaction, client) {
 
   const action = String(interaction.customId || "").slice(PREFIX.length);
 
-  // Vecchi bottoni staff/claim: ignora con messaggio chiaro
-  if (action.startsWith("staff_ok:") || action.startsWith("staff_no:") || action === "claim") {
+    if (action.startsWith("staff_ok:") || action.startsWith("staff_no:") || action === "claim") {
     await interaction
       .reply({
         content:

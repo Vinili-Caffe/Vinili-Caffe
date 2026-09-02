@@ -5,7 +5,7 @@ const { listBirthdayDue, markBirthdayCelebratedByIds } = require("./profileStore
 const { applyAgeBracketRoleFromBirthday } = require("../../Utils/Community/ageBracketRoles");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
-const BIRTHDAY_ROLE_ID = "1474729085719548048";
+const BIRTHDAY_ROLE_ID = String(IDs?.roles?.birthdayFlair || "").trim();
 const BIRTHDAY_REACTIONS = ["<a:VC_Events:1482706144953897223>", "<a:VC_HelloKittyGift:1329447876857958471>",];
 let birthdayCronMain = null;
 let birthdayCronBackup = null;
@@ -78,7 +78,6 @@ async function assignBirthdayRole(guild, userId) {
   }
 }
 
-/** Toglie il ruolo “compleanno oggi” a chi ce l’ha (reset a mezzanotte Roma). */
 async function stripBirthdayFlairRoleFromGuild(guild) {
   if (!guild || !BIRTHDAY_ROLE_ID) return;
   let role = guild.roles.cache.get(BIRTHDAY_ROLE_ID);

@@ -14,8 +14,7 @@ function isBotDev(userId, client) {
 }
 
 async function sendChannel(message, content) {
-  // Fake countdown: resta plain text (VC_Alert altrimenti diventa notice embed).
-  const sent = await message.channel
+    const sent = await message.channel
     .send({ content, __skipNoticeEmbed: true })
     .catch(() => null);
   return Boolean(sent);

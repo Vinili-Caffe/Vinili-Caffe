@@ -33,6 +33,7 @@
     listQuietGen: 0,
     presenceTimer: null,
     presenceLastSent: "",
+    presenceResumeTimer: null,
     staffAccess: false,
     staffCategories: [],
     composeOpen: false,
@@ -119,7 +120,24 @@
     if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
       return local || remote || "/webhooks/site-web-tickets";
     }
-    return remote || local || "/webhooks/site-web-tickets";
+    if (remote && remote.indexOf("{{") < 0) return remote;
+    return "/webhooks/site-web-tickets";
+  }
+
+  function isCoarseMobile() {
+    try {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+      if (Number(navigator.maxTouchPoints || 0) > 0) return true;
+    } catch (eMob) {}
+    return false;
+  }
+
+  function ticketPollIntervalMs() {
+    return isCoarseMobile() ? 20000 : 8000;
+  }
+
+  function ticketPresenceIntervalMs() {
+    return isCoarseMobile() ? 45000 : 20000;
   }
 
   function toastHostEl() {
@@ -307,9 +325,7 @@
     if (kind === "bot" || id === "bot_import" || id === VINILI_BOT_USER_ID || /^vinili/i.test(name)) {
       return VINILI_BOT_AVATAR_URL;
     }
-    // Non usare avatar Discord "di oggi" (cache by id/name): sui transcript storici
-    // finirebbe la foto del nick attuale, non quella del periodo del messaggio.
-    return "";
+            return "";
   }
 
   function rememberUserAvatar(userId, avatarUrl, userName) {
@@ -363,8 +379,7 @@
     }
   }
 
-  /** Toglie ?view=staff (e query) → /tickets/ (+ hash ticket se c’è). */
-  function redirectAwayFromStaffView() {
+    function redirectAwayFromStaffView() {
     try {
       if (!hasStaffViewQuery() && state.viewMode !== "staff") return;
       state.viewMode = "user";
@@ -407,8 +422,7 @@
 
   function listQuery() {
     var q = [];
-    // Richiedi scope=staff già con ?view=staff (prima di conoscere staffCategories).
-    if (isStaffMode || wantsStaffInbox()) {
+        if (isStaffMode || wantsStaffInbox()) {
       q.push("scope=staff");
       if (state.filter) q.push("status=" + encodeURIComponent(state.filter));
       if (state.categoryFilter) q.push("category=" + encodeURIComponent(state.categoryFilter));
@@ -500,8 +514,7 @@
     D.clear(ticketComposerDraftKey(id || state.selectedId));
   }
 
-  /** Chiude il pannello chat e azzera hash + persistenza selezione. */
-  function clearTicketSelection(opts) {
+    function clearTicketSelection(opts) {
     opts = opts || {};
     if (state.selectedId) {
       flushComposerTextFromDom();
@@ -540,8 +553,7 @@
     var ui = D && D.load("web_ticket_ui");
     if (!ui || !ui.selectedId) return;
     var id = String(ui.selectedId);
-    // Solo se il ticket è nella lista corrente (evita chat aperta fuori filtro).
-    if (state.tickets.some(function (t) { return t.id === id; })) {
+        if (state.tickets.some(function (t) { return t.id === id; })) {
       state.selectedId = id;
     } else if (D) {
       D.clear("web_ticket_ui");
@@ -609,8 +621,7 @@
     if (Array.isArray(data.staffCategories) && data.staffCategories.length) {
       state.staffCategories = data.staffCategories;
     } else if (state.staffAccess) {
-      // API dice staff ma categories vuote: tieni/ripristina inbox usabile.
-      if (!state.staffCategories.length) {
+            if (!state.staffCategories.length) {
         state.staffCategories = ["supporto"];
       }
     } else if (Array.isArray(data.staffCategories)) {
@@ -618,10 +629,8 @@
     }
     if (data.guildId) state.guildId = String(data.guildId);
     syncStaffMode();
-    // ?view=staff senza permessi inbox → forza /tickets/ (vista utente).
-    if (denyStaffViewIfUnauthorized()) {
-      /* redirected */
-    }
+        if (denyStaffViewIfUnauthorized()) {
+          }
     return true;
   }
 
@@ -704,6 +713,10 @@
 
   function openTicket(id, quiet) {
     if (!id || !getToken()) return Promise.resolve();
+    if (state.selectedId === id && state.detail && state.messages && state.messages.length) {
+      refreshListActiveState();
+      return Promise.resolve();
+    }
     if (state.selectedId && state.selectedId !== id) {
       flushComposerTextFromDom();
       saveTicketComposerDraft();
@@ -717,6 +730,7 @@
     setHashTicket(id);
     saveTicketComposerDraft();
     markOpenTicketNotificationsRead(id);
+    refreshListActiveState();
     if (!quiet) setStatus("Apertura chat…", false);
     return fetchJson(apiBase() + "/" + encodeURIComponent(id), {
       method: "GET",
@@ -751,13 +765,15 @@
         });
         state.composeOpen = false;
         setStatus("");
-        renderShell();
+        refreshChatPane();
         applyPendingReplyAfterOpen();
         settleRateDockSoon();
         sendTicketPresence({ force: true });
-        scrollChatBottom(true);
-        hydrateContentRefs(state.messages);
-        queueMissingAvatarsFromMessages(state.messages);
+        requestAnimationFrame(function () {
+          scrollChatBottom(true);
+          hydrateContentRefs(state.messages);
+          queueMissingAvatarsFromMessages(state.messages);
+        });
         if (state.detail && state.detail.userId) {
           queueContentResolve({ userIds: [String(state.detail.userId)] });
         }
@@ -834,8 +850,7 @@
     if (opts.trustPermissions && ticket.permissions) {
       perms = Object.assign({}, ticket.permissions);
     } else if (prev.permissions) {
-      // WS / snapshot senza permissions: tieni i permessi locali…
-      perms = Object.assign({}, prev.permissions);
+            perms = Object.assign({}, prev.permissions);
     } else if (ticket.permissions) {
       perms = Object.assign({}, ticket.permissions);
     }
@@ -854,8 +869,7 @@
       var isHighStaff = perms.isHighStaff === true || perms.canSwitchCategory === true;
       var bypassWrite = perms.canBypassClaimWrite === true;
       if (perms.canBypassClaimWrite == null) {
-        var cat = String(ticket.category || "").trim();
-        bypassWrite = Boolean(isHighStaff && cat !== "high");
+        bypassWrite = Boolean(isHighStaff);
       }
       var bypassManage = Boolean(isHighStaff || bypassWrite);
       var staffPanel = Boolean(!closed && isStaffViewer);
@@ -908,8 +922,7 @@
     if (!state.detail) return perms;
     if (isStaffMode && state.staffCategories.length) {
       var cat = String(state.detail.category || "").trim();
-      // Nei ticket web restano solo /partnership e +desc (partnership).
-      if (cat === "partnership" && state.staffCategories.indexOf(cat) >= 0) {
+            if (cat === "partnership" && state.staffCategories.indexOf(cat) >= 0) {
         return Object.assign({}, perms, { canUseCommands: perms.canReply !== false });
       }
     }
@@ -970,8 +983,7 @@
     return false;
   }
 
-  /** Allinea la lista realtime ai filtri API (evita flash di ticket altrui in «I miei»). */
-  function ticketMatchesCurrentList(ticket) {
+    function ticketMatchesCurrentList(ticket) {
     if (!ticket || !ticket.id) return false;
     var status = String(ticket.status || "");
     var isOpenish = status === "open" || status === "claimed";
@@ -1030,8 +1042,7 @@
       return t;
     });
     if (!found) {
-      // Nuovo ticket fuori dalla pagina corrente: aggiorna la pagina dal server.
-      scheduleLoadListQuiet();
+            scheduleLoadListQuiet();
       if (state.detail && state.detail.id === ticket.id) {
         state.detail = ticket;
         refreshChatChrome();
@@ -1054,9 +1065,17 @@
   }
 
   function ticketDisplayName(t) {
-    var name = String((t && (t.channelName || t.subject)) || "").trim();
-    if (name) return name;
-    if (t && t.ticketNumber) return "#" + t.ticketNumber;
+    var name = String((t && (t.displayName || t.authorName)) || "").trim();
+    if (name && name !== "Utente Discord") return name.replace(/#\d+$/, "");
+    var raw = String((t && (t.channelName || t.subject)) || "").trim();
+    if (raw) {
+      var sep = raw.lastIndexOf("᲼");
+      if (sep >= 0) raw = raw.slice(sep + 1).trim();
+      raw = raw.replace(/^(supporto|partnership|highstaff|high|perks)[\s—–\-]+/i, "").trim();
+      raw = raw.replace(/[\s—–\-]+/g, " ").replace(/\s+/g, " ").trim();
+      if (raw) return raw;
+    }
+    if (t && t.ticketNumber) return "Ticket " + t.ticketNumber;
     return "Ticket";
   }
 
@@ -1250,8 +1269,7 @@
     }
     var name = String((m && m.authorRoleName) || "").trim();
     var key = String((m && m.authorRoleKey) || "").trim();
-    // Opener / partner / utenti: mostra Member/VIP/… ; mai "Staff"
-    if (kind === "user" || isTicketCustomerMessage(m)) {
+        if (kind === "user" || isTicketCustomerMessage(m)) {
       if (!name) {
         name = resolveStaffRoleName(m.authorId);
         if (!key) key = resolveStaffRoleKey(m.authorId);
@@ -1266,8 +1284,7 @@
       name = resolveStaffRoleName(m.authorId);
       if (!key) key = resolveStaffRoleKey(m.authorId);
     }
-    // Mai badge generico "Staff"
-    if (!name || /^staff$/i.test(name)) return "";
+        if (!name || /^staff$/i.test(name)) return "";
     var cls = "vc-wt-msg__role";
     if (key) cls += " vc-wt-msg__role--" + key;
     else if (kind === "staff") cls += " vc-wt-msg__role--staff";
@@ -1286,6 +1303,7 @@
   function guildDiscordChannelUrl(channelId) {
     var gid = String(state.guildId || cfg.guildId || "").trim();
     var cid = String(channelId || "").trim();
+    if (cid === "1442569095068254219") return "/tickets/";
     if (!gid || !cid) return "";
     return "https://discord.com/channels/" + encodeURIComponent(gid) + "/" + encodeURIComponent(cid);
   }
@@ -1409,8 +1427,7 @@
     );
   }
 
-  /** Pulisce dump transcript/embed (`Title:`, `Description:`, id emoji, `\n`) per anteprime lista. */
-  function cleanImportedTranscriptPreview(raw) {
+    function cleanImportedTranscriptPreview(raw) {
     var s = String(raw || "");
     s = s.replace(/\\n/gi, " ");
     s = s.replace(/\[Embed\s+\d+\]/gi, " ");
@@ -1459,8 +1476,7 @@
     } else {
       raw = raw.replace(/\s*@utente\b/gi, "");
     }
-    // Placeholder generici da menzioni non risolte.
-    raw = raw.replace(/\s*@(?:ruolo|canale)\b/gi, "");
+        raw = raw.replace(/\s*@(?:ruolo|canale)\b/gi, "");
     raw = raw.replace(/\s*#canale\b/gi, "");
     raw = raw.replace(/\s+/g, " ").trim();
     if (!raw || isUselessMessageContent(raw)) {
@@ -1469,8 +1485,7 @@
     return raw.length > 120 ? raw.slice(0, 119) + "…" : raw;
   }
 
-  /** Shortcode unicode Discord più comuni nei transcript ticket. */
-  var UNICODE_EMOJI_SHORTCODES = {
+    var UNICODE_EMOJI_SHORTCODES = {
     white_small_square: "▫",
     black_small_square: "▪",
     white_medium_small_square: "◽",
@@ -1554,8 +1569,7 @@
       .trim();
   }
 
-  /** Nome claimer: ticket → cache menzioni → messaggi → hint transcript. */
-  function resolveClaimFallbackName(hint) {
+    function resolveClaimFallbackName(hint) {
     var fromTicket = state.detail && state.detail.claimedByName;
     if (!isInvisibleOrEmptyPersonName(fromTicket)) return String(fromTicket).trim();
     var uid = resolveClaimFallbackUserId();
@@ -1580,8 +1594,7 @@
     return "";
   }
 
-  /** Chi ha confermato/chiuso: closedBy → claimer → hint. */
-  function resolveCloseFallbackName(hint) {
+    function resolveCloseFallbackName(hint) {
     var fromClosed = state.detail && state.detail.closedByName;
     if (!isInvisibleOrEmptyPersonName(fromClosed)) return String(fromClosed).trim();
     var uid = resolveCloseFallbackUserId();
@@ -1644,11 +1657,7 @@
     );
   }
 
-  /**
-   * Sostituisce `:Nome:` con emoji guild / unicode.
-   * Se non risolta, lascia il shortcode (va protetto dal markdown `_italic_`).
-   */
-  function replaceEmojiShortcodes(raw, stashFn, still, size) {
+    function replaceEmojiShortcodes(raw, stashFn, still, size) {
     return String(raw || "").replace(/:([a-zA-Z0-9_]{2,32}):/g, function (all, name) {
       var em = lookupGuildEmojiByName(name);
       if (em) {
@@ -1665,8 +1674,7 @@
     });
   }
 
-  /** Evita che `_` dentro `:VC_Ticket:` venga interpretato come italic Discord. */
-  function withProtectedEmojiShortcodes(raw, fn) {
+    function withProtectedEmojiShortcodes(raw, fn) {
     var toks = [];
     var s = String(raw || "").replace(/:([a-zA-Z0-9_]{2,32}):/g, function (all) {
       var key = "\uE030SC" + toks.length + "\uE031";
@@ -1769,11 +1777,7 @@
     return '<span class="vc-wt-msg-mention vc-wt-msg-mention--user" title="Menzione">@' + esc(name) + "</span>";
   }
 
-  /**
-   * Menzioni plain dai transcript Discord (`@nome`, `@user-id`, `#channel-id`).
-   * Da chiamare PRIMA di esc(), con stash di HTML.
-   */
-  function replacePlainTranscriptMentions(raw, stashFn) {
+    function replacePlainTranscriptMentions(raw, stashFn) {
     var s = String(raw || "");
     if (!s || (s.indexOf("@") < 0 && s.indexOf("#") < 0)) return s;
 
@@ -1818,16 +1822,14 @@
       );
     });
 
-    // Menzioni “vuote” da nick invisibili Discord (filler / ZWSP / ᲼ / hangul fillers) → chip leggibile
-    s = s.replace(
+        s = s.replace(
       /(^|[^\w/<])@([\u200B-\u200D\uFEFF\u3164\u115F\u1160\u2800\u00A0\u180E\u2060\u318D\uFFA0\u10FC\u{1CBC}\u17B4\u17B5]+)(?=$|\s|[.,!?;:)\]\}])/gu,
       function (_m, pre) {
         return pre + stashFn(plainUserMentionHtml(resolveClaimFallbackName(""), resolveClaimFallbackUserId()));
       },
     );
 
-    // Claim embed: qualsiasi cosa dopo "preso in carico da @" (nick invisibile, fancy unicode, @utente)
-    s = s.replace(
+        s = s.replace(
       /(preso in carico da|claimato da|assegnato a|taken over by|claimed by)\s+@([^\n<]*)/gi,
       function (_m, lead, rest) {
         return (
@@ -1838,16 +1840,14 @@
       },
     );
 
-    // Chiusura: "@utente ha confermato…" / "@ ha confermato…" / nick invisibile
-    s = s.replace(
+        s = s.replace(
       /@([^\n@<]{0,64}?)\s*(ha confermato|ha richiesto la chiusura|ha accettato la chiusura|confirmed|has confirmed)\b/gi,
       function (_m, who, verb) {
         var hint = String(who || "")
           .replace(/^@+/, "")
           .trim();
         if (hint && hint.toLowerCase() !== "utente" && !isInvisibleOrEmptyPersonName(hint)) {
-          // Se abbiamo già un nome vero nel testo, usa quello (con id chiusura se noto).
-          return (
+                    return (
             stashFn(plainUserMentionHtml(hint, resolveCloseFallbackUserId())) + " " + verb
           );
         }
@@ -1869,8 +1869,7 @@
       });
     }
 
-    // Display name tipici VC: "@goodboy di sushi", "@! lXo", oppure singolo token unicode.
-    s = s.replace(
+        s = s.replace(
       /(^|[^\w/<])@!?\s*((?!everyone\b|here\b)[\p{L}\p{N}_.=-]{1,40}(?:\s+(?:di|del|della|de|da)\s+[\p{L}\p{N}_.=-]{1,40})?)(?=$|[^\w#@.-])/gu,
       function (_m, pre, name) {
         if (/^https?:/i.test(name)) return _m;
@@ -1896,8 +1895,7 @@
     }
     var s = String(raw || "").replace(/[\u200B\u200C\u200D\uFEFF]/g, "");
 
-    // 0) Token Discord nativi (anche dentro embed transcript)
-    s = s.replace(/<(a?):([a-zA-Z0-9_]+):(\d{5,32})>/g, function (_all, anim, name, eid) {
+        s = s.replace(/<(a?):([a-zA-Z0-9_]+):(\d{5,32})>/g, function (_all, anim, name, eid) {
       var em = { id: eid, name: name, animated: anim === "a" };
       var html = guildEmojiImgHtml(em, false, 32);
       return html ? stash(html) : stash(":" + name + ":");
@@ -1935,16 +1933,14 @@
       );
     });
 
-    // 1) Code inline prima di tutto (non formattare dentro)
-    s = s.replace(/``([^`\n]+)``/g, function (_m, code) {
+        s = s.replace(/``([^`\n]+)``/g, function (_m, code) {
       return stash('<code class="vc-wt-md-code">' + esc(code) + "</code>");
     });
     s = s.replace(/`([^`\n]+)`/g, function (_m, code) {
       return stash('<code class="vc-wt-md-code">' + esc(code) + "</code>");
     });
 
-    // 2) Spoilers PRIMA di link/URL, così ||https://...|| resta nascosto
-    if (!opts.noSpoiler) {
+        if (!opts.noSpoiler) {
       s = s.replace(/\|\|([\s\S]+?)\|\|/g, function (_m, inner) {
         var innerHtml = formatDiscordInline(inner, { noSpoiler: true });
         return stash(
@@ -1955,8 +1951,7 @@
       });
     }
 
-    // 3) Link markdown [label](url) — anche protocol-relative //cdn...
-    s = s.replace(/\[([^\]]+)\]\(\s*<?((?:https?:)?\/\/[^)\s>]+)>?\s*\)/gi, function (_m, label, url) {
+        s = s.replace(/\[([^\]]+)\]\(\s*<?((?:https?:)?\/\/[^)\s>]+)>?\s*\)/gi, function (_m, label, url) {
       var href = normalizeContentUrl(url);
       return stash(
         '<a class="vc-wt-link" href="' +
@@ -1967,8 +1962,7 @@
       );
     });
 
-    // 4) Autolink URL (https + //cdn.discordapp.com…)
-    s = s.replace(/(?:https?:)?\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net|static\.klipy\.com|[a-z0-9.-]+\.[a-z]{2,})[^\s<>"']*/gi, function (url) {
+        s = s.replace(/(?:https?:)?\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net|static\.klipy\.com|[a-z0-9.-]+\.[a-z]{2,})[^\s<>"']*/gi, function (url) {
       return stash(formatAutolinkUrl(url));
     });
     s = s.replace(/https?:\/\/[^\s<>"']+/gi, function (url) {
@@ -1979,13 +1973,11 @@
     s = replaceEmojiShortcodes(s, stash, false, 32);
     s = replacePlainTranscriptMentions(s, stash);
 
-    // Timestamp Discord <t:UNIX:style> prima di esc
-    s = s.replace(/<t:(\d{9,12})(?::([tTdDfFR]))?>/g, function (_m, unix, style) {
+        s = s.replace(/<t:(\d{9,12})(?::([tTdDfFR]))?>/g, function (_m, unix, style) {
       return stash(formatDiscordTimestamp(unix, style));
     });
 
-    // Proteggi shortcode non risolti dal markdown _italic_
-    var scHold = [];
+        var scHold = [];
     s = s.replace(/:([a-zA-Z0-9_]{2,32}):/g, function (all) {
       var key = "\uE030SC" + scHold.length + "\uE031";
       scHold.push(all);
@@ -1994,15 +1986,13 @@
 
     s = esc(s);
 
-    // Formattazione Discord (ordine importante)
-    s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+        s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
     s = s.replace(/\*\*__(.+?)__\*\*/g, "<strong><u>$1</u></strong>");
     s = s.replace(/__\*\*(.+?)\*\*__/g, "<strong><u>$1</u></strong>");
     s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     s = s.replace(/__(.+?)__/g, "<u>$1</u>");
     s = s.replace(/~~(.+?)~~/g, "<s>$1</s>");
-    // spoiler residui (testo già escaped, senza URL già linkati)
-    s = s.replace(/\|\|(.+?)\|\|/g, function (_m, inner) {
+        s = s.replace(/\|\|(.+?)\|\|/g, function (_m, inner) {
       return (
         '<span class="vc-wt-md-spoiler" data-wt-spoiler="1" role="button" tabindex="0" title="Clicca per rivelare">' +
         inner +
@@ -2077,8 +2067,7 @@
     }
   }
 
-  /** Stile Discord: applica grassetto/titoli ma lascia i marker visibili. */
-  function mdMark(chars) {
+    function mdMark(chars) {
     return '<span class="vc-wt-md-mark">' + esc(chars) + "</span>";
   }
 
@@ -2682,9 +2671,7 @@
             var prevAv = state.avatarByUserId && state.avatarByUserId[id];
             rememberUserAvatar(id, row.avatarUrl, row.name);
             if (prevAv !== String(row.avatarUrl)) avatarsChanged = true;
-            // Solo lista ticket / header: NON patchare avatar sui messaggi chat
-            // (altrimenti transcript vecchi prendono la foto Discord attuale).
-            (state.tickets || []).forEach(function (t) {
+                                    (state.tickets || []).forEach(function (t) {
               if (t && String(t.userId) === String(id) && !t.authorAvatarUrl) {
                 t.authorAvatarUrl = String(row.avatarUrl);
               }
@@ -2709,8 +2696,7 @@
           state.linkCache[url] = links[url];
           if (JSON.stringify(prevL || null) !== JSON.stringify(links[url] || null)) linksChanged = true;
         });
-        // Rebuild completo se cambiano embed/link/avatar
-        if (linksChanged || avatarsChanged) {
+                if (linksChanged || avatarsChanged) {
           refreshListPane();
           refreshChatLogMarkup();
         } else if (namesChanged) refreshMentionTokenLabels();
@@ -2722,9 +2708,7 @@
 
   function queueMissingAvatarsFromMessages(messages) {
     var ids = [];
-    // Solo opener ticket in lista: i messaggi chat senza avatar restano con fallback lettera
-    // (evita foto Discord odierna su transcript storici).
-    void messages;
+            void messages;
     (state.tickets || []).forEach(function (t) {
       var id = String((t && t.userId) || "").trim();
       if (!/^\d{5,32}$/.test(id)) return;
@@ -2819,8 +2803,7 @@
       s = s.replace(/\s*@(?:ruolo|canale)\b/gi, "");
       s = s.replace(/\s*#canale\b/gi, "");
       s = s.replace(/\s+/g, " ").trim();
-      // Anteprima lista: testo semplice, niente chip @utente da menzioni non risolte.
-      return esc(s);
+            return esc(s);
     }
     var tokens = [];
     function stash(html) {
@@ -2848,8 +2831,7 @@
           queueContentResolve({ userIds: [uid] });
         }
         var userLabel = "@" + displayName;
-        // Mostra il ruolo solo se abbiamo già il vero nome (evita "@utente · Director").
-        if (roleName && displayName !== "utente") userLabel += " · " + roleName;
+                if (roleName && displayName !== "utente") userLabel += " · " + roleName;
         return stash(
           (userHref
             ? '<a class="vc-wt-msg-mention vc-wt-msg-mention--user' +
@@ -2903,7 +2885,7 @@
               esc(cid) +
               '" data-mention-type="channel" data-mention-id="' +
               esc(cid) +
-              '" title="Apri canale su Discord">'
+              '" title="Apri ticket sul sito">'
             : '<span class="vc-wt-msg-mention vc-wt-msg-mention--channel" data-mention-channel="' +
               esc(cid) +
               '" data-mention-type="channel" data-mention-id="' +
@@ -2965,8 +2947,7 @@
           img.classList.add("is-broken");
           return;
         }
-        // Cascata: animated webp → still webp → png → gif
-        var next = "";
+                var next = "";
         if (step < 1 && animated) {
           next = "https://cdn.discordapp.com/emojis/" + id + ".webp?size=" + size;
         } else if (step < 2) {
@@ -3154,13 +3135,11 @@
     return false;
   }
 
-  /** Messaggio dell'opener del ticket (lato cliente), anche se importato male come staff. */
-  function isTicketOpenerMessage(m) {
+    function isTicketOpenerMessage(m) {
     if (!m || !state.detail) return false;
     var kind = String(m.authorKind || "");
     if (kind === "system" || kind === "bot") return false;
-    // Import rotto: `[date] https://…` → autore "https" (staff finto)
-    if (isFakeUrlAuthorMessage(m)) return true;
+        if (isFakeUrlAuthorMessage(m)) return true;
     var openerId = String(state.detail.userId || "").trim();
     var authorId = String(m.authorId || "").trim();
     if (openerId && authorId && openerId === authorId) return true;
@@ -3172,8 +3151,7 @@
     return false;
   }
 
-  /** Segnali ruolo staff (senza dipendere da opener/added). */
-  function hasStaffRoleSignals(m) {
+    function hasStaffRoleSignals(m) {
     if (!m) return false;
     if (String(m.authorKind || "") === "staff") return true;
     var key = String((m && m.authorRoleKey) || "").trim().toLowerCase();
@@ -3205,34 +3183,29 @@
     return false;
   }
 
-  /** Opener o utente aggiunto (lato cliente). Mai staff/PM. */
-  function isTicketCustomerMessage(m) {
+    function isTicketCustomerMessage(m) {
     if (!m) return false;
     if (isFakeUrlAuthorMessage(m)) return true;
     return isTicketOpenerMessage(m) || isTicketAddedUserMessage(m);
   }
 
-  /** True se il messaggio ha un ruolo staff Discord risolto (PM, Mod, …). */
-  function isResolvedStaffAuthor(m) {
+    function isResolvedStaffAuthor(m) {
     if (!m) return false;
     if (isTicketOpenerMessage(m) || isTicketAddedUserMessage(m)) return false;
     return hasStaffRoleSignals(m);
   }
 
-  /** Kind effettivo in UI. */
-  function effectiveAuthorKind(m) {
+    function effectiveAuthorKind(m) {
     var kind = String((m && m.authorKind) || "user");
     if (kind === "system" || kind === "bot") return kind;
     if (isFakeUrlAuthorMessage(m)) return "user";
-    // Opener = sempre cliente, anche con ruoli staff
-    if (isTicketOpenerMessage(m)) return "user";
+        if (isTicketOpenerMessage(m)) return "user";
     if (isTicketAddedUserMessage(m)) return "user";
     if (kind === "staff" || hasStaffRoleSignals(m)) return "staff";
     return kind === "user" ? "user" : kind;
   }
 
-  /** Messaggio davvero tuo (modifica / ownership). */
-  function isOwnMessage(m) {
+    function isOwnMessage(m) {
     if (!m) return false;
     var rawKind = String((m && m.authorKind) || "");
     if (rawKind === "system" || rawKind === "bot") return false;
@@ -3248,20 +3221,13 @@
     return false;
   }
 
-  /**
-   * Allineamento chat:
-   * - i TUOI messaggi sempre a destra
-   * - inbox staff: staff/PM a destra, clienti a sinistra
-   */
-  function isMessageRightAligned(m) {
+    function isMessageRightAligned(m) {
     if (!m) return false;
     var kind = effectiveAuthorKind(m);
     if (kind === "system" || kind === "bot") return false;
-    // Inbox staff: l'opener sta SEMPRE a sinistra, anche se ha ruoli staff.
-    if (isStaffMode && isTicketOpenerMessage(m)) return false;
+        if (isStaffMode && isTicketOpenerMessage(m)) return false;
     if (isStaffMode && isTicketAddedUserMessage(m) && !isTicketOpenerMessage(m)) return false;
-    // Prima i tuoi: staff che risponde non deve finire a sinistra
-    if (isOwnMessage(m)) return true;
+        if (isOwnMessage(m)) return true;
     if (isStaffMode && (kind === "staff" || hasStaffRoleSignals(m))) return true;
     if (isStaffMode && isTicketCustomerMessage(m)) return false;
     if (isStaffMode && kind === "staff") return true;
@@ -3999,6 +3965,38 @@
     return /^[+!/]/.test(String(text || "").trim());
   }
 
+  function refreshListActiveState() {
+    document.querySelectorAll(".vc-wt-item[data-ticket-id]").forEach(function (btn) {
+      var tid = btn.getAttribute("data-ticket-id");
+      btn.classList.toggle("is-active", tid === state.selectedId);
+    });
+  }
+
+  function wireChatPaneOnly() {
+    wireChatActions();
+    wireComposer();
+    wireRatingPanel();
+    var chat = document.querySelector(".vc-wt-chat");
+    if (chat) {
+      wireMessageReactions(chat);
+      wireMessageTools(chat);
+    }
+  }
+
+  function refreshChatPane() {
+    dismissFloatingUi();
+    hideStatusToast();
+    var main = document.querySelector(".vc-wt-main");
+    if (!main) {
+      renderShell();
+      return;
+    }
+    main.classList.toggle("vc-wt-main--active", Boolean(state.selectedId));
+    main.innerHTML = chatPaneHtml();
+    wireChatPaneOnly();
+    refreshListActiveState();
+  }
+
   function renderShell() {
     dismissFloatingUi();
     hideStatusToast();
@@ -4064,8 +4062,7 @@
     if (!file) return false;
     var t = String(file.type || "").toLowerCase();
     if (COMPOSER_MEDIA_TYPES[t]) return true;
-    // Alcuni browser/OS non espongono type su paste: guarda l’estensione.
-    var name = String(file.name || "").toLowerCase();
+        var name = String(file.name || "").toLowerCase();
     return /\.(png|jpe?g|webp|gif|mp4|webm|mov)$/.test(name);
   }
 
@@ -4423,8 +4420,7 @@
     var raw = String(text || "").trim();
     if (!/^\/partnership\b/i.test(raw)) return false;
     var parsed = parsePartnershipComposerInput(raw);
-    // Descrizione obbligatoria (come il modal Discord). Il manager si chiede nel flusso se manca.
-    return !String(parsed.description || "").trim();
+        return !String(parsed.description || "").trim();
   }
 
   function runPartnershipCommandFlow(seedText) {
@@ -5250,7 +5246,10 @@
         });
       } else {
         var users = Array.isArray(out.data.users) ? out.data.users : [];
-        var roles = Array.isArray(out.data.roles) ? out.data.roles : [];
+        var roles = [];
+        if (effectivePermissions().isStaffViewer) {
+          roles = Array.isArray(out.data.roles) ? out.data.roles : [];
+        }
         users.forEach(function (u) {
           rememberMentionName("user", u.id, u.name);
           if (u.roleName) rememberStaffRole(u.id, u.roleId, u.roleName, u.roleKey);
@@ -5775,10 +5774,8 @@
       el._vcWired = true;
       function reveal(ev) {
         if (el.classList.contains("is-open")) {
-          // Link cliccabile solo a spoiler aperto
-          if (ev && ev.target && ev.target.closest && ev.target.closest("a")) return;
-          // Secondo click (non su link) richiude, stile Discord toggle
-          if (ev) {
+                    if (ev && ev.target && ev.target.closest && ev.target.closest("a")) return;
+                    if (ev) {
             ev.preventDefault();
             ev.stopPropagation();
           }
@@ -5808,8 +5805,7 @@
     state.messages = state.messages.filter(function (m) {
       return m && m.id !== messageId;
     });
-    // Keep seenMessageIds so a stale poll/WS cannot resurrect the bubble.
-    state.seenMessageIds[messageId] = true;
+        state.seenMessageIds[messageId] = true;
     var node = document.querySelector('[data-msg-id="' + messageId + '"]');
     if (node) node.remove();
   }
@@ -5864,8 +5860,7 @@
       }
     }
     var imageCount = existing && Array.isArray(existing.imageUrls) ? existing.imageUrls.length : 0;
-    // Come Discord: salva vuoto senza allegati → elimina.
-    if (!text && !imageCount) {
+        if (!text && !imageCount) {
       deleteMessage(messageId, { fromEmptyEdit: true });
       return;
     }
@@ -5906,8 +5901,7 @@
     if (!state.selectedId || !messageId || state.busy) return;
     opts = opts || {};
     var run = function () {
-      // Optimistic: hide immediately; tombstone blocks poll/WS resurrection.
-      removeMessageFromUi(messageId);
+            removeMessageFromUi(messageId);
       state.busy = true;
       fetchJson(
         apiBase() +
@@ -5922,8 +5916,7 @@
       )
         .then(function (out) {
           state.busy = false;
-          // Idempotent: already gone on server (race / double click) is success.
-          var alreadyGone =
+                    var alreadyGone =
             out.res &&
             out.res.status === 404 &&
             out.data &&
@@ -6762,13 +6755,11 @@
         }
         state.viewMode = next;
         state.listPage = 1;
-        // Staff-only filters (Liberi/Miei) non esistono in «I miei».
-        if (next === "user" && state.filter !== "closed" && state.filter !== "open" && state.filter !== "all") {
+                if (next === "user" && state.filter !== "closed" && state.filter !== "open" && state.filter !== "all") {
           state.filter = "all";
         }
         if (next === "user") {
-          // Torna alla vista utente senza lasciare ?view=staff in URL.
-          try {
+                    try {
             if (hasStaffViewQuery()) {
               var hash = String(location.hash || "").trim();
               var path = String(location.pathname || "/tickets/").replace(/\/?$/, "/") || "/tickets/";
@@ -6907,8 +6898,7 @@
           if (type === "web_tickets_list_changed") {
             void scheduleLoadListQuiet();
           }
-          // realtime_hello: non ricaricare tutta la lista (evita flash/spinner).
-        } catch (e3) {}
+                  } catch (e3) {}
       };
       ws.onclose = function () {
         state.ws = null;
@@ -6939,9 +6929,12 @@
     stopPoll();
     state.pollTimer = setInterval(function () {
       if (document.visibilityState === "hidden") return;
+      if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
+        if (window.VcApiCache.isWebhookBlocked()) return;
+      }
       void loadListQuiet();
       if (state.selectedId) void refreshDetailQuiet();
-    }, 8000);
+    }, ticketPollIntervalMs());
   }
 
   function loadListQuiet() {
@@ -7012,7 +7005,7 @@
     state.presenceTimer = setInterval(function () {
       if (document.visibilityState === "hidden") return;
       sendTicketPresence({ force: true });
-    }, 20000);
+    }, ticketPresenceIntervalMs());
   }
 
   function stopTicketPresence(clearRemote) {
@@ -7191,13 +7184,18 @@
     });
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden") {
-        // Tab/browser in background: libera la presence così partono push/in-app
-        // anche se hai un ticket ancora "aperto" in quella scheda.
+                        if (state.presenceResumeTimer) {
+          clearTimeout(state.presenceResumeTimer);
+          state.presenceResumeTimer = null;
+        }
         stopTicketPresence(true);
         return;
       }
-      startTicketPresence();
-      sendTicketPresence({ force: true });
+      if (state.presenceResumeTimer) clearTimeout(state.presenceResumeTimer);
+      state.presenceResumeTimer = setTimeout(function () {
+        state.presenceResumeTimer = null;
+        startTicketPresence();
+      }, isCoarseMobile() ? 900 : 350);
     });
   }
 

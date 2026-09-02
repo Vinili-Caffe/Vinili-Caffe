@@ -173,8 +173,7 @@ async function handlePartnerEliminaMainModal(interaction) {
   const guild = interaction.guild;
   if (!guild) return true;
 
-  // Delete + log can exceed Discord's 3s interaction window → defer immediately.
-  if (!(await safeDeferReply(interaction, { flags: EPHEMERAL }))) return true;
+    if (!(await safeDeferReply(interaction, { flags: EPHEMERAL }))) return true;
 
   const channel =
     guild.channels.cache.get(parsed.channelId) ||
@@ -212,10 +211,7 @@ async function handlePartnerEliminaMainModal(interaction) {
     return true;
   }
 
-  // I punti sono già aggiornati da executePartnershipDeletion (partnerActions + partnerCount).
-  // removePartnerPoints qui faceva falso errore a saldo 0 e poteva doppia-penalizzare.
-  // "Totale" = partner attribuite (come profilo staff), non il saldo shop dopo i riscatti.
-  const pointsUserId = String(deleteResult.pmUserId || parsed.pmUserId || "").trim() || parsed.pmUserId;
+        const pointsUserId = String(deleteResult.pmUserId || parsed.pmUserId || "").trim() || parsed.pmUserId;
   const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
   const staffLean = await ActivityUserProfile.findOne({
     guildId: guild.id,

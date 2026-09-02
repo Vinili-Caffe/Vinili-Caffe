@@ -5,9 +5,6 @@ function ticketSubdocToPlain(t) {
   return t.toObject ? t.toObject({ virtuals: false }) : { ...t };
 }
 
-/**
- * Ticket aperti per utente nel guild, letti dal bucket (affidabile anche se `guildId` manca sul subdocumento).
- */
 async function findOpenTicketsForGuildUser(guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();

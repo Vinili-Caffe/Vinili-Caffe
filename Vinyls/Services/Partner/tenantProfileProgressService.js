@@ -26,9 +26,7 @@ async function getTenantProfileSnapshot(guildId, userId, options = {}) {
     ? await userQualifiesForTenantMissions(client, uid)
     : false;
 
-  // Web GET: skip sync/evaluate (refreshLeaderboard fa 3 leaderboard full-scan).
-  // Discord +profile / badge commands tengono evaluateObjectives di default.
-  const shouldEvaluate = options.evaluateObjectives !== false;
+      const shouldEvaluate = options.evaluateObjectives !== false;
   if (client && gid && uid && qualifiesForMissions && shouldEvaluate) {
     await syncObjectiveFlagsFromTenantState(client, gid, uid).catch(() => null);
     await evaluateTenantObjectives(client, gid, uid, {

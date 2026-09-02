@@ -302,10 +302,6 @@ function pauseEntryFromWorkflowDoc(doc) {
   };
 }
 
-/**
- * Re-pex / ladder reset ha azzerato staff.pauses lasciando i workflow accepted.
- * Ripristina le entry mancanti così calendario e conteggio giorni restano allineati.
- */
 async function healAcceptedPausesFromWorkflowStore(guildId, workflowDocs) {
   const gid = String(guildId || "").trim();
   if (!gid || !Array.isArray(workflowDocs) || !workflowDocs.length) return 0;
@@ -345,8 +341,7 @@ async function healAcceptedPausesFromWorkflowStore(guildId, workflowDocs) {
       healed += 1;
       continue;
     }
-    // Profilo senza staff: crea solo lo stub pause, senza azzerare altri campi.
-    await ActivityUserProfile.updateOne(
+        await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
@@ -401,8 +396,7 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
       .catch(() => []),
   ]);
 
-  // Heal best-effort: non bloccare il calendario se fallisce.
-  void healAcceptedPausesFromWorkflowStore(guildId, workflowDocs).catch(() => 0);
+    void healAcceptedPausesFromWorkflowStore(guildId, workflowDocs).catch(() => 0);
 
   const today = getTodayUtc();
   const pending = [];
@@ -477,8 +471,7 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
       const uid = String(doc?.userId || "").trim();
       if (!uid) return false;
       const st = String(pause?.status || "");
-      // Annullate: resta in elenco anche se l'utente non è più staff.
-      if (st === "cancelled" || st === "canceled") return true;
+            if (st === "cancelled" || st === "canceled") return true;
       const member = guild?.members?.cache?.get?.(uid) || null;
       const ruolo = pause?.ruoloRichiesto || pause?.ruolo || "Staff";
       if (member) return calendarMemberEligible(member, ruolo);
@@ -535,9 +528,6 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
   return payload;
 }
 
-/**
- * GET Bearer + ?year=&month= — calendario pause staff accettate (+ meta richiesta).
- */
 async function handleSiteStaffPauseGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -573,10 +563,6 @@ async function handleSiteStaffPauseGet(client, req, res) {
   }
 }
 
-/**
- * POST Bearer — richiedi pausa (stesso flusso Discord Accetta/Rifiuta).
- * Body: { start: YYYY-MM-DD, end: YYYY-MM-DD, reason: string, role?: Staff|PartnerManager|Entrambi }
- */
 async function handleSiteStaffPausePost(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);

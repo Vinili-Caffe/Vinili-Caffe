@@ -221,7 +221,6 @@ function boostAnnounceLooksLikeBoost(text) {
   );
 }
 
-/** Un embed "doppio" copre 2 slot; uno singolo ne copre 1. */
 function boostAnnounceSlotWeightFromText(text) {
   const t = String(text || "");
   if (!boostAnnounceLooksLikeBoost(t)) return 0;
@@ -314,8 +313,7 @@ async function resolveBoostAnnounceSyncState(guild, userId, channel, opts = {}) 
   const nativeLookbackMs = Math.max(60_000, Number(opts.nativeLookbackMs || 10 * 60 * 1000));
   const knownNative = Math.max(0, Number(opts.knownNativeSlots || 0));
   const seenNative = nativeBoostSeenSince(gid, uid, sinceMs);
-  // Skip solo se già sappiamo di un doppio boost: un native "2 volte" va letto dal canale.
-  const skipNativeScan = Boolean(opts.skipNativeScan) || Math.max(knownNative, seenNative) >= 2;
+    const skipNativeScan = Boolean(opts.skipNativeScan) || Math.max(knownNative, seenNative) >= 2;
   const scannedNative = channel && !skipNativeScan
     ? await detectRecentNativeBoostEventsForUser(guild, channel, uid, nativeLookbackMs).catch(() => 0)
     : 0;
@@ -381,8 +379,7 @@ async function recordManualStaffRoleHistoryIfNeeded(oldMember, newMember) {
   const guildId = String(newMember?.guild?.id || "").trim();
   if (!guildId || guildId !== String(IDs.guilds?.main || "")) return;
   if (newMember?.user?.bot) return;
-  // Founder: carriera fissa (Member → Founder); non loggare altri ruoli staff aggiunti a mano.
-  const founderRoleId = String(IDs.roles?.Founder || "").trim();
+    const founderRoleId = String(IDs.roles?.Founder || "").trim();
   if (founderRoleId && newMember?.roles?.cache?.has?.(founderRoleId)) return;
   const addedRoleIds = listStaffRolesAdded(oldMember, newMember);
   if (!addedRoleIds.length) return;
@@ -462,9 +459,7 @@ function resolveBoostSlotTarget(member, announcedSlots, nativeBoostEvents, force
       announced,
     ),
   );
-  // Secondo boost a distanza (ore): il native dice ancora "1 volta", non "2 volte".
-  // Va sommato allo slot già annunciato, non confrontato come totale assoluto.
-  if (opts.incrementalNativeEvent) {
+      if (opts.incrementalNativeEvent) {
     const eventSlots = Math.max(1, Math.min(2, Number(opts.nativeEventSlots || forcedSlots || 1)));
     target = Math.min(2, Math.max(target, announced + eventSlots));
   }
@@ -875,9 +870,7 @@ async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnounce
   if (safeTimes <= 0) return 0;
 
   const endExclusive = start + safeTimes;
-  // Arrivando al 2° slot (insieme da 0→2 OPPURE 2° boost dopo un po'):
-  // manda SOLO l'embed doppio, mai di nuovo quello da 1 boost.
-  if (start < 2 && endExclusive >= 2) {
+      if (start < 2 && endExclusive >= 2) {
     const embed = buildBoostEmbedSecond(member, Math.max(1, Number(boostCount || 0)));
     const sent = await channel
       .send({
@@ -1150,9 +1143,7 @@ function computeBoostDelta(oldMember, newMember, guildId, opts = {}) {
       : typeof boostCountCache.get(guildId) === "number"
         ? boostCountCache.get(guildId)
         : oldCountFromEvent;
-  // Non usare min(cache, guild.premiumSubscriptionCount): old/new condividono lo
-  // stesso Guild, e un fetch() precedente azzera il delta (1 solo embed sul "2 volte").
-  const effectivePrev = Number.isFinite(Number(prevCount)) ? Number(prevCount) : 0;
+      const effectivePrev = Number.isFinite(Number(prevCount)) ? Number(prevCount) : 0;
   const countIncreased = currentCount > effectivePrev;
   const boostDelta = countIncreased ? Math.max(1, currentCount - effectivePrev) : 0;
   const guildBoostDecreased = currentCount < effectivePrev;
@@ -1239,8 +1230,7 @@ function parseNativeBoostSlotCount(message) {
   const boostTypes = getBoostSystemMessageTypes();
   const isBoostType = boostTypes.has(Number(message?.type));
   const raw = String(message?.content || "");
-  // Il client mostra "2 volte"; in API il numero è spesso `**2**` o solo `"2"`.
-  const text = raw.replace(/\*/g, " ").replace(/\s+/g, " ").trim();
+    const text = raw.replace(/\*/g, " ").replace(/\s+/g, " ").trim();
   const isBoostText = /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i.test(text);
   if (!isBoostType && !isBoostText) return 0;
 
@@ -1330,8 +1320,7 @@ async function resolveBoostNativeScanChannelsAsync(guild, primaryChannel) {
   }
   push(primaryChannel);
   if (!guild) return list;
-  // Solo canali dove Discord posta i boost: niente scan di tutta la guild (era la causa del ritardo).
-  const ids = [
+    const ids = [
     guild.systemChannelId,
     guild.publicUpdatesChannelId,
     guild.rulesChannelId,
@@ -1517,8 +1506,7 @@ async function tryDispatchBoostAnnounceImmediately(boostAnnounceChannel, member,
 async function announceBoostFromMemberUpdate(boostAnnounceChannel, member, guildId, boostKey, opts = {}) {
   const result = await tryDispatchBoostAnnounceImmediately(boostAnnounceChannel, member, guildId, boostKey, opts);
   const sent = Math.max(0, Number(result?.sent || 0));
-  // Un solo avviso native "2 volte": il primo embed parte subito, il secondo arriva dal follow-up.
-  if (sent >= 2) return;
+    if (sent >= 2) return;
   scheduleBoostFollowup(boostAnnounceChannel, member, guildId, boostKey, opts);
 }
 
@@ -1637,9 +1625,7 @@ async function handleBoostUpdate(oldMember, newMember) {
     await newMember.guild.fetch().catch(() => {});
   }
 
-  // Aggiorna il conteggio boost da Discord per il footer, ma il delta usa lo snapshot
-  // precedente: fetch() muta lo stesso Guild di oldMember e azzererebbe +2 → +0.
-  const freshBoostCount = await resolveFreshGuildBoostCount(newMember.guild).catch(() => null);
+      const freshBoostCount = await resolveFreshGuildBoostCount(newMember.guild).catch(() => null);
   if (Number.isFinite(Number(freshBoostCount))) {
     try {
       newMember.guild.premiumSubscriptionCount = Number(freshBoostCount);
@@ -1916,9 +1902,7 @@ async function recoverMissingBoostEmbedsForUser(guild, userId, opts = {}) {
     limit: 100,
   }).catch(() => ({ since: 0, period: 0, lookback: 0 }));
   const channelEmbedsInPeriod = Math.max(0, Number(embedCounts.period || 0));
-  // Slot già contati: canale + stato persistito (il 2° boost "dopo un po'" non deve
-  // ripartire da 0 e rimandare anche l'embed da 1 boost).
-  const priorSlots = Math.max(channelEmbedsInPeriod, announcedSlots);
+      const priorSlots = Math.max(channelEmbedsInPeriod, announcedSlots);
   if (priorSlots >= slotTarget) {
     await syncAnnouncedBoostSlotsFromChannelCount(gid, uid, Math.max(announcedSlots, priorSlots));
     await markBoostAnnounceHandledIfSynced(guild, uid, boostAnnounceChannel, {
@@ -2929,9 +2913,7 @@ module.exports = {
             setWelcomeContextActive(newMember.guild.id);
           }
           if (memberHasAnyStaffPresenceForDepexSync(oldMember) && !memberHasAnyStaffPresenceForDepexSync(newMember)) {
-            // Critico: con cache membri/ruoli limitata Discord.js può mandare un update
-            // dove newMember sembra senza ruoli staff anche se li ha ancora → wipe valutazioni.
-            const verifiedMember = await newMember.guild.members
+                                    const verifiedMember = await newMember.guild.members
               .fetch({ user: newMember.id, force: true })
               .catch(() => null);
             if (!verifiedMember || memberHasAnyStaffPresenceForDepexSync(verifiedMember)) {
@@ -2953,8 +2935,7 @@ module.exports = {
                   cancelPendingResocontiWorkflowForUser,
                   autoCancelPendingPausesIfNotEligible,
                 } = require("../Utils/Web/siteStaffWorkflowStore");
-                // Solo resoconti staff: se resta PM, i resoconti PM restano in inbox.
-                await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
+                                await cancelPendingResocontiWorkflowForUser(newMember.guild.id, newMember.id, {
                   kind: "s",
                   statusLabel: "Annullato (depex)",
                   decidedBy: "system",

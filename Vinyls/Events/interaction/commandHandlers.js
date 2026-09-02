@@ -131,8 +131,7 @@ async function handleSlashCommand(interaction, client) {
   }
   const expectsModal = command?.expectsModal === true;
   const isAdminCommand=String(command?.category||"").toLowerCase()==="admin";
-  /** Conferme pubbliche di default; se privacy +profile → ephemeral (main e tenant). */
-  let forceEphemeralDefer = !isAdminCommand && command?.publicReply !== true;
+    let forceEphemeralDefer = !isAdminCommand && command?.publicReply !== true;
   if (command?.publicReply === true) {
     const { userWantsPartnershipCommandPrivacy } = require("../../Utils/Partner/tenantProfileEphemeral");
     const wantsPrivate = await userWantsPartnershipCommandPrivacy(
@@ -343,8 +342,7 @@ async function handleSlashCommand(interaction, client) {
         );
       }
     }
-    // Error status buttons: Buttons/errorLogStatus.js
-    const userEmbed = buildInternalCommandErrorEmbed(errorText);
+        const userEmbed = buildInternalCommandErrorEmbed(errorText);
     await safeReply({ embeds: [userEmbed], flags: 1 << 6 });
     userErrorResponseSent = true;
   } finally {

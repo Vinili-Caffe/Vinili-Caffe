@@ -7,7 +7,6 @@ const { wasRoleRestoredByMuteMirror } = require("../Moderation/muteRestoreAnnoun
 const STAFF_LIST_HASH_SPLIT = "\n---STAFF_LIST_SPLIT---\n";
 const STAFF_LIST_STARTUP_REFRESH_MS = 4500;
 const STAFF_LIST_DISCORD_MAX = 2000;
-/** Sotto questa soglia si può ricompattare in un solo messaggio (isteresi anti-flap). */
 const STAFF_LIST_REJOIN_MAX = 1850;
 const BOT_STATE_KEY_STAFF_LIST_SYNC_PREFIX = "staffListSync";
 const STAFF_LIST_LAYOUT_REV = "helper-with-pm-v12-msg-gap";
@@ -57,8 +56,7 @@ function isMainStaffListMessageContent(content) {
 function isPmStaffListMessageContent(content) {
   if (isMainStaffListMessageContent(content)) return false;
   const c = String(content || "").trimStart();
-  // Vecchi msg con header "continua" (da aggiornare al prossimo sync).
-  if (/^##\s*staff\s*list\s*·\s*_?continua_?/i.test(c)) return true;
+    if (/^##\s*staff\s*list\s*·\s*_?continua_?/i.test(c)) return true;
   if (/^##\s*partner manager/i.test(c)) return true;
   if (/[·•]\s*partner\s*manager/i.test(c)) return true;
   if (!c.includes("︲")) return false;
@@ -103,7 +101,6 @@ function wait(ms) {
   });
 }
 
-/** Discord LIST /members richiede `after` = max user id della pagina precedente, non l’ultimo in Collection order. */
 function maxMemberSnowflakeInChunk(chunk) {
   if (!chunk?.size) return null;
   let max = null;
@@ -309,8 +306,7 @@ async function getStaffListPausedUserIds(guildId) {
       if (hasActiveAcceptedStaffPause(pauses, today)) out.add(uid);
     }
   } catch (_) {
-    /* optional legacy collection */
-  }
+      }
 
   return out;
 }
@@ -382,8 +378,7 @@ function finalizeStaffListMain(text, { hasContinuation = false, leadingGap = fal
   const withoutTrailingSpaces = raw.replace(/[ \t\u00A0]+$/g, "");
   let body = hasContinuation ? withoutTrailingSpaces : `${withoutTrailingSpaces.trimEnd()}\n\n`;
   if (leadingGap) {
-    // Riga vuota visibile prima del primo ruolo nel 2° messaggio staff list.
-    const trimmed = body.replace(/^\u200b?\r?\n*/, "");
+        const trimmed = body.replace(/^\u200b?\r?\n*/, "");
     body = `\u200b\n${trimmed}`;
   }
   return body;
@@ -530,8 +525,7 @@ async function resolveStaffListMessages(channel, client, guildId) {
     const main = await fetchChannelMessage(channel, known[0]);
     const pm = known[1] ? await fetchChannelMessage(channel, known[1]) : null;
     if (main && (!known[1] || pm)) return { main, pm };
-    // Se manca solo il 2° messaggio, tieni comunque il main (niente wipe totale).
-    if (main && known[1] && !pm) {
+        if (main && known[1] && !pm) {
       state.messageIdsByGuild.set(gk, [main.id]);
       return { main, pm: null };
     }
@@ -730,8 +724,7 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
   }
 
   const previousHash = state.contentHashByGuild.get(gidKey);
-  // Anche con force: se il testo Discord è già uguale non editare (evita history spam ai riavvii).
-  const contentAlreadySynced =
+    const contentAlreadySynced =
     mainMsg &&
     staffListContentEquals(mainMsg.content, parts.main) &&
     (!needsPmMessage || (pmMsg && staffListContentEquals(pmMsg.content, parts.pm)));
@@ -799,8 +792,7 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
     mainId = sent.mainId;
     pmId = sent.pmId;
   } else if (needsPmMessage && !pmMsg) {
-    // Prima: wipe totale. Ora: aggiorna il main e aggiungi solo il 2° messaggio.
-    const mainOk = mainChanged ? await editOrResendMain() : true;
+        const mainOk = mainChanged ? await editOrResendMain() : true;
     if (!mainOk) {
       await resendStaffListTogether();
     } else {
@@ -814,8 +806,7 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, opts = {}) {
       });
       pmId = sentPm?.id || null;
       if (!pmId) {
-        // Ultimo fallback: solo se non riusciamo ad aggiungere il 2° messaggio.
-        await resendStaffListTogether();
+                await resendStaffListTogether();
       }
     }
   } else if (needsPmMessage && (mainChanged || pmChanged)) {
@@ -896,8 +887,7 @@ function startStaffListPeriodicRefreshLoop(client) {
   if (!isDiscordStaffChannelPostsEnabled()) return;
   if (!client || client._staffListPeriodicRefreshStarted) return;
   client._staffListPeriodicRefreshStarted = true;
-  // Bootstrap senza force: se il contenuto è già allineato non fa edit Discord.
-  scheduleStaffListRefresh(client, IDs.guilds.main, STAFF_LIST_STARTUP_REFRESH_MS, { bootstrapOnly: true });
+    scheduleStaffListRefresh(client, IDs.guilds.main, STAFF_LIST_STARTUP_REFRESH_MS, { bootstrapOnly: true });
 }
 
 function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500, opts = {}) {

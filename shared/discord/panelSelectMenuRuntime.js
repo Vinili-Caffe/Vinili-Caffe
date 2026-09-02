@@ -68,8 +68,7 @@ function buildFollowUpInteractionProxy(interaction, options = {}) {
   const sendFollowUp = (payload) =>
     interaction.followUp(payloadWithDefaultEphemeral(payload, ephemeral)).catch(() => null);
 
-  // Delegate to the real interaction instance so discord.js fields (client, guild, member) stay valid.
-  return Object.assign(Object.create(interaction), {
+    return Object.assign(Object.create(interaction), {
     isButton: () => Boolean(options.treatAsButton),
     isStringSelectMenu: () => false,
     reply: (payload) => sendFollowUp(payload),

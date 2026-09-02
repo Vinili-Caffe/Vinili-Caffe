@@ -68,8 +68,7 @@ function resolveEffectiveCustomRoleDelayMs(pings) {
 }
 
 function resolveEffectiveHereDelayMs(pings) {
-  // Retrocompat: se manca delay dedicato, riusa quello custom (comportamento storico).
-  return resolveEffectiveDelayMs(pings?.hereDelayMs, pings?.customRoleDelayMs);
+    return resolveEffectiveDelayMs(pings?.hereDelayMs, pings?.customRoleDelayMs);
 }
 
 function resolveEffectiveEveryoneDelayMs(pings) {
@@ -140,8 +139,7 @@ function normalizePartnerMemberCount(value) {
 function meetsMemberThreshold(threshold, memberCount, { allowUnknown = false } = {}) {
   if (threshold === null || threshold === undefined) return false;
   const count = normalizePartnerMemberCount(memberCount);
-  // Conteggio sconosciuto: solo i caller espliciti (ping custom) possono fall-open.
-  if (count === null) return Boolean(allowUnknown);
+    if (count === null) return Boolean(allowUnknown);
   return count >= Math.max(0, Math.floor(Number(threshold) || 0));
 }
 
@@ -168,8 +166,7 @@ function resolvePartnershipPublishPings({
   } else {
     const cfg = pings && typeof pings === "object" ? pings : {};
     if (meetsMemberThreshold(cfg.hereMembers, count)) {
-      // Soglia ok: mostra sempre @here; notifica solo se il ritardo è scaduto.
-      pingHere = true;
+            pingHere = true;
       notifyHere = resolvePingDelayDecision(cfg.lastHerePingAt, resolveEffectiveHereDelayMs(cfg)).shouldPing;
     }
     if (meetsMemberThreshold(cfg.everyoneMembers, count)) {

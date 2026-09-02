@@ -1,7 +1,3 @@
-/**
- * Extract readable partnership text from normal messages, Discord forwards
- * (messageSnapshots / blockquote dumps), embeds, and Components V2 TextDisplay.
- */
 
 const TEXT_DISPLAY_TYPE = 10;
 
@@ -40,10 +36,6 @@ function resolvePartnershipSourceMessage(message) {
   return message;
 }
 
-/**
- * Discord often serializes forwarded rich messages as a full-message blockquote
- * dump (`> # title`, `> ### …`). Strip that when most non-empty lines are quoted.
- */
 function unwrapDiscordForwardQuoteDump(text) {
   const raw = normalizeDescriptionText(text);
   if (!raw) return "";
@@ -117,8 +109,7 @@ function walkComponentText(nodes, out) {
     if (type === TEXT_DISPLAY_TYPE && content) {
       out.push(content);
     } else if (!type && content && !data.custom_id && !data.customId) {
-      // Best-effort: some builders expose content without a resolved type.
-      out.push(content);
+            out.push(content);
     }
     const kids = node.components || data.components;
     if (Array.isArray(kids) && kids.length) walkComponentText(kids, out);
@@ -141,9 +132,7 @@ function collectMessageTextLayers(message, { forHaystack = false } = {}) {
   if (components && components !== content) layers.push(components);
 
   const hasBody = Boolean(content || components);
-  // +desc deve copiare solo il testo scritto. Le anteprime Discord (articolo/invite)
-  // attaccano URL spezzati tipo `https://sito.it/)__**`.
-  if (forHaystack || !hasBody) {
+      if (forHaystack || !hasBody) {
     const embeds = Array.isArray(message.embeds) ? message.embeds : [];
     for (const embed of embeds) {
       if (!forHaystack && isAutoPreviewEmbed(embed)) continue;
@@ -155,10 +144,6 @@ function collectMessageTextLayers(message, { forHaystack = false } = {}) {
   return layers;
 }
 
-/**
- * Best readable body for partnership description / publish.
- * Prefers the forwarded snapshot body when present.
- */
 function extractPartnershipMessageText(message) {
   if (!message) return "";
   const source = resolvePartnershipSourceMessage(message);
@@ -175,9 +160,6 @@ function extractPartnershipMessageText(message) {
   return "";
 }
 
-/**
- * Haystack for invite / manager parsing (includes wrapper + snapshot).
- */
 function extractPartnershipMessageHaystack(message) {
   if (!message) return "";
   const parts = [];
@@ -186,8 +168,7 @@ function extractPartnershipMessageHaystack(message) {
   if (source !== message) {
     parts.push(...collectMessageTextLayers(message, { forHaystack: true }));
   }
-  // Deduplicate while keeping order
-  const seen = new Set();
+    const seen = new Set();
   const unique = [];
   for (const part of parts) {
     const key = String(part || "").trim();

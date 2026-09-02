@@ -68,8 +68,7 @@ function netProfit(result) {
 
 function displayBet(session) {
   if (session.phase === "playing" || session.phase === "dealer") return totalWager(session);
-  // Fine mano: mostra lo stake reale (incluso raddoppio), non la puntata della prossima.
-  if (session.phase === "done") {
+    if (session.phase === "done") {
     const lastWager = Math.floor(Number(session.lastResult?.wager) || 0);
     if (lastWager > 0) return lastWager;
     return totalWager(session);

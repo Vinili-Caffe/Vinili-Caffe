@@ -34,8 +34,7 @@ async function maxTicketNumberForGuild(guildId) {
     ]).catch(() => []);
     maxTicketNumber = Math.max(maxTicketNumber, Number(agg?.[0]?.maxTicketNumber || 0) || 0);
   } catch {
-    /* ignore */
-  }
+      }
 
   if (db) {
     const legacy = await db
@@ -52,10 +51,6 @@ async function maxTicketNumberForGuild(guildId) {
   return Number.isFinite(maxTicketNumber) && maxTicketNumber > 0 ? maxTicketNumber : 0;
 }
 
-/**
- * Contatore ticket per-guild (riparte da 1 su ogni server).
- * Seed = max(ticketNumber esistenti in quella guild) così i server già attivi non collide.
- */
 async function getNextTicketId(guildId) {
   const gid = normalizeTicketGuildId(guildId);
   if (!gid) throw new Error("guildId required for per-guild ticket counter");
@@ -69,8 +64,7 @@ async function getNextTicketId(guildId) {
   } = require("../../Schemas/Guild/guildFeatureBucketSchema");
   await ensureGuildFeatureBucket(gid);
 
-  // Path caldo: counter già inizializzato.
-  let updated = await GuildFeatureBucket.findOneAndUpdate(
+    let updated = await GuildFeatureBucket.findOneAndUpdate(
     { guildId: gid, ticketCounter: { $gte: 1 } },
     { $inc: { ticketCounter: 1 } },
     { new: true },
@@ -80,8 +74,7 @@ async function getNextTicketId(guildId) {
     if (Number.isFinite(n) && n > 0) return n;
   }
 
-  // Prima allocazione: parti da max esistente + 1 (0 → 1 su guild nuove).
-  const baseline = await maxTicketNumberForGuild(gid);
+    const baseline = await maxTicketNumberForGuild(gid);
   const next = baseline + 1;
   updated = await GuildFeatureBucket.findOneAndUpdate(
     {
@@ -100,8 +93,7 @@ async function getNextTicketId(guildId) {
     if (Number.isFinite(n) && n > 0) return n;
   }
 
-  // Race: un altro processo ha inizializzato nel frattempo.
-  updated = await GuildFeatureBucket.findOneAndUpdate(
+    updated = await GuildFeatureBucket.findOneAndUpdate(
     { guildId: gid },
     { $inc: { ticketCounter: 1 } },
     { new: true },
@@ -153,8 +145,7 @@ async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries
     } catch (err) {
       lastError = err;
       if (!isTicketNumberDuplicate(err)) throw err;
-      // Se il numero era già scelto e collide, riprova solo se non era preset.
-      if (hasPreset) throw err;
+            if (hasPreset) throw err;
       if (!reseedAttempted) {
         reseedAttempted = true;
         await reseedCounterFromTickets(TicketModel, guildId).catch(() => null);
@@ -162,8 +153,7 @@ async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries
     }
   }
   if (isCounterUnavailableError(lastError)) {
-    // Fallback: create ticket without number; will be backfilled later.
-    const { ticketNumber: _ignored, ...rest } = payload || {};
+        const { ticketNumber: _ignored, ...rest } = payload || {};
     return TicketModel.create({ ...rest });
   }
   throw lastError || new Error("Unable to allocate unique ticketNumber");

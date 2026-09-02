@@ -57,8 +57,7 @@ function readJsonlRowsForUser(filePath, userId) {
         const row = JSON.parse(trimmed);
         if (String(row?.userId || "").trim() === uid) rows.push(row);
       } catch {
-        /* skip bad line */
-      }
+              }
     }
   } catch {
     return [];
@@ -168,8 +167,7 @@ async function exportUserGdprData({ guildId, userId, requestedByUserId }) {
     Promise.all(LEGACY_USER_COLLECTIONS.map(async (name) => [name, await queryLegacyCollection(name, uid, gid)])),
   ]);
 
-  // Mute snapshot & custom perks cleanup ora vivono su ActivityUserProfile.profile.* (già in activityProfiles).
-  const comTimeoutSnapshots = (Array.isArray(activityProfiles) ? activityProfiles : [])
+    const comTimeoutSnapshots = (Array.isArray(activityProfiles) ? activityProfiles : [])
     .filter((doc) => Array.isArray(doc?.profile?.muteRoleSnapshot?.roleIds) && doc.profile.muteRoleSnapshot.roleIds.length)
     .map((doc) => ({ guildId: doc.guildId, userId: doc.userId, ...doc.profile.muteRoleSnapshot }));
   const customPerksQueue = (Array.isArray(activityProfiles) ? activityProfiles : [])

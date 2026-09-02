@@ -55,8 +55,7 @@ function normalizeRuleDot(raw) {
   const m = s.match(/^(\d+)\s*[\._-]?\s*(\d+)$/);
   if (!m) return null;
   const dot = `${m[1]}.${m[2]}`;
-  // Legacy: AFK vocale era etichettata 3.6 (dopo 3.4).
-  if (dot === "3.6") return "3.5";
+    if (dot === "3.6") return "3.5";
   return dot;
 }
 
@@ -86,8 +85,7 @@ function staffLadderIncludesWarn(ruleDot) {
 async function countPreviousRuleCases(guildId, userId, ruleDot) {
   const page = await findModLogsPage(guildId, userId, 0, 100).catch(() => []);
   const rows = (Array.isArray(page) ? page : []).filter((row) => isMatchingRuleCase(row, ruleDot));
-  // Warn restano all'automod (modlogs effettivi): non devono far saltare i mute della scala staff.
-  if (!staffLadderIncludesWarn(ruleDot)) {
+    if (!staffLadderIncludesWarn(ruleDot)) {
     return rows.filter((row) => String(row?.action || "").toUpperCase() !== "WARN").length;
   }
   return rows.length;

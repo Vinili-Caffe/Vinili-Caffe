@@ -1,5 +1,4 @@
 // Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
-// Stessi criteri della staff list Discord: badge “nuovo” (7 giorni) e “pausa” attiva.
 import path from "path";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
@@ -131,8 +130,7 @@ function tryRequireMongoose() {
     try {
       return require(p);
     } catch {
-      /* next */
-    }
+          }
   }
   return null;
 }

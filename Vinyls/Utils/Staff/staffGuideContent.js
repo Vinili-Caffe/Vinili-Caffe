@@ -8,7 +8,6 @@ function staffSanctionRuleIntro(ruleKey) {
   return `<:VC_Dot:1482532364222595303> ${body}\n`;
 }
 
-/** Same labels as staffGuideMenuComponents.STAFF_GUIDE_SECTIONS */
 const TOP_LEVEL_SECTION_META = [
   { id: "regolamento", label: "Regolamento", description: "Regole e sanzioni utenti", emoji: "<:rules:1443307208543703131>" },
   { id: "regole_staff", label: "Regole staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
@@ -77,10 +76,8 @@ const NESTED_SECTION_META = [
 ];
 
 const SECTION_CHILDREN = {
-  // Stesso contenuto sticky del canale #sanzioni-utenti
-  regolamento: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
-  // Alias legacy (menu Discord / bottoni vecchi)
-  moderazione_staff: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
+    regolamento: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
+    moderazione_staff: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
   guidamiddle: ["middle_ticket", "middle_selfie", "middle_follower", "middle_partnership"],
 };
 
@@ -127,7 +124,6 @@ function buildStaffGuideIntroMarkdown() {
   ].join("\n");
 }
 
-/** Intro sticky del canale #sanzioni-utenti (stesso testo di moderazione_staff). */
 function buildModerationStaffIntroMarkdown() {
   return `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili nelle sottosezioni.
 
@@ -145,8 +141,7 @@ function buildModerationStaffIntroMarkdown() {
 }
 
 const SECTION_BUILDERS = {
-  // Intro sticky #sanzioni-utenti + sottosezioni Generali/Testuali/Vocali
-  regolamento: () => buildModerationStaffIntroMarkdown(),
+    regolamento: () => buildModerationStaffIntroMarkdown(),
 
   regole_staff: () =>
     "<:rules:1443307208543703131> **__REGOLAMENTO STAFF__**\n\n" +
@@ -251,7 +246,7 @@ const SECTION_BUILDERS = {
     "Per avere un server attivo bisogna prima di tutto avere un legame con la community. Ecco alcuni consigli per instaurare dei discorsi con i nuovi utenti ma anche con quelli anziani.\n\n" +
     "> ### Presentarsi è sempre una buona base!\n" +
     "Nel momento in cui un utente approda nel server, è buona prassi far capire cosa può fare qui con noi. Quando si unisce sa già che come topic abbiamo il chatting quindi si deve puntare a quella che si chiama **profilazione** ovvero la raccolta di dati dell'utente. Per farlo, abbiamo realizzato diversi ruoli che l'utente può prendere. Tutto questo è già possibile con l'inserimento ma, nel caso volesse cambiarli o aggiungerli (cosa su cui dovreste spingere), invece di usare il semplice \"wlc\" potete tranquillamente dire:\n" +
-    `benvenutx @tag_utente! passa in <#${IDs.channels.commands}> e fai il comando +profile per prenderti i colori e tanti altri ruoli <3\n\n` +
+    `benvenutx @tag_utente! passa in <#${IDs.channels.commands}> e https://www.viniliecaffe.it/personalizza per prenderti i colori e tanti altri ruoli <3\n\n` +
     "> ### Cerca di capire chi hai davanti!\n" +
     "Per avere attività alla base, come abbiamo detto, c'è un rapporto di fiducia con l'utente. Per creare e rafforzare quest'ultimo, nel momento in cui una persona joina nel server può essere utile:\n" +
     "- guardare la foto profilo e il banner;\n" +

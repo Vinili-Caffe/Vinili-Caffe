@@ -1,7 +1,3 @@
-/**
- * Nomi dei comandi prefix del bot Vinyls (cartella Vinyls/Prefix/**).
- * Aggiornare se si aggiungono/rimuovono file lì.
- */
 const VINYLS_PREFIX_COMMAND_NAMES = new Set([
   "afk",
   "avatar",

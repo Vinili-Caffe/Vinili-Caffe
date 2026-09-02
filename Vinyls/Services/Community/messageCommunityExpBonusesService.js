@@ -167,8 +167,7 @@ async function tryClaimServerFirstMessageOfDayExp(guildId, userId, dateKey) {
   } catch (err) {
     if (err?.code === 11000) return false;
     const msg = String(err?.message || err || "");
-    // Boot race: messaggio arriva prima che Mongo sia ready — silenzioso, ritenterà al prossimo.
-    if (/must be connected|before running operations|not connected/i.test(msg)) return false;
+        if (/must be connected|before running operations|not connected/i.test(msg)) return false;
     global.logger?.warn?.("[community-exp-bonus] first message claim:", err?.message || err);
     return false;
   }

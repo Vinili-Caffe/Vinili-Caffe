@@ -1,12 +1,10 @@
 (function () {
   "use strict";
 
-  // Guild page gestisce già lo switcher con hash/view; evita doppio bind.
-  if (window.__VC_DASH_SWITCHER_OWNED) return;
+    if (window.__VC_DASH_SWITCHER_OWNED) return;
   if (window.__vcDashServerSwitcherBooted) return;
 
-  // Pagina lista /dashboard: lo switcher è ridondante (sei già sulla scelta server).
-  try {
+    try {
     var path = String(window.location.pathname || "")
       .replace(/\/+$/, "")
       .toLowerCase();

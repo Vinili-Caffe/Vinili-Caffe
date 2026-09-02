@@ -1,7 +1,3 @@
-/**
- * Notifiche in-app per code inbox staff (pause, candidature, appelli, resoconti)
- * e per l'esito delle richieste pausa verso il richiedente.
- */
 const IDs = require("../Config/ids");
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 const { collectHumanMemberIdsWithRole } = require("../Discord/threadRoleMembers");
@@ -252,7 +248,6 @@ async function notifyUsersList(guildId, userIds, payload, excludeIds = []) {
   return ids.length;
 }
 
-/** Richiedente aggiunto alla chat (candidature/appelli). */
 async function notifyWorkflowSubjectInvited(opts = {}) {
   const guild = opts.guild;
   const guildId = String(guild?.id || opts.guildId || IDs.guilds?.main || "").trim();
@@ -297,7 +292,6 @@ async function notifyWorkflowSubjectInvited(opts = {}) {
   return { subject: Boolean(subjectOk), staff };
 }
 
-/** Richiedente rimosso dalla chat. */
 async function notifyWorkflowSubjectRemoved(opts = {}) {
   const guild = opts.guild;
   const guildId = String(guild?.id || opts.guildId || IDs.guilds?.main || "").trim();
@@ -342,11 +336,6 @@ async function notifyWorkflowSubjectRemoved(opts = {}) {
   return { subject: Boolean(subjectOk), staff };
 }
 
-/**
- * Nuovo messaggio in chat pratica:
- * - staff → notifica richiedente (se in chat / pause)
- * - richiedente → notifica reviewer inbox
- */
 async function notifyWorkflowChatNewMessage(opts = {}) {
   const guild = opts.guild;
   const guildId = String(guild?.id || opts.guildId || IDs.guilds?.main || "").trim();

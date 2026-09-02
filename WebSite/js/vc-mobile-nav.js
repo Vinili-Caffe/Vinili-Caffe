@@ -1,6 +1,5 @@
 (function () {
-  // Su homepage e molte pagine vc-landing.js già gestisce il menu mobile.
-  if (window.__vcLandingMobileNavActive) return;
+    if (window.__vcLandingMobileNavActive) return;
 
   var DRAWER_ID = "vc-mobile-nav-drawer";
   var TOGGLE_ID = "vc-mobile-nav-toggle";
@@ -59,8 +58,7 @@
     if (!drawer) return;
     mountDrawer(drawer);
     closeNotifDropdown();
-    // safeFixes1: Apri SUBITO — rebuild griglia dopo il paint (ieri: tap hamburger lento).
-    drawer.classList.add("vc-mobile-nav-drawer--open");
+        drawer.classList.add("vc-mobile-nav-drawer--open");
     drawer.setAttribute("aria-hidden", "false");
     if (toggle) toggle.setAttribute("aria-expanded", "true");
     focusPrev = document.activeElement;
@@ -95,6 +93,12 @@
 
   function mobileAvatarUrl(u) {
     if (!u || !u.id) return "";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromUser === "function") {
+        var built = window.VcDiscordAvatar.buildFromUser(u, 64);
+        if (built) return built;
+      }
+    } catch (eBuilt) {}
     if (u.avatar) {
       var ext = String(u.avatar).indexOf("a_") === 0 ? "gif" : "png";
       return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
@@ -329,8 +333,7 @@
     return t === "guida" || t === "guida staff" || t === "staff guide";
   }
 
-  /** Navbar dedicate Hogwarts /evento: niente Area staff né blocco Guida. */
-  function isEventDedicatedNavPage() {
+    function isEventDedicatedNavPage() {
     try {
       var p = String(location.pathname || "/").replace(/\/+$/, "") || "/";
       if (p === "/evento" || p.indexOf("/evento/") === 0) return true;
@@ -632,98 +635,126 @@
     return "PRINCIPALE";
   }
 
+  function appendMobileNavSection(gridRoot, title, tiles) {
+    if (!gridRoot || !tiles || !tiles.length) return;
+    var sec = document.createElement("section");
+    sec.className = "vc-mobile-nav-section";
+    var h = document.createElement("h3");
+    h.className = "vc-mobile-nav-section-title";
+    h.textContent = title;
+    var g = document.createElement("div");
+    g.className = "vc-mobile-nav-grid";
+    var t;
+    for (t = 0; t < tiles.length; t += 1) {
+      if (tiles[t]) g.appendChild(tiles[t]);
+    }
+    if (!g.children.length) return;
+    sec.appendChild(h);
+    sec.appendChild(g);
+    gridRoot.appendChild(sec);
+  }
+
+  function safeCreateTileFromRow(row) {
+    try {
+      return createTileFromRow(row);
+    } catch (eRow) {
+      try {
+        if (!row) return null;
+        var href = row.getAttribute("href");
+        if (!href) return null;
+        var a = document.createElement("a");
+        a.className = "vc-mobile-nav-tile";
+        a.href = href;
+        var lab = document.createElement("span");
+        lab.className = "vc-mobile-nav-tile-label";
+        lab.textContent = String(row.textContent || "").replace(/\s+/g, " ").trim();
+        a.appendChild(lab);
+        a.addEventListener("click", function () {
+          closeDrawer();
+        });
+        return a;
+      } catch (eFallback) {
+        return null;
+      }
+    }
+  }
+
+  function collectTopNavTiles(nav) {
+    var out = [];
+    var items = nav.querySelectorAll(":scope > a.vc-snav-item");
+    var i;
+    for (i = 0; i < items.length; i += 1) {
+      var tile = createTileFromItem(items[i]);
+      if (tile) out.push(tile);
+    }
+    return out;
+  }
+
+  function collectDetailsNavTiles(detailsEl) {
+    var out = [];
+    if (!detailsEl) return out;
+    var rows = detailsEl.querySelectorAll(".vc-snav-panel .vc-snav-row");
+    var r;
+    for (r = 0; r < rows.length; r += 1) {
+      var rowEl = rows[r];
+      var rowHref = rowEl ? rowEl.getAttribute("href") : "";
+      var rowLab = "";
+      try {
+        var spans = rowEl.querySelectorAll("span");
+        var sj;
+        for (sj = 0; sj < spans.length; sj += 1) {
+          if (spans[sj].classList.contains("vc-snav-row-ico")) continue;
+          rowLab = String(spans[sj].textContent || "").trim();
+          if (rowLab) break;
+        }
+      } catch (eLab) {}
+      if (isStaffOnlyNavHref(rowHref) || isStaffOnlyNavLabel(rowLab)) continue;
+      var tile = safeCreateTileFromRow(rowEl);
+      if (tile) out.push(tile);
+    }
+    return out;
+  }
+
   function rebuildGrid() {
     var gridRoot = document.getElementById("vc-mobile-nav-drawer-grid");
+    if (!gridRoot) return;
+    try {
+      if (window.__VC_MOBILE_NAV_CANONICAL && window.__VC_MOBILE_NAV_CANONICAL.shouldUse()) {
+        window.__VC_MOBILE_NAV_CANONICAL.build(gridRoot);
+        appendStaffGuideSection(
+          gridRoot,
+          document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"),
+        );
+        return;
+      }
+    } catch (eCanon) {}
     var nav = document.querySelector("nav.vc-header-snav");
-    if (!gridRoot || !nav) return;
+    if (!nav) return;
     gridRoot.innerHTML = "";
-    var kids = nav.children;
-    var groupIndex = 0;
-    var i = 0;
-    while (i < kids.length) {
-      var el = kids[i];
-      if (!el || el.tagName === "SPAN") {
-        i += 1;
+
+    var topTiles = collectTopNavTiles(nav);
+    if (topTiles.length) appendMobileNavSection(gridRoot, groupSectionTitle(nav, 0), topTiles);
+
+    var details = nav.querySelectorAll(":scope > details.vc-snav-details");
+    var d;
+    for (d = 0; d < details.length; d += 1) {
+      var el = details[d];
+      var sum = el.querySelector(".vc-snav-summary");
+      var titleTxt = "MENU";
+      if (sum) {
+        var sp = sum.querySelector("span");
+        titleTxt = sectionLabel(sp ? sp.textContent : sum.textContent);
+      }
+      if (isStaffDetailsEl(el) || isStaffOnlyNavSection(titleTxt)) {
+        appendStaffGuideSection(gridRoot, el);
         continue;
       }
-      if (el.tagName === "A" && el.classList.contains("vc-snav-item")) {
-        var sec = document.createElement("section");
-        sec.className = "vc-mobile-nav-section";
-        var h = document.createElement("h3");
-        h.className = "vc-mobile-nav-section-title";
-        h.textContent = groupSectionTitle(nav, groupIndex);
-        groupIndex += 1;
-        var g = document.createElement("div");
-        g.className = "vc-mobile-nav-grid";
-        while (i < kids.length) {
-          var el2 = kids[i];
-          if (!el2 || el2.tagName === "SPAN") {
-            i += 1;
-            continue;
-          }
-          if (!(el2.tagName === "A" && el2.classList.contains("vc-snav-item"))) break;
-          var t = createTileFromItem(el2);
-          if (t) g.appendChild(t);
-          i += 1;
-        }
-        if (!g.children.length) continue;
-        sec.appendChild(h);
-        sec.appendChild(g);
-        gridRoot.appendChild(sec);
-        continue;
-      }
-      if (el.tagName === "DETAILS" && el.classList.contains("vc-snav-details")) {
-        var sum = el.querySelector(".vc-snav-summary");
-        var titleTxt = "MENU";
-        if (sum) {
-          var sp = sum.querySelector("span");
-          titleTxt = sectionLabel(sp ? sp.textContent : sum.textContent);
-        }
-        // Area staff: niente sezione, ma tieni Guida nel hamburger.
-        if (isStaffDetailsEl(el) || isStaffOnlyNavSection(titleTxt)) {
-          appendStaffGuideSection(gridRoot, el);
-          i += 1;
-          continue;
-        }
-        var sec2 = document.createElement("section");
-        sec2.className = "vc-mobile-nav-section";
-        var h2 = document.createElement("h3");
-        h2.className = "vc-mobile-nav-section-title";
-        h2.textContent = titleTxt;
-        var g2 = document.createElement("div");
-        g2.className = "vc-mobile-nav-grid";
-        var rows = el.querySelectorAll(".vc-snav-panel .vc-snav-row");
-        var r;
-        for (r = 0; r < rows.length; r += 1) {
-          var rowEl = rows[r];
-          var rowHref = rowEl ? rowEl.getAttribute("href") : "";
-          var rowLab = "";
-          try {
-            var spans = rowEl.querySelectorAll("span");
-            var sj;
-            for (sj = 0; sj < spans.length; sj += 1) {
-              if (spans[sj].classList.contains("vc-snav-row-ico")) continue;
-              rowLab = String(spans[sj].textContent || "").trim();
-              if (rowLab) break;
-            }
-          } catch (eLab) {}
-          if (isStaffOnlyNavHref(rowHref) || isStaffOnlyNavLabel(rowLab)) continue;
-          var tile = createTileFromRow(rowEl);
-          if (tile) g2.appendChild(tile);
-        }
-        if (!g2.children.length) {
-          i += 1;
-          continue;
-        }
-        sec2.appendChild(h2);
-        sec2.appendChild(g2);
-        gridRoot.appendChild(sec2);
-      }
-      i += 1;
+      var sectionTiles = collectDetailsNavTiles(el);
+      appendMobileNavSection(gridRoot, titleTxt, sectionTiles);
     }
+
     appendStaffGuideSection(gridRoot, document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
-    // Dashboard: solo nel footer hamburger (icona), non nella griglia scroll.
-  }
+      }
 
   function cloneBrand(intoEl) {
     var bar = document.querySelector(".vc-header-bar");

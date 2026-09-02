@@ -1,8 +1,3 @@
-/**
- * Site-wide emoji polish:
- * - Unicode emoji → Twemoji SVG (consistent on Windows)
- * - Soft-sanitize decorative Discord channel chars in plain text nodes
- */
 (function () {
   if (window.__vcEmojiRender) return;
   window.__vcEmojiRender = true;

@@ -79,8 +79,7 @@
       });
       if (!(bl.items || []).length) html += '<li class="vc-staff-tools-empty">Nessun server in blacklist.</li>';
       html += "</ul>";
-      // Scrittura blacklist / punti: solo High Staff. Gestore PM = sola lettura.
-      if (me.isHighStaff) {
+            if (me.isHighStaff) {
         html +=
           '<div class="vc-staff-inbox-actions vc-staff-pm-actions">' +
           '<h3 class="vc-staff-tools-section__title">Modifica punti</h3>' +
@@ -210,7 +209,6 @@
       if (ev && ev.detail && ev.detail.tab === "pm") load();
     });
     maybeLoad();
-    // If standalone /staff/pm/ page still exists, load always.
-    if (!document.getElementById("vc-manage-tabs")) load();
+        if (!document.getElementById("vc-manage-tabs")) load();
   });
 })();

@@ -375,9 +375,7 @@ module.exports = {
       global.logger?.error?.("[PUBLIC VOICE HUB ERROR]", error);
     }
 
-    // Stanze = solo Caffè (Vinyls non deve creare panel / race sul lobby).
-    // Vedi Coffee/Services/Voice/stanzaVoiceRoomsService.js (notifyStanzaVisitorJoin).
-
+        
     try {
       const { handlePmVoiceAfkVoiceState } = require("../Services/Staff/pmVoiceAfkWatchService");
       await handlePmVoiceAfkVoiceState(oldState, newState, client);

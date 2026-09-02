@@ -2,7 +2,6 @@ const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore
 const { isMongoReady } = require("../../Utils/Database/mongoConnect");
 const { normalizeGuildId } = require("./viniliProtectedGuilds");
 
-/** Snapshot personalizzazioni Premium (nick/avatar/banner) separate dallo stato Discord. */
 const BOT_STATE_KEY = "multiGuildTenantPremiumIdentity.v1";
 const CACHE_TTL_MS = 4_000;
 
@@ -91,11 +90,6 @@ async function getTenantPremiumIdentity(guildId) {
   return getTenantPremiumIdentitySync(guildId);
 }
 
-/**
- * Merge patch sullo snapshot salvato.
- * `nick`/`avatar`/`banner`: string data URI, `null` per clear esplicito, `undefined` = leave.
- * `visuallyApplied`: bool opzionale.
- */
 async function patchTenantPremiumIdentity(guildId, patch = {}) {
   const gid = normalizeGuildId(guildId);
   if (!gid) return { ok: false, reason: "invalid_guild" };

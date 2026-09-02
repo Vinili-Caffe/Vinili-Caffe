@@ -33,8 +33,7 @@ function resolveBoardChannelId(guildId, kind = "quote") {
     const access = resolveGuildAccess(gid);
     return normalizeQuoteChannelId(access?.entry?.channelMap?.quotes);
   } catch {
-    // registry unavailable
-  }
+      }
   return null;
 }
 

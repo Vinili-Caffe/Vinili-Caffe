@@ -68,10 +68,6 @@ async function deleteThreadIfAny(client, threadId) {
   });
 }
 
-/**
- * All’avvio del bot: se il thread salvato esiste ancora sotto #partnersChat, non fare nulla.
- * Se manca o non è più valido, ne viene creato uno nuovo (senza rotazione automatica giornaliera).
- */
 async function ensurePartnerPmDailyThreadOnReady(client) {
   const guildId = String(IDs.guilds?.main || "");
   const parentId = String(IDs.channels?.partnersChat || "").trim();

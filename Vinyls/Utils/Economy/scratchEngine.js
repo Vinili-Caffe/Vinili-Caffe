@@ -1,9 +1,5 @@
 const { randomInt } = require("node:crypto");
 
-/**
- * Stile Gratta e Vinci: "Trova 3 simboli uguali".
- * Più simboli tengono l'RTP ~94% con triple a 2× (premio sensato).
- */
 const SYMBOLS = [
   "coin",
   "star",
@@ -34,7 +30,6 @@ const SYMBOL_LABEL = {
   orb: "Sfera",
   jackpot: "VC",
 };
-/** Pesi relativi. Jackpot raro. */
 const WEIGHTS = {
   coin: 16,
   star: 15,
@@ -79,10 +74,6 @@ function readPayout(cfg, key, fallback) {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
-/**
- * Vincita da 3 simboli uguali (come i Gratta e Vinci "Trova 3").
- * 3+ VC = jackpot.
- */
 function evaluateCard(cells, cfg) {
   const list = Array.isArray(cells) ? cells : [];
   const counts = new Map();

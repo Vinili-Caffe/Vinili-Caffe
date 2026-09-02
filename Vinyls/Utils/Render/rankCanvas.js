@@ -7,7 +7,6 @@ const { spawnSync } = require("child_process");
 const axios = require("axios");
 const ffmpegPath = require("ffmpeg-static");
 
-/** `canvas.Path2D` manca o non è costruibile in alcuni ambienti (mock, runtime non standard, build nativa vecchia). */
 let path2dCtorMemo;
 function getPath2DConstructor() {
   if (path2dCtorMemo !== undefined) return path2dCtorMemo;
@@ -24,8 +23,7 @@ function getPath2DConstructor() {
         return Ctor;
       }
     } catch {
-      /* prova il prossimo candidato */
-    }
+          }
   }
   path2dCtorMemo = null;
   return null;
@@ -54,7 +52,6 @@ function strokePath2D(ctx, d, lineWidth) {
   }
 }
 
-/** Icone stat in spazio 32×32 (stesso sistema di drawStatIcon dopo translate/scale). */
 function drawStatIconGeometric(ctx, icon) {
   if (icon === "bolt") {
     ctx.beginPath();
@@ -88,8 +85,7 @@ function drawStatIconGeometric(ctx, icon) {
     ctx.fill();
     return;
   }
-  /* trophy */
-  ctx.beginPath();
+    ctx.beginPath();
   ctx.moveTo(8, 10);
   ctx.quadraticCurveTo(16, 5, 24, 10);
   ctx.lineTo(22, 19);
@@ -205,11 +201,6 @@ function drawCoverImage(ctx, image, x, y, width, height) {
   ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 }
 
-/**
- * Wallpaper fill for the short 976×276 card.
- * Cover + adaptive zoom crops baked-in letterbox bars (common on meme wallpapers)
- * that otherwise show as a harsh bright rectangular strip behind the hero.
- */
 function drawWallpaperImage(ctx, image, x, y, width, height) {
   if (!image || !image.width || !image.height || width <= 0 || height <= 0) return;
   ctx.fillStyle = "#0b0d12";
@@ -234,8 +225,7 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette, avatarImageOverri
   const radius = size / 2;
   const ring = String(palette.ringColor || "#ffcb05");
 
-  // Alone soft, anello sottile (niente glow troppo grossolano).
-  ctx.save();
+    ctx.save();
   const glowR = radius + 11;
   const glow = ctx.createRadialGradient(cx, cy, Math.max(1, radius * 0.82), cx, cy, glowR);
   glow.addColorStop(0, hexToRgba(ring, 0.28));
@@ -304,7 +294,6 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
   });
 }
 
-/** Same SVG paths as WebSite/js/user-rank-customize-page.js (previewStatIcon), scaled to canvas. */
 function drawStatIcon(ctx, icon, x, y, color) {
   const scale = 0.72;
   ctx.save();
@@ -366,7 +355,6 @@ function formatRankValue(value) {
   return `#${formatInt(n)}`;
 }
 
-/** Preset wallpapers on the site use SVG data URLs. */
 function isSvgDataUrlWallpaper(url) {
   return /^data:image\/svg\+xml/i.test(String(url || ""));
 }
@@ -396,9 +384,6 @@ function decodeSvgDataUrlToBuffer(dataUrl) {
   }
 }
 
-/**
- * Canvas gradients aligned with rankCardTheme.js svgWallpaper presets (aurora / neon / meadow).
- */
 function drawPresetWallpaperFromKey(ctx, x, y, width, height, key) {
   const k = String(key || "").toLowerCase();
   let gradient = ctx.createLinearGradient(x, y, x + width, y + height);
@@ -466,8 +451,7 @@ async function drawWallpaper(ctx, x, y, width, height, palette, wallpaperImageOv
   }
   const wallpaper = resolveRankCardWallpaper(palette);
   if (wallpaper && isGifDataUrlWallpaper(wallpaper)) {
-    /* node-canvas non decodifica bene i GIF data URL: primo frame via ffmpeg. */
-    const frame = await loadGifDataUrlFirstFrameImage(wallpaper);
+        const frame = await loadGifDataUrlFirstFrameImage(wallpaper);
     if (frame) {
       drawWallpaperImage(ctx, frame, x, y, width, height);
       return;
@@ -574,8 +558,7 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   const panelAlpha = clamp(palette.overlayOpacity, 0, 1);
-  // Chrome UI (hero/stats/rank): leggibile anche con opacità molto bassa.
-  const chromeAlpha = Math.min(1, Math.max(panelAlpha, 0.34) * 0.88 + 0.12);
+    const chromeAlpha = Math.min(1, Math.max(panelAlpha, 0.34) * 0.88 + 0.12);
 
   ctx.clearRect(0, 0, width, height);
 
@@ -587,8 +570,7 @@ async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperIm
     r: 18,
   };
 
-  // Layout che riempie l'altezza (niente letterbox), wallpaper full-bleed come +rank.
-  const padX = 16;
+    const padX = 16;
   const padY = 14;
   const gap = 10;
   const statH = 58;

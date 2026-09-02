@@ -3,7 +3,21 @@ const { listJsFilesRecursive } = require("../../shared/runtime/fsRuntime");
 
 const IDS_SUBFOLDER = path.sep + "ids" + path.sep;
 
-/** File che non sono handler (aggregatori, librerie componenti): da non caricare come button handler. */
+const REMOVED_BUTTON_HANDLER_NAMES = new Set([
+  "balGui",
+  "blackjackGui",
+  "coinflipGui",
+  "duelGui",
+  "incomeClaimGui",
+  "robGui",
+  "rouletteGui",
+  "rpsGui",
+  "scratchGui",
+  "shopGui",
+  "slotsGui",
+  "trisGui",
+]);
+
 function isNonHandlerFile(relativeKey) {
   if (relativeKey === "index.js") return true;
   const sep = path.sep;
@@ -31,6 +45,9 @@ module.exports = (client) => {
           continue;
         }
         const name = mod.name || path.basename(fullPath, ".js");
+        if (REMOVED_BUTTON_HANDLER_NAMES.has(String(name).trim())) {
+          continue;
+        }
         loaded.push({
           name,
           order: typeof mod.order === "number" ? mod.order : 100,

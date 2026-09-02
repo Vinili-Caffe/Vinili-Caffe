@@ -34,7 +34,6 @@ const HOUSE_META = Object.freeze({
   },
 });
 
-/** @type {{ id: string, text: string, choices: { id: string, text: string, weights: Record<string, number> }[] }[]} */
 const QUESTIONS = [
   {
     id: "q01",

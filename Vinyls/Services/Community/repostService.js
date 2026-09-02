@@ -449,10 +449,8 @@ function isClipRepostDoc(doc) {
   const sm = String(doc.sourceMessageId || "").trim();
   const bc = String(doc.boardChannelId || "").trim();
   const bm = String(doc.boardMessageId || "").trim();
-  // Legacy sentinel: tutti gli id uguali.
-  if (sc && sc === sm && bc === bm && sc === bc) return true;
-  // Clip in bacheca: source = messaggio board stesso (anche "pending" pre-send).
-  if (sc && bc && sc === bc && sm && (sm === "pending" || (bm && sm === bm))) {
+    if (sc && sc === sm && bc === bm && sc === bc) return true;
+    if (sc && bc && sc === bc && sm && (sm === "pending" || (bm && sm === bm))) {
     return true;
   }
   const files = Array.isArray(doc.mediaFiles) ? doc.mediaFiles : [];
@@ -502,7 +500,6 @@ function componentsMatchBoardState(existingComponents, expectedComponents) {
   return a === b;
 }
 
-/** Rimuovi obbligatorio in bacheca; formato legacy `repost_remove:<userId>:<id>` va migrato. */
 function boardNeedsRemoveButtonRefresh(existingComponents, expectedComponents) {
   const existing = boardCustomIdSet(existingComponents);
   const expected = boardCustomIdSet(expectedComponents);
@@ -515,8 +512,7 @@ function boardNeedsRemoveButtonRefresh(existingComponents, expectedComponents) {
   const hasModernRemove = [...existing].some((id) => /^repost_remove:[a-f0-9]{24}$/i.test(id));
   const expectsRemove = [...expected].some((id) => id.startsWith(REPOST_REMOVE_PREFIX));
   if (expectsRemove && !hasModernRemove) return true;
-  // Rileva label sbagliata (clip con "Rimuovi repost" o viceversa).
-  const existingLabels = new Set(
+    const existingLabels = new Set(
     (existingComponents || [])
       .flatMap((row) => row.components || [])
       .filter((comp) => String(comp.customId || "").startsWith(REPOST_REMOVE_PREFIX))
@@ -554,8 +550,7 @@ async function resolveBoardMessageComponents(guild, boardChannelId, boardMessage
 
 function isUnknownDiscordResourceError(err) {
   const code = Number(err?.code ?? err?.rawError?.code ?? 0);
-  // 10003 Unknown Channel · 10008 Unknown Message
-  return code === 10003 || code === 10008;
+    return code === 10003 || code === 10008;
 }
 
 async function clearOrphanBoardPointers(guildId, boardChannelId, boardMessageId) {
@@ -590,15 +585,11 @@ async function editBoardMessageKeepAttachments(boardMsg, patch) {
   if (!boardMsg?.edit) return false;
   const keep = attachmentKeepRefs(boardMsg);
   const payload = { ...(patch || {}) };
-  // Con file già presenti: elenca gli id da tenere, altrimenti un edit può svuotarli (API v10).
-  if (keep.length) payload.attachments = keep;
+    if (keep.length) payload.attachments = keep;
   const edited = await boardMsg.edit(payload).then(() => true).catch(() => false);
   return edited;
 }
 
-/**
- * @returns {{ ok: boolean, reason?: string, orphan?: boolean, code?: number }}
- */
 async function syncBoardMessageComponentsDetailed(guild, boardChannelId, boardMessageId) {
   const cid = String(boardChannelId || "").trim();
   const mid = String(boardMessageId || "").trim();
@@ -791,8 +782,7 @@ function parseRepostRemoveButton(customId) {
   const id = String(customId || "");
   const modern = id.match(/^repost_remove:([a-f0-9]{24})$/i);
   if (modern) return { repostId: modern[1] };
-  // Formato legacy: repost_remove:<ownerUserId>:<repostId>
-  const legacy = id.match(/^repost_remove:(\d{16,20}):([a-f0-9]{24})$/i);
+    const legacy = id.match(/^repost_remove:(\d{16,20}):([a-f0-9]{24})$/i);
   if (!legacy) return null;
   return { ownerUserId: legacy[1], repostId: legacy[2] };
 }
@@ -1347,9 +1337,7 @@ async function handleRepostaButton(interaction) {
       sourceMessageId,
     );
   }
-  // Ack pubblico solo in chat: primo repost che crea la bacheca.
-  // In bacheca quote l'ack resta sempre ephemeral (non deve spammare il canale).
-  const quoteBoardChannelId = resolveQuoteChannelId(interaction.guild.id);
+      const quoteBoardChannelId = resolveQuoteChannelId(interaction.guild.id);
   const interactionChannelId = String(interaction.channelId || interaction.channel?.id || "").trim();
   const clickedInQuoteBoard =
     Boolean(quoteBoardChannelId) && interactionChannelId === quoteBoardChannelId;
@@ -1383,8 +1371,7 @@ async function handleRepostaButton(interaction) {
     return { handled: true };
   }
 
-  // Race: un altro ha creato la bacheca prima di noi → non lasciare un secondo ack pubblico.
-  if (usePublicAck && !result.boardMessage) {
+    if (usePublicAck && !result.boardMessage) {
     await interaction.deleteReply().catch(() => {});
     await interaction
       .followUp({
@@ -1570,8 +1557,7 @@ async function registerClipBoardPost(ctx) {
   } = ctx;
   const gid = String(guildId || guild?.id || "").trim();
   const uid = String(requesterId || "").trim();
-  // Nuovo flusso: un solo send (file + embed + bottoni). Evita edit che toglie clip.mp3.
-  if (mp3Path && postChannel?.send && boardEmbed) {
+    if (mp3Path && postChannel?.send && boardEmbed) {
     if (isRepostDisabledInGuild(gid) || !gid || !uid) {
       return { ok: false };
     }
@@ -1656,8 +1642,7 @@ async function registerClipBoardPost(ctx) {
     return { ok: true, repostId, boardMessage: boardMsg };
   }
 
-  // Legacy: messaggio già inviato → aggiungi bottoni senza togliere gli allegati.
-  const cid = String(boardChannelId || "").trim();
+    const cid = String(boardChannelId || "").trim();
   const mid = String(boardMessage?.id || "").trim();
   if (isRepostDisabledInGuild(gid) || !gid || !uid || !cid || !mid || !boardMessage) {
     return { ok: false };

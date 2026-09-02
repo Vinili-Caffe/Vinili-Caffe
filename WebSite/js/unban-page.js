@@ -423,8 +423,7 @@
         }
       }
       if (!currentUser) {
-        // Solo se la sessione non c’è davvero: un emit null temporaneo non deve far bounce.
-        if (!getToken()) redirectToAccessRequired();
+                if (!getToken()) redirectToAccessRequired();
         return;
       }
       refreshEligibility();

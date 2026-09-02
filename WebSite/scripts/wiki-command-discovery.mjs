@@ -1,13 +1,3 @@
-/**
- * Legge i file dei bot Vinyls / Coffee e genera l'HTML degli accordion comandi per la wiki.
- * Slash / menu contestuale: stessa categoria della cartella Commands (Admin, Staff, Dev…), insieme ai prefix.
- * Prefix: cartella Prefix, esclusi skipLoad / skipPrefix. Slash senza skipDeploy / hideFromHelp.
- * Categorie admin e dev: omesse dalla wiki pubblica.
- * Visibilità comandi (prefix/slash/context): come +help per un utente con solo ruolo Member
- * (permissions.json + canMemberSeeEntry). Cartella Prefix "misc" esclusa come in help.
- * Comandi tenantOnly / hideFromHelp (es. +settings multi-guild): esclusi dalla wiki pubblica.
- * Slash già in DEFAULT_OBSOLETE_SLASH_NAMES: esclusi (non esistono più su Discord).
- */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -51,7 +41,6 @@ const CATEGORY_ORDER = [
   "event",
 ];
 
-/** Cartelle Admin / Dev: non mostrate sulla wiki (comandi sensibili o solo team). */
 function wikiPublicCategory(id) {
   const k = String(id || "").toLowerCase();
   return k !== "admin" && k !== "dev";
@@ -619,10 +608,6 @@ function buildPaneInnerHtml(botAttrName, avatarUrlAttr, categories) {
   return html;
 }
 
-/**
- * @param {{ avatarProdUrl: string; avatarTestUrl: string }} opts URL già risolte (anche relative)
- * @returns {string} HTML (senza wrapper esterno)
- */
 export function buildWikiCommandPanesInnerHtml(opts) {
   const { avatarProdUrl, avatarTestUrl } = opts;
   try {

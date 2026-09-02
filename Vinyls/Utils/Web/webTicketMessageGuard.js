@@ -2,13 +2,10 @@
 
 const { loadAutomodScamConfig } = require("../Moderation/automodScamConfig");
 
-/** Minimo intervallo tra messaggi utente (ms). */
 const USER_MIN_INTERVAL_MS = 2500;
-/** Finestra anti-burst utente. */
 const USER_WINDOW_MS = 30_000;
 const USER_WINDOW_MAX = 6;
 
-/** Staff: più permissivo ma non illimitato. */
 const STAFF_MIN_INTERVAL_MS = 700;
 const STAFF_WINDOW_MS = 30_000;
 const STAFF_WINDOW_MAX = 20;
@@ -32,10 +29,6 @@ function getBucket(key) {
   return row;
 }
 
-/**
- * @param {{ guildId: string, userId: string, kind?: string }} opts
- * @returns {{ ok: true } | { ok: false, retryAfterMs: number, message: string, error: string }}
- */
 function consumeWebTicketMessageRateLimit(opts = {}) {
   const guildId = String(opts.guildId || "").trim() || "g";
   const userId = String(opts.userId || "").trim();
@@ -95,12 +88,12 @@ function countNewlines(content) {
   return (String(content || "").match(/\n/g) || []).length;
 }
 
-function hasRepeatedCharSpam(content) {
-  return /(.)\1{11,}/u.test(String(content || ""));
+function hasExcessiveBlankLineRuns(content) {
+  return /\n{9,}/.test(String(content || ""));
 }
 
-function hasDiscordInvite(content) {
-  return /(?:discord(?:app)?\.com\/invite|discord\.gg)\/[a-z0-9-]+/i.test(String(content || ""));
+function hasRepeatedCharSpam(content) {
+  return /(.)\1{11,}/u.test(String(content || ""));
 }
 
 function findBlockedScamDomain(content) {
@@ -128,22 +121,9 @@ function hasMassMentions(content) {
   return userMentions.length + roleMentions.length >= 6;
 }
 
-/**
- * Automod leggero solo per messaggi utente (non staff).
- * @param {{ content?: string, guildId?: string, userId?: string, ticketId?: string }} opts
- * @returns {{ ok: true } | { ok: false, error: string, message: string }}
- */
 function checkWebTicketUserMessageAutomod(opts = {}) {
   const content = String(opts.content || "");
   if (!content.trim()) return { ok: true };
-
-  if (hasDiscordInvite(content)) {
-    return {
-      ok: false,
-      error: "automod_invite",
-      message: "I link di invito Discord non sono consentiti nei ticket.",
-    };
-  }
 
   const scamHit = findBlockedScamDomain(content);
   if (scamHit) {
@@ -162,11 +142,11 @@ function checkWebTicketUserMessageAutomod(opts = {}) {
     };
   }
 
-  if (countNewlines(content) >= 25) {
+  if (hasExcessiveBlankLineRuns(content)) {
     return {
       ok: false,
       error: "automod_flood",
-      message: "Messaggio rifiutato: troppe righe vuote / flood.",
+      message: "Messaggio rifiutato: troppe righe vuote consecutive.",
     };
   }
 

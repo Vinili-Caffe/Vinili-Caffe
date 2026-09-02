@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { siteUserProfilePagePlainRef } = require("../../shared/web/siteTicketsPageRef");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("./noDmList");
 
 function _stripRef(p) {
@@ -48,7 +48,7 @@ function buildPanelEmbed(prefs) {
     return `• **${DM_CATEGORY_LABELS[key]}**: ${off ? `${EMOJI_OFF} Disattivato` : `${EMOJI_ON} Attivo`}`;
   });
   const intro = "<:VC_PinkQuestionMark:1471892611026391306> Configura le tue **preferenze DM**. Clicca un pulsante per attivare/disattivare una categoria.";
-  const footerText = "Usa +profile per gestire i tuoi avvisi in DM.";
+  const footerText = `Usa ${siteUserProfilePagePlainRef()} per gestire i tuoi avvisi in DM.`;
   const desc = [
     `${intro}`,
     "",
@@ -135,7 +135,7 @@ async function handleNoDmPanelInteraction(interaction) {
             .setColor("#6f4e37")
             .setTitle("<:success:1461731530333229226> Preferenze DM salvate")
             .setDescription(
-              "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa `+profile` per modificarle in futuro.",
+              "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.",
             ),
         ],
         components: [],

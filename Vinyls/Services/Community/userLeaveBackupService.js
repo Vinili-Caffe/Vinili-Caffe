@@ -95,7 +95,6 @@ function getRestorableRoleIdsFromMember(member) {
   );
 }
 
-/** @deprecated I DEPEX per uscita restano in canale anche dopo il rientro. */
 async function recordLeaveDepexMessages() {
   return false;
 }
@@ -286,9 +285,7 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
           ? { ...current.profile }
           : null;
     if (nextProfile) {
-      // Nuovo ingresso: non riusare i flag announce del soggiorno precedente
-      // (altrimenti il welcome deferred non parte dopo restore ruoli ≤7gg).
-      delete nextProfile.joinAnnounceSentAt;
+                  delete nextProfile.joinAnnounceSentAt;
       delete nextProfile.joinAnnouncePending;
       if (member && !member.premiumSinceTimestamp) {
         delete nextProfile.serverBoostAnnouncedSlotCount;
@@ -349,8 +346,7 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   if (hasPendingRoleRestore && member?.client) {
     schedulePendingRoleRestoreRetry(gid, uid, member.client);
   }
-  // Con mute attivo non cancellare il leave backup (ruoli deferred al mute mirror).
-  if (backup?._id && !hasPendingRoleRestore && !skipRoleRestore) {
+    if (backup?._id && !hasPendingRoleRestore && !skipRoleRestore) {
     await UserLeaveBackup.deleteOne({ _id: backup._id }).catch(() => null);
   }
   return restoredProfile || restoredRoles;

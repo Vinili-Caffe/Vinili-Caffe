@@ -70,7 +70,17 @@
 
   function avatarUrl(row) {
     var fromApi = String(row.avatarUrl || "").trim();
-    if (/^https?:\/\//i.test(fromApi)) return fromApi;
+    if (/^https?:\/\//i.test(fromApi)) {
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
+          return window.VcDiscordAvatar.resolveUrl(fromApi, 128, row.avatar, row.userId);
+        }
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferAnimatedUrl === "function") {
+          return window.VcDiscordAvatar.preferAnimatedUrl(fromApi, 128);
+        }
+      } catch (eAnim) {}
+      return fromApi;
+    }
     var id = String(row.userId || "").trim();
     var av = String(row.avatar || "").trim();
     if (id && av) {
@@ -257,8 +267,7 @@
     return list.map(function (row, idx) {
       var copy = Object.assign({}, row);
       var apiRank = Number(row && row.rank) || 0;
-      // Rank globale: pagina 2 = 10–18… In ricerca singolo mantieni il rank API.
-      if (state.searchUserId && apiRank > 0) {
+            if (state.searchUserId && apiRank > 0) {
         copy.rank = apiRank;
       } else {
         copy.rank = offset + idx + 1;
@@ -388,7 +397,7 @@
   var LIVE_USERS_POLL_MS = 45000;
   var USERS_CACHE_TTL_MS = 60000;
   var USERS_STALE_TTL_MS = 10 * 60 * 1000;
-  var USERS_FETCH_TIMEOUT_MS = 28000;
+  var USERS_FETCH_TIMEOUT_MS = 10000;
   var usersMemoryCache = new Map();
   var pendingScrollToCards = false;
   var leaderPrefetchConsumed = false;
@@ -461,8 +470,7 @@
       if (!pref || !pref.promise) return null;
       var want = String(url || "");
       var got = String(pref.url || "");
-      // Accetta prefetch se board/page combaciano (lite/perf possono differire).
-      function boardOf(u) {
+            function boardOf(u) {
         try {
           return new URL(u, window.location.origin).searchParams.get("board") || "level";
         } catch (e) {
@@ -591,110 +599,181 @@
 
   function clearLeaderPending(opts) {
     var shouldScroll = !(opts && opts.scroll === false);
-    try {
-      document.documentElement.classList.remove("vc-user-leader-pending");
-      document.documentElement.classList.remove("vc-loading-scroll-lock");
-      document.documentElement.classList.add("vc-page-cine-ready");
-      document.documentElement.classList.remove("vc-page-cine-boot");
-    } catch (ePending) {}
-    try {
-      var overlay = byId("vc-ul-loading");
-      if (overlay) {
-        overlay.hidden = true;
-        overlay.setAttribute("hidden", "");
-        overlay.removeAttribute("data-vc-loader-blocking");
-        overlay.style.setProperty("display", "none", "important");
-        overlay.style.setProperty("pointer-events", "none", "important");
+    var root = document.documentElement;
+
+    function hideLoader() {
+      try {
+        var overlay = byId("vc-ul-loading");
+        if (overlay) {
+          overlay.hidden = true;
+          overlay.setAttribute("hidden", "");
+          overlay.removeAttribute("data-vc-loader-blocking");
+          overlay.style.setProperty("display", "none", "important");
+          overlay.style.setProperty("pointer-events", "none", "important");
+        }
+      } catch (eOv) {}
+    }
+
+    function unlockScrollStyles() {
+      try {
+        var html = document.documentElement;
+        var body = document.body;
+        if (html) {
+          html.style.removeProperty("overflow");
+          html.style.removeProperty("overflow-x");
+          html.style.removeProperty("overflow-y");
+          html.style.removeProperty("height");
+          html.style.removeProperty("max-height");
+          html.style.removeProperty("touch-action");
+        }
+        if (body) {
+          body.style.removeProperty("position");
+          body.style.removeProperty("inset");
+          body.style.removeProperty("top");
+          body.style.removeProperty("right");
+          body.style.removeProperty("bottom");
+          body.style.removeProperty("left");
+          body.style.removeProperty("width");
+          body.style.removeProperty("overflow");
+          body.style.removeProperty("overflow-x");
+          body.style.removeProperty("overflow-y");
+          body.style.removeProperty("height");
+          body.style.removeProperty("max-height");
+          body.style.removeProperty("touch-action");
+        }
+      } catch (eStyle) {}
+    }
+
+    function scrollAfterReveal() {
+      if (isProfileMode()) return;
+      function refreshCommunityLayout() {
+        try {
+          if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
+            window.__vcEnsureCommunityPageCineLayout();
+            return;
+          }
+          if (typeof window.__vcPageHeroLayout === "function") {
+            window.__vcPageHeroLayout({ force: true });
+          }
+        } catch (eLayout) {}
       }
-    } catch (eOv) {}
-    try {
-      var html = document.documentElement;
+      function headerOffsetPx() {
+        try {
+          var bar = document.querySelector(".vc-header-bar") || document.querySelector("header");
+          var h = bar ? bar.getBoundingClientRect().height : 72;
+          return Math.round(Math.max(64, h + 12));
+        } catch (eOff) {
+          return 88;
+        }
+      }
+      function scrollToLeaderCards(behavior) {
+        var anchor =
+          byId("vc-ul-toolbar") ||
+          byId("vc-ul-board-tabs") ||
+          byId("vc-ul-grid") ||
+          document.getElementById("vc-page-content");
+        if (!anchor) return;
+        try {
+          var y =
+            anchor.getBoundingClientRect().top +
+            (window.pageYOffset || document.documentElement.scrollTop || 0) -
+            headerOffsetPx();
+          if (y < 0) y = 0;
+          window.scrollTo({ top: y, behavior: behavior || "auto" });
+        } catch (eScroll) {
+          try {
+            anchor.scrollIntoView({ block: "start", behavior: behavior || "auto" });
+          } catch (e2) {}
+        }
+      }
+      refreshCommunityLayout();
+      window.setTimeout(refreshCommunityLayout, 0);
+      window.setTimeout(refreshCommunityLayout, 150);
+      window.setTimeout(refreshCommunityLayout, 600);
+      if (!shouldScroll) return;
+      window.setTimeout(function () {
+        refreshCommunityLayout();
+        scrollToLeaderCards("auto");
+      }, 120);
+      window.requestAnimationFrame(function () {
+        if (shouldScroll) scrollToLeaderCards("auto");
+      });
+    }
+
+    function finishReveal() {
+      try {
+        root.classList.remove("vc-user-leader-pending", "vc-user-leader-route", "vc-loading-scroll-lock");
+        if (!root.classList.contains("vc-page-cine-ready")) {
+          root.classList.add("vc-page-cine-ready", "vc-core-styles-ready", "vc-styles-ready", "vc-home-styles-ready");
+          root.classList.remove("vc-page-cine-boot");
+          try {
+            document.dispatchEvent(new Event("vc:page-cine-ready"));
+          } catch (eEvt) {}
+        }
+      } catch (ePending) {}
+      hideLoader();
+      unlockScrollStyles();
+      try {
+        if (typeof window.__vcLoadHomeCineDeferred === "function") window.__vcLoadHomeCineDeferred();
+      } catch (eHc) {}
+      scrollAfterReveal();
+    }
+
+    function waitLayoutThenReveal(attempt) {
+      attempt = attempt || 0;
       var body = document.body;
-      if (html) {
-        html.style.removeProperty("overflow");
-        html.style.removeProperty("overflow-x");
-        html.style.removeProperty("overflow-y");
-        html.style.removeProperty("height");
-        html.style.removeProperty("max-height");
-        html.style.removeProperty("touch-action");
+      var layoutReady =
+        Boolean(body && (body.classList.contains("vc-page-cine-layout") || body.dataset.vcPageCineLayout === "1"));
+      if (layoutReady || root.classList.contains("vc-page-cine-ready") || attempt >= 80) {
+        finishReveal();
+        return;
       }
-      if (body) {
-        body.style.removeProperty("position");
-        body.style.removeProperty("inset");
-        body.style.removeProperty("top");
-        body.style.removeProperty("right");
-        body.style.removeProperty("bottom");
-        body.style.removeProperty("left");
-        body.style.removeProperty("width");
-        body.style.removeProperty("overflow");
-        body.style.removeProperty("overflow-x");
-        body.style.removeProperty("overflow-y");
-        body.style.removeProperty("height");
-        body.style.removeProperty("max-height");
-        body.style.removeProperty("touch-action");
-      }
-    } catch (eStyle) {}
-    if (isProfileMode()) return;
-    function refreshCommunityLayout() {
+      window.requestAnimationFrame(function () {
+        waitLayoutThenReveal(attempt + 1);
+      });
+    }
+
+    function applyLayout() {
+      try {
+        root.classList.add("vc-page-cine-boot");
+        root.classList.remove("vc-user-leader-pending");
+      } catch (eGate) {}
       try {
         if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
           window.__vcEnsureCommunityPageCineLayout();
+          waitLayoutThenReveal(0);
           return;
         }
-        if (typeof window.__vcPageHeroLayout === "function") {
-          window.__vcPageHeroLayout({ force: true });
+      } catch (eLay) {}
+      try {
+        if (typeof window.__vcLoadHomeCineDeferred === "function") window.__vcLoadHomeCineDeferred();
+      } catch (eLoad) {}
+      var waits = 0;
+      (function poll() {
+        if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
+          try {
+            window.__vcEnsureCommunityPageCineLayout();
+          } catch (ePollLay) {}
+          waitLayoutThenReveal(0);
+          return;
         }
-      } catch (eLayout) {}
+        if (++waits > 120) {
+          finishReveal();
+          return;
+        }
+        window.setTimeout(poll, 50);
+      })();
     }
-    function headerOffsetPx() {
-      try {
-        var bar = document.querySelector(".vc-header-bar") || document.querySelector("header");
-        var h = bar ? bar.getBoundingClientRect().height : 72;
-        return Math.round(Math.max(64, h + 12));
-      } catch (eOff) {
-        return 88;
-      }
-    }
-    function scrollToLeaderCards(behavior) {
-      var anchor =
-        byId("vc-ul-toolbar") ||
-        byId("vc-ul-board-tabs") ||
-        byId("vc-ul-grid") ||
-        document.getElementById("vc-page-content");
-      if (!anchor) return;
-      try {
-        var y =
-          anchor.getBoundingClientRect().top +
-          (window.pageYOffset || document.documentElement.scrollTop || 0) -
-          headerOffsetPx();
-        if (y < 0) y = 0;
-        window.scrollTo({ top: y, behavior: behavior || "auto" });
-      } catch (eScroll) {
-        try {
-          anchor.scrollIntoView({ block: "start", behavior: behavior || "auto" });
-        } catch (e2) {}
-      }
-    }
-    refreshCommunityLayout();
-    window.setTimeout(refreshCommunityLayout, 0);
-    window.setTimeout(refreshCommunityLayout, 150);
-    if (!shouldScroll) return;
-    window.setTimeout(function () {
-      refreshCommunityLayout();
-      scrollToLeaderCards("auto");
-    }, 120);
-    window.requestAnimationFrame(function () {
-      if (shouldScroll) scrollToLeaderCards("auto");
-    });
+
+    applyLayout();
   }
 
-  // phoneLoadClipFix4: vc-loader-blocking-live solo se overlay visibile.
-  function syncLeaderLoaderBlocking(overlay, loading) {
+    function syncLeaderLoaderBlocking(overlay, loading) {
     if (!overlay) return;
     var root = document.documentElement;
     var bootHide =
       root.classList.contains("vc-user-leader-pending") ||
-      (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready"));
+      root.classList.contains("vc-user-leader-route");
     if (loading && bootHide) overlay.setAttribute("data-vc-loader-blocking", "1");
     else overlay.removeAttribute("data-vc-loader-blocking");
     try {
@@ -709,16 +788,13 @@
     var sub = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
     var grid = byId("vc-ul-grid");
     if (overlay) {
-      overlay.hidden = !state.loading;
       if (state.loading) {
+        overlay.hidden = false;
         overlay.removeAttribute("hidden");
         syncLeaderLoaderBlocking(overlay, true);
-      } else {
-        overlay.setAttribute("hidden", "");
-        syncLeaderLoaderBlocking(overlay, false);
-        overlay.style.setProperty("display", "none", "important");
-        overlay.style.setProperty("pointer-events", "none", "important");
-        overlay.style.setProperty("opacity", "0", "important");
+        overlay.style.removeProperty("display");
+        overlay.style.removeProperty("opacity");
+        overlay.style.removeProperty("pointer-events");
       }
     }
     if (title) title.textContent = label || "Caricamento classifica";
@@ -748,6 +824,7 @@
     var rank = Number(row.rank) || 0;
     var rankAria = rank > 0 ? "Posizione " + String(rank) : "Non in classifica";
     var userId = String(row.userId || "").trim();
+    var avHash = String(row.avatar || "").trim();
     var avSrc = esc(avatarUrl(row));
     var avFb = defaultEmbedAvatarUrl(row);
     return (
@@ -755,7 +832,10 @@
       '<a class="vc-ul-card-user" href="' + esc(profileHref(row.userId)) + '">' +
       '<img class="vc-ul-avatar" src="' +
       avSrc +
-      '" alt="" width="48" height="48" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
+      '" alt="" width="48" height="48" loading="lazy" decoding="async" referrerpolicy="no-referrer"' +
+      (userId ? ' data-user-id="' + esc(userId) + '"' : "") +
+      (avHash ? ' data-avatar-hash="' + esc(avHash) + '"' : "") +
+      ' onerror="this.onerror=null;this.src=\'' +
       avFb +
       '\'" />' +
       '<div class="vc-ul-card-names">' +
@@ -960,6 +1040,30 @@
     return renderCardLevel(row);
   }
 
+  function rowsLookIncomplete(rows) {
+    if (!Array.isArray(rows) || !rows.length) return false;
+    for (var i = 0; i < rows.length; i += 1) {
+      var r = rows[i];
+      var uid = String(r.userId || "").trim();
+      if (!uid) continue;
+      var dn = String(r.displayName || "").trim();
+      if (!dn || dn === uid) return true;
+      if (String(r.username || "").trim() === uid) return true;
+    }
+    return false;
+  }
+
+  function scanLeaderAvatars(grid) {
+    try {
+      if (!window.VcDiscordAvatar) return;
+      if (grid && typeof window.VcDiscordAvatar.scan === "function") window.VcDiscordAvatar.scan(grid);
+      if (typeof window.VcDiscordAvatar.scan === "function") {
+        var hdr = document.querySelector("header");
+        if (hdr) window.VcDiscordAvatar.scan(hdr);
+      }
+    } catch (eAv) {}
+  }
+
   function updatePager() {
     var nav = byId("vc-ul-pager");
     var mp = window.__vcMiniPager;
@@ -967,6 +1071,7 @@
     if (state.searchUserId || state.totalPages <= 1) {
       nav.hidden = true;
       nav.style.display = "none";
+      nav.__vcPagerRetry = 0;
       return;
     }
     var tp = Math.max(1, state.totalPages);
@@ -974,6 +1079,7 @@
     nav.removeAttribute("hidden");
     nav.style.display = "flex";
     if (mp && typeof mp.fill === "function") {
+      nav.__vcPagerRetry = 0;
       mp.fill(nav, state.page, tp, { aria: "Paginazione classifica" }, {
         go: function (page) {
           var cap = Math.max(1, Number(state.totalPages) || 1);
@@ -983,6 +1089,12 @@
           load({ scroll: true });
         },
       });
+      return;
+    }
+    var tries = Number(nav.__vcPagerRetry || 0);
+    if (tries < 30) {
+      nav.__vcPagerRetry = tries + 1;
+      window.setTimeout(updatePager, 48);
       return;
     }
     var prev = byId("vc-ul-prev");
@@ -1156,6 +1268,7 @@
     try {
       if (typeof window.__vcSitePolishRise === "function") window.__vcSitePolishRise();
       if (typeof window.__vcInitPanelTilt === "function") window.__vcInitPanelTilt();
+      scanLeaderAvatars(grid);
       document.dispatchEvent(new Event("vc:ul-ready"));
     } catch (ePolishFx) {}
     state.totalPages = Math.max(1, Number(data.totalPages) || 1);
@@ -1184,22 +1297,24 @@
       encodeURIComponent(String(PER_PAGE)) +
       "&board=" +
       encodeURIComponent(String(state.board || "level"));
-    try {
-      if (window.VcPerf && typeof window.VcPerf.apiQuery === "function") {
-        var pq = window.VcPerf.apiQuery({});
-        if (pq.lite) url += "&lite=1";
-        if (pq.perf) url += "&perf=" + encodeURIComponent(String(pq.perf));
-      }
-    } catch (ePerfQ) {}
     if (state.searchUserId) {
       var sid = encodeURIComponent(state.searchUserId);
       url += "&userId=" + sid;
       url += "&id=" + sid;
       url += "&searchUserId=" + sid;
-      /* CDN/proxy che ignorano la query o cache GET: varia l’URL e disabilita cache browser */
-      url += "&_vcq=" + encodeURIComponent(String(Date.now()));
+            url += "&_vcq=" + encodeURIComponent(String(Date.now()));
     }
     if (opts && opts.scroll) pendingScrollToCards = true;
+    if (!silent && !state.searchUserId) {
+      var warmKey = usersCacheKey(url);
+      var warmHit = readUsersSessionCache(warmKey, Date.now(), true);
+      if (warmHit && warmHit.value && warmHit.value.body && warmHit.value.body.ok === true) {
+        paintedStale = Boolean(warmHit.stale);
+        applyPayload(warmHit.value, false);
+        var warmRows = warmHit.value.body.rows;
+        if (Array.isArray(warmRows) && warmRows.length) setLoading(false);
+      }
+    }
     if (!silent) {
       setLoading(true, state.page === 1 ? "Caricamento classifica" : "Aggiornamento classifica");
       setState("Caricamento…", false);
@@ -1253,13 +1368,25 @@
       } catch (e) {
         fp = "";
       }
-      if (fromSilent && fp && fp === state.renderFingerprint) {
+      var incomplete = rowsLookIncomplete(body.rows);
+      if (fromSilent && fp && fp === state.renderFingerprint && !incomplete) {
         syncSearchUi();
         return;
       }
       state.renderFingerprint = fp;
       render(body);
       syncSearchUi();
+      if (incomplete) {
+        state.identityRetryCount = Number(state.identityRetryCount || 0) + 1;
+        if (state.identityRetryCount <= 3) {
+          window.setTimeout(function () {
+            state.renderFingerprint = "";
+            load({ silent: true });
+          }, incomplete && paintedStale ? 120 : 380);
+        }
+      } else {
+        state.identityRetryCount = 0;
+      }
     }
     cachedUsersFetch(url, {
       useCache: !state.searchUserId,
@@ -1269,7 +1396,10 @@
         if (!stalePayload || !stalePayload.body || stalePayload.body.ok !== true) return;
         paintedStale = true;
         applyPayload(stalePayload, false);
-        setLoading(false);
+        if (!silent) {
+          var staleRows = stalePayload.body.rows;
+          if (Array.isArray(staleRows) && staleRows.length) setLoading(false);
+        }
       },
     })
       .then(function (out) {
@@ -1322,6 +1452,8 @@
 
   function initPager() {
     updatePager();
+    document.addEventListener("vc:ul-ready", updatePager);
+    window.addEventListener("load", updatePager, { once: true });
   }
 
   function initBoardTabs() {
@@ -1451,14 +1583,19 @@
     setLoading(true, "Caricamento classifica");
     load();
     startLiveUsersPolling();
-    // phoneClassifica1: failsafe più rapido su telefono (mai loader infinito).
-    setTimeout(function () {
+        setTimeout(function () {
       try {
         if (!document.documentElement.classList.contains("vc-user-leader-pending")) return;
-        clearLeaderPending({ scroll: false });
-        setLoading(false);
+        var grid = byId("vc-ul-grid");
+        var hasRows = grid && grid.children && grid.children.length > 0;
+        if (state.loading && !hasRows) {
+          setState("La classifica impiega troppo tempo a rispondere. Riprova tra qualche secondo.", true);
+        }
+        if (hasRows || !state.loading) {
+          setLoading(false);
+        }
       } catch (eFs) {}
-    }, 3500);
+    }, 12000);
   }
 
   document.addEventListener("visibilitychange", function () {

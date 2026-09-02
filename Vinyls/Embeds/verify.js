@@ -6,6 +6,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBu
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 const { buildSiteVerifyOAuthStartUrl } = require("../Utils/Web/verifyOauthPublicUrl");
+const { siteTicketsPageDiscordRef } = require("../../shared/web/siteTicketsPageRef");
 
 const VERIFY_CHANNEL_ID = IDs.channels.verify;
 const VERIFY_MEDIA_NAME = "verifica.gif";
@@ -42,7 +43,7 @@ async function run(client) {
     .setTitle("<a:VC_HeartsPink:1468685897389052008> **__Benvenutx su Vinili & Caffè__**")
     .setDescription(
       "<:vegacheckmark:1443666279058772028> Per **verificarti** premi il pulsante **__`Verify`__**: si aprirà il flusso sul sito.\n" +
-      "<:VC_Ticket:1482535175283019888> Per **qualsiasi** problema, non **esitate** ad aprire un **__<#1442569095068254219> `SUPPORTO`__**",
+      "<:VC_Ticket:1482535175283019888> Per **qualsiasi** problema, non **esitate** ad aprire un **__" + siteTicketsPageDiscordRef("SUPPORTO") + "__**",
     )
 
   const color = client?.config?.embedVerify || "#6f4e37";

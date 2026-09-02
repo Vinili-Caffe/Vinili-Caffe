@@ -7,7 +7,6 @@ const SHUTDOWN_MESSAGE =
   "<:vegax:1443934876440068179> Il bot si sta riavviando. Riprova il comando tra qualche secondo.";
 const DRAIN_MS = Math.max(0, Number(process.env.INTERACTION_SHUTDOWN_DRAIN_MS || 800));
 
-/** @type {Map<string, { interaction: import("discord.js").BaseInteraction, deferred: boolean, replied: boolean, commandName: string }>} */
 const inflight = new Map();
 let shuttingDown = false;
 let registered = false;
@@ -68,8 +67,7 @@ async function abortPendingInteraction(entry) {
         .catch(() => null);
     }
   } catch (_) {
-    // ignore
-  }
+      }
 
   entry.replied = true;
 }

@@ -1,9 +1,9 @@
-/* Pull-to-refresh: vinile sotto la navbar, su tutte le pagine. phonePtrRestore1 */
 (function () {
   if (window.__vcPtrBooted) return;
   window.__vcPtrBooted = true;
 
   var PTR_KEY = "vc_ptr_reload_v1";
+  var SCROLL_KEY = "vc_ptr_scroll_v1";
   var THRESHOLD = 62;
   var MAX_PULL = 118;
   var tracking = false;
@@ -19,6 +19,174 @@
   var reloadTimer = 0;
   var holdMax = 0;
   var suppressClickUntil = 0;
+
+  function pagePath() {
+    var p = String(window.location.pathname || "") + String(window.location.search || "");
+    if (p.length > 1 && p.charAt(p.length - 1) === "/") p = p.slice(0, -1);
+    return p || "/";
+  }
+
+  function saveScrollForReload() {
+    try {
+      var y =
+        window.pageYOffset ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        (document.body && document.body.scrollTop) ||
+        0;
+      y = Math.max(0, Math.round(Number(y) || 0));
+      sessionStorage.setItem(
+        SCROLL_KEY,
+        JSON.stringify({ p: pagePath(), y: y, t: Date.now() }),
+      );
+    } catch (eSave) {}
+  }
+
+  function cleanupScrollRestore() {
+    try {
+      sessionStorage.removeItem(SCROLL_KEY);
+    } catch (eRm) {}
+    try {
+      delete window.__vcPtrRestoreY;
+    } catch (eDel) {}
+    try {
+      window.__vcPtrRestoreArmed = false;
+    } catch (eArm) {}
+    try {
+      if (window.__vcPtrRestoreMo) {
+        window.__vcPtrRestoreMo.disconnect();
+        window.__vcPtrRestoreMo = null;
+      }
+    } catch (eMo) {}
+    try {
+      document.documentElement.classList.remove("vc-ptr-scroll-restore-pending");
+    } catch (eCls) {}
+    var css = document.getElementById("vc-ptr-scroll-restore-css");
+    if (css && css.parentNode) css.parentNode.removeChild(css);
+    var body = document.body;
+    if (body) {
+      body.style.removeProperty("position");
+      body.style.removeProperty("top");
+      body.style.removeProperty("left");
+      body.style.removeProperty("right");
+      body.style.removeProperty("width");
+      body.style.removeProperty("margin");
+    }
+  }
+
+  function pageScrollY() {
+    return (
+      window.pageYOffset ||
+      (document.documentElement && document.documentElement.scrollTop) ||
+      (document.body && document.body.scrollTop) ||
+      0
+    );
+  }
+
+  function maxPageScrollY() {
+    var doc = document.documentElement;
+    var body = document.body;
+    var h = Math.max(
+      doc ? doc.scrollHeight || 0 : 0,
+      body ? body.scrollHeight || 0 : 0,
+    );
+    var vh = window.innerHeight || (doc && doc.clientHeight) || 0;
+    return Math.max(0, h - vh);
+  }
+
+  function pinScrollRestore(y) {
+    try {
+      document.documentElement.classList.add("vc-ptr-scroll-restore-pending");
+      var body = document.body;
+      if (body) {
+        body.style.setProperty("position", "fixed", "important");
+        body.style.setProperty("top", "-" + y + "px", "important");
+        body.style.setProperty("left", "0", "important");
+        body.style.setProperty("right", "0", "important");
+        body.style.setProperty("width", "100%", "important");
+      }
+    } catch (ePin) {}
+  }
+
+  function unpinScrollRestore() {
+    try {
+      document.documentElement.classList.remove("vc-ptr-scroll-restore-pending");
+      var body = document.body;
+      if (body) {
+        body.style.removeProperty("position");
+        body.style.removeProperty("top");
+        body.style.removeProperty("left");
+        body.style.removeProperty("right");
+        body.style.removeProperty("width");
+        body.style.removeProperty("margin");
+      }
+    } catch (eUn) {}
+  }
+
+  function finalizeScrollRestore() {
+    var y = 0;
+    try {
+      y = Math.max(0, Math.round(Number(window.__vcPtrRestoreY) || 0));
+    } catch (eY) {}
+    if (y < 2) {
+      try {
+        var raw = sessionStorage.getItem(SCROLL_KEY);
+        if (raw) {
+          var data = JSON.parse(raw);
+          if (data && data.p === pagePath()) y = Math.max(0, Math.round(Number(data.y) || 0));
+        }
+      } catch (eRead) {}
+    }
+    if (y < 2) {
+      cleanupScrollRestore();
+      return;
+    }
+
+    if (maxPageScrollY() < y - 12) {
+      pinScrollRestore(y);
+      return;
+    }
+
+    unpinScrollRestore();
+    try {
+      window.scrollTo(0, y);
+      if (document.documentElement) document.documentElement.scrollTop = y;
+      if (document.body) document.body.scrollTop = y;
+    } catch (eFin) {}
+
+    var now = pageScrollY();
+    if (Math.abs(now - y) <= 8) {
+      cleanupScrollRestore();
+      return;
+    }
+
+    pinScrollRestore(y);
+  }
+
+  function armScrollRestoreFinalize() {
+    if (window.__vcPtrRestoreArmed) {
+      finalizeScrollRestore();
+      return;
+    }
+    window.__vcPtrRestoreArmed = true;
+    finalizeScrollRestore();
+    var delays = [60, 150, 320, 640, 980, 1400, 2000, 2800, 3800, 5200];
+    for (var i = 0; i < delays.length; i += 1) {
+      window.setTimeout(finalizeScrollRestore, delays[i]);
+    }
+    try {
+      if (typeof MutationObserver === "function") {
+        var mo = new MutationObserver(function () {
+          finalizeScrollRestore();
+        });
+        mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+        window.__vcPtrRestoreMo = mo;
+      }
+    } catch (eMo) {}
+    window.addEventListener("load", finalizeScrollRestore, { passive: true });
+    document.addEventListener("vc:page-cine-ready", finalizeScrollRestore, { passive: true });
+    document.addEventListener("vc:access-ok", finalizeScrollRestore, { passive: true });
+    window.setTimeout(cleanupScrollRestore, 12000);
+  }
 
   function injectCss() {
     if (document.getElementById("vc-ptr-css")) return;
@@ -207,14 +375,10 @@
     var node = target;
     if (node && node.nodeType === 3) node = node.parentElement;
     if (node && node.closest) {
-      // Solo campi editabili / widget drag: NON ignorare header, link e button
-      // (le pagine staff sono piene di bottoni e altrimenti il PTR non parte quasi mai).
-      if (node.closest("input, textarea, select, [contenteditable='true'], [role='slider'], .vc-no-ptr")) {
+                  if (node.closest("input, textarea, select, [contenteditable='true'], [role='slider'], .vc-no-ptr")) {
         return true;
       }
-      // ptrFirstTap1: hamburger / chrome header — altrimenti touchend stopImmediate
-      // lascia touchmove non-passive appeso e congela tutta la PWA.
-      if (
+                  if (
         node.closest(
           "#vc-mobile-nav-toggle, #vc-mobile-nav-close, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, .vc-mobile-nav-tile, header .vc-icon-btn, header button, header summary, #header-quick-actions",
         )
@@ -296,6 +460,7 @@
 
     function hardReload() {
       try {
+        saveScrollForReload();
         sessionStorage.setItem(PTR_KEY, "1");
       } catch (e) {}
       try {
@@ -303,9 +468,7 @@
       } catch (eRel) {}
     }
 
-    // Soft refresh: solo se la pagina espone una Promise reale.
-    // Se manca / non restituisce thenable → reload duro (comportamento atteso).
-    var preferSoft = false;
+            var preferSoft = false;
     try {
       preferSoft = window.__vcPtrPreferSoft === true;
     } catch (ePref) {}
@@ -334,8 +497,7 @@
         return;
       }
       if (!ret || typeof ret.then !== "function") {
-        // Handler sync senza Promise → non è un refresh reale.
-        hardReload();
+                hardReload();
         return;
       }
       reloadTimer = window.setTimeout(function () {
@@ -371,16 +533,12 @@
     startY = t.clientY;
     startX = t.clientX;
     pullY = 0;
-    // ptrFirstTap1: NON bindare touchmove non-passive al touchstart.
-    // Se il target fa stopImmediatePropagation sul touchend (hamburger),
-    // il listener restava appeso e congelava tutta la PWA dopo il primo tap.
-    try {
+                try {
       window.__vcPtrTracking = true;
     } catch (eTrack) {}
     armWatchdog();
     if (holdMax) window.clearTimeout(holdMax);
-    // Non abortire se già armati (soglia raggiunta): altrimenti rilascio dopo 2s = zero refresh.
-    holdMax = window.setTimeout(function () {
+        holdMax = window.setTimeout(function () {
       holdMax = 0;
       if (tracking && !refreshing && !armed) abortPull(true);
     }, 10000);
@@ -452,6 +610,7 @@
       flag = sessionStorage.getItem(PTR_KEY) === "1";
       if (flag) sessionStorage.removeItem(PTR_KEY);
     } catch (e) {}
+    armScrollRestoreFinalize();
     if (!flag) return;
     ensureRoot();
     root.classList.add("is-refreshing");
@@ -500,6 +659,7 @@
 
   function repairPtrAfterNavigation() {
     resetPtrUi();
+    armScrollRestoreFinalize();
     try {
       var drawer = document.getElementById("vc-mobile-nav-drawer");
       var navOpen = drawer && drawer.classList.contains("vc-mobile-nav-drawer--open");
@@ -520,14 +680,23 @@
         window.__vcUnpinPageScroll();
       }
     } catch (eScroll) {}
+        try {
+      if (!window.__vcPtrListenersBound && shouldDeferPtr()) {
+        watchDeferClear();
+        window.setTimeout(tryInitPtrIfNeeded, 350);
+        window.setTimeout(tryInitPtrIfNeeded, 1600);
+      }
+    } catch (eRep) {}
     tryInitPtrIfNeeded();
   }
 
   function tryInitPtrIfNeeded() {
     if (window.__vcPtrListenersBound) return;
-    if (!isTouchUi() && !(Number(navigator.maxTouchPoints || 0) > 0)) return;
-    // phonePtrRestore1: PTR su telefono — defer solo durante gate/boot pending.
-    if (shouldDeferPtr()) {
+    if (!isTouchUi() && !(Number(navigator.maxTouchPoints || 0) > 0)) {
+      armScrollRestoreFinalize();
+      return;
+    }
+        if (shouldDeferPtr()) {
       watchDeferClear();
       return;
     }
@@ -542,12 +711,9 @@
   function bindPtrListeners() {
     if (window.__vcPtrListenersBound) return;
     window.__vcPtrListenersBound = true;
-    // touchmove non-passive solo on-demand (bindActiveMove): altrimenti lagga tutto lo scroll mobile.
-    document.addEventListener("touchstart", onTouchStart, { passive: true });
-    // Probe passive: attiva non-passive solo dopo vero pull verso il basso.
-    document.addEventListener("touchmove", onTouchMoveProbe, { passive: true, capture: true });
-    // capture:true — altrimenti hamburger stopImmediatePropagation salta touchend e lascia PTR appeso.
-    document.addEventListener("touchend", onTouchEnd, { passive: true, capture: true });
+        document.addEventListener("touchstart", onTouchStart, { passive: true });
+        document.addEventListener("touchmove", onTouchMoveProbe, { passive: true, capture: true });
+        document.addEventListener("touchend", onTouchEnd, { passive: true, capture: true });
     document.addEventListener("touchcancel", onTouchEnd, { passive: true, capture: true });
     document.addEventListener(
       "click",
@@ -606,8 +772,12 @@
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initPtr);
+    document.addEventListener("DOMContentLoaded", function () {
+      armScrollRestoreFinalize();
+      initPtr();
+    });
   } else {
+    armScrollRestoreFinalize();
     initPtr();
   }
 })();

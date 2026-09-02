@@ -208,8 +208,7 @@ async function isTrustedApplicationMessage(message, client) {
       (await resolvedClient?.users?.fetch?.(appId).catch(() => null));
     if (user?.bot && (await isDiscordVerifiedBotUser(user))) return true;
   } catch {
-    /* ignore */
-  }
+      }
   return false;
 }
 

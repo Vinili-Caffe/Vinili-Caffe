@@ -1,7 +1,6 @@
 const IDs = require("../Config/ids");
 const { listStaffGuideSectionMeta } = require("./staffGuideContent");
 
-/** Same set as STAFF_GUIDE_BUTTON_IDS in commandPermissions.js */
 const STAFF_GUIDE_LADDER_SECTION_IDS = new Set([
   "regolamento",
   "regole_staff",
@@ -37,7 +36,6 @@ function getStaffGuideAccessRoleIds() {
   ].filter(Boolean);
 }
 
-/** Roles that count as staff ladder (excludes PartnerManager — see isPartnerManagerOnlyMember). */
 function getStaffLadderRoleIds() {
   return [
     roleId("Helper"),
@@ -68,17 +66,12 @@ function isPartnerManagerOnlyMember(member) {
   return !access.some((id) => member.roles.cache.has(id));
 }
 
-/**
- * Required roles from permissions.json + checkStaffGuideButtonGate.
- * HighStaff / Admin / Founder / Manager pass restricted sections via leadership roles.
- */
 function getRequiredRoleIdsForSection(sectionId) {
   const id = String(sectionId || "").trim();
   if (STAFF_GUIDE_LADDER_SECTION_IDS.has(id)) {
     return getStaffGuideAccessRoleIds();
   }
-  // Mirror permissions.json button ACLs (+ Manager/Admin/Founder with HighStaff leadership).
-  if (id === "compiti_fissi") {
+    if (id === "compiti_fissi") {
     return [roleId("Helper"), roleId("Mod"), roleId("HighStaff"), roleId("Manager"), roleId("Admin"), roleId("Founder")].filter(Boolean);
   }
   if (id === "guidapartners") {

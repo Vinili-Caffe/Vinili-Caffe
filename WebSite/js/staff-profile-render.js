@@ -1,6 +1,3 @@
-/**
- * Rendering condiviso profilo staff (pagina /staff/ legacy e tab Staff su /user/).
- */
 (function (global) {
   "use strict";
 
@@ -12,8 +9,7 @@
       .replace(/"/g, "&quot;");
   }
 
-  /** Collapse Mod/Moderator (and similar) duplicates on same day + reason. */
-  function normalizeCareerRoleToken(value) {
+    function normalizeCareerRoleToken(value) {
     var s = String(value == null ? "" : value)
       .toLowerCase()
       .normalize("NFD")
@@ -59,8 +55,12 @@
   }
 
   function preferCareerRow(a, b) {
-    var aLen = String(a && a.newRole != null ? a.newRole : "").length + String(a && a.oldRole != null ? a.oldRole : "").length;
-    var bLen = String(b && b.newRole != null ? b.newRole : "").length + String(b && b.oldRole != null ? b.oldRole : "").length;
+    var aLen =
+      String(a && (a.newRole != null ? a.newRole : a.to || "")).length +
+      String(a && (a.oldRole != null ? a.oldRole : a.from || "")).length;
+    var bLen =
+      String(b && (b.newRole != null ? b.newRole : b.to || "")).length +
+      String(b && (b.oldRole != null ? b.oldRole : b.from || "")).length;
     if (bLen !== aLen) return bLen > aLen ? b : a;
     return a;
   }
@@ -95,8 +95,7 @@
     return !isOnStaffCareerLadder(token);
   }
 
-  /** Traccia PM parallela: solo pex → Partner Manager dell'ultimo stint. */
-  function slicePartnerManagerCareer(rows, opts) {
+    function slicePartnerManagerCareer(rows, opts) {
     opts = opts || {};
     var stillActive = Boolean(opts.stillActive);
     if (!Array.isArray(rows) || !rows.length) return [];
@@ -136,9 +135,7 @@
     });
   }
 
-  /** Ultimo stint Helper→Founder, oppure traccia PM se currentRole è Partner Manager.
-   *  Vuota se uscito e non più in organico; niente carriere precedenti dopo depex. */
-  function sliceToLatestCareer(rows, opts) {
+    function sliceToLatestCareer(rows, opts) {
     opts = opts || {};
     var stillActive = Boolean(opts.stillActive);
     var currentRole = normalizeCareerRoleToken(opts.currentRole || "");
@@ -200,8 +197,7 @@
         .toLowerCase()
         .replace(/\s+/g, " ")
         .trim();
-      // Nascondi pex/depex automatici per ruoli messi/tolti a mano.
-      if (
+            if (
         /\bmanualmente\b/.test(reasonNorm) &&
         (/\b(aggiunt[oa]|aggunto|rimoss[oa])\b/.test(reasonNorm) || /\bruolo\b/.test(reasonNorm))
       ) {
@@ -211,24 +207,29 @@
       var from = normalizeCareerRoleToken(row.oldRole);
       var to = normalizeCareerRoleToken(row.newRole);
       var reason = reasonNorm;
+      var tripKey = from && to ? day + "|" + from + "|" + to : "";
       var key = day + "|" + from + "|" + to + "|" + reason;
       if (!from && !to) {
         out.push(row);
         continue;
       }
+            if (tripKey && Object.prototype.hasOwnProperty.call(seen, tripKey)) {
+        out[seen[tripKey]] = preferCareerRow(out[seen[tripKey]], row);
+        continue;
+      }
       if (Object.prototype.hasOwnProperty.call(seen, key)) {
-        var idx = seen[key];
-        out[idx] = preferCareerRow(out[idx], row);
+        out[seen[key]] = preferCareerRow(out[seen[key]], row);
         continue;
       }
       var softKey = day + "|*|" + to + "|" + reason;
       if (to && reason && Object.prototype.hasOwnProperty.call(seen, softKey)) {
-        var softIdx = seen[softKey];
-        out[softIdx] = preferCareerRow(out[softIdx], row);
+        out[seen[softKey]] = preferCareerRow(out[seen[softKey]], row);
         continue;
       }
-      seen[key] = out.length;
-      if (to && reason) seen[softKey] = out.length;
+      var idx = out.length;
+      if (tripKey) seen[tripKey] = idx;
+      seen[key] = idx;
+      if (to && reason) seen[softKey] = idx;
       out.push(row);
     }
     return out;
@@ -294,11 +295,17 @@
     var uid = String(id.userId || id.id || "").trim();
     var url = String(id.avatarUrl || "").trim();
     var isDefaultEmbed = /\/embed\/avatars\//.test(url);
+    try {
+      if (global.VcDiscordAvatar && typeof global.VcDiscordAvatar.resolveUrl === "function") {
+        var resolved = global.VcDiscordAvatar.resolveUrl(url, 256, id.avatar, uid);
+        if (resolved && (!isDefaultEmbed || !url)) return resolved;
+      }
+    } catch (eAnim) {}
     if (url && !isDefaultEmbed) return url;
     try {
       var sess = global.__VC_DISCORD_PROFILE;
       if (sess && String(sess.id || "") === uid && sess.avatar) {
-        var ext = String(sess.avatar).indexOf("a_") === 0 ? "webp" : "png";
+        var ext = String(sess.avatar).indexOf("a_") === 0 ? "gif" : "png";
         return "https://cdn.discordapp.com/avatars/" + uid + "/" + sess.avatar + "." + ext + "?size=256";
       }
     } catch (eSess) {}
@@ -364,8 +371,7 @@
   function renderPayloadHtml(payload, opts) {
     opts = opts || {};
     if (!payload || !payload.ok) return "";
-    // Mai mostrare la shell staff “piena” per un prospect (anche se cache/API sporche).
-    if (payload.prospect) return renderProspectPexHtml(payload);
+        if (payload.prospect) return renderProspectPexHtml(payload);
     var expectedId = String(opts.expectedUserId || "").trim();
     var payloadId = String(
       (payload.identity && payload.identity.userId) || payload.targetUserId || "",
@@ -373,8 +379,7 @@
     if (expectedId && payloadId && expectedId !== payloadId) {
       return "";
     }
-    // Senza ruolo staff risolto → non inventare un profilo staff vuoto.
-    var role = payload.role || {};
+        var role = payload.role || {};
     var badges = Array.isArray(role.badges) ? role.badges : [];
     var hasRole =
       Boolean(String(role.label || "").trim() && String(role.label || "").trim() !== "—") ||
@@ -419,8 +424,7 @@
         }),
       );
     }
-    // Founder: no val/warn/pause. PM-only o founder+PM: metriche PM al posto di val/warn.
-    if (showPmTopStats) {
+        if (showPmTopStats) {
       stats.push(statCard(partner.redeemSpend != null ? partner.redeemSpend : 0, "Spesi in shop"));
       stats.push(
         statCard(partner.points != null ? partner.points : 0, "Punti PM", {
@@ -574,8 +578,7 @@
       stats.join("") +
       "</div></section>";
 
-    // Stash neighbors for page-side peer dock (mounted outside overflow:hidden cards).
-    try {
+        try {
       payload.__vcStaffNeighbors = neighbors;
     } catch (eN) {}
 
@@ -593,8 +596,7 @@
         pauseRows +
         "</ul></section>";
 
-      // Carriera = solo stint corrente intero; nascosta dopo depex → Member.
-      if (roleRows) {
+            if (roleRows) {
         html +=
           '<section class="vc-user-profile-block vc-staff-career-block">' +
           '<div class="vc-user-profile-block__head">' +
@@ -607,8 +609,7 @@
       }
     }
 
-    // Founder: niente blocco PM / shop (le metriche PM stanno già in alto se isPm).
-    if (partner && !isFounder) {
+        if (partner && !isFounder) {
       var canManagePmPoints = canWriteStaffManage();
       if (!pmOnly) {
         html +=
@@ -704,8 +705,7 @@
       .replace(/[\u2044\u2215\uFF0F]/g, "/")
       .replace(/[\u2013\u2014\u2212]/g, "-");
     if (!raw) return null;
-    // Accept DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY (also if trailing junk).
-    var m = raw.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
+        var m = raw.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
     if (m) {
       var day = Number(m[1]);
       var month = Number(m[2]);
@@ -770,8 +770,7 @@
         var st = String(p.status || "")
           .toLowerCase()
           .trim();
-        // Skip only rejected; cancelled stay visible in the month list.
-        if (st === "rejected" || st === "rifiutata") return null;
+                if (st === "rejected" || st === "rifiutata") return null;
         var cancelled =
           st === "cancelled" ||
           st === "canceled" ||
@@ -805,8 +804,7 @@
 
   function pickCalendarMonth(ranges) {
     var today = romeTodayParts();
-    // Sempre mese corrente (navigazione freccia per spostarsi).
-    return { y: today.y, m: today.m };
+        return { y: today.y, m: today.m };
   }
 
   function formatRangeLabel(start, end) {
@@ -1249,8 +1247,7 @@
       })
       .then(function (pack) {
         if (!pack) {
-          // Annullato: resta sul prospect, niente reload “da staff”.
-          try {
+                    try {
             var live = root && root.__vcStaffPayload ? root.__vcStaffPayload : payload;
             if (live && live.prospect && global.VCStaffProfileRender) {
               var panel = root;
@@ -1495,8 +1492,7 @@
   function sheetActionBarHtml(kind, opts) {
     opts = opts || {};
     if (!canWriteStaffManage()) return "";
-    // Sul proprio profilo non si assegnano val/warn da soli (solo compensazione negative).
-    if (opts.isSelf && (kind === "val-neg" || kind === "warn" || kind === "val-pos")) return "";
+        if (opts.isSelf && (kind === "val-neg" || kind === "warn" || kind === "val-pos")) return "";
     var add = kindToAddAction(kind);
     if (!add) return "";
     var label =
@@ -1590,8 +1586,7 @@
         ? opts.payload.valutazioni.positive
         : 0) || 0,
     );
-    // Self: solo compensazione obbligatoria 3 val + → 1 val − (niente rimozione libera, niente warn).
-    var canTradeNeg =
+        var canTradeNeg =
       kind === "val-neg" &&
       pos >= 3 &&
       (canWrite || isSelf);
@@ -2345,8 +2340,7 @@
     for (var i = 0; i < parts.length; i += 1) {
       var part = String(parts[i] || "").trim();
       if (!part) continue;
-      // Togli decorazioni iniziali (es. ≈) per classificare Staff / High Staff / SDM.
-      var core = part.replace(/^[^A-Za-z0-9]+/, "").replace(/\s+/g, " ").trim();
+            var core = part.replace(/^[^A-Za-z0-9]+/, "").replace(/\s+/g, " ").trim();
       var low = core.toLowerCase();
       if (
         low === "staff" ||
@@ -2371,6 +2365,7 @@
     if (!ul) return;
     var cur = String(currentUserId || "").trim();
     var list = Array.isArray(people) ? people : [];
+    dock.__vcStaffListLastPeople = list;
     if (!list.length) {
       ul.innerHTML = '<li class="vc-staff-list-pop__empty">Nessuno in organico.</li>';
       return;
@@ -2391,6 +2386,10 @@
         if (p && p.onPause) {
           chips +=
             '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--pause" title="In pausa">Pausa</span>';
+        }
+        if (p && p.isStaffDelMese) {
+          chips +=
+            '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--best" title="Best staff">Best</span>';
         }
         var avHtml = avatar
           ? '<img src="' +
@@ -2453,30 +2452,57 @@
     var doc = global.document;
     if (!doc || !doc.body) return null;
     var dock = doc.getElementById("vc-staff-list-dock");
+    var existed = Boolean(dock);
     if (!dock) {
       var wrap = doc.createElement("div");
       wrap.innerHTML = staffListPickerHtml();
       dock = wrap.firstChild;
       doc.body.appendChild(dock);
     }
+    var prevId = String(dock.__vcStaffListCurrentId || "").trim();
     dock.__vcStaffListHooks = hooks;
     dock.__vcStaffListCurrentId = String(hooks.currentUserId || "").trim();
 
     function loadAndFill() {
       var h = dock.__vcStaffListHooks || {};
+      var ul = dock.querySelector("[data-vc-staff-list-ul]");
+      var fab = dock.querySelector("[data-vc-staff-list-toggle]");
+      var gen = (dock.__vcStaffListLoadGen = (dock.__vcStaffListLoadGen || 0) + 1);
+      if (ul) ul.innerHTML = '<li class="vc-staff-list-pop__empty">Caricamento\u2026</li>';
+      if (fab) fab.classList.add("is-loading");
       var p = typeof h.getStaffList === "function" ? h.getStaffList() : Promise.resolve([]);
       return Promise.resolve(p)
         .then(function (people) {
+          if (dock.__vcStaffListLoadGen !== gen) return;
           fillStaffListPop(people || [], dock.__vcStaffListCurrentId || "");
         })
         .catch(function () {
-          fillStaffListPop([], dock.__vcStaffListCurrentId || "");
+          if (dock.__vcStaffListLoadGen !== gen) return;
+          if (ul) {
+            ul.innerHTML =
+              '<li class="vc-staff-list-pop__empty">Organico non disponibile. Riprova.</li>';
+          }
+        })
+        .then(function () {
+          if (dock.__vcStaffListLoadGen !== gen) return;
+          if (fab) fab.classList.remove("is-loading");
         });
     }
 
     dock.__vcStaffListLoad = loadAndFill;
-    loadAndFill();
-
+        if (!existed) {
+      loadAndFill();
+    } else if (
+      Array.isArray(dock.__vcStaffListLastPeople) &&
+      dock.__vcStaffListLastPeople.length &&
+      prevId !== dock.__vcStaffListCurrentId
+    ) {
+      fillStaffListPop(dock.__vcStaffListLastPeople, dock.__vcStaffListCurrentId);
+    } else if (!Array.isArray(dock.__vcStaffListLastPeople) || !dock.__vcStaffListLastPeople.length) {
+      var fabBusy = dock.querySelector("[data-vc-staff-list-toggle]");
+      if (!(fabBusy && fabBusy.classList.contains("is-loading"))) loadAndFill();
+    }
+    
     if (dock.getAttribute("data-vc-staff-list-bound") !== "1") {
       dock.setAttribute("data-vc-staff-list-bound", "1");
 
@@ -2574,8 +2600,7 @@
   }
 
   function bindStaffListPicker() {
-    /* legacy no-op: lista staff è il dock fisso */
-  }
+      }
 
   function unmountStaffPeerDock() {
     var dock = global.document.getElementById("vc-staff-peer-dock");
@@ -2663,15 +2688,14 @@
       }
     });
 
-    // Always on documentElement/body — never inside transformed cine wrappers.
-    (global.document.body || global.document.documentElement).appendChild(dock);
+        (global.document.body || global.document.documentElement).appendChild(dock);
     pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--prev"), "left");
     pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--next"), "right");
     try {
       global.document.documentElement.classList.add("vc-staff-peer-dock-on");
     } catch (eOn) {}
+        dock.classList.add("is-in");
     global.requestAnimationFrame(function () {
-      dock.classList.add("is-in");
       pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--prev"), "left");
       pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--next"), "right");
     });

@@ -95,10 +95,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * All'avvio: riallinea il ruolo segno zodiacale per chi ha già il compleanno nel profilo.
- * Disabilitabile con ZODIAC_BIRTHDAY_ROLE_SYNC_ON_STARTUP=0|false|off|no
- */
 async function syncZodiacRolesFromStoredBirthdays(client) {
   const envRaw = String(process.env.ZODIAC_BIRTHDAY_ROLE_SYNC_ON_STARTUP || "").trim().toLowerCase();
   if (["0", "false", "off", "no"].includes(envRaw)) {

@@ -14,7 +14,7 @@ const {
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { buildTicketChannelName } = require("./ticketNamingRuntime");
 
-const MAX_OPEN_PER_USER = 3;
+const MAX_OPEN_PER_USER = 1;
 
 function sitePublicOrigin() {
   try {
@@ -63,10 +63,6 @@ function buildPmShopTicketBody({ rewardLabel, pointCost, balance, authorName }) 
   ].join("\n");
 }
 
-/**
- * Apre un ticket High Staff **sul sito** dedicato al riscatto shop PM
- * (stesso contenuto del ticket Discord da +profile → Shop).
- */
 async function openPartnerManagerShopWebTicketForMember(client, guild, member, tier) {
   const tierN = Math.floor(Number(tier) || 0);
   if (!client || !guild || !member?.user) {

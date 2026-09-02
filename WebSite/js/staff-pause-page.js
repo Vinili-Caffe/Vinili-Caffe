@@ -245,8 +245,7 @@
     return new Date(Date.UTC(y, m, 0)).getUTCDate();
   }
 
-  /** Monday=0 \u2026 Sunday=6 for first of month (UTC calendar day). */
-  function mondayIndexFirst(y, m) {
+    function mondayIndexFirst(y, m) {
     var dow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
     return (dow + 6) % 7;
   }
@@ -1053,8 +1052,7 @@
     pop.style.transform = "";
     var rect = anchorBtn.getBoundingClientRect();
     var width = Math.min(17.5 * 16, Math.max(15 * 16, rect.width));
-    // stima compatta: nav + dows + ~6 righe + footer
-    var estH = 15.5 * 16;
+        var estH = 15.5 * 16;
     var gap = 6;
     var left = Math.min(Math.max(8, rect.left), Math.max(8, vw - width - 8));
     var top = rect.bottom + gap;
@@ -1255,8 +1253,7 @@
     state.year = year;
     state.month = month;
     renderMonthLabel();
-    // Griglia subito (senza dati), poi popola \u2014 niente schermo vuoto.
-    if (!state.payload) {
+        if (!state.payload) {
       state.payload = { days: {}, pauses: [], today: "" };
       renderCalendar();
       renderSidebar();
@@ -1320,8 +1317,7 @@
 
   function boot() {
     var ym = currentRomeYearMonth();
-    // Prefetch in parallelo al gate accesso (se c’è token).
-    try {
+        try {
       if (getToken()) prefetchMonth(ym.year, ym.month);
     } catch (ePf) {}
 
@@ -1342,8 +1338,7 @@
     if (tryInit()) return;
     window.addEventListener("vc:staff-access-ok", initAfterAccess, { once: true });
     window.addEventListener("vc:access-ok", initAfterAccess, { once: true });
-    // Retry: evento access può arrivare prima del listener (cache gate).
-    var tries = 0;
+        var tries = 0;
     var timer = window.setInterval(function () {
       tries += 1;
       if (tryInit() || tries > 40) window.clearInterval(timer);

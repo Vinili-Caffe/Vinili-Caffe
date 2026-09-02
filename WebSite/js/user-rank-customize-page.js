@@ -45,19 +45,23 @@
   }
 
   function syncRankTabToUrl(tab) {
+    if (!isPersHubRankTab()) return;
     var next = normalizeRankTab(tab) || "colors";
     activeTab = next;
     writeStoredRankTab(next);
     try {
       var url = new URL(window.location.href);
       var q = url.searchParams;
+      var hubTarget = String(q.get("target") || "").trim().toLowerCase();
+      if (hubTarget && hubTarget !== "rank" && hubTarget !== "wallpaper" && hubTarget !== "colors" && hubTarget !== "colori") {
+        return;
+      }
       if (!q.get("target") || q.get("target") === "wallpaper" || q.get("target") === "colors" || q.get("target") === "colori") {
         q.set("target", "rank");
       }
       if (next === "wallpaper") q.set("rankTab", "wallpaper");
       else q.delete("rankTab");
-      /* Avoid hub mistaking generic tab= for a different section. */
-      if (String(q.get("tab") || "").toLowerCase() === "wallpaper" || String(q.get("tab") || "").toLowerCase() === "colors" || String(q.get("tab") || "").toLowerCase() === "colori") {
+            if (String(q.get("tab") || "").toLowerCase() === "wallpaper" || String(q.get("tab") || "").toLowerCase() === "colors" || String(q.get("tab") || "").toLowerCase() === "colori") {
         q.delete("tab");
       }
       var qs = q.toString();
@@ -167,11 +171,72 @@
     }
   }
 
+  function sanitizeApiUrl(url) {
+    var u = String(url || "").trim();
+    if (!u || u === "#" || u.indexOf("{{") >= 0) return "";
+    return u;
+  }
+
+  function canonicalSiteOrigin() {
+    try {
+      var host = String(window.location.hostname || "").toLowerCase();
+      if (host === "viniliecaffe.it" || host === "www.viniliecaffe.it") {
+        return "https://www.viniliecaffe.it";
+      }
+      return String(window.location.origin || "").replace(/\/+$/, "") || "https://www.viniliecaffe.it";
+    } catch (eOrigin) {
+      return "https://www.viniliecaffe.it";
+    }
+  }
+
+  function absoluteApiUrl(pathOrUrl) {
+    var raw = sanitizeApiUrl(pathOrUrl);
+    if (!raw) return "";
+    try {
+      if (/^https?:\/\//i.test(raw)) return raw;
+      return new URL(raw, canonicalSiteOrigin() + "/").href;
+    } catch (eAbs) {
+      return raw;
+    }
+  }
+
   function resolvedRankApiUrl() {
     var c = cfg();
-    var local = String(c.rankApiUrlLocal || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
-    return String(c.rankApiUrl || "").trim();
+    var local = sanitizeApiUrl(c.rankApiUrlLocal);
+    if (isLocalFrontendOrigin() && local) return absoluteApiUrl(local);
+    var remote = sanitizeApiUrl(c.rankApiUrl);
+    if (remote) return absoluteApiUrl(remote);
+    return absoluteApiUrl("/webhooks/site-rank-card");
+  }
+
+  function looksLikeHtmlResponse(text) {
+    var sample = String(text || "").trim().slice(0, 512).toLowerCase();
+    if (!sample) return false;
+    return (
+      /^\s*</.test(sample) ||
+      /<!doctype/i.test(sample) ||
+      /<html[\s>]/i.test(sample) ||
+      /<head[\s>]/i.test(sample) ||
+      /<body[\s>]/i.test(sample)
+    );
+  }
+
+  function parseJsonResponseText(text) {
+    var raw = String(text || "");
+    if (!raw) return null;
+    raw = raw.replace(/^\uFEFF/, "").trim();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (eJson) {}
+    var start = raw.indexOf("{");
+    var end = raw.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(raw.slice(start, end + 1));
+      } catch (eSlice) {}
+    }
+    return null;
   }
 
   function resolvedRankPreviewApiUrl() {
@@ -188,6 +253,7 @@
       document.documentElement.classList.remove("vc-page-cine-boot");
       document.documentElement.classList.add("vc-page-cine-ready");
       document.documentElement.classList.add("vc-styles-ready");
+      document.documentElement.classList.add("vc-core-styles-ready");
     } catch (e) {}
     try {
       var html = document.documentElement;
@@ -393,8 +459,7 @@
     return Object.assign({}, defaults, t);
   }
 
-  /** Stessa logica colore rank box di `rankCanvas.js` (legacy #FFCB05 → value). */
-  function resolvedRankBoxDisplayColor(t) {
+    function resolvedRankBoxDisplayColor(t) {
     var rb = String(t.rankBoxBorderColor || "").trim();
     if (rb && rb.charAt(0) !== "#") rb = "#" + rb;
     var value = String(t.valueColor || "#f2f2f2").trim();
@@ -464,8 +529,7 @@
   function previewMarkup(data, theme) {
     var signature = previewSignatureForTheme(theme);
     var matchingCache = loadCachedPreview(signature, true);
-    // Mai mostrare lo skeleton con rank-box: tieni l'ultima anteprima mentre rigenera.
-    var initialPreviewSrc = "";
+        var initialPreviewSrc = "";
     if (matchingCache) initialPreviewSrc = matchingCache;
     else if (previewObjectUrl) initialPreviewSrc = previewObjectUrl;
     else initialPreviewSrc = loadLatestCachedPreview(true) || "";
@@ -674,8 +738,7 @@
     setCustomizePreviewStatus(status, "", false);
     var hadSrc = Boolean(img.getAttribute("src"));
     if (!hadSrc) markCustomizePreviewReady(img, false);
-    /* Non dimmare se c'è già un'anteprima: evita flash a ogni poll/re-render. */
-    if (!hadSrc) img.classList.add("is-rendering");
+        if (!hadSrc) img.classList.add("is-rendering");
     fetchWithTimeout(url, {
       method: "POST",
       headers: {
@@ -718,8 +781,7 @@
         }
         var prevObjectUrl = previewObjectUrl;
         previewObjectUrl = nextObjectUrl;
-        /* Soft swap: cambia src solo se diverso (il decode è già ok dal probe). */
-        if (img.getAttribute("src") !== nextObjectUrl) {
+                if (img.getAttribute("src") !== nextObjectUrl) {
         img.src = previewObjectUrl;
         }
         img.classList.remove("is-rendering");
@@ -853,8 +915,7 @@
       );
     }).join("");
 
-    /* Conserva il DOM dell'anteprima: innerHTML completo faceva flashare l'immagine. */
-    var preservedPreview = app.querySelector(".vc-rank-editor-preview__imagewrap");
+        var preservedPreview = app.querySelector(".vc-rank-editor-preview__imagewrap");
     if (preservedPreview) preservedPreview.remove();
 
     var hubOn = Boolean(window.__VC_PERS_HUB && window.__VC_PERS_HUB.enabled);
@@ -980,6 +1041,14 @@
   }
 
   function showSaveSuccessToast() {
+        if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+      window.VcSiteToast.show(
+        "Salvato! Le impostazioni sono attive. Usa +rank su Discord per vederle.",
+        false,
+        { ms: 3200 },
+      );
+      return;
+    }
     var host = toastHostEl();
     if (!host) return;
     if (saveToastTimer) {
@@ -1062,8 +1131,7 @@
     canvas.height = height;
     var ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0, width, height);
-    /* JPEG: node-canvas lato bot decodifica in modo affidabile; WebP in data URL spesso falliva → +rank senza sfondo. */
-    var out = canvas.toDataURL("image/jpeg", 0.86);
+        var out = canvas.toDataURL("image/jpeg", 0.86);
     if (out.length > MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH) {
       out = canvas.toDataURL("image/jpeg", 0.78);
     }
@@ -1240,7 +1308,48 @@
     }
   }
 
-  function fetchRankData() {
+  function mergeRankPayloadWithLocalTheme(body) {
+    if (!body || body.ok !== true || !body.theme || typeof body.theme !== "object") return body;
+    if (body.theme.wallpaperUrl || !body.theme.wallpaperUrlOmitted) return body;
+    try {
+      var cached = loadRankPayloadCache(String(body.userId || ""));
+      var cachedUrl =
+        cached && cached.theme && cached.theme.wallpaperUrl ? String(cached.theme.wallpaperUrl).trim() : "";
+      if (cachedUrl) body.theme.wallpaperUrl = cachedUrl;
+    } catch (eMerge) {}
+    return body;
+  }
+
+  function finishRankPayloadFromHttp(status, httpOk, parsed) {
+    if (!parsed) {
+      return {
+        ok: false,
+        message: "Risposta vuota dall'API.",
+        retryable: true,
+      };
+    }
+    if (status === 429) {
+      if (parsed.ok === true) return mergeRankPayloadWithLocalTheme(parsed);
+      return {
+        ok: false,
+        message: "Troppe richieste. Riprova tra poco.",
+        retryable: false,
+      };
+    }
+    if (!httpOk) {
+      var msg =
+        (parsed && (parsed.message || parsed.error)) ||
+        "Errore HTTP " + status + " durante il caricamento.";
+      return {
+        ok: false,
+        message: String(msg),
+        retryable: status === 401 || status === 408 || status >= 500,
+      };
+    }
+    return mergeRankPayloadWithLocalTheme(parsed || { ok: false, message: "Risposta vuota dall'API." });
+  }
+
+  function fetchRankDataOnce() {
     var url = resolvedRankApiUrl();
     if (!url) {
       return Promise.resolve({
@@ -1255,39 +1364,140 @@
         message: "Devi effettuare il login con Discord per personalizzare la rank card.",
       });
     }
-    return fetchWithTimeout(url, {
-      method: "GET",
-      headers: { Authorization: "Bearer " + token },
-      cache: "no-store",
-    }, 8000)
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      var cacheKey = window.VcApiCache.keyFor(url, { scope: "rankPers", auth: token, v: "429fix4" });
+      return window.VcApiCache.fetchWithCache(cacheKey, url, {
+        ttlMs: 90000,
+        staleMs: 600000,
+        persistMs: 30 * 60 * 1000,
+        timeoutMs: 22000,
+        fetchInit: {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: "Bearer " + token,
+          },
+          credentials: "omit",
+          cache: "no-store",
+          redirect: "follow",
+        },
+      })
+        .then(function (payload) {
+          if (payload && payload.blocked) {
+            try {
+              var uid = parseTargetUserId() || (currentUser && currentUser.id) || "";
+              var cached = loadRankPayloadCache(uid);
+              if (cached && cached.theme) return mergeRankPayloadWithLocalTheme(cached);
+            } catch (eBlk) {}
+            return {
+              ok: false,
+              message: "Troppe richieste. Riprova tra poco.",
+              retryable: false,
+            };
+          }
+          return finishRankPayloadFromHttp(
+            Number((payload && payload.status) || 0),
+            Boolean(payload && payload.ok),
+            payload && payload.body,
+          );
+        })
+        .catch(function (err) {
+          if (err && err.message === "timeout") {
+            return {
+              ok: false,
+              message: "Timeout API rank card: il server sta impiegando troppo tempo a rispondere.",
+              retryable: true,
+            };
+          }
+          return {
+            ok: false,
+            message: "Errore di rete o connessione rifiutata durante il caricamento.",
+            retryable: true,
+          };
+        });
+    }
+    return fetchWithTimeout(
+      url,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: "Bearer " + token,
+        },
+        credentials: "omit",
+        cache: "no-store",
+        redirect: "follow",
+      },
+      20000
+    )
       .then(function (r) {
         return r.text().then(function (text) {
-          var parsed = null;
-          if (text) {
-            try {
-              parsed = JSON.parse(text);
-            } catch (eParse) {
+          var parsed = parseJsonResponseText(text);
+          if (!parsed) {
+            if (!String(text || "").trim()) {
               return {
                 ok: false,
-                message: "Risposta API non valida (HTTP " + r.status + ").",
+                message: "Risposta vuota dall'API.",
+                retryable: true,
               };
             }
+            var ctype = "";
+            try {
+              ctype = String(r.headers && r.headers.get ? r.headers.get("content-type") || "" : "").toLowerCase();
+            } catch (eCt) {}
+            if (looksLikeHtmlResponse(text) || ctype.indexOf("text/html") >= 0) {
+              return {
+                ok: false,
+                message: "Risposta API non valida: configurazione endpoint errata.",
+                retryable: true,
+              };
+            }
+            return {
+              ok: false,
+              message:
+                "Risposta API non valida (HTTP " +
+                r.status +
+                (ctype ? ", " + ctype.split(";")[0] : "") +
+                ").",
+              retryable: true,
+            };
           }
           if (!r.ok) {
-            var msg =
-              (parsed && (parsed.message || parsed.error)) ||
-              "Errore HTTP " + r.status + " durante il caricamento.";
-            return { ok: false, message: String(msg) };
+            return finishRankPayloadFromHttp(r.status, false, parsed);
           }
-          return parsed || { ok: false, message: "Risposta vuota dall'API." };
+          return finishRankPayloadFromHttp(r.status, true, parsed);
         });
       })
       .catch(function (err) {
         if (err && err.message === "timeout") {
-          return { ok: false, message: "Timeout API rank card: il server sta impiegando troppo tempo a rispondere." };
+          return {
+            ok: false,
+            message: "Timeout API rank card: il server sta impiegando troppo tempo a rispondere.",
+            retryable: true,
+          };
         }
-        return { ok: false, message: "Errore di rete o connessione rifiutata durante il caricamento." };
+        return {
+          ok: false,
+          message: "Errore di rete o connessione rifiutata durante il caricamento.",
+          retryable: true,
+        };
       });
+  }
+
+  function fetchRankData(attempt) {
+    attempt = Number(attempt) || 0;
+    return fetchRankDataOnce().then(function (body) {
+      if (body && body.ok === true) return body;
+      if (attempt < 2 && isRetryableRankLoadError(body)) {
+        return new Promise(function (resolve) {
+          setTimeout(resolve, 450 + attempt * 550);
+        }).then(function () {
+          return fetchRankData(attempt + 1);
+        });
+      }
+      if (body && body.retryable) delete body.retryable;
+      return body;
+    });
   }
 
   function fetchWithTimeout(url, options, timeoutMs) {
@@ -1495,12 +1705,17 @@
 
   function isRetryableRankLoadError(body) {
     if (!body || body.ok === true) return false;
+    if (body.retryable === true) return true;
     var msg = String((body && body.message) || "").toLowerCase();
     return (
       msg.indexOf("timeout") >= 0 ||
       msg.indexOf("rete") >= 0 ||
       msg.indexOf("connessione") >= 0 ||
-      msg.indexOf("impiegando troppo") >= 0
+      msg.indexOf("impiegando troppo") >= 0 ||
+      msg.indexOf("risposta api non valida") >= 0 ||
+      msg.indexOf("risposta vuota") >= 0 ||
+      msg.indexOf("endpoint errata") >= 0 ||
+      msg.indexOf("sessione discord") >= 0
     );
   }
 
@@ -1527,8 +1742,7 @@
     currentUser = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || null;
     if (enforceTargetOwnership(targetUserId, currentUser)) return;
 
-    /* First paint immediato: cache locale o shell minima — niente splash bloccante. */
-    if (!loaded && attempt === 0) {
+        if (!loaded && attempt === 0) {
       try {
         var cached = loadRankPayloadCache(
           targetUserId || (currentUser && currentUser.id) || ""
@@ -1570,7 +1784,7 @@
         }
         if (!body || body.ok !== true) {
           if (loaded && draft) {
-            /* Cache già mostrata: non sostituire con fatal se la rete fallisce. */
+                        hideRankCustomizeLoading();
             setStatus((body && body.message) || "Aggiornamento non riuscito: mostro l'ultima versione salvata.", true);
             return;
           }
@@ -1613,7 +1827,7 @@
           function () {
             main(0);
           },
-          { maxMs: 350 }
+          { maxMs: 2500 }
         );
         return;
       }

@@ -1,6 +1,5 @@
 (function () {
-  // chromeWidgetsSync1: volume + posizione + play/pause sincronizzati tra pagine/tab/device.
-  var BGM_PREF_KEY = "vc_hogwarts_bgm_enabled_v1";
+    var BGM_PREF_KEY = "vc_hogwarts_bgm_enabled_v1";
   var VOL_PREF_KEY = "vc_hogwarts_bgm_volume_v1";
   var HINT_AUTO_HIDE_MS = 4500;
   var hintEl = null;
@@ -14,10 +13,8 @@
   var booting = false;
   var activeVideoIdx = 0;
   var ytLoadFailed = false;
-  /** Musica in pausa mentre è in corso un video incorporato (es. smistamento.mp4). */
-  var pausedForEmbeddedVideo = false;
-  /** Se true dopo unduck, la BGM torna a suonare (rispetta anche mutedByUser e il tap sul FAB). */
-  var shouldResumeAfterEmbeddedVideo = false;
+    var pausedForEmbeddedVideo = false;
+    var shouldResumeAfterEmbeddedVideo = false;
   var detachFirst = null;
   var volumeUiBound = false;
   var seekUiBound = false;
@@ -737,8 +734,7 @@
     var wrap = document.createElement("div");
     wrap.id = "vc-hw-yt-host";
     wrap.setAttribute("aria-hidden", "true");
-    // Keep a tiny in-viewport host: off-screen / opacity≈0 players often get YT error 153.
-    wrap.style.cssText =
+        wrap.style.cssText =
       "position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0.02;pointer-events:none;z-index:0;overflow:hidden;clip-path:inset(0)";
     document.body.appendChild(wrap);
     var inner = document.createElement("div");

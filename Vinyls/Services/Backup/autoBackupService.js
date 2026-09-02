@@ -50,7 +50,6 @@ function getZonedDayKey(date = new Date(), timeZone = AUTO_BACKUP_TIMEZONE) {
   return `${y}-${m}-${d}`;
 }
 
-/** Solo main / test / sponsor — mai i tenant MultiGuild. */
 function listAutoBackupGuildIds(client) {
   const protectedIds = getProtectedGuildIds().filter((id) => isViniliProtectedGuild(id));
   if (protectedIds.length) return protectedIds;

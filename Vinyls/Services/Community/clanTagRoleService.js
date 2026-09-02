@@ -30,10 +30,6 @@ async function hasMatchingTag(member, client, userForClan = null, options = {}) 
   return resolved.match;
 }
 
-/**
- * @returns {{ match: object|null, lookupFailed: boolean }}
- * lookupFailed=true → non rimuovere Guilded (API/cache inaffidabile).
- */
 async function resolveClanTagMatch(member, client, userForClan = null, options = {}) {
   const user = userForClan || member?.user;
   if (!user) return { match: null, lookupFailed: true };
@@ -45,8 +41,7 @@ async function resolveClanTagMatch(member, client, userForClan = null, options =
   let lookupFailed = false;
   if (userForClan) {
     clan = userForClan.clan ?? null;
-    // In alcuni userUpdate il campo clan non arriva: fallback REST per sync live.
-    if (!clan && client && member?.guild?.id) {
+        if (!clan && client && member?.guild?.id) {
       try {
         const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
         clan = raw.user?.clan ?? null;
@@ -139,7 +134,6 @@ const GUILDED_ANNOUNCE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const lastGuildedChannelAnnounceByUserId = new Map();
 const lastGuildedAnnouncementMessageByUserId = new Map();
 const GUILDED_ANNOUNCE_SCAN_LIMIT = 200;
-/** Evita due embed se userUpdate e guildMemberUpdate annunciano in parallelo. */
 const guildedAnnounceTailByUserId = new Map();
 
 async function deleteGuildedAnnouncementForUser(member) {
@@ -199,7 +193,6 @@ async function removeRolesFromMember(member, roleIds, label) {
   }
 }
 
-/** Allineato a verifyUtils (ruolo Member): niente ruolo/annuncio Guilded prima della verifica server. */
 function memberCanReceiveAutomatedGuildedOnMain(member) {
   if (!member?.roles?.cache) return false;
   if (member.pending === true) return false;

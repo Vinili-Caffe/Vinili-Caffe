@@ -1,6 +1,5 @@
 const IDs = require("../Config/ids");
 
-/** Chiavi ruoli staff in ordine decrescente (Founder → … → Helper). */
 const STAFF_LADDER_KEYS_HIGH_TO_LOW = Object.freeze([
   "Founder",
   "Manager",
@@ -50,7 +49,6 @@ const STAFF_COORDINATOR_ROLE_KEYS = Object.freeze([
   "HighStaff",
 ]);
 
-/** Accesso dashboard sito: solo High Staff+ del main (NO Director / Manage Server). */
 const STAFF_HIGH_STAFF_ELIGIBLE_KEYS = Object.freeze([
   "Founder",
   "Manager",
@@ -62,7 +60,6 @@ function memberIsHighStaffEligible(member) {
   return memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS);
 }
 
-/** Director: candidature + appelli in inbox (non le pause High Staff). */
 function memberHasDirectorRole(member) {
   return memberHasAnyRoleKey(member, ["Director"]);
 }

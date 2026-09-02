@@ -1,11 +1,4 @@
 /* eslint-disable no-console */
-/**
- * Lista le collection più pesanti e opzionalmente esegue compact.
- * Uso:
- *   node Vinyls/Scripts/mongoCompactHeavy.js            # solo report
- *   node Vinyls/Scripts/mongoCompactHeavy.js --run      # compact top N
- *   node Vinyls/Scripts/mongoCompactHeavy.js --run --top=8
- */
 const fs = require("fs");
 const path = require("path");
 
@@ -93,15 +86,13 @@ async function main() {
     const before = t.storageMB;
     process.stdout.write(`compact ${t.name} (${before} MB)... `);
     try {
-      // force:true = permette compact anche con un po' di carico (Mongo 4.4+)
-      const res = await db.command({ compact: t.name, force: true });
+            const res = await db.command({ compact: t.name, force: true });
       let after = before;
       try {
         const s2 = await db.command({ collStats: t.name, scale: 1024 * 1024 });
         after = Math.round((s2.storageSize || 0) * 10) / 10;
       } catch {
-        /* ignore */
-      }
+              }
       console.log(`ok ${before} → ${after} MB`, res?.ok === 1 ? "" : res);
     } catch (e) {
       console.log("FAIL:", e?.message || e);

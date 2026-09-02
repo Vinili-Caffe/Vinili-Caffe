@@ -35,7 +35,8 @@
           ".vc-vote-list-avatar",
           ".vc-vote-podium-avatar",
           ".vc-wfc-msg__av img",
-          ".vc-wfc-avatar",
+          ".vc-staff-organico-hist__av",
+          ".vc-staff-organico-hist__av img",
         ].join(", "),
       )
     ) {
@@ -51,8 +52,7 @@
       try {
         return Number((BigInt(s) >> 22n) % 6n);
       } catch (e) {
-        /* fall through */
-      }
+              }
     }
     var n = 0;
     for (var i = 0; i < s.length; i += 1) n = (n + s.charCodeAt(i)) % 6;
@@ -87,6 +87,9 @@
   }
 
   function staticPngFromDiscordAvatar(src) {
+    if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferStaticUrl === "function") {
+      return window.VcDiscordAvatar.preferStaticUrl(src, 0) || "";
+    }
     var u = String(src || "").trim();
     var user = u.match(
       /^(https:\/\/cdn\.discordapp\.com\/avatars\/\d+\/(?:a_)?[a-f0-9]+)\.(gif|webp|jpg|jpeg)(\?.*)?$/i,
@@ -113,11 +116,31 @@
     if (img.dataset[FINAL_MARK] === "1") return;
 
     var current = String(img.getAttribute("src") || "");
+    if (
+      /(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(current) &&
+      img.dataset[FALLBACK_MARK] !== "1" &&
+      img.dataset[FALLBACK_MARK] !== "2" &&
+      img.dataset[FALLBACK_MARK] !== "3" &&
+      img.dataset.vcAvatarRetry !== "1"
+    ) {
+      img.dataset.vcAvatarRetry = "1";
+      window.setTimeout(function () {
+        if (!img || !img.isConnected) return;
+        if (img.naturalWidth > 0) {
+          try {
+            delete img.dataset.vcAvatarRetry;
+          } catch (eClr) {}
+          return;
+        }
+        applyFallback(img);
+      }, 850);
+      return;
+    }
+
     var stage = Number(img.dataset[FALLBACK_MARK] || "0");
     var isGuildAvatar = /cdn\.discordapp\.com\/guilds\/\d+\/users\/\d+\/avatars\//i.test(current);
 
-    // 1) gif/webp rotto → stesso hash in PNG statico (skip per guild: spesso 404 anche in png)
-    if (stage < 1) {
+        if (stage < 1) {
       if (!isGuildAvatar) {
         var png = staticPngFromDiscordAvatar(current);
         if (png && png !== current) {
@@ -130,8 +153,7 @@
       img.dataset[FALLBACK_MARK] = "1";
     }
 
-    // 2) default Discord embed
-    if (stage < 2) {
+        if (stage < 2) {
       var def = defaultDiscordAvatarUrl(userIdFromImage(img));
       if (def && def !== current) {
         img.dataset[FALLBACK_MARK] = "2";
@@ -142,8 +164,7 @@
       img.dataset[FALLBACK_MARK] = "2";
     }
 
-    // 3) SVG locale (niente altro network)
-    img.dataset[FINAL_MARK] = "1";
+        img.dataset[FINAL_MARK] = "1";
     img.dataset[FALLBACK_MARK] = "3";
     img.classList.add("vc-avatar-fallback-img");
     setSrcOnce(img, svgFallbackDataUri());

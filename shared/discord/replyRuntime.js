@@ -348,13 +348,6 @@ function prepareDiscordPayload(payload) {
   return stripTenantBrandingInternals(stripDefaultFooterInternals(payload));
 }
 
-/**
- * discord.js MessagePayload mutates `options.attachments` in-place:
- *   if (Array.isArray(attachments)) attachments.push(...fileDescriptors)
- * Reusing the same payload after a failed reply/send therefore duplicates ids
- * (files:1, attachments:[{0},{0}]) → DiscordAPIError 50035 ATTACHMENT_NOT_FOUND.
- * Per i CREATE: clona e lascia che d.js ricostruisca attachments dai files.
- */
 function prepareFreshCreatePayload(payload, { stripReference = false } = {}) {
   let next = prepareDiscordPayload(payload);
   if (stripReference) next = stripMessageReference(next);
@@ -405,17 +398,6 @@ function resolveOutgoingFileName(file) {
   return String(file?.name || file?.data?.name || json?.name || "").trim();
 }
 
-/**
- * Discord sostituisce l'array attachments su edit: `attachments: []` cancella TUTTI i file
- * (es. quote.png appena inviata da +quote quando si aggiunge il bottone Reposta).
- * Omettere il campo = lasciare gli allegati esistenti.
- *
- * Se si ri-caricano `files`, i file omonimi già presenti vanno esclusi altrimenti
- * Discord li tiene E aggiunge i nuovi (GIF banner duplicate su ticket/claim/pannelli).
- *
- * Banner brand = attachment://tenant-standard.gif (URL sito bloccato dal proxy Discord/CF).
- * Su edit: tieni il ref del GIF già allegato; ri-caricalo solo se manca.
- */
 function prepareMessageEditPayload(payload, source = null) {
   const outbound = prepareDiscordPayload(payload);
   if (!outbound || typeof outbound !== "object" || Array.isArray(outbound)) return outbound;
@@ -446,8 +428,7 @@ function prepareMessageEditPayload(payload, source = null) {
     });
   })();
 
-  // Caller chiede esplicitamente di azzerare: resta solo eventuali `files` nuovi.
-  if (hasExplicitAttachments && explicitAttachments.length === 0) {
+    if (hasExplicitAttachments && explicitAttachments.length === 0) {
     return { ...outbound, attachments: [] };
   }
 
@@ -456,9 +437,7 @@ function prepareMessageEditPayload(payload, source = null) {
     const incomingHasBanner = incomingNames.some((n) =>
       bannerAliases.includes(String(n || "").trim().toLowerCase()),
     );
-    // Se stiamo ri-caricando il banner, escludi il vecchio omonimo (evita doppio fuori embed).
-    // Altrimenti tieni i file esistenti (incluso banner se l'embed lo usa ancora).
-    const excludeNames = incomingHasBanner
+            const excludeNames = incomingHasBanner
       ? [...incomingNames, ...bannerAliases]
       : [...incomingNames];
     return {
@@ -469,8 +448,7 @@ function prepareMessageEditPayload(payload, source = null) {
     };
   }
 
-  // Banner richiesto ma file assente sul messaggio: ri-allega il GIF locale.
-  if (hasBannerEmbed && source && !sourceHasBannerFile && branding?.createStandardGifAttachment) {
+    if (hasBannerEmbed && source && !sourceHasBannerFile && branding?.createStandardGifAttachment) {
     const bannerFile = branding.createStandardGifAttachment();
     if (bannerFile) {
       const kept = collectExistingAttachmentRefs(source);
@@ -482,13 +460,11 @@ function prepareMessageEditPayload(payload, source = null) {
     }
   }
 
-  // Banner presente: lascia gli allegati (incluso tenant-standard.gif) intatti.
-  if (hasBannerEmbed) {
+    if (hasBannerEmbed) {
     return outbound;
   }
 
-  // Embed senza banner: togli tenant-standard.gif residuo (Discord lo mostrerebbe fuori dall'embed).
-  if (!hasBannerEmbed && !hasFiles && source) {
+    if (!hasBannerEmbed && !hasFiles && source) {
     const kept = collectExistingAttachmentRefs(source, { excludeNames: bannerAliases });
     const allRefs = collectExistingAttachmentRefs(source);
     if (allRefs.length > kept.length) {
@@ -496,8 +472,7 @@ function prepareMessageEditPayload(payload, source = null) {
     }
   }
 
-  // Solo components/content/embeds: omettere attachments = Discord li lascia intatti.
-  return outbound;
+    return outbound;
 }
 
 function maybeCoercePlainNoticeEmbed(payload, source) {
@@ -537,7 +512,6 @@ function wrapPrototypeMethod(prototype, methodName, transformPayload, patchKey) 
   prototype[patchKey] = true;
 }
 
-/** Evita che attachment:// del banner finisca fuori dall'embed su edit/update grezzi. */
 function installOutgoingEditBrandingPatch(discord) {
   if (!discord || discord.__viniliEditBrandingPatchInstalled) return;
   const { Message, Interaction } = discord;
@@ -633,8 +607,7 @@ async function safeMessageReply(message, payload) {
       } catch (fallbackErr) {
         if (fallbackErr?.code === 10008) return null;
         logReplyError("message.reply(send-fallback)", fallbackErr);
-        // Ultimo tentativo: DM all'autore (canale senza Send/Embed).
-        if (
+                if (
           (fallbackErr?.code === 50013 || Number(fallbackErr?.rawError?.code) === 50013) &&
           message.author &&
           typeof message.author.send === "function"

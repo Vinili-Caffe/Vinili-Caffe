@@ -137,9 +137,6 @@ async function addGuildBotUsageBlacklist(guildId, addedBy, note = "", meta = {})
   return { ok: true, id: gid, type: "guild" };
 }
 
-/**
- * Aggiorna metadati display (es. nome recuperato da partnership) senza toccare note/addedBy.
- */
 async function patchGuildBotUsageBlacklistMeta(guildId, meta = {}) {
   const gid = normalizeGuildId(guildId) || normalizeSnowflake(guildId);
   if (!gid) return { ok: false, reason: "invalid_id" };
@@ -163,9 +160,6 @@ async function removeGuildBotUsageBlacklist(guildId) {
   return { ok: true, deleted: existed, id: gid, type: "guild" };
 }
 
-/**
- * Esce dal guild se il bot è presente. Non blacklist.
- */
 async function leaveGuildIfPresent(client, guildId) {
   const gid = normalizeGuildId(guildId) || normalizeSnowflake(guildId);
   if (!gid) return { ok: false, reason: "invalid_id" };
@@ -184,9 +178,6 @@ async function leaveGuildIfPresent(client, guildId) {
   return { ok: true, left: true, id: gid, guildName: name };
 }
 
-/**
- * All'avvio / dopo invite: esci da tutti i guild in blacklist.
- */
 async function leaveAllBlacklistedGuilds(client) {
   if (!client?.guilds?.cache) return { ok: true, left: [] };
   const store = await loadStore({ force: true });

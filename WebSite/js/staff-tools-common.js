@@ -21,8 +21,7 @@
     }
   }
 
-  /** Timeout fetch adattivo (mobile / rete lenta): evita falsi timeout a 20s. */
-  function resolveFetchTimeoutMs(preferred) {
+    function resolveFetchTimeoutMs(preferred) {
     var base = Math.max(8000, Number(preferred) || 45000);
     try {
       if (global.VcPerf && typeof global.VcPerf.fetchTimeouts === "function") {
@@ -166,8 +165,7 @@
   }
 
   function showStaffToast(msg, isError, opts) {
-    // /notifications: nessun toast staff (Personali o Staff).
-    try {
+        try {
       if (document.body && document.body.classList.contains("vc-notifications-page")) {
         hideStaffToast();
         return;
@@ -293,8 +291,7 @@
 
   function sanitizeStaffChrome() {
     if (!document.body || !document.body.classList.contains("vc-staff-area")) return;
-    // Pagine cine (inbox/guida/pause/gestione/profilo): non toccare atmosfera.
-    if (isStaffCinePage()) return;
+        if (isStaffCinePage()) return;
     try {
       document.documentElement.classList.remove("vc-site-polish", "vc-page-cine-boot");
       document.body.classList.remove("vc-site-polish", "vc-page-cine-layout");
@@ -329,9 +326,7 @@
 
   function registerPtrRefresh(fn) {
     if (typeof fn !== "function") return;
-    // Soft PTR è opt-in: di default il pull fa sempre location.reload().
-    // Se una pagina vuole soft, setta __vcPtrPreferSoft = true e registra qui.
-    var wrapped = function () {
+            var wrapped = function () {
       return Promise.resolve()
         .then(function () {
           return fn();
@@ -364,9 +359,7 @@
     function runWhenReady() {
       sanitizeStaffChrome();
       onAccessReady(function () {
-        // Access gate rivela main dopo il primo boot cine → layout a volte resta “piatto”
-        // finché non ricarichi. Forza di nuovo qui (gestione/pause/organico/…).
-        ensureStaffCineLayout();
+                        ensureStaffCineLayout();
         window.setTimeout(ensureStaffCineLayout, 80);
         window.setTimeout(ensureStaffCineLayout, 280);
         if (typeof initFn === "function") initFn();
@@ -516,8 +509,7 @@
           err &&
           (err.name === "AbortError" || String(err.message || "").toLowerCase().indexOf("abort") >= 0);
         if (isAbort) {
-          // Abort esterno (nuovo load / cambio tab): non mascherarlo da timeout.
-          if (externalAbort && !timedOutByUs) return abortedPayload();
+                    if (externalAbort && !timedOutByUs) return abortedPayload();
           return timeoutPayload();
         }
         throw err;
@@ -550,8 +542,7 @@
     return Math.floor(hours / 24) + "g";
   }
 
-  /** Discord default avatar index (new: id >> 22 % 6). */
-  function defaultAvatarUrl(userId) {
+    function defaultAvatarUrl(userId) {
     var id = String(userId || "").trim();
     var idx = 0;
     if (/^\d{5,24}$/.test(id)) {
@@ -570,18 +561,14 @@
     return /^\d{16,22}$/.test(String(value || "").trim());
   }
 
-  /** Never show a raw Discord ID as a human label. */
-  function userLabel(displayName, userId, fallback) {
+    function userLabel(displayName, userId, fallback) {
     var name = String(displayName || "").trim();
     var uid = String(userId || "").trim();
     if (name && name !== uid && !isSnowflakeLabel(name)) return name;
     return String(fallback || "Utente");
   }
 
-  /**
-   * Avatar <img> with data-user-id + onerror \u2192 Discord default \u2192 never broken icon.
-   */
-  function avatarImgHtml(avatarUrl, userId, attrs) {
+    function avatarImgHtml(avatarUrl, userId, attrs) {
     var a = attrs || {};
     var w = a.width != null ? a.width : 40;
     var h = a.height != null ? a.height : 40;
@@ -590,6 +577,17 @@
     var loading = a.loading != null ? String(a.loading) : "lazy";
     var fetchPriority = a.fetchPriority ? String(a.fetchPriority) : "";
     var src = String(avatarUrl || "").trim() || defaultAvatarUrl(uid);
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferStaticUrl === "function") {
+        src = window.VcDiscordAvatar.preferStaticUrl(src, Math.max(w, h)) || src;
+      } else if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
+        src = window.VcDiscordAvatar.resolveUrl(src, Math.max(w, h), "", uid) || src;
+      } else if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferAnimatedUrl === "function") {
+        src = window.VcDiscordAvatar.preferAnimatedUrl(src, Math.max(w, h)) || src;
+      } else {
+        src = src.replace(/\.(gif|webp|jpe?g)(\?|#|$)/i, ".png$2");
+      }
+    } catch (eAnim) {}
     var fb = defaultAvatarUrl(uid);
     var svg =
       "data:image/svg+xml;charset=utf-8," +
@@ -616,19 +614,14 @@
       '" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1"' +
       (fetchPriority ? ' fetchpriority="' + esc(fetchPriority) + '"' : "") +
       (uid ? ' data-user-id="' + esc(uid) + '"' : "") +
+      (a.staticAvatar ? ' data-vc-avatar-static="1"' : "") +
       ' onerror="' +
       onerr +
       '" />'
     );
   }
 
-  /**
-   * Dialog personalizzati (VcDialog). Fallback nativo solo se lo script non è caricato.
-   *   T.confirm({ title, message, confirmLabel, cancelLabel, danger, icon }) → Promise<boolean>
-   *   T.prompt({ title, message, label, placeholder, defaultValue, ... }) → Promise<string|null>
-   *   T.alert({ title, message, okLabel, danger, icon }) → Promise<void>
-   */
-  function normalizeDialogOpts(opts, fallbackMessage) {
+    function normalizeDialogOpts(opts, fallbackMessage) {
     if (typeof opts === "string") return { message: opts };
     var o = opts && typeof opts === "object" ? opts : {};
     if (!o.message && fallbackMessage) o = Object.assign({ message: fallbackMessage }, o);

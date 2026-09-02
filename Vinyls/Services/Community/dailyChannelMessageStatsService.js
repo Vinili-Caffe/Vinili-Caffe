@@ -7,7 +7,7 @@ const {
   incrementDailyStatsValue,
 } = require("./dailyStatsStore");
 const TIME_ZONE = "Europe/Rome";
-const DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID = "1502241464724361256";
+const DEFAULT_DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID = "1502241464724361256";
 
 const TRACKED_CHANNELS = {
   counting: String(IDs.channels?.counting || "1442569179743125554"),
@@ -17,6 +17,42 @@ const TRACKED_CHANNELS = {
 
 let dailyChannelMessageCron = null;
 let reportRunning = false;
+
+function readDailyChannelMessageStatsCfg(client) {
+  const raw = client?.config?.dailyChannelMessageStats;
+  return raw && typeof raw === "object" ? raw : {};
+}
+
+function resolveDailyChannelMessageReportChannelId(client) {
+  const fromCfg = String(readDailyChannelMessageStatsCfg(client).reportChannelId || "").trim();
+  return fromCfg || DEFAULT_DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID;
+}
+
+function isFalsyEnvFlag(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "0" || normalized === "false" || normalized === "off" || normalized === "no";
+}
+
+function resolveDisabledScheduleGuildIds(client) {
+  const cfg = readDailyChannelMessageStatsCfg(client);
+  const ids = new Set(
+    (Array.isArray(cfg.disabledScheduleGuildIds) ? cfg.disabledScheduleGuildIds : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean),
+  );
+  const reportGuildId = String(cfg.reportGuildId || IDs.guilds?.test || "").trim();
+  if (reportGuildId) ids.add(reportGuildId);
+  return ids;
+}
+
+function isDailyChannelMessageStatsScheduleEnabled(client, reportGuildId = "") {
+  const cfg = readDailyChannelMessageStatsCfg(client);
+  if (cfg.enabled === false || cfg.scheduleEnabled === false) return false;
+  if (isFalsyEnvFlag(process.env.DAILY_CHANNEL_MESSAGE_STATS_SCHEDULE_ENABLED)) return false;
+  const gid = String(reportGuildId || cfg.reportGuildId || "").trim();
+  if (gid && resolveDisabledScheduleGuildIds(client).has(gid)) return false;
+  return true;
+}
 
 function getMainGuildId() {
   return String(process.env.DAILY_CHANNEL_MESSAGE_STATS_GUILD_ID || IDs.guilds?.main || "").trim();
@@ -96,16 +132,20 @@ function buildReportContent(stats) {
 
 async function resolveReportChannel(client) {
   if (!client) return null;
+  const channelId = resolveDailyChannelMessageReportChannelId(client);
   return (
-    client.channels.cache.get(DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID) ||
-    (await getClientChannelCached(client, DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID)) ||
-    (await client.channels.fetch(DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID).catch(() => null))
+    client.channels.cache.get(channelId) ||
+    (await getClientChannelCached(client, channelId)) ||
+    (await client.channels.fetch(channelId).catch(() => null))
   );
 }
 
 async function sendDailyChannelMessageReport(client, dateKey, opts = {}) {
   const guildId = getMainGuildId();
   if (!client || !guildId || !dateKey || reportRunning) return null;
+  const reportChannel = await resolveReportChannel(client);
+  const reportGuildId = String(reportChannel?.guildId || reportChannel?.guild?.id || "").trim();
+  if (!isDailyChannelMessageStatsScheduleEnabled(client, reportGuildId)) return null;
   const createIfMissing = opts.createIfMissing !== false;
 
   reportRunning = true;
@@ -121,13 +161,15 @@ async function sendDailyChannelMessageReport(client, dateKey, opts = {}) {
     const stats = doc.value || {};
     if (stats.reportedAt || stats.reportMessageId) return doc;
 
-    const channel = await resolveReportChannel(client);
-    if (!channel?.isTextBased?.()) {
-      global.logger?.warn?.("[DAILY CHANNEL MESSAGE STATS] report channel not found:", DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID);
+    if (!reportChannel?.isTextBased?.()) {
+      global.logger?.warn?.(
+        "[DAILY CHANNEL MESSAGE STATS] report channel not found:",
+        resolveDailyChannelMessageReportChannelId(client),
+      );
       return stats;
     }
 
-    const sent = await channel.send({ content: buildReportContent(stats) }).catch((err) => {
+    const sent = await reportChannel.send({ content: buildReportContent(stats) }).catch((err) => {
       global.logger?.error?.("[DAILY CHANNEL MESSAGE STATS] report send failed:", err?.message || err);
       return null;
     });
@@ -146,6 +188,11 @@ async function sendDailyChannelMessageReport(client, dateKey, opts = {}) {
 
 function startDailyChannelMessageStatsLoop(client) {
   if (!client || dailyChannelMessageCron) return dailyChannelMessageCron;
+  const cfg = readDailyChannelMessageStatsCfg(client);
+  const reportGuildId = String(cfg.reportGuildId || IDs.guilds?.test || "").trim();
+  if (!isDailyChannelMessageStatsScheduleEnabled(client, reportGuildId)) {
+    return null;
+  }
 
   dailyChannelMessageCron = cron.schedule(
     "0 0 * * *",
@@ -169,7 +216,7 @@ function startDailyChannelMessageStatsLoop(client) {
 }
 
 module.exports = {
-  DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID,
+  DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID: DEFAULT_DAILY_CHANNEL_MESSAGE_REPORT_CHANNEL_ID,
   TRACKED_CHANNELS,
   startDailyChannelMessageStatsLoop,
   sendDailyChannelMessageReport,

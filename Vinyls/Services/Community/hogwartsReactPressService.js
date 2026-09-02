@@ -79,8 +79,7 @@ function getExcludedReactPressChannelIds() {
     IDs.channels?.hogwartsHouseSlytherin,
     IDs.channels?.hogwartsHouseActivityReport,
     IDs.channels?.hogwartsSortingLog,
-    // Canali info/staff: pochi messaggi utente → spawn random fallisce in loop.
-    IDs.channels?.news,
+        IDs.channels?.news,
     IDs.channels?.info,
     IDs.channels?.staffList,
     IDs.channels?.bestStaff,
@@ -258,8 +257,7 @@ const REACT_PRESS_TEXT_CHANNEL_TYPES = new Set([
   ChannelType.PublicThread,
   ChannelType.PrivateThread,
   ChannelType.AnnouncementThread,
-  // Text chat delle vocali (non le stanze temporanee; i palchi/stage sono esclusi).
-  ChannelType.GuildVoice,
+    ChannelType.GuildVoice,
 ]);
 
 function resolveReactPressCategoryId(channel, guild) {
@@ -274,7 +272,6 @@ function resolveReactPressCategoryId(channel, guild) {
   return String(channel.parentId || "").trim();
 }
 
-/** Stanze temporanee / Private: la react si perde se il canale viene cancellato. */
 function isEphemeralOrTemporaryReactPressChannel(channel, guild) {
   if (!channel) return true;
   const stanzeId = String(IDs.categories?.categoryStanze || "").trim();
@@ -297,8 +294,7 @@ function isEphemeralOrTemporaryReactPressChannel(channel, guild) {
 function isReactPressStageChannel(channel) {
   if (!channel) return false;
   if (channel.type === ChannelType.GuildStageVoice) return true;
-  // Thread / messaggio dentro un palco: escludi allo stesso modo.
-  if (channel.isThread?.()) {
+    if (channel.isThread?.()) {
     const parent = channel.parent || channel.guild?.channels?.cache?.get(String(channel.parentId || ""));
     if (parent?.type === ChannelType.GuildStageVoice) return true;
   }
@@ -317,7 +313,6 @@ function isArchivedReactPressChannel(channel) {
   return Boolean(channel?.isThread?.() && channel.archived);
 }
 
-/** Visibilità spawn: solo canali che Member può leggere (non Hogwarts / non canali staff). */
 function resolveReactPressAccessRole(guild) {
   const memberRoleId = normalizeId(IDs.roles?.Member);
   if (memberRoleId) {
@@ -399,7 +394,6 @@ async function fetchActiveReactPressThreads(guild) {
   }
 }
 
-/** Canali + thread attivi + text-in-voice (cache sola non basta per i thread). */
 async function listReactPressSpawnChannelPool(guild, client = guild?.client) {
   if (!guild) return [];
   await guild.channels.fetch().catch(() => null);
@@ -469,8 +463,7 @@ async function findReactPressDocForMessage(guildId, c, messageId) {
     .lean()
     .catch(() => null);
   if (byKey) return byKey;
-  // Finale chaos / eventKey diverso da premiLaReact base: match sul messageId.
-  return SiteDocument.findOne({
+    return SiteDocument.findOne({
     docType: DOC,
     guildId: gid,
     "rawWebhook.messageId": mid,
@@ -497,7 +490,6 @@ async function findActiveReactPressByMessage(guildId, messageId) {
     .catch(() => null);
 }
 
-/** Config runtime dal doc attivo (finale chaos usa eventKey diverso da premiLaReact scaduto). */
 function cfgFromReactPressDoc(client, doc) {
   const base = cfg(client);
   if (!doc) return base;
@@ -521,8 +513,7 @@ function cfgFromReactPressDoc(client, doc) {
       60_000,
       safeInt(doc?.rawWebhook?.activeDurationMs, base.activeDurationMs, 60_000, 60 * 60_000) - 60_000,
     ),
-    // Round già spawnato: non usare date premiLaReact (chiuse l'11/08).
-    startDate: "2020-01-01T00:00:00",
+        startDate: "2020-01-01T00:00:00",
     endDate: "2099-12-31T23:59:59",
     finaleChaos,
   };
@@ -780,8 +771,7 @@ async function pickReactPressMessageInChannel(client, guild, channel, c) {
     return todayCandidates[Math.floor(Math.random() * todayCandidates.length)];
   }
 
-  // Prima: messaggi validi tra gli ultimi N; se vuoto, qualsiasi candidato valido nello history.
-  const recentIds = new Set(ordered.slice(0, fallbackLimit).map((message) => normalizeId(message.id)));
+    const recentIds = new Set(ordered.slice(0, fallbackLimit).map((message) => normalizeId(message.id)));
   const recentValid = validCandidates.filter((message) => recentIds.has(normalizeId(message.id)));
   const pool = recentValid.length ? recentValid : validCandidates;
   return pool[Math.floor(Math.random() * pool.length)];
@@ -831,8 +821,7 @@ async function spawnReactPressViaRandomChannel(client, guild, c) {
     if (!excludeChannels.includes(channelId)) excludeChannels.push(channelId);
   }
 
-  // Fallback: pool candidati da messageCreate (canali chat vivi).
-  const poolOk = await spawnReactPressViaCandidatePool(client, guild, c);
+    const poolOk = await spawnReactPressViaCandidatePool(client, guild, c);
   if (poolOk) return true;
 
   if (failures.length) {
@@ -1189,8 +1178,7 @@ async function ensureActiveChallengeReaction(client, c, active) {
   const channelId = normalizeId(active?.rawWebhook?.channelId || c.channelId);
   const messageId = normalizeId(active?.rawWebhook?.messageId);
   if (!channelId || !messageId) return;
-  // Evita race: se nel frattempo qualcuno ha vinto, non riaggiungere la ⚡.
-  const stillLive = await activeChallenge(normalizeId(active?.guildId) || normalizeId(IDs.guilds.main));
+    const stillLive = await activeChallenge(normalizeId(active?.guildId) || normalizeId(IDs.guilds.main));
   const stillMsgId = normalizeId(stillLive?.rawWebhook?.messageId);
   if (!stillLive || stillMsgId !== messageId) return;
   const ch = await client.channels.fetch(channelId).catch(() => null);
@@ -1237,10 +1225,6 @@ function reactPressRewardKey(c, messageId, uid) {
   return `${c.eventKey}:${normalizeId(messageId)}:${normalizeId(uid)}`;
 }
 
-/**
- * Assegna galeoni/punti + annuncio in modo idempotente (riavvio-safe).
- * Ritorna true se i premi sono stati (ri)processati in questo passaggio.
- */
 async function fulfillReactPressWin(client, c, doc, { user = null, message = null, announce = true } = {}) {
   if (!doc || normalizeId(doc.status) !== "completed") return false;
   const gid = normalizeId(doc.guildId);
@@ -1259,8 +1243,7 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
     ? doc.rawWebhook.finaleChaos
     : null;
 
-  // Win vecchi (pre-flag): galeoni già in Gringott ⇒ solo marca i flag, niente re-award/re-announce.
-  const galeoniAlreadyPaid = alreadyGranted
+    const galeoniAlreadyPaid = alreadyGranted
     ? true
     : await hasGringottRewardKey(gid, uid, rewardKey).catch(() => false);
 
@@ -1349,8 +1332,7 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
     }
   }
 
-  // Annuncio sempre su win nuovi (anche se galeoni falliscono: il messaggio in chat non deve sparire).
-  const shouldAnnounce = announce && !galeoniAlreadyPaid;
+    const shouldAnnounce = announce && !galeoniAlreadyPaid;
   if (shouldAnnounce) {
     const announceLock = await SiteDocument.findOneAndUpdate(
       {
@@ -1426,7 +1408,6 @@ async function fulfillReactPressWin(client, c, doc, { user = null, message = nul
   return !alreadyGranted;
 }
 
-/** Dopo un riavvio: se qualcuno ha già messo ⚡ mentre il bot era giù, claim + premi. */
 async function catchUpActiveReactPressReactions(client, c, live) {
   const claimCfg = cfgFromReactPressDoc(client, live);
   const channelId = normalizeId(live?.rawWebhook?.channelId || claimCfg.channelId);
@@ -1453,8 +1434,7 @@ async function catchUpActiveReactPressReactions(client, c, live) {
     client.guilds.cache.get(gid) ||
     (await client.guilds.fetch(gid).catch(() => null));
 
-  // Ordine stabile per userId: il claim atomico decide il vincitore tra chi ha reagito offline.
-  const candidates = [...users.values()]
+    const candidates = [...users.values()]
     .filter((u) => u && !u.bot && normalizeId(u.id) !== botId)
     .sort((a, b) => String(a.id).localeCompare(String(b.id)));
 
@@ -1479,7 +1459,6 @@ async function catchUpActiveReactPressReactions(client, c, live) {
   return false;
 }
 
-/** Completati senza premi (crash tra claim e award). */
 async function recoverUnfulfilledReactPressWins(client, c) {
   const gid = normalizeId(IDs.guilds.main);
   const since = new Date(Date.now() - 6 * 60 * 60 * 1000);
@@ -1506,8 +1485,7 @@ async function recoverUnfulfilledReactPressWins(client, c) {
     const rewardKey = reactPressRewardKey(c, messageId, uid);
     const alreadyPaid = await hasGringottRewardKey(gid, uid, rewardKey).catch(() => false);
     if (alreadyPaid) {
-      // Solo allinea i flag: non è un recovery reale.
-      await fulfillReactPressWin(client, c, doc, { announce: false });
+            await fulfillReactPressWin(client, c, doc, { announce: false });
       backfilled += 1;
       continue;
     }
@@ -1541,15 +1519,12 @@ async function removeReactPressEmojiFromMessage(message, emoji) {
     if (!sameEmoji(reaction, emoji)) continue;
     matched = true;
 
-    // 1) Preferisci rimozione completa (serve Manage Messages).
-    const removedAll = await reaction.remove().then(() => true).catch(() => false);
+        const removedAll = await reaction.remove().then(() => true).catch(() => false);
     if (removedAll) return true;
 
-    // 2) Prima togli SEMPRE la react del bot (non serve Manage Messages).
-    if (botId) await reaction.users.remove(botId).catch(() => null);
+        if (botId) await reaction.users.remove(botId).catch(() => null);
 
-    // 3) Poi fetch completo utenti (non fidarsi della cache: spesso c'è solo chi ha appena cliccato).
-    try {
+        try {
       const users = await reaction.users.fetch().catch(() => reaction.users?.cache || null);
       if (users?.size) {
         for (const user of users.values()) {
@@ -1558,24 +1533,20 @@ async function removeReactPressEmojiFromMessage(message, emoji) {
         }
       }
     } catch (_) {
-      /* ignore */
-    }
+          }
   }
 
   if (!matched && botId) {
-    // Nessuna reaction in cache locale: prova comunque a risolvere l'emoji e togliere il bot.
-    try {
+        try {
       const resolved =
         msg.reactions.resolve(emoji) ||
         [...(msg.reactions?.cache?.values() || [])].find((reaction) => sameEmoji(reaction, emoji));
       if (resolved) await resolved.users.remove(botId).catch(() => null);
     } catch (_) {
-      /* ignore */
-    }
+          }
   }
 
-  // Verifica: se è ancora lì, ritenta su messaggio fresco.
-  const fresh = await msg.channel?.messages?.fetch?.(msg.id).catch(() => null);
+    const fresh = await msg.channel?.messages?.fetch?.(msg.id).catch(() => null);
   if (!fresh) return false;
   const still = [...(fresh.reactions?.cache?.values() || [])].filter((reaction) => sameEmoji(reaction, emoji));
   if (!still.length) return true;
@@ -1698,8 +1669,7 @@ async function trySpawnReactPressOnCandidate(client, guild, c, chosen) {
     await message.react(c.emoji);
   } catch (err) {
     const errMsg = String(err?.message || err || "");
-    // Cancella subito: non deve restare un expired che brucia maxPerDay / blocca la slot.
-    await SiteDocument.deleteOne({ _id: doc._id }).catch(() => null);
+        await SiteDocument.deleteOne({ _id: doc._id }).catch(() => null);
     if (/thread is archived/i.test(errMsg)) {
       return { ok: false, code: "thread_archived" };
     }
@@ -1958,8 +1928,7 @@ async function resumeReactPressOnBoot(client) {
     client.guilds.cache.get(IDs.guilds.main) ||
     (await client.guilds.fetch(IDs.guilds.main).catch(() => null));
   if (!guild) return;
-  // Round attivi (anche finale chaos con eventKey diverso / premiLaReact scaduto).
-  const live = await activeChallenge(guild.id);
+    const live = await activeChallenge(guild.id);
   if (live) {
     const c = cfgFromReactPressDoc(client, live);
     await recoverUnfulfilledReactPressWins(client, c).catch((err) =>
@@ -2054,9 +2023,7 @@ async function handleReactPressReaction(client, reaction, user) {
   const uid = normalizeId(user.id);
   if (!isValidGuildUserId(gid, uid)) return false;
 
-  // Finale chaos (e round spawnati con eventKey diverso): accetta se c'è un active
-  // sul messageId anche se premiLaReact base è scaduto (endDate 11/08).
-  const liveDoc = await findActiveReactPressByMessage(gid, message.id);
+      const liveDoc = await findActiveReactPressByMessage(gid, message.id);
   if (!liveDoc && !eventOpen(base)) return false;
   const c = liveDoc ? cfgFromReactPressDoc(client, liveDoc) : base;
 
@@ -2077,8 +2044,7 @@ async function handleReactPressReaction(client, reaction, user) {
     const winnerId = normalizeId(existing?.userId || existing?.rawWebhook?.winnerUserId);
     const claimCfg = existing ? cfgFromReactPressDoc(client, existing) : c;
 
-    // Win già claimato da questo utente ma premi persi (crash): recupera.
-    if (status === "completed" && winnerId === uid) {
+        if (status === "completed" && winnerId === uid) {
       await fulfillReactPressWin(client, claimCfg, existing, { user, message, announce: true });
       return true;
     }
@@ -2096,8 +2062,7 @@ async function handleReactPressReaction(client, reaction, user) {
         await removeReactPressEmojiFromMessage(message, claimCfg.emoji);
         return true;
       }
-      // Race/mongo durante riavvio: ritenta il claim senza togliere la ⚡.
-      await new Promise((resolve) => setTimeout(resolve, 400));
+            await new Promise((resolve) => setTimeout(resolve, 400));
       const retry = await claimReactPressRound(gid, claimCfg, message.id, uid, new Date());
       if (retry) {
         await fulfillReactPressWin(client, claimCfg, retry, { user, message, announce: true });
@@ -2105,8 +2070,7 @@ async function handleReactPressReaction(client, reaction, user) {
       return true;
     }
 
-    // Doc assente / mongo flaky: lascia la reaction, ritenterà al catch-up boot o al re-click.
-    global.logger?.warn?.(
+        global.logger?.warn?.(
       "[PREMI LA REACT] claim fallito senza doc certo — reaction lasciata:",
       message.id,
       uid,
@@ -2139,6 +2103,10 @@ async function announceActiveReactPressRound(client) {
 }
 
 async function spawnFinaleChaosReactPress(client, guild, opts = {}) {
+  try {
+    const { isHouseChannelQuietHours } = require("./hogwartsHouseChannelMinigameService");
+    if (isHouseChannelQuietHours(client)) return false;
+  } catch (_) {}
   const base = cfg(client);
   const c = {
     ...base,

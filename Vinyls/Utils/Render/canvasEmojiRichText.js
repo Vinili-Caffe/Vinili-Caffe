@@ -93,7 +93,6 @@ const PICTOGRAPHIC_RE = (() => {
   }
 })();
 
-/** Rileva emoji moderne (inclusi ☕ e simili) + indicatori regionali bandiere. */
 function codePointIsEmoji(cp) {
   if (!Number.isFinite(cp)) return false;
   if (cp >= 0x1f1e6 && cp <= 0x1f1ff) return true;
@@ -101,8 +100,7 @@ function codePointIsEmoji(cp) {
     try {
       if (PICTOGRAPHIC_RE.test(String.fromCodePoint(cp))) return true;
     } catch {
-      /* ignore */
-    }
+          }
   }
   return isEmojiCodePoint(cp);
 }
@@ -187,7 +185,6 @@ function tokenizeEmojiText(text) {
   return tokens.length ? tokens : [{ type: "text", value: "" }];
 }
 
-/** CDN Twemoji (ordine: più recente prima). */
 const TWEMOJI_CDN_BASES = Object.freeze([
   "https://cdn.jsdelivr.net/gh/twitter/twemoji@15.1.0/assets/72x72",
   "https://unpkg.com/emoji-datasource-twitter@15.1.0/img/twitter/64",
@@ -246,8 +243,7 @@ function emojiToTwemojiUrls(emoji) {
 }
 
 function customEmojiUrl(id, animated = false) {
-  // Canvas wants a static raster. `quality=lossless` is WebP-only and returns 415 on .gif.
-  const ext = "png";
+    const ext = "png";
   void animated;
   return `https://cdn.discordapp.com/emojis/${id}.${ext}?size=96`;
 }
@@ -459,9 +455,6 @@ function breakLongTextChunk(ctx, word, maxWidth, size, weight) {
   return chunks;
 }
 
-/**
- * @returns {string[]} una riga per elemento, pronta per drawLabelWithEmoji
- */
 function wrapRichTextToLines(ctx, text, maxWidth, size, weight) {
   if (shouldSkipRichWrap(text)) return [];
   const prepared = prepareVisibleText(String(text || "").trim());

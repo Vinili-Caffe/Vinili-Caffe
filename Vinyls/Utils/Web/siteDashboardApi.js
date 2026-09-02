@@ -27,11 +27,6 @@ const { isGuildBotUsageBlacklisted, listBotUsageBlacklist, isUserBotUsageBlackli
 const PERM_ADMIN = 0x8n;
 const PERM_MANAGE_GUILD = 0x20n;
 
-/**
- * High Staff vero = Founder / Manager / Admin / HighStaff (NON Director).
- * Usato per voce menù + gate URL `/dashboard*` (`GET /access`).
- * Nessun altro percorso (Manage Server, ruoli dashboard tenant) apre la dashboard.
- */
 function memberHasDashboardHighStaffAccess(member) {
   return memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS);
 }
@@ -105,7 +100,6 @@ function isDashboardBotDevUser(client, userId) {
   }
 }
 
-/** Soft: auth errors propagate; non-dev → botDev:false. */
 async function resolveDashboardBotDevFlag(client, accessToken) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) {
@@ -142,7 +136,6 @@ async function assertDashboardBotDevAccess(client, accessToken) {
   };
 }
 
-/** Soft check: auth errors propagate; “non staff” → highStaff:false. */
 async function resolveDashboardHighStaffFlag(client, accessToken) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) {
@@ -222,10 +215,6 @@ function permissionBitsFromRole(role) {
   }
 }
 
-/**
- * Fallback quando OAuth `/users/@me/guilds` è incompleto (cap 200) o non espone i bit.
- * Proprietario / Administrator / Manage Server via REST del bot.
- */
 async function userHasGuildManageAccessViaBot(client, guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
@@ -234,8 +223,7 @@ async function userHasGuildManageAccessViaBot(client, guildId, userId) {
     let guild =
       client?.guilds?.cache?.get?.(gid) || (await client?.guilds?.fetch?.(gid).catch(() => null));
     if (!guild) return false;
-    // Stub da sync guild ids: senza ownerId/members serve hydrate completa.
-    if (!guild.ownerId || typeof guild.members?.fetch !== "function") {
+        if (!guild.ownerId || typeof guild.members?.fetch !== "function") {
       guild = (await client.guilds.fetch(gid).catch(() => null)) || guild;
     }
     if (String(guild.ownerId || "") === uid) return true;
@@ -301,8 +289,7 @@ function buildBotInviteUrl(client, guildId = null) {
     params.set("guild_id", gid);
     params.set("disable_guild_select", "true");
   }
-  // Path senza /api/: apre direttamente la UI authorize (con server già selezionato se guild_id).
-  return `https://discord.com/oauth2/authorize?${params.toString()}`;
+    return `https://discord.com/oauth2/authorize?${params.toString()}`;
 }
 
 const DISCORD_USER_CACHE_TTL_MS = 60_000;
@@ -416,8 +403,7 @@ async function fetchUserGuilds(accessToken) {
         };
       }
       if (res.status === 429) {
-        // Rate limit: riusa cache stantia se c’è, altrimenti errore soft.
-        const stale = discordGuildsCache.get(token);
+                const stale = discordGuildsCache.get(token);
         if (stale?.payload?.ok) return stale.payload;
         return {
           ok: false,
@@ -510,7 +496,6 @@ function buildKnownBotGuildIdSet(client) {
   return ids;
 }
 
-/** site-api non ha il gateway: senza sync REST la cache guild resta spesso solo sulla main. */
 let lastBotGuildSyncAt = 0;
 const BOT_GUILD_SYNC_TTL_MS = 45_000;
 
@@ -535,8 +520,7 @@ async function syncKnownBotGuildIdsFromRest(client, opts = {}) {
         const gid = String(row?.id || "").trim();
         if (!/^\d{17,22}$/.test(gid)) continue;
         if (cache.has(gid)) continue;
-        // Stub leggero: basta a botPresent; hydrate completa avviene al bisogno via guilds.fetch.
-        cache.set(gid, {
+                cache.set(gid, {
           id: gid,
           name: String(row?.name || "").trim() || gid,
           icon: row?.icon || null,
@@ -553,17 +537,11 @@ async function syncKnownBotGuildIdsFromRest(client, opts = {}) {
   }
 }
 
-/**
- * @param {{ allowFetch?: boolean }} [opts]
- * allowFetch=false: solo cache/registry/config (lista dashboard, veloce).
- * allowFetch=true: può fare un REST fetch (overview/accesso singolo guild).
- */
 async function isBotInGuild(client, guildId, opts = {}) {
   const gid = String(guildId || "").trim();
   if (!gid || !/^\d{17,22}$/.test(gid)) return false;
   if (client?.guilds?.cache?.has?.(gid)) return true;
-  // Prima config/registry (il REST client di site-api spesso ha solo la main in cache).
-  try {
+    try {
     const cfg = getPartnershipConfigSync(gid);
     if (cfg?.partnershipsChannelId || cfg?.partnerManagerRoleId || cfg?.setupCompleted) return true;
   } catch (_) {}
@@ -573,16 +551,14 @@ async function isBotInGuild(client, guildId, opts = {}) {
   } catch (_) {}
   if (opts.allowFetch === false) return false;
 
-  // site-api non riceve guildCreate: il registry in-memory può restare indietro rispetto a `bots`.
-  try {
+    try {
     const { refreshDynamicGuildRowsCache } = require("../../MultiGuild/core/tenantRegistryStore");
     await refreshDynamicGuildRowsCache();
     const accessFresh = resolveGuildAccess(gid);
     if (accessFresh?.managed) return true;
   } catch (_) {}
 
-  // Probe leggero: membership del bot (evita hydrate completo channels/roles).
-  try {
+    try {
     const meId = String(client?.user?.id || "").trim();
     if (client?._rest && /^\d{17,22}$/.test(meId)) {
       await client._rest.get(Routes.guildMember(gid, meId));
@@ -620,8 +596,7 @@ async function verifyDashboardGuildAccess(client, accessToken, guildId) {
   if (!manageServer) {
     manageServer = await userHasGuildManageAccessViaBot(client, gid, user.userId);
   }
-  // Solo High Staff del main (Founder/Manager/Admin/HighStaff). Niente Manage Server / Director / ruoli tenant.
-  const staffFlag = await resolveDashboardHighStaffFlag(client, accessToken);
+    const staffFlag = await resolveDashboardHighStaffFlag(client, accessToken);
   if (!staffFlag.ok) return staffFlag;
   if (!staffFlag.highStaff) {
     return highStaffOnlyDenied();
@@ -754,8 +729,7 @@ async function listDashboardGuildsUncached(client, accessToken) {
     if (!oauthRowHasManageAccess(row)) continue;
     if (blacklistedGuildIds.has(id)) continue;
     const isProtected = isViniliProtectedGuild(id) || isViniliFullFeatureGuild(id);
-    // High Staff: tutti i server gestibili. Altri: solo guild Vinili (bootstrap ruoli) o già noti al bot.
-    if (!isHighStaff && !isProtected && !knownBotGuilds.has(id)) continue;
+        if (!isHighStaff && !isProtected && !knownBotGuilds.has(id)) continue;
     seen.add(id);
     const isMain = String(IDs.guilds?.main || "").trim() === id;
     items.push({
@@ -770,8 +744,7 @@ async function listDashboardGuildsUncached(client, accessToken) {
     });
   }
 
-  // Ruolo dashboard: server dove l'utente non ha Manage Server ma ha il ruolo configurato.
-  for (const row of guildsRes.guilds) {
+    for (const row of guildsRes.guilds) {
     const id = String(row?.id || "").trim();
     if (!id || seen.has(id) || !knownBotGuilds.has(id)) continue;
     if (blacklistedGuildIds.has(id)) continue;
@@ -794,8 +767,7 @@ async function listDashboardGuildsUncached(client, accessToken) {
     });
   }
 
-  // Principale / Vinili protetti assenti dalla lista OAuth (cap 200): includi se owner/admin via bot.
-  const mainId = String(IDs.guilds?.main || "").trim();
+    const mainId = String(IDs.guilds?.main || "").trim();
   const fallbackIds = new Set();
   if (mainId) fallbackIds.add(mainId);
   for (const id of knownBotGuilds) {
@@ -907,8 +879,7 @@ async function getDashboardGuildOverview(client, accessToken, guildId) {
     memberCount = guild.memberCount ?? guild.approximateMemberCount ?? null;
     onlineCount = guild.approximatePresenceCount ?? null;
   }
-  // Il client REST del site-api spesso non ha memberCount in cache: forza with_counts.
-  if (memberCount == null || onlineCount == null) {
+    if (memberCount == null || onlineCount == null) {
     const counts = await fetchGuildCounts(client, gid);
     if (memberCount == null) memberCount = counts.memberCount;
     if (onlineCount == null) onlineCount = counts.onlineCount;
@@ -937,8 +908,7 @@ async function getDashboardGuildOverview(client, accessToken, guildId) {
       protected: isProtected,
     },
     setup: {
-      // "main" = server Vinili principale (stesso form partnership, overlay Mongo).
-      kind: isMain ? "main" : "managed",
+            kind: isMain ? "main" : "managed",
       complete: setupComplete,
       partnershipsChannelId: effectivePartnership?.partnershipsChannelId || null,
       partnerManagerRoleId: effectivePartnership?.partnerManagerRoleId || null,

@@ -1,7 +1,3 @@
-/**
- * Merge auto-generated locale JSON (from IT master) into UI / badge / objective packs.
- * Skip when VC_SKIP_GENERATED_I18N=1 (used by the generator itself).
- */
 const fs = require("fs");
 const path = require("path");
 const { TENANT_LANGUAGES, DEFAULT_LANGUAGE } = require("./languages");

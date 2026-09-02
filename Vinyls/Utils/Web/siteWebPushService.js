@@ -87,8 +87,7 @@ function pushUaFingerprint(uaRaw) {
   else if (/Chrome\//i.test(ua) || /CriOS\//i.test(ua)) br = "chrome";
   else if (/Firefox\//i.test(ua) || /FxiOS\//i.test(ua)) br = "firefox";
   else if (/Safari\//i.test(ua)) br = "safari";
-  // Stesso OS+browser = stesso device (tab e PWA condividono la fingerprint).
-  return `${os}:${br}`;
+    return `${os}:${br}`;
 }
 
 async function upsertWebPushSubscription(userId, subscription, meta = {}) {
@@ -128,9 +127,7 @@ async function upsertWebPushSubscription(userId, subscription, meta = {}) {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
-    // Un solo endpoint per stesso UA: tab + PWA sullo stesso browser altrimenti
-    // mandano due push OS identiche sullo stesso device.
-    if (userAgent) {
+            if (userAgent) {
       await SiteDocument.deleteMany({
         docType: DOC,
         userId: uid,
@@ -138,9 +135,7 @@ async function upsertWebPushSubscription(userId, subscription, meta = {}) {
         pushEndpoint: { $ne: endpoint },
       }).catch(() => null);
     }
-    // Anche con UA leggermente diversi (versione Chrome / display-mode): una sola
-    // subscription per fingerprint OS+browser, altrimenti doppia push OS.
-    const fp = pushUaFingerprint(userAgent);
+            const fp = pushUaFingerprint(userAgent);
     const siblings = await SiteDocument.find({ docType: DOC, userId: uid })
       .select("pushEndpoint pushUserAgent updatedAt createdAt")
       .lean()
@@ -206,8 +201,7 @@ async function listSubscriptionsForUser(userId) {
     .lean()
     .catch(() => []);
   const list = Array.isArray(docs) ? docs : [];
-  // Una sola push per fingerprint OS+browser (tab/PWA/Chrome update).
-  const seenFp = new Set();
+    const seenFp = new Set();
   const out = [];
   for (const sub of list) {
     const fp = pushUaFingerprint(sub?.pushUserAgent);
@@ -218,7 +212,6 @@ async function listSubscriptionsForUser(userId) {
   return out;
 }
 
-/** True se l'utente ha almeno una subscription web push salvata (VAPID ok). */
 async function userHasActiveWebPush(userId) {
   const uid = normalizeUserId(userId);
   if (!uid || !isPushEnabled()) return false;
@@ -261,10 +254,6 @@ function isDesktopPushSubscription(sub) {
   return false;
 }
 
-/**
- * @param {string} userId
- * @param {{ title?: string, body?: string, openUrl?: string, kind?: string, id?: string, ticketId?: string, type?: string, all?: boolean }} payload
- */
 async function sendWebPushToUser(userId, payload = {}) {
   if (!ensureVapidConfigured()) return { ok: false, skipped: true, reason: "vapid_missing" };
   const uid = normalizeUserId(userId);
@@ -311,10 +300,7 @@ async function sendWebPushToUser(userId, payload = {}) {
   let sent = 0;
   let failed = 0;
   for (const sub of subs) {
-    // Dismiss senza showNotification → Chrome desktop: "Il sito è aggiornato in background".
-    // Apple: obbliga uno show (toast vuoto). Desktop: close locale via postMessage/BC basta.
-    // Android: serve il push dismiss per chiudere il tray su altri device.
-    if (isDismiss && (isApplePushSubscription(sub) || isDesktopPushSubscription(sub))) continue;
+                if (isDismiss && (isApplePushSubscription(sub) || isDesktopPushSubscription(sub))) continue;
     const endpoint = normalizeEndpoint(sub.pushEndpoint);
     const p256dh = normalizeKey(sub.pushP256dh);
     const auth = normalizeKey(sub.pushAuth, 256);

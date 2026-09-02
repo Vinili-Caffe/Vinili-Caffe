@@ -115,7 +115,7 @@
   "notify_sentRecorded": "<:success:1461731530333229226> Notificación enviada y registrada en el perfil.",
   "profile_userNotFound": "<:vegax:1443934876440068179> Usuario no encontrado.",
   "profile_botNotAllowed": "❌ ¡No puedes ver el **perfil** de un bot!",
-  "profile_tenantPmOnly": "<:vegax:1443934876440068179> En este servidor `+profile` está disponible para ti o usuarios con rol Partner Manager.",
+  "profile_tenantPmOnly": "<:vegax:1443934876440068179> En este servidor <a href=\"/personalizza/\" class=\"vc-sponsor-code\">profilo sul sito</a> está disponible para ti o usuarios con rol Partner Manager.",
   "admin_denied": "<:vegax:1443934876440068179> Solo el **propietario del servidor**, usuarios con **Administrador** o **Gestionar servidor** pueden usar esta función.",
   "admin_notYourPanel": "Este panel no es tuyo.",
   "admin_cancelled": "Operación cancelada.",

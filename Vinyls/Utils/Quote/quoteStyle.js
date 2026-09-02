@@ -1,7 +1,3 @@
-/**
- * Guild quote visual style (Make-It-Quote-like options for +quote).
- * Compact storage lives in tenant boards blob as `qs`.
- */
 
 const BG_PRESETS = Object.freeze({
   black: { bg: "#070707", fg: "#ffffff", muted: "rgba(255,255,255,0.7)" },
@@ -13,10 +9,8 @@ const BG_PRESETS = Object.freeze({
   cream: { bg: "#f7ecdf", fg: "#1a120e", muted: "rgba(26,18,14,0.62)" },
 });
 
-/** Canvas + preview font catalog. `family: null` → Noto Sans primary stack. */
 const FONT_CATALOG = Object.freeze({
-  // Make it a Quote–style (priority)
-  mplus: { label: "M PLUS Rounded 1c (mplus)", family: '"M PLUS Rounded 1c", "Noto Sans", sans-serif', preview: '"M PLUS Rounded 1c", "Noto Sans", sans-serif' },
+    mplus: { label: "M PLUS Rounded 1c (mplus)", family: '"M PLUS Rounded 1c", "Noto Sans", sans-serif', preview: '"M PLUS Rounded 1c", "Noto Sans", sans-serif' },
   dela: { label: "Dela Gothic One (dela)", family: '"Dela Gothic One", "Noto Sans", sans-serif', preview: '"Dela Gothic One", Impact, sans-serif' },
   dot: { label: "DotGothic16 (dot)", family: '"DotGothic16", "Noto Sans", sans-serif', preview: '"DotGothic16", monospace' },
   pop: { label: "Hachi Maru Pop (pop)", family: '"Hachi Maru Pop", "Comic Sans MS", cursive', preview: '"Hachi Maru Pop", "Comic Sans MS", cursive' },
@@ -34,8 +28,7 @@ const FONT_CATALOG = Object.freeze({
   exo2: { label: "Exo 2 (exo2)", family: '"Exo 2", Arial, sans-serif', preview: '"Exo 2", Arial, sans-serif' },
   inconsolata: { label: "Inconsolata (inconsolata)", family: 'Inconsolata, Consolas, monospace', preview: 'Inconsolata, Consolas, monospace' },
   script: { label: "Dancing Script (script)", family: '"Dancing Script", "Segoe Script", cursive', preview: '"Dancing Script", cursive' },
-  // Base / classic
-  sans: { label: "Sans", family: null, preview: '"Noto Sans", "Segoe UI", sans-serif' },
+    sans: { label: "Sans", family: null, preview: '"Noto Sans", "Segoe UI", sans-serif' },
   serif: { label: "Serif", family: 'Georgia, "Times New Roman", "Noto Serif Tibetan", serif', preview: "Georgia, 'Times New Roman', serif" },
   mono: { label: "Mono", family: '"DejaVu Sans Mono", Consolas, "Courier New", monospace', preview: 'Consolas, "Courier New", monospace' },
   display: { label: "Display (Fraktur)", family: '"UnifrakturMaguntia", Georgia, serif', preview: '"UnifrakturMaguntia", Georgia, serif' },
@@ -75,9 +68,7 @@ const FONT_KEYS = new Set(Object.keys(FONT_CATALOG));
 const ORIENTATIONS = new Set(["horizontal", "vertical"]);
 const AVATAR_MODES = new Set(["static", "dynamic"]);
 const DEFAULT_FOOTER = "discord.gg/viniliecaffe";
-/** % of cover size for edge fade into the photo (≈ previous ~56px on 512). */
 const DEFAULT_FADE_DEPTH = 22;
-/** Strength of cover shade + edge fade (0–100). */
 const DEFAULT_FADE_OPACITY = 100;
 
 function clampPct(raw, fallback) {
@@ -233,8 +224,7 @@ function normalizeQuoteStyle(raw) {
       avatarRaw === "true" ||
       avatarRaw === ""
     ) {
-      // vuoto con chiave presente (es. av:"") → dinamico
-      avatarMode = "dynamic";
+            avatarMode = "dynamic";
     } else {
       avatarMode = "dynamic";
     }
@@ -398,20 +388,15 @@ function resolveQuoteStyleColors(style) {
   };
 }
 
-/** Build a linear gradient paint for canvas (or return solid hex).
- * Angolo allineato a CSS `linear-gradient(Ndeg, …)`: 0° = su, senso orario.
- */
 function createQuoteLinearGradient(ctx, x, y, w, h, angleDeg, from, to) {
   const fromHex = normalizeHexColor(from) || "#070707";
   const toHex = normalizeHexColor(to);
   if (!toHex || toHex === fromHex) return fromHex;
   const angle = ((Number(angleDeg) || 0) % 360 + 360) % 360;
-  // CSS 0deg = verso l’alto; in canvas (y↓) corrisponde a (angle - 90).
-  const radians = ((angle - 90) * Math.PI) / 180;
+    const radians = ((angle - 90) * Math.PI) / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
-  // Lunghezza come in CSS: la linea copre gli angoli del box.
-  const length = Math.abs(w * cos) + Math.abs(h * sin);
+    const length = Math.abs(w * cos) + Math.abs(h * sin);
   const half = Math.max(1, length / 2);
   const cx = x + w / 2;
   const cy = y + h / 2;
@@ -464,13 +449,11 @@ function resolveQuoteFooterText(style) {
   return normalizeQuoteStyle(style).footer;
 }
 
-/** Edge fade + cover shade params for canvas / preview. */
 function resolveQuoteFadeParams(style, coverSize) {
   const s = normalizeQuoteStyle(style);
   const size = Math.max(1, Number(coverSize) || 512);
   const intoCover = Math.round((size * s.fadeDepth) / 100);
-  // Mai sul pannello testo: spill = fascia di colore storto (GIF + bg gradient).
-  const intoText = 0;
+    const intoText = 0;
   const opacity = s.fadeOpacity / 100;
   return {
     fadeDepth: s.fadeDepth,
@@ -490,7 +473,6 @@ function colorWithAlpha(hex, alpha) {
   return `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`;
 }
 
-/** Interpola due hex 0..1. */
 function lerpHexColor(a, b, t) {
   const A = hexToRgb(a);
   const B = hexToRgb(b);
@@ -501,10 +483,6 @@ function lerpHexColor(a, b, t) {
   return `#${to(mix(A.r, B.r))}${to(mix(A.g, B.g))}${to(mix(A.b, B.b))}`;
 }
 
-/**
- * Campiona il colore dello sfondo (solido o gradiente CSS-like) in un punto del canvas.
- * Serve alla fade: deve coincidere col colore del pannello al bordo cover↔testo.
- */
 function sampleQuoteBgColorAt(colors, width, height, x, y) {
   const bg = normalizeHexColor(colors?.bg) || "#070707";
   const to = normalizeHexColor(colors?.bgGradTo);
@@ -519,12 +497,10 @@ function sampleQuoteBgColorAt(colors, width, height, x, y) {
   const half = Math.max(1, length / 2);
   const cx = w / 2;
   const cy = h / 2;
-  // Proiezione sul asse del gradiente: 0 = from, 1 = to.
-  const proj = ((Number(x) - cx) * cos + (Number(y) - cy) * sin) / (2 * half) + 0.5;
+    const proj = ((Number(x) - cx) * cos + (Number(y) - cy) * sin) / (2 * half) + 0.5;
   return lerpHexColor(bg, to, Math.max(0, Math.min(1, proj)));
 }
 
-/** Colore della sfumatura cover→testo (allineato alla preview dashboard). */
 function resolveQuoteFadeEdgeColor(colors, layout) {
   const cover = layout?.coverRect;
   const w = Math.max(1, Number(layout?.width) || 1);

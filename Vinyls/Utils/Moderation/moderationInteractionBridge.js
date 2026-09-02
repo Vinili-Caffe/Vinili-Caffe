@@ -92,6 +92,9 @@ async function runDynoFromInteraction(interaction, client, cmd, args, guild, opt
   }
   const outCh = await resolveSanctionOutputChannel(guild, interaction, cmd);
   const execProxy = createProxyMessage(interaction, outCh, guild, member);
+  if (options.fromSanzionaAppCommand) {
+    execProxy.fromSanzionaAppCommand = true;
+  }
   const sid = String(IDs?.channels?.sanzioniUtenti || "").trim();
   const usedSanzioni =
     SANCTIONS_OUTPUT_TO_SANZIONI.has(String(cmd || "").toLowerCase()) && sid && String(outCh?.id) === sid;

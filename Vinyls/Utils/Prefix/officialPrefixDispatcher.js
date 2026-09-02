@@ -42,6 +42,9 @@ const PREFIX_QUEUE_MAX_AGE_MS = 20 * 60 * 1000;
 const REMOVED_PREFIX_COMMANDS = new Set([
   "colors",
   "staff",
+  "verify",
+  "ticket",
+  "notify",
   "sezioneproibita",
   "libriproibiti",
   "forbiddenbooks",
@@ -103,8 +106,7 @@ function persistPrefixQueueSnapshotNow(client) {
       payload: { queues },
     });
   } catch {
-    // ignore
-  }
+      }
 }
 
 function resolvePrefixCommandByName(client, commandName) {
@@ -470,8 +472,7 @@ async function executePrefixCommandRuntime({
       const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("error_pending").setEmoji(`<:VC_InactiveStatus:1482526984234860574>`).setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId("error_solved").setEmoji(`<:VC_OnlineStatus:1482527088912240650>`).setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("error_unsolved").setEmoji(`<:VC_OfflineStatus:1482527117051957380>`).setStyle(ButtonStyle.Danger),);
       const sentError = await errorChannel.send({ embeds: [errorEmbed], components: [row] }).catch(() => null);
 
-      // Error status buttons: Buttons/errorLogStatus.js
-
+      
     }
 
     const feedback = buildInternalCommandErrorEmbed(error);
@@ -609,9 +610,12 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   if (!cmd) return;
   if (REMOVED_PREFIX_COMMANDS.has(cmd)) {
     await deleteCommandMessage();
-    const removedMessage = cmd === "colors"
-      ? "<:vegax:1443934876440068179> Il comando `+colors` non esiste più. Usa `+profile`."
-      : `<:vegax:1443934876440068179> Il comando \`+${cmd}\` non esiste più.`;
+    const removedMessage =
+      cmd === "colors"
+        ? "<:vegax:1443934876440068179> Il comando `+colors` non esiste più. https://www.viniliecaffe.it/personalizza"
+        : cmd === "ticket"
+          ? "<:vegax:1443934876440068179> Il comando `+ticket` non esiste più. Apri ticket su https://www.viniliecaffe.it/tickets/"
+          : `<:vegax:1443934876440068179> Il comando \`+${cmd}\` non esiste più.`;
     await sendTemporaryMessage(
       message.channel,
       {

@@ -1,4 +1,3 @@
-/** Compat: usa il gate centralizzato vc-access-gate.js (dashboard → highStaff). */
 (function () {
   if (!window.__VC_ACCESS_PENDING_BOOT) {
     var boot = document.createElement("script");

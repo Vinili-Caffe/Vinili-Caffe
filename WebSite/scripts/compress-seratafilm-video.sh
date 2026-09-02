@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Comprime / ottimizza un MP4 per la Serata Film (streaming browser).
-# Uso:
-#   ./scripts/compress-seratafilm-video.sh
-#   ./scripts/compress-seratafilm-video.sh path/input.mp4 path/output.mp4
-# Richiede ffmpeg nel PATH (apt install ffmpeg).
 
 set -euo pipefail
 
@@ -33,8 +28,6 @@ if [[ -e "$OUTPUT" ]]; then
   exit 1
 fi
 
-# ~2.2 Mbps video + 128k audio: buon compromesso qualità/buffering per proiezione web.
-# faststart sposta i metadati all'inizio del file (fondamentale per lo streaming HTTP).
 VIDEO_KBPS="${VC_SERATAFILM_VIDEO_KBPS:-2200}"
 AUDIO_KBPS="${VC_SERATAFILM_AUDIO_KBPS:-128}"
 PRESET="${VC_SERATAFILM_FFMPEG_PRESET:-medium}"

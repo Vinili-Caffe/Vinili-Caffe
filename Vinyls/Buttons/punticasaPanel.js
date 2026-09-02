@@ -7,7 +7,7 @@ const {
   formatMemberPointsLines,
 } = require("../Services/Community/hogwartsMemberHousePointsService");
 const { HOUSES, getHouseMeta } = require("../Utils/Web/hogwartsSortingBank");
-const { resolveHogwartsEventConfig } = require("../Utils/Web/hogwartsSortingConfig");
+const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../Utils/Web/hogwartsSortingConfig");
 const { resolveHouseCrestEmbedAssets } = require("../Utils/Web/hogwartsEventAssets");
 const { canAccessHouse, buildPrefectDeniedMessage, parseDiscordUserRef } = require("../Utils/Community/punticasaPrefectAccess");
 const { HOGWARTS_HOUSE_POINT_PERIODS, housePointPeriodKey, findHousePointPeriod } = require("../Utils/Web/hogwartsHousePointPeriods");
@@ -422,13 +422,24 @@ async function applyPointsFromModal(interaction, action, houseId, ownerId) {
 }
 
 async function execute(interaction) {
+  const eventCfg = resolveHogwartsEventConfig(interaction.client);
+  if (!isEventWindowOpen(eventCfg)?.open) {
+    const msg = { content: "Evento Hogwarts concluso.", flags: 64 };
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp(msg).catch(() => null);
+    } else if (interaction.isModalSubmit?.()) {
+      await interaction.reply(msg).catch(() => null);
+    } else {
+      await interaction.reply(msg).catch(() => null);
+    }
+    return true;
+  }
   const parsed = parseComponentId(interaction.customId);
   if (!parsed) return false;
 
   if (parsed.root === MODAL_PREFIX) {
     if (!(await denyUnlessPanelAccess(interaction, parsed.ownerId, parsed.houseId))) return true;
-    // Modal Discord: risposta entro 3s. Espulsione/punti fanno DB+ruoli+DM → defer subito.
-    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+        const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
     if (parsed.action === "expel") {
       const outcome = await applyExpelFromModal(interaction, parsed.houseId, parsed.ownerId);
       const payload = await buildHouseDashboardPayload(

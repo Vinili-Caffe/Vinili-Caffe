@@ -1,6 +1,5 @@
 (function () {
-  /* SVG (non canvas): Brave Shields/farbling non spegne la scia. */
-  var SEGMENTS = 18;
+    var SEGMENTS = 18;
   var SEGMENT_LEN = 11;
   var LINE_WIDTH = 2.8;
   var MOVE_SQ = 1;
@@ -22,6 +21,19 @@
       }
     } catch (eCan) {}
     return true;
+  }
+
+  function gpuQuietPaused() {
+    try {
+      var root = document.documentElement;
+      return (
+        document.hidden ||
+        root.classList.contains("vc-cine-idle") ||
+        root.classList.contains("vc-page-hidden")
+      );
+    } catch (eGpuQ) {
+      return document.hidden;
+    }
   }
 
   function initCursorTrail() {
@@ -96,12 +108,12 @@
 
     function shouldIgnorePointer(type) {
       if (type === "touch") return true;
-      /* dopo un touch, i fake mousemove del mobile non devono creare la scia */
-      if (lastPointerType === "touch" && (!type || type === "mouse")) return true;
+            if (lastPointerType === "touch" && (!type || type === "mouse")) return true;
       return false;
     }
 
     function onMove(ev, pointerType) {
+      if (gpuQuietPaused()) return;
       var type = pointerType || ev.pointerType || "";
       if (type) lastPointerType = type;
       if (shouldIgnorePointer(type || lastPointerType)) return;
@@ -176,6 +188,14 @@
     }
 
     function tick() {
+      if (gpuQuietPaused()) {
+        if (rafId) {
+          window.cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+        clearTrail();
+        return;
+      }
       if (!mouse.active) {
         clearTrail();
         return;

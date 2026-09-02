@@ -1,7 +1,3 @@
-/**
- * Staff inbox embedded in /notifications/ — load AFTER staff-pause.css.
- * Flat page scroll + notify-style chips (NO full-width mocha strip).
- */
 body.vc-notifications-page .vc-notif-staff-inbox,
 body.vc-notifications-page #vc-staff-inbox.vc-notif-staff-inbox {
   display: grid !important;
@@ -100,7 +96,6 @@ body.vc-notifications-page .vc-notif-staff-inbox.has-detail .vc-staff-inbox-list
   padding: 0 !important;
 }
 
-/* Chip bar legacy — tab ora dentro board unificata */
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-tools-tabs,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-filter-bar.vc-staff-inbox-tabs-bar,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group__seg,
@@ -124,7 +119,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-filter-bar {
   flex: 0 1 auto !important;
 }
 
-/* Seg dentro barra unificata: mantieni pill scura + bottoni beige */
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg {
   display: inline-flex !important;
   flex-wrap: wrap !important;
@@ -164,7 +158,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc
   border: 0 !important;
 }
 
-/* Niente cerchi/ornamenti ::before/::after sui filtri Staff */
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-tools-tabs::before,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-tools-tabs::after,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-filter-bar::before,
@@ -260,7 +253,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-filter-btn {
   box-shadow: none !important;
 }
 
-/* Override mocha: tab/filtri unificati usano pt-seg */
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn {
   border: 0 !important;
   min-height: 0 !important;
@@ -284,15 +276,12 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading__card {
   display: none !important;
 }
 
-/* Fullscreen boot inbox (stile staff pages) — NON abbassare lo z-index (footer/nav restano sotto). */
 body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading,
 html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading,
 html.vc-notif-early-staff body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading {
   z-index: 2147483646 !important;
 }
 
-/* Come le altre pagine staff: solo loader a tutto schermo, niente header/footer.
-   Specificità > cine-boot (che forza header visible a z 2147483001). */
 html.vc-notif-staff-loading body.vc-notifications-page > header,
 html.vc-notif-early-staff body.vc-notifications-page > header,
 html.vc-notif-staff-loading body.vc-notifications-page > footer,
@@ -318,7 +307,6 @@ html.vc-page-cine-boot.vc-notif-early-staff:not(.vc-page-cine-ready) body.vc-bod
 
 html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading--hidden,
 html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox-loading[hidden] {
-  /* Non forzare più display se JS ha nascosto: altrimenti overlay fantasma = freeze telefono. */
   display: none !important;
   visibility: hidden !important;
   pointer-events: none !important;
@@ -329,7 +317,6 @@ html.vc-notif-staff-loading body.vc-notifications-page #vc-staff-inbox-loading.v
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
-  /* Sopra cine-boot header (2147483001): solo loader a tutto schermo. */
   z-index: 2147483646 !important;
 }
 
@@ -535,7 +522,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-detail:not([hid
   min-height: 0 !important;
 }
 
-/* Solo lista (senza dettaglio): niente clip forzato. Con .has-detail → regole sotto. */
 body.vc-notifications-page .vc-notif-staff-inbox:not(.has-detail) .vc-staff-inbox-detail:not([hidden]) {
   max-height: none !important;
   overflow: visible !important;
@@ -548,7 +534,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination {
   box-shadow: none !important;
 }
 
-/* Week nav: niente cerchietto fantasma quando [hidden] (display:inline-flex lo bucava) */
 @media (max-width: 959px) {
   body.vc-notifications-page .vc-notif-staff-inbox:not(.has-detail) .vc-staff-inbox-chrome,
   body.vc-notifications-page .vc-notif-staff-inbox:not(.has-detail) .vc-staff-inbox-list-panel,
@@ -580,7 +565,6 @@ body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-week[hidden] {
   overflow: hidden !important;
 }
 
-/* Empty inbox: stesso riquadro dashed di Personali (vc-notify-empty). */
 body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-list .vc-staff-inbox-empty {
   width: 100%;
   margin: 0;
@@ -617,7 +601,6 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-reload-btn:hove
   background: rgba(var(--vc-mocha-rgb, 86, 56, 38), 0.62);
 }
 
-/* Dettaglio inbox: taglia al viewport, scroll interno, non invade il footer. */
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-actions,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-actions button,
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-detail__back,
@@ -700,7 +683,6 @@ body.vc-notifications-page .vc-notif-staff-inbox.has-detail .vc-staff-inbox-acti
     padding-bottom: max(7rem, calc(5.5rem + env(safe-area-inset-bottom, 0px))) !important;
   }
 
-  /* Lista nascosta in dettaglio mobile (HTML senza .list-panel). */
   body.vc-notifications-page .vc-notif-staff-inbox.has-detail #vc-staff-inbox-list,
   body.vc-notifications-page .vc-notif-staff-inbox.has-detail #vc-staff-inbox-pagination {
     display: none !important;
@@ -715,5 +697,167 @@ body.vc-notifications-page .vc-notif-staff-inbox.has-detail .vc-staff-inbox-acti
     overflow-y: auto !important;
     overscroll-behavior: contain !important;
     padding-bottom: 1.25rem !important;
+  }
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.15rem !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0.22rem !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+  box-shadow: none !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.3rem !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(245, 235, 224, 0.72) !important;
+  font-size: 0.82rem !important;
+  font-weight: 650 !important;
+  min-height: 0 !important;
+  padding: 0.42rem 0.95rem !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn.is-active,
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-filter-btn--on,
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-filter-btn.is-active {
+  background: rgba(232, 201, 168, 0.92) !important;
+  color: #1a120d !important;
+  border: 0 !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-items {
+  display: grid !important;
+  gap: 0.75rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row.vc-staff-inbox-item {
+  display: grid !important;
+  grid-template-columns: auto 1fr auto auto !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  border: 1px solid rgba(var(--vc-sand-rgb, 212, 168, 136), 0.22) !important;
+  border-radius: 1rem !important;
+  background: linear-gradient(120deg, rgba(36, 24, 18, 0.55), rgba(16, 12, 10, 0.72)) !important;
+  padding: 0.85rem 0.95rem !important;
+  cursor: pointer !important;
+  position: relative !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row-icon {
+  width: 2.6rem !important;
+  height: 2.6rem !important;
+  border-radius: 0.85rem !important;
+  overflow: hidden !important;
+  background: rgba(20, 15, 12, 0.7) !important;
+  color: rgba(232, 196, 156, 0.95) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row-title {
+  color: rgba(247, 236, 223, 0.98) !important;
+  font-size: 0.98rem !important;
+  font-weight: 700 !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row-desc {
+  color: rgba(247, 236, 223, 0.84) !important;
+  margin-top: 0.2rem !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row-meta {
+  color: rgba(236, 205, 176, 0.68) !important;
+  margin-top: 0.25rem !important;
+  font-size: 0.78rem !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row-badge {
+  border: 1px solid rgba(var(--vc-sand-rgb, 212, 168, 136), 0.28) !important;
+  border-radius: 999px !important;
+  padding: 0.28rem 0.65rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  color: rgba(247, 236, 223, 0.92) !important;
+  background: rgba(48, 34, 24, 0.72) !important;
+  white-space: nowrap !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row-badge.is-pending {
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  color: rgba(253, 230, 138, 0.95) !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row-badge.is-ok {
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  color: rgba(167, 243, 208, 0.95) !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-close-btn {
+  appearance: none !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(236, 205, 176, 0.55) !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-close-btn:hover,
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-close-btn:focus-visible {
+  color: rgba(247, 236, 223, 0.95) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-clear-btn {
+  border: 1px solid rgba(var(--vc-sand-rgb, 212, 168, 136), 0.28) !important;
+  border-radius: 999px !important;
+  background: rgba(48, 34, 24, 0.72) !important;
+  color: rgba(247, 236, 223, 0.92) !important;
+  padding: 0.45rem 0.9rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 650 !important;
+  width: auto !important;
+}
+
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-filter-bar .vc-notify-clear-btn:hover,
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-filter-bar .vc-notify-clear-btn:focus-visible {
+  border-color: rgba(var(--vc-sand-rgb, 212, 168, 136), 0.44) !important;
+  background: rgba(68, 48, 34, 0.82) !important;
+  color: #fff7ec !important;
+}
+
+@media (max-width: 720px) {
+  body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-toolbar {
+    margin-top: 0.65rem !important;
+  }
+
+  body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar {
+    width: 100% !important;
   }
 }

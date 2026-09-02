@@ -70,7 +70,7 @@
     "maxPerMessage": 85,
     "charactersMax": 40,
     "textClusterMax": 35,
-    "attachmentClusterMax": 45,
+    "attachmentClusterMax": 100,
     "mentionClusterMax": 70
   },
   "panic": {
@@ -94,13 +94,16 @@
     "default": {
       "exempt": false,
       "heatMultiplier": 1,
+      "attachmentHeatMultiplier": 0.12,
+      "attachmentClusterMax": 100,
+      "imageOnlyMaxCount": 30,
       "mentionsEnabled": true,
       "attachmentsEnabled": true,
       "inviteLinksEnabled": true
     },
     "media": {
       "exempt": false,
-      "heatMultiplier": 0.85,
+      "heatMultiplier": 1,
       "mentionsEnabled": true,
       "attachmentsEnabled": true,
       "inviteLinksEnabled": true

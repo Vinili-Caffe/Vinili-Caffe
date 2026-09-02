@@ -13,8 +13,7 @@ function getPath2DConstructor() {
         return Ctor;
       }
     } catch {
-      /* ignore */
-    }
+          }
   }
   path2dCtorMemo = null;
   return null;
@@ -43,7 +42,6 @@ function strokePath2D(ctx, d, lineWidth) {
   }
 }
 
-/** Allineato a rankCanvas `drawStatIcon` / `drawStatIconGeometric` (32×32, centro 16,16). */
 function drawStatIconGeometric(ctx, icon) {
   if (icon === "bolt") {
     ctx.beginPath();
@@ -97,7 +95,6 @@ function drawStatIconGeometric(ctx, icon) {
   ctx.fillRect(8, 26, 16, 3.6);
 }
 
-/** Colonna con vertice superiore arrotondato (grafico / equalizzatore). */
 function fillRoundTopBar(ctx, x, bottomY, w, h, rTop) {
   const y = bottomY - h;
   const rt = Math.min(rTop, w / 2, h / 2);
@@ -130,7 +127,6 @@ function drawRankStyleStatIcon(ctx, icon) {
   if (!useVectors) drawStatIconGeometric(ctx, icon);
 }
 
-/** Icone aggiuntive (stesso box 32×32). */
 function drawExtraGlyph(ctx, kind) {
   if (kind === "message") {
     ctx.lineJoin = "round";
@@ -207,10 +203,6 @@ function drawExtraGlyph(ctx, kind) {
   }
 }
 
-/**
- * Icona vettoriale tipo +rank (bolt/star/trophy) + varianti stats.
- * @param {string} kind bolt|star|trophy|message|voice|users|chart|hash
- */
 function drawActivityGlyph(ctx, kind, cx, cy, pixelSize, color) {
   const k = String(kind || "").toLowerCase();
   const scale = Math.max(8, Number(pixelSize) || 24) / 32;

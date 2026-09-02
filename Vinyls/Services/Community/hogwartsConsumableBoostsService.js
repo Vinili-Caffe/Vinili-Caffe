@@ -29,7 +29,6 @@ const HOUSE_BOOST_ANNOUNCE_CHANNEL_BY_ID = {
 };
 const expiryLoopClients = new WeakSet();
 const expiryAnnounceLocks = new Set();
-/** Serializza acquisti concorrenti sullo stesso dominio di conflitto (tipo/scope). */
 const consumablePurchaseLocks = new Map();
 
 function normalizeId(value) {
@@ -212,8 +211,7 @@ async function withConsumablePurchaseLock(lockKey, fn) {
     try {
       await consumablePurchaseLocks.get(key);
     } catch (_) {
-      /* ignore previous failure */
-    }
+          }
   }
   let release;
   const gate = new Promise((resolve) => {
@@ -522,8 +520,7 @@ async function sendConsumableBoostAnnounce(channel, {
 }
 
 async function announceGlobalConsumableBoost(client, guildId, { item, buyerDisplayName, houseLabel, houseId, mode = "activate" }) {
-  // Globale: in chat principale, con ping ruolo evento.
-  const channelId = normalizeId(IDs.channels?.chat || IDs.channels?.eventAnnouncements);
+    const channelId = normalizeId(IDs.channels?.chat || IDs.channels?.eventAnnouncements);
   if (!channelId) return false;
   const guild = client?.guilds?.cache?.get(normalizeId(guildId)) || (await client?.guilds?.fetch?.(normalizeId(guildId)).catch(() => null));
   if (!guild) return false;
@@ -551,6 +548,10 @@ async function announceGlobalConsumableBoost(client, guildId, { item, buyerDispl
 }
 
 async function announceHouseConsumableBoost(client, guildId, houseId, { item, buyerDisplayName, houseLabel, mode = "activate" }) {
+  try {
+    const { isHouseChannelQuietHours } = require("./hogwartsHouseChannelMinigameService");
+    if (isHouseChannelQuietHours(client)) return false;
+  } catch (_) {}
   const channelId = resolveHouseBoostAnnounceChannelId(houseId);
   if (!channelId) return false;
   const guild = client?.guilds?.cache?.get(normalizeId(guildId)) || (await client?.guilds?.fetch?.(normalizeId(guildId)).catch(() => null));
@@ -580,6 +581,10 @@ async function announceHouseConsumableBoost(client, guildId, houseId, { item, bu
 }
 
 async function announcePersonalConsumableBoost(client, guildId, houseId, userId, { item, buyerDisplayName, mode = "activate" }) {
+  try {
+    const { isHouseChannelQuietHours } = require("./hogwartsHouseChannelMinigameService");
+    if (isHouseChannelQuietHours(client)) return false;
+  } catch (_) {}
   const channelId = resolveHouseBoostAnnounceChannelId(houseId);
   if (!channelId) return false;
   const uid = normalizeId(userId);
@@ -893,8 +898,7 @@ async function processExpiredPersonalBoosts(client, guildId) {
         houseId = await resolveSortedHouseForUser(gid, uid, client).catch(() => "");
       }
       if (!houseId) {
-        // Senza casa non sappiamo dove annunciare: marca comunque per non restare in loop.
-        expiryAnnounceLocks.delete(claim.lockKey);
+                expiryAnnounceLocks.delete(claim.lockKey);
         continue;
       }
       const guild = client?.guilds?.cache?.get(gid) || (await client?.guilds?.fetch?.(gid).catch(() => null));

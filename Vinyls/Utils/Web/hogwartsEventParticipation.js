@@ -40,10 +40,6 @@ async function resolveMainGuildMember(client, userId, member = null) {
   return getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
 }
 
-/**
- * True se l'utente non deve guadagnare / partecipare alle superfici Discord Hogwarts.
- * Include blacklist evento (+ eventuali esclusioni staff future).
- */
 async function isUserHighStaffExcludedFromHogwartsEvent(_client, userId, _member = null) {
   const uid = String(userId || "").trim();
   if (!uid) return false;

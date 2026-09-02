@@ -15,6 +15,67 @@ const { buildRecoveryVoiceState } = require("../../../shared/discord/voiceStateR
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 const STANZA_LOBBY_VOICE_ID = String(IDs.channels?.stanzaLobbyVoice || "").trim();
 const STANZA_PANEL_CHANNEL_ID = String(IDs.channels?.commands || "").trim();
+const STANZA_CATEGORY_ID = String(IDs.categories?.categoryPublics || "1442569076902989844").trim();
+
+function getStanzaCategoryParentId() {
+  return STANZA_CATEGORY_ID || "";
+}
+
+function channelCategorySortPosition(ch) {
+  if (!ch) return -1;
+  const raw = Number(ch.rawPosition);
+  if (Number.isFinite(raw)) return raw;
+  const pos = Number(ch.position);
+  return Number.isFinite(pos) ? pos : -1;
+}
+
+function resolveStanzaVoiceCreatePlacement(guild, lobbyCh) {
+  const parentId = getStanzaCategoryParentId() || String(lobbyCh?.parentId || "").trim() || null;
+  let tailPos = -1;
+  if (guild?.channels?.cache && parentId) {
+    for (const ch of guild.channels.cache.values()) {
+      if (!ch || String(ch.parentId || "") !== String(parentId)) continue;
+      const pos = channelCategorySortPosition(ch);
+      if (pos > tailPos) tailPos = pos;
+    }
+  }
+  if (tailPos < 0) {
+    const lobby =
+      String(lobbyCh?.id || "") === STANZA_LOBBY_VOICE_ID
+        ? lobbyCh
+        : guild?.channels?.cache?.get(STANZA_LOBBY_VOICE_ID) || lobbyCh;
+    tailPos = channelCategorySortPosition(lobby);
+  }
+  const position = tailPos + 1;
+  return { parentId, position };
+}
+
+async function applyStanzaVoiceCreatePosition(voiceChannel, position, reason) {
+  if (!voiceChannel || position === undefined || position === null) return;
+  const target = Number(position);
+  if (!Number.isFinite(target)) return;
+  const ok = await voiceChannel
+    .setPosition(target, { reason: reason || "Stanza temporanea in coda categoria" })
+    .then(() => true)
+    .catch((err) => {
+      global.logger?.warn?.("[stanza] setPosition failed:", err?.message || err);
+      return false;
+    });
+  if (!ok && voiceChannel.guild?.channels?.setPositions) {
+    await voiceChannel.guild.channels
+      .setPositions([{ channel: voiceChannel.id, position: target }])
+      .catch((err) => {
+        global.logger?.warn?.("[stanza] setPositions failed:", err?.message || err);
+      });
+  }
+}
+
+function getStanzaDiscoveryParentFilter(guild) {
+  const fromCategory = getStanzaCategoryParentId();
+  if (fromCategory) return fromCategory;
+  const lobby = guild?.channels?.cache?.get(STANZA_LOBBY_VOICE_ID);
+  return lobby?.parentId ? String(lobby.parentId) : "";
+}
 
 function stanzaPanelTargetChannelId(meta, voiceChannelId = "") {
   const fromMeta = String(meta?.textChannelId || "").trim();
@@ -26,7 +87,6 @@ function stanzaPanelTargetChannelId(meta, voiceChannelId = "") {
   return "";
 }
 
-/** Conta umani in vocale via voiceStates (channel.members dipende dalla member cache limitata). */
 function countStanzaHumanMembers(channel) {
   const guild = channel?.guild;
   const channelId = String(channel?.id || "");
@@ -41,23 +101,15 @@ function countStanzaHumanMembers(channel) {
   return n;
 }
 
-/** @type {Map<string, { ownerId: string, viceUserId?: string | null, panelMessageId: string, textChannelId?: string, guildId: string, startedAt: number }>} */
 const stanzaChannelMeta = new Map();
-/** @type {Map<string, string>} ownerKey -> channelId */
 const stanzaOwnerToChannel = new Map();
 const stanzaCreateLocks = new Set();
 
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaRenamePending = new Map();
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaEmojiPending = new Map();
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaLimitPending = new Map();
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaDescPending = new Map();
-/** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
 const stanzaVicePending = new Map();
-/** @type {Map<string, { voiceChannelId: string, action: 'include'|'exclude'|'silenzia'|'smuta', expiresAt: number, timerId: ReturnType<typeof setTimeout> | null, interactionApplicationId?: string, interactionToken?: string }>} */
 const stanzaUsersMemberPending = new Map();
 
 const STANZA_NAME_LEAD = "༄";
@@ -69,7 +121,6 @@ const STANZA_VC_TOPIC_MAX = 1024;
 const STANZA_RENAME_PROMPT_MS = 90_000;
 const STANZA_EMPTY_TEARDOWN_MS = 10 * 60 * 1000;
 
-/** @type {Map<string, { timerId: ReturnType<typeof setTimeout> }>} */
 const stanzaEmptyTeardownTimers = new Map();
 
 function ownerKey(guildId, userId) {
@@ -136,8 +187,7 @@ async function adoptOrphanStanzaVoiceChannel(guild, voiceCh, locatedPanel = null
 
 async function sweepEmptyStanzaRooms(guild) {
   if (!guild || String(guild.id) !== MAIN_GUILD_ID) return 0;
-  const lobby = guild.channels.cache.get(STANZA_LOBBY_VOICE_ID);
-  const parentFilter = lobby?.parentId ? String(lobby.parentId) : "";
+  const parentFilter = getStanzaDiscoveryParentFilter(guild);
   let scheduled = 0;
 
   for (const ch of guild.channels.cache.values()) {
@@ -642,7 +692,6 @@ async function ensureStanzaBotVoiceOverwrite(voiceChannel, botUserId) {
   }
 }
 
-/** Deny Speak alone often leaves people already in VC still audible — force server mute. */
 async function applyStanzaMemberServerMute(member, voiceChannelId, muted, reason) {
   if (!member?.voice) return false;
   if (String(member.voice.channelId || "") !== String(voiceChannelId || "")) return false;
@@ -1001,14 +1050,13 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
   stanzaCreateLocks.add(uid);
   try {
     const lobbyCh = newState.channel;
-    const parentId = lobbyCh?.parentId || IDs.categories?.categoryPrivate || null;
+    const { parentId, position } = resolveStanzaVoiceCreatePlacement(guild, lobbyCh);
     const name = buildStanzaChannelName(member);
-    const voiceChannel = await guild.channels
-      .create({
-        name,
-        type: ChannelType.GuildVoice,
-        parent: parentId || undefined,
-        reason: `Stanza temporanea per ${member.user?.tag || uid}`,
+    const createPayload = {
+      name,
+      type: ChannelType.GuildVoice,
+      parent: parentId || undefined,
+      reason: `Stanza temporanea per ${member.user?.tag || uid}`,
         permissionOverwrites: [
           {
             id: guild.roles.everyone.id,
@@ -1068,12 +1116,19 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
             ],
           },
         ],
-      })
-      .catch((err) => {
-        global.logger?.warn?.("[stanza] create failed:", err?.message || err);
-        return null;
-      });
+    };
+    if (position !== undefined) createPayload.position = position;
+    const voiceChannel = await guild.channels.create(createPayload).catch((err) => {
+      global.logger?.warn?.("[stanza] create failed:", err?.message || err);
+      return null;
+    });
     if (!voiceChannel) return;
+
+    await applyStanzaVoiceCreatePosition(
+      voiceChannel,
+      position,
+      `Stanza temporanea in coda categoria per ${member.user?.tag || uid}`,
+    );
 
     const movedOk = await member.voice.setChannel(voiceChannel).then(() => true).catch((err) => {
       global.logger?.warn?.("[stanza] move failed:", err?.message || err);
@@ -2064,8 +2119,7 @@ async function findStanzaPanelMessageId(guild, voiceChannelId, panelMessagesCach
 }
 
 async function loadStanzaPanelMessageIndex(guild) {
-  /** @type {Map<string, { messageId: string, channelId: string }>} */
-  const byVoiceId = new Map();
+    const byVoiceId = new Map();
   const botId = String(guild.client?.user?.id || "");
   const indexMessages = (messages, channelId) => {
     if (!messages) return;
@@ -2192,7 +2246,6 @@ async function recoverStanzaVoiceOnStartup(client) {
 }
 
 const STANZA_EMPTY_SWEEP_MS = 5 * 60 * 1000;
-/** @type {ReturnType<typeof setInterval> | null} */
 let stanzaEmptySweepInterval = null;
 
 function startStanzaEmptySweep(client) {
@@ -2237,9 +2290,9 @@ function isAutomodExemptStanzaChannel(channel, guild) {
     if (String(meta?.textChannelId || "") === chId) return true;
   }
   const lobby = guild.channels?.cache?.get(STANZA_LOBBY_VOICE_ID);
-  const parentFilter = lobby?.parentId ? String(lobby.parentId) : "";
+  const parentFilter = getStanzaDiscoveryParentFilter(guild) || (lobby?.parentId ? String(lobby.parentId) : "");
   if (channel.isVoiceBased?.() && isStanzaVoiceChannelCandidate(channel, parentFilter)) return true;
-  const stanzeCat = String(IDs.categories?.categoryStanze || "").trim();
+  const stanzeCat = getStanzaCategoryParentId() || String(IDs.categories?.categoryStanze || "").trim();
   if (stanzeCat && String(channel.parentId || "") === stanzeCat) return true;
   return false;
 }

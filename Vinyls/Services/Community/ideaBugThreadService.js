@@ -8,7 +8,6 @@ const {
 
 const IDEA_CHANNEL_IDS = new Set( [ "1502239449956745247", "1502238077303783545", "1502238193821552650", "1502238107829932104", "1502238135185309696"].map(String));
 const BUG_CHANNEL_IDS = new Set([ "1472009888417845330", "1502239086503792713", "1502239002084773909", "1502239043692265483"].map(String));
-/** Categoria test: nei thread entra solo High Staff (main) + autore messaggio. */
 const HIGH_STAFF_ONLY_CATEGORY_ID = "1502238709196652584";
 const OWNER_PING_CATEGORY_ANCHOR_CHANNEL_ID = "1502257275270594670";
 const OWNER_PING_USER_ID = "295500038401163264";
@@ -71,8 +70,7 @@ function resolveParentCategoryId(channelLike) {
   if (channelLike.isThread?.()) {
     const fromParent = normalizeSnowflake(channelLike.parent?.parentId || "");
     if (fromParent) return fromParent;
-    // parent non in cache: non abbiamo la categoria qui (serve fetch async)
-    return "";
+        return "";
   }
   return normalizeSnowflake(channelLike.parentId || channelLike.parent?.id || "");
 }
@@ -159,7 +157,6 @@ async function populateThreadViewers(thread, guild, opts = {}) {
   });
 }
 
-/** High Staff del main (presenti sul server test) + autore del messaggio. */
 async function populateHighStaffAndAuthor(thread, guild, authorId, opts = {}) {
   if (!thread?.members?.add || !guild) return { added: 0, failed: 0, skipped: 0 };
   await ensureBotJoinedThread(thread, guild);
@@ -211,8 +208,7 @@ async function sendThreadOpeningPing(thread, guild, opts = {}) {
 
   if (highStaffOnly) {
     await populateHighStaffAndAuthor(thread, guild, authorId, opts);
-    // Niente @everyone: notificano già le system message di add (solo HS + autore).
-    if (threadId) botThreadPingSent.set(threadId, Date.now());
+        if (threadId) botThreadPingSent.set(threadId, Date.now());
     return null;
   }
 
@@ -415,8 +411,7 @@ async function handleIdeaBugCategoryThreadCreate(thread) {
 
   const categoryId = await resolveOwnerPingCategoryId(thread.guild);
   if (!channelBelongsToOwnerPingCategory(thread, categoryId)) {
-    // parent cache miss: ricontrolla owner category via fetch
-    const parentCategory = await resolveParentCategoryIdAsync(thread, thread.guild);
+        const parentCategory = await resolveParentCategoryIdAsync(thread, thread.guild);
     if (!parentCategory || parentCategory !== categoryId) return false;
   }
   await sendThreadOpeningPing(thread, thread.guild, {

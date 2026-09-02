@@ -180,11 +180,6 @@ async function listEconomyGuiSessions(gameKey, { limit = 500 } = {}) {
   return out;
 }
 
-/**
- * Wrapper memoria + persistenza DB per un minigame GUI.
- * getSession: async (messageId, guildId?, ownerIdHint?)
- * setSession: sync memory + async persist (await live.persistPromise).
- */
 function createPersistedGuiSessionApi(gameKey, { ttlMs = SESSION_DB_TTL_MS, onEvict = null } = {}) {
   const sessions = new Map();
   const keyName = normalizeId(gameKey);
@@ -245,10 +240,7 @@ function createPersistedGuiSessionApi(gameKey, { ttlMs = SESSION_DB_TTL_MS, onEv
     const owner = normalizeId(ownerIdHint);
     let restored = null;
     for (let attempt = 1; attempt <= LOAD_RETRY; attempt += 1) {
-      // Con messageId noto: solo lookup per messaggio. Il fallback per owner
-      // riusava la sessione *corrente* dell'owner su pannelli vecchi (mosse/puntata
-      // sulla partita sbagliata).
-      if (mid) restored = await loadEconomyGuiSessionByMessage(keyName, g, mid);
+                        if (mid) restored = await loadEconomyGuiSessionByMessage(keyName, g, mid);
       else if (owner && g) restored = await loadEconomyGuiSessionByOwner(keyName, g, owner);
       if (restored) break;
       if (attempt < LOAD_RETRY) await new Promise((r) => setTimeout(r, 80 * attempt));

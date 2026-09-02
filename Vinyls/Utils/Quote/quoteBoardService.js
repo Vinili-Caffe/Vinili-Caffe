@@ -94,10 +94,6 @@ function buildQuoteRemoveButton(creatorUserId, originChannelId, originMessageId,
     .setStyle(ButtonStyle.Danger);
 }
 
-/**
- * Componenti bacheca quote: Reposta (come in chat) + Rimuovi.
- * `boardMessageId` serve per `repost_src` → va passato dopo il send (o in edit).
- */
 function buildQuoteBoardComponents({
   guildId,
   creatorUserId,
@@ -195,9 +191,7 @@ function parseQuoteBoardMessage(message) {
 
   if (!looksLikeQuote) return null;
 
-  // Preferisci il creatore reale (campo / bottone). Non usare quotedUserId:
-  // altrimenti "Rimuovi" risulterebbe cliccabile solo dalla persona quotata.
-  const creatorUserId = String(removeMeta?.creatorUserId || creatorFromField || "").trim();
+      const creatorUserId = String(removeMeta?.creatorUserId || creatorFromField || "").trim();
   if (!creatorUserId && !/quotazione/i.test(title)) return null;
 
   const attachmentList =
@@ -257,9 +251,6 @@ async function waitRepostaEditCooldown() {
   if (waitMs > 0) await sleep(waitMs);
 }
 
-/**
- * Preferisce fetch+AbortSignal: evita code @discordjs/rest bloccate quando un edit va in timeout.
- */
 async function editMessageComponents(guild, message, components) {
   const channelId = String(message?.channelId || message?.channel?.id || "").trim();
   const messageId = String(message?.id || "").trim();
@@ -308,8 +299,7 @@ async function editMessageComponents(guild, message, components) {
         isOldMessageEditCap =
           Number(json?.code) === 30046 ||
           /older than 1 hour/i.test(String(json?.message || ""));
-        // Cap Discord sugli edit di messaggi >1h: pochi tentativi, poi fail e pausa lunga a monte.
-        const floor = isOldMessageEditCap
+                const floor = isOldMessageEditCap
           ? 45_000
           : isGlobal
             ? 30_000
@@ -466,10 +456,6 @@ async function isQuoteBoardBackfillComplete(guildId) {
   return false;
 }
 
-/**
- * @param {import('discord.js').Guild} guild
- * @param {{ wait?: boolean }} [opts] wait=false → avvio in background (boot); wait=true → aspetta fine
- */
 async function ensureQuoteBoardBackfilled(guild, opts = {}) {
   const wait = opts.wait !== false;
   const gid = String(guild?.id || "").trim();
@@ -525,8 +511,7 @@ async function registerQuoteBoardPost(ctx) {
 }
 
 async function listQuotesByUser(guildId, userId, opts = {}) {
-  // Non bloccare il comando: se serve ancora lo scan, parte in background.
-  if (opts.guild) {
+    if (opts.guild) {
     void ensureQuoteBoardBackfilled(opts.guild, { wait: false });
   }
   const limit = Math.min(25, Math.max(1, Number(opts.limit) || 10));
@@ -582,7 +567,7 @@ async function deleteUserQuoteEntry({ guild, quoteId, userId }) {
             { name: "Data rimozione", value: `${dateStr} ${timeStr}`, inline: true },
           )
           .setFooter({
-            text: `Puoi bloccare le future quote tramite il comando \`+profile\` • Oggi alle ${timeStr}`,
+            text: `Puoi bloccare le future quote tramite il comando [profilo sul sito](https://www.viniliecaffe.it/personalizza/) • Oggi alle ${timeStr}`,
           });
         await boardMsg
           .edit({ embeds: [removedEmbed], components: [], files: [], attachments: [] })
@@ -767,8 +752,7 @@ async function backfillQuoteBoardRepostaButtons(guild) {
             );
             return { scanned, updated, skipped, failed, pausedByOldCap: true };
           }
-          // Pausa lunga prima della prossima quote vecchia.
-          await sleep(60_000);
+                    await sleep(60_000);
         }
       }
       if (REPOSTA_BACKFILL_DELAY_MS > 0) {
@@ -790,10 +774,6 @@ async function backfillQuoteBoardRepostaButtons(guild) {
   return { scanned, updated, skipped, failed };
 }
 
-/**
- * @param {import('discord.js').Guild} guild
- * @param {{ wait?: boolean, force?: boolean }} [opts]
- */
 async function ensureQuoteBoardRepostaBackfilled(guild, opts = {}) {
   const wait = opts.wait !== false;
   const force = opts.force === true;

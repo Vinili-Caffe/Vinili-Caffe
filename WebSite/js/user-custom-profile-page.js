@@ -10,8 +10,7 @@
   var guildEmojisLoaded = false;
   var guildEmojisLoading = false;
   var emojiPickerToken = 0;
-  /** Per-mode color drafts so switching solid/gradient/holo does not wipe the other setups. */
-  var colorDrafts = {
+    var colorDrafts = {
     solid: { hex: "", hex2: "" },
     gradient: { hex: "", hex2: "" },
     holo: { hex: HOLO_PRIMARY, hex2: HOLO_SECONDARY },
@@ -312,6 +311,7 @@
       document.documentElement.classList.remove("vc-page-cine-boot");
       document.documentElement.classList.add("vc-page-cine-ready");
       document.documentElement.classList.add("vc-styles-ready");
+      document.documentElement.classList.add("vc-core-styles-ready");
     } catch (e) {}
     try {
       if (document.body) {
@@ -355,15 +355,23 @@
     if (!host) {
       host = document.createElement("div");
       host.id = "vc-custom-profile-toast-host";
-      host.className = "vc-cpf-toast-host";
+      host.className = "vc-dash-save-toast-host vc-site-toast-host vc-cpf-toast-host";
       host.setAttribute("aria-live", "polite");
       document.body.appendChild(host);
     } else if (host.parentElement !== document.body) {
       document.body.appendChild(host);
     }
-    host.className = "vc-cpf-toast-host";
+    host.className = "vc-dash-save-toast-host vc-site-toast-host vc-cpf-toast-host";
     host.innerHTML =
-      '<div class="vc-cpf-toast' + (isError ? " is-error" : "") + '">' + esc(msg) + "</div>";
+      '<div class="vc-dash-save-toast' +
+      (isError ? " is-error" : "") +
+      ' is-visible" role="status">' +
+      '<span class="vc-dash-save-toast__icon" aria-hidden="true"><i class="fa fa-' +
+      (isError ? "times" : "check") +
+      '"></i></span>' +
+      '<p class="vc-dash-save-toast__text">' +
+      esc(msg) +
+      "</p></div>";
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(function () {
       host.innerHTML = "";
@@ -413,9 +421,60 @@
     return Boolean(fa.customRolePrimary);
   }
 
+  function mapCustomProfileGetPayload(status, httpOk, data) {
+    if (data && typeof data === "object") {
+      data.status = status;
+      if (!data.message && !data.ok) {
+        if (status === 401) data.message = "Sessione Discord scaduta: effettua di nuovo il login.";
+        else if (status === 429) data.message = "Troppe richieste. Riprova tra poco.";
+        else if (status >= 500) data.message = "Il server non risponde. Riprova tra poco.";
+        else data.message = "Impossibile caricare (HTTP " + status + ").";
+      }
+      if (status === 429) data.error = data.error || "rate_limited";
+      return data;
+    }
+    return {
+      ok: false,
+      status: status,
+      message:
+        status === 401
+          ? "Sessione Discord scaduta: effettua di nuovo il login."
+          : status === 429
+            ? "Troppe richieste. Riprova tra poco."
+            : "Risposta non valida dal server (HTTP " + status + ").",
+      error: status === 429 ? "rate_limited" : undefined,
+    };
+  }
+
   async function apiGet() {
     var token = getToken();
     if (!token) return { ok: false, error: "missing_token", message: "Effettua il login Discord." };
+    var url = resolvedApiUrl();
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      try {
+        var cacheKey = window.VcApiCache.keyFor(url, { scope: "customProfile", auth: token, v: "429fix4" });
+        var payload = await window.VcApiCache.fetchWithCache(cacheKey, url, {
+          ttlMs: 90000,
+          staleMs: 600000,
+          persistMs: 20 * 60 * 1000,
+          timeoutMs: 22000,
+          fetchInit: {
+            method: "GET",
+            headers: { Accept: "application/json", Authorization: "Bearer " + token },
+            credentials: "omit",
+          },
+        });
+        if (payload && payload.blocked) {
+          return mapCustomProfileGetPayload(429, false, { ok: false, error: "rate_limited" });
+        }
+        return mapCustomProfileGetPayload(
+          Number((payload && payload.status) || 0),
+          Boolean(payload && payload.ok),
+          payload && payload.body,
+        );
+      } catch (eCache) {
+              }
+    }
     var res;
     try {
       var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -427,7 +486,7 @@
           } catch (eAb) {}
         }, 15000);
       }
-      res = await fetch(resolvedApiUrl(), {
+      res = await fetch(url, {
         method: "GET",
         headers: { Accept: "application/json", Authorization: "Bearer " + token },
         credentials: "omit",
@@ -447,23 +506,7 @@
     var data = await res.json().catch(function () {
       return null;
     });
-    if (data && typeof data === "object") {
-      if (!data.message && !data.ok) {
-        if (res.status === 401) data.message = "Sessione Discord scaduta: effettua di nuovo il login.";
-        else if (res.status === 429) data.message = "Troppe richieste. Riprova tra poco.";
-        else if (res.status >= 500) data.message = "Il server non risponde. Riprova tra poco.";
-        else data.message = "Impossibile caricare (HTTP " + res.status + ").";
-      }
-      return data;
-    }
-    return {
-      ok: false,
-      status: res.status,
-      message:
-        res.status === 401
-          ? "Sessione Discord scaduta: effettua di nuovo il login."
-          : "Risposta non valida dal server (HTTP " + res.status + ").",
-    };
+    return mapCustomProfileGetPayload(res.status, res.ok, data);
   }
 
   async function apiPost(body) {
@@ -482,6 +525,13 @@
     var data = await res.json().catch(function () {
       return null;
     });
+    if (data && data.ok && window.VcApiCache && typeof window.VcApiCache.invalidate === "function") {
+      try {
+        window.VcApiCache.invalidate(
+          window.VcApiCache.keyFor(resolvedApiUrl(), { scope: "customProfile", auth: token, v: "429fix4" }),
+        );
+      } catch (eInv) {}
+    }
     return data || { ok: false, status: res.status, message: "Risposta non valida." };
   }
 
@@ -958,8 +1008,7 @@
     );
   }
 
-  /** Riquadro attività vocale: niente chip perk / testo soglia ore. */
-  function voiceRequirementsHtml(opts) {
+    function voiceRequirementsHtml(opts) {
     opts = opts || {};
     var req = (state && state.requirements && state.requirements.voice) || {};
     var activity = state && state.voiceActivity ? state.voiceActivity : null;
@@ -1063,7 +1112,7 @@
   }
 
   function editorBasePath() {
-    return "/user/personalizza/";
+    return "/personalizza/";
   }
 
   function editorHref(target) {
@@ -1438,8 +1487,7 @@
 
   async function boot(attempt) {
     if (!shouldBootCustom()) {
-      // Rank/extras own the loader. Hiding it here left Personalizza blank while extras still fetched.
-      return;
+            return;
     }
     attempt = Number(attempt) || 0;
     var loading = byId("vc-custom-profile-loading");
@@ -1451,17 +1499,6 @@
     }
     try {
       var data = await apiGet();
-      if ((!data || !data.ok) && data && (data.error === "rate_limited" || data.status === 429) && attempt < 4) {
-        if (loading) {
-          loading.hidden = false;
-          var sub = loading.querySelector(".vc-user-profile-loader__sub");
-          if (sub) sub.textContent = "Troppe richieste, riprovo tra poco…";
-        }
-        await new Promise(function (resolve) {
-          setTimeout(resolve, 1800 + attempt * 900);
-        });
-        return boot(attempt + 1);
-      }
       if (!data || !data.ok) {
         app.hidden = false;
         app.innerHTML = shell(

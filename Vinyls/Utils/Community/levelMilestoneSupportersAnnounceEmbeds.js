@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 const IDs = require("../Config/ids");
 const { accountUsername, resolveEmbedUserAvatarUrl } = require("../Discord/guildDiscordIdentity");
@@ -7,7 +8,6 @@ const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnounceme
 const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SUPPORTERS_CHANNEL_ID = IDs.channels?.supporters;
-const HIGH_STAFF_TICKET_CHANNEL_ID = String(IDs.channels?.ticket || "").trim();
 const PERKS_PAGE_URL = "https://viniliecaffe.it/perks/";
 const LEVEL_MILESTONE_MAP = new Map([
   [10, IDs.roles.Level10],
@@ -30,34 +30,34 @@ function buildPerkBlockLines(level) {
       "<:pinkstar:1470064804835229768> Permesso di **allegare link e immagini** in chat",
       "<a:VC_Money:1482724694699278487> Permesso di inviare **messaggi vocali** in chat",
       "<a:reddiamond:1443652837346377841> Sblocchi i comandi **`+quote`**, **`+repost`** e **`+myrepost`**",
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv10}>`,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.colorUnlockLv10}>`,
     );
   } else if (L === 20) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
       "<:pinkstar:1470064804835229768> Possibilità di **aggiungere reazioni** ai messaggi in chat",
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv20}>`,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.colorUnlockLv20}>`,
     );
   } else if (L === 30) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
       "<a:VC_NewsExclamation:1471891662786527253> Permesso di usare le **Soundboard di altri server**",
       "<a:VC_Money:1482724694699278487> Cooldown comandi del bot **30s → 15s**",
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv30}>`,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.colorUnlockLv30}>`,
     );
   } else if (L === 50) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
-      "<a:VC_Winner:1482535294757507255> Possibilità di creare un ruolo custom e un canale vocale privato custom tramite `+profile`",
+      "<a:VC_Winner:1482535294757507255> Possibilità di creare un ruolo custom e un canale vocale privato custom tramite [profilo sul sito](https://www.viniliecaffe.it/personalizza/)",
       "<a:VC_Money:1482724694699278487> Cooldown comandi del bot **30s → 5s**",
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv50}>`,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.colorUnlockLv50}>`,
     );
   } else if (L === 70) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
       "<:pinkstar:1470064804835229768> **Sticker ed emoji** di altri server",
       "<a:VC_CrownYellow:1482706085440651428> **Reazioni** quando ti @menzionano in chat (max. **3**)",
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv70}>`,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.colorUnlockLv70}>`,
     );
   } else if (L === 100) {
     lines.push(
@@ -66,32 +66,28 @@ function buildPerkBlockLines(level) {
       "<:blueflash:1470064803157643468> **Bypass requisiti** delle candidature",
       "<:exp:1470067108543987846> Bonus **EXP permanente +15%**",
       MENTION_RESPONSE_PERK_LINE_DISCORD,
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv100}>`,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.colorUnlockLv100}>`,
     );
   } else if (L === 125) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
       "<a:VC_Winner:1482535294757507255> **Bypass requisiti** dei giveaway",
       "<:exp:1470067108543987846> Bonus **EXP permanente +20%**",
-      "<a:VC_Winner:1482535294757507255> Possibilità di creare un secondo ruolo custom tramite il comando `+profile`",
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.orangeBlackPlus}>`,
+      "<a:VC_Winner:1482535294757507255> Possibilità di creare un secondo ruolo custom tramite il comando [profilo sul sito](https://www.viniliecaffe.it/personalizza/)",
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.orangeBlackPlus}>`,
     );
   } else if (L === 150) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
       "<:exp:1470067108543987846> Bonus **EXP permanente +25%**",
-      HIGH_STAFF_TICKET_CHANNEL_ID
-        ? `<a:VC_Winner:1482535294757507255> **Decorazione a scelta** riscattabile tramite <#${HIGH_STAFF_TICKET_CHANNEL_ID}> \`HIGH STAFF\``
-        : "<a:VC_Winner:1482535294757507255> **Decorazione a scelta** riscattabile tramite ticket `HIGH STAFF`",
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.greenBlackPlus}>`,
+      `<a:VC_Winner:1482535294757507255> **Decorazione a scelta** riscattabile tramite ${siteTicketsPageDiscordRef("HIGH STAFF")}`,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.greenBlackPlus}>`,
     );
   } else if (L === 200) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
-      HIGH_STAFF_TICKET_CHANNEL_ID
-        ? `<a:VC_NewsExclamation:1471891662786527253> **Nitro Boost mensile** riscattabile tramite <#${HIGH_STAFF_TICKET_CHANNEL_ID}> \`HIGH STAFF\``
-        : "<a:VC_NewsExclamation:1471891662786527253> **Nitro Boost mensile** riscattabile tramite ticket `HIGH STAFF`",
-      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.aquaBlackPlus}>`,
+      `<a:VC_NewsExclamation:1471891662786527253> **Nitro Boost mensile** riscattabile tramite ${siteTicketsPageDiscordRef("HIGH STAFF")}`,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.aquaBlackPlus}>`,
     );
   }
   return lines;

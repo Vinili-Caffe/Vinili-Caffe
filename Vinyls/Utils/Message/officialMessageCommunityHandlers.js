@@ -14,6 +14,12 @@ const { messageAllowsMentionInteraction } = require("../Community/mentionInterac
 const { revokeCountingChannelSend, applyObviousWrongDayBan, formatBanUntilRomeTime } = require("../Community/countingChannelBanService");
 const COUNTING_CHANNEL_ID = IDs.channels.counting;
 const COUNTING_ALLOWED_REGEX = /^[0-9+\-*/x:() ]+$/;
+
+function isCountingEnabled(client) {
+  const cfg = client?.config?.counting;
+  if (cfg && typeof cfg === "object" && cfg.enabled === false) return false;
+  return true;
+}
 const AFK_RETURN_TTL_MS = 3000;
 const WORD_REACTIONS_CONFIG_PATH = path.join(__dirname, "..", "Config", "wordReactions.json");
 const WORD_REACTIONS_MAX_REACTIONS = 20;
@@ -601,7 +607,6 @@ function getWordReactionsConfig() {
 }
 const COUNTING_CACHE_TTL_MS = 60_000;
 const countingConfigCache = new Map();
-/** Coda per-guild: evita race tra messaggi ravvicinati (stesso Count letto due volte). */
 const countingGuildQueues = new Map();
 
 function withCountingGuildLock(guildId, work) {
@@ -1175,7 +1180,6 @@ function isCountingNumericContent(raw) {
   return evaluateCountingContent(raw) !== null;
 }
 
-/** Messaggio già registrato nel DB (catch-up che riprocessa lo stesso numero → falso "da solo"). */
 function isCountingMessageAlreadyAccepted(countdata, messageValue, authorId) {
   const value = Math.floor(Number(messageValue));
   const count = Math.floor(Number(countdata?.Count || 0));
@@ -1266,6 +1270,7 @@ async function resolveBulkMessageDeleteExecutor(guild, channelId, deletedCount) 
 }
 
 async function maybePunishCountingOnDelete(message, client) {
+  if (!isCountingEnabled(client)) return;
   try {
     const guild = message?.guild;
     if (!guild || message.author?.bot) return;
@@ -1296,6 +1301,7 @@ async function maybePunishCountingOnDelete(message, client) {
 }
 
 async function maybePunishCountingOnEdit(previous, updated, client) {
+  if (!isCountingEnabled(client)) return;
   try {
     if (!updated?.guild || updated.author?.bot) return;
     const countChannel = await resolveCountingTextChannel(updated.guild);
@@ -1317,6 +1323,7 @@ async function maybePunishCountingOnEdit(previous, updated, client) {
 }
 
 async function maybePunishCountingOnBulkDelete(messages, client) {
+  if (!isCountingEnabled(client)) return;
   try {
     if (!messages?.size) return;
     const sample = messages.first();
@@ -1363,6 +1370,7 @@ async function resolveCountingMember(message) {
 }
 
 async function handleCounting(message, client) {
+  if (!isCountingEnabled(client)) return;
   const guildId =
     message?.guild?.id || message?.channel?.guild?.id || message?.guildId;
   if (!guildId) return;
@@ -1370,8 +1378,7 @@ async function handleCounting(message, client) {
 }
 
 async function handleCountingLocked(message, client, guildId) {
-  // Sempre fresco sotto lock: la cache condivisa faceva valutare 987 con Count ancora a 985.
-  const countdata = await getCountingConfig(guildId, { bypassCache: true });
+    const countdata = await getCountingConfig(guildId, { bypassCache: true });
   if (!countdata) return;
   const member = await resolveCountingMember(message);
   if (!member) return;
@@ -1397,11 +1404,9 @@ async function handleCountingLocked(message, client, guildId) {
   }
   try {
     const sendPerms = countchannel.permissionsFor?.(member);
-    // Deny SendMessages: non processare numeri, ma i non-numerici sono già stati cancellati sopra.
-    if (sendPerms && !sendPerms.has(PermissionFlagsBits.SendMessages)) return;
+        if (sendPerms && !sendPerms.has(PermissionFlagsBits.SendMessages)) return;
   } catch {
-    /* ignore */
-  }
+      }
   const messageValue = evaluateCountingContent(message.content);
   if (messageValue === null) {
     return message.delete().catch(() => { });
@@ -1416,16 +1421,12 @@ async function handleCountingLocked(message, client, guildId) {
   if (messageHasBotSuccessReaction(message)) return;
   const countNow = Math.floor(Number(countdata.Count || 0));
   const expectedNext = countNow + 1;
-  // Confronti numerici: Count da bucket/legacy a volte arriva come stringa
-  // (`738 !== "738"`) e faceva partire "Hai sbagliato" sul numero corretto.
-  const isWrongNumber =
+      const isWrongNumber =
     messageValue - 1 !== countNow ||
     messageValue === countNow ||
     messageValue > countNow + 1;
   const isAlone = String(message.author.id) === String(countdata.LastUser || "").trim();
-  // Numero sbagliato prima di "da solo": se LastUser scrive 1 con count alto
-  // prima finiva nel ramo alone e saltava il ban giornaliero.
-  if (isWrongNumber) {
+      if (isWrongNumber) {
     const lostCount = countNow;
     const lostLastUser = countdata.LastUser;
     const banOutcome = await applyObviousWrongDayBan({
@@ -1527,10 +1528,6 @@ async function resolveCountingTextChannelForSync(guild, client, channelId) {
   return null;
 }
 
-/**
- * Catch-up soft: avanza solo la catena consecutiva valida.
- * Mai reset/ban/reply di fallimento (un restart non deve far perdere il counting).
- */
 async function softSyncCountingCatchUpForGuild(guild, client, countdata) {
   const mainGuildId = IDs.guilds?.main || null;
   const channelId = countdata.Channel || (guild.id === mainGuildId ? COUNTING_CHANNEL_ID : null);
@@ -1555,11 +1552,7 @@ async function softSyncCountingCatchUpForGuild(guild, client, countdata) {
     .filter((m) => !m.author?.bot && COUNTING_ALLOWED_REGEX.test(m.content))
     .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
-  // Se il DB è stato resettato/avanti a torto, ancora all'ultimo successo pulito (no cancel).
-  // Race catch-up poteva lasciare success+cancel sullo stesso messaggio.
-  // Non ripristinare se dopo quel successo c'è già un fail (cancel): altrimenti un restart
-  // dopo "Counting perso" rimetteva il counter e il click su Ripristina toglieva il bottone.
-  let dirty = false;
+          let dirty = false;
   let lastCleanSuccess = null;
   for (let i = chronological.length - 1; i >= 0; i -= 1) {
     const m = chronological[i];
@@ -1599,8 +1592,7 @@ async function softSyncCountingCatchUpForGuild(guild, client, countdata) {
     );
   }
 
-  // Pulisci success spurii su messaggi già marcati cancel.
-  for (const m of chronological) {
+    for (const m of chronological) {
     if (!messageHasBotCancelReaction(m) || !messageHasBotSuccessReaction(m)) continue;
     const success = m.reactions.cache.find(
       (r) =>
@@ -1663,6 +1655,7 @@ async function softSyncCountingCatchUpForGuild(guild, client, countdata) {
 }
 
 async function processPendingCountingMessages(client) {
+  if (!isCountingEnabled(client)) return;
   if (!client?.user?.id) return;
   if (mongoose.connection?.readyState !== 1) return;
   if (countingCatchUpInFlight) return countingCatchUpInFlight;

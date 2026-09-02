@@ -4,7 +4,6 @@ function spotifySeratafilmClientId() {
   return String(process.env.SPOTIFY_SERATAFILM_CLIENT_ID || "").trim();
 }
 
-/** URI di redirect OAuth (dev/prod), separati da virgola; devono coincidere con la dashboard Spotify. */
 function spotifySeratafilmRedirectAllowlist() {
   return String(process.env.SPOTIFY_SERATAFILM_REDIRECT_URI || "")
     .split(",")
@@ -29,11 +28,6 @@ async function spotifyTokenFormPost(bodyParams) {
   return { ok: res.ok, status: res.status, json };
 }
 
-/**
- * POST JSON: { code, codeVerifier, redirectUri, clientId } — scambio PKCE (nessun client secret).
- * @param {import("express").Request} req
- * @param {import("express").Response} res
- */
 async function handleSiteSpotifyTokenExchangePost(req, res) {
   try {
     const serverClientId = spotifySeratafilmClientId();
@@ -91,11 +85,6 @@ async function handleSiteSpotifyTokenExchangePost(req, res) {
   }
 }
 
-/**
- * POST JSON: { refreshToken, clientId }
- * @param {import("express").Request} req
- * @param {import("express").Response} res
- */
 async function handleSiteSpotifyTokenRefreshPost(req, res) {
   try {
     const serverClientId = spotifySeratafilmClientId();

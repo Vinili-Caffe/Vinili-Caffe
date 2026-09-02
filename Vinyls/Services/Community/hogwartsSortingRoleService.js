@@ -18,12 +18,10 @@ function normalizeId(value) {
   return String(value || "").trim();
 }
 
-/** Discord snowflake; rejects comma-joined / invalid values that would break roles.add. */
 function isSnowflakeId(value) {
   return /^\d{17,22}$/.test(normalizeId(value));
 }
 
-/** Accetta id singoli, array, o stringhe "id1,id2" da config/env malformate. */
 function expandRoleIds(list) {
   const raw = Array.isArray(list) ? list : [list];
   const out = [];
@@ -45,8 +43,7 @@ async function applyRoleEdits(member, toAdd, toRemove, reason) {
   for (const id of removeIds) {
     await member.roles.remove(id, reason);
   }
-  // Un id per chiamata: alcuni client REST fanno String([a,b]) → "a,b" (400 Discord).
-  for (const id of addIds) {
+    for (const id of addIds) {
     await member.roles.add(id, reason);
   }
 }

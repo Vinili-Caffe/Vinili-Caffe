@@ -360,7 +360,6 @@ function buildBadgesCompactRow(state, snapshot, { expanded = false } = {}) {
   );
 }
 
-/** Vista iniziale: indietro + 2 slot + apri lista. */
 function buildBadgesCompactComponents(state, snapshot) {
   const lang = snapshot.lang;
   return {
@@ -369,7 +368,6 @@ function buildBadgesCompactComponents(state, snapshot) {
   };
 }
 
-/** Lista badge: riga compatta + tutti i badge (sbloccati cliccabili, locked disabilitati) + paginazione. */
 function buildBadgeBrowseComponents(state, snapshot, page) {
   const lang = snapshot.lang;
   const { slice, page: safePage, totalPages } = paginateRows(BADGE_DEFS, page, BADGES_BROWSE_PER_PAGE);

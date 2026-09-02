@@ -102,8 +102,7 @@ function drawCoinRings(ctx, radius) {
   ctx.beginPath();
   ctx.arc(0, 0, radius * 0.82, 0, Math.PI * 2);
   ctx.stroke();
-  // Beaded rim
-  const beads = 28;
+    const beads = 28;
   for (let i = 0; i < beads; i += 1) {
     const a = (i / beads) * Math.PI * 2;
     const br = radius * 0.88;
@@ -226,8 +225,7 @@ function drawGaleoneMark(ctx, s) {
   }
   ctx.restore();
 
-  // Preview both faces: crown left · gem · cross right
-  ctx.save();
+    ctx.save();
   ctx.translate(-s * 0.34, -s * 0.02);
   drawCrownMark(ctx, s * 0.42);
   ctx.restore();

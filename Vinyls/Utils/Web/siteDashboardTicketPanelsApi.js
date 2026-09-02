@@ -122,8 +122,7 @@ async function listDashboardTicketPanels(client, accessToken, guildId) {
   const [bucket, settings, pickers, teamsBucket] = await Promise.all([
     getGuildPanels(gid),
     getTicketSettingsForGuild(gid).catch(() => null),
-    // Senza force: riusa cache canali/ruoli/emoji (force a ogni GET rendeva il picker lentissimo).
-    listGuildPickerData(client, gid).catch(() => ({
+        listGuildPickerData(client, gid).catch(() => ({
       textChannels: [],
       roles: [],
       categories: [],
@@ -209,8 +208,7 @@ async function createDashboardTicketPanel(client, accessToken, guildId, body) {
 
   const panel = (created.bucket.singles || []).find((s) => String(s.id) === String(panelDraft.id)) || panelDraft;
   let publish = null;
-  // Creazione: pubblica solo se richiesto esplicitamente (bottone Pubblica / publish:true).
-  if (src.publish === true && panel?.channelId) {
+    if (src.publish === true && panel?.channelId) {
     publish = await publishSinglePanel(client, gid, panel.id);
     if (!publish.ok && publish.reason !== "missing_channel") {
       return {
@@ -255,9 +253,7 @@ async function updateDashboardTicketPanel(client, accessToken, guildId, panelId,
 
   const panel = (updated.bucket.singles || []).find((s) => String(s.id) === pid);
   let publish = null;
-  // Salvataggio dashboard: sync in-place solo se c’è già un messageId (mai nuovo send).
-  // Pubblicazione ex-novo: endpoint /publish o body.publish===true senza syncExisting.
-  if (src.publish === true && src.syncExisting !== true && panel?.channelId) {
+      if (src.publish === true && src.syncExisting !== true && panel?.channelId) {
     publish = await publishSinglePanel(client, gid, pid);
   } else if (src.syncExisting === true && panel?.channelId && panel?.messageId) {
     publish = await publishSinglePanel(client, gid, pid, { editOnly: true });
@@ -349,8 +345,7 @@ async function createDashboardTicketMultiPanel(client, accessToken, guildId, bod
 
   const multi = (created.bucket.multis || []).find((m) => String(m.id) === String(multiDraft.id)) || multiDraft;
   let publish = null;
-  // Multi: niente auto-publish al salvataggio/creazione; solo se publish:true esplicito (bottone Pubblica).
-  if (src.publish === true && multi?.channelId) {
+    if (src.publish === true && multi?.channelId) {
     publish = await publishMultiPanel(client, gid, multi.id);
   }
   const fresh = await getGuildPanels(gid);
@@ -399,8 +394,7 @@ async function updateDashboardTicketMultiPanel(client, accessToken, guildId, mul
   if (!updated.ok) return fail(500, updated.reason || "persist_failed", reasonToMessage(updated.reason));
 
   let publish = null;
-  // Multi save: sync in-place solo se c’è già un messageId. Pubblicazione ex-novo: /publish o publish:true.
-  if (src.publish === true && src.syncExisting !== true) {
+    if (src.publish === true && src.syncExisting !== true) {
     publish = await publishMultiPanel(client, gid, mid);
   } else if (src.syncExisting === true) {
     const multiRow = (updated.bucket.multis || []).find((m) => String(m.id) === mid);

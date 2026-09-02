@@ -1,4 +1,3 @@
-/** Traduzioni complete comandi partnership partnership (+points, +history, +leaderboard, +notify, +random, +server/user info, errori). */
 const COMMAND_UI_KEYS = Object.freeze([
   "count", "daily", "weekly", "true", "false",
   "errors_tenantOnly", "errors_notConfigured", "errors_noPermission", "errors_lookupServer", "errors_lookupUser", "errors_lookupNotFound",
@@ -67,7 +66,7 @@ const COMMAND_UI_LOCALES = {
     leaderboard_catJoin: "Join", leaderboard_catPartners: "Partners", leaderboard_catServers: "Servidores",
     leaderboard_periodTotal: "Total", leaderboard_periodDaily: "Diaria", leaderboard_periodWeekly: "Semanal",
     profile_userNotFound: "<:vegax:1443934876440068179> Usuario no encontrado.",
-    profile_tenantPmOnly: "<:vegax:1443934876440068179> En este servidor `+profile` está disponible para ti o usuarios con rol Partner Manager.",
+    profile_tenantPmOnly: "<:vegax:1443934876440068179> En este servidor [profilo sul sito](https://www.viniliecaffe.it/personalizza/) está disponible para ti o usuarios con rol Partner Manager.",
     objectiveUnlockedDm: "¡Has desbloqueado **{title}**!",
   }),
   fr: pack({
@@ -114,7 +113,7 @@ const COMMAND_UI_LOCALES = {
     leaderboard_catJoin: "Join", leaderboard_catPartners: "Partners", leaderboard_catServers: "Serveurs",
     leaderboard_periodTotal: "Total", leaderboard_periodDaily: "Quotidien", leaderboard_periodWeekly: "Hebdomadaire",
     profile_userNotFound: "<:vegax:1443934876440068179> Utilisateur introuvable.",
-    profile_tenantPmOnly: "<:vegax:1443934876440068179> Sur ce serveur `+profile` est disponible pour vous ou les Partner Managers.",
+    profile_tenantPmOnly: "<:vegax:1443934876440068179> Sur ce serveur [profilo sul sito](https://www.viniliecaffe.it/personalizza/) est disponible pour vous ou les Partner Managers.",
     objectiveUnlockedDm: "Vous avez débloqué **{title}** !",
   }),
   de: pack({
@@ -161,7 +160,7 @@ const COMMAND_UI_LOCALES = {
     leaderboard_catJoin: "Join", leaderboard_catPartners: "Partner", leaderboard_catServers: "Server",
     leaderboard_periodTotal: "Gesamt", leaderboard_periodDaily: "Täglich", leaderboard_periodWeekly: "Wöchentlich",
     profile_userNotFound: "<:vegax:1443934876440068179> Benutzer nicht gefunden.",
-    profile_tenantPmOnly: "<:vegax:1443934876440068179> Auf diesem Server ist `+profile` für dich oder Partner Manager verfügbar.",
+    profile_tenantPmOnly: "<:vegax:1443934876440068179> Auf diesem Server ist [profilo sul sito](https://www.viniliecaffe.it/personalizza/) für dich oder Partner Manager verfügbar.",
     objectiveUnlockedDm: "Du hast **{title}** freigeschaltet!",
   }),
   pt: pack({
@@ -208,7 +207,7 @@ const COMMAND_UI_LOCALES = {
     leaderboard_catJoin: "Join", leaderboard_catPartners: "Partners", leaderboard_catServers: "Servidores",
     leaderboard_periodTotal: "Total", leaderboard_periodDaily: "Diário", leaderboard_periodWeekly: "Semanal",
     profile_userNotFound: "<:vegax:1443934876440068179> Usuário não encontrado.",
-    profile_tenantPmOnly: "<:vegax:1443934876440068179> Neste servidor `+profile` está disponível para você ou Partner Managers.",
+    profile_tenantPmOnly: "<:vegax:1443934876440068179> Neste servidor [profilo sul sito](https://www.viniliecaffe.it/personalizza/) está disponível para você ou Partner Managers.",
     objectiveUnlockedDm: "Você desbloqueou **{title}**!",
   }),
   sv: pack({
@@ -255,12 +254,11 @@ const COMMAND_UI_LOCALES = {
     leaderboard_catJoin: "Join", leaderboard_catPartners: "Partners", leaderboard_catServers: "Servrar",
     leaderboard_periodTotal: "Totalt", leaderboard_periodDaily: "Daglig", leaderboard_periodWeekly: "Veckovis",
     profile_userNotFound: "<:vegax:1443934876440068179> Användaren hittades inte.",
-    profile_tenantPmOnly: "<:vegax:1443934876440068179> På denna server är `+profile` tillgängligt för dig eller Partner Managers.",
+    profile_tenantPmOnly: "<:vegax:1443934876440068179> På denna server är [profilo sul sito](https://www.viniliecaffe.it/personalizza/) tillgängligt för dig eller Partner Managers.",
     objectiveUnlockedDm: "Du låste upp **{title}**!",
   }),
 };
 
-// Lingue rimanenti: stesso schema EN tradotto (completo per ogni chiave)
 const RU = {
   count: "Всего", daily: "За день", weekly: "За неделю", true: "да", false: "нет",
   errors_tenantOnly: "<:vegax:1443934876440068179> `{command}` доступна только на **серверах с активной partnership**.",
@@ -305,7 +303,7 @@ const RU = {
   leaderboard_catJoin: "Join", leaderboard_catPartners: "Partners", leaderboard_catServers: "Серверы",
   leaderboard_periodTotal: "Всего", leaderboard_periodDaily: "День", leaderboard_periodWeekly: "Неделя",
   profile_userNotFound: "<:vegax:1443934876440068179> Пользователь не найден.",
-  profile_tenantPmOnly: "<:vegax:1443934876440068179> На этом сервере `+profile` доступен вам или Partner Managers.",
+  profile_tenantPmOnly: "<:vegax:1443934876440068179> На этом сервере [profilo sul sito](https://www.viniliecaffe.it/personalizza/) доступен вам или Partner Managers.",
   objectiveUnlockedDm: "Вы разблокировали **{title}**!",
 };
 

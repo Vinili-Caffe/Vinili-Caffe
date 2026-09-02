@@ -478,7 +478,6 @@ function sortDailyActivityTotals(perUser, board) {
   return [];
 }
 
-/** Somma messaggi / secondi vocali per un solo dateKey (giorno solare) sui canali idonei; se l’insieme è vuoto usa i totali giornalieri sul bucket. */
 function sumRomeDayEligibleActivityFromDailyDoc(doc, dateKey, eligibleChannels) {
   const dk = String(dateKey || "").trim();
   if (!dk || !doc?.profile?.totals?.daily || typeof doc.profile.totals.daily !== "object") {
@@ -752,7 +751,6 @@ async function buildClassificaPayload(guild, mode = "weekly", options = {}) {
   return { embeds: [embed], components: buildClassificaButtons(safeMode, options) };
 }
 
-/** EXP settimanale (domenica 21 Rome → now) da bucket hourly di un solo profilo — O(1), no scan guild. */
 function computeWeeklyExpFromProfileDoc(doc, now = new Date()) {
   const userId = String(doc?.userId || "");
   if (!userId) return 0;
@@ -850,8 +848,7 @@ module.exports = {
   CLASSIFICA_TOGGLE_PREFIX,
   CLASSIFICA_CLOSE_PREFIX,
   buildClassificaPayload,
-  /** Weekly: finestra hourly domenica 21 Europe/Rome. Monthly: somma bucket daily del mese solare Rome. All-time: daily completo. Usata dal sito /user per il breakdown weekly. */
-  computeLeaderboardRows,
+    computeLeaderboardRows,
   computeWeeklyExpFromProfileDoc,
   computeDailyBucketTotalsByUser,
   sortDailyActivityTotals,

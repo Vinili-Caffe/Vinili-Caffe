@@ -275,8 +275,7 @@ async function createSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "content_too_short", message: "Scrivi almeno 12 caratteri." };
   }
 
-  // Evita doppi click / doppio POST: stesso testo pending, o stesso testo creato di recente.
-  const duplicateWindowMs = 24 * 60 * 60 * 1000;
+    const duplicateWindowMs = 24 * 60 * 60 * 1000;
   const existingDup = await SiteDocument.findOne({
     docType: SG,
     guildId: resolved.guild.id,

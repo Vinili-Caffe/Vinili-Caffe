@@ -78,9 +78,7 @@ const GAME_TYPE_COOLDOWN_MS = 30 * 60 * 1000;
 const lastPlayedGameTypesByChannel = new Map();
 const lastPlayedAtByChannelAndType = new Map();
 const startingChannels = new Set();
-/** At most one separate role-ping message per channel during a start/retry session. */
 const rolePingSentThisStart = new Set();
-/** Survive bot restarts: skip re-ping if we already pinged while building the game. */
 const ROLE_PING_RECENT_MS = 5 * 60 * 1000;
 const MINIGAME_ROLE_PING_DOC_TYPE = SITE_DOCUMENT_TYPE.MINIGAME_ROLE_PING;
 const recentQuestionKeysByChannel = new Map();
@@ -99,7 +97,6 @@ const MINIGAME_COOLDOWN_EMOJI = "<a:VC_Loading:1482526818278969578>";
 const OBSERVATION_TOWER_BRICK_EMOJI = "<a:VC_Flame:1482725674711126140>";
 const OBSERVATION_TOWER_DEFAULT_TARGET_BRICKS = 50;
 const OBSERVATION_TOWER_DEFAULT_MAX_PER_USER = 10;
-// Fallback solo se manca il tier: non usare 5 fissi (rompeva i round da 40 mattoni / 4 costruttori).
 const OBSERVATION_TOWER_DEFAULT_MIN_PLAYERS = 1;
 const OBSERVATION_TOWER_DEFAULT_TIERS = Object.freeze([
   { weight: 1, targetBricks: 30, minPlayers: 3, housePoints: 50 },
@@ -403,13 +400,6 @@ function logTreasureHuntReactDebug(message, data = null) {
   logMinigameDebug(`TreasureHunt ${message}`, data);
 }
 
-/**
- * Traduce un testo in italiano (en -> it) tramite MyMemory.
- * Se translateApiToItalian è false in config, non chiamare.
- * @param {string} text - Testo da tradurre (es. da API inglese)
- * @param {{ translateApiToItalian?: boolean }} [cfg] - Config (minigames); se translateApiToItalian === false ritorna il testo originale
- * @returns {Promise<string>} Testo tradotto o originale in caso di errore/disabled
- */
 async function translateToItalian(text, cfg = {}) {
   if (cfg?.translateApiToItalian === false) return String(text || "").trim();
   const raw = String(text || "").trim();
@@ -536,7 +526,6 @@ function isBurrobirraActiveForChannel(client, channelId) {
   return isBurrobirraActive(client);
 }
 
-/** Burrobirra non riduce più il tempo del round (resta al 100% della config). */
 function applyBurrobirraStrongDurationMs(client, channelId, durationMs) {
   return Math.max(1, Number(durationMs) || 60000);
 }
@@ -754,9 +743,7 @@ async function sendMinigameRolePing(channel, cfg, extraRoleId) {
   const content = buildMinigameRolePingContent(cfg, extraRoleId);
   const chId = String(channel?.id || "").trim();
   if (!content || !chId || typeof channel?.send !== "function") return;
-  // Separate mention message (preferred UX), but only once per start/retry session.
-  // Also skip if we already pinged recently (survives restart mid-spawn before the game message).
-  if (rolePingSentThisStart.has(chId)) return;
+      if (rolePingSentThisStart.has(chId)) return;
   if (await hasRecentPersistedRolePing(chId)) {
     rolePingSentThisStart.add(chId);
     return;
@@ -1039,7 +1026,6 @@ function recordActivity(activityScopeKey, windowMs, userId) {
   recentMessages.set(activityScopeKey, trimmed);
 }
 
-/** Dopo un restart i contatori in RAM sono vuoti: ripopola da history Discord. */
 async function backfillRecentChatActivityFromHistory(client, cfg) {
   const channelId = String(cfg?.channelId || "").trim();
   const scopeKey = getActivityScopeKey(cfg);
@@ -1415,8 +1401,7 @@ function resumeHogwartsSpawnScheduler(client, persisted) {
       armHogwartsSpawnFireTimer(client, delayMs, "resume_busy_defer");
       return;
     }
-    // Tick overdue ma cooldown ancora attivo: non spawnare subito dopo un restart.
-    const spawnCfg = getHogwartsEventSpawnCfg(cfg);
+        const spawnCfg = getHogwartsEventSpawnCfg(cfg);
     const lastSentRaw = lastSentAtByChannel.get(channelId) || 0;
     const lastSentMs =
       typeof lastSentRaw === "number"
@@ -1696,8 +1681,7 @@ async function scheduleHogwartsNextRandomSpawn(client, options = {}) {
     delayMs = Math.min(delayMs, shortRetryMs);
     fireAtMs = Date.now() + delayMs;
   }
-  // Dopo restart lastSentAt torna da DB: non schedulare prima del cooldown.
-  const lastSentRaw = lastSentAtByChannel.get(cfg.channelId) || 0;
+    const lastSentRaw = lastSentAtByChannel.get(cfg.channelId) || 0;
   const lastSentMs =
     typeof lastSentRaw === "number"
       ? lastSentRaw
@@ -4205,8 +4189,7 @@ function buildPromptImageAttachment(title, lines = [], fileBaseName = "minigame"
   const promptCfg = client ? getConfig(client) : null;
   title = resolveHogwartsBonusPromptTitle(promptCfg, fileBaseName, title);
   title = distortPromptIfBurrobirra(client, title, `${fileBaseName}:title`, distortQuestion);
-  // Cipher numbers / hangman mask are the puzzle itself — never scramble them.
-  lines = Array.isArray(lines)
+    lines = Array.isArray(lines)
     ? lines.map((line, idx) => (
       fileBaseName === "hogwarts_cipher" || fileBaseName === "hangman"
         ? line
@@ -5370,12 +5353,6 @@ const CENSORED_ARTWORK_MAX_SIDE = 600;
 const CENSOR_MAX_BLUR_PX = 55;
 const CENSOR_STEP_INTERVAL_MS = 60 * 1000;
 
-/**
- * Carica l'artwork e applica blur reale su tutta la copertina (0 = nitida, 1 = massimo blur).
- * @param {string} imageUrl - URL dell'immagine
- * @param {{ attachmentName?: string, overlayAlpha?: number }} [opts] - overlayAlpha in [0,1]: 0 = nessun blur, 1 = blur massimo
- * @returns {Promise<{ buffer: Buffer, attachmentName: string } | null>}
- */
 async function censorArtworkImage(imageUrl, opts = {}) {
   if (!imageUrl || typeof imageUrl !== "string") return null;
   const overlayAlpha = Math.max(0, Math.min(1, Number(opts?.overlayAlpha ?? 0.98)));
@@ -5416,11 +5393,6 @@ async function censorArtworkImage(imageUrl, opts = {}) {
   }
 }
 
-/**
- * Schedula gli aggiornamenti a tempo: ogni minuto si riduce la censura, nell'ultimo minuto immagine pulita.
- * @param {object} params - channelId, channel, gameMessageId, originalArtworkUrl, durationMs, buildEmbed, rewardExp, attachmentName, gameType
- * @returns {NodeJS.Timeout[]} timeouts da clearare alla fine del gioco
- */
 function scheduleArtworkCensorSteps(params) {
   const { channelId, channel, gameMessageId, originalArtworkUrl, durationMs, buildEmbed, rewardExp, attachmentName, gameType } = params;
   if (!channelId || !channel || !gameMessageId || !originalArtworkUrl || !buildEmbed) return [];
@@ -5609,7 +5581,6 @@ function getObservationTowerTargetBricks(game) {
   return Math.max(1, Math.floor(Number(game?.targetBricks) || OBSERVATION_TOWER_DEFAULT_TARGET_BRICKS));
 }
 
-/** Costruttori minimi: almeno ceil(target/maxPerUser), altrimenti il cap per utente rende il target impossibile. */
 function getObservationTowerMinPlayers(game) {
   const target = getObservationTowerTargetBricks(game);
   const maxPerUser = getObservationTowerMaxPerUser(game);
@@ -5699,16 +5670,14 @@ function isObservationTowerHouseComplete(houseId, game) {
   if (!hid || !game) return false;
   const target = getObservationTowerTargetBricks(game);
   const minPlayers = getObservationTowerMinPlayers(game);
-  // Sempre dai crediti utente (maxPerUser): evita 40/40 “fantasma” scollegati dal cap.
-  const counts = recomputeObservationTowerHouseBrickCounts(
+    const counts = recomputeObservationTowerHouseBrickCounts(
     game.participantCounts,
     game.participantHouses,
     getObservationTowerMaxPerUser(game),
     target,
   );
   if (Number(counts[hid] || 0) < target) return false;
-  // Roster casata (include builder_only a mattoni pieni se minPlayers > ceil(target/max)).
-  return countObservationTowerHouseParticipants(game.participantHouses, hid) >= minPlayers;
+    return countObservationTowerHouseParticipants(game.participantHouses, hid) >= minPlayers;
 }
 
 function isObservationTowerComplete(game) {
@@ -5718,10 +5687,6 @@ function isObservationTowerComplete(game) {
   return HOGWARTS_HOUSE_IDS.every((id) => isObservationTowerHouseComplete(id, game));
 }
 
-/**
- * Applica 1 mattone (o registra un nuovo costruttore se i mattoni sono già al target
- * ma manca ancora minPlayers). Ritorna null se il messaggio non deve contare.
- */
 function applyObservationTowerBrickCredit(game, userId, houseId) {
   const uid = String(userId || "").trim();
   const hid = normalizeHogwartsHouseId(houseId);
@@ -5742,8 +5707,7 @@ function applyObservationTowerBrickCredit(game, userId, houseId) {
   }
 
   const alreadyBuilder = Boolean(participantHouses[uid]) || Number(participantCounts[uid] || 0) > 0;
-  // Mattoni casa sempre derivati dai crediti utente (maxPerUser), mai gonfiati.
-  const syncedBricks = recomputeObservationTowerHouseBrickCounts(
+    const syncedBricks = recomputeObservationTowerHouseBrickCounts(
     participantCounts,
     participantHouses,
     maxPerUser,
@@ -5751,8 +5715,7 @@ function applyObservationTowerBrickCredit(game, userId, houseId) {
   );
   const bricks = Number(syncedBricks[hid] || 0);
   if (bricks >= targetBricks) {
-    // Mattoni pieni ma manca minPlayers: nuovi costruttori entrano in roster senza mattoni finti.
-    if (alreadyBuilder) {
+        if (alreadyBuilder) {
       return {
         ok: false,
         reason: "brick_cap",
@@ -6182,10 +6145,6 @@ function normalizeHintTextForDiscord(str) {
   return out.join("");
 }
 
-/**
- * Indizio con lettere rivelate in posizione (es. "p _ r _ l a"). Non banale come "inizia per" o "N lettere".
- * Mantiene case originale e tutti gli spazi per non perdere caratteri in output.
- */
 function buildRevealHint(value, revealRatio = 0.4, includeEmoji = false) {
   const raw = (typeof value === "string" ? value : String(value || ""));
   const normalized = normalizeHintTextForDiscord(raw).trim();
@@ -6574,7 +6533,6 @@ function isHangmanFullWordMatch(guessText, wordNorm) {
   return guessText === wordNorm || compactNoSpaces(guessText) === compactNoSpaces(wordNorm);
 }
 
-/** In podio Hogwarts il round continua dopo la 1ª risposta: non svelare la parola sulla board. */
 function shouldRevealHangmanSolutionOnBoard(cfg, game, channelId = "") {
   if (!game || game.type !== "hangman") return false;
   if (!isHogwartsPodiumWinMode(cfg, game.type, game)) return true;
@@ -7331,15 +7289,13 @@ async function awardHogwartsHousePointsToHouse(client, guildId, houseId, gameTyp
       const beneficiaryId = String(opts.userId || "").trim();
       let consumable = { multiplier: 1, labels: [] };
       if (participantIds.length > 0) {
-        // Minigiochi in sala (es. torre): include boost personali dei partecipanti; applica il migliore.
-        for (const uid of participantIds) {
+                for (const uid of participantIds) {
           const row = await resolveHousePointsConsumableMultiplier(client, gid, uid, hid);
           const mult = Math.max(1, Number(row?.multiplier) || 1);
           if (mult > (Number(consumable.multiplier) || 1)) consumable = row;
         }
       } else {
-        // Con userId: global + casa + personale. Senza userId: solo global/casa.
-        consumable = await resolveHousePointsConsumableMultiplier(client, gid, beneficiaryId, hid);
+                consumable = await resolveHousePointsConsumableMultiplier(client, gid, beneficiaryId, hid);
       }
       consumableMultiplier = Math.max(1, Number(consumable?.multiplier) || 1);
       consumableLabels = Array.isArray(consumable?.labels) ? consumable.labels : [];
@@ -8095,8 +8051,7 @@ async function closeExpiredMinigameState(client, cfg, channel, state) {
   const guildId = String(channel?.guild?.id || cfg?.guildId || "").trim();
   const type = String(state?.type || "").trim();
   if (!channelId || !type) return;
-  // Riavvio a round scaduto: prima cerca una risposta corretta già in chat.
-  if (channel && (await tryAwardMissedMinigameWinFromHistory(client, cfg, channel, state))) {
+    if (channel && (await tryAwardMissedMinigameWinFromHistory(client, cfg, channel, state))) {
     return;
   }
   if (type === "treasureHunt") {
@@ -8177,9 +8132,7 @@ function scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationM
       await sendMinigameTimeoutAndClose(client, cfg, chId, channel, game, buildMinigameTimeoutEmbedForGame(game));
       return;
     }
-    // After restarts the in-memory timer may fire without a live game map entry;
-    // still close from persisted state so "Tempo scaduto" is not lost.
-    try {
+            try {
       let guildId = String(cfg?.guildId || channel?.guild?.id || "").trim();
       if (!guildId) guildId = await resolveMinigameGuildIdAsync({ ...cfg, channelId: chId }, client);
       await purgeExpiredMinigameDbState(client, { ...cfg, channelId: chId, guildId });
@@ -8209,8 +8162,7 @@ async function sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game
     } else if (timeoutEmbed) {
       embeds.push(timeoutEmbed);
     } else {
-      // Mai chiudere in silenzio: messaggio di timeout generico.
-      embeds.push(
+            embeds.push(
         new EmbedBuilder()
           .setColor(MINIGAME_EMBED_COLOR)
           .setDescription(
@@ -8228,8 +8180,7 @@ async function sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game
         if (fresh?.send) sent = await sendMinigameMessage(fresh, { embeds });
       }
       if (!sent) {
-        // Retry una volta dopo breve attesa (rate limit / canale momentaneamente offline).
-        await new Promise((r) => setTimeout(r, 750));
+                await new Promise((r) => setTimeout(r, 750));
         const retryCh = await getChannelCached(client, chId);
         if (retryCh?.send) sent = await sendMinigameMessage(retryCh, { embeds });
       }
@@ -8386,8 +8337,7 @@ async function scheduleMinuteHint(client, hintChannelId, durationMs, channelId, 
 async function scheduleGenericHint(client, channelId, durationMs, hintText) {
   if (!channelId || !durationMs || durationMs <= 60 * 1000 || !hintText)
     return null;
-  // Burrobirra strong: niente indizi automatici (eccetto memoria emoji: vedi scheduleBurrobirraMemoryEmojiHint).
-  if (isBurrobirraActiveForChannel(client, channelId)) return null;
+    if (isBurrobirraActiveForChannel(client, channelId)) return null;
   const channel = await getChannelCached(client, channelId);
   if (!channel) return null;
   const delay = durationMs - 60 * 1000;
@@ -8399,10 +8349,6 @@ async function scheduleGenericHint(client, channelId, durationMs, hintText) {
   return timer;
 }
 
-/**
- * Indizio parziale sequenza memoria: mostra ~metà emoji (es. 2/4, 3/5), il resto ❓.
- * Solo con effetto Burrobirra attivo (gli altri minigame invece spengono gli hint).
- */
 function buildMemoryEmojiPartialHint(sequence) {
   const tokens = String(sequence || "")
     .split(/[\s·•|]+/)
@@ -9457,8 +9403,7 @@ async function startHangmanGame(client, cfg) {
   const gameMessage = await sendMinigameMessage(channel, { embeds: [hangmanEmbed], files: hangmanAttachment ? [hangmanAttachment] : [], }, MINIGAME_QUESTION_BURROBIRRA).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutHangmanEmbed(game.word)); }, durationMs); timeout.unref?.();
-  // Niente indizio con lettere svelate: in evento/podio rovinerebbe la parola alle altre case.
-  const hintTimeout = null;
+    const hintTimeout = null;
 
   activeGames.set(channelId, {
     type: "hangman",
@@ -9675,7 +9620,6 @@ function encodeAlphabetCipherWord(word) {
     .join(" ");
 }
 
-/** Solo alias che, convertiti in numeri A=1…, danno la stessa sequenza della parola mostrata. */
 function filterCipherAnswersMatchingWord(word, rawAnswers = []) {
   const expected = encodeAlphabetCipherWord(word);
   const out = [];
@@ -9733,8 +9677,7 @@ async function startHogwartsCipherGame(client, cfg) {
   const answerNumbers = encodeAlphabetCipherWord(pick.word);
   if (!answerNumbers) return false;
   const burrobirraStrong = isBurrobirraActiveForChannel(client, channelId);
-  // Burrobirra: mostra un ordine diverso da quello della parola (come le emoji sequenza).
-  let numbers = burrobirraStrong
+    let numbers = burrobirraStrong
     ? shuffleCipherNumbersDifferentFromAnswer(answerNumbers)
     : answerNumbers;
   if (burrobirraStrong && numbers === answerNumbers) {
@@ -9880,9 +9823,7 @@ function syncObservationTowerSpawnCfgFromGame(cfg, game) {
 }
 
 function getObservationTowerLetterCount(raw) {
-  // Conta lettere Unicode (dopo strip accenti), non solo a-z post-normalizeCountryName:
-  // prima cifre/emoji custom azzeravano il conteggio e scartavano messaggi validi.
-  const cleaned = String(raw || "")
+      const cleaned = String(raw || "")
     .replace(/[\u200B-\u200D\uFEFF]/g, "")
     .replace(/<a?:[\w~]+:\d+>/g, " ")
     .replace(/https?:\/\/\S+/gi, " ");
@@ -9906,8 +9847,7 @@ function mergeObservationTowerRecountWithLive(liveGame, recounted) {
   }
   const maxPerUser = getObservationTowerMaxPerUser(liveGame);
   const targetBricks = getObservationTowerTargetBricks(liveGame);
-  // Mai tenere un totale casa “max” indipendente: solo somma dei crediti utente capped.
-  const outBricks = recomputeObservationTowerHouseBrickCounts(
+    const outBricks = recomputeObservationTowerHouseBrickCounts(
     outParticipants,
     outHouses,
     maxPerUser,
@@ -10101,7 +10041,6 @@ async function fetchObservationTowerMessagesPage(channel, opts) {
   return null;
 }
 
-/** Messaggi dopo l'embed di start, fino a endsAt (ordine cronologico). */
 async function fetchObservationTowerRoundMessages(channel, game) {
   const out = [];
   if (!channel?.messages?.fetch) return { messages: out, complete: false };
@@ -10174,9 +10113,6 @@ async function fetchObservationTowerRoundMessages(channel, game) {
   return { messages: unique, complete };
 }
 
-/**
- * Riconteggio affidabile a fine tempo (flood): non dipende dalle reaction in tempo reale.
- */
 async function recountObservationTowerBricks(channel, game, client) {
   const houseBrickCounts = emptyObservationTowerHouseBrickCounts();
   const participantCounts = {};
@@ -10210,8 +10146,7 @@ async function recountObservationTowerBricks(channel, game, client) {
     const userId = String(message.author?.id || "").trim();
     if (!userId || !guildId) continue;
 
-    // I pietrificati non contano mattoni/costruttori (anche a fine tempo).
-    if (game?.basilisk) {
+        if (game?.basilisk) {
       let blocked = basiliskCache.get(userId);
       if (blocked === undefined) {
         try {
@@ -10255,9 +10190,7 @@ async function recountObservationTowerBricks(channel, game, client) {
     participantHouses: serializeObservationTowerParticipantHouses(tallyGame.participantHouses),
     hadParticipation,
   };
-  // Se il fetch Discord è incompleto (429/flood), non sostituire i mattoni live con un sottoconteggio.
-  // Ma togli comunque i pietrificati dal live prima del merge.
-  if (!fetchComplete) {
+      if (!fetchComplete) {
     let liveForMerge = game;
     if (game?.basilisk && guildId) {
       try {
@@ -10335,8 +10268,7 @@ async function finishObservationTowerTimeout(client, cfg, channelId, channel, ga
       }).catch(() => { });
     }
 
-    // Piccolo grace: lascia arrivare gli ultimi messageCreate prima del riconteggio vittoria.
-    await new Promise((resolve) => setTimeout(resolve, 750));
+        await new Promise((resolve) => setTimeout(resolve, 750));
 
     if (channel?.messages?.fetch) {
       const recounted = await recountObservationTowerBricks(channel, game, client).catch((err) => {
@@ -10355,8 +10287,7 @@ async function finishObservationTowerTimeout(client, cfg, channelId, channel, ga
     recordNoParticipationIfNeeded(chId, game);
 
     if (isObservationTowerComplete(game)) {
-      // Già claimato dal timeout: finishObservationTowerSuccess gestisce awards/embed.
-      await finishObservationTowerSuccess(client, cfg, channel, game);
+            await finishObservationTowerSuccess(client, cfg, channel, game);
       return;
     }
 
@@ -10489,9 +10420,7 @@ async function processObservationTowerMessage(message, client, cfg, game) {
     return true;
   }
 
-  // Solo il mutamento dei contatori è serializzato: resolve casata fuori dal lock
-  // altrimenti col flood la coda cresce e i mattoni restano in ritardo / persi in live.
-  const chId = String(cfg?.channelId || message.channelId || "");
+      const chId = String(cfg?.channelId || message.channelId || "");
   return runMinigameChannelExclusive(chId, async () => {
     if (channelWinClosing.has(chId)) return true;
     const liveGame = activeGames.get(chId);
@@ -10518,8 +10447,7 @@ async function processObservationTowerMessage(message, client, cfg, game) {
       await finishObservationTowerSuccess(client, cfg, message.channel, liveGame);
       return true;
     }
-    // Reaction in background: col flood non deve bloccare il conteggio live.
-    void message.react(OBSERVATION_TOWER_BRICK_EMOJI).catch(() => { });
+        void message.react(OBSERVATION_TOWER_BRICK_EMOJI).catch(() => { });
     void persistObservationTowerState(client, cfg, liveGame).catch(() => { });
     return true;
   });
@@ -11326,8 +11254,7 @@ async function startFinaleChaosFindScroll(client, opts = {}) {
   if (!base?.channelId) return false;
   const announceId = String(opts.announceChannelId || base.channelId || "").trim();
   if (!announceId) return false;
-  // Busy check sullo stesso canale dove verrà montata la partita (non solo base).
-  if (activeGames.has(announceId) || activeGames.has(base.channelId)) return false;
+    if (activeGames.has(announceId) || activeGames.has(base.channelId)) return false;
   const { CHAOS_FIND_SCROLL_WINNERS } = require("../Community/hogwartsFinaleChaosDayService");
   const requiredWinners = Math.max(1, Number(opts.requiredWinners) || Number(CHAOS_FIND_SCROLL_WINNERS) || 1);
   const durationMs = Math.max(60_000, Math.floor(Number(opts.durationMs) || 900000));
@@ -11360,7 +11287,6 @@ async function startFinaleChaosFindScroll(client, opts = {}) {
   return startFindScrollGame(client, cfg);
 }
 
-/** Tick persistente per indizi pergamena chaos (sopravvive a restart bot). */
 async function tickFinaleChaosFindScrollHints(client, chaosCfg, nowMs = Date.now()) {
   const base = getConfig(client);
   if (!base?.channelId) return;
@@ -11396,16 +11322,11 @@ function normalizeHogwartsMemorySequence(value) {
     .trim();
 }
 
-/** True se acceptsAt è un sentinel (es. MAX_SAFE_INTEGER) salvato per errore a metà reveal. */
 function isAbsurdMemoryAcceptsAt(value) {
   const n = Number(value);
   return !Number.isFinite(n) || n >= 1e15;
 }
 
-/**
- * Match sequenza memory: messaggio intero oppure una qualsiasi riga
- * (dopo un retry sulla seconda riga nello stesso messaggio).
- */
 function memoryEmojiMessageMatches(content, normalizedSequence) {
   const want = String(normalizedSequence || "");
   if (!want) return false;
@@ -11423,14 +11344,12 @@ function displayHogwartsMemorySequence(row) {
   return String(row?.sequence || "").trim();
 }
 
-/** Ogni round mescola l'ordine delle emoji (il bank resta solo il set). */
 function shuffleMemoryEmojiRow(row) {
   if (!row || typeof row !== "object") return row;
   if (!Array.isArray(row.sequence) || row.sequence.length <= 1) return row;
   return { ...row, sequence: shuffleArray(row.sequence) };
 }
 
-/** Display Burrobirra: stesso set, ordine diverso dalla risposta (così non basta copiare). */
 function shuffleMemoryTokensDifferentFromAnswer(answerTokens) {
   const base = (Array.isArray(answerTokens) ? answerTokens : [])
     .map((x) => String(x || "").trim())
@@ -11449,7 +11368,6 @@ function shuffleMemoryTokensDifferentFromAnswer(answerTokens) {
   return next;
 }
 
-/** Cifrario Burrobirra: stessi numeri, ordine ≠ encoding della parola (niente “parola in fila”). */
 function shuffleCipherNumbersDifferentFromAnswer(answerNumbers) {
   const base = String(answerNumbers || "")
     .trim()
@@ -11476,8 +11394,7 @@ async function persistMemoryEmojiPromptState(client, cfg, game, promptMessageId)
   if (!client || !cfg?.channelId || !game || !promptMessageId) return;
   game.promptMessageId = promptMessageId;
   let acceptsAt = Number(game.acceptsAt || 0);
-  // Non persistere mai il sentinel “chiuso” usato solo in memoria durante il reveal.
-  if (isAbsurdMemoryAcceptsAt(acceptsAt)) acceptsAt = Date.now();
+    if (isAbsurdMemoryAcceptsAt(acceptsAt)) acceptsAt = Date.now();
   await saveActiveGame(client, cfg, {
     type: game.type,
     target: JSON.stringify({
@@ -11495,10 +11412,6 @@ async function persistMemoryEmojiPromptState(client, cfg, game, promptMessageId)
   });
 }
 
-/**
- * Dopo restore/restart: assegna la win al primo messaggio corretto già in canale
- * (mandato mentre il bot era giù o con acceptsAt ancora chiuso).
- */
 async function catchUpMemoryEmojiWinFromHistory(client, cfg, channel, game) {
   const chId = String(cfg?.channelId || channel?.id || "").trim();
   if (!client || !channel?.messages?.fetch || !game?.normalizedSequence || !chId) return false;
@@ -11514,8 +11427,7 @@ async function catchUpMemoryEmojiWinFromHistory(client, cfg, channel, game) {
     .filter((m) => {
       if (!m || m.author?.bot || m.system || m.webhookId) return false;
       if (!promptId) return true;
-      // Solo messaggi dopo l'embed "Sequenza svanita" (snowflake = ordine temporale).
-      try {
+            try {
         if (BigInt(String(m.id)) <= BigInt(promptId)) return false;
       } catch (_) {
         if (String(m.id) === promptId) return false;
@@ -11704,9 +11616,6 @@ function buildCatchUpGameFromPersistedState(state, cfg = null) {
   return attachHogwartsHouseChannelMeta(snap, cfg);
 }
 
-/**
- * Dopo riavvio: se qualcuno aveva già risposto bene mentre il bot era giù, assegna la win.
- */
 async function catchUpTextMinigameWinFromHistory(client, cfg, channel, game) {
   const chId = String(cfg?.channelId || channel?.id || "").trim();
   if (!client || !channel?.messages?.fetch || !game || !chId) return false;
@@ -11873,8 +11782,7 @@ function snipeContentLeaksMinigameAnswer(content, secrets) {
   for (const secret of secrets) {
     const s = String(secret || "").trim();
     if (!s) continue;
-    // Evita falsi positivi su token troppo corti (es. "a", "e"), salvo numeri.
-    if (s.length < 2 && !/^\d+$/.test(s)) continue;
+        if (s.length < 2 && !/^\d+$/.test(s)) continue;
     if (lower === s || compact === s.replace(/\s+/g, "")) return true;
     if (s.length >= 3 && (lower.includes(s) || compact.includes(s.replace(/\s+/g, "")))) return true;
     if (memNorm && memNorm === s) return true;
@@ -11914,10 +11822,6 @@ function redactSnipeContentForMinigame(client, channelId, content) {
   return "Contenuto nascosto (risposta minigame).";
 }
 
-/**
- * Al restore: riusa l'embed "Sequenza svanita" già in canale se esiste, altrimenti ne manda uno nuovo.
- * Non persiste qui: il caller deve chiamare persist con un acceptsAt valido (mai MAX sentinel).
- */
 async function ensureMemoryEmojiRecallPrompt(client, cfg, channel, game, remainingMs) {
   if (!game || !channel) return null;
   const existingId = String(game.promptMessageId || "").trim();
@@ -11965,8 +11869,7 @@ async function openMemoryEmojiAnswers(client, cfg, channel, game, options = {}) 
   if (game.promptMessageId) {
     await persistMemoryEmojiPromptState(client, cfg, game, game.promptMessageId);
   }
-  // Hint parziale solo con Burrobirra (altri minigame: hint disattivati durante l'effetto).
-  if (game.hintTimeout) {
+    if (game.hintTimeout) {
     try {
       clearTimeout(game.hintTimeout);
     } catch (_) {}
@@ -11988,8 +11891,7 @@ async function openMemoryEmojiAnswers(client, cfg, channel, game, options = {}) 
 async function revealMemoryEmojiAndOpenAnswers(client, cfg, channel, channelId, type, sequenceMessage = null, options = {}) {
   const game = activeGames.get(channelId);
   if (!game || game.type !== type) return;
-  // Chiudi risposte finché la sequenza non è cancellata e l'embed recall non è in canale.
-  game.acceptsAt = Number.MAX_SAFE_INTEGER;
+    game.acceptsAt = Number.MAX_SAFE_INTEGER;
   const seqMsgId = String(game.sequenceMessageId || sequenceMessage?.id || "").trim();
   if (seqMsgId) suppressMinigameSnipe(client, channelId, seqMsgId);
 
@@ -12013,10 +11915,6 @@ async function revealMemoryEmojiAndOpenAnswers(client, cfg, channel, channelId, 
   await openMemoryEmojiAnswers(client, cfg, channel, game, options);
 }
 
-/**
- * Restore memory emoji dopo restart: in fase recall accetta subito le risposte
- * e recupera eventuali messaggi corretti già in canale.
- */
 async function mountMemoryEmojiGameFromState(client, cfg, channel, state, remainingMs) {
   const chId = String(cfg.channelId || "").trim();
   if (!chId || !channel) return;
@@ -12142,13 +12040,11 @@ async function startMemoryEmojiGame(client, cfg, options) {
   if (options?.requiresEvent && (!gameCfg?.eventLive || !gameCfg?.unlocked)) return false;
 
   const pick = pickQuestionAvoidRecent(channelId, type, options?.bank || [], displayHogwartsMemorySequence, 20);
-  // Ordine corretto da indovinare/riscrivere.
-  const sequence = displayHogwartsMemorySequence(shuffleMemoryEmojiRow(pick));
+    const sequence = displayHogwartsMemorySequence(shuffleMemoryEmojiRow(pick));
   const burrobirraStrong = isBurrobirraActiveForChannel(client, channelId);
   let displaySequence = sequence;
   if (burrobirraStrong) {
-    // Mostra le stesse emoji in un ordine DIVERSO: copiare il display non basta.
-    const answerTokens = String(sequence).split(/\s+/).filter(Boolean);
+        const answerTokens = String(sequence).split(/\s+/).filter(Boolean);
     displaySequence = shuffleMemoryTokensDifferentFromAnswer(answerTokens).join("·");
   }
   const normalizedSequence = normalizeHogwartsMemorySequence(sequence);
@@ -12173,8 +12069,7 @@ async function startMemoryEmojiGame(client, cfg, options) {
   suppressMinigameSnipe(client, channelId, sequenceMessage.id);
 
   const now = Date.now();
-  // Risposte aperte solo dopo delete + embed "Sequenza svanita" (evita snipe/race).
-  const acceptsAt = Number.MAX_SAFE_INTEGER;
+    const acceptsAt = Number.MAX_SAFE_INTEGER;
   const endsAt = now + displayMs + durationMs;
   const revealTimeout = setTimeout(() => {
     void revealMemoryEmojiAndOpenAnswers(client, cfg, channel, channelId, type, sequenceMessage).catch(() => {});
@@ -14045,9 +13940,7 @@ async function bootstrapMinigameScheduler(client) {
   const eventCfg = resolveHogwartsEventConfig(client);
   const eventOpen = isEventWindowOpen(eventCfg, Date.now());
 
-  // Prima ripristina le partite in corso: altrimenti un tick spawn "overdue" al boot
-  // può mandare un minigioco nuovo mentre quello precedente è ancora vivo in Discord/DB.
-  try {
+      try {
     await restoreActiveGames(client);
   } catch (err) {
     global.logger?.error?.("[MINIGAMES] restoreActiveGames failed:", err?.message || err);
@@ -14561,8 +14454,7 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
     return;
   }
 
-  // Finale chaos — Caccia alle pergamene: servono 2 vincitori diversi.
-  if (game?.finaleChaos && game?.type === "findScroll") {
+    if (game?.finaleChaos && game?.type === "findScroll") {
     const chaos = game.finaleChaos;
     const { CHAOS_FIND_SCROLL_WINNERS } = require("../Community/hogwartsFinaleChaosDayService");
     const required = Math.max(2, Number(chaos.requiredWinners) || Number(CHAOS_FIND_SCROLL_WINNERS) || 2);
@@ -14612,8 +14504,7 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
         }).catch(() => { });
         return;
       }
-      // Partite spawnate con requiredWinners:1 (bug) → forza 2.
-      live.finaleChaos.requiredWinners = required;
+            live.finaleChaos.requiredWinners = required;
       const liveWinners = Array.isArray(live.finaleChaos.winnerIds) ? live.finaleChaos.winnerIds.map(String) : [];
       if (liveWinners.includes(uid)) {
         await interaction.reply({
@@ -14649,8 +14540,7 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
         },
         rewardKeyPrefix: `${chaos.chaosEventKey || "finale"}:${chaos.slotKey || game.customId || "scroll"}:findScroll`,
         reason: `Finale chaos — Caccia alle pergamene ${chaos.slotKey || ""}`,
-        // Boost 1° slot solo al primo dei due claim.
-        firstSlot: chaos.firstSlot === true && liveWinners.length === 1,
+                firstSlot: chaos.firstSlot === true && liveWinners.length === 1,
         boostType: chaos.boostType || "housePoints",
         boostScope: chaos.boostScope || "personal",
       });
@@ -14690,8 +14580,7 @@ async function handleMinigameButtonWin(interaction, game, cfg) {
         flags: 1 << 6,
       }).catch(() => { });
 
-      // Persisti winnerIds così un restart non perde il 1° claim.
-      try {
+            try {
         await saveActiveGame(
           client,
           { ...winCfg, channelId: announceId, guildId: interaction.guild.id },
@@ -15666,8 +15555,7 @@ ${game.previewUrl}`,
   const expectedType = isFindScrollButton ? "findScroll" : "findBot";
   let liveGame = game && game.type === expectedType ? game : null;
   let liveMapKey = liveGame ? String(cfg.channelId || "") : "";
-  // Finale chaos / restart: cerca anche per customId se la partita non è sulla chat main.
-  if (!liveGame && isFindHiddenButton) {
+    if (!liveGame && isFindHiddenButton) {
     const wantId = String(interaction.customId || "");
     for (const [key, g] of activeGames.entries()) {
       if (g && g.type === expectedType && String(g.customId || "") === wantId) {
@@ -16706,9 +16594,7 @@ async function isMinigameFloodExemptChannel(message) {
   }
 
   if (game && typeof game === "object" && !isStaleOrInvalidActiveGame(game)) {
-    // Torre: solo i costruttori smistati (casa corretta) sono esenti dal flood.
-    // I non smistati restano sotto automod.
-    if (game.type === "hogwartsObservationTower") {
+            if (game.type === "hogwartsObservationTower") {
       const houseId = await resolveAuthorHouseId();
       if (!houseId) return false;
       const soloHouseId = String(game.soloHouseId || game.hogwartsHouseChannel?.soloHouseId || "").trim();
@@ -16728,9 +16614,7 @@ async function isMinigameFloodExemptChannel(message) {
     }
   }
 
-  // Sale comuni: esenzione flood solo per membri smistati nella casa del canale.
-  // I non smistati che flooddano restano sotto automod.
-  if (isHouseCh) {
+      if (isHouseCh) {
     const houseId = await resolveAuthorHouseId();
     if (!houseId) return false;
     const channelHouse = normalizeHogwartsHouseId(houseChannelSvc.getHouseIdForChannel(msgChId));

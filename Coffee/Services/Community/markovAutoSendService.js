@@ -75,8 +75,7 @@ function getMarkovReplyConfig(client) {
   const auto = markov.autoSend && typeof markov.autoSend === "object" ? markov.autoSend : {};
   const cooldownRaw = Number(auto.replyCooldownMs ?? 8000);
   const maxTrackedRaw = Number(auto.maxTrackedMessageIds ?? 500);
-  // Solo reply a messaggi Markov generati (default). `replyToBotMessage` = qualsiasi msg del bot (opt-in).
-  const replyToMarkovMessage =
+    const replyToMarkovMessage =
     auto.replyToMarkovMessage === true ||
     (auto.replyToMarkovMessage !== false && auto.replyToBotMessage !== true);
   const replyToBotMessage = auto.replyToBotMessage === true;
@@ -173,7 +172,6 @@ function messageMentionsClient(message, client) {
   return content.includes(`<@${botId}>`) || content.includes(`<@!${botId}>`);
 }
 
-/** Menzione esplicita nel testo (non solo il ping automatico della reply a Discord). */
 function messageMentionsClientInContent(message, client) {
   const botId = String(client?.user?.id || "").trim();
   if (!botId) return false;
@@ -182,11 +180,6 @@ function messageMentionsClientInContent(message, client) {
   return content.includes(`<@${botId}>`) || content.includes(`<@!${botId}>`);
 }
 
-/**
- * True se la menzione del bot è un trigger valido.
- * Una reply al bot con solo il ping automatico NON conta: altrimenti trascrizioni/embed
- * non-Markov farebbero partire Markov a ogni "Rispondi".
- */
 function isValidMentionTrigger(message, client, refMessage, replyCfg) {
   if (!replyCfg?.replyToMention) return false;
   if (!messageMentionsClient(message, client)) return false;
@@ -196,7 +189,6 @@ function isValidMentionTrigger(message, client, refMessage, replyCfg) {
   return true;
 }
 
-/** True se il messaggio è (o inizia con) un comando prefix tipo `+ship` / `,play`, anche dopo menzioni. */
 function isPrefixCommandMessage(message, client) {
   let text = String(message?.content || "").trim();
   if (!text) return false;
@@ -224,10 +216,8 @@ function isMarkovReplyTarget(refMessage, guildId, client, replyCfg = null) {
   if (!refMessage) return false;
   if (!isBotClientMessage(refMessage, client)) return false;
   const cfg = replyCfg || getMarkovReplyConfig(client);
-  // Opt-in esplicito: reply a qualsiasi messaggio del bot (giveaway, annunci, …).
-  if (cfg.replyToBotMessage) return true;
-  // Default: solo messaggi effettivamente generati da Markov (tracciati).
-  if (cfg.replyToMarkovMessage) {
+    if (cfg.replyToBotMessage) return true;
+    if (cfg.replyToMarkovMessage) {
     return isTrackedMarkovMessage(guildId, refMessage.id);
   }
   return false;
@@ -305,10 +295,8 @@ function buildAutoSendPayload(client, text, images, stickers, opts = {}) {
 
   const payload = {
     allowedMentions: buildAllowedMentionsForText(trimmedText, markov),
-    // Testo markov non è un deny/ACL: non wrapparlo in notice embed.
-    __skipNoticeEmbed: true,
-    // Media markov = file/attachment, mai footer-only embed.
-    __skipDefaultEmbedFooter: true,
+        __skipNoticeEmbed: true,
+        __skipDefaultEmbedFooter: true,
   };
   if (trimmedText) payload.content = trimmedText;
   if (imageUrl) payload.pendingImageUrl = imageUrl;
@@ -337,8 +325,7 @@ async function materializeMarkovPayload(payload, client) {
 
   if (pendingStickerRef) {
     const stickerId = String(pendingStickerRef?.id || pendingStickerRef || "").trim();
-    // Preferisci sticker nativo Discord (no riquadro embed vuoto).
-    if (stickerId) {
+        if (stickerId) {
       out.stickers = [stickerId];
       out.pendingStickerRef = normalizePendingStickerRef(pendingStickerRef);
     } else {
@@ -352,8 +339,7 @@ async function materializeMarkovPayload(payload, client) {
     }
   }
 
-  // Mai lasciare embed media markov (CDN scaduti → box grigio + footer).
-  if (Array.isArray(out.embeds)) {
+    if (Array.isArray(out.embeds)) {
     delete out.embeds;
   }
 
@@ -561,18 +547,14 @@ async function tryReplyToMarkovMessage(message, client) {
   if (!isMarkovEnabled(client)) return false;
   const replyCfg = getMarkovReplyConfig(client);
   if (!replyCfg.enabled) return false;
-  // Solo #chat (outputChannelId): menzioni/reply Markov non devono parlare fuori da lì.
-  if (!isAutoSendTriggerChannel(message, client)) return false;
+    if (!isAutoSendTriggerChannel(message, client)) return false;
   if (!isMarkovEligibleChannel(message.channel, message.guild, client.config || {}, client)) return false;
-  // Niente reply Markov su comandi (`+ship`, `,play`, ecc.), anche in reply/menzione al bot.
-  if (isPrefixCommandMessage(message, client)) return false;
+    if (isPrefixCommandMessage(message, client)) return false;
 
   const refId = getReplyReferenceId(message);
   const refMessage = refId ? await resolveReferencedMessage(message) : null;
 
-  // Reply a un messaggio del bot: solo se è Markov tracciato (o replyToBotMessage).
-  // Il ping automatico della reply NON deve attivare replyToMention su trascrizioni/altro.
-  let isValidTrigger = false;
+      let isValidTrigger = false;
   if (refMessage && isBotClientMessage(refMessage, client)) {
     isValidTrigger = isMarkovReplyTarget(refMessage, String(message.guild.id), client, replyCfg);
   } else {

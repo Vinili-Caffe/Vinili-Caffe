@@ -8,8 +8,7 @@ function ensureCacheDir() {
   try {
     fs.mkdirSync(CACHE_DIR, { recursive: true });
   } catch {
-    // tmp dir may be read-only or missing
-  }
+      }
 }
 
 function getStatePath(botKey) {

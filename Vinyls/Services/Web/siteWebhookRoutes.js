@@ -9,9 +9,6 @@ function isCandidatureWebsiteApiEnabled() {
   return ["1", "true", "yes", "on"].includes(String(process.env.WEBSITE_CANDIDATURE_HTTP || "").trim().toLowerCase());
 }
 
-/**
- * Monta tutte le route /webhooks/site-* (bots + site-api durable).
- */
 function mountSiteWebhookRoutes(app, client, deps) {
   const normalizeHeaderSecret = deps.normalizeHeaderSecret;
   const siteCandidatureCorsMiddleware = deps.siteCorsMiddleware;
@@ -137,7 +134,6 @@ function mountSiteWebhookRoutes(app, client, deps) {
       "[WEBHOOK] API sito disattive: WEBSITE_CANDIDATURE_HTTP disattivo — GET/POST su /webhooks/site-candidature, /webhooks/site-unban e /webhooks/site-unmute rispondono 503.",
     );
   }
-
 
   const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload");
   const { handleSiteUsersLeaderboardGet } = require("../../Utils/Web/siteUsersLeaderboardApi");
@@ -690,6 +686,10 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.get("/webhooks/site-kick-live/preview.mp4", (req, res) => {
     const { handleSiteKickLivePreviewMp4 } = require("../../Utils/Web/siteKickLiveApi");
     return handleSiteKickLivePreviewMp4(client, req, res);
+  });
+  app.get("/webhooks/site-kick-live/thumb", (req, res) => {
+    const { handleSiteKickLiveThumb } = require("../../Utils/Web/siteKickLiveApi");
+    return handleSiteKickLiveThumb(client, req, res);
   });
   app.get("/webhooks/site-kick-live/proxy", (req, res) => {
     const { handleSiteKickLiveProxy } = require("../../Utils/Web/siteKickLiveApi");
@@ -2908,8 +2908,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
         req.params?.ticketId,
       );
       if (!out.ok) return res.status(Number(out.status) || 500).json(out);
-      // JSON (apiUrl): il client fetcha l'HTML con Bearer — niente 302 alla gate pubblica.
-      if (out.apiUrl || out.redirectUrl) {
+            if (out.apiUrl || out.redirectUrl) {
         res.setHeader("Cache-Control", "private, no-store");
         return res.status(200).json({
           ok: true,

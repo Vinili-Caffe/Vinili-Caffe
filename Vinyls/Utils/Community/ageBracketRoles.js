@@ -36,7 +36,6 @@ function computeAgeFromBirthParts(day, month, birthYear, now = new Date()) {
   return Math.max(0, today.year - Number(birthYear) - (hasBirthdayPassed ? 0 : 1));
 }
 
-/** @returns {{ targetId: string | null, stripOnly: boolean }} */
 function getAgeBracketRoleIdForAge(age) {
   if (!Number.isFinite(age)) return { targetId: null, stripOnly: false };
   if (age < 13) return { targetId: null, stripOnly: true };
@@ -93,10 +92,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * All'avvio: riallinea i ruoli 13-14 / 15-16 / 17-18 / 19+ in base a data + anno di nascita salvati.
- * Disabilitabile con AGE_BRACKET_BIRTHDAY_ROLE_SYNC_ON_STARTUP=0|false|off|no
- */
 async function syncAgeBracketRolesFromStoredBirthdays(client) {
   const envRaw = String(process.env.AGE_BRACKET_BIRTHDAY_ROLE_SYNC_ON_STARTUP || "").trim().toLowerCase();
   if (["0", "false", "off", "no"].includes(envRaw)) {

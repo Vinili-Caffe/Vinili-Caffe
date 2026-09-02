@@ -61,6 +61,12 @@
     el.hidden = !msg;
   }
 
+  function revealAccordion() {
+    if (typeof window.__vcRevealRegoleAccordion === "function") {
+      window.__vcRevealRegoleAccordion();
+    }
+  }
+
   function renderTabs() {
     var root = byId("vc-regole-tabs");
     if (!root || !payload || !payload.categories) return;
@@ -84,6 +90,7 @@
       });
       root.appendChild(btn);
     });
+    revealAccordion();
   }
 
   function renderList() {
@@ -185,6 +192,7 @@
         });
       });
     });
+    revealAccordion();
   }
 
   function t(key, fallback) {
@@ -213,9 +221,10 @@
     try {
       var data = {};
       var resOk = false;
+      var cached = null;
       if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
         var cacheKey = window.VcApiCache.keyFor(url, { scope: "regole" });
-        var cached = await window.VcApiCache.fetchWithCache(cacheKey, url, {
+        cached = await window.VcApiCache.fetchWithCache(cacheKey, url, {
           ttlMs: 10 * 60 * 1000,
           staleMs: 60 * 60 * 1000,
           persistMs: 24 * 60 * 60 * 1000,
@@ -232,6 +241,19 @@
           data = {};
         }
         resOk = Boolean(res.ok && data.ok);
+      }
+      if (!resOk && cached && cached.status === 429 && window.VcApiCache) {
+        var staleKey = window.VcApiCache.keyFor(url, { scope: "regole" });
+        try {
+          var raw = localStorage.getItem("vc:apicache:local:" + staleKey);
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.value && parsed.value.body && parsed.value.body.ok) {
+              data = parsed.value.body;
+              resOk = true;
+            }
+          }
+        } catch (eStale) {}
       }
       if (!resOk) {
         setState(t("rules.errLoad", "Impossibile caricare le regole dal bot."), true);

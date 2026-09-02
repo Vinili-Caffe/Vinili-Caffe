@@ -42,17 +42,9 @@ async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
   return res?.modifiedCount ?? 0;
 }
 
-/**
- * Elimina (o conta in dryRun) i documenti di utenti non presenti in memberIds per la guild indicata.
- * @param {string} guildId - ID della guild (server principale)
- * @param {string[]} memberIds - array di user ID attualmente nel server
- * @param {{ dryRun?: boolean, includeUserScoped?: boolean }} options - dryRun: true solo conta, false esegue deleteMany
- * @returns {{ total: number, details: Array<{ name: string, count: number }> }}
- */
 async function unsetStaffForUsersNotInGuild(guildId, memberIds, dryRun, memberCountHint = 0) {
   const keep = [...new Set((Array.isArray(memberIds) ? memberIds : []).map((id) => String(id || "").trim()).filter(Boolean))];
-  // Safety: lista deve essere ~completa rispetto a memberCount.
-  if (!dryRun) {
+    if (!dryRun) {
     const reported = Math.max(0, Number(memberCountHint || 0));
     const completeEnough =
       reported > 0
@@ -157,9 +149,6 @@ async function runCleanupUserScopedNotInAnyServer(memberIds, { dryRun = false } 
   return { total, details };
 }
 
-/**
- * Stessa logica del cleanup post-ready: tutte le guild del client, fetch membri, poi user-scoped globale.
- */
 async function runFullCleanupUsersNotInServer(client) {
   const guilds = Array.from(client.guilds?.cache?.values() ?? []);
   if (!guilds.length) return;
@@ -183,9 +172,6 @@ async function runFullCleanupUsersNotInServer(client) {
   await runCleanupUserScopedNotInAnyServer(Array.from(allMemberIds), { dryRun: false });
 }
 
-/**
- * Dopo guildMemberRemove: cache membri già senza chi chiude; ripulitura guild + user-scoped su tutti i server dello shard.
- */
 async function runCleanupAfterMemberLeave(client, guild) {
   if (!client?.guilds || !guild?.id) return;
   const guildId = String(guild.id);

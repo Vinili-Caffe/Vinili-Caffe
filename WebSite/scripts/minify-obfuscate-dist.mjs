@@ -18,13 +18,14 @@ const SKIP_JS_OBFUSCATION = new Set([
   "vc-landing.js",
   "vc-mobile-nav.js",
   "dashboard-access-gate.js",
-  // Dashboard guild: file enorme + race loader/overview; l'offuscamento ha lasciato UI “solo footer”.
-  "dashboard-guild-page.js",
+    "dashboard-guild-page.js",
+  "dashboard-guild-boot.js",
+  "dashboard-guild-core.js",
+  "dashboard-guild-ext.js",
   "site-maintenance.js",
   "roles-page.js",
   "staff-punti-tolti-page.js",
-  // Dictionary + apply must keep literal i18n keys (stringArray breaks lookups).
-  "vc-i18n.js",
+    "vc-i18n.js",
   "vc-i18n-pages.js",
   "vc-i18n-pages-extra.js",
   "vc-i18n-locales.js",
@@ -189,7 +190,6 @@ export async function obfuscateProjectJsInDist(distRoot) {
   const sec = ((Date.now() - started) / 1000).toFixed(1);
   console.log(`[build-site] Offuscamento JS: ${files.length} file in dist/js (${sec}s, ${workers} worker)`);
 }
-
 
 export async function minifyHtmlFilesInDist(distRoot) {
   let minify;

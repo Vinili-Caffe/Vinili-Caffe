@@ -53,8 +53,7 @@ async function buildManagedInviteIndex() {
       }
     }
   } catch {
-    /* ignore */
-  }
+      }
   return map;
 }
 
@@ -126,9 +125,6 @@ async function resolveGuildMembersForLeaderboard(client, guildId) {
   return guild;
 }
 
-/**
- * Solo membri con ruolo Partner Manager (come +leaderboard Discord / pannello Manager).
- */
 async function filterRowsToPartnerManagers(client, guildId, rows) {
   const list = Array.isArray(rows) ? rows : [];
   if (!list.length) return [];
@@ -179,15 +175,11 @@ async function getDashboardPartnershipLeaderboard(client, accessToken, guildId, 
   const period = normalizePeriod(query.period || "total");
   const page = parsePage(query.page);
   const perPage = parsePerPage(query.perPage);
-  // Partner Manager: scope al server corrente (anche main Vinili).
-  // Server / Join: classifica globale dei tenant partnership.
-  const partnerScopeGuildId = category === "partners" ? access.guildId : null;
+      const partnerScopeGuildId = category === "partners" ? access.guildId : null;
 
   let rows = [];
   try {
-    // Evita classifica server incompleta se la cache partnership non è ancora calda
-    // (o è rimasta “solo main” dopo un boot di site-api).
-    if (category === "servers") {
+            if (category === "servers") {
       await refreshPartnershipConfigCache().catch(() => null);
     }
     rows = await fetchLeaderboardRows(category, period, partnerScopeGuildId);

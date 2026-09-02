@@ -27,8 +27,7 @@ const MAIN_TEAM_DEFS = [
     seedKey: "main:partnership",
     name: "Partnership",
     roleIds: () => [IDs.roles.PartnerManager, IDs.roles.HighStaff].filter(Boolean),
-    // Gestore PM (revisore resoconto): accesso ticket anche senza ruolo Partner Manager.
-    userIds: () => getResocontoReviewerUserIdsForSegment("pm"),
+        userIds: () => getResocontoReviewerUserIdsForSegment("pm"),
     panelSeedKey: "main:partnership",
   },
   {
@@ -101,8 +100,7 @@ async function ensureMainTicketTeamsSeeded(options = {}) {
       const seedMembers = membersFromDef(def);
       const existing = bySeed.get(def.seedKey);
       if (existing) {
-        // Aggiunge membri seed mancanti (es. gestore PM) senza rimuovere customizzazioni.
-        const merged = mergeMissingSeedMembers(existing.members, seedMembers);
+                const merged = mergeMissingSeedMembers(existing.members, seedMembers);
         if (!merged.changed) continue;
         const idx = teams.findIndex((t) => String(t.id) === String(existing.id));
         if (idx < 0) continue;

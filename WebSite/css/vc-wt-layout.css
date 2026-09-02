@@ -1,4 +1,3 @@
-/* Tickets layout — full-bleed, hero compatto, chat alta (anti-cache). */
 body.vc-web-tickets-page:not(.vc-page-cine-layout) main.vc-reviews-page {
   width: min(100%, 86rem) !important;
   max-width: 86rem !important;
@@ -31,12 +30,10 @@ body.vc-web-tickets-page .vc-wt-board {
   min-height: 0 !important;
 }
 
-/* Niente titolo "Assistenza / I tuoi ticket": più spazio alla board. */
 body.vc-web-tickets-page .vc-wt-board > .vc-reviews-section__head {
   display: none !important;
 }
 
-/* Solo i due pannelli interni (lista + chat): niente card esterna attorno al layout. */
 body.vc-web-tickets-page .vc-wt-board,
 body.vc-web-tickets-page .vc-wt-app,
 html.vc-site-polish body.vc-web-tickets-page .vc-wt-board,
@@ -53,16 +50,18 @@ html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-board.is-tilting {
   isolation: auto !important;
 }
 
-/* Un solo riquadro: lista + chat attaccate, senza gap/angoli interni. */
 body.vc-web-tickets-page .vc-wt-layout {
   background: rgba(15, 23, 42, 0.34) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 1.6rem !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 36px rgba(0, 0, 0, 0.22) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
   gap: 0 !important;
   overflow: hidden !important;
+  isolation: isolate !important;
 }
 
 body.vc-web-tickets-page .vc-wt-sidebar,
@@ -88,7 +87,6 @@ body.vc-web-tickets-page .vc-wt-compose-panel {
   }
 }
 
-/* Toggle I miei / Inbox sempre visibile in cima alla sidebar staff. */
 body.vc-web-tickets-page .vc-wt-sidebar__top--staff {
   flex-wrap: wrap !important;
   gap: 0.55rem 0.75rem !important;
@@ -115,6 +113,8 @@ body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero {
   margin-bottom: 0.9rem !important;
   border-radius: 2rem !important;
   overflow: hidden !important;
+  position: relative !important;
+  isolation: isolate !important;
 }
 @media (min-width: 640px) {
   body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero {
@@ -158,7 +158,6 @@ body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-support-page-hero p.max-w
   line-height: 1.55 !important;
 }
 
-/* Hero: titolo a sinistra, Come funziona + Nota a destra (full width). */
 body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-wt-hero-grid {
   display: grid !important;
   gap: 2.5rem !important;
@@ -176,11 +175,52 @@ body.vc-web-tickets-page:not(.vc-page-cine-layout) .vc-wt-hero-aside {
   gap: 1rem !important;
 }
 
-/* Card laterali sempre arrotondate (Tailwind arbitrary rounded-[] a volte manca dal build). */
 body.vc-web-tickets-page .vc-wt-hero-card,
 body.vc-web-tickets-page .vc-wt-hero-aside > div {
   border-radius: 1.6rem !important;
   overflow: hidden !important;
+  background-clip: padding-box !important;
+}
+
+body.vc-web-tickets-page .vc-wt-hero-aside {
+  align-content: start !important;
+}
+
+body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-head {
+  overflow: hidden !important;
+  border-radius: 1.25rem !important;
+}
+
+body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-aside-inline .vc-wt-hero-card,
+body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-aside-inline > .vc-wt-hero-aside > div {
+  overflow: hidden !important;
+  border-radius: 1.25rem !important;
+  background-clip: padding-box !important;
+}
+
+body.vc-web-tickets-page .vc-wt-composer,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-composer {
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+body.vc-web-tickets-page .vc-wt-panel,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-panel {
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.vc-page-cine-layout.vc-web-tickets-page #vc-page-content .vc-wt-board,
+body.vc-page-cine-layout.vc-web-tickets-page #vc-page-content .vc-reviews-section.vc-wt-board {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
 }
 
 body.vc-web-tickets-page .vc-wt-app {
@@ -192,7 +232,6 @@ body.vc-web-tickets-page .vc-wt-app {
   flex: 0 0 auto !important;
 }
 
-/* Desktop: altezza originale (prima del riquadro enorme / troppo piccolo). */
 @media (min-width: 901px) {
   body.vc-web-tickets-page .vc-wt-layout,
   body.vc-web-tickets-page.vc-page-cine-layout .vc-wt-layout {
@@ -204,7 +243,6 @@ body.vc-web-tickets-page .vc-wt-app {
   }
 }
 
-/* Layout cine: board sotto lo scroll dell'hero (stesso ritmo di FAQ/inbox). */
 body.vc-web-tickets-page.vc-page-cine-layout main.vc-page-cine-main {
   width: 100% !important;
   max-width: none !important;
@@ -264,7 +302,6 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Su mobile: lista sopra + chat sotto (anche stato vuoto), niente pannello nascosto. */
   body.vc-web-tickets-page .vc-wt-main,
   body.vc-web-tickets-page .vc-wt-main:not(.vc-wt-main--active),
   body.vc-web-tickets-page .vc-wt-main.vc-wt-main--active {
@@ -321,7 +358,6 @@ html.vc-site-polish body.vc-web-tickets-page main .vc-wt-list {
   filter: saturate(0.85);
 }
 
-/* Anti site-polish: niente secondo riquadro attorno alla board. */
 html.vc-site-polish body.vc-web-tickets-page .vc-reviews-page-layout,
 html.vc-site-polish body.vc-web-tickets-page .vc-reviews-page-main,
 html.vc-site-polish body.vc-web-tickets-page .vc-reviews-section.vc-wt-board,
@@ -344,17 +380,21 @@ html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout {
   background: rgba(15, 23, 42, 0.34) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 1.6rem !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 36px rgba(0, 0, 0, 0.22) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
   gap: 0 !important;
   overflow: hidden !important;
+  isolation: isolate !important;
 }
 
 html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar,
 html.vc-site-polish body.vc-web-tickets-page .vc-wt-main,
 html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat,
-html.vc-site-polish body.vc-web-tickets-page .vc-wt-compose-panel {
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-compose-panel,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-composer {
   background: transparent !important;
   background-image: none !important;
   border-radius: 0 !important;
@@ -366,6 +406,16 @@ html.vc-site-polish body.vc-web-tickets-page .vc-wt-compose-panel {
 html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar {
   border: 0 !important;
   border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+body.vc-web-tickets-page .vc-wt-item,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-item {
+  border-radius: 0 !important;
+}
+
+body.vc-web-tickets-page .vc-wt-item__avatar--icon,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-item__avatar--icon {
+  border-radius: 0.35rem !important;
 }
 
 @media (max-width: 900px) {

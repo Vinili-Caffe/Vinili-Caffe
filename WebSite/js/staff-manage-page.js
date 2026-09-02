@@ -225,8 +225,7 @@
               entryId: null,
             };
           });
-    // In gestione modal: solo val+/val−/warn (pex/depex restano solo sui bottoni).
-    if (state._modalMode) {
+        if (state._modalMode) {
       rows = rows.filter(function (r) {
         var k = String((r && r.kind) || "").toLowerCase();
         return (
@@ -554,8 +553,7 @@
     var ladder = String(m.ladderRoleLabel || "").trim();
     if (ladder) return ladder;
     var raw = String(m.displayRoleLabel || "").trim();
-    // Togli i badge generici Staff / High Staff / Staffer del mese (resta il grado vero).
-    var parts = raw.split(/\s*&\s*/);
+        var parts = raw.split(/\s*&\s*/);
     var keep = [];
     for (var i = 0; i < parts.length; i += 1) {
       var part = String(parts[i] || "").trim();
@@ -599,8 +597,7 @@
       if (m.canPex || m.canPexProspect) {
         choices.push({ id: "pex", label: "Pex" + arrow + pexDest });
       }
-      // Solo se non è già Partner Manager.
-      if (m.canPexPm && !isPm) {
+            if (m.canPexPm && !isPm) {
         choices.push({ id: "pex_pm", label: memberDest + arrow + "Partner Manager" });
       }
       if (!choices.length) {
@@ -622,8 +619,7 @@
       if (m.canDepexLadder) {
         choices.push({ id: "depex", label: "Depex" + arrow + depexDest });
       }
-      // Solo se è già Partner Manager.
-      if (m.canDepexPm && isPm) {
+            if (m.canDepexPm && isPm) {
         choices.push({ id: "depex_pm", label: "Partner Manager" + arrow + memberDest, danger: true });
       }
       if (m.canDepexFull !== false) {
@@ -1344,8 +1340,7 @@
         setManageTab("staff", { loadStaff: false });
       }
     }
-    // Non riaprire Staff se l'utente è già sulla tab PM (race col fetch).
-    if (root) root.hidden = currentManageTab() !== "staff";
+        if (root) root.hidden = currentManageTab() !== "staff";
     var counts = out.data.counts || {};
     var summary = T.byId("vc-staff-manage-summary");
     if (summary) {
@@ -1362,8 +1357,7 @@
               ? " \u00B7 solo lettura"
               : "");
     }
-    // Staff in consultazione: apri subito la propria scheda se non c'è userId in URL.
-    if (state.selfService && state.viewerId && !state.selectedId && !initial) {
+        if (state.selfService && state.viewerId && !state.selectedId && !initial) {
       state.selectedId = state.viewerId;
       setUrlUser(state.viewerId);
     }
@@ -1504,8 +1498,7 @@
       if (!btn) return;
       setManageTab(btn.getAttribute("data-manage-tab"));
     });
-    // Solo UI iniziale: il fetch lo fa bootPage una volta sola.
-    setManageTab(selectedTabFromUrl(), { loadStaff: false });
+        setManageTab(selectedTabFromUrl(), { loadStaff: false });
   }
 
   var panelBound = false;

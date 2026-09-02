@@ -53,7 +53,6 @@ function eventEndMs(ev) {
   return Number.isFinite(t) ? t : 0;
 }
 
-/** Attivo Discord, oppure ancora “programmato” ma con orario di inizio già passato (spesso prima che passi ad Active). */
 function isOngoingForSite(ev, nowMs) {
   const st = Number(ev?.status);
   if (st === GuildScheduledEventStatus.Active) return true;
@@ -82,9 +81,6 @@ function resolvePrimaryCta(ev, guildIdStr) {
   return { url: eventUrl, label: "Apri evento su Discord" };
 }
 
-/**
- * GET JSON evento Discord programmato **in corso** (status Active) per popup sul sito.
- */
 async function handleSiteLiveEventGet(client, req, res) {
   try {
     const now = Date.now();

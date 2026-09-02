@@ -100,10 +100,6 @@ function canEditSerataFilmAttendance(now = new Date(), saturdayKey = null) {
   return Number.isFinite(deadlineMs) && deadlineMs > 0 && now.getTime() < deadlineMs;
 }
 
-/**
- * Sabato di riferimento per presenza: se la deadline di questo sabato è passata
- * (serata chiusa), passa al sabato successivo così lo switcher resta usabile.
- */
 function getActiveSerataFilmAttendanceSaturdayKey(now = new Date()) {
   const weekSat = getRomeSaturdayKeyForWeek(now);
   const deadlineMs = getSerataFilmAttendanceDeadlineMs(weekSat);
@@ -206,8 +202,7 @@ async function setSerataFilmWillAttend(guildId, userId, willAttend, now = new Da
       { guildId: String(guildId), userId: String(userId), "staff.serataFilmAttendanceSaturdayKey": saturdayKey },
       { $unset: { "staff.serataFilmWillAttend": "", "staff.serataFilmAttendanceSaturdayKey": "" } },
     ).catch(() => null);
-    // Nessun match = già presente (default): ok.
-    if (!unsetRes) return { ok: false, code: "db_error" };
+        if (!unsetRes) return { ok: false, code: "db_error" };
     return { ok: true };
   }
   const setRes = await ActivityUserProfile.findOneAndUpdate(

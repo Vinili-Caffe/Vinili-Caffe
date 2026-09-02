@@ -56,7 +56,6 @@ function normalizePartnershipDescription(rawDescription, partnershipCfg) {
     : rawDescriptionTrimmed;
 }
 
-
 async function executeTenantPartnership(interaction, { description: rawDescription, managerId, skipped = false } = {}) {
   const guildId = interaction.guild?.id;
   const partnershipCfg = resolvePartnershipConfigSync(guildId);
@@ -199,8 +198,7 @@ async function executeTenantPartnership(interaction, { description: rawDescripti
         return false;
       }
     } catch {
-      // blacklist lookup best-effort
-    }
+          }
   }
   if (!isValidServerName(serverName)) {
     await partnerInteractionReply(interaction, {
@@ -346,8 +344,7 @@ async function executeTenantPartnership(interaction, { description: rawDescripti
     const pingRoleId = pingPlan.customRoleId;
 
     const sentMessageIds = [];
-    // Descrizione pulita: ping automatici + Manager vanno nel content sopra l'embed thank-you.
-    const publishContent = stripTrailingManagerLine(
+        const publishContent = stripTrailingManagerLine(
       resolvePartnershipDescriptionForPublish({
         description: publishDescription,
         legacy: isLegacyPartnership,
@@ -437,8 +434,7 @@ async function executeTenantPartnership(interaction, { description: rawDescripti
       ? await getOrCreateStaffPartnerDoc(guildId, interaction.user.id)
       : staffDoc;
     const sAfter = staffAfterAudit && staffAfterAudit.staff ? staffAfterAudit.staff : s;
-    // Embed "Ora sei a X partner!": totale guadagnato, non saldo dopo i riscatti.
-    const shownPartnerPoints = resolvePartnerTotalEarned(sAfter);
+        const shownPartnerPoints = resolvePartnerTotalEarned(sAfter);
 
     const { embed } = await buildThankYouEmbed({
       guild: interaction.guild,

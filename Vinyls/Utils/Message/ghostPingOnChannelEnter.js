@@ -50,9 +50,6 @@ async function isHumanUser(channel, subject) {
   return true;
 }
 
-/**
- * Ghost ping in a configured channel/thread only when the target is a human user.
- */
 async function ghostPingUserIfHuman(channel, subject) {
   if (!channel?.isTextBased?.()) return;
   const parentId = channel.parentId || channel.id;
@@ -64,9 +61,6 @@ async function ghostPingUserIfHuman(channel, subject) {
   await sendGhostUserPing(channel, userId);
 }
 
-/**
- * Un utente appena entrato nel server: ghost ping in #news e #eventi (solo server principale).
- */
 async function ghostPingNewMemberOnJoin(client, member) {
   if (!client || !member?.user || member.user.bot) return;
   const uid = String(member.id || "").trim();

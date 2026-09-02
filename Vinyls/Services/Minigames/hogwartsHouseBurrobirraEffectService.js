@@ -69,8 +69,7 @@ function readActive(client, nowMs = Date.now()) {
   if (!row) return null;
   const endAtMs = Math.floor(Number(row.endAtMs) || 0);
   if (!row.houseId || !endAtMs) return null;
-  // Ancora nella finestra, oppure scaduto ma end notice non ancora inviato (attesa minigame).
-  if (nowMs < endAtMs) return row;
+    if (nowMs < endAtMs) return row;
   if (!row.endSent) return row;
   return null;
 }
@@ -202,13 +201,11 @@ async function runHouseBurrobirraTick(client) {
   const cfg = resolveCfg(client);
   const active = readActive(client, nowMs);
   if (active && nowMs >= active.endAtMs && !active.endSent) {
-    // Non chiudere a metà minigame di casata: aspetta che la sala comune sia libera.
-    try {
+        try {
       const { getActiveGameForChannel, isMinigameChannelBusy } = require("./minigameService");
       const houseChannelId = resolveHouseChannelId(active.houseId);
       if (houseChannelId && isMinigameChannelBusy(houseChannelId)) return;
-      // Anche se il busy flag non è allineato, evita di chiudere sopra un game attivo.
-      if (houseChannelId && getActiveGameForChannel(houseChannelId)) return;
+            if (houseChannelId && getActiveGameForChannel(houseChannelId)) return;
     } catch (_) {}
     await publishEndNotices(client, cfg, active.houseId);
     active.endSent = true;

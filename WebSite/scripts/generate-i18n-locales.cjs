@@ -1,12 +1,3 @@
-/**
- * Translate IT master → 19 locales (en + 18) via Google gtx (no API key).
- * Resume-safe; protects HTML, placeholders, brands.
- *
- * Prerequisites: node scripts/extract-i18n-keys.cjs
- *
- * node scripts/generate-i18n-locales.cjs
- * node scripts/generate-i18n-locales.cjs --lang=en --force
- */
 const fs = require("fs");
 const path = require("path");
 
@@ -14,7 +5,6 @@ const ROOT = path.join(__dirname, "..");
 const EXTRACTED = path.join(ROOT, "js", "i18n", "_extracted");
 const OUT_DIR = path.join(ROOT, "js", "i18n", "locales");
 
-/** All non-Italian site languages (IT is the only manual master). */
 const TARGETS = [
   { code: "en", gt: "en" },
   { code: "es", gt: "es" },
@@ -184,8 +174,7 @@ async function translateDict(itDict, target, { force, concurrency, delayMs }) {
 
   for (const key of keys) {
     if (shouldSkipKey(key)) {
-      // Language labels stay native; prefer existing / IT label keys already correct.
-      if (out[key] == null) out[key] = itDict[key];
+            if (out[key] == null) out[key] = itDict[key];
       continue;
     }
     if (!force && isUsefulTranslation(itDict[key], out[key])) continue;
@@ -224,8 +213,7 @@ async function translateDict(itDict, target, { force, concurrency, delayMs }) {
   for (const key of keys) {
     if (out[key] == null) out[key] = itDict[key];
   }
-  // Preserve lang.* native labels from existing packs when present
-  for (const key of Object.keys(existing)) {
+    for (const key of Object.keys(existing)) {
     if (shouldSkipKey(key) && existing[key] != null) out[key] = existing[key];
   }
   atomicWriteJson(outPath, out);

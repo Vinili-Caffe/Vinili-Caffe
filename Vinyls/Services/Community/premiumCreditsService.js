@@ -247,10 +247,6 @@ async function spendCreditsForTenantPremium(userId, guildId, months, opts = {}) 
   return { ok: true, credits: spend.credits, premium: grant.premium, plan };
 }
 
-/**
- * Ultima spesa crediti Premium collegata a un guild (per rimborso manuale Dev).
- * @returns {{ userId: string, credits: number, at: number|null, note: string|null }|null}
- */
 async function findLastPremiumSpendForGuild(guildId, preferredUserId = null) {
   const gid = String(guildId || "").trim();
   if (!/^\d{16,20}$/.test(gid)) return null;

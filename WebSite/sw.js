@@ -1,6 +1,3 @@
-/* v=20260831scrollCueHideFast1 */
-/* v=20260822inboxcache1 */
-/* Vinili & Caffè — Web Push service worker */
 /* eslint-disable no-restricted-globals */
 
 self.addEventListener("install", function (event) {
@@ -21,7 +18,6 @@ self.addEventListener("activate", function (event) {
   );
 });
 
-/** Se Apple/Chrome ruota l'endpoint, avvisa le pagine aperte per riscrivere la subscription. */
 self.addEventListener("pushsubscriptionchange", function (event) {
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clients) {
@@ -288,8 +284,7 @@ function isIosUa() {
   var ua = uaString();
   if (/iPhone|iPad|iPod/i.test(ua)) return true;
   if (/Macintosh/i.test(ua) && /Mobile/i.test(ua)) return true;
-  // iOS PWA a volte si spaccia per Mac Safari (niente Chrome/Firefox/Android).
-  if (/Macintosh/i.test(ua) && /Safari/i.test(ua) && !/Chrome|Chromium|Firefox|Android|CriOS|FxiOS/i.test(ua)) {
+    if (/Macintosh/i.test(ua) && /Safari/i.test(ua) && !/Chrome|Chromium|Firefox|Android|CriOS|FxiOS/i.test(ua)) {
     return true;
   }
   return false;
@@ -380,10 +375,7 @@ function isDefinitelyWatchingTicket(ticketId, clientWatching) {
   if (lastClientFocus.at && pingAge >= 0 && pingAge < 12000) {
     return lastClientFocus.focused === true && String(lastClientFocus.ticketId || "") === tid;
   }
-  // Desktop (Brave/Windows): senza ping recente NON silenziare — `client.focused`
-  // resta true anche con il browser in secondo piano, e getNotifications può
-  // far scadere il push senza mostrare il banner in basso a destra.
-  if (!isMobileUa()) return false;
+        if (!isMobileUa()) return false;
   return clientWatching === true;
 }
 
@@ -597,8 +589,7 @@ function notificationVisuals(payload) {
   var logo = absAsset((payload && (payload.icon || payload.badge)) || PUSH_ICON_PATH);
   var isAndroid = /Android/i.test(uaString());
   var visuals = { badge: logo };
-  // Android: `icon` = thumbnail a destra. Solo `badge` mette il logo a sinistra.
-  if (!isAndroid) visuals.icon = logo;
+    if (!isAndroid) visuals.icon = logo;
   if (payload && payload.image) visuals.image = absAsset(payload.image);
   return visuals;
 }
@@ -774,9 +765,7 @@ function openOrFocusTicketFromNotif(navDest, notifId, clickTicketId, sameOrigin)
   }).then(function (clientList) {
     var list = clientList || [];
     postMarkReadToClients(list, notifId, clickTicketId);
-    // iOS apre sempre start_url (/). navigate/openWindow spesso vengono ignorati:
-    // la pagina legge la dest da cache/postMessage e reindirizza lei.
-    if (isIosUa()) {
+            if (isIosUa()) {
       postOpenDestToAll(list, absDest, notifId, clickTicketId);
       var iosJobs = [];
       if (sameOrigin) {
@@ -785,9 +774,7 @@ function openOrFocusTicketFromNotif(navDest, notifId, clickTicketId, sameOrigin)
       if (self.clients.openWindow) iosJobs.push(self.clients.openWindow(absDest));
       return iosJobs.length ? settleAll(iosJobs) : undefined;
     }
-    // Android: non riaprire una scheda Chrome già aperta — openWindow
-    // lancia la PWA installata (stesso origin). Se la PWA è già viva, navigala.
-    if (isMobileUa()) {
+            if (isMobileUa()) {
       var androidClient = pickBestSameOriginClient(list);
       if (androidClient) {
         postOpenDestToClient(androidClient, absDest, notifId, clickTicketId);
@@ -796,9 +783,7 @@ function openOrFocusTicketFromNotif(navDest, notifId, clickTicketId, sameOrigin)
       if (self.clients.openWindow) return self.clients.openWindow(absDest);
       return undefined;
     }
-    // Desktop: MAI client.navigate()/openWindow se la PWA o una scheda è già aperta.
-    // Su Chrome/Edge Windows navigate() apre una nuova finestra browser invece dell'app.
-    var best = pickBestSameOriginClient(list);
+            var best = pickBestSameOriginClient(list);
     if (best) {
       postOpenDestToClient(best, absDest, notifId, clickTicketId);
       return focusExistingClient(best);
@@ -841,9 +826,7 @@ self.addEventListener("notificationclick", function (event) {
     navDest = appendSearchParam(navDest, "vcReplyTo", messageId);
   }
 
-  // Stash subito: su iOS la PWA può aprirsi su start_url (/) in parallelo
-  // e il resume PWA deve trovare già la destinazione della notifica.
-  var stashEarly = stashPendingNav(navDest, clickTicketId);
+      var stashEarly = stashPendingNav(navDest, clickTicketId);
 
   var closeSiblings = closeMatchingNotifications({
     id: String(nd.id || "").trim(),

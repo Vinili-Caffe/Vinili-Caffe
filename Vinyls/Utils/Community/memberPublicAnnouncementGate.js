@@ -25,8 +25,7 @@ function normalVerificationCompletedBetween(oldMember, newMember) {
 }
 
 async function shouldSendPublicMemberAnnouncement(member) {
-  // Mai annunci pubblici per i bot (es. Caffè non è un "Nuovx Fan").
-  if (!member?.user || member.user.bot) return false;
+    if (!member?.user || member.user.bot) return false;
   if (!MAIN_GUILD_ID || String(member.guild?.id || "") !== MAIN_GUILD_ID) return true;
   if (await resolveJoinGateConfiguredExempt(member.guild, member.id, member)) return true;
   return memberHasMemberPlusSeparator(member);

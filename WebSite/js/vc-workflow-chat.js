@@ -1,9 +1,3 @@
-/**
- * Chat pratica workflow (inbox staff + richiedente pausa / candidatura / appelli).
- * Emoji, risposte, allegati, reazioni — stile ticket web.
- * Pause: soggetto sempre incluso. Candidature/appelli: solo se invitato (finestre).
- * chatFix1: retry/token wait + remount-safe boot.
- */
 (function (global) {
   "use strict";
 
@@ -1032,8 +1026,7 @@
     var root = byId("vc-wfc-root");
     if (sameKey && root) {
       bindComposer();
-      // chatFix1: se errore/vuoto dopo re-render dettaglio, ritenta senza teardown.
-      if ((!state.messages.length && !state.loading) || state.error) {
+            if ((!state.messages.length && !state.loading) || state.error) {
         state.error = "";
         state.loading = true;
         loadMessages(key);
@@ -1041,8 +1034,7 @@
       return;
     }
     if (sameKey && (state.messages.length || state.loading)) {
-      // DOM sostituito dal parent: non abortire il fetch in corso.
-      bindComposer();
+            bindComposer();
       return;
     }
     teardown();

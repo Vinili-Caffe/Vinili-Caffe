@@ -97,8 +97,7 @@
   }
 
   function renderRoster() {
-    /* Staff list rimossa: resta solo la cronologia pex/depex. */
-  }
+      }
 
   function historyKindCounts() {
     var all = state.pexHistory || [];
@@ -164,10 +163,24 @@
     );
   }
 
-  function tabLabel(kind, counts) {
-    if (kind === "all") return "Tutti" + (counts.all ? " · " + counts.all : "");
-    if (kind === "pex") return "Pex" + (counts.pex ? " · " + counts.pex : "");
-    return "Depex" + (counts.depex ? " · " + counts.depex : "");
+  function tabMeta(kind, counts) {
+    if (kind === "all") return { label: "Tutti", count: counts.all || 0 };
+    if (kind === "pex") return { label: "Pex", count: counts.pex || 0 };
+    return { label: "Depex", count: counts.depex || 0 };
+  }
+
+  function scanOrganicoAvatars(panel) {
+    if (!panel) return;
+    try {
+      if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
+        global.VcAvatarFallback.scan(panel);
+      }
+    } catch (eScan) {}
+    try {
+      if (global.VcDiscordAvatar && typeof global.VcDiscordAvatar.scan === "function") {
+        global.VcDiscordAvatar.scan(panel);
+      }
+    } catch (eDa) {}
   }
 
   function renderHistory() {
@@ -183,38 +196,34 @@
 
     var head =
       '<header class="vc-staff-organico-hist__head">' +
-      "<div><h2>Cronologia del team</h2>" +
-      (counts.all
-        ? '<p class="vc-staff-organico-hist__counts">' +
-          T.esc(String(counts.pex)) +
-          " pex · " +
-          T.esc(String(counts.depex)) +
-          " depex</p>"
-        : "") +
-      "</div>" +
+      "<div><h2>Cronologia del team</h2></div>" +
       (filterId
         ? '<button type="button" class="vc-staff-organico-hist__clear" id="vc-staff-organico-clear-filter">Mostra tutti</button>'
         : "") +
       "</header>" +
-      '<div class="vc-staff-organico-hist__tabs" role="tablist" aria-label="Filtra cronologia">' +
+      '<div class="vc-staff-organico-hist__switch">' +
+      '<div class="vc-staff-pt-seg vc-staff-organico-seg" role="group" aria-label="Filtra cronologia">' +
       ['all', 'pex', 'depex']
         .map(function (k) {
-          var label = tabLabel(k, counts);
+          var meta = tabMeta(k, counts);
           var pressed = kind === k ? ' aria-selected="true"' : ' aria-selected="false"';
           return (
-            '<button type="button" class="vc-staff-organico-hist__tab' +
+            '<button type="button" class="vc-staff-pt-seg__btn' +
             (kind === k ? " is-active" : "") +
             '" data-kind="' +
             T.esc(k) +
             '" role="tab"' +
             pressed +
             ">" +
-            T.esc(label) +
+            T.esc(meta.label) +
+            (meta.count
+              ? ' <span class="vc-staff-organico-hist__count" aria-hidden="true">' + meta.count + "</span>"
+              : "") +
             "</button>"
           );
         })
         .join("") +
-      "</div>";
+      "</div></div>";
 
     if (filterId) {
       head +=
@@ -235,40 +244,71 @@
     }
 
     var pagination = buildHistoryPaginationHtml(rows);
+    var paginationTop = pagination
+      ? pagination.replace(
+          "vc-staff-organico-hist__pagination",
+          "vc-staff-organico-hist__pagination vc-staff-organico-hist__pagination--top",
+        )
+      : "";
+    var paginationFoot = pagination
+      ? pagination.replace(
+          "vc-staff-organico-hist__pagination",
+          "vc-staff-organico-hist__pagination vc-staff-organico-hist__pagination--foot",
+        )
+      : "";
 
     panel.innerHTML =
       head +
+      '<div class="vc-staff-organico-hist__main">' +
+      paginationTop +
       '<ul class="vc-staff-organico-hist">' +
       pageRows
         .map(function (r) {
-          var kindLabel = r.kind === "depex" ? "Depex" : "Pex";
+          var kindLabel = r.kind === "depex" ? "Retrocessione" : "Promozione";
           return (
             '<li class="vc-staff-organico-hist__item vc-staff-organico-hist__item--' +
             T.esc(r.kind) +
             '">' +
             '<div class="vc-staff-organico-hist__row">' +
-            T.avatarImgHtml(r.avatarUrl, r.userId, { width: 40, height: 40 }) +
+            '<div class="vc-staff-organico-hist__av">' +
+            T.avatarImgHtml(r.avatarUrl, r.userId, {
+              width: 44,
+              height: 44,
+              className: "vc-staff-avatar",
+            }) +
+            "</div>" +
             '<div class="vc-staff-organico-hist__body">' +
+            '<div class="vc-staff-organico-hist__top">' +
             '<p class="vc-staff-organico-hist__who">' +
             '<span class="vc-staff-organico-hist__badge">' +
             T.esc(kindLabel) +
-            "</span> " +
+            "</span>" +
             "<strong>" +
             T.esc(T.userLabel(r.displayName, r.userId)) +
             "</strong></p>" +
+            (r.dateLabel
+              ? '<time class="vc-staff-organico-hist__date" datetime="' +
+                T.esc(r.dateIso || "") +
+                '">' +
+                T.esc(r.dateLabel) +
+                "</time>"
+              : "") +
+            "</div>" +
             '<p class="vc-staff-organico-hist__roles">' +
+            '<span class="vc-staff-organico-hist__role-from">' +
             T.esc(r.fromRole || "—") +
-            " → " +
+            '</span><span class="vc-staff-organico-hist__role-arrow" aria-hidden="true">→</span><span class="vc-staff-organico-hist__role-to">' +
             T.esc(r.toRole || "—") +
-            "</p>" +
+            "</span></p>" +
             (r.reason ? '<p class="vc-staff-organico-hist__reason">' + T.esc(r.reason) + "</p>" : "") +
-            (r.dateLabel ? '<p class="vc-staff-organico-hist__date">' + T.esc(r.dateLabel) + "</p>" : "") +
             "</div></div></li>"
           );
         })
         .join("") +
       "</ul>" +
-      pagination;
+      paginationFoot +
+      "</div>";
+    scanOrganicoAvatars(panel);
   }
 
   function applyPayload(data) {
@@ -358,7 +398,10 @@
           loadHistory("");
           return;
         }
-        var tab = ev.target && ev.target.closest ? ev.target.closest("[data-kind]") : null;
+        var tab =
+          ev.target && ev.target.closest
+            ? ev.target.closest(".vc-staff-pt-seg__btn[data-kind]")
+            : null;
         if (tab) {
           var nextKind = String(tab.getAttribute("data-kind") || "all");
           if (nextKind === state.historyKindFilter) return;
@@ -376,6 +419,7 @@
           else if (dir === "next" && state.historyPage < maxPage) state.historyPage += 1;
           renderHistory();
           var list = history.querySelector(".vc-staff-organico-hist");
+          if (list && list.scrollTop != null) list.scrollTop = 0;
           if (list && list.scrollIntoView) list.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       });

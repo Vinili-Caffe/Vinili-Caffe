@@ -130,10 +130,6 @@ async function mutateGuildTicketBlacklist(guildId, mutator) {
   return { ok: true, bucket: nextBucket };
 }
 
-/**
- * True se member è bloccato dall'apertura ticket sul pannello indicato.
- * panelId assente → matchano solo entry globali (panelId null).
- */
 function memberIsTicketBlacklisted(member, guildId, panelId = null) {
   if (!member) return false;
   const bucket = getGuildTicketBlacklistSync(guildId);
@@ -145,8 +141,7 @@ function memberIsTicketBlacklisted(member, guildId, panelId = null) {
 
   for (const entry of entries) {
     const entryPanel = entry.panelId || null;
-    // Globale (null) blocca sempre; specifica solo sul pannello corrispondente.
-    if (entryPanel && entryPanel !== wantPanel) continue;
+        if (entryPanel && entryPanel !== wantPanel) continue;
     if (entry.type === "user" && uid && entry.targetId === uid) return true;
     if (entry.type === "role" && roleCache?.has?.(entry.targetId)) return true;
   }

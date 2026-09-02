@@ -7,7 +7,6 @@ const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const KICK_DELAY_MS = 24 * 60 * 60 * 1000;
 const SERVER_BOOSTER_ROLE_NAME = "༄ Server Booster";
-/** @type {Map<string, { timeoutId: ReturnType<typeof setTimeout> }>} */
 const pending = new Map();
 const SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "sponsorVerifiedPendingKickSnapshot.json");
 let pendingLoaded = false;
@@ -34,10 +33,6 @@ function memberHasVerificatoRole(member, guildId) {
   return member.roles.cache.has(rid);
 }
 
-/**
- * Bypass solo se sul server **TAG sponsor** hanno il ruolo col nome esatto `༄ Server Booster`.
- * @param {import("discord.js").GuildMember} member
- */
 function memberHasServerBoosterBypass(member) {
   if (!member?.roles?.cache || !member.guild) return false;
   if (!getSponsorGuildIdsSet().has(String(member.guild.id))) return false;
@@ -167,10 +162,6 @@ function ensurePendingLoaded(client) {
   }
 }
 
-/**
- * @param {import("discord.js").GuildMember} member
- * @param {import("discord.js").Client} [client]
- */
 async function maybeScheduleEnforcement(member, client) {
   const gid = String(member?.guild?.id || "");
   if (!gid || !getSponsorGuildIdsSet().has(gid)) return;
@@ -222,9 +213,6 @@ async function maybeScheduleEnforcement(member, client) {
   persistPendingNow();
 }
 
-/**
- * @param {import("discord.js").GuildMember} member
- */
 async function handleGuildMemberAdd(member) {
   if (!member?.guild || member.user?.bot) return;
   const gid = String(member.guild.id);
@@ -240,11 +228,6 @@ async function handleGuildMemberAdd(member) {
   }
 }
 
-/**
- * @param {import("discord.js").GuildMember} oldMember
- * @param {import("discord.js").GuildMember} newMember
- * @param {import("discord.js").Client} [client]
- */
 async function handleGuildMemberUpdate(_oldMember, newMember, client) {
   if (!newMember?.guild || newMember.user?.bot) return;
   const gid = String(newMember.guild.id);
@@ -264,9 +247,6 @@ async function handleGuildMemberUpdate(_oldMember, newMember, client) {
   await maybeScheduleEnforcement(newMember, client || newMember.client);
 }
 
-/**
- * @param {import("discord.js").GuildMember|import("discord.js").PartialGuildMember} member
- */
 function handleGuildMemberRemoveFromSponsor(member) {
   if (!member?.guild || member.user?.bot) return;
   const gid = String(member.guild.id);

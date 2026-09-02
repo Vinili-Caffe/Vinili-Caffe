@@ -23,8 +23,7 @@ function notifyStaffPauseCalendarChanged() {
     const { broadcastSiteStaffPausesChanged } = require("../../Utils/Web/siteSuggestionsBroadcast");
     broadcastSiteStaffPausesChanged();
   } catch {
-    /* ignore */
-  }
+      }
 }
 
 function pauseListMemberLabel(guild, client, userId) {
@@ -263,8 +262,7 @@ async function handlePauseButton(interaction) {
     }
 
     const member = await getGuildMemberCached(interaction.guild, effectiveUserId);
-    // Se è uscito dal server la pausa va comunque annullabile (cleanup leave).
-    const todayUtc = getTodayUtc();
+        const todayUtc = getTodayUtc();
     const start = parseItalianDate(targetPause.dataRichiesta);
     const end = parseItalianDate(targetPause.dataRitorno);
     const totalScheduledDays = getPauseDaysBetween(targetPause.dataRichiesta, targetPause.dataRitorno) || 0;

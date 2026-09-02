@@ -34,11 +34,6 @@ function getRomeHourKey(date) {
   return `${map.year}-${map.month}-${map.day}T${map.hour}`;
 }
 
-/**
- * Rimuove chiavi `profile.totals.daily` / `profile.totals.hourly` scadute dai profili (retention giorni, confronto stringa su dateKey/hourKey Roma).
- * @param {{ retentionDaysDaily?: number, retentionDaysHourly?: number }} options - default 90 e 60 giorni
- * @returns {{ dailyDeleted: number, hourlyDeleted: number }}
- */
 async function pruneOldActivityData(options = {}) {
   const retentionDaily = Math.max(31, Math.min(365, Number(options.retentionDaysDaily) || 90));
   const retentionHourly = Math.max(14, Math.min(90, Number(options.retentionDaysHourly) || 60));

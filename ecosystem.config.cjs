@@ -18,7 +18,6 @@ try {
   }
 } catch (_) {}
 
-/** KEY=val per riga → oggetto env (solo stringhe, per PM2). */
 function loadKeyValueEnvFile(filePath) {
   const out = {};
   try {
@@ -45,13 +44,11 @@ const configuredNodeBinary = String(botEnvFromFile.NODE_BINARY || "").trim();
 if (configuredNodeBinary && !fs.existsSync(configuredNodeBinary)) {
   delete botEnvFromFile.NODE_BINARY;
 }
-/** Preferisci NODE_BINARY (nvm) se presente: native modules (canvas) devono matchare l'ABI. */
 const nodeInterpreter =
   botEnvFromFile.NODE_BINARY && fs.existsSync(String(botEnvFromFile.NODE_BINARY).trim())
     ? String(botEnvFromFile.NODE_BINARY).trim()
     : "node";
 
-/** Restart policy condivisa: crash → riparte, ma evita thrash se il boot è lento. */
 const HA_RESTART = Object.freeze({
   autorestart: true,
   watch: false,
@@ -62,18 +59,12 @@ const HA_RESTART = Object.freeze({
   kill_timeout: 10000,
 });
 
-/**
- * PM2: sempre `java -jar Lavalink.jar` + `--spring.config.additional-location` (cwd = cartella Lavalink).
- * Non usare `interpreter: bash` + `start-lavalink.sh`: dopo reload PM2 può lasciare `interpreter_args` JVM
- * attaccati a bash → `bash: -X: invalid option` e loop di crash.
- */
 const lavalinkPm2App = {
   name: "lavalink",
   cwd: path.join(base, "Lavalink"),
   script: path.join(base, "Lavalink", "Lavalink.jar"),
   interpreter: "java",
-  // Heap basso: su VPS 4GB Xmx768 riservava troppa RAM anche a idle.
-  interpreter_args: "-Xms96m -Xmx384m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=100 -jar",
+    interpreter_args: "-Xms96m -Xmx384m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=100 -jar",
   args: "--spring.config.additional-location=optional:file:./",
   instances: 1,
   ...HA_RESTART,
@@ -140,9 +131,7 @@ module.exports = {
     ensurePm2App(
       "site-api",
       "Vinyls/Services/Web/durableSiteApiApp.js",
-      // RSS a idle è già ~290–310M (Express + Mongo + REST Discord + prefix).
-      // 280M faceva restart loop: PM2 uccideva il processo appena finito il boot.
-      "450M",
+                  "450M",
       {
         SITE_API_PORT: "3020",
         WEBSITE_CANDIDATURE_HTTP: "1",
@@ -205,21 +194,16 @@ module.exports = {
         NODE_ENV: "production",
         HOST_ROLE: String(botEnvFromFile.HOST_ROLE || "primary"),
         ...botEnvFromFile,
-        // Worker dedicati: non duplicare su gateway.
-        SITE_API_EXTERNAL: "1",
+                SITE_API_EXTERNAL: "1",
         PARTNERSHIP_MIGRATION_EXTERNAL: "1",
         TOPGG_VOTE_HTTP_EXTERNAL: "1",
         VOTE_QUEUE_EXTERNAL: "1",
         BOT_SCHEDULER_EXTERNAL: "1",
         AUTO_BACKUP_EXTERNAL: "1",
-        // Recovery Discord pesanti solo se FULL_STARTUP_SYNC=1 (settimanale / post-outage).
-        FULL_STARTUP_SYNC: String(botEnvFromFile.FULL_STARTUP_SYNC || "0"),
-        // Pannelli: di default TTL (6h). STARTUP_PANELS=1 forza refresh completo a ogni boot.
-        STARTUP_PANELS: String(botEnvFromFile.STARTUP_PANELS || "0"),
-        // Override .env: un PUT slash completo a ogni reload costa 20–30s. La cache hash basta.
-        FORCE_SLASH_DEPLOY: "0",
-        // Economy: max 2 render canvas/GIF concorrenti; frame GIF ridotti sotto i default del codice.
-        VC_ECONOMY_RENDER_CONCURRENCY: String(botEnvFromFile.VC_ECONOMY_RENDER_CONCURRENCY || "2"),
+                FULL_STARTUP_SYNC: String(botEnvFromFile.FULL_STARTUP_SYNC || "0"),
+                STARTUP_PANELS: String(botEnvFromFile.STARTUP_PANELS || "0"),
+                FORCE_SLASH_DEPLOY: "0",
+                VC_ECONOMY_RENDER_CONCURRENCY: String(botEnvFromFile.VC_ECONOMY_RENDER_CONCURRENCY || "2"),
         VC_SLOTS_GIF_FRAMES: String(botEnvFromFile.VC_SLOTS_GIF_FRAMES || "16"),
         VC_ROULETTE_GIF_FRAMES: String(botEnvFromFile.VC_ROULETTE_GIF_FRAMES || "14"),
         VC_COINFLIP_GIF_FRAMES: String(botEnvFromFile.VC_COINFLIP_GIF_FRAMES || "16"),
@@ -227,8 +211,7 @@ module.exports = {
         VC_ROB_GIF_FRAMES: String(botEnvFromFile.VC_ROB_GIF_FRAMES || "16"),
         VC_SCRATCH_GIF_FRAMES: String(botEnvFromFile.VC_SCRATCH_GIF_FRAMES || "18"),
         VC_DUEL_GIF_FRAMES: String(botEnvFromFile.VC_DUEL_GIF_FRAMES || "28"),
-        // Cap heap Node (Vinyls+Coffee sotto lo stesso albero PM2).
-        NODE_OPTIONS: mergeNodeOptions(botEnvFromFile.NODE_OPTIONS, "--max-old-space-size=700"),
+                NODE_OPTIONS: mergeNodeOptions(botEnvFromFile.NODE_OPTIONS, "--max-old-space-size=700"),
       },
     },
   ],

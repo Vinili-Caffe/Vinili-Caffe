@@ -98,8 +98,7 @@ async function getSession(messageId, guildId, ownerIdHint = "") {
     if (key) restored = await loadSlotsGuiSessionByMessage(g, key);
     if (!restored && owner && g) {
       const byOwner = await loadSlotsGuiSessionByOwner(g, owner);
-      // Accetta restore per owner solo se messageId combacia (o non richiesto).
-      if (byOwner && (!key || sessionKey(byOwner.messageId) === key)) restored = byOwner;
+            if (byOwner && (!key || sessionKey(byOwner.messageId) === key)) restored = byOwner;
     }
     if (restored) break;
     if (attempt < 3) await new Promise((r) => setTimeout(r, 80 * attempt));

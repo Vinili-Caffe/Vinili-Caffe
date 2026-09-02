@@ -1,11 +1,3 @@
-/**
- * Modal conferma / alert / scelta / prompt condiviso.
- * API:
- *   VcDialog.confirm({ title, message, confirmLabel, cancelLabel, danger, icon }) → Promise<boolean>
- *   VcDialog.alert({ title, message, okLabel, danger, icon }) → Promise<void>
- *   VcDialog.choose({ title, message, choices:[{id,label,danger}], cancelLabel, icon }) → Promise<string|null>
- *   VcDialog.prompt({ title, message, label, placeholder, defaultValue, confirmLabel, cancelLabel, danger, icon, maxLength }) → Promise<string|null>
- */
 (function (global) {
   "use strict";
 
@@ -99,8 +91,7 @@
     var kind = pending && pending.kind;
     pending = null;
     if (typeof resolve !== "function") return;
-    // Differisci: permette di aprire subito un altro dialog (scambio dopo rimozione).
-    Promise.resolve().then(function () {
+        Promise.resolve().then(function () {
       if (kind === "confirm") resolve(value === true);
       else if (kind === "alert") resolve(true);
       else if (kind === "prompt") resolve(value == null ? null : String(value));
@@ -240,13 +231,11 @@
               var inp = document.getElementById("vc-dialog-input");
               finish(inp ? String(inp.value || "") : "");
             }
-            // textarea: Enter = nuova riga; conferma solo col bottone
-          }
+                      }
         }
       };
       document.addEventListener("keydown", keyHandler, true);
-      // Sempre in cima allo stack (es. sheet gestione z-index 121000).
-      try {
+            try {
         if (root.parentNode !== document.body) document.body.appendChild(root);
         else document.body.appendChild(root);
       } catch (eTop) {}

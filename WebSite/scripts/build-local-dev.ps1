@@ -1,14 +1,8 @@
-# Build dist per provare su http://localhost:3000 (default) con API candidature.
-# Dalla root del repo (senza incollare il prompt "PS ...>" della console; path con & tra virgolette in cd).
-#   powershell -ExecutionPolicy Bypass -File WebSite/scripts/build-local-dev.ps1
-# Bot in locale sulla STESSA macchina: porta sito diversa dalla webhook del bot, es. -SitePort 5173 -BotHttpPort 3000
-# Se il webhook HTTP del bot non e sulla 3000, passa la porta:
-#   powershell -ExecutionPolicy Bypass -File WebSite/scripts/build-local-dev.ps1 -BotHttpPort 3001
+
 
 param(
   [int] $SitePort = 3000,
   [int] $BotHttpPort = 3000,
-  # Se il bot e su un VPS: es. "http://203.0.113.10:3000/webhooks/site-candidature" (stessa stringa in site.config candidatureSubmitApiUrlLocal).
   [string] $CandidatureSubmitApiUrlLocal = ""
 )
 

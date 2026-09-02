@@ -135,8 +135,7 @@ async function listDashboardBotDevGuilds(client, accessToken, query = {}) {
     });
   }
 
-  // Più recenti in alto (join del bot sul server).
-  rows.sort((a, b) => {
+    rows.sort((a, b) => {
     const dj = (Number(b.joinedAtMs) || 0) - (Number(a.joinedAtMs) || 0);
     if (dj !== 0) return dj;
     return String(a.name).localeCompare(String(b.name), "it");
@@ -405,8 +404,7 @@ function creditsUserAvatarUrl(user) {
     try {
       return user.displayAvatarURL({ size: 64 }) || null;
     } catch {
-      /* fall through */
-    }
+          }
   }
   return null;
 }

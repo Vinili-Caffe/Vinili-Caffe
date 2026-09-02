@@ -1,7 +1,3 @@
-/**
- * Dati per-guild embedded in `GlobalSettings` (collection globalsettings):
- * modConfig, personalityPanels, channelSnapshots, skullboardPosts.
- */
 const { GlobalSettings } = require("../../Schemas/Community/communitySchemas");
 const MAIN_GUILD_ID = "1329080093599076474";
 

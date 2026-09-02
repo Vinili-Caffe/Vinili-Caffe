@@ -1,4 +1,3 @@
-/** Chiavi UI del pannello +profile tenant (home, badge, obiettivi, impostazioni, lingua). */
 const PROFILE_UI_KEYS = Object.freeze([
   "user", "id", "admin", "alerts", "awards", "count", "daily", "weekly", "badges",
   "notificationsTitle", "notificationsEmpty",

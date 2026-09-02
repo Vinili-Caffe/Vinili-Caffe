@@ -156,10 +156,7 @@ async function collectGuildCatalog(guild, ids) {
   await guild.channels.fetch().catch(() => { });
   await guild.roles.fetch().catch(() => { });
   await guild.emojis.fetch().catch(() => { });
-  // Mai guild.members.fetch() completo: su guild grandi apre decine di listener
-  // guildMembersChunk e triggera MaxListenersExceededWarning. I bot in cache bastano
-  // (join/leave/update bot aggiornano già la cache prima del sync).
-
+      
   const rawEntries = ids?.namedEntries || {};
   const previousEntries = {
     categories: Array.isArray(rawEntries.categories) ? rawEntries.categories : [],
@@ -193,8 +190,7 @@ function writeCatalogFiles(baseDir, payload) {
   const catalogPath = path.join(baseDir, "Utils", "Config", "idsCatalog.js");
   const reportPath = path.join(baseDir, "Utils", "Config", "idsCatalog.snapshot.txt");
   const report = ["[CATEGORIES]", ...payload.categoriesLines, "", "[CHANNELS]", ...payload.channelsLines, "", "[ROLES]", ...payload.rolesLines, "", "[EMOJIS]", ...payload.emojisLines, "", "[BOTS]", ...payload.botsLines, "",].join("\n");
-  // Async writes: sync fs qui blocca l'event loop e fa scattare i WARN node-cron.
-  return Promise.all([
+    return Promise.all([
     fs.promises.writeFile(catalogPath, payload.catalogSource, "utf8"),
     fs.promises.writeFile(reportPath, report, "utf8"),
   ]).then(() => ({ catalogPath, reportPath }));

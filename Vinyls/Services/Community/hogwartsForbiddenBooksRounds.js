@@ -32,7 +32,6 @@ function forbiddenBooksConfig(client) {
   return { ...fallback, ...root, rounds: Array.isArray(fallback.rounds) ? fallback.rounds : [] };
 }
 
-/** Label pagina (solo indizi / admin) — non mostrare come titolo libro in Discord. */
 const FORBIDDEN_BOOK_LABELS = Object.freeze({
   home: "Home",
   faq: "FAQ",
@@ -59,7 +58,6 @@ const FORBIDDEN_BOOK_LABELS = Object.freeze({
   cookie: "Cookie",
 });
 
-/** Titoli fantasy dei libri (annunci Discord / toast). La pagina resta nascosta fino all'indizio. */
 const FORBIDDEN_BOOK_TITLES = Object.freeze({
   home: "Cronache di Hogwarts",
   faq: "Domande di un Mago Curioso",
@@ -86,15 +84,10 @@ const FORBIDDEN_BOOK_TITLES = Object.freeze({
   cookie: "Biscotti della Fortuna Magica",
 });
 
-/** Alias legacy → id canonico (pagina site). */
 const FORBIDDEN_BOOK_ID_ALIASES = Object.freeze({
   unban: "appelli",
 });
 
-/**
- * Pagine pubbliche (aperte a tutti, con vc-landing): usate dalla Sezione proibita lampo.
- * Esclusi login-only (user/perks/notifications) e pagine staff.
- */
 const PUBLIC_FORBIDDEN_BOOK_IDS = Object.freeze([
   "home",
   "faq",

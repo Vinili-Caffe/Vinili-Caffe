@@ -5,7 +5,6 @@ const { userWantsTenantEphemeralCommands } = require("../../Services/Partner/ten
 
 const TENANT_EPHEMERAL_REPLY_MS = 45_000;
 
-/** Prefix partnership / PM toolkit: privacy +profile anche sul main. */
 const MAIN_PARTNERSHIP_PRIVACY_PREFIX = new Set([
   "points",
   "leaderboard",
@@ -35,10 +34,6 @@ function isMainPartnershipPrivacyPrefixCommand(commandName, message) {
   return false;
 }
 
-/**
- * Opzioni defer per slash/Apps partnership: ephemeral se privacy +profile attiva (main e tenant).
- * @returns {Promise<{ flags?: number }>}
- */
 async function resolvePartnershipDeferOptions(guildId, userId) {
   const wants = await userWantsTenantEphemeralCommands(guildId, userId).catch(() => false);
   return wants ? { flags: MessageFlags.Ephemeral } : {};

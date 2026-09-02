@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="it">
   <head>
+<script id="vc-auth-instant-boot">(function(){try{var t=localStorage.getItem("vc_discord_access_token");if(!t)return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;document.documentElement.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
+<style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}</style>
+
     <meta charset="utf-8" />
     <title>Profilo staff</title>
     <meta name="robots" content="noindex, nofollow" />
@@ -46,7 +49,8 @@
         }, 3200);
       })();
     </script>
-    <script src="../js/discord-auth.js?v=20260827staffProfMerge1" defer></script>
+    <script src="../js/vc-auth-pending.js?v=20260831navAuthCacheFix1"></script>
+<script src="../js/discord-auth.js?v=20260831navAuthCacheFix1" defer></script>
   </head>
   <body></body>
 </html>

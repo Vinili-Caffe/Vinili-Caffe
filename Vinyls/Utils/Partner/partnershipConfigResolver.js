@@ -12,9 +12,7 @@ function getMainGuildId() {
 function isMainPartnershipSettingsGuild(guildId) {
   const gid = String(guildId || "").trim();
   if (!gid) return false;
-  // Tutti i guild protetti (main/test/sponsor) possono salvare overlay Mongo
-  // sopra la config legacy del bot, gestibile dalla dashboard.
-  try {
+      try {
     const { isViniliProtectedGuild } = require("../../MultiGuild/core/viniliProtectedGuilds");
     if (isViniliProtectedGuild(gid)) return true;
   } catch (_) {}
@@ -333,9 +331,7 @@ async function userIsPartnerManagerOnAnyGuild(client, userId) {
   const uid = String(userId || "").trim();
   if (!client || !uid) return false;
 
-  // Non limitarsi a client.guilds.cache: site-api spesso ha solo il main,
-  // mentre le missioni valgono se sei PM su qualunque server partnership.
-  let guildIds = [];
+      let guildIds = [];
   try {
     guildIds = listOperationalPartnershipGuildIds(client);
   } catch (_) {
@@ -382,8 +378,7 @@ async function userHasPartnerManagerHistory(userId) {
           { "profile.tenantPartnership.objectiveStats": { $exists: true } },
         ],
       },
-      // Segnato come manager su partnership eseguite (qualsiasi guildId / profilo).
-      { "staff.managerId": uid },
+            { "staff.managerId": uid },
       { "staff.partnerActions.managerId": uid },
     ],
   })
@@ -393,7 +388,6 @@ async function userHasPartnerManagerHistory(userId) {
   return Boolean(row);
 }
 
-/** Missioni partnership: PM attuale o storico su almeno un server (main o tenant), non solo sul main. */
 async function userQualifiesForTenantMissions(client, userId) {
   if (await userIsPartnerManagerOnAnyGuild(client, userId)) return true;
   return userHasPartnerManagerHistory(userId);
@@ -426,17 +420,14 @@ function getPointsRemovedLogChannelId(guildId) {
   return id;
 }
 
-/** Log partnership eseguite / eliminate (canale log configurato in setup). */
 function resolvePartnershipLifecycleLogChannelId(guildId) {
   return getPartnershipLogsChannelId(guildId);
 }
 
-/** Log custom rimozione punti: sul main `pointsRemovedChannelId`, sui tenant il canale log partnership. */
 function resolvePointsCustomLogChannelId(guildId) {
   return getPointsRemovedLogChannelId(guildId) || getPartnershipLogsChannelId(guildId);
 }
 
-/** Canale log rimozioni punti / segnalazioni / riscatti PM (non i log partnership eseguite). */
 function getPartnershipLogChannelIds(guildId) {
   const pointsChannelId = resolvePointsCustomLogChannelId(guildId);
   return {
@@ -476,7 +467,6 @@ function shouldApplyMainPartnershipFilters(guildId) {
   return Boolean(resolvePartnershipConfigSync(guildId)?.legacy);
 }
 
-/** Comandi PM toolkit (+points, +history, …): attivi su tenant e sul main legacy se configurato. */
 function isTenantPartnershipPrefixToolkitEnabled(guildId) {
   const cfg = resolvePartnershipConfigSync(guildId);
   if (!cfg) return false;
@@ -488,7 +478,6 @@ function shouldBlockTenantPartnershipPrefixCommands(guildId) {
   return !isTenantPartnershipPrefixToolkitEnabled(guildId);
 }
 
-/** Su tenant con partnership attiva, `+server` / `+user` senza `info` reindirizzano alla scheda PM. */
 function shouldUseTenantStatsInfoRouting(guildId) {
   if (!guildId || isViniliFullFeatureGuild(guildId)) return false;
   if (shouldBlockTenantPartnershipPrefixCommands(guildId)) return false;
@@ -501,14 +490,12 @@ async function shouldRouteTenantPartnershipProfile(message, opts = {}) {
   if (!guildId || !isTenantPartnershipPrefixToolkitEnabled(guildId)) return false;
   if (!isPartnershipOperational(guildId)) return false;
 
-  // Tenant: `+profile` apre già il profilo partnership (senza `pm`).
-  if (!isViniliFullFeatureGuild(guildId)) return true;
+    if (!isViniliFullFeatureGuild(guildId)) return true;
 
   const member = message?.member;
   if (!memberHasPartnerManagerRole(member, guildId)) return false;
 
-  // Main: profilo partnership PM solo con `+profile pm` esplicito.
-  if (!forcePmMode) return false;
+    if (!forcePmMode) return false;
 
   return true;
 }

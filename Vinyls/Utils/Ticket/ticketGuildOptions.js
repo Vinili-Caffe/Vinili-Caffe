@@ -19,7 +19,6 @@ function resolveNullableBool(overrideVal, globalVal) {
   return globalVal === true;
 }
 
-/** Pannello collegato al ticket (panelId salvato, altrimenti unico pannello di quel tipo). */
 function resolveTicketPanel(guildId, ticketOrPanelId) {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
@@ -144,7 +143,6 @@ function openerAllowBitsToMemberOverwrite(allowBits) {
   return map;
 }
 
-/** Aggiorna i permessi opener sui ticket già aperti (impostazioni globali / override pannello). */
 async function syncOpenTicketOpenerPermissions(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !client) return { updated: 0, checked: 0 };
@@ -186,8 +184,7 @@ function buildOpenerPermissionList(guildId, permsOverride = null) {
     const gOn = defaultOn ? g[key] !== false : g[key] === true;
     if (!e) return gOn;
     if (replace) return e[key] === true;
-    // Legacy: il pannello poteva solo aggiungere.
-    return gOn || e[key] === true;
+        return gOn || e[key] === true;
   };
   const p = {
     embedLinks: resolve("embedLinks", true),

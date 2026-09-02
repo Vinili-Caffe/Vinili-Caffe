@@ -27,7 +27,6 @@ function buildTicketPanelUnclaimedButtonRow(guildId, ticketDoc) {
   );
 }
 
-
 async function applyChannelPermissionOverwritesAfterUnclaim(channel, ticketType) {
   const ROLE_STAFF = IDs.roles.Staff;
   const ROLE_HIGHSTAFF = IDs.roles.HighStaff;
@@ -105,10 +104,6 @@ async function refreshTicketPanelMessageUnclaimed(channel, ticketDoc) {
     .catch(() => {});
 }
 
-/**
- * Dopo depex / uscita staff: rimuove claim DB, overwrite sul canale e ripristina il pannello ticket (come unclaim manuale).
- * @param {{ reason?: string }} [options]
- */
 async function autoUnclaimOpenTicketsClaimedByUser(guild, formerClaimantUserId, options = {}) {
   const gid = String(guild?.id || "").trim();
   const uid = String(formerClaimantUserId || "").trim();

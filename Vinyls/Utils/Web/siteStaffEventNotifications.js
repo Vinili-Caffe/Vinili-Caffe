@@ -1,6 +1,3 @@
-/**
- * Notifiche campanella sito per eventi staff: punti tolti, valutazioni, warn, pex/depex.
- */
 const IDs = require("../Config/ids");
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 const { collectHumanMemberIdsWithRole } = require("../Discord/threadRoleMembers");

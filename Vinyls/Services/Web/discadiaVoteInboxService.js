@@ -16,14 +16,9 @@ function normalizeVoteListing(listing) {
 function listingMatchFilter(listing) {
   const normalized = normalizeVoteListing(listing);
   if (normalized === "topgg") return { listing: "topgg" };
-  // Legacy entries senza `listing` = Discadia.
-  return { $or: [{ listing: "discadia" }, { listing: { $exists: false } }, { listing: null }] };
+    return { $or: [{ listing: "discadia" }, { listing: { $exists: false } }, { listing: null }] };
 }
 
-/**
- * Accoda un voto listing (discadia|topgg) ricevuto via HTTP (anche se il bot Discord è offline).
- * Idempotente a breve termine per lo stesso utente + listing.
- */
 async function enqueuePendingVote(guildId, userId, meta = {}) {
   const gid = resolveGuildId(guildId);
   const uid = String(userId || "").trim();

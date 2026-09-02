@@ -18,7 +18,6 @@ function getStaffCmdsThreadIdsCache() {
   return { ...threadIdsCache };
 }
 
-/** #staff-cmds o thread sotto quel canale. */
 function isChannelOrThreadUnderStaffCmds(channel) {
   const cmds = staffCmdsChannelId();
   if (!channel) return false;

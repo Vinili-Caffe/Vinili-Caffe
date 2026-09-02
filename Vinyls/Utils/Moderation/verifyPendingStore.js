@@ -1,6 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
-/** @type {Map<string, { targetIds: string[], guildId: string, authorId: string, expiresAt: number }>} */
 const pendingVerify = new Map();
 const PENDING_TTL_MS = 60_000;
 

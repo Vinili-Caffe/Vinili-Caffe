@@ -158,8 +158,7 @@ module.exports = {
       return true;
     }
 
-    // CONFIRM
-    if (!target?.id) {
+        if (!target?.id) {
       await cancelPendingPmAfkAlert(client, guild.id, parsed.userId);
       await disableButtons(interaction, `⚠️ Utente non trovato. Controllo chiuso da <@${interaction.user.id}>.`);
       return true;

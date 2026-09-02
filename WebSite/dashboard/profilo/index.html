@@ -1,6 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
   <head>
+<style id="vc-fa-noflash-css">html:not(.vc-fa-ready) .fa{visibility:hidden!important;opacity:0!important}html:not(.vc-fa-ready) .fa:before{content:""!important}html.vc-fa-ready .fa{visibility:visible!important;opacity:1!important}</style>
+<script id="vc-auth-instant-boot">(function(){try{var t=localStorage.getItem("vc_discord_access_token");if(!t)return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;document.documentElement.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
+<style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}</style>
+
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
     <title>{{DASHBOARD_PROFILE_PAGE_TITLE}}</title>
@@ -13,17 +17,15 @@
     <meta property="og:title" content="{{DASHBOARD_PROFILE_OG_TITLE}}" />
     <meta property="og:description" content="{{DASHBOARD_PROFILE_META_DESCRIPTION}}" />
     <meta property="og:url" content="{{DASHBOARD_PROFILE_OG_URL}}" />
-    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" /><script src="../../js/vc-fa-boot.js?v=20260831faBootFix1"></script>
+<link rel="preload" as="font" type="font/woff2" href="/css/font-awesome/fonts/fontawesome-webfont.woff2?v=4.7.0" crossorigin />
+<link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css?v=20260831faLocal1" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="stylesheet" href="../../css/vc-landing.css?v=20260831sitePerfFlash1">
-    <script>
+    <link rel="stylesheet" href="../../css/vc-landing-core.css?v=20260831cssSplitFix1" />
+    <link rel="stylesheet" href="../../css/vc-landing-ext.css?v=20260902promoCandMobileFix1" /><script>
       window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY = true;
     </script>
-    <script src="../../js/vc-auth-pending.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/vc-auth-pending.js?v=20260831navAuthCacheFix1"></script>
     <script src="/js/vc-access-pending-boot.js?v=20260830phoneBodyParse1"></script>
     <script>
       window.__VC_SITE_DASHBOARD = {
@@ -170,7 +172,7 @@
           <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}" data-i18n="footer.cookies">Cookie Policy</a>
         </nav>
         <p class="max-w-xl text-sm leading-relaxed text-slate-400">
-          © {{YEAR}} {{SITE_NAME}}. <span data-i18n="dash.footerTag">Dashboard Vinili.</span>
+          � {{YEAR}} {{SITE_NAME}}. <span data-i18n="dash.footerTag">Dashboard Vinili.</span>
         </p>
       </div>
 </footer>
@@ -185,15 +187,13 @@
       </div>
     </nav>
 <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
-    <script src="../../js/discord-auth.js?v={{BUILD_ASSET_VERSION}}"></script>
+    <script src="../../js/discord-auth.js?v=20260831navAuthCacheFix1"></script>
     <script src="../../js/vc-mobile-nav.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/dashboard-staff-notifs.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/dashboard-premium-credits-nav.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/dashboard-server-switcher.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/dashboard-profile-shell.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script src="../../js/vc-mini-pager.js?v={{BUILD_ASSET_VERSION}}"></script>
-    <script src="../../js/dashboard-tenant-profile-page.js?v={{BUILD_ASSET_VERSION}}"></script>
-      <script src="/js/vc-cursor-trail.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-    <script src="/js/vc-ptr.js?v=20260830phoneBodyParse1" defer></script>
+    <script src="../../js/dashboard-tenant-profile-page.js?v={{BUILD_ASSET_VERSION}}"></script><script src="/js/vc-ptr.js?v=20260831sitePerfFix1" defer></script>
 </body>
 </html>

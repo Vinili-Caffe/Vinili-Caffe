@@ -295,13 +295,6 @@ async function resolveMainGuild(client) {
   );
 }
 
-/**
- * Premi fine evento + verbale in #eventi:
- * - membri con ≥7000 pt personali nella casa 1°/2°/3° → VIP+ / VIP / Donator 30g
- * - casa 1° + ≥7000 pt → anche ruolo bonus finale (finaleWinnerHouseBonusRoleId)
- * - 3° top utenti personali (esclusi prefetti) → VIP 30g; 1°/2° manuali
- * Non sovrascrive: se il ruolo c’è già, non viene rimosso a scadenza.
- */
 async function awardHogwartsFinalePrizes(client, options = {}) {
   const cfg = resolveHogwartsEventConfig(client);
   const eventKey = normalizeId(cfg.eventKey);
@@ -488,7 +481,22 @@ async function runHogwartsEventCompletionSweep(client, options = {}) {
       global.logger?.warn?.("[HOGWARTS FINALE PRIZES] cleanup:", err?.message || err);
     });
   }
-  return awardHogwartsFinalePrizes(client, options);
+  const prizes = await awardHogwartsFinalePrizes(client, options);
+  try {
+    const { maybeWipeHogwartsEventDataAfterFinale } = require("./hogwartsEventWipeService");
+    const wipe = await maybeWipeHogwartsEventDataAfterFinale(client, {
+      force: Boolean(options.forceWipe),
+      nowMs: options.nowMs,
+    });
+    if (wipe && !wipe.skipped) {
+      prizes.wipe = wipe.summary || wipe;
+    } else if (wipe?.reason) {
+      prizes.wipeSkipped = wipe.reason;
+    }
+  } catch (errWipe) {
+    global.logger?.error?.("[HOGWARTS EVENT WIPE] sweep:", errWipe?.message || errWipe);
+  }
+  return prizes;
 }
 
 function startHogwartsEventEndLoop(client) {
@@ -522,4 +530,5 @@ module.exports = {
   MEMBER_POINTS_THRESHOLD,
   FINALE_HOUSE_PATH,
   FINALE_MEMBER_PATH,
+  wipeHogwartsEventData: (...args) => require("./hogwartsEventWipeService").wipeHogwartsEventData(...args),
 };

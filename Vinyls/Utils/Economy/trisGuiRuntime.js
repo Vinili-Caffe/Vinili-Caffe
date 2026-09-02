@@ -82,8 +82,7 @@ function bindPvpUsers(session, messageId) {
   const mid = String(messageId || "");
   if (!gid || !mid || session.mode !== "pvp") return;
   const phase = String(session.phase || "");
-  // Non rilockare partite finite: altrimenti +tris resta bloccato dopo il risultato.
-  if (phase !== "pending" && phase !== "playing") return;
+    if (phase !== "pending" && phase !== "playing") return;
   pvpUserLocks.set(userLockKey(gid, session.ownerId), mid);
   pvpUserLocks.set(userLockKey(gid, session.opponentId), mid);
 }
@@ -115,8 +114,7 @@ function findActiveTrisPvpMessageId(guildId, userId) {
     releasePvpLocksByMessageId(mid);
     return "";
   }
-  // Lock orfano (partita già cancellata dalla memoria).
-  releasePvpLocksByMessageId(mid);
+    releasePvpLocksByMessageId(mid);
   return "";
 }
 
@@ -281,16 +279,13 @@ async function renderPanel(session, notice = "") {
     else if (last.outcome === "draw") resultLabel = `Pareggio ${formatEconomyAmountShort(last.payout)}`;
     else resultLabel = "Sconfitta";
   }
-  // Invite lunghe + mention restano nel content Discord, non nel footer canvas.
-  const canvasNotice =
+    const canvasNotice =
     session.mode === "pvp" && session.phase === "pending" ? "" : notice;
   try {
     const renderTrisCanvas = require("../Render/trisCanvas");
     const rendered = await runEconomyRender(() =>
       renderTrisCanvas({
-      // A partita finita/idle si mostra la puntata della prossima mano (session.bet),
-      // non lo stake bloccato della mano appena chiusa (session.wager).
-      bet: session.phase === "playing" ? (session.wager || session.bet) : session.bet,
+                  bet: session.phase === "playing" ? (session.wager || session.bet) : session.bet,
       board: session.board,
       phase: session.phase,
       resultLabel,
@@ -437,14 +432,9 @@ async function refundOnClose(client, session, actorId) {
   return { ok: true, amount: 0 };
 }
 
-/**
- * Chiude forzatamente una sessione tris SENZA rimborsare le puntate.
- * Usato quando il gioco è disabilitato.
- */
 async function forceKillTrisSession(client, session, actorId = "") {
   if (!session) return { ok: true, amount: 0 };
-  // Intenzionale: niente refund — le puntate restano perse alla disattivazione.
-  session.stakesLocked = false;
+    session.stakesLocked = false;
   session.wager = 0;
   session.phase = session.mode === "pvp" ? "done" : "idle";
   session.currentTurnId = "";
@@ -479,9 +469,6 @@ async function tryDisableTrisPanelMessage(client, session, notice) {
   if (msg?.editable) await msg.edit(payload).catch(() => {});
 }
 
-/**
- * Svuota tutte le sessioni tris persistite (e in memoria) quando il gioco è off.
- */
 async function purgeDisabledTrisSessions(client) {
   const cfg = economyConfig(client);
   if (cfg?.tris?.enabled !== false) return { ok: true, purged: 0, skipped: true };

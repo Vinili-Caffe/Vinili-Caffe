@@ -18,11 +18,11 @@ const {
   discordDefaultAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
 
-const ACCESS_CACHE_TTL_MS = 180_000;
+const ACCESS_CACHE_TTL_MS = 600_000;
 const ACCESS_CACHE_MAX = 400;
 const accessCache = new Map();
-/** Coalesce concurrent assertWebsiteStaffAccess for the same Bearer (cold boot race). */
 const accessInflight = new Map();
+const STAFF_ACCESS_CACHE_MARKER = "staffAccessCache1";
 
 function normalizeHeaderSecret(raw) {
   if (raw == null) return "";
@@ -90,8 +90,7 @@ function shouldNegativeCacheAccessDeny(entry) {
   if (!entry || entry.ok !== false) return false;
   if (isTransientAccessDeny(entry)) return false;
   const err = String(entry.error || "").trim().toLowerCase();
-  // Mai cachare auth Discord fallita: altrimenti un 401 intermittente blocca per TTL.
-  if (err === "invalid_token" || err === "missing_token") return false;
+    if (err === "invalid_token" || err === "missing_token") return false;
   if (err === "not_in_guild" || err === "forbidden") {
     return true;
   }
@@ -99,7 +98,6 @@ function shouldNegativeCacheAccessDeny(entry) {
   return st === 403;
 }
 
-/** Staff ladder + ruolo ombrello Staff sul main server. */
 function memberHasMainServerStaffAccess(member) {
   if (!member) return false;
   if (memberHasStaffRole(member)) return true;
@@ -178,10 +176,6 @@ function collectMemberRoleIds(member) {
   return [];
 }
 
-/**
- * Assert staff access for staff-area APIs.
- * @returns {Promise<{ ok: true, member: import("discord.js").GuildMember, user: object } | { ok: false, status: number, error: string, message: string }>}
- */
 async function assertWebsiteStaffAccess(client, accessToken) {
   const token = String(accessToken || "").trim();
   if (!token) {
@@ -220,8 +214,7 @@ async function doAssertWebsiteStaffAccess(client, token) {
     accessCache.delete(accessCacheKey(token));
   }
 
-  // Warm success: snapshot ruoli prima di qualsiasi fetch Discord (site-api REST spesso non ha members in cache).
-  if (cached && cached.ok === true && cached.userId) {
+    if (cached && cached.ok === true && cached.userId) {
     const guildId = String(IDs.guilds.main || "").trim();
     const guild = client.guilds.cache.get(guildId) || null;
     if (guild) {
@@ -250,8 +243,7 @@ async function doAssertWebsiteStaffAccess(client, token) {
         }
       }
     } else if (Array.isArray(cached.roleIds) && cached.roleIds.length) {
-      // Guild non ancora in cache: sintetico senza guild è comunque sufficiente per i check ruoli.
-      const synth = buildCachedStaffMember(null, cached);
+            const synth = buildCachedStaffMember(null, cached);
       if (memberHasMainServerStaffAccess(synth)) {
         return { ok: true, member: synth, user: synth.user || null };
       }
@@ -303,9 +295,6 @@ async function doAssertWebsiteStaffAccess(client, token) {
   return { ok: true, member, user: resolved.user || null };
 }
 
-/**
- * GET Bearer: login Discord + membro main guild + ruolo staff.
- */
 async function handleSiteStaffAccessGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -331,8 +320,7 @@ async function handleSiteStaffAccessGet(client, req, res) {
       accessCache.delete(accessCacheKey(accessToken));
     }
 
-    // Hit caldo: payload già validato → risposta immediata (niente Discord / members.fetch).
-    if (cached && cached.ok === true && cached.payload) {
+        if (cached && cached.ok === true && cached.payload) {
       res.setHeader("Cache-Control", "private, no-store");
       return res.status(200).json({ ...cached.payload, cached: true });
     }

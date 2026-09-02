@@ -1,6 +1,3 @@
-/**
- * Modale gestione staff — sostituisce /staff/gestione/ con sheet sul profilo.
- */
 (function (global) {
   "use strict";
 

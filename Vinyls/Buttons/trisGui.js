@@ -99,8 +99,7 @@ async function execute(interaction, client) {
   const balance = await fetchSpendableBalance(client, session);
 
   if (session.mode === "pvp") {
-    // In PvP niente puntata/start (solo invite o mosse a turno).
-    if (parsed.action === "minus" || parsed.action === "plus" || parsed.action === "bet" || parsed.action === "betmodal" || parsed.action === "start") {
+        if (parsed.action === "minus" || parsed.action === "plus" || parsed.action === "bet" || parsed.action === "betmodal" || parsed.action === "start") {
       await replyPrivate(interaction, "<a:VC_Cross:1482532424570376253> In PvP la puntata è fissa all'invito.");
       return true;
     }
@@ -151,8 +150,7 @@ async function execute(interaction, client) {
         : `<a:VC_Verified:1482532479637127188> Mossa registrata. Turno di **${session.currentTurnId === session.ownerId ? session.playerName : session.opponentName}**.`;
       const panelClosed = played.finished;
       if (played.finished) {
-        // Non persistare/rilockare una partita già chiusa.
-        deleteSession(interaction.message?.id, session);
+                deleteSession(interaction.message?.id, session);
       } else {
         setSession(interaction.message.id, session);
       }

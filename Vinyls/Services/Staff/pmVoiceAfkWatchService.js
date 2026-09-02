@@ -50,7 +50,7 @@ function isPublicAfkWatchTargetChannel(channel, client) {
   const resolvedClient = client || channel.client || channel.guild?.client || null;
   if (isPublicVoiceHubId(channel.id, resolvedClient)) return true;
   if (isSpawnedHubChannel(channel, resolvedClient)) return true;
-  return /\b(Lounge|Duo|Trio|Quad|Squad)\b/i.test(String(channel.name || ""));
+  return /\b(Lounge|Duo|Trio|Quad|Penta|Hexa|Setta|Octa|Squad)\b/i.test(String(channel.name || ""));
 }
 
 function isPmAfkWatchVoiceChannel(channel, client = null) {

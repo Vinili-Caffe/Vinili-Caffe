@@ -173,9 +173,6 @@ function buildWebTicketClosedTranscriptRow(ticket) {
   );
 }
 
-/**
- * @param {"opened"|"claimed"|"unclaimed"|"closed"|"member_added"|"member_removed"|"transferred"|"category_changed"|"renamed"|"close_requested"|"close_request_rejected"|"rated"} action
- */
 function buildWebTicketLogEmbed(action, ticket, meta = {}) {
   if (action === "closed") {
     const { buildTicketClosedEmbed } = require("../Ticket/ticketCloseRuntime");
@@ -326,10 +323,6 @@ function buildWebTicketLogEmbed(action, ticket, meta = {}) {
   return embed;
 }
 
-/**
- * Invia un log nel canale ticket logs Discord (stesso canale dei ticket Discord).
- * Fail-soft: non blocca mai la richiesta HTTP.
- */
 async function sendWebTicketDiscordLog(client, action, ticket, meta = {}) {
   try {
     const guildId = String(ticket?.guildId || meta.guildId || "").trim();
@@ -365,10 +358,6 @@ async function sendWebTicketDiscordLog(client, action, ticket, meta = {}) {
   }
 }
 
-/**
- * Log classici (activityLogs): messaggio ticket web eliminato / modificato.
- * @param {"deleted"|"edited"} kind
- */
 async function sendWebTicketMessageActivityLog(client, kind, ticket, messageDoc, meta = {}) {
   try {
     const guildId = String(ticket?.guildId || meta.guildId || "").trim();

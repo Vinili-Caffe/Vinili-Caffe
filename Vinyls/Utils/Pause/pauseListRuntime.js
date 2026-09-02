@@ -24,7 +24,6 @@ function resolvePauseListTargetDisplay(targetUser, userId) {
   return { uid, display };
 }
 
-/** Testo da usare in frasi tipo "Nessuna pausa trovata per …" (mai `[object Object]`). */
 function formatPauseListTargetForSentence(targetUser, userId) {
   const { uid, display } = resolvePauseListTargetDisplay(targetUser, userId);
   if (display) return display;

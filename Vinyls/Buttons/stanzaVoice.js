@@ -1,4 +1,3 @@
-// Stanze gestite solo da Caffè — non claimare i button stanza_* su Vinili.
 function match() {
   return false;
 }

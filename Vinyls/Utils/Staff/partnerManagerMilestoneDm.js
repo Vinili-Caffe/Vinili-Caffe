@@ -8,6 +8,7 @@ const {
   PARTNER_REWARD_LABELS,
   getPartnerRewardPointCost,
 } = require("../../../shared/partner/partnerManagerRewardTiers");
+const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef");
 
 const PARTNER_MILESTONE_POINT_TIERS = PARTNER_REWARD_CANONICAL_TIERS;
 const PARTNER_MILESTONE_REWARD_LABELS = PARTNER_REWARD_LABELS;
@@ -36,10 +37,8 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
     (await guild.members.fetch(uid).catch(() => null));
   if (!member?.roles?.cache?.has(pmRole)) return;
 
-  const ticketCh = String(IDs.channels?.ticket || "").trim();
-  const ticketLine = ticketCh
-    ? `Apri un ticket **High Staff** da ${`<#${ticketCh}>`} e indica che vuoi riscattare il premio Partner Manager alla soglia **{tier}**.`
-    : "Apri un ticket **High Staff** sul server e indica che vuoi riscattare il premio Partner Manager.";
+  const ticketLine =
+    `Apri un ${siteTicketsPageDiscordRef("HIGH STAFF")} e indica che vuoi riscattare il premio Partner Manager alla soglia **{tier}**.`;
 
   const fresh = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
     .select("staff.partnerMilestoneDmSent")

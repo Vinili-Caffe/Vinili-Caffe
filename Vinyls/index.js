@@ -172,9 +172,7 @@ initializeCommandCollections(client, { includeSnipes: true });
 (async () => {
   const bootStartedAt = Date.now();
   try {
-    // Connetti Mongo prima di caricare Events/Services/Schema: altrimenti mongoose
-    // prova a gestire autoIndex su decine di modelli e il connect può richiedere ~15s.
-    const mongoStartedAt = Date.now();
+            const mongoStartedAt = Date.now();
     const mongoConnected = await connectMongo(client);
     if (!mongoConnected || !isMongoReady()) {
       global.logger.error("[DATABASE] Startup aborted: MongoDB is required before login.");
@@ -194,9 +192,7 @@ initializeCommandCollections(client, { includeSnipes: true });
       global.logger?.warn?.("[MultiGuild] attach failed:", err?.message || err);
     }
 
-    // Prefix + slash + button PRIMA del login: caricarli in parallelo all'handshake
-    // satura l'event loop (require sync) e fa esplodere login_resolve_ms (20s+).
-    global.__vinylsDiscordClient = client;
+            global.__vinylsDiscordClient = client;
     client.__prefixCommandsReady = false;
     client.__slashCommandsReady = false;
     client.__bootCommandsReady = false;

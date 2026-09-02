@@ -1,13 +1,8 @@
-/**
- * Boot sincrono (head, senza defer): mostra subito overlay di caricamento / verifica
- * e nasconde il contenuto finché i gate (staff, dashboard, sessione) non completano.
- */
 (function () {
   if (window.__VC_ACCESS_PENDING_BOOT) return;
   window.__VC_ACCESS_PENDING_BOOT = true;
 
-  /* phoneRootUnlock1: inject early anche su staff/dashboard (senza cine-boot). */
-  try {
+    try {
     if (typeof window.__vcPhoneRootUnlockInject !== "function") {
       var unlockCss =
         "@media (pointer:coarse),(max-width:920px){" +
@@ -35,9 +30,7 @@
   } catch (ePhoneRoot) {}
 
   var CRITICAL_CSS_ID = "vc-access-pending-critical-css";
-  /* Scroll lock: su telefono/PWA NIENTE touch-action:none / body:fixed (freeze totale).
-     Overlay fullscreen bastano. Desktop fine-pointer tiene il lock classico. */
-  var scrollLockCssDesktop =
+    var scrollLockCssDesktop =
     "html.vc-staff-access-pending:not(.vc-staff-app-revealed)," +
     "html.vc-staff-access-pending:not(.vc-staff-app-revealed) body," +
     "html.vc-staff-denied-open," +
@@ -283,8 +276,7 @@
           body.style.removeProperty("overflow-y");
           body.style.removeProperty("touch-action");
         }
-        // Force Android Chrome to recompute scrollability after position:fixed lock.
-        void (body && body.offsetHeight);
+                void (body && body.offsetHeight);
         window.scrollTo(0, Math.max(0, window.pageYOffset || 0));
         if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
         if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();

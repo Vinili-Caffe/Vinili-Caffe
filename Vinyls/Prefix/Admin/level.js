@@ -36,8 +36,10 @@ function fmtDiscordList(lines, emptyLabel, maxLines = 18) {
 function formatRoleMultiLines(guild, roleMultipliersMap) {
   const rows = [];
   for (const [roleId, mult] of roleMultipliersMap.entries()) {
-    const r = guild?.roles?.cache?.get(roleId);
-    const label = r?.name ? `**${r.name}**` : `<@&${roleId}>`;
+    const id = String(roleId || "").trim();
+    if (!/^\d{16,20}$/.test(id)) continue;
+    const r = guild?.roles?.cache?.get(id);
+    const label = r?.name ? `**${r.name}**` : `<@&${id}>`;
     rows.push(`${label} — **${mult}x**`);
   }
   return rows;

@@ -9,7 +9,6 @@ function normalizeOverwriteTargetId(id) {
   return SNOWFLAKE_RE.test(out) ? out : "";
 }
 
-/** discord.js richiede `type` se User/Role non sono in cache (sweepers / utenti usciti). */
 async function editTicketMemberOverwrite(channel, userId, options, extras = {}) {
   const id = normalizeOverwriteTargetId(userId);
   if (!channel?.permissionOverwrites?.edit || !id) return null;
@@ -35,7 +34,6 @@ const TICKET_STAFF_SPECTATE_OVERWRITES = Object.freeze({
   AddReactions: true,
 });
 
-/** High Staff: può scrivere in ticket supporto / partnership / perks anche se già claimati. */
 const HIGHSTAFF_TICKET_WRITE_OVERWRITES = Object.freeze({
   ViewChannel: true,
   SendMessages: true,
@@ -74,7 +72,6 @@ function resolveTicketStaffRoleOverwrite(roleId, highStaffRoleId = HIGHSTAFF_ROL
     : TICKET_STAFF_SPECTATE_OVERWRITES;
 }
 
-/** Converte mappa boolean { ViewChannel: true } in allow/deny bit arrays. */
 function permissionMapToAllowDeny(options) {
   const allow = [];
   const deny = [];
@@ -104,7 +101,6 @@ function buildTicketMemberCreateOverwrite(userId, { allow = [], deny = [] } = {}
   return buildTypedCreateOverwrite(userId, OverwriteType.Member, { allow, deny });
 }
 
-/** Da mappa boolean (es. TICKET_ROLE_SPECTATE) → overwrite create tipizzato. */
 function toTicketRoleCreateOverwrite(roleId, permissionMap) {
   return buildTicketRoleCreateOverwrite(roleId, permissionMapToAllowDeny(permissionMap));
 }

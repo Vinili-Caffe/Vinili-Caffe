@@ -12,15 +12,9 @@ const LEGACY_VINILI_EMBED_COLOR_INT = 0x6f4e37;
 
 const BRANDING_IMAGE_NAME = "tenant-standard.gif";
 const STANDARD_GIF_PATH = path.resolve(__dirname, "../../Photos/standard.gif");
-/** Evita doppia applicazione (es. comando + safeMessageReply). Non inviare a Discord. */
 const TENANT_BRANDING_APPLIED_KEY = "__tenantBrandingApplied";
-/** Set da replyRuntime: il prefix dispatcher non deve ri-brandizzare. */
 const PREFIX_DISPATCH_BRANDING_DONE_KEY = "__prefixDispatchBrandingDone";
 
-/**
- * URL pubblico del banner (sito). Cloudflare spesso blocca il proxy immagini Discord
- * (403) → icona rotta. Preferire sempre attachment:// + file locale.
- */
 function resolveBrandingImagePublicUrl() {
   const base = String(
     process.env.WEBSITE_PUBLIC_URL ||
@@ -157,7 +151,6 @@ function resolveEmbedColorForGuild(guildId) {
   return shouldUseViniliBrandEmbedColor(guildId) ? TENANT_EMBED_COLOR : LEGACY_VINILI_EMBED_COLOR;
 }
 
-/** Colore brand (#826bc2) su main e tenant partnership; marrone legacy altrove. */
 function resolvePartnershipEmbedColorForGuild(guildId) {
   return resolveEmbedColorForGuild(guildId);
 }
@@ -169,8 +162,7 @@ function shouldApplyTenantEmbedColor(guildId, color, context = {}) {
       : shouldUseViniliBrandEmbedColor(guildId);
   if (!useBrandColor) return false;
   if (color == null || color === "") return true;
-  // Solo default/legacy → brand. Rifiuti/errori rossi e successi verdi restano intatti.
-  return isLegacyDefaultEmbedColor(color);
+    return isLegacyDefaultEmbedColor(color);
 }
 
 function createStandardGifAttachment() {
@@ -178,13 +170,11 @@ function createStandardGifAttachment() {
   return new AttachmentBuilder(STANDARD_GIF_PATH, { name: BRANDING_IMAGE_NAME });
 }
 
-/** Imposta il banner brand via allegato locale (affidabile; evita URL sito bloccato da CF). */
 function applyBrandingBannerImage(embed) {
   if (!embed) return embed;
   const builder = embed instanceof EmbedBuilder ? embed : EmbedBuilder.from(embed);
   if (!standardGifFileExists()) {
-    // Ultimo resort: URL pubblico (può risultare rotto se CF mitiga il proxy Discord).
-    return builder.setImage(BRANDING_IMAGE_URL);
+        return builder.setImage(BRANDING_IMAGE_URL);
   }
   return builder.setImage(BRANDING_IMAGE_ATTACHMENT_URL);
 }
@@ -197,7 +187,6 @@ function payloadFilesIncludeBrandingBanner(files) {
   });
 }
 
-/** Assicura `files` con il GIF brand se l'embed usa attachment://tenant-standard.gif. */
 function ensureBrandingBannerFiles(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
   if (!payloadHasTenantBannerEmbed(payload)) return payload;
@@ -241,8 +230,7 @@ function shouldIncludeTenantBanner(payload, context = {}) {
   if (context.includeBanner === false) return false;
   if (payload && payload.includeBanner === true) return true;
   if (payload && payload.includeBanner === false) return false;
-  // Opt-in: non appiccicare banner su ogni reply/edit/bottone.
-  return false;
+    return false;
 }
 
 function shouldIncludeTenantThumbnail(payload, context = {}) {
@@ -305,8 +293,7 @@ function applyBrandingToEmbed(embed, context) {
   }
 
   if (includeBanner && embedNeedsImage(builder)) {
-    // Allegato locale: Discord lo hosta sulla propria CDN (CF sul sito non rompe l'immagine).
-    builder = applyBrandingBannerImage(builder);
+        builder = applyBrandingBannerImage(builder);
     needsFile = standardGifFileExists();
   }
 
@@ -344,8 +331,7 @@ function applyTenantPayloadBranding(payload, context = {}) {
   const nextEmbeds = embeds.map((embed, index) => {
     const embedBrandingContext = {
       ...brandingContext,
-      // Un solo banner sul primo embed.
-      includeBanner: includeBanner && index === 0,
+            includeBanner: includeBanner && index === 0,
     };
     const result = applyBrandingToEmbed(embed, embedBrandingContext);
     if (result.needsFile) needsBannerFile = true;
@@ -361,8 +347,7 @@ function applyTenantPayloadBranding(payload, context = {}) {
       }
     }
   } else if (Array.isArray(files) && files.length) {
-    // Nessun banner richiesto: togli eventuali tenant-standard.gif residui (evita GIF fuori embed).
-    files = files.filter((file) => {
+        files = files.filter((file) => {
       const name = String(file?.name || file?.attachment?.name || "").trim().toLowerCase();
       return !BRANDING_IMAGE_ALIASES.some((alias) => name === String(alias).toLowerCase());
     });
@@ -384,8 +369,7 @@ function registerTenantEmbedBrandingApplier() {
       applyTenantPayloadBranding(payload, { ...context, partnershipBranding: true }),
     );
   } catch {
-    // reply runtime not available in this process
-  }
+      }
 }
 
 module.exports = {

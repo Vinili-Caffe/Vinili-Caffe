@@ -1,11 +1,6 @@
 "use strict";
 
-/**
- * Presenza client sulla pagina /tickets (heartbeat).
- * Usata per non spamare notifiche in-app se l’utente sta già guardando i ticket.
- */
 const PRESENCE_TTL_MS = 45_000;
-/** @type {Map<string, { ticketId: string, inbox: boolean, at: number }>} */
 const presenceByUserId = new Map();
 
 function normalizeUserId(value) {
@@ -47,16 +42,6 @@ function getWebTicketPagePresence(userId) {
   return row;
 }
 
-/**
- * @param {string} userId
- * @param {string} ticketId
- * @param {'message'|'mention'|'invite'|'event'|'new'} mode
- * @returns {boolean} true = non inviare notifica
- *
- * IMPORTANTE: non usare questa presence per saltare enqueue/push.
- * La Map è per-user (non per-device): se il PC è sul ticket, il telefono
- * non riceverebbe più nulla. La presence serve solo a UI/toast lato client.
- */
 function shouldSkipWebTicketInAppNotif(_userId, _ticketId, _mode) {
   return false;
 }

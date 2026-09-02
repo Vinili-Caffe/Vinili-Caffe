@@ -20,12 +20,16 @@ const {
 const ROSTER_TTL_MS = 5 * 60_000;
 const PAUSED_TTL_MS = 45_000;
 const TICKETS_TTL_MS = 20_000;
-/** Serve snapshot fino a 30 min (cold start site-api senza listare tutta la guild). */
 const SNAPSHOT_MAX_AGE_MS = 30 * 60_000;
-/** Dopo 90s refresh in background (hydrate Discord). */
 const SNAPSHOT_REFRESH_AGE_MS = 90_000;
 const FULL_GUILD_FETCH_TIMEOUT_MS = 14_000;
 const STAFF_MEMBER_HYDRATE_BATCH = 25;
+const STAFF_DEL_MESE_ROLE_ID = String(IDs.roles?.StafferDelMese || "").trim();
+
+function memberIsStaffDelMese(member) {
+  if (!STAFF_DEL_MESE_ROLE_ID || !member?.roles?.cache) return false;
+  return member.roles.cache.has(STAFF_DEL_MESE_ROLE_ID);
+}
 
 let rosterCache = null;
 let rosterInflight = null;
@@ -159,11 +163,6 @@ async function saveRosterSnapshot(guildId, built, extras = {}) {
   ).catch(() => null);
 }
 
-/**
- * ID staff noti senza listare la guild:
- * snapshot precedente + profili Mongo + collection legacy `staffs`.
- * (Discord GET .../roles/{id}/member-ids risponde 403 ai bot.)
- */
 async function collectKnownStaffUserIds(guildId) {
   const gid = String(guildId || "");
   const userIds = new Set();
@@ -193,11 +192,10 @@ async function collectKnownStaffUserIds(guildId) {
       if (isSnowflake(uid)) userIds.add(uid);
     }
   } catch (_) {
-    /* collection assente */
-  }
+      }
 
   for (const extra of [
-    String(IDs.roles?.StafferDelMese || "").trim(), // placeholder no-op; holders come from hydrate
+    String(IDs.roles?.StafferDelMese || "").trim(),
   ]) {
     void extra;
   }
@@ -230,8 +228,7 @@ async function ensureGuildMembersLoaded(guild, preferredIds = []) {
     if (countCachedStaffMembers(guild) >= 5) return guild.members.cache;
   }
 
-  // Ultima spiaggia: list completo con timeout (site-api REST, ~2k membri).
-  await Promise.race([
+    await Promise.race([
     guild.members.fetch().catch(() => null),
     new Promise((resolve) => setTimeout(resolve, FULL_GUILD_FETCH_TIMEOUT_MS)),
   ]);
@@ -276,6 +273,7 @@ function buildRosterFromGuild(guild, pausedSet) {
         profileKind: resolveStaffProfileKind(member),
         isPm: memberIsPm(member),
         onPause: pausedNow,
+        isStaffDelMese: memberIsStaffDelMese(member),
       };
       members.push(row);
       membersById.set(uid, row);
@@ -314,6 +312,11 @@ function builtFromSnapshotSections(snap, pausedSet) {
   let total = 0;
   let onPause = 0;
   let pmCount = 0;
+  const sdmIds = new Set(
+    (snap.staffDelMese?.holders || [])
+      .map((h) => String(h?.userId || "").trim())
+      .filter(Boolean),
+  );
   for (const sec of snap.sections || []) {
     const members = [];
     for (const m of sec.members || []) {
@@ -330,6 +333,7 @@ function builtFromSnapshotSections(snap, pausedSet) {
         profileKind: m.profileKind || "",
         isPm: Boolean(m.isPm),
         onPause: pausedNow,
+        isStaffDelMese: Boolean(m.isStaffDelMese) || sdmIds.has(uid),
       };
       members.push(row);
       membersById.set(uid, row);
@@ -458,8 +462,7 @@ function scheduleRosterBackgroundRefresh(client, guildId) {
       const guild =
         client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
       if (!guild) return;
-      // Solo hydrate mirato: list completo guild satura Discord e fa 429 sulle pagine staff.
-      const known = await collectKnownStaffUserIds(guildId).catch(() => []);
+            const known = await collectKnownStaffUserIds(guildId).catch(() => []);
       if (known.length) await hydrateStaffMembersByIds(guild, known);
       const paused = await getPausedUserIdsCached(guildId);
       let built = buildRosterFromGuild(guild, paused);
@@ -479,17 +482,12 @@ function scheduleRosterBackgroundRefresh(client, guildId) {
         };
       }
     } catch (_) {
-      /* ignore bg errors */
-    } finally {
+          } finally {
       snapshotRefreshInflight = null;
     }
   })();
 }
 
-/**
- * Shared staff roster for website APIs (dashboard / directory / manage).
- * Singleflight + TTL + snapshot Mongo (site-api REST non può usare role member-ids).
- */
 async function getCachedStaffRoster(client) {
   const guildId = String(IDs.guilds.main || "");
   const now = Date.now();
@@ -512,9 +510,7 @@ async function getCachedStaffRoster(client) {
 
     if (snap && snapAge < SNAPSHOT_MAX_AGE_MS && (snap.userIds?.length || snap.sections?.length)) {
       const paused = await getPausedUserIdsCached(guildId);
-      // Risposta immediata dallo snapshot: niente N fetch Discord sul request path.
-      // Hydrate + rebuild solo se serve staffDelMese / dettagli live in cache.
-      let built =
+                  let built =
         snap.sections?.length >= 1
           ? builtFromSnapshotSections(snap, paused)
           : null;
@@ -522,8 +518,7 @@ async function getCachedStaffRoster(client) {
         if (snap.userIds?.length) await hydrateStaffMembersByIds(guild, snap.userIds);
         built = buildRosterFromGuild(guild, paused);
       } else if (snap.userIds?.length && countCachedStaffMembers(guild) < 3) {
-        // Hydrate leggero in background per staffDelMese / organico identity merge.
-        hydrateStaffMembersByIds(guild, snap.userIds).catch(() => null);
+                hydrateStaffMembersByIds(guild, snap.userIds).catch(() => null);
       }
       const payload = { ok: true, status: 200, guild, paused, staffDelMese: snap.staffDelMese || null, ...built };
       rosterCache = { guildId, payload, exp: Date.now() + ROSTER_TTL_MS };

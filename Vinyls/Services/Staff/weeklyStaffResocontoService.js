@@ -19,11 +19,9 @@ const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazi
 const { hasActiveAcceptedStaffPause, getTodayUtc, normalizePauseRoleChoice, roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../../Utils/Pause/pauseHandlersUtils");
 const TIME_ZONE = "Europe/Rome";
 const RESOCONTO_CLOSE_HOUR_ROME = 20;
-/** Domenica 15:00 Rome: tutti i resoconti insieme (PM → Director). Niente Admin. */
 const RESOCONTO_CRON_EXPRESSION = "0 15 * * 0";
 const RESOCONTO_SUNDAY_SEGMENTS = ["pm", "helper", "mod", "senior_moderator", "director"];
 const STAFF_RESOCONTO_SEGMENTS = ["helper", "mod", "senior_moderator", "director"];
-/** @deprecated usa RESOCONTO_SUNDAY_SEGMENTS + RESOCONTO_CRON_EXPRESSION */
 const RESOCONTO_CRON_SEGMENTS = RESOCONTO_SUNDAY_SEGMENTS.map((segment) => ({
   segment,
   expression: RESOCONTO_CRON_EXPRESSION,
@@ -33,11 +31,8 @@ const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Mod)]: { messages: 500, hours: 5 },
   [String(IDs.roles.SeniorModerator)]: { messages: 600, hours: 6 },
   [String(IDs.roles.Director)]: { messages: 550, hours: 5.5 },
-  // Admin: nessun limite settimanale messaggi/vocale.
-};
-/** Scambio limiti settimanali: 100 messaggi ↔ 1 ora (surplus di uno copre deficit dell'altro). */
+  };
 const STAFF_LIMITS_MSG_PER_HOUR_SWAP = 100;
-/** VP automatica: i limiti base vanno superati almeno del doppio (scambio msg↔ore incluso). */
 const STAFF_LIMITS_POSITIVE_MULTIPLIER = 2;
 
 function scaleStaffActivityLimits(limits, multiplier = 1) {
@@ -49,10 +44,6 @@ function scaleStaffActivityLimits(limits, multiplier = 1) {
   };
 }
 
-/**
- * Valuta se messaggi/ore (con scambio 100 msg ↔ 1h) raggiungono i target in `limits`.
- * Passa limits scalati (es. ×2) per il doppio richiesto dalla VP automatica.
- */
 function evaluateStaffWeeklyLimitsWithSwap(weeklyMessages, weeklyVoiceHours, limits) {
   if (!limits) {
     return {
@@ -251,8 +242,7 @@ function collectVoiceChannelIdsUnderCategory(guild, categoryId) {
   return out;
 }
 
-/** Vocali pubbliche / hub (Duo Trio Quad Lounge Squad) e stanze temp: contano nei limiti. */
-const RESOCONTO_PUBLIC_VOICE_NAME_RE = /\b(Lounge|Duo|Trio|Quad|Squad)\b/i;
+const RESOCONTO_PUBLIC_VOICE_NAME_RE = /\b(Lounge|Duo|Trio|Quad|Penta|Hexa|Setta|Octa|Squad)\b/i;
 
 function isResocontoPublicVoiceName(name) {
   return RESOCONTO_PUBLIC_VOICE_NAME_RE.test(String(name || ""));
@@ -267,10 +257,6 @@ function isResocontoStanzeChannel(channel) {
   return false;
 }
 
-/**
- * Esclude vocali non rilevanti per i limiti staff (Private / Staff / Bench / …),
- * ma non Duo-Trio-Quad-Lounge-Squad né stanze temporanee.
- */
 function collectResocontoVoiceExcludeIds(guild) {
   const out = new Set();
   const excludeParents = new Set(
@@ -321,9 +307,7 @@ function buildResocontoOverviewOptions(guild, now = new Date()) {
 
 function buildResocontoActivityScope(guild) {
   const includeTextChannelIds = new Set();
-  // Voice: nessun whitelist — contano tutte tranne exclude (private).
-  // Così restano in conteggio anche Duo/Trio/Quad e stanze già cancellate (ID storici).
-  const includeVoiceChannelIds = null;
+      const includeVoiceChannelIds = null;
   const addText = (id) => {
     const value = String(id || "").trim();
     if (value) includeTextChannelIds.add(value);
@@ -349,17 +333,15 @@ function buildResocontoActivityScope(guild) {
     const publicVoiceName = isResocontoPublicVoiceName(ch?.name);
     const isStanze = isResocontoStanzeChannel(ch);
     if (ch?.isVoiceBased?.() && (underCountableParent || publicVoiceName || isStanze)) {
-      // Messaggi nella chat della vocale (Discord voice text).
-      addText(channelId);
+            addText(channelId);
     }
   }
 
-  // Hub noti anche se cache canali incompleta.
-  for (const id of Array.isArray(IDs.publicVoiceHubChannelIds) ? IDs.publicVoiceHubChannelIds : []) {
+    for (const id of Array.isArray(IDs.publicVoiceHubChannelIds) ? IDs.publicVoiceHubChannelIds : []) {
     addText(id);
   }
   for (const [key, value] of Object.entries(IDs.channels || {})) {
-    if (!/^(vocale(Duo|Trio|Quad|Lounge|Squad)|vocaleduo|trio\d)/i.test(String(key || ""))) continue;
+    if (!/^(vocale(Duo|Trio|Quad|Penta|Hexa|Setta|Octa|Lounge|Squad)|vocaleduo|trio\d)/i.test(String(key || ""))) continue;
     addText(value);
   }
   addText(IDs.channels?.stanzaLobbyVoice);
@@ -535,7 +517,6 @@ function getResocontoClosingSundayUtc(referenceNow = new Date()) {
   return createUtcFromRomeLocal(sunY, sunM, sunD, H, 0, 0);
 }
 
-/** Settimana leaderboard PM: lunedì 00:00 → domenica 23:59 (fine a mezzanotte domenica / inizio lunedì). */
 function getPartnerLeaderboardWeekBoundsUtc(now = new Date()) {
   const r = parseRomeWallClock(now);
   const daysFromMonday = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }[r.weekday] ?? 0;
@@ -581,8 +562,7 @@ function getCurrentResocontoPexWeekWindowUtc(referenceNow = new Date()) {
 }
 
 function getPmResocontoWindow(now = new Date()) {
-  // Settimana resoconti = lunedì 00:00 Rome → domenica chiusura (non domenica→sabato).
-  const { windowStart, windowEndExclusive } = getCurrentResocontoPexWeekWindowUtc(now);
+    const { windowStart, windowEndExclusive } = getCurrentResocontoPexWeekWindowUtc(now);
   const endCap = new Date(windowEndExclusive.getTime() - 2 * 60 * 1000);
   if (now.getTime() >= windowEndExclusive.getTime()) {
     return { weekStart: windowStart, weekEnd: endCap };
@@ -641,8 +621,7 @@ function buildCostanzaLines(overview) {
     return COSTANZA_BARS[level];
   });
   const activeDays = points.filter((p) => (Number(p?.text ?? 0) > 0) || (Number(p?.voiceSeconds ?? 0) >= 600)).length;
-  // One day per line so Discord mobile does not misalign weekday labels vs bars.
-  const dayLines = points.map((p, idx) => {
+    const dayLines = points.map((p, idx) => {
     const label = dayKeyToWeekdayLabel(p?.dayKey);
     const bar = bars[idx] || COSTANZA_BARS[0];
     return `${label} ${bar}`;
@@ -680,18 +659,15 @@ function pauseRoleAppliesToSection(pauseRole, sectionRole) {
   if (!section) return true;
   const raw = String(pauseRole || "").trim();
   if (!raw) return true;
-  // Valori canonici Staff / PartnerManager / Entrambi.
-  if (roleChoiceAppliesTo(section, raw)) return true;
+    if (roleChoiceAppliesTo(section, raw)) return true;
   const normalized = normalizePauseRoleChoice(raw);
   if (normalized && roleChoiceAppliesTo(section, normalized)) return true;
-  // Storico: pause salvate col nome ruolo Discord (Helper/Mod/…) → contano come Staff.
-  if (String(section).toLowerCase() === "staff") {
+    if (String(section).toLowerCase() === "staff") {
     const low = raw.toLowerCase();
     if (low === "staff" || low.includes("helper") || low.includes("mod") || low.includes("director") || low.includes("admin") || low.includes("manager") || low.includes("founder") || low.includes("high")) {
       return true;
     }
-    // Qualsiasi ruolo ladder non-PM: tratta come sezione Staff.
-    if (!normalizePauseRoleChoice(raw) && !/partner\s*manager|\bpm\b/i.test(raw)) {
+        if (!normalizePauseRoleChoice(raw) && !/partner\s*manager|\bpm\b/i.test(raw)) {
       return true;
     }
   }
@@ -899,16 +875,14 @@ function compareResocontoMembers(a, b) {
 
 function computeActivityGrade(roleId, weeklyMessages, weeklyVoiceHours) {
   const limits = STAFF_ACTIVITY_LIMITS[String(roleId)];
-  // Ruoli senza limiti settimanali (es. Admin): non entra nella griglia messaggi/vocale.
-  if (!limits) return "Nessun limite";
+    if (!limits) return "Nessun limite";
 
   const rawMsg = Math.max(0, Math.floor(toSafeNumber(weeklyMessages)));
   const rawHours = Math.max(0, toSafeNumber(weeklyVoiceHours));
   const limMsg = Number(limits.messages || 0);
   const limHours = Number(limits.hours || 0);
 
-  // Ogni soglia valuta lo scambio msg↔ore contro QUEL target (non solo contro 1×).
-  const reaches = (targetMsg, targetHrs) =>
+    const reaches = (targetMsg, targetHrs) =>
     evaluateStaffWeeklyLimitsWithSwap(rawMsg, rawHours, {
       messages: targetMsg,
       hours: targetHrs,
@@ -1054,8 +1028,7 @@ function computeStaffAction(activityGrade, behaviorGrade, pexedInWeek, positiveC
   const neg = Math.max(0, Math.floor(toSafeNumber(negativeCount)));
   const noValutazioni = pos === 0 && neg === 0;
 
-  // Resoconti: MAI suggerire Pex/Depex (solo VP / VN / Nulla).
-  if (
+    if (
     (activityGrade === "Ottimo" || activityGrade === "Eccellente") &&
     behaviorGrade === "Ottimo"
   ) {
@@ -1138,9 +1111,7 @@ function staffHasNegativeValutazioneNeedle(staffDoc, needles) {
 }
 
 function hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId) {
-  // Solo la chiave auto della settimana corrente: ragioni storiche
-  // "Limiti settimanali completati" non devono far passare "già registrata".
-  return hasStaffAutoValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId, "limits");
+      return hasStaffAutoValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId, "limits");
 }
 
 function hasStaffSanctionsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId) {
@@ -1235,8 +1206,7 @@ function normalizePendingManualActions(pendingManualActions) {
     const actionKey = String(row?.actionKey || "").trim();
     const reason = String(row?.reason || "").trim();
     if (!actionKey || !reason) continue;
-    // Una VP limiti + una VP compito sanzioni devono restare entrambe (prima solo 1 vp).
-    const dedupe = `${actionKey}::${reason.toLowerCase()}`;
+        const dedupe = `${actionKey}::${reason.toLowerCase()}`;
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
     normalized.push({ actionKey, reason });
@@ -1250,7 +1220,6 @@ function resolveResocontoWeekKey(now = new Date()) {
   return `${closingPartsForResocontoKey.year}-${String(closingPartsForResocontoKey.month).padStart(2, "0")}-${String(closingPartsForResocontoKey.day).padStart(2, "0")}`;
 }
 
-/** Finestra lun→dom per un weekKey resoconto (domenica di chiusura YYYY-MM-DD). */
 function getResocontoWeekRangeFromWeekKey(weekKey) {
   const raw = String(weekKey || "").trim();
   const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -1265,7 +1234,6 @@ function getResocontoWeekRangeFromWeekKey(weekKey) {
   return { weekStart, weekEnd };
 }
 
-/** Serie giornaliera per inbox (messaggi + voiceSeconds), lun→dom. */
 function serializeCostanzaChart(overview) {
   const chart = Array.isArray(overview?.chart) ? overview.chart : [];
   return chart
@@ -1303,8 +1271,7 @@ function buildStaffResocontoAzioneDisplay({
   if (currentlyInPause) {
     return { display: "Nulla — in pausa", actionKey: "nl", isNulla: true, pendingManualActions: [] };
   }
-  // Pausa in settimana (anche già rientrato): niente VP/VN da limiti o griglia.
-  if (endedPauseDuringWeek) {
+    if (endedPauseDuringWeek) {
     return { display: "Nulla — rientrato da pausa", actionKey: "nl", isNulla: true, pendingManualActions: [] };
   }
   if (inPauseDuringWeek) {
@@ -1357,8 +1324,7 @@ function buildStaffResocontoAzioneDisplay({
 
   if (metWeeklySanctionLimit) {
     const sanctionsByBot = hasStaffSanctionsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId);
-    // Sempre riga dedicata: prima veniva assorbita dalla VP limiti e spariva in UI/pending.
-    if (!parts.some((part) => /compito sanzioni/i.test(part))) {
+        if (!parts.some((part) => /compito sanzioni/i.test(part))) {
       pushPart(formatValutazioneLabel("positive", sanctionsByBot, "compito sanzioni completato"));
     }
     if (!sanctionsByBot) {
@@ -1379,8 +1345,7 @@ function buildStaffResocontoAzioneDisplay({
   );
 
   if (gradeAction === "Pex" || gradeAction === "Depex") {
-    // Difesa: computeStaffAction non deve più restituire Pex/Depex.
-  } else if (gradeAction === "Valutazione Positiva") {
+      } else if (gradeAction === "Valutazione Positiva") {
     if (!parts.some((part) => part.startsWith("Valutazione Positiva"))) {
       pushPart(formatValutazioneLabel("positive", false, "griglia attività/condotta"));
       pushPendingManualAction(
@@ -1470,7 +1435,6 @@ function wasPromotedToRoleInWindow(staffDoc, roleId, windowStart, windowEndExclu
   });
 }
 
-/** Grace limiti/resoconto solo al primo ingresso in staff (Member → ruolo staff), non per pex interni (Helper→Mod, ecc.). */
 function wasFirstStaffPromotionFromMemberInWindow(staffDoc, roleId, windowStart, windowEndExclusive) {
   const targetRoleId = String(roleId || "");
   const memberRoleId = String(IDs.roles.Member || "").trim();
@@ -1500,8 +1464,7 @@ function wasFirstStaffPromotionFromMemberInWindow(staffDoc, roleId, windowStart,
 function computePmAction(weeklyPartners, pmPexedInWeek) {
   if (pmPexedInWeek) return "Nulla";
   const partners = Math.max(0, Math.floor(toSafeNumber(weeklyPartners)));
-  // Resoconti: MAI suggerire Depex PM — sotto soglia → Richiamo.
-  if (partners < PM_WEEKLY_PARTNER_MIN_FOR_OK) return "Richiamo";
+    if (partners < PM_WEEKLY_PARTNER_MIN_FOR_OK) return "Richiamo";
   return "Nulla";
 }
 
@@ -1585,15 +1548,6 @@ function findUnlinkedPositiveLogForReasonSince(staff, reason, sinceDate) {
   return null;
 }
 
-/**
- * Claim status for compito auto-keys:
- * - active: still a live positiva for this cycle
- * - spent: already granted this week (traded / message edited / deleted) — never re-grant
- * - stale: wrong weekKey only — may wipe and recreate
- *
- * IMPORTANTE: se la weekKey nella chiave è quella del ciclo corrente, non è mai "stale".
- * I wipe "messaggio fuori ciclo" cancellavano il claim dopo uno scambio → recovery riassegnava.
- */
 async function classifyResocontoReviewerAutoEntry(guild, entry, expectedReason = "") {
   if (!entry) return "stale";
   if (entry.spentByTrade) return "spent";
@@ -1602,8 +1556,7 @@ async function classifyResocontoReviewerAutoEntry(guild, entry, expectedReason =
   const currentWeekKey = getResocontoCycleWeekKey();
   if (parsed?.weekKey && parsed.weekKey !== currentWeekKey) return "stale";
 
-  // Claim del ciclo corrente: resta active/spent, mai wipe.
-  if (parsed?.weekKey && parsed.weekKey === currentWeekKey) {
+    if (parsed?.weekKey && parsed.weekKey === currentWeekKey) {
     const channelId = String(entry.channelId || "");
     const messageId = String(entry.messageId || "");
     if (!channelId || !messageId || !guild) return "spent";
@@ -1642,8 +1595,7 @@ function staffHasResocontoCompitoClaim(staff, weekKey, segment, userId) {
   })) {
     return true;
   }
-  // Fallback: qualsiasi auto-key compito di questa settimana per l'utente (anche altro segmento / spent).
-  const wk = String(weekKey || "");
+    const wk = String(weekKey || "");
   const uid = String(userId || "");
   if (!wk || !uid) return false;
   return (Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : []).some((entry) => {
@@ -1652,7 +1604,6 @@ function staffHasResocontoCompitoClaim(staff, weekKey, segment, userId) {
   });
 }
 
-/** Claim durevole: sopravvive a wipe/scambio delle autoValutazioni. */
 function rememberResocontoCompitoClaim(staff, weekKey, segment, userId) {
   if (!staff || typeof staff !== "object") return false;
   const id = buildResocontoCompitoClaimId(weekKey, segment, userId);
@@ -1666,8 +1617,7 @@ function rememberResocontoCompitoClaim(staff, weekKey, segment, userId) {
     userId: String(userId || ""),
     at: new Date(),
   });
-  // Evita crescita infinita: tieni le ultime ~40.
-  if (staff.resocontoCompitoClaims.length > 40) {
+    if (staff.resocontoCompitoClaims.length > 40) {
     staff.resocontoCompitoClaims = staff.resocontoCompitoClaims.slice(-40);
   }
   return true;
@@ -1822,8 +1772,7 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
   return withAutoValutazioneLock(lockKey, async () => {
   const { resolveStaffValutazioniChannel } = require("../../Utils/Staff/staffChannelUtils");
   const channel = await resolveStaffValutazioniChannel(guild, guild.client);
-  // Canale Discord opzionale: se disabilitato/assente, la val resta solo su Mongo/sito.
-
+  
   let profileDoc = await ensureStaffProfileDoc(
     await getStaffDoc(guild.id, member.id),
     guild.id,
@@ -1853,9 +1802,7 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
   }
 
   if ((isWeeklyLimitsKey || isWeeklySanzioniKey) && !force) {
-    // Claim durevole sulla chiave (include già weekKey). NON invalidare se manca
-    // il messaggio Discord: altrimenti ogni ripost/recovery riapplica VP/VN.
-    const existingWeekly = findAutoValutazioneEntry(staff, keyStr);
+            const existingWeekly = findAutoValutazioneEntry(staff, keyStr);
     if (existingWeekly) {
       if (existingWeekly.spentByTrade) {
         return { ok: true, skipped: "spent_by_trade" };
@@ -1926,8 +1873,7 @@ async function ensureWeeklyLimitAutoValutazione({ guild, member, key, type, reas
       await profileDoc.save();
       return { ok: true, skipped: claim === "spent" ? "spent_by_trade" : "exists" };
     }
-    // Solo weekKey diversa dal ciclo corrente: wipe consentito.
-    staff.autoValutazioni = staff.autoValutazioni.filter(
+        staff.autoValutazioni = staff.autoValutazioni.filter(
       (entry) => String(entry?.key || "") !== keyStr,
     );
     profileDoc.markModified("staff");
@@ -2114,8 +2060,7 @@ async function applyWeeklyStaffAutoValutazioniForMember({
   const reachedDoubleWeeklyLimits = Boolean(
     canEvaluateWeeklyLimits && doubleLimitsEvaluation?.reached,
   );
-  // Se la pausa è solo sul workflow sito (AUP vuoto), idrata in memoria prima del check.
-  await hydrateStaffPausesFromWorkflowIfMissing(guild?.id, userId, staffDoc).catch(() => null);
+    await hydrateStaffPausesFromWorkflowIfMissing(guild?.id, userId, staffDoc).catch(() => null);
   const inPauseAtLeastOneDay = hadPauseAtLeastOneDayDuringWeek(
     staffDoc,
     weekStart,
@@ -2125,9 +2070,7 @@ async function applyWeeklyStaffAutoValutazioniForMember({
 
   let limitsResult = { ok: true, skipped: skipLimitAutovalutazione ? "skip_context" : "ineligible" };
   if (canEvaluateWeeklyLimits && !skipLimitAutovalutazione) {
-    // VP solo con almeno il doppio (scambio msg↔ore incluso). VN solo sotto il 1×.
-    // In settimana con pausa: nessuna auto-valutazione sui limiti.
-    const shouldApplyPositive =
+            const shouldApplyPositive =
       reachedDoubleWeeklyLimits && !inPauseAtLeastOneDay && !graceNewStaffRole;
     const shouldApplyNegative =
       !reachedWeeklyLimits && !inPauseAtLeastOneDay && !graceNewStaffRole;
@@ -2342,10 +2285,6 @@ async function sendResocontoThreadSummary(thread, guild, staffDoc) {
     .catch(() => null);
 }
 
-/**
- * Controllori/revisori del segmento: se in pausa accettata attiva il giorno del resoconto
- * non vanno aggiunti al thread (niente notifica/tag).
- */
 async function filterResocontoReviewersNotInPause(guildId, reviewerUserIds) {
   const gid = String(guildId || "").trim();
   const ids = [...new Set(
@@ -2811,10 +2750,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
         }
       }
 
-      // Griglie dopo le auto-valutazioni: i + automatici alzano positiveCount e possono
-      // far diventare l'azione Pex. Se si calcolano prima, il messaggio mostra solo VP
-      // "già registrata" ma al ✓ si apre Motivo Pex.
-      const activityGrade = overviewUnavailable
+                        const activityGrade = overviewUnavailable
         ? "Non disponibile"
         : computeActivityGrade(staffRoleId, weeklyMessages, weeklyVoiceHours);
       const behaviorGrade = computeBehaviorGrade(staffDoc?.positiveCount, staffDoc?.negativeCount);
@@ -3167,8 +3103,7 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
 }
 
 function getStaffResocontoChainSegments(segment) {
-  // Con spawn unico alle 15:00 non si cascada più sui segmenti successivi.
-  const seg = String(segment || "");
+    const seg = String(segment || "");
   return STAFF_RESOCONTO_SEGMENTS.includes(seg) ? [seg] : [];
 }
 
@@ -3375,8 +3310,7 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
     const sanctionsKey = `weekly_sanzioni:${resocontoWeekKey}:${staffRoleId}`;
     const limitsEntry = findAutoValutazioneEntry(staffDoc, limitsKey);
     const sanctionsEntry = findAutoValutazioneEntry(staffDoc, sanctionsKey);
-    // Chiave weekly_* = claim durevole (anche senza messaggio Discord).
-    const hasLimitsValutazione = Boolean(limitsEntry) && !limitsEntry.spentByTrade;
+        const hasLimitsValutazione = Boolean(limitsEntry) && !limitsEntry.spentByTrade;
     const hasSanctionsValutazione = Boolean(sanctionsEntry) && !sanctionsEntry.spentByTrade;
     const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
     const weeklySanctions = sanctionCountByModId?.get?.(userId) || 0;
@@ -3465,8 +3399,7 @@ async function runSameDayWeeklyLimitAutoValutazioniRecovery(client) {
   const r = parseRomeWallClock(now);
   if (r.weekday !== "Sun") return;
   const currentMinutes = Number(r.hour || 0) * 60 + Number(r.minute || 0);
-  // Dopo le 15:00 (spawn unico), recupera limiti/sanzioni per tutti i segmenti staff.
-  if (currentMinutes < 15 * 60) return;
+    if (currentMinutes < 15 * 60) return;
   for (const segment of STAFF_RESOCONTO_SEGMENTS) {
     await runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now)
       .catch((err) => {
@@ -3568,12 +3501,7 @@ function startWeeklyStaffResocontoLoop(client) {
 }
 
 function getResocontoCycleWeekKey(now = new Date()) {
-  // Allineato a getResocontoCycleMessagesSince: la chiave deve riferirsi al ciclo
-  // dei messaggi scansionati, non alla domenica "di calendario" futura.
-  // Bug storico: lun–sab usava la domenica di questa settimana → il recovery di lunedì
-  // marchiava i resoconti della domenica scorsa con la chiave della domenica successiva,
-  // bloccando il compito della settimana dopo ("already_rewarded").
-  const r = parseRomeWallClock(now);
+            const r = parseRomeWallClock(now);
   if (r.weekday === "Sun") {
     return `${r.year}-${String(r.month).padStart(2, "0")}-${String(r.day).padStart(2, "0")}`;
   }
@@ -3587,8 +3515,7 @@ function getResocontoCycleMessagesSince(now = new Date()) {
   const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   const w = wdMap[r.weekday];
 
-  // Domenica giorno resoconti: conta solo i messaggi di oggi (come runWeeklyStaffResocontoSegment).
-  if (w === 0) {
+    if (w === 0) {
     return createUtcFromRomeLocal(r.year, r.month, r.day, 0, 0, 0);
   }
 

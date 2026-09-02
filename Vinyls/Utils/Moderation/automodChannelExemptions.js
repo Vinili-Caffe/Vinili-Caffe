@@ -23,10 +23,17 @@ function getStaticAutomodExemptChannelIds(client = null) {
   return ids;
 }
 
-function getAutomodExemptCategoryIds(guild) {
+function getStanzaAutomodExemptCategoryIds() {
   const ids = new Set();
-  const stanze = String(IDs.categories?.categoryStanze || "").trim();
-  if (/^\d{16,22}$/.test(stanze)) ids.add(stanze);
+  const legacyStanze = String(IDs.categories?.categoryStanze || "").trim();
+  const activeStanze = String(IDs.categories?.categoryPublics || "").trim();
+  if (/^\d{16,22}$/.test(legacyStanze)) ids.add(legacyStanze);
+  if (/^\d{16,22}$/.test(activeStanze)) ids.add(activeStanze);
+  return ids;
+}
+
+function getAutomodExemptCategoryIds(guild) {
+  const ids = new Set(getStanzaAutomodExemptCategoryIds());
   if (guild) {
     for (const id of getCustomPrivateCategoryIdSet(guild)) {
       if (/^\d{16,22}$/.test(String(id))) ids.add(String(id));
@@ -79,6 +86,7 @@ function collectDiscordAutomodExemptChannelIds(guild, client = null) {
   if (guild?.channels?.cache) {
     for (const ch of guild.channels.cache.values()) {
       if (isChannelInCustomPrivateCategory(ch, guild)) ids.add(String(ch.id));
+      if (isStanzaAutomodExemptChannel(ch, guild)) ids.add(String(ch.id));
     }
   }
   return [...ids].filter((id) => /^\d{16,22}$/.test(id));

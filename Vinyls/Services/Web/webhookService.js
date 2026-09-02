@@ -262,16 +262,14 @@ function parseDiscadiaWebhookBodyFromRaw(rawBuf, contentTypeRaw) {
         return out;
       }
     } catch {
-      // fall through
-    }
+          }
   }
 
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object") return parsed;
   } catch {
-    // Discadian a volte manda JSON non-standard (quote singole, escape invalidi).
-  }
+      }
 
   const userFromText = extractSnowflakeFromText(raw);
   if (userFromText) return { user_id: userFromText };
@@ -306,9 +304,7 @@ async function handleDiscadiaVoteWebhook(req, res, client, secret) {
     const rawText = Buffer.isBuffer(req._discadiaRawBody)
       ? req._discadiaRawBody.toString("utf8")
       : "";
-    // Preferisci l'ID dal raw string: se Discadia manda `user` come number JSON,
-    // JS perde precisione oltre Number.MAX_SAFE_INTEGER e l'ID Discord risulta sbagliato.
-    const user_id =
+            const user_id =
       extractSnowflakeFromText(rawText) ||
       extractVoteWebhookUserId(body) ||
       extractVoteWebhookUserId(req.query);
@@ -318,8 +314,7 @@ async function handleDiscadiaVoteWebhook(req, res, client, secret) {
       const looksLikeProbe =
         rawSummary === "(empty)" || rawSummary === "{}" || rawSummary === "[]" || rawSummary === "null";
       if (looksLikeProbe) {
-        // Health-check / “Test webhook” Discadia: non è un voto. 200 evita che il provider segni l’URL come rotto.
-        return res.status(200).send("Ignored");
+                return res.status(200).send("Ignored");
       }
       global.logger?.warn?.(
         "[WEBHOOK] Discadia: User ID missing; content-type: " +
@@ -333,8 +328,7 @@ async function handleDiscadiaVoteWebhook(req, res, client, secret) {
     }
 
     const guildId = client.config.mainGuildId || IDs.guilds.main;
-    // Accoda subito (sopravvive se processDiscadiaVote fallisce / bot non pronto).
-    await enqueuePendingDiscadiaVote(guildId, user_id, {
+        await enqueuePendingDiscadiaVote(guildId, user_id, {
       source: "bots-http",
       rawSnippet: rawText.replace(/\s+/g, " ").trim().slice(0, 240),
     });
@@ -654,8 +648,7 @@ async function startWebhookServer(client) {
       err instanceof SyntaxError && Number(err.status) === 400 && "body" in err;
     if (!isJsonBodyError) return next(err);
 
-    // Discadia (fallback su bots): riprova dal raw body.
-    if (isDiscadiaWebhookRequest(req)) {
+        if (isDiscadiaWebhookRequest(req)) {
       global.logger?.warn?.(
         "[WEBHOOK] Discadia: JSON body parse failed, retrying from raw buffer:",
         err.message,
@@ -663,8 +656,7 @@ async function startWebhookServer(client) {
       return handleDiscadiaVoteWebhook(req, res, client, secret);
     }
 
-    // Top.gg / probe / body spazzatura: 400 silenzioso (niente stack in stderr).
-    if (!res.headersSent) {
+        if (!res.headersSent) {
       return res.status(400).send("Bad Request");
     }
     return undefined;

@@ -1,7 +1,3 @@
-/*!
- * Worker migrazione partnership (sempre acceso).
- * Sopravvive ai restart di `bots`: coda Mongo + Discord REST (niente gateway).
- */
 const fs = require("fs");
 const path = require("path");
 

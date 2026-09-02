@@ -123,8 +123,7 @@ async function resolveGuideUserNames(client, guild, markdown) {
           const label = String(user?.globalName || user?.username || "").trim();
           if (label) map.set(uid, label);
         } catch {
-          /* keep unresolved */
-        }
+                  }
       }),
     );
   }
@@ -133,16 +132,14 @@ async function resolveGuideUserNames(client, guild, markdown) {
 
 function applyInlineMarkdown(escaped) {
   let s = String(escaped || "");
-  // Links already escaped: [label](&lt;https...&gt;) or [label](https...)
-  s = s.replace(
+    s = s.replace(
     /\[([^\]]+)\]\(\s*(?:&lt;)?(https?:\/\/[^)\s&]+)(?:&gt;)?\s*\)/gi,
     (_m, label, url) => {
       const safeUrl = String(url).replace(/&amp;/g, "&").replace(/"/g, "");
       return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
     },
   );
-  // Bold / italic / underline / code (order matters)
-  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*__(.+?)__\*\*/g, "<strong><em>$1</em></strong>");
   s = s.replace(/__\*\*(.+?)\*\*__/g, "<strong><em>$1</em></strong>");
   s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
@@ -170,9 +167,6 @@ function formatQuotedOrHeadingLine(line, formatInline) {
   return `<p class="vc-staff-guide-p vc-staff-guide-p--quote">${formatInline(line)}</p>`;
 }
 
-/**
- * Convert Discord-flavored markdown (as used in staff guide embeds) to simple HTML.
- */
 function discordGuideMarkdownToHtml(markdown, { guild, userNames = null } = {}) {
   const roleNames = buildRoleNameMap(guild);
   const channelNames = buildChannelNameMap(guild);
@@ -186,8 +180,7 @@ function discordGuideMarkdownToHtml(markdown, { guild, userNames = null } = {}) 
 
   let text = String(markdown || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  // Custom emoji → img (placeholder until after escape)
-  text = text.replace(/<(a?):([A-Za-z0-9_~]+):(\d+)>/g, (_m, animated, name, id) => {
+    text = text.replace(/<(a?):([A-Za-z0-9_~]+):(\d+)>/g, (_m, animated, name, id) => {
     const src = animated
       ? `https://cdn.discordapp.com/emojis/${id}.webp?size=64&animated=true`
       : `https://cdn.discordapp.com/emojis/${id}.webp?size=64&quality=lossless`;
@@ -196,8 +189,7 @@ function discordGuideMarkdownToHtml(markdown, { guild, userNames = null } = {}) 
     );
   });
 
-  // Markdown links BEFORE escapeHtml (Discord uses [label](<url>))
-  text = text.replace(/\[([^\]]+)\]\(\s*<?(https?:\/\/[^)\s>]+)>?\s*\)/gi, (_m, label, url) => {
+    text = text.replace(/\[([^\]]+)\]\(\s*<?(https?:\/\/[^)\s>]+)>?\s*\)/gi, (_m, label, url) => {
     const safeUrl = String(url || "").replace(/"/g, "");
     return stash(
       `<a class="vc-staff-guide-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`,
@@ -294,8 +286,7 @@ function discordGuideMarkdownToHtml(markdown, { guild, userNames = null } = {}) 
       continue;
     }
 
-    // Righe "albero" (emoji Reply/Dot): dopo lo stash sono token → controlla alt ripristinato.
-    const restoredStart = restoreTokens(trimmed).slice(0, 120);
+        const restoredStart = restoreTokens(trimmed).slice(0, 120);
     const isTreeLine = /alt=":[^"]*(?:Reply|Dot|DoubleReply)[^"]*:"/i.test(restoredStart);
     if (isTreeLine) {
       htmlParts.push(`<p class="vc-staff-guide-p vc-staff-guide-p--tree">${formatInline(rawLine)}</p>`);
@@ -349,9 +340,6 @@ async function buildSectionPayload(client, member, sectionId) {
   return payload;
 }
 
-/**
- * GET Bearer [?section=id] — sezioni guida staff leggibili dal membro.
- */
 async function handleSiteStaffGuideGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);

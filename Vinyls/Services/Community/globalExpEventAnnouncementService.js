@@ -7,9 +7,7 @@ const { getClientChannelCached } = require("../../Utils/Interaction/interactionE
 const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 
 const TIME_ZONE = "Europe/Rome";
-/** Cron alle 12:00 Rome (allineato a parseExpEventStartMs default). */
 const START_ANNOUNCE_CRON = "0 12 * * *";
-/** Finestra di recovery se il bot era offline alle 12. */
 const ANNOUNCE_GRACE_MS = 24 * 60 * 60 * 1000;
 const SWEEP_MS = 5 * 60 * 1000;
 
@@ -59,8 +57,7 @@ async function claimAnnouncementSlot(guildId, eventKey) {
   const key = String(eventKey || "").trim();
   if (!gid || !key) return false;
 
-  // Assicura il doc senza reclamare lo slot.
-  await GlobalSettings.findOneAndUpdate(
+    await GlobalSettings.findOneAndUpdate(
     { guildId: gid },
     { $setOnInsert: { guildId: gid, expEventStartAnnouncementsSent: [] } },
     { upsert: true, setDefaultsOnInsert: true },
@@ -144,8 +141,7 @@ function startGlobalExpEventAnnouncementLoop(client) {
       global.logger?.warn?.("[EXP EVENT ANNOUNCE] tick:", err?.message || err);
     });
 
-  // Recovery immediato (restart dopo le 12).
-  tick();
+    tick();
 
   announceCronTask = cron.schedule(
     START_ANNOUNCE_CRON,

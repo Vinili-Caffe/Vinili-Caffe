@@ -21,8 +21,7 @@ const STAFF_CHAT_THREAD_SPECS = [
     key: "pm",
     name: "Chat Partner Manager",
     roleIds: () => [IDs.roles?.PartnerManager].filter(Boolean).map(String),
-    // Revisore resoconto PM (anche senza ruolo Partner Manager).
-    reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
+        reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
     introLines: (mentions) => [
       `${mentions} **Chat Partner Manager**`,
       "Thread dedicato ai Partner Manager: coordinamento, aggiornamenti e comunicazione interna PM.",

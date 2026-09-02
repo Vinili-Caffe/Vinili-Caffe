@@ -2,10 +2,6 @@ function intAmount(value) {
   return Math.max(0, Math.floor(Number(value) || 0));
 }
 
-/**
- * Label stabile per GUI economia/canvas: sempre Discord username, mai nick/globalName.
- * Accetta User, GuildMember, o stringa già pronta.
- */
 function economyUsername(source, fallback = "Utente") {
   if (source == null) return fallback;
   if (typeof source === "string") {
@@ -29,18 +25,13 @@ function loadBotConfig(client = null) {
   }
 }
 
-/**
- * Modalità display senza caricare activeEconomyService (mongoose).
- * Server economy esplicita → Caffè; altrimenti se Galeoni è abilitata → Galeoni.
- */
 function resolveDisplayMode(client = null) {
   try {
     const { resolveEconomyMode } = require("../../Services/Community/activeEconomyService");
     const mode = resolveEconomyMode(client?.config ? client : { config: loadBotConfig(client) });
     if (mode === "galeoni" || mode === "server") return mode;
   } catch {
-    /* mongoose / deps assenti in alcuni contesti */
-  }
+      }
   const config = loadBotConfig(client);
   if (!config) return null;
   if (config.serverEconomy?.enabled === true) return "server";

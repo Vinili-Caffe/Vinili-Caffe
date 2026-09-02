@@ -1,6 +1,15 @@
 (function () {
   "use strict";
-  // typeSfxShellFlashFix1
+
+  function shouldSkipTypeSfx() {
+    try {
+      if (document.body && document.body.classList.contains("vc-dashboard-page")) return true;
+      if (document.documentElement.classList.contains("vc-perf-lite")) return true;
+      if (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite()) return true;
+    } catch (eSkip) {}
+    return false;
+  }
+  if (shouldSkipTypeSfx()) return;
 
   var STORAGE_KEY = "vc_type_sfx";
   var CRITICAL_CSS_ID = "vc-bgm-player-critical";
@@ -208,8 +217,7 @@
       g.gain.value = Math.max(0.001, BASE_PEAK * vol);
       src.connect(g);
       g.connect(master);
-      // start(0) = subito nella coda audio (meno latenza di currentTime + ramp)
-      src.start(0);
+            src.start(0);
     } catch (ePlay) {}
   }
 
@@ -228,8 +236,7 @@
       emitTick(c, vol);
     }
 
-    // resume() nel gesto (keydown); poi play. Non fare unlock().then() a catena.
-    if (c.state === "suspended") {
+        if (c.state === "suspended") {
       try {
         var p = c.resume();
         if (p && typeof p.then === "function") {
@@ -251,8 +258,7 @@
   }
 
   function shouldSkipSoftKeyboardNoise(ev) {
-    // Solo telefoni reali (hover none + coarse). Laptop touch/desktop devono suonare.
-    if (!isTouchUi()) return false;
+        if (!isTouchUi()) return false;
     try {
       if (ev && String(ev.key || "").length === 1) return false;
     } catch (eK) {}
@@ -325,8 +331,7 @@
 
   function isTouchUi() {
     try {
-      // Solo touch-primary (telefono): evita falsi positivi su laptop Windows touch.
-      return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+            return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
     } catch (e0) {
       return false;
     }
@@ -401,8 +406,7 @@
     btn.classList.toggle("is-muted", !on);
     if (wrap) wrap.classList.toggle("is-muted", !on);
     if (rangeEl) {
-      // Come la musica: lo slider riflette userVol anche se muto (non forzare 0).
-      rangeEl.value = String(Math.round(clamp01(userVol) * 100));
+            rangeEl.value = String(Math.round(clamp01(userVol) * 100));
     }
   }
 
@@ -514,16 +518,13 @@
       true,
     );
 
-    // Niente beforeinput/input su desktop: keydown è sufficiente e più affidabile per l’audio.
-    // Su soft-keyboard mobile non suoniamo (rumore).
-
+        
     document.addEventListener(
       "focusin",
       function (ev) {
         if (!isTypingTarget(ev.target) || !isVisibleField(ev.target)) return;
         setShellVisible(true);
-        // Sblocca AudioContext al focus campo (gesto utente tipico).
-        try {
+                try {
           var c = ensureCtx();
           if (c && c.state === "suspended") c.resume();
         } catch (eF) {}

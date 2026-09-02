@@ -141,8 +141,7 @@ function normalizeLiveStreamFromPublic(payload) {
   const livestream = payload?.livestream && typeof payload.livestream === "object" ? payload.livestream : null;
   if (!livestream || !livestream.id) return null;
   if (livestream.is_live !== true && livestream.is_live !== 1 && livestream.is_live !== "true") {
-    // Kick lascia playback_url anche offline → non trattare come live.
-    return null;
+        return null;
   }
   const slug = normalizeSlug(payload?.slug || payload?.user?.username);
   const categories = Array.isArray(livestream.categories) ? livestream.categories : [];
@@ -192,8 +191,7 @@ async function fetchLiveStreamsOfficial(accessToken, slugs) {
 async function fetchLiveStreamPublic(slug) {
   const key = normalizeSlug(slug);
   if (!key) return null;
-  // Kick WAF blocks Node/curl TLS fingerprints; Python urllib still works.
-  let stdout = "";
+    let stdout = "";
   try {
     const result = await execFileAsync("python3", [KICK_PUBLIC_LOOKUP_SCRIPT, key], {
       timeout: 25_000,
@@ -456,8 +454,7 @@ async function setVoiceChannelStatus(client, channelId, status, reason = "Kick l
     return true;
   } catch (err) {
     const msg = String(err?.message || err || "");
-    // Stage / forum / ecc.: l'API voice-status non è supportata — non spammiamo i log.
-    if (/Cannot execute action on this channel type/i.test(msg) || Number(err?.code) === 50024) {
+        if (/Cannot execute action on this channel type/i.test(msg) || Number(err?.code) === 50024) {
       return false;
     }
     global.logger?.warn?.("[KICK LIVE] voice status failed:", chId, msg);
@@ -473,14 +470,10 @@ function isStageChannel(channel) {
 
 function channelSupportsVoiceStatus(channel) {
   if (!channel?.isVoiceBased?.()) return false;
-  // GuildStageVoice: rename ok, voice-status no → usiamo il topic Stage.
-  if (isStageChannel(channel)) return false;
+    if (isStageChannel(channel)) return false;
   return true;
 }
 
-/**
- * Topic Stage (max 120). ON: crea/aggiorna Stage Instance; OFF: chiude l'istanza.
- */
 async function syncKickStageTopic(guild, channel, topic, live) {
   if (!guild?.stageInstances || !isStageChannel(channel)) return false;
   const channelId = String(channel.id || "").trim();
@@ -512,12 +505,11 @@ async function syncKickStageTopic(guild, channel, topic, live) {
       try {
         await guild.stageInstances.create(channelId, {
           topic: topicText,
-          privacyLevel: 2, // GuildOnly
+          privacyLevel: 2,
         });
       } catch (createErr) {
         const msg = String(createErr?.message || createErr || "");
-        // Istanza già attiva (avviata a mano): aggiorna solo il topic.
-        if (/already|exist/i.test(msg) || Number(createErr?.code) === 150000 || Number(createErr?.code) === 150006) {
+                if (/already|exist/i.test(msg) || Number(createErr?.code) === 150000 || Number(createErr?.code) === 150006) {
           await guild.stageInstances.edit(channelId, { topic: topicText });
         } else {
           throw createErr;
@@ -602,8 +594,7 @@ async function applyStreamerOnlineVoiceState(client, streamer, prev) {
   if (!configuredChannelId) return { ok: false, reason: "missing_channel" };
   const previousChannelId = String(prev?.voiceChannelId || "").trim();
   if (prev?.voiceChannelMode === "on" && previousChannelId === configuredChannelId) {
-    // Già ON: riallinea comunque il topic Stage (es. palco già avviato a mano).
-    await updateStreamVoiceChannelById(client, configuredChannelId, streamer, "on");
+        await updateStreamVoiceChannelById(client, configuredChannelId, streamer, "on");
     return { ok: true, skipped: true, reason: "already_on" };
   }
   if (prev?.voiceChannelMode === "on" && previousChannelId && previousChannelId !== configuredChannelId) {
@@ -642,8 +633,7 @@ async function runKickLiveAlertPoll(client) {
       }
 
       const streamId = String(stream.id);
-      // Treat as "never announced" if we only marked live without a successful post.
-      const prevAnnounced = Boolean(prev?.announcedAt && prev?.messageId);
+            const prevAnnounced = Boolean(prev?.announcedAt && prev?.messageId);
       const decisionPrev = prevAnnounced
         ? prev
         : { ...prev, lastStreamId: null, announcedAt: null, messageId: null };
@@ -659,8 +649,7 @@ async function runKickLiveAlertPoll(client) {
       } else {
         const published = await publishLiveAnnouncement(client, cfg, streamer, stream);
         if (!published?.ok) {
-          // Keep lastStreamId unset so the next poll retries the news post.
-          await saveStreamerState(streamer.slug, {
+                    await saveStreamerState(streamer.slug, {
             isLive: true,
             lastStreamId: null,
             announcedAt: null,
@@ -669,8 +658,7 @@ async function runKickLiveAlertPoll(client) {
         }
       }
 
-      // Voice after announce so a stuck Discord rename cannot block the news post.
-      try {
+            try {
         await Promise.race([
           applyStreamerOnlineVoiceState(client, streamer, prev),
           new Promise((resolve) => setTimeout(() => resolve({ ok: false, reason: "timeout" }), 12_000)),

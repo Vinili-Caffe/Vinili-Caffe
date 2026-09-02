@@ -54,8 +54,7 @@ function scrambleWord(word, rnd) {
   const w = String(word || "");
   if (w.length <= 1) return w;
   if (w.length === 2) return w[1] + w[0];
-  // Burrobirra strong: anagramma completo (non solo swap adiacenti).
-  let chars = shuffleWithRnd(w.split(""), rnd);
+    let chars = shuffleWithRnd(w.split(""), rnd);
   let out = chars.join("");
   if (out === w) {
     chars = chars.slice().reverse();
@@ -78,8 +77,7 @@ function scrambleWord(word, rnd) {
 function scrambleWordToken(token, rnd) {
   const { lead, core, trail } = splitTokenCore(token);
   if (!core) return token;
-  // Non rimescolare cifre pure (es. "12" → "21" rovina i codici); le gestiamo a token.
-  if (/^\d+$/.test(core)) return token;
+    if (/^\d+$/.test(core)) return token;
   const scrambledCore = core.includes("'")
     ? core.split("'").map((part) => scrambleWord(part, rnd)).join("'")
     : scrambleWord(core, rnd);
@@ -97,8 +95,7 @@ function distortPlainSegment(text, rnd) {
   let out = words.join("");
   if (rnd() < 0.45) out = out.replace(/\./g, "…");
   if (rnd() < 0.25) out = out.replace(/,/g, "‚");
-  // Ogni tanto inverte l'ordine delle parole (oltre alle lettere).
-  if (rnd() < 0.22) {
+    if (rnd() < 0.22) {
     const parts = out.split(/(\s+)/);
     const wordIdx = [];
     for (let i = 0; i < parts.length; i += 1) {
@@ -116,7 +113,6 @@ function distortPlainSegment(text, rnd) {
   return out;
 }
 
-/** Mischia token separati da spazio (emoji o numeri cifrario), seed-stabile. */
 function shuffleSpacedTokens(text, seed = "") {
   const raw = String(text || "").trim();
   if (!raw) return raw;
@@ -145,7 +141,6 @@ function extractEmojiTokens(text) {
   return raw.split(/\s+/).filter(Boolean);
 }
 
-/** Mischia l'ordine delle emoji (per sequenza memory in Burrobirra). */
 function scrambleEmojiSequenceText(text, seed = "") {
   const tokens = extractEmojiTokens(text);
   if (tokens.length <= 1) return String(text || "").trim();
@@ -156,7 +151,6 @@ function scrambleEmojiSequenceText(text, seed = "") {
   return next.join(sep);
 }
 
-/** Tiene l'ordine ma rende il blocco più illeggibile (spazi/separatori). */
 function chaosEmojiSequenceKeepOrder(text, seed = "") {
   const tokens = extractEmojiTokens(text);
   if (tokens.length <= 1) return String(text || "").trim();
@@ -213,8 +207,7 @@ async function pixelateImageBuffer(inputBuffer, seed = "") {
   const w = img.width;
   const h = img.height;
   const rnd = mulberry32(hashSeed(seed || "pixel"));
-  // Burrobirra strong: pixel più grossolani (immagini quasi illeggibili).
-  const scale = 0.07 + rnd() * 0.09;
+    const scale = 0.07 + rnd() * 0.09;
   const sw = Math.max(10, Math.floor(w * scale));
   const sh = Math.max(10, Math.floor(h * scale));
   const small = createCanvas(sw, sh);
@@ -296,8 +289,7 @@ function distortQuestionDescriptionLine(line, seed) {
   }
   const wordMatch = raw.match(/^([\s\S]*?parola da queste lettere:\s*)\*\*([^*]+)\*\*([\s\S]*)$/i);
   if (wordMatch) {
-    // Le lettere sono già lo scramble del puzzle: non rimescolarle (rischio di ricomporre la parola).
-    return raw;
+        return raw;
   }
   const rangeMatch = raw.match(/^([\s\S]*?tra\s*)\*\*([^*]+)\*\*(\s+e\s*)\*\*([^*]+)\*\*([\s\S]*)$/i);
   if (rangeMatch) {
@@ -309,8 +301,7 @@ function distortQuestionDescriptionLine(line, seed) {
   }
   const hashMatch = raw.match(/^(\#\s+)([\s\S]+)$/);
   if (hashMatch) {
-    // Numeri cifrario: già mescolati a monte del game — non invertire le cifre.
-    if (isNumericCipherLine(hashMatch[2])) return raw;
+        if (isNumericCipherLine(hashMatch[2])) return raw;
     if (isEmojiOnlySequenceText(hashMatch[2])) {
       return `${hashMatch[1]}${scrambleEmojiSequenceText(hashMatch[2], `${seed}:hash-emoji`)}`;
     }
@@ -360,8 +351,7 @@ function distortEmbedJsonQuestionOnly(embedJson, seed) {
       const name = String(field?.name || "");
       const value = String(field?.value || "");
       if (/^sequenza$/i.test(name.trim()) && isEmojiOnlySequenceText(value)) {
-        // Ordine già deciso dal game: caos solo visivo (separatori), senza riordinare.
-        return {
+                return {
           ...field,
           name: distortMinigameText(name, `${seed}:f${idx}:n`) || name,
           value: chaosEmojiSequenceKeepOrder(value, `${seed}:f${idx}:seq`),
@@ -395,8 +385,7 @@ function distortEmbedJson(embedJson, seed) {
 
 function shouldSkipBurrobirraFileDistort(file) {
   const name = String(file?.name || "").toLowerCase();
-  // Puzzle payload: non pixelare/flippare (invertirebbe l'ordine dei numeri/lettere).
-  return (
+    return (
     name === "hogwarts_cipher.png" ||
     name === "guess_word.png" ||
     name.startsWith("hogwarts_cipher") ||

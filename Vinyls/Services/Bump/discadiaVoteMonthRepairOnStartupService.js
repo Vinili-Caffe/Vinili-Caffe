@@ -25,7 +25,6 @@ function isRepairForced(client) {
   return client?.config?.discadiaVoteMonthRepairOnStartup === "force";
 }
 
-/** Recovery al boot: on di default, off esplicito. Non dipende dal 1° del mese. */
 function shouldRunDiscadiaVoteMonthRepairOnStartup(client) {
   const envValue = String(process.env.DISCADIA_VOTE_MONTH_REPAIR_ON_STARTUP || "").trim().toLowerCase();
   if (["0", "false", "no", "off"].includes(envValue)) return false;
@@ -66,10 +65,6 @@ function buildStaleMonthFilter(guildId, currentKey, mode) {
     : { guildId, $and: [staleKey, hasCounters] };
 }
 
-/**
- * @param {"startup"|"cron"} mode — cron include anche profili con ultimo voto salvato ma contatori a 0.
- * Startup: silenzioso se non c’è nulla da riparare (rollover di mezzanotte già ok).
- */
 async function repairDiscadiaVoteMonthRowsForMainGuild(client, mode = "startup") {
   const guildId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
   if (!guildId) return { matched: 0, modified: 0, skipped: true };
@@ -118,8 +113,7 @@ async function repairDiscadiaVoteMonthRowsForMainGuild(client, mode = "startup")
 function startDiscadiaVoteMonthRolloverCron(client) {
   if (!client || client._discadiaVoteMonthRolloverCron) return;
   if (!shouldRunDiscadiaVoteMonthRolloverCron(client)) return;
-  // 1° del mese alle 00:00 Europe/Rome — unico passaggio ufficiale.
-  client._discadiaVoteMonthRolloverCron = cron.schedule(
+    client._discadiaVoteMonthRolloverCron = cron.schedule(
     "0 0 1 * *",
     runCronDetached("[DISCADIA_VOTE_MONTH_CRON]", async () => {
       if (mongoose.connection?.readyState !== 1) return;

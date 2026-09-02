@@ -125,21 +125,9 @@
                 "channels.highCmds"
             ]
         },
-        "profile": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "pm": [
-                    "roles.PartnerManager"
-                ]
-            }
-        },
+        "profile": [
+            "roles.PartnerManager"
+        ],
         "description": [
             "roles.PartnerManager"
         ],
@@ -912,7 +900,7 @@
                 "roles.Member"
             ],
             "channels": [
-                "channels.ship"
+                "channels.commands"
             ]
         },
         "bal": {

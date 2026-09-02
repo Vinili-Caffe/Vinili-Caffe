@@ -42,8 +42,7 @@ async function processVoteQueue(client) {
         const listing = normalizeVoteListing(vote.listing);
         const receivedAtMs = new Date(vote.receivedAt || 0).getTime();
         const voteAtMs = Number.isFinite(receivedAtMs) ? receivedAtMs : Date.now();
-        // Se è già registrato un voto vicino a questo evento (±5 min), non ridoppiare.
-        if (
+                if (
           await isVoteListingRecordedAtOrAfter(
             guildId,
             userId,

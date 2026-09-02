@@ -103,8 +103,7 @@ module.exports = {
     const hasMention = Boolean(message?.mentions?.users?.size);
     const isSnowflake = isUserSnowflakeArg(first);
 
-    // Scheda partnership PM: disponibile su main e tenant.
-    if (sub === "info") {
+        if (sub === "info") {
       return executeTenantUserInfo(message, args.slice(1));
     }
 
@@ -112,8 +111,7 @@ module.exports = {
       return executeTenantUserInfo(message, args);
     }
 
-    // Solo tenant: +user senza target → hint verso info.
-    if (shouldUseTenantStatsInfoRouting(guildId)) {
+        if (shouldUseTenantStatsInfoRouting(guildId)) {
       return safeMessageReply(message, {
         content:
           "<:vegax:1443934876440068179> Su questo server usa `+user info` per la scheda partnership.",
@@ -121,8 +119,7 @@ module.exports = {
       });
     }
 
-    // Stats attività (main sempre; tenant senza override partnership).
-    await message.channel.sendTyping().catch(() => {});
+        await message.channel.sendTyping().catch(() => {});
     const { targetId, lookbackDays } = await userButton.resolveUserTargetAndLookback(message, args);
     if (!targetId) {
       await safeMessageReply(message, {

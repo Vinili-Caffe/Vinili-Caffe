@@ -2,11 +2,6 @@ function resolveUserFromLike(userLike) {
   return userLike?.user || userLike || null;
 }
 
-/**
- * @param {import("discord.js").Guild|null|undefined} guild
- * @param {{ size?: number }} [opts]
- * @returns {string|null}
- */
 function guildIconUrl(guild, { size = 256 } = {}) {
   if (!guild?.icon) return null;
   const animated = String(guild.icon).startsWith("a_");
@@ -129,19 +124,10 @@ function embedThumbnailAvatarUrl(userLike, { size = 256 } = {}) {
   return discordDefaultAvatarUrl(userLike, { size });
 }
 
-/**
- * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
- * @param {{ size?: number }} [opts]
- * @returns {string}
- */
 function userAvatarUrlDynamic(userLike, { size = 256 } = {}) {
   return embedUserAvatarUrlDynamic(userLike, { size });
 }
 
-/**
- * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
- * @returns {string}
- */
 function accountUsername(userLike) {
   const user = resolveUserFromLike(userLike);
   return String(user?.username || "Utente").trim() || "Utente";

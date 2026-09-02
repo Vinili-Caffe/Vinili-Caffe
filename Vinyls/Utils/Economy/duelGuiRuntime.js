@@ -323,8 +323,7 @@ async function buildDuelPayload(client, guild, session, left, right, outcome, no
     files: attachment.files || [],
     components: rows,
   });
-  // Solo ricompensa in content (niente duplicati del canvas). "" pulisce eventuali testi precedenti.
-  payload.content = notice ? String(notice).slice(0, 1800) : "";
+    payload.content = notice ? String(notice).slice(0, 1800) : "";
   payload.allowedMentions = {
     repliedUser: false,
     users: notice ? duelParticipantUserIds(left, right) : [],
@@ -352,8 +351,7 @@ async function pushDuelFightSequence(message, client, guild, session, left, righ
       const placeholder = await buildDuelPayload(client, guild, session, left, right, startOutcome, "", true, false);
       await message.edit(placeholder).catch(() => {});
     }
-    // Render GIF (può richiedere diversi secondi): il timer parte solo DOPO che è in chat.
-    const gifPayload = await buildDuelPayload(client, guild, session, left, right, outcome, "", true, true);
+        const gifPayload = await buildDuelPayload(client, guild, session, left, right, outcome, "", true, true);
     await message.edit(gifPayload).catch(() => {});
     scheduleDuelResultPanel(message, resultCtx, spinAnimationDurationMs());
   } catch (error) {
@@ -385,8 +383,7 @@ async function buildInvitePayload(client, guild, session, ownerFighter, notice) 
     username: session.opponentName,
     displayName: session.opponentName,
   };
-  // Footer canvas corto; mention/testo lungo restano nel content Discord.
-  const inviteLine = `${trimName(ownerFighter.username)} vs ${trimName(session.opponentName)} — accetta o rifiuta`;
+    const inviteLine = `${trimName(ownerFighter.username)} vs ${trimName(session.opponentName)} — accetta o rifiuta`;
   const outcome = { spellLine: inviteLine, winnerSide: "pending" };
   const attachment = await renderDuelAttachment(client, guild, ownerFighter, opponentStub, outcome, `invite:${session.ownerId}:${session.opponentId}`);
   const rows = session.mode === "pvp"
@@ -485,8 +482,7 @@ async function acceptPvpChallenge(client, interaction, session) {
   );
   if (!oppLoaded.ok) return { ok: false, message: oppLoaded.message };
 
-  // CD solo per chi lancia la sfida (già riservato all'invito). Chi accetta resta libero di rifare +duel.
-  if (!session.ownerCooldownReserved) {
+    if (!session.ownerCooldownReserved) {
     const ownerReserve = await reserveDuelCooldown(client, session.guildId, session.ownerId);
     if (!ownerReserve.ok) return { ok: false, message: ownerReserve.message };
     session.ownerCooldownReserved = true;

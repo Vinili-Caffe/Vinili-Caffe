@@ -151,7 +151,6 @@ async function maybeRepositionModerationStickyNow(channelRef, client) {
   }
 }
 
-/** Debounce: una sola riposizione dopo alert/ping/sanzione ravvicinati. */
 async function maybeRepositionModerationSticky(channelRef, client, options = {}) {
   const channel = await resolveSanzioniChannel(client, channelRef);
   const sanzioniChannelId = getSanzioniChannelId();

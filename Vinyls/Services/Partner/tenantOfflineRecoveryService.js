@@ -40,9 +40,6 @@ function userGuildsPath() {
   return "/users/@me/guilds";
 }
 
-/**
- * Elenco guild dove il bot è ancora presente (REST preferito: indipendente dalla cache gateway).
- */
 async function refreshBotGuildIdSet(client) {
   const ids = new Set();
   const rest = client?._rest;
@@ -106,9 +103,6 @@ async function collectTrackedTenantGuildIds() {
   return [...ids];
 }
 
-/**
- * Kick bot offline / guildDelete perso: pulisce registry + config partnership orfani.
- */
 async function recoverOrphanedTenantGuilds(client, botGuildIds) {
   const tracked = await collectTrackedTenantGuildIds();
   let cleared = 0;
@@ -145,9 +139,6 @@ async function ensureGuildForMemberFetch(client, guildId) {
   return null;
 }
 
-/**
- * Depex PM offline: azzera punti server se il profilo ha score attivo ma non ha più il ruolo PM.
- */
 async function reconcileTenantPartnerManagerScores(client, botGuildIds) {
   await refreshPartnershipConfigCache().catch(() => null);
   const guildIds = listConfiguredPartnershipGuildIds().filter(
@@ -221,11 +212,6 @@ async function markRecoveryRun(summary) {
   }).catch(() => null);
 }
 
-/**
- * Recovery periodico (bot-scheduler) + opzionale al ready MultiGuild.
- * - Orphan tenant (kick bot offline / guildDelete perso)
- * - Score PM senza ruolo (depex offline)
- */
 async function runTenantOfflineRecoveryTick(client, opts = {}) {
   if (!isMultiGuildLayerEnabled()) {
     return { ok: false, reason: "multi_guild_disabled" };
@@ -298,8 +284,7 @@ function startTenantOfflineRecoveryLoop(client, opts = {}) {
     });
   };
 
-  // Prima passata subito (scheduler / ready), poi periodico.
-  const startupDelayMs = Math.max(0, Number(opts.startupDelayMs ?? 8_000) || 0);
+    const startupDelayMs = Math.max(0, Number(opts.startupDelayMs ?? 8_000) || 0);
   if (startupDelayMs > 0) {
     const t = setTimeout(tick, startupDelayMs);
     t.unref?.();

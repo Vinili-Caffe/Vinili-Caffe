@@ -20,8 +20,7 @@ function getMainGuildId() {
 function isIdsCatalogGuild(guildId) {
   const mainId = getMainGuildId();
   const gid = String(guildId || "").trim();
-  // Il file idsCatalog.js è unico e descrive solo la main Vinili.
-  return Boolean(mainId && gid && gid === mainId);
+    return Boolean(mainId && gid && gid === mainId);
 }
 
 function getCatalogPath(baseDir) {

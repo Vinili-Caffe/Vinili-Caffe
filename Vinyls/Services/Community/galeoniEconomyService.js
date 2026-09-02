@@ -18,8 +18,7 @@ const DEFAULT_CONFIG = Object.freeze({
   previewMode: false,
   startDate: "2026-08-10T14:00:00",
   minBet: 5,
-  /** 0 = nessun tetto fisso: la puntata massima è il saldo disponibile. */
-  maxBet: 0,
+    maxBet: 0,
   dailyBetCap: 0,
   work: { cooldownMs: 60 * 60 * 1000, minReward: 8, maxReward: 24, streakStepPct: 1, streakMaxBonusPct: 10, streakGraceMs: 3 * 60 * 60 * 1000 },
   daily: { cooldownMs: 24 * 60 * 60 * 1000, reward: 50, streakStepPct: 3, streakMaxBonusPct: 30, streakGraceMs: 48 * 60 * 60 * 1000 },
@@ -95,7 +94,14 @@ function hasGaleoniEconomyPreviewAccess(client, member, userId, cfg) {
 function isGaleoniEconomyUnlocked(client, nowMs = Date.now()) {
   const cfg = economyConfig(client);
   if (!cfg.enabled) return false;
-  return isEconomyLive(cfg, nowMs) || cfg.previewMode;
+  if (cfg.previewMode) return true;
+  if (!isEconomyLive(cfg, nowMs)) return false;
+    try {
+    const hogCfg = resolveHogwartsEventConfig(client);
+    const endMs = Number(hogCfg?.endMs || 0);
+    if (Number.isFinite(endMs) && Number(nowMs) > endMs) return false;
+  } catch (_) {}
+  return true;
 }
 
 function economyConfig(client) {
@@ -103,18 +109,15 @@ function economyConfig(client) {
   raw.enabled = raw.enabled !== false;
   raw.previewMode = raw.previewMode === true;
   raw.startDate = normalizeId(raw.startDate) || DEFAULT_CONFIG.startDate;
-  // Orario locale Europe/Rome (es. 14:00), indipendente dal timezone del VPS.
-  const parsedStartMs = parseDateStartMs(raw.startDate, "Europe/Rome");
+    const parsedStartMs = parseDateStartMs(raw.startDate, "Europe/Rome");
   raw.startMs = Number.isFinite(parsedStartMs) ? parsedStartMs : new Date(raw.startDate).getTime();
   raw.minBet = int(raw.minBet, DEFAULT_CONFIG.minBet, 1, 100000);
-  // 0 = illimitato (solo saldo); altrimenti tetto configurato.
-  raw.maxBet = int(raw.maxBet, DEFAULT_CONFIG.maxBet, 0, 1000000);
+    raw.maxBet = int(raw.maxBet, DEFAULT_CONFIG.maxBet, 0, 1000000);
   raw.dailyBetCap = int(raw.dailyBetCap, DEFAULT_CONFIG.dailyBetCap, 0, 1000000);
   for (const action of ["work", "daily", "weekly", "monthly", "rob", "roulette", "rps", "slots", "blackjack", "coinflip", "tris", "scratch"]) {
     raw[action].cooldownMs = int(raw[action].cooldownMs, DEFAULT_CONFIG[action].cooldownMs, 0, 365 * 24 * 60 * 60 * 1000);
   }
-  // Blackjack anti-farm: se in config c’è ancora il vecchio 5s / BJ 3:2, forza i nuovi default.
-  {
+    {
     const bj = raw.blackjack || (raw.blackjack = {});
     const cd = Number(bj.cooldownMs);
     if (!Number.isFinite(cd) || cd <= 5_000) bj.cooldownMs = DEFAULT_CONFIG.blackjack.cooldownMs;
@@ -228,11 +231,6 @@ function sortedHouseLabel(houseId) {
   return SORTED_HOUSE_LABELS[id] || "la stessa casata";
 }
 
-/**
- * Anti-abuso: niente rob/PvP tra membri della stessa casata.
- * +pay è consentito (collette / scambi in casa).
- * In preview staff lo skippa (come gli altri gate di smistamento).
- */
 async function assertDifferentHouses(client, guildId, actorId, targetId, opts = {}) {
   if (opts.preview) return { ok: true, skipped: true };
   const gid = normalizeId(guildId);
@@ -603,8 +601,7 @@ async function checkBetCap(guildId, userId, amount, cfg) {
   const sameDay = state?.gambling?.dayKey === key;
   const current = sameDay ? int(state?.gambling?.wageredToday, 0) : 0;
   const cap = Math.max(0, Math.floor(Number(cfg?.dailyBetCap) || 0));
-  // 0 = nessun limite giornaliero.
-  if (cap > 0 && current + amount > cap) {
+    if (cap > 0 && current + amount > cap) {
     return { ok: false, message: `Hai raggiunto il limite giornaliero di puntate (${formatGaleoni(cap)}).` };
   }
   return { ok: true, key, sameDay };
@@ -968,7 +965,6 @@ async function refundTrisPvpStake(client, guildId, userId, amount, actorId, reas
   return paid?.ok ? { ok: true, amount: value } : { ok: false, message: "Rimborso non riuscito." };
 }
 
-/** Rimborso puntata aperta (chiusura pannello / annullo partita). */
 async function refundEconomyStake(client, guildId, userId, amount, actorId, reason = "economy: rimborso chiusura", source = "economy_refund") {
   const value = Math.max(0, Math.floor(Number(amount) || 0));
   if (!value) return { ok: true, amount: 0 };
@@ -1065,8 +1061,7 @@ async function playRps(client, message, betRaw, choiceRaw, options = {}) {
   if (!player) return { ok: false, message: "Scegli `sasso`, `carta` o `forbici`." };
   const bet = await spendBet(client, message, "rps", betRaw, options);
   if (!bet.ok) return bet;
-  // ~4% house tilt: soft counter bias (near-fair, not scammy).
-  const counter = { sasso: "carta", carta: "forbici", forbici: "sasso" };
+    const counter = { sasso: "carta", carta: "forbici", forbici: "sasso" };
   const bot = randomInt(1, 101) <= 4 ? counter[player] : ["sasso", "carta", "forbici"][randomInt(0, 3)];
   const draw = player === bot;
   const win = !draw && ((player === "sasso" && bot === "forbici") || (player === "carta" && bot === "sasso") || (player === "forbici" && bot === "carta"));
@@ -1087,8 +1082,7 @@ async function playSlotsBanked(client, message, betRaw, options = {}) {
   if (!bet.ok) return bet;
   const symbols = ["🍒", "🍋", "🔔", "⭐", "💎", "7️⃣"];
   const reels = [symbols[randomInt(0, symbols.length)], symbols[randomInt(0, symbols.length)], symbols[randomInt(0, symbols.length)]];
-  // Linea classica L→R: coppia solo sui primi due rulli; 💎🍒💎 e 🍒💎💎 non pagano.
-  const triple = reels[0] === reels[1] && reels[1] === reels[2];
+    const triple = reels[0] === reels[1] && reels[1] === reels[2];
   const adjacentPair = !triple && reels[0] === reels[1];
   const jackpot = triple && reels[0] === "7️⃣";
   const multiplier = jackpot
@@ -1124,10 +1118,6 @@ async function flushSlotsGuiPendingBank(client, message) {
   return { ok: true, amount: out.amount, auto: true };
 }
 
-/**
- * Candidati rob da DB (saldo / casata / protezione), non da sample casuale del member cache.
- * @returns {Promise<string[]>}
- */
 async function listRobCandidateUserIds(client, guildId, robberId, cfg) {
   const gid = normalizeId(guildId);
   const robber = normalizeId(robberId);
@@ -1264,8 +1254,7 @@ async function rob(client, message, targetUser) {
   }
   const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${formatDuration(reserve.remainingMs)}.` };
-  // Evita di bruciare il cooldown se lo scudo arriva tra check e reserve.
-  const liveCheck = await evaluateRobTarget(client, message.guild, targetUser.id, access.cfg, message.author.id);
+    const liveCheck = await evaluateRobTarget(client, message.guild, targetUser.id, access.cfg, message.author.id);
   if (!liveCheck.ok) {
     await releaseCooldown(message.guild.id, message.author.id, "rob");
     return { ok: false, code: liveCheck.code || "target_blocked", message: liveCheck.message };
@@ -1298,8 +1287,7 @@ async function rob(client, message, targetUser) {
 }
 
 function parsePayAmount(raw) {
-  // Nessun tetto fisso: il limite è solo il saldo del mittente.
-  const amount = int(raw, 0, 1);
+    const amount = int(raw, 0, 1);
   if (!amount) return { ok: false, message: "Inserisci un importo valido (minimo 1 Galeone)." };
   return { ok: true, amount };
 }

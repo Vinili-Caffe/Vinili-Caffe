@@ -80,9 +80,6 @@ async function ensureGuildChannelsCached(guild) {
   await guild.channels.fetch().catch(() => null);
 }
 
-/**
- * Canale testuale a caso dove il bot può scrivere (testo o annunci).
- */
 function pickRandomWritableTextChannel(guild, me) {
   if (!guild || !me) return null;
   const candidates = [...guild.channels.cache.values()].filter((ch) => {
@@ -144,8 +141,7 @@ async function sendGuildJoinWelcomeDm(client, guild) {
     return await user.send(welcomePayload(embed));
   } catch (err) {
     const code = Number(err?.code || 0);
-    // 50007 = cannot DM; 50278 = no mutual guilds (inviter fuori / race join).
-    if (code !== 50007 && code !== 50278) {
+        if (code !== 50007 && code !== 50278) {
       global.logger?.warn?.(
         `[MultiGuild welcomeDm] DM failed user=${user.id} guild=${guild.id}:`,
         code || err?.message || err,

@@ -8,7 +8,6 @@ function arr(v) {
   return Array.isArray(v) ? v : [];
 }
 
-/** Flat legacy `staffs` doc → nested staff shape used by ActivityUserProfile. */
 function legacyStaffDocToEmbedded(legacy) {
   if (!legacy || typeof legacy !== "object") return null;
   return {
@@ -94,8 +93,7 @@ function mergeStaffEmbedded(primary, fallback) {
   for (const key of listFields) {
     const a = arr(primary?.[key]);
     const b = arr(fallback?.[key]);
-    // Carriera: AUP vince anche se più corta (reset founder / cleanup intenzionali).
-    if (key === "rolesHistory" && primary && Object.prototype.hasOwnProperty.call(primary, "rolesHistory")) {
+        if (key === "rolesHistory" && primary && Object.prototype.hasOwnProperty.call(primary, "rolesHistory")) {
       out[key] = a;
       continue;
     }
@@ -128,14 +126,10 @@ async function loadLegacyStaffByUserIds(guildId, userIds) {
       map.set(uid, legacyStaffDocToEmbedded(row));
     }
   } catch (_) {
-    /* legacy collection optional */
-  }
+      }
   return map;
 }
 
-/**
- * Batch stats for organico/gestione: ActivityUserProfile + legacy `staffs` fallback.
- */
 async function loadStaffTrackStatsByUserIds(guildId, userIds) {
   const gid = String(guildId || "").trim();
   const ids = [...new Set((userIds || []).map((id) => String(id || "").trim()).filter(Boolean))];

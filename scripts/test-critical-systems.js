@@ -29,8 +29,7 @@ async function run(root) {
   try {
     process.chdir(root);
   } catch {
-    // ignore
-  }
+      }
 
   const permissionsPath = path.join(root, "permissions.json");
   const prefixRoot = path.join(root, "Prefix");
@@ -152,6 +151,18 @@ async function run(root) {
     assert(isMediaEmbed(new URL("https://media.tenor.com/abc/tenor.gif")) === true, "URL Tenor deve contare come media embed");
     assert(isMediaEmbed(new URL("https://cdn.discordapp.com/attachments/1/2/x.webp")) === true, "CDN Discord deve contare come media embed");
     assert(isMediaEmbed(new URL("https://example.com/scam")) === false, "host generico non è media embed");
+    assert(isMediaEmbed(new URL("https://klipy.com/gifs/vegan-porn-carrot-porn")) === true, "Klipy deve contare come media embed");
+    const isNsfwUrl = automodService?.__test?.isNsfwUrl;
+    assert(typeof isNsfwUrl === "function", "automod __test isNsfwUrl mancante");
+    assert(
+      (await isNsfwUrl("https://klipy.com/gifs/vegan-porn-carrot-porn")) === false,
+      "slug meme con 'porn' su Klipy non deve triggerare nsfw_link",
+    );
+    assert((await isNsfwUrl("https://pornhub.com/view/123")) === true, "dominio pornhub deve triggerare nsfw_link");
+    assert(
+      (await isNsfwUrl("https://media.tenor.com/foo/bar")) === false,
+      "Tenor non deve triggerare nsfw_link",
+    );
     const isStaffZoneExempt = automodService?.__test?.isStaffZoneExemptChannel;
     assert(typeof isStaffZoneExempt === "function", "automod __test isStaffZoneExemptChannel mancante");
     const staffChatId = String(require("../Vinyls/Utils/Config/ids").channels?.staffChat || "");
@@ -678,8 +689,7 @@ async function run(root) {
   try {
     process.chdir(cwdOrig);
   } catch {
-    // ignore
-  }
+      }
 }
 
 if (require.main === module) {

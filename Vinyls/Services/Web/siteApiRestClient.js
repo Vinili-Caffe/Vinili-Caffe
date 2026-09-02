@@ -1,7 +1,3 @@
-/**
- * Client Discord “lite” solo REST (niente gateway): può coesistere col bot online.
- * Espone la superficie usata dalle API sito e dai worker (scheduler / backup / vote-drain).
- */
 const { REST, Routes, PermissionsBitField, OverwriteType } = require("discord.js");
 
 function routeCall(name, ...args) {
@@ -10,7 +6,6 @@ function routeCall(name, ...args) {
   throw new Error(`discord.js Routes.${name} missing`);
 }
 
-/** Fallback paths if Routes helper manca nella versione installata. */
 function guildActiveThreadsPath(guildId) {
   try {
     return routeCall("guildActiveThreads", guildId);
@@ -179,7 +174,6 @@ const ADMIN_BIT = (() => {
   }
 })();
 
-/** Permessi di guild del membro (@everyone + ruoli), senza overwrite di canale. */
 function computeMemberGuildPermissionBits(member, guild) {
   const g = guild || member?.guild || null;
   if (!member || !g) return 0n;
@@ -196,10 +190,6 @@ function computeMemberGuildPermissionBits(member, guild) {
   return bits;
 }
 
-/**
- * Risoluzione permessi canale come Discord:
- * base guild → overwrite @everyone → overwrite ruoli → overwrite membro.
- */
 function computeChannelPermissionBits(channel, memberOrRole) {
   if (!channel || !memberOrRole) return 0n;
   const guild = channel.guild || null;
@@ -217,8 +207,7 @@ function computeChannelPermissionBits(channel, memberOrRole) {
   }
   if ((bits & ADMIN_BIT) === ADMIN_BIT) return ~0n;
 
-  // Thread pubblici: eredita overwrite dal parent se il thread non ne ha.
-  let overwriteSource = channel;
+    let overwriteSource = channel;
   try {
     const isThread = typeof channel.isThread === "function" ? channel.isThread() : [10, 11, 12].includes(Number(channel.type));
     if (isThread && channel.parentId && (!channel.permissionOverwrites?.cache?.size)) {
@@ -226,8 +215,7 @@ function computeChannelPermissionBits(channel, memberOrRole) {
       if (parent) overwriteSource = parent;
     }
   } catch {
-    /* ignore */
-  }
+      }
 
   const overwrites = overwriteSource.permissionOverwrites?.cache;
   if (!overwrites) return bits;
@@ -376,8 +364,7 @@ async function bufferToRoleIconDataUri(buf) {
   if (!buf) return null;
   const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
   if (!b.length) return null;
-  // PNG/GIF/JPEG: Discord accetta data URI.
-  let mime = "image/png";
+    let mime = "image/png";
   if (b[0] === 0x47 && b[1] === 0x49) mime = "image/gif";
   else if (b[0] === 0xff && b[1] === 0xd8) mime = "image/jpeg";
   return `data:${mime};base64,${b.toString("base64")}`;
@@ -848,7 +835,6 @@ function isRestSnowflakeId(value) {
   return /^\d{17,22}$/.test(String(value || "").trim());
 }
 
-/** Normalizza RoleResolvable | RoleResolvable[] (e stringhe "id1,id2") in snowflake validi. */
 function expandRestRoleIds(roleOrRoles) {
   const raw = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles];
   const out = [];
@@ -893,8 +879,7 @@ function wrapMember(raw, guild, userObj) {
       cache: rolesCache,
       highest: [...rolesCache.values()].sort((a, b) => (b.position || 0) - (a.position || 0))[0] || null,
       add: async (roleOrRoles, reason) => {
-        // discord.js accetta Role | Role[]; String([id1,id2]) diventava "id1,id2" → 400 Discord.
-        const ids = expandRestRoleIds(roleOrRoles);
+                const ids = expandRestRoleIds(roleOrRoles);
         const reasonOpt = reason ? String(reason).slice(0, 512) : undefined;
         for (const roleId of ids) {
           await guild.client._rest.put(Routes.guildMemberRole(guild.id, user.id, roleId), {
@@ -1479,8 +1464,7 @@ function wrapGuild(raw, client) {
 async function createSiteApiRestClient(config, token, options = {}) {
   const rest = new REST({
     version: "10",
-    // Evita hang lunghi su Discord REST (site-api senza gateway).
-    timeout: Math.max(3000, Number(options.restTimeoutMs) || 8000),
+        timeout: Math.max(3000, Number(options.restTimeoutMs) || 8000),
   }).setToken(token);
   const me = await rest.get(Routes.user("@me"));
   const guildCache = asCacheMap();
@@ -1544,8 +1528,7 @@ async function createSiteApiRestClient(config, token, options = {}) {
     },
     guilds: {
       cache: guildCache,
-      /** Solo guild + ruoli: auth sito / member fetch senza cold-start pesante. */
-      fetchLite: async (id) => {
+            fetchLite: async (id) => {
         const gid = String(id);
         const hit = guildCache.get(gid);
         if (hit?.members && typeof hit.members.fetch === "function") return hit;
@@ -1577,8 +1560,7 @@ async function createSiteApiRestClient(config, token, options = {}) {
     },
   };
 
-  // Ensure users.cache entries get send() bound to client
-  client.user = wrapUser(me, client);
+    client.user = wrapUser(me, client);
   client.users.cache.set(String(me.id), client.user);
   const { initializeCommandCollections } = require("../../../shared/runtime/clientRuntime");
   initializeCommandCollections(client);
@@ -1595,9 +1577,7 @@ async function createSiteApiRestClient(config, token, options = {}) {
     await client.guilds.fetch(mainGuildId).catch(() => null);
   }
 
-  // Seed IDs di tutte le guild del bot (stub leggeri). Senza questo site-api
-  // pensa che il bot sia solo sulla main e la dashboard mostra "Invita".
-  try {
+      try {
     let after = "";
     for (let page = 0; page < 25; page += 1) {
       const query = new URLSearchParams({ limit: "200" });

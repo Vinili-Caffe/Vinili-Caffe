@@ -3,7 +3,9 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { resolvePublicSiteBase } = require("../../Utils/Web/verifyOauthPublicUrl");
 const publicSiteBase = resolvePublicSiteBase();
+const { siteTicketsPageUrl } = require("../../../shared/web/siteTicketsPageRef");
 const suggestionSiteUrl = `${publicSiteBase}/suggerimenti`;
+const ticketsSiteUrl = siteTicketsPageUrl();
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getClientGuildCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
@@ -14,7 +16,7 @@ const MIN_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 const STARTUP_BLAST_DM_DELAY_MS = 450;
 const EXTERNAL_STARTUP_DM_DELAY_MS = 600;
 const BLAST_STALE_LOCK_MS = 45 * 60 * 1000;
-const DM_FOOTER = "Se non vuoi ricevere questi avvisi in DM usa +profile nel server.";
+const DM_FOOTER = "Se non vuoi ricevere questi avvisi in DM usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) nel server.";
 const DEFAULT_TZ = "Europe/Rome";
 const STAFF_ROLE_IDS = [
   IDs.roles.Staff,
@@ -52,12 +54,12 @@ const defaultPool = [
   },
   {
     title: "Ticket e supporto",
-    description: `Se ti serve supporto, usa i ticket in ${channelMention(IDs.channels.ticket, "canale ticket")}: è il modo più veloce per ricevere assistenza dallo staff.`,
+    description: `Se ti serve supporto, apri un ticket sul sito: ${ticketsSiteUrl} — è il modo più veloce per ricevere assistenza dallo staff.`,
   },
   {
     title: "Gestione DM",
     description:
-      "Puoi gestire o disattivare questi promemoria con +profile.",
+      "Puoi gestire o disattivare questi promemoria con il [profilo sul sito](https://www.viniliecaffe.it/personalizza/).",
   },
   {
     title: "Attività community",
@@ -87,7 +89,7 @@ const defaultPool = [
   },
   {
     title: "Onboarding nuovi membri",
-    description: `Se inviti amici, indica loro regole, canali utili e ticket in ${channelMention(IDs.channels.ticket, "ticket")} se serve aiuto.`,
+    description: `Se inviti amici, indica loro regole, canali utili e i ticket sul sito (${ticketsSiteUrl}) se serve aiuto.`,
   },
   {
     title: "Eventi e sondaggi",
@@ -293,7 +295,7 @@ const MASSIVE_REMINDER_TOPICS = [
   },
   {
     title: "Ticket supporto",
-    line: `Per problemi o dubbi usa i ticket in ${channelMention(IDs.channels.ticket, "canale ticket")}.`,
+    line: `Per problemi o dubbi apri un ticket sul sito: ${ticketsSiteUrl}.`,
   },
   {
     title: "News e avvisi",

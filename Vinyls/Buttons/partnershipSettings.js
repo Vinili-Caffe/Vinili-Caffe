@@ -209,9 +209,7 @@ async function showSettingsModal(interaction, ownerId, view, buildModal, lang) {
   }
   const config = resolvePartnershipConfigSync(interaction.guild.id);
   await interaction.showModal(buildModal(ownerId, config, lang)).catch(() => {});
-  // Dopo showModal non si può update sull'interaction: riscrivi i componenti
-  // così il select torna al placeholder e si può riaprire la stessa voce.
-  const payload = buildViewPayload(interaction.guild, ownerId, view, config, lang);
+      const payload = buildViewPayload(interaction.guild, ownerId, view, config, lang);
   await interaction.message?.edit?.(payload).catch(() => {});
 }
 

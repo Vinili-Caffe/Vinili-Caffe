@@ -103,8 +103,7 @@
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
-  /** HTML leggibile per utente (niente chiavi tecniche). */
-  function summarizeCountsHtml(obj) {
+    function summarizeCountsHtml(obj) {
     if (!obj || typeof obj !== "object") {
       return "<p class=\"vc-gdpr-count-empty\">" + esc(i18n("dashGdpr.noneCounted", "Nessuna voce.")) + "</p>";
     }

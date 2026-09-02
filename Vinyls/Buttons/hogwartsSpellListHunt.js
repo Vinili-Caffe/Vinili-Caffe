@@ -1,4 +1,5 @@
 const { handleSpellListHuntButton } = require("../Services/Community/hogwartsSpellListHuntService");
+const { resolveHogwartsEventConfig, isEventWindowOpen } = require("../Utils/Web/hogwartsSortingConfig");
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
@@ -6,6 +7,11 @@ function match(interaction) {
 }
 
 async function execute(interaction, client) {
+  const eventCfg = resolveHogwartsEventConfig(client);
+  if (!isEventWindowOpen(eventCfg)?.open) {
+    await interaction.reply({ content: "Evento Hogwarts concluso.", flags: 64 }).catch(() => null);
+    return true;
+  }
   return handleSpellListHuntButton(interaction, client);
 }
 

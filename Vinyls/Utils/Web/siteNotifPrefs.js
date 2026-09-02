@@ -126,9 +126,6 @@ function isKindMuted(mutedKinds, kind) {
   return normalizeMutedKinds(mutedKinds).includes(k);
 }
 
-/**
- * Infer vote listing (topgg | discadia) from vote_reminder payload fields.
- */
 function inferVoteListingFromNotif({ title, body, dedupeKey, openUrl } = {}) {
   const blob = [title, body, dedupeKey, openUrl]
     .map((x) => String(x || "").toLowerCase())
@@ -140,12 +137,6 @@ function inferVoteListingFromNotif({ title, body, dedupeKey, openUrl } = {}) {
   return "discadia";
 }
 
-/**
- * True if this in-app item is muted by site/DM prefs (soft-filter).
- * Soft-filtered items are still stored, but skip push and stay out of the bell;
- * they appear only on /notifications under the "Filtrate" view.
- * Pass preloaded mutedKinds / voteBlocked to avoid repeated DB reads.
- */
 async function shouldSkipSiteInAppNotif(
   guildId,
   userId,
@@ -189,10 +180,6 @@ async function buildSkipContext(guildId, userId) {
   return { mutedKinds, voteBlocked };
 }
 
-/**
- * Se la push web è attiva e la notifica sito non è soft-filtrata, evita il DM Discord
- * duplicato (stesso evento già in campanella + OS push).
- */
 async function shouldSkipDiscordDmForActiveWebPush(guildId, userId, notifMeta = {}) {
   const uid = String(userId || "").trim();
   if (!uid) return false;

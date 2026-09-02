@@ -11,9 +11,9 @@ const {
   sanitizeEmbedDataObject,
   embedHasMeaningfulContent,
 } = require("./embedMediaFallback");
+const { sanitizeEmbedFooterText } = require("../../../shared/discord/embedFooterText");
 const DEFAULT_FOOTER_TEXT = "© 2026 Vinili & Caffè. Tutti i diritti riservati.";
 const DEFAULT_COLOR = TENANT_EMBED_COLOR;
-/** Process-local brand color (Vinyls=purple tenant; Coffee overrides to coffee brown). */
 let embedBrandDefaultColor = TENANT_EMBED_COLOR;
 const ERROR_EMBED_COLORS = new Set([0xed4245, 0xe74c3c, 0xbe3851, 0xff0000]);
 const ERROR_TITLE_SUBSTRINGS = ["errore", "error", "cooldown", "non hai i permessi", "accesso negato", "argomenti mancanti", "comando in esecuzione", "comando scaduto",];
@@ -57,7 +57,6 @@ function hasFooter(embed) {
   return Boolean(embed?.data?.footer || embed?.footer);
 }
 
-/** Footer Discord: PNG statico (webp/gif a volte falliscono → icona Clyde di default). */
 function resolveBotFooterIconUrl(botUser) {
   if (!botUser) return null;
   try {
@@ -114,8 +113,7 @@ function normalizeEmbedColorForBrand(embedColor) {
   ) {
     return getEmbedBrandDefaultColor();
   }
-  // Non sovrascrivere colori intenzionali (es. rosso rifiuto/errore, verde successo).
-  return embedColor;
+    return embedColor;
 }
 
 function applyDefaultEmbedColor(embed, guild) {
@@ -132,8 +130,7 @@ function applyDefaultEmbedColor(embed, guild) {
 
 function applyDefaultFooter(embed, guild) {
   if (!embed) return embed;
-  // Footer brand sugli embed normali; errori/rifiuti restano col proprio colore (niente override).
-  applyDefaultEmbedColor(embed, guild);
+    applyDefaultEmbedColor(embed, guild);
   if (isErrorEmbedInstance(embed)) return embed;
   const skipIcon = Boolean(embed.__skipFooterIcon);
   const iconURL = skipIcon ? null : (getBotIconUrl(guild) || getGuildIconUrl(guild));
@@ -145,8 +142,20 @@ function applyDefaultFooter(embed, guild) {
       });
     } else if (iconURL) {
       const current = embed.data?.footer || embed.footer || {};
+      const footerText = sanitizeEmbedFooterText(current.text || DEFAULT_FOOTER_TEXT);
       if (!current.icon_url && !current.iconURL) {
-        embed.setFooter({ text: current.text || DEFAULT_FOOTER_TEXT, iconURL });
+        embed.setFooter({ text: footerText, iconURL });
+      } else if (footerText !== current.text) {
+        embed.setFooter({
+          text: footerText,
+          iconURL: current.icon_url || current.iconURL || undefined,
+        });
+      }
+    } else {
+      const current = embed.data?.footer || embed.footer || {};
+      const footerText = sanitizeEmbedFooterText(current.text || "");
+      if (footerText && footerText !== current.text) {
+        embed.setFooter({ text: footerText });
       }
     }
     if (!embed.data?.color && typeof embed.setColor === "function") {
@@ -158,6 +167,7 @@ function applyDefaultFooter(embed, guild) {
   const colorValue = hexToInt(resolvedColor);
   const existingFooter = embed.footer || null;
   let footer = existingFooter || { text: DEFAULT_FOOTER_TEXT };
+  if (footer.text) footer = { ...footer, text: sanitizeEmbedFooterText(footer.text) };
   if (iconURL && !footer.icon_url && !footer.iconURL) {
     footer = { ...footer, icon_url: iconURL };
   }
@@ -206,8 +216,7 @@ function resolveGuildFromContext(context) {
 function normalizeOutgoingPayload(payload, guild) {
   if (payload == null) return payload;
 
-  // Deny/error/prompt in plain `content` → notice embed (ephemeral flags restano).
-  let next = payload;
+    let next = payload;
   try {
     const { coercePlainContentToNoticePayload } = require("./simpleNoticeEmbed");
     next = coercePlainContentToNoticePayload(payload, guild) || payload;
@@ -298,6 +307,8 @@ function installEmbedFooterPatch() {
     const iconURL = this.__skipFooterIcon ? null : getGlobalBotIconUrl();
     if (!withMedia.footer) {
       withMedia.footer = { text: DEFAULT_FOOTER_TEXT };
+    } else if (withMedia.footer.text) {
+      withMedia.footer.text = sanitizeEmbedFooterText(withMedia.footer.text);
     }
     if (iconURL && !withMedia.footer.icon_url) {
       withMedia.footer.icon_url = sanitizeEmbedMediaUrl(iconURL, { size: 64 }) || iconURL;
@@ -309,6 +320,7 @@ function installEmbedFooterPatch() {
 
 module.exports = {
   DEFAULT_FOOTER_TEXT,
+  sanitizeEmbedFooterText,
   applyDefaultFooter,
   applyDefaultFooterToEmbeds,
   stripDefaultFooterInternals,

@@ -120,10 +120,8 @@ function computeCooldownSeconds(member, level) {
   const hasVip = hasRole(member, ROLE_VIP);
   if (hasBypassRole) return 0;
   if (hasRole100 || level >= 100) return 0;
-  // 5s: VIP+, Double Booster, Level 50
-  if (hasVipPlus || hasDoubleBooster || hasRole50 || level >= 50) return 5;
-  // 15s: Server Booster, VIP, Level 30
-  if (hasServerBooster || hasVip || hasRole30 || level >= 30) return 15;
+    if (hasVipPlus || hasDoubleBooster || hasRole50 || level >= 50) return 5;
+    if (hasServerBooster || hasVip || hasRole30 || level >= 30) return 15;
   return 30;
 }
 

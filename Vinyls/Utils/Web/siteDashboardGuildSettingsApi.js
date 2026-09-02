@@ -122,9 +122,7 @@ async function readBotGuildIdentity(client, guildId) {
   let userAvatarHash = client?.user?.avatar || null;
   let userBannerHash = client?.user?.banner || null;
 
-  // Preferisci REST live: su site-api la cache member è spesso vuota/stale
-  // e displayAvatarURL ricade sull’avatar globale (sembra un “reset” solo sul sito).
-  const rest = client?._rest || client?.rest;
+      const rest = client?._rest || client?.rest;
   if (rest && botId) {
     try {
       const raw = await rest.get(Routes.guildMember(String(guildId), botId));
@@ -174,8 +172,7 @@ async function readBotGuildIdentity(client, guildId) {
   if (!avatarUrl && typeof client?.user?.displayAvatarURL === "function") {
     avatarUrl = client.user.displayAvatarURL({ size: 128 });
   }
-  // Cache-bust CDN così la preview non resta sull’hash precedente.
-  if (avatarUrl) {
+    if (avatarUrl) {
     const stamp = String(guildAvatarHash || userAvatarHash || Date.now());
     avatarUrl = `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}v=${encodeURIComponent(stamp)}`;
   }
@@ -211,8 +208,7 @@ function normalizeAvatarDataUri(value) {
   const m = raw.match(/^data:(image\/(?:png|jpeg|jpg|gif));base64,([A-Za-z0-9+/=\s]+)$/i);
   if (!m) return { invalid: true };
   const b64 = m[2].replace(/\s+/g, "");
-  // ~8MB raw ≈ 10.7MB base64 — hard stop to avoid huge payloads.
-  if (b64.length > 11_000_000) return { invalid: true, tooLarge: true };
+    if (b64.length > 11_000_000) return { invalid: true, tooLarge: true };
   const mime = m[1].toLowerCase().replace("image/jpg", "image/jpeg");
   return { clear: false, dataUri: `data:${mime};base64,${b64}` };
 }
@@ -226,8 +222,7 @@ async function patchBotGuildIdentity(client, guildId, { nick, avatar, banner }) 
   if (!Object.keys(body).length) return { ok: true };
 
   const rest = client?._rest || client?.rest;
-  // REST @me prima: su site-api editMe spesso non ha il member in cache.
-  if (rest) {
+    if (rest) {
     try {
       await rest.patch(Routes.guildMember(String(guildId), "@me"), { body });
       return { ok: true };
@@ -266,8 +261,7 @@ async function getDashboardGuildSettings(client, accessToken, guildId) {
   const identity = await readBotGuildIdentity(client, access.guildId);
   const protectedGuild =
     isViniliFullFeatureGuild(access.guildId) || isViniliProtectedGuild(access.guildId);
-  // Guild Vinili (main/test/sponsor): feature Premium dashboard sempre sbloccate.
-  const premium = protectedGuild
+    const premium = protectedGuild
     ? { active: true, plan: "premium", until: null }
     : serializePremiumPublic(getTenantPremiumSync(access.guildId));
   const savedIdentity = protectedGuild
@@ -329,8 +323,7 @@ async function getDashboardGuildSettings(client, accessToken, guildId) {
         : identity.hasGuildBanner,
       botUsername: identity.botUsername,
       identitySuspended: showSavedWhileSuspended,
-      // Prefisso fisso sul principale; i ruoli accesso dashboard si configurano anche lì.
-      prefixLocked: protectedGuild,
+            prefixLocked: protectedGuild,
       rolesLocked: false,
     },
     pickers,
@@ -459,8 +452,7 @@ async function patchDashboardGuildSettings(client, accessToken, guildId, body) {
       boardsPatch.quoteStyle = boardsRaw.quoteStyle;
     }
     if (protectedGuild) {
-      // Canali/mode bloccati sul catalogo IDs; funzioni + stile ok.
-      const allowed =
+            const allowed =
         Object.prototype.hasOwnProperty.call(boardsPatch, "quoteStyle") ||
         Object.prototype.hasOwnProperty.call(boardsPatch, "features") ||
         Object.prototype.hasOwnProperty.call(boardsPatch, "enabled") ||
@@ -523,8 +515,7 @@ async function patchDashboardGuildSettings(client, accessToken, guildId, body) {
     if (!applied.ok) {
       return fail(400, applied.reason || "nick_failed", reasonToMessage(applied.reason));
     }
-    // Snapshot per ripristino dopo scadenza Premium (il look Discord viene resettato alla expiry).
-    if (!protectedGuild) {
+        if (!protectedGuild) {
       const identitySave = {};
       if (Object.prototype.hasOwnProperty.call(identityPatch, "nick")) {
         identitySave.nick = identityPatch.nick;

@@ -1,6 +1,3 @@
-/**
- * Extract IT/EN dictionaries from vc-i18n*.js into JSON for translation.
- */
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
@@ -55,8 +52,7 @@ function evalObjectLiteral(lit) {
 }
 
 function extractLangFromExtendOrDicts(source, lang) {
-  // Prefer "    lang: {" blocks that belong to DICTS / extend
-  const needle = "\n    " + lang + ": {";
+    const needle = "\n    " + lang + ": {";
   const idx = source.indexOf(needle);
   if (idx < 0) throw new Error("lang block not found: " + lang);
   const lit = extractObjectLiteral(source, idx + needle.length - 1);
@@ -65,8 +61,7 @@ function extractLangFromExtendOrDicts(source, lang) {
 
 function extractFromMain() {
   const source = fs.readFileSync(path.join(jsDir, "vc-i18n.js"), "utf8");
-  // Whole DICTS is safest
-  const dictsIdx = source.indexOf("var DICTS = ");
+    const dictsIdx = source.indexOf("var DICTS = ");
   const lit = extractObjectLiteral(source, dictsIdx);
   return evalObjectLiteral(lit);
 }
@@ -94,7 +89,6 @@ const extra = loadPagesExtra();
 const it = merge(main.it, pages.it, extra.it);
 const en = merge(main.en, pages.en, extra.en);
 
-// Master = Italian only (manual). EN and others are auto-generated from IT.
 const master = { ...it };
 const itKeys = Object.keys(it).sort();
 const enKeys = Object.keys(en).sort();

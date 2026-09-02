@@ -5,6 +5,7 @@ const IDs = require("../Utils/Config/ids");
 const INFO_CHANNEL_ID = IDs.channels.info;
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
+const { siteTicketsPageDiscordRef, siteUserProfilePageDiscordRef } = require("../../shared/web/siteTicketsPageRef");
 const INFO_MEDIA_NAME = "info.gif";
 const INFO_MEDIA_PATH = path.join(__dirname, "..", "Photos", INFO_MEDIA_NAME);
 
@@ -25,9 +26,9 @@ async function run(client) {
     "<a:VC_HeartsBlue:1468686100045369404> Benvenuto/a su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.",
     "",
     "<a:VC_HeartBlue:1448673354751021190> **Personalizza il tuo profilo:**",
-    "<:VC_Reply:1482532158080942191> Con il comando `+profile` potrai selezionare i ruoli e il colore da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!",
+    `<:VC_Reply:1482532158080942191> Dal ${siteUserProfilePageDiscordRef()} potrai selezionare i ruoli e il colore da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!`,
     "",
-    `Dubbi o problemi? <#${IDs.channels.ticket}> sarà la vostra bussola, lo staff vi risponderà il prima possibile!`,
+    `Dubbi o problemi? Apri un ${siteTicketsPageDiscordRef("SUPPORTO")}: lo staff vi risponderà il prima possibile!`,
   ].join("\n");
   const infoGuildTagsText = [
     "<:VC_Femboy1:1528177995095867515><:VC_Femboy2:1528178060581671084> <a:VC_Arrow:1482706699365257397> <https://discord.com/invite/E6vrm5zE6B>",
@@ -75,12 +76,16 @@ async function run(client) {
       .setEmoji("<:VC_Collab:1482534540089098260>")
       .setStyle(ButtonStyle.Link)
       .setURL("https://viniliecaffe.it/candidature"),
+    new ButtonBuilder()
+      .setLabel("︲TICKETS")
+      .setEmoji("<:VC_Ticket:1482535175283019888>")
+      .setStyle(ButtonStyle.Link)
+      .setURL("https://viniliecaffe.it/tickets"),
   );
 
   const infoFooterText = "Usa i bottoni sottostanti per accedere ad altre categorie del server.";
   const gifAttachment = new AttachmentBuilder(INFO_MEDIA_PATH, { name: INFO_MEDIA_NAME });
-  // Nessun setImage: GIF allegata fuori dall'embed, stesso messaggio.
-  const infoEmbedPrimary = new EmbedBuilder()
+    const infoEmbedPrimary = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("Ti diamo il benvenuto nella nostra community!")
     .setDescription(infoIntroText)
@@ -105,8 +110,7 @@ async function run(client) {
     global.logger?.warn?.("[embeds] info panel findOneAndUpdate error:", err?.message || err);
   }
 
-  // Legacy: messaggi gif/secondari separati — pulisci una volta, non ricreare il pannello.
-  const primaryId = String(panel?.infoMessageId1 || "").trim();
+    const primaryId = String(panel?.infoMessageId1 || "").trim();
   const orphanIds = [
     ...new Set(
       [panel?.infoGifMessageId, panel?.infoMessageId2]

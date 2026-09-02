@@ -18,8 +18,7 @@ function buildAllowedMentionsForText(text, config = {}) {
 
 function isLikelyImageUrl(url) {
   const raw = String(url || "").trim();
-  // Solo https: http viene poi strippato dal sanitize embed → riquadro vuoto col solo footer.
-  if (!/^https:\/\//i.test(raw)) return false;
+    if (!/^https:\/\//i.test(raw)) return false;
   if (/\.(png|jpe?g|gif|webp|bmp|avif)(\?|$)/i.test(raw)) return true;
   if (/cdn\.discordapp\.com\/attachments\//i.test(raw)) return true;
   if (/media\.discordapp\.net\//i.test(raw)) return true;
@@ -129,8 +128,7 @@ function fileNameFromImageUrl(url, fallback = "markov.jpg") {
     const base = new URL(String(url || "")).pathname.split("/").pop() || "";
     if (/\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(base)) return base.slice(0, 80);
   } catch {
-    /* ignore */
-  }
+      }
   return fallback;
 }
 
@@ -152,8 +150,7 @@ async function resolveMarkovImageAttachment(url, minBytes = MIN_MARKOV_IMAGE_BYT
     if (ct && !ct.startsWith("image/") && !ct.includes("octet-stream")) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length < minBytes) return null;
-    // Evita allegati enormi (limite soft sotto il cap Discord).
-    if (buf.length > 8 * 1024 * 1024) return null;
+        if (buf.length > 8 * 1024 * 1024) return null;
     return {
       attachment: buf,
       name: fileNameFromImageUrl(trimmed, "markov.jpg"),

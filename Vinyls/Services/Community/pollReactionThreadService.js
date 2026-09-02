@@ -25,9 +25,6 @@ async function resolvePollDiscussionThread(message) {
   return full?.thread || null;
 }
 
-/**
- * Chi vota un sondaggio (reazione numerata sul messaggio poll) entra nel thread commenti.
- */
 async function handlePollVoteReaction(reaction, user) {
   if (!user?.id || user.bot) return false;
 

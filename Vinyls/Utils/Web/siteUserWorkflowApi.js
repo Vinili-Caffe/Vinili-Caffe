@@ -12,10 +12,6 @@ function isPauseDedupeKey(key) {
     .startsWith("pause:");
 }
 
-/**
- * Solo pause pending del richiedente (chat live come thread Discord).
- * Candidature/appelli/resoconti non espongono chat al soggetto.
- */
 async function handleSiteUserWorkflowsGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);

@@ -105,8 +105,7 @@ function buildFormAnswersEmbed(form, answers, color = "#6f4e37") {
     fields.push({ name: label, value, inline: false });
   }
   if (!fields.length) return null;
-  // Solo label → risposta, senza titolo form: va sotto il welcome message.
-  return new EmbedBuilder().setColor(color).addFields(fields.slice(0, 25));
+    return new EmbedBuilder().setColor(color).addFields(fields.slice(0, 25));
 }
 
 async function resolvePanelOpenForm(guildId, panel) {

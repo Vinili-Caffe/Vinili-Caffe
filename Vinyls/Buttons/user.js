@@ -112,12 +112,6 @@ function parseUserActivityArgs(args) {
   return { targetId, lookbackDays: 14 };
 }
 
-/**
- * Risolve l'utente da messaggio e args: mention, ID (raw o <@!id>), o username.
- * @param {import("discord.js").Message} message
- * @param {string[]} args
- * @returns {Promise<{ targetId: string | null, lookbackDays: number }>}
- */
 async function resolveUserTargetAndLookback(message, args = []) {
   const tokens = Array.isArray(args) ? args.map((a) => String(a ?? "").trim()).filter(Boolean) : [];
   let lookbackDays = 14;

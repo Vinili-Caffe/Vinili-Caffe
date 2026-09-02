@@ -42,7 +42,6 @@ function isSelfValTradeTarget(parsed) {
   return String(parsed?.viewerId || "") === String(parsed?.targetId || "");
 }
 
-/** Compensa 3 positive → 1 negativa: self sul proprio profilo, oppure High Staff su altri. */
 function canUseNegTrade(interaction, parsed) {
   if (isSelfValTradeTarget(parsed)) return true;
   return memberIsHighStaffOrAbove(interaction.member);

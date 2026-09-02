@@ -1162,8 +1162,7 @@ function buildMovieNightStaffCommunicationPayload({ title, now = new Date(), ann
       }),
     }),
     allowedMentions: { roles: [STAFF_COMMUNICATION_ROLE_ID] },
-    // Annuncio staff: plain text, non notice-embed (VC_Alert triggerava il coerce).
-    __skipNoticeEmbed: true,
+        __skipNoticeEmbed: true,
   };
 }
 
@@ -1646,8 +1645,7 @@ function pickOpenReviewThreadStateFields(state) {
 
 function resolveReviewThreadCloseAtFromStageCloseMessage(message, state = null) {
   const fromState = Number(state?.reviewThreadCloseAt || 0);
-  // Solo se ancora nel futuro: uno scaduto (es. settimana precedente) chiuderebbe il thread appena creato.
-  if (fromState > Date.now()) return fromState;
+    if (fromState > Date.now()) return fromState;
   const created = Number(message?.createdTimestamp || 0);
   if (created > 0) return created + REVIEW_THREAD_CLOSE_AFTER_MS;
   return Date.now() + REVIEW_THREAD_CLOSE_AFTER_MS;
@@ -1693,8 +1691,7 @@ async function ensureMovieNightReviewThreadTracking(client) {
       return { ok: true, source: "state_sync", threadId: String(state.reviewThreadId || ""), alreadyClosed: true };
     }
     const closeAt = Number(state.reviewThreadCloseAt || 0);
-    // Solo se la scadenza è ancora nel futuro: altrimenti il timer da 1s crea uno spam loop.
-    if (closeAt > Date.now()) scheduleMovieNightReviewThreadClose(client, closeAt);
+        if (closeAt > Date.now()) scheduleMovieNightReviewThreadClose(client, closeAt);
     return { ok: true, source: "state", threadId: String(state.reviewThreadId || ""), closeAt };
   }
 
@@ -1714,8 +1711,7 @@ async function ensureMovieNightReviewThreadTracking(client) {
     return { ok: true, source: "discovered", threadId: discovered.threadId, closeAt: discovered.closeAt };
   }
 
-  // Messaggio "SERATA FILM ANDATA" presente ma senza thread: crealo (anche se stato dice closed).
-  const channel = await resolveTextChannelForMovieNight(client);
+    const channel = await resolveTextChannelForMovieNight(client);
   const weekKey = String(state?.weekKey || getRomeWeekKey()).trim();
   const endMessage =
     (await findRecentMovieNightEndAnnouncementInChannel(
@@ -1828,8 +1824,7 @@ function scheduleMovieNightReviewThreadClose(client, closeAt) {
   if (movieNightReviewCloseTimer) clearTimeout(movieNightReviewCloseTimer);
   const dueAt = Number(closeAt || 0);
   if (!dueAt || dueAt <= Date.now()) {
-    // Scaduto: chiudi subito una volta, niente timer da 1s in loop.
-    movieNightReviewCloseTimer = null;
+        movieNightReviewCloseTimer = null;
     closeMovieNightReviewThreadIfDue(client, { force: true }).catch((err) => {
       global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] review thread close timer failed:", err?.message || err);
     });
@@ -1933,8 +1928,7 @@ async function resolveReviewThreadFromMessage(message) {
   if (message.thread?.isThread?.()) return message.thread;
   const fetched = await message.fetch?.().catch(() => null);
   if (fetched?.thread?.isThread?.()) return fetched.thread;
-  // Thread pubblico creato da un messaggio: channel id = message id.
-  const threadId = String(message.id || "").trim();
+    const threadId = String(message.id || "").trim();
   const client = message.client;
   if (!threadId || !client?.channels?.fetch) return null;
   const byId =
@@ -2533,9 +2527,6 @@ async function repairFinalMovieNightAnnouncementDescription(client) {
   }
 }
 
-/**
- * Elimina la comunicazione staff in notice-embed (bug VC_Alert) e la rimanda come plain text.
- */
 async function republishMovieNightStaffCommunicationAsPlainText(client, opts = {}) {
   const now = opts.now || new Date();
   const channel = await fetchStaffCommunicationChannel(client);
@@ -2566,8 +2557,7 @@ async function republishMovieNightStaffCommunicationAsPlainText(client, opts = {
       if (title && !haystack.includes(title) && !/harry potter/i.test(haystack)) continue;
       const hasEmbed = Array.isArray(message.embeds) && message.embeds.length > 0;
       const contentEmpty = !String(message.content || "").trim();
-      // Cancella solo i post finiti in embed (bug), o l'id salvato in stato.
-      const tracked = String(state?.staffCommunicationMessageId || "") === String(message.id || "");
+            const tracked = String(state?.staffCommunicationMessageId || "") === String(message.id || "");
       if (!hasEmbed && !tracked) continue;
       if (hasEmbed || (tracked && contentEmpty)) {
         await message.delete().catch(() => null);

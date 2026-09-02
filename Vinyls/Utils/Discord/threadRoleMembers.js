@@ -1,13 +1,8 @@
 const { fetchGuildMembersRespectingGatewayRateLimit } = require("./gatewayMemberFetch");
 
 const guildHydratePromises = new Map();
-/**
- * Snapshot post-fetch (ID + indice ruoli). Non dipendere dalla sola cache members.
- * @type {Map<string, { ids: string[], byRole: Map<string, string[]>, at: number }>}
- */
 const guildMemberIdSnapshots = new Map();
 const HYDRATE_TTL_MS = 10 * 60 * 1000;
-/** Solo quando `memberCount` è sconosciuto: soglia minima per considerare la lista affidabile. */
 const MIN_MEMBERS_WITHOUT_COUNT = 25;
 
 function sleep(ms) {
@@ -21,8 +16,7 @@ function memberListLooksComplete(idsLength, memberCount) {
   const reported = Math.max(0, Number(memberCount || 0));
   const n = Math.max(0, Number(idsLength || 0));
   if (n <= 0) return false;
-  // Con memberCount noto (anche guild piccole tipo 14): basta ~90% della lista.
-  if (reported > 0) return n >= Math.max(1, Math.floor(reported * 0.9));
+    if (reported > 0) return n >= Math.max(1, Math.floor(reported * 0.9));
   return n >= MIN_MEMBERS_WITHOUT_COUNT;
 }
 
@@ -38,8 +32,7 @@ function storeMemberFetchSnapshot(guildId, fetched) {
   if (!gid || !fetched) return null;
 
   const ids = [];
-  /** @type {Map<string, Set<string>>} */
-  const byRoleSets = new Map();
+    const byRoleSets = new Map();
 
   const values =
     typeof fetched.values === "function"
@@ -68,8 +61,7 @@ function storeMemberFetchSnapshot(guildId, fetched) {
     }
   }
 
-  /** @type {Map<string, string[]>} */
-  const byRole = new Map();
+    const byRole = new Map();
   for (const [roleId, set] of byRoleSets) {
     byRole.set(roleId, [...set]);
   }
@@ -80,10 +72,6 @@ function storeMemberFetchSnapshot(guildId, fetched) {
   return snap;
 }
 
-/**
- * Popola `guild.members.cache` (gateway / chunk). Con GuildMemberManager limitato la cache
- * resta piccola: salviamo snapshot ID + indice ruolo→membri dal risultato del fetch.
- */
 async function hydrateGuildMembersForRolePings(guild, logTag = "[threadRoleMembers]", opts = {}) {
   if (!guild?.members?.fetch) return null;
   const guildId = String(guild.id || "");
@@ -125,12 +113,6 @@ async function hydrateGuildMembersForRolePings(guild, logTag = "[threadRoleMembe
   return promise;
 }
 
-/**
- * @param {import("discord.js").Guild} guild
- * @param {string} roleId
- * @param {{ logTag?: string, hydrate?: boolean }} [opts]
- * @returns {Promise<string[]>}
- */
 async function collectHumanMemberIdsWithRole(guild, roleId, opts = {}) {
   const rid = String(roleId || "").trim();
   if (!guild || !rid) return [];
@@ -151,8 +133,7 @@ async function collectHumanMemberIdsWithRole(guild, roleId, opts = {}) {
     for (const id of fromSnap) ids.add(String(id));
   }
 
-  // Fallback cache (incompleta con sweepers) — meglio di niente se lo snapshot fallisce.
-  const role = guild.roles.cache.get(rid) || (await guild.roles.fetch(rid).catch(() => null));
+    const role = guild.roles.cache.get(rid) || (await guild.roles.fetch(rid).catch(() => null));
   if (role?.members) {
     for (const member of role.members.values()) {
       if (!member?.user?.bot) ids.add(String(member.id));
@@ -166,13 +147,6 @@ async function collectHumanMemberIdsWithRole(guild, roleId, opts = {}) {
   return [...ids].filter((id) => /^\d{16,22}$/.test(id));
 }
 
-/**
- * Aggiunge al thread i membri umani con il ruolo indicato che non ci sono già.
- * @param {import("discord.js").AnyThreadChannel} thread
- * @param {import("discord.js").Guild} guild
- * @param {string} roleId
- * @param {{ logTag?: string, throttleEvery?: number, throttleMs?: number, hydrate?: boolean }} [opts]
- */
 async function addAllRoleMembersToThread(thread, guild, roleId, opts = {}) {
   const rid = String(roleId || "").trim();
   if (!thread?.members?.add || !guild || !rid) return { added: 0, failed: 0, skipped: 0 };
@@ -214,10 +188,6 @@ async function addUserIdsToThread(thread, userIds, opts = {}) {
   return { added, failed, skipped };
 }
 
-/**
- * Lista completa degli ID membri per cleanup.
- * NON usa solo `members.cache` (limitata a 250): usa lo snapshot del fetch gateway.
- */
 async function resolveGuildMemberIds(guild, logTag = "[threadRoleMembers]") {
   if (!guild?.members?.fetch) return null;
   const guildId = String(guild.id || "");
@@ -262,10 +232,6 @@ async function resolveGuildMemberIds(guild, logTag = "[threadRoleMembers]") {
   return ids;
 }
 
-/**
- * Utenti con almeno uno dei ruoli su `sourceGuild` che sono anche membri di `targetGuild`.
- * Presenza su target: snapshot fetch completo, NON `members.cache` (max 250).
- */
 async function collectHumanMemberIdsWithRolesOnGuild(sourceGuild, targetGuild, roleIds, opts = {}) {
   const roles = [...new Set((Array.isArray(roleIds) ? roleIds : []).map((id) => String(id || "").trim()).filter(Boolean))];
   if (!sourceGuild || !targetGuild || !roles.length) return [];
@@ -281,8 +247,7 @@ async function collectHumanMemberIdsWithRolesOnGuild(sourceGuild, targetGuild, r
   }
 
   const targetIds = new Set(targetSnap?.ids || []);
-  // Se lo snapshot target è assente/incompleto, fallback: prova fetch singolo (lento ma corretto).
-  const present = [];
+    const present = [];
   for (const userId of staffIds) {
     if (targetIds.has(userId)) {
       present.push(userId);

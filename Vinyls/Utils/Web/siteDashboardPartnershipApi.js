@@ -28,8 +28,8 @@ const {
 } = require("../../MultiGuild/core/tenantPremium");
 const { defaultThankYouEmbedFieldsForGuild } = require("../Partner/partnershipThankYouEmbed");
 
-const TEXT_CHANNEL_TYPES = new Set([0, 5]); // GuildText, GuildAnnouncement
-const VOICE_CHANNEL_TYPES = new Set([2, 13]); // GuildVoice, GuildStageVoice
+const TEXT_CHANNEL_TYPES = new Set([0, 5]);
+const VOICE_CHANNEL_TYPES = new Set([2, 13]);
 const CATEGORY_TYPE = 4;
 
 const REASON_MESSAGES = {
@@ -128,8 +128,7 @@ function serializePartnership(config, guildId = null) {
           return pings.everyoneMembers != null ? "5m" : "";
         }
       })(),
-      // Solo se il ping custom è davvero attivo: altrimenti il form riaccendeva il toggle per il solo "5m".
-      customRoleDelayInput: (() => {
+            customRoleDelayInput: (() => {
         const customActive = Boolean(pings.customRoleId && pings.customRoleMembers != null);
         if (!customActive && pings.customRoleDelayMs == null) return "";
         try {
@@ -210,9 +209,7 @@ async function listGuildPickerData(client, guildId, opts = {}) {
   const guild = await resolveGuildOrFail(client, guildId);
   if (!guild) return { textChannels: [], voiceChannels: [], categories: [], roles: [], emojis: [] };
 
-  // Preferisci la cache gateway: un fetch completo a ogni autosave era la causa del lag.
-  // `force` (es. ?fresh=1 dalla dashboard) rilegge canali/ruoli via REST — serve a site-api senza gateway.
-  const force = opts.force === true;
+      const force = opts.force === true;
 
   let channels = [];
   try {
@@ -342,8 +339,7 @@ async function listGuildPickerData(client, guildId, opts = {}) {
       }
     }
 
-    // site-api: stub guild senza GuildEmojiManager.fetch → REST diretto
-    if (!list.length) {
+        if (!list.length) {
       const rest = client?.rest || client?._rest;
       if (rest && typeof rest.get === "function") {
         const { Routes } = require("discord.js");
@@ -382,8 +378,7 @@ async function listGuildPickerData(client, guildId, opts = {}) {
         const animated = Boolean(e.animated);
         const id = String(e.id);
         const name = String(e.name || "emoji");
-        // Preview: GIF per animate, PNG per statiche. Il picker pagina + lazy-load, quindi ok.
-        const ext = animated ? "gif" : "png";
+                const ext = animated ? "gif" : "png";
         let url = null;
         try {
           url =
@@ -734,8 +729,7 @@ async function patchDashboardPartnership(client, accessToken, guildId, body) {
   }
 
   if (channelForInvite) {
-    // Non bloccare la risposta autosave sull'invite Discord.
-    void maybeEnsureInvite(client, gid, channelForInvite);
+        void maybeEnsureInvite(client, gid, channelForInvite);
   }
 
   if (patch.completeSetup === true) {
@@ -755,16 +749,14 @@ async function patchDashboardPartnership(client, accessToken, guildId, body) {
   const premium = isViniliFullFeatureGuild(gid)
     ? { active: true, plan: "premium", until: null }
     : serializePremiumPublic(getTenantPremiumSync(gid));
-  // Missioni completabili dalla dashboard partnership (come i bottoni Discord).
-  const objectiveFlags = [];
+    const objectiveFlags = [];
   if (config?.legacy === true || isPartnershipSetupComplete(config)) {
     objectiveFlags.push("setupDone");
   }
   if (config?.partnerDesc?.configured) {
     objectiveFlags.push("descSet");
   }
-  // Solo embed esplicitamente attivo: i default del setup hanno title/desc ma enabled=false.
-  if (config?.thankYouEmbed?.enabled === true && premium.active) {
+    if (config?.thankYouEmbed?.enabled === true && premium.active) {
     objectiveFlags.push("thankYouSet");
   }
   for (const flag of objectiveFlags) {
@@ -779,8 +771,7 @@ async function patchDashboardPartnership(client, accessToken, guildId, body) {
     partnership: serializePartnership(config, gid),
     message: "Configurazione partnership salvata.",
   };
-  // Pickers già in cache lato client dopo il GET iniziale: non rifetch a ogni autosave.
-  if (patch.includePickers === true) {
+    if (patch.includePickers === true) {
     out.pickers = await listGuildPickerData(client, gid);
   }
   return out;
@@ -1106,8 +1097,7 @@ async function resolveGuildForPartnershipApi(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
   let guild = client?.guilds?.cache?.get(gid) || null;
-  // site-api seeda stub `{ partial: true }` senza members/roles: idrata con REST.
-  const needsHydrate =
+    const needsHydrate =
     !guild ||
     guild.partial === true ||
     !guild.members ||
@@ -1350,8 +1340,7 @@ async function getDashboardPartnershipHistory(client, accessToken, guildId, quer
     return out;
   }
 
-  // Enrich leggero solo sulla pagina corrente: cache → Discord; al primo 429 stop.
-  const pageRows = raw.entries || [];
+    const pageRows = raw.entries || [];
   const enrichTargets = pageRows.filter(needsDiscordEnrich);
   if (enrichTargets.length && !isInviteFetchRateLimited()) {
     let stopEnrich = false;
@@ -1383,8 +1372,7 @@ async function getDashboardPartnershipHistory(client, accessToken, guildId, quer
       if (!row.guildId && meta.guildId) row.guildId = String(meta.guildId).trim();
       row._iconUrl = meta.iconUrl || null;
 
-      // Persisti nome reale in background (le create in rate-limit avevano solo discord.gg/code).
-      setImmediate(() => {
+            setImmediate(() => {
         softPersistPartnerHistoryMeta(access.guildId, {
           invite,
           guildName: meta.guildName,

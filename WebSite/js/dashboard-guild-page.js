@@ -341,8 +341,7 @@
     });
 
     Array.prototype.forEach.call(document.querySelectorAll("[data-premium-nav]"), function (link) {
-      // Navigabile anche senza Premium: badge locked/unlocked, niente blocco click.
-      link.classList.remove("is-premium-locked");
+            link.classList.remove("is-premium-locked");
       link.removeAttribute("aria-disabled");
       var badge = link.querySelector("[data-premium-nav-badge]");
       if (badge) {
@@ -651,8 +650,7 @@
     }
     bindServerSwitcherDock(list);
     resetServerSwitcherDock(list);
-    // Sempre dal primo server (niente jump sull’ultimo / corrente).
-    list.scrollLeft = 0;
+        list.scrollLeft = 0;
     requestAnimationFrame(function () {
       list.scrollLeft = 0;
     });
@@ -673,8 +671,7 @@
     if (!token || !root) return;
     if (state.switcherLoadPromise && !opts.force) return state.switcherLoadPromise;
 
-    // Cache in-memory o sessionStorage: mostra subito, aggiorna dopo.
-    if (!Array.isArray(state.switcherGuilds) || state.switcherGuilds.length < 2) {
+        if (!Array.isArray(state.switcherGuilds) || state.switcherGuilds.length < 2) {
       var cached = readSwitcherCache();
       if (cached && cached.length >= 2) state.switcherGuilds = cached;
     }
@@ -683,8 +680,7 @@
     }
 
     if (state.switcherLoadPromise && opts.force) {
-      // Lascia finire il fetch in corso; riprogramma un retry breve.
-      scheduleServerSwitcherRetry(2500);
+            scheduleServerSwitcherRetry(2500);
       return state.switcherLoadPromise;
     }
 
@@ -707,9 +703,7 @@
         state.switcherGuilds = data.guilds;
         writeSwitcherCache(data.guilds);
         renderServerSwitcher(data.guilds);
-        // Se ancora nascosto (es. 1 solo server in risposta), riprova più tardi:
-        // la lista bot può arrivare incompleta subito dopo un restart API.
-        if (root && root.hasAttribute("hidden") && data.guilds.length < 2) {
+                        if (root && root.hasAttribute("hidden") && data.guilds.length < 2) {
           scheduleServerSwitcherRetry(8000);
         }
       } catch (e) {
@@ -725,7 +719,6 @@
     })();
     return state.switcherLoadPromise;
   }
-
 
   function esc(s) {
     return String(s || "")
@@ -799,8 +792,7 @@
     document.body.classList.remove("vc-dashboard-guild-loading-active");
   }
 
-  /** Evita UI “solo footer”: main nascosto, oppure overview spenta + form partnership ancora hidden. */
-  function ensureVisibleDashboardContent() {
+    function ensureVisibleDashboardContent() {
     try {
       revealGuildMain();
       var main = byId("vc-dashboard-guild-main");
@@ -848,9 +840,7 @@
       if (on) el.removeAttribute("hidden");
       else el.setAttribute("hidden", "");
     }
-    // Non nascondere MAI #vc-dashboard-guild-main: con [hidden] + CSS loader
-    // il contenuto appare solo in trasparenza e a fine load resta il solo footer.
-    if (main) {
+            if (main) {
       main.removeAttribute("hidden");
       main.hidden = false;
       if (main.style.display === "none") main.style.display = "";
@@ -881,8 +871,7 @@
     el.textContent = msg;
     state.errorView = state.view || currentView();
     setSuccess("");
-    // Banner globale (fuori dai pannelli): non deve restare su altre sezioni.
-    state.errorTimer = setTimeout(function () {
+        state.errorTimer = setTimeout(function () {
       state.errorTimer = null;
       setError("");
     }, 6000);
@@ -968,8 +957,7 @@
     }
     var host = byId("vc-dash-save-toast-host");
     if (!host) return;
-    // Evita il banner verde/rosso in alto quando usiamo il toast in basso.
-    setSuccess("");
+        setSuccess("");
     setError("");
     clearSaveToastTimer();
     host.innerHTML = "";
@@ -1021,11 +1009,9 @@
     if (feat.id === "ps-partnerDescFeat") {
       var mode = String((byId("ps-partnerDescMode") || {}).value || "channel");
       if (mode === "static") {
-        // Vuoto = disattivata: salva; con testo = attiva.
-        return true;
+                return true;
       }
-      // Canale: vuoto (Nessuno) = già disattivata, oppure canale scelto.
-      return true;
+            return true;
     }
     if (feat.id === "ps-embedFeat") {
       return !embedFieldsAreEmpty();
@@ -1096,8 +1082,7 @@
       return;
     }
     clearAutosaveTimer();
-    // 0 = prossimo tick (toggle/select); >0 = aspetta che l'utente smetta di scrivere.
-    var wait = typeof delayMs === "number" ? Math.max(0, delayMs) : 0;
+        var wait = typeof delayMs === "number" ? Math.max(0, delayMs) : 0;
     if (wait === 0) {
       state.autosaveTimer = null;
       savePartnership(false, { silent: true });
@@ -1275,8 +1260,7 @@
         current || (state.tickets && state.tickets.categoryName),
         fancy,
       );
-      // Sovrascrivi sempre il placeholder "Tickets" col nome Discord reale.
-      if (live && (current === "Tickets" || current.toLowerCase() === "tickets" || !current || current !== live)) {
+            if (live && (current === "Tickets" || current.toLowerCase() === "tickets" || !current || current !== live)) {
         if (current === "Tickets" || current.toLowerCase() === "tickets" || !current || scoreLiveTicketCategoryName(live, fancy) > scoreLiveTicketCategoryName(current, fancy)) {
           setValue("tk-categoryName", live);
         }
@@ -1411,8 +1395,7 @@
       home.appendChild(menu);
       return;
     }
-    // Home distrutto (es. re-render campi form): togli il portale orfano dal body.
-    if ((!home || !home.isConnected) && menu.parentNode) {
+        if ((!home || !home.isConnected) && menu.parentNode) {
       menu.parentNode.removeChild(menu);
     }
   }
@@ -1482,8 +1465,7 @@
         restoreDashSelectMenu(menu);
       }
     });
-    // Menu portati su body restati aperti dopo un wipe del DOM.
-    Array.prototype.forEach.call(document.querySelectorAll("body > .vc-dash-select__menu"), function (menu) {
+        Array.prototype.forEach.call(document.querySelectorAll("body > .vc-dash-select__menu"), function (menu) {
       var home = menu.__vcHomeParent;
       if (exceptRoot && home === exceptRoot) return;
       if (home && home.isConnected && home.classList.contains("is-open")) return;
@@ -1505,8 +1487,7 @@
     if (!empty) return false;
     if (empty.getAttribute("data-inherit") === "1") return true;
     var label = String(empty.textContent || "").trim().toLowerCase();
-    // Placeholder obbligatori ("— Seleziona …") non devono essere riselezionabili.
-    if (/seleziona|select\b/.test(label)) return false;
+        if (/seleziona|select\b/.test(label)) return false;
     return true;
   }
 
@@ -1575,9 +1556,7 @@
     var html = "";
     Array.prototype.forEach.call(select.options, function (opt) {
       var val = String(opt.value || "");
-      // Placeholder obbligatori: solo sul trigger se ci sono voci reali.
-      // Lista vuota → mostra il placeholder anche nel menu (come TicketsBot / foto empty).
-      if (!val && !clearable && realCount > 0) return;
+                  if (!val && !clearable && realCount > 0) return;
       var inheritDetail = dashFancySelectInheritDetail(opt);
       var text = String(opt.textContent || "").trim() || (val ? val : i18n("dash.none", "— Nessuno —"));
       var selected = !val
@@ -1605,8 +1584,7 @@
         inner +
         "</button>";
     });
-    // Fallback: nessun option renderizzato → comunque placeholder selezionato.
-    if (!html) {
+        if (!html) {
       var ph = dashFancySelectValueLabel(select);
       html =
         '<button type="button" class="vc-dash-select__option is-selected is-empty is-empty-only" role="option" data-value="" data-clear="1" disabled aria-disabled="true" aria-selected="true">' +
@@ -1635,8 +1613,7 @@
     if (!select.closest || !select.closest(".vc-dash-picker")) return;
 
     var picker = select.closest(".vc-dash-picker");
-    // Evita che <label> riapra il select nativo / focus fantasma sul control nascosto.
-    if (picker && picker.tagName === "LABEL") {
+        if (picker && picker.tagName === "LABEL") {
       var divPicker = document.createElement("div");
       divPicker.className = picker.className;
       if (picker.id) divPicker.id = picker.id;
@@ -1719,8 +1696,7 @@
         window.addEventListener("scroll", onReposition, true);
       }
 
-      // Prima di aprire canali/ruoli partnership: rileggi da Discord (canali appena creati).
-      var sid = String(select.id || "");
+            var sid = String(select.id || "");
       var needsFresh =
         sid.indexOf("ps-") === 0 &&
         (sid.indexOf("Channel") !== -1 ||
@@ -1750,8 +1726,7 @@
       var next = String(opt.getAttribute("data-value") || "");
       if (!next && !clear) return;
       var changed = String(select.value || "") !== next;
-      // Chiudi prima del change: un handler che fa re-render non deve lasciare il menu orfano su body.
-      closeAllDashFancySelects();
+            closeAllDashFancySelects();
       if (changed) {
         select.value = next;
         try {
@@ -1762,8 +1737,7 @@
           select.dispatchEvent(legacy);
         }
       }
-      // Aggiorna il trigger se il select è ancora nel DOM (change può averlo distrutto).
-      if (select.isConnected) refreshDashFancySelect(select);
+            if (select.isConnected) refreshDashFancySelect(select);
     });
   }
 
@@ -1777,8 +1751,7 @@
         if (!t || t.tagName !== "SELECT") return;
         if (!t.closest || !t.closest(".vc-dash-picker")) return;
         if (t.multiple || t.hasAttribute("hidden")) return;
-        // Se ancora non è stato wrappato, promuovi subito al fancy e apri quello.
-        if (!t.__vcDashFancy) {
+                if (!t.__vcDashFancy) {
           ev.preventDefault();
           refreshDashFancySelect(t);
           var root = t.closest(".vc-dash-select");
@@ -1790,8 +1763,7 @@
           }
           return;
         }
-        // Già fancy: non lasciare aprire il menù nativo.
-        ev.preventDefault();
+                ev.preventDefault();
       },
       true,
     );
@@ -1845,8 +1817,7 @@
   }
 
   function updatePsZoneCount() {
-    /* Contatore rimosso: nessun limite sul numero di canali/categorie. */
-  }
+      }
 
   function fillMultiSelect(select, options, selectedIds) {
     if (!select) return;
@@ -2268,8 +2239,7 @@
   function renderEmbedPlaceholders() {
     var body = document.querySelector("[data-ps-ph-body]");
     if (!body) return;
-    // Rirender se i gruppi cambiano dopo un deploy (evita lista stale).
-    var sig = EMBED_PLACEHOLDER_GROUPS.map(function (g) {
+        var sig = EMBED_PLACEHOLDER_GROUPS.map(function (g) {
       return g.titleKey + ":" + g.tokens.join(",");
     }).join("|");
     if (body.__vcPhSig === sig && body.__vcPhRendered) return;
@@ -2372,8 +2342,7 @@
       form.addEventListener(
         "focusout",
         function (ev) {
-          // Non perdere il target quando si clicca un chip placeholder.
-          var next = ev.relatedTarget;
+                    var next = ev.relatedTarget;
           if (next && next.closest && next.closest("[data-ps-ph]")) return;
           rememberFromEvent(ev);
         },
@@ -2384,8 +2353,7 @@
     root.addEventListener("pointerdown", function (ev) {
       var btn = ev.target && ev.target.closest ? ev.target.closest("[data-ps-ph]") : null;
       if (!btn || !root.contains(btn)) return;
-      // Evita che il focus salti sul bottone e perda selezione/caret.
-      ev.preventDefault();
+            ev.preventDefault();
     });
 
     root.addEventListener("click", function (ev) {
@@ -2399,8 +2367,7 @@
   }
 
   function embedFieldsAreEmpty() {
-    // Il solo colore di default non conta come “contenuto” (dopo un wipe restava #d4a888).
-    var ids = [
+        var ids = [
       "ps-embedTitle",
       "ps-embedAuthorName",
       "ps-embedAuthorIconUrl",
@@ -2416,8 +2383,7 @@
     });
   }
 
-  /** Allinea alla logica bot: campi vuoti → default embed. */
-  function fallbackThankYouEmbedDefaults() {
+    function fallbackThankYouEmbedDefaults() {
     return {
       color: "",
       authorIconUrl: "",
@@ -2605,8 +2571,7 @@
   }
 
   function syncDescModeUi(mode) {
-    // Niente "Disattiva": senza canale/testo la descrizione è già spenta.
-    var m = mode === "static" ? "static" : "channel";
+        var m = mode === "static" ? "static" : "channel";
     var modeInput = byId("ps-partnerDescMode");
     if (modeInput) modeInput.value = m;
     var chWrap = byId("ps-partnerDescChannelWrap");
@@ -2635,8 +2600,7 @@
     if (!feat) return true;
     if (feat.hasAttribute("data-feat-required") || feat.hasAttribute("data-feat-bool")) return true;
     if (feat.id === "ps-partnerDescFeat") return featHasPrimaryValue(feat);
-    // Toggle + pannello: non salvare finché manca il valore principale.
-    if (feat.querySelector("[data-feat-switch]") && feat.classList.contains("is-on")) {
+        if (feat.querySelector("[data-feat-switch]") && feat.classList.contains("is-on")) {
       return featHasPrimaryValue(feat);
     }
     return true;
@@ -2662,9 +2626,7 @@
         scheduleAutosave(0);
         return;
       }
-      // Spegnere nasconde il pannello ma non cancella i valori: così riattivando
-      // restano com’erano; con feat off il prossimo autosave li azzera lato server.
-      setFeatEnabled(feat, t.checked, { keepValues: true });
+                  setFeatEnabled(feat, t.checked, { keepValues: true });
       if (feat.id === "ps-herePingFeat" && t.checked) {
         var hereDelayOn = byId("ps-hereDelayInput");
         if (hereDelayOn && !String(hereDelayOn.value || "").trim()) hereDelayOn.value = "5m";
@@ -2694,9 +2656,7 @@
       if (feat.id === "ps-embedFeat" && t.checked) {
         restoreEmbedFieldsFromSaved();
       }
-      // Accensione senza valore: aspetta che l'utente compili (niente PATCH a vuoto).
-      // Per l’embed, dopo il prefill default/saved il valore primario c’è già.
-      if (!t.checked || featHasPrimaryValue(feat)) {
+                  if (!t.checked || featHasPrimaryValue(feat)) {
         scheduleAutosave(0);
       }
     });
@@ -2709,12 +2669,10 @@
         if (modeInput) modeInput.value = mode;
         syncDescModeUi(mode);
         if (mode === "channel") {
-          // Canale vuoto = off: salva subito lo stato corrente.
-          scheduleAutosave(0);
+                    scheduleAutosave(0);
           return;
         }
-        // Testo statico: aspetta che l'utente scriva (o svuoti) prima di salvare.
-        var staticEl = byId("ps-partnerDescStaticText");
+                var staticEl = byId("ps-partnerDescStaticText");
         if (staticEl && String(staticEl.value || "").trim()) scheduleAutosave(0);
       });
     });
@@ -2731,8 +2689,7 @@
   }
 
   function isManagedPartnershipSetup(setup) {
-    // Main e tenant: entrambi usano il form partnership in dashboard.
-    return Boolean(setup);
+        return Boolean(setup);
   }
 
   var VALID_VIEWS = {
@@ -2741,8 +2698,7 @@
     "settings/comandi": true,
     "bacheca/funzioni": true,
     "bacheca/personalizza": true,
-    // Legacy hash (alias in normalizeView).
-    bacheca: true,
+        bacheca: true,
     "bacheca/stile": true,
     "tickets/impostazioni": true,
     "tickets/aperti": true,
@@ -2763,8 +2719,7 @@
     "partnership/blacklist": true,
     "partnership/managers": true,
     "partnership/cronologia": true,
-    // Legacy hash (redirect in gatePartnershipView).
-    "partnership/channels": true,
+        "partnership/channels": true,
     "partnership/roles": true,
     "partnership/pings": true,
     "partnership/migration": true,
@@ -2783,8 +2738,7 @@
     var v = String(view || "");
     if (v.indexOf("partnership/") !== 0) return v;
     if (!state.partnership) return v;
-    // Alias legacy → route nuove.
-    if (
+        if (
       v === "partnership/channels" ||
       v === "partnership/roles" ||
       v === "partnership/pings" ||
@@ -2819,8 +2773,7 @@
       .replace(/^#/, "")
       .trim();
     if (!v || v === "home") return "overview";
-    // Legacy bacheca routes (canali unito in funzioni).
-    if (v === "bacheca" || v === "bacheca/impostazioni" || v === "bacheca/canali") return "bacheca/funzioni";
+        if (v === "bacheca" || v === "bacheca/impostazioni" || v === "bacheca/canali") return "bacheca/funzioni";
     if (v === "bacheca/stile") return "bacheca/personalizza";
     if (v === "tickets" || v === "tickets/settings" || v === "tickets/overview" || v === "tickets/lista") {
       return "tickets/aperti";
@@ -2838,8 +2791,7 @@
     return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 720px)").matches;
   }
 
-  /** Nav wizard resta inline nel card (come PC); ripristina se un vecchio portal l’aveva messa su body. */
-  function ensureWizardNavInPlace() {
+    function ensureWizardNavInPlace() {
     var nav = byId("ps-wz-nav");
     if (!nav) return;
     var home = byId("ps-setup-wizard");
@@ -2868,8 +2820,7 @@
     el.hidden = true;
     el.__vcNavSheetCloseWired = true;
     function closeFromBackdrop(ev) {
-      // Stesso gesture di apertura: non chiudere subito (bordo / ghost click).
-      if (Date.now() < Number(state.partnershipSheetIgnoreUntil || 0)) {
+            if (Date.now() < Number(state.partnershipSheetIgnoreUntil || 0)) {
         ev.preventDefault();
         ev.stopPropagation();
         if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
@@ -2879,8 +2830,7 @@
       ev.stopPropagation();
       if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
       closeAllMobileNavSheets();
-      // Evita ghost-click sul toggle sotto (iOS) che riapre subito il menu.
-      state.partnershipSheetIgnoreUntil = Date.now() + 400;
+            state.partnershipSheetIgnoreUntil = Date.now() + 400;
     }
     el.addEventListener("pointerdown", closeFromBackdrop);
     el.addEventListener("click", closeFromBackdrop);
@@ -2890,8 +2840,7 @@
 
   function restoreNavSheetSubParent(sub) {
     if (!sub || !sub.__vcOriginalParent) return;
-    // Su mobile lasciamo il foglio su <body>: rimetterlo nel dock sposta le icone.
-    if (isMobileDashboardNav()) return;
+        if (isMobileDashboardNav()) return;
     if (sub.parentElement === document.body || (sub.parentElement && sub.parentElement.id === "vc-dashboard-partnership-sheet-root")) {
       sub.__vcOriginalParent.appendChild(sub);
     }
@@ -2950,8 +2899,7 @@
       if (!skipOthers) closeAllMobileNavSheetsExcept(key);
       group.classList.add("is-open");
       toggle.setAttribute("aria-expanded", "true");
-      // Su mobile: porta il foglio su <body> PRIMA dell’animazione.
-      if (mobile && sub.parentElement !== document.body) {
+            if (mobile && sub.parentElement !== document.body) {
         if (!sub.__vcOriginalParent) sub.__vcOriginalParent = group;
         document.body.appendChild(sub);
       }
@@ -3001,8 +2949,7 @@
           document.body.classList.remove("vc-dash-partnership-sheet-open");
         }
       }
-      // Solo se il foglio era davvero aperto: evita flash sul toggle della pagina corrente.
-      if (wasOpen) clearTogglePressState();
+            if (wasOpen) clearTogglePressState();
       restoreNavScroll();
     }
   }
@@ -3132,9 +3079,7 @@
     var settingsReady = Boolean(state.settings) && canUseGuildSettings();
     var requestedPartnership = String(view).indexOf("partnership/") === 0;
     if (requestedPartnership && !partnershipReady) {
-      // Partnership ancora in caricamento: mostra overview senza toccare l'hash,
-      // così un refresh su #partnership/... resta lì e viene ripristinato dopo il load.
-      view = "overview";
+                  view = "overview";
       opts = Object.assign({}, opts, { skipHash: true });
     }
     if (
@@ -3172,10 +3117,7 @@
         var rawRequested = String(viewId || "")
           .replace(/^#/, "")
           .trim();
-        // Se la richiesta è già un deep-link editor, conservalo.
-        // Se è solo "tickets/pannelli" (voce sidebar), forza la lista anche se
-        // location.hash è ancora su /p/... o /m/... (preventDefault non ha ancora cambiato l'URL).
-        if (rawRequested.indexOf("tickets/pannelli/") === 0) {
+                                if (rawRequested.indexOf("tickets/pannelli/") === 0) {
           wantHash = "#" + rawRequested;
         } else {
           wantHash = "#tickets/pannelli";
@@ -3217,18 +3159,13 @@
     var isTicketsView = String(view).indexOf("tickets/") === 0;
     var isPartnershipView = String(view).indexOf("partnership/") === 0;
 
-    // Chiudi subito il viewer transcript: altrimenti resta sopra le altre sezioni
-    // (iframe “Accedi per vedere il transcript”) anche con Partnership attiva.
-    if (view !== "tickets/transcripts") {
+            if (view !== "tickets/transcripts") {
       try {
         closeTranscriptViewer();
       } catch (_) {}
     }
 
-    // IMPORTANTE: sblocca i form PRIMA di nascondere i pannelli overview.
-    // Altrimenti (nav partnership attiva + overview hidden + form ancora hidden)
-    // resta la UI “solo footer” tipica sul main con pickers enormi / throw a metà applyView.
-    var form = byId("vc-dashboard-partnership-form");
+                var form = byId("vc-dashboard-partnership-form");
     if (form) {
       if (partnershipReady && isPartnershipView) form.removeAttribute("hidden");
       else form.setAttribute("hidden", "");
@@ -3268,8 +3205,7 @@
       else panel.setAttribute("hidden", "");
     });
 
-    // Cintura: se non siamo sui transcript, il viewer non deve mai restare visibile.
-    if (view !== "tickets/transcripts") {
+        if (view !== "tickets/transcripts") {
       var txViewer = byId("tk-tx-viewer");
       var txPanel = byId("vc-dashboard-view-tickets-transcripts");
       if (txViewer) {
@@ -3282,8 +3218,7 @@
       if (txViewerOn && txViewerOn.style.display === "none") txViewerOn.style.display = "";
     }
 
-    // Include i fogli mobile portati su <body> (non sono più dentro #vc-dashboard-sidebar).
-    var links = document.querySelectorAll(
+        var links = document.querySelectorAll(
       "#vc-dashboard-sidebar [data-view], #vc-dashboard-sidebar-tickets-sub [data-view], #vc-dashboard-sidebar-bacheca-sub [data-view], #vc-dashboard-sidebar-partnership-sub [data-view]",
     );
     Array.prototype.forEach.call(links, function (link) {
@@ -3357,8 +3292,7 @@
       document.body.classList.toggle("is-ps-wizard-active", wizardActive);
       ensureWizardNavInPlace();
     } catch (_) {}
-    // Riallinea ON/OFF ai valori reali (es. 0 categorie → OFF) senza triggerare autosave.
-    syncFeatCardsFromValues();
+        syncFeatCardsFromValues();
     if (opts.collapseSidebar) collapseSidebarAfterNav();
 
     if (view === "partnership/setup") {
@@ -3368,9 +3302,7 @@
     if (String(view).indexOf("partnership/") === 0 && partnershipReady) {
       var wasPolling = Boolean(state.pickersPollTimer);
       startPartnershipPickersPoll();
-      // Evita ?fresh=1 immediato ad ogni click: sul main (centinaia di canali) congela l’UI.
-      // Il poll periodico e l’apertura dei select fanno già il refresh forzato quando serve.
-      if (!wasPolling && !state.pickers) {
+                  if (!wasPolling && !state.pickers) {
         refreshPartnershipPickers({ force: true }).catch(function () {});
       }
     } else {
@@ -3473,8 +3405,7 @@
   }
 
   function prepareMigrationView() {
-    // Evita il flash dei pannelli "Avvia migrazione" se c’è già un job completato/in corso.
-    if (state.lastMigrationPayload) {
+        if (state.lastMigrationPayload) {
       renderMigrationJob(state.lastMigrationPayload);
       return;
     }
@@ -4361,8 +4292,7 @@
           },
           cache: "no-store",
         });
-        // 502/503 tipici durante restart site-api: ritenta.
-        if (res.status === 502 || res.status === 503 || res.status === 504) {
+                if (res.status === 502 || res.status === 503 || res.status === 504) {
           if (attempt < 3) {
             await new Promise(function (resolve) {
               setTimeout(resolve, 350 * attempt);
@@ -4668,6 +4598,7 @@
         if (next) next.disabled = page >= totalPages;
       }
     }
+  }
 
   async function refreshLeaderboard(opts) {
     var options = opts || {};
@@ -5067,8 +4998,7 @@
       });
     });
 
-    // Keep uncategorized only if it has channels.
-    order = order.filter(function (key) {
+        order = order.filter(function (key) {
       var g = groups[key];
       if (!g) return false;
       if (key === "__none__") return g.channels.length > 0;
@@ -5551,8 +5481,7 @@
           state.commandsDiscordWarning = errMsg;
           renderCommandsPage();
         }
-        // Ricarica dallo stato server/Discord per non lasciare valori “fantasma” in UI.
-        await refreshCommandsPage({ silent: true });
+                await refreshCommandsPage({ silent: true });
         return false;
       }
       if (data.commands) state.commandsMap = data.commands;
@@ -5935,8 +5864,7 @@
               allowedRoles: [],
               ignoredRoles: [],
             };
-            // Evita wipe accidentale: Salva senza modifiche (es. modal aperto vuoto) non tocca i permessi.
-            if (settingsDraftKey(draft) === settingsDraftKey(initial)) {
+                        if (settingsDraftKey(draft) === settingsDraftKey(initial)) {
               closeCommandsModals();
               showSaveToast(
                 i18n("dash.cmds.noChanges", "Nessuna modifica ai permessi."),
@@ -5991,8 +5919,7 @@
           var alreadyOpen = field.classList.contains("is-open");
           var onSearch =
             ev.target && ev.target.closest ? ev.target.closest("[data-cmd-token-search]") : null;
-          // Secondo click sul box (non sulla search) chiude il menu.
-          if (alreadyOpen && !onSearch) {
+                    if (alreadyOpen && !onSearch) {
             closeAllTokenMenus();
             return;
           }
@@ -6006,8 +5933,7 @@
           if (search) search.focus();
           return;
         }
-        // Label / area fuori dal box: chiudi sempre.
-        closeAllTokenMenus();
+                closeAllTokenMenus();
       });
       document.addEventListener("keydown", function (ev) {
         if (ev.key !== "Escape" && ev.key !== "Esc") return;
@@ -6232,15 +6158,12 @@
       (job && job.result && job.result.undoneAt) ||
         (job && job.progress && String(job.progress.phase || "") === "undone"),
     );
-    // Annullata = come non fatta: form di avvio, niente barra/progress.
-    if (alreadyUndone) {
+        if (alreadyUndone) {
       state.migrationShowSetup = true;
       setError("");
       job = null;
     }
-    // Fallimenti di precondizione (es. nessun PM): solo sorgente + messaggio errore, niente card Fallita.
-    // Non mostrare il banner globale se stiamo solo facendo prefetch fuori da «Dati».
-    if (isMigrationSoftFail(job)) {
+            if (isMigrationSoftFail(job)) {
       state.migrationShowSetup = true;
       var softErr = job.error || (job.progress && job.progress.message) || "";
       if (softErr && state.view === "partnership/dati") {
@@ -6249,13 +6172,11 @@
     }
     var active = job && (job.status === "queued" || job.status === "running");
     var done = job && (job.status === "completed" || job.status === "failed");
-    // Durante/dopo la migrazione: solo la card centrale (Riprova sblocca il form).
-    if (active || (done && !state.migrationShowSetup)) {
+        if (active || (done && !state.migrationShowSetup)) {
       state.migrationShowSetup = false;
     }
     var showSetup = !job || (!active && (!done || state.migrationShowSetup));
-    // Progress solo se in corso, oppure conclusa e l’utente non ha aperto «Riprova»/sorgente.
-    var showProgress = Boolean(active || (done && !showSetup));
+        var showProgress = Boolean(active || (done && !showSetup));
 
     if (showProgress) {
       if (progress) progress.removeAttribute("hidden");
@@ -6397,18 +6318,15 @@
         return {};
       });
       if (!res.ok || !data || data.ok === false) {
-        // Se lo status non arriva, non lasciare l’utente bloccato sullo shell di loading.
-        if (!state.migrationStatusKnown && state.view === "partnership/dati") {
+                if (!state.migrationStatusKnown && state.view === "partnership/dati") {
           renderMigrationJob({ job: null });
         }
         return;
       }
       renderMigrationJob(data);
       if (data.job && (data.job.status === "completed" || data.job.status === "failed")) {
-        // keep polling lightly stopped once finished unless user stays on page with new job
-        if (data.job.status !== "queued" && data.job.status !== "running") {
-          // still allow one more render; interval continues but cheap
-        }
+                if (data.job.status !== "queued" && data.job.status !== "running") {
+                  }
       }
     } catch (e) {
       if (!state.migrationStatusKnown && state.view === "partnership/dati") {
@@ -6492,16 +6410,14 @@
     var ch = byId("ps-mig-channelId");
     var logs = byId("ps-mig-logsChannelId");
     var role = byId("ps-mig-roleId");
-    // Always send resolved IDs as fallback if server-side config cache is empty.
-    body.channelId = ch && ch.value ? ch.value : null;
+        body.channelId = ch && ch.value ? ch.value : null;
     body.logsChannelId = logs && logs.value ? logs.value : null;
     body.roleId = role && role.value ? role.value : null;
     var startBtn = byId("ps-migration-start-btn");
     if (startBtn) startBtn.disabled = true;
     setError("");
     state.migrationShowSetup = false;
-    // Nasconde subito sorgente/banner/avvia; resta solo la card progresso.
-    var setupEl = byId("ps-migration-setup");
+        var setupEl = byId("ps-migration-setup");
     var actionsEl = byId("ps-migration-actions");
     var progressEl = byId("ps-migration-progress");
     var retryEl = byId("ps-migration-retry-wrap");
@@ -6599,8 +6515,7 @@
     copyInputValue("ps-wz-hereMembers", "ps-hereMembers");
     copyInputValue("ps-wz-everyoneMembers", "ps-everyoneMembers");
     copyInputValue("ps-wz-customRoleMembers", "ps-customRoleMembers");
-    // Accendi i feat card correlati se valorizzati, così buildPatchFromForm li include.
-    var here = byId("ps-hereMembers");
+        var here = byId("ps-hereMembers");
     var everyone = byId("ps-everyoneMembers");
     var hereFeat = byId("ps-herePingFeat");
     var everyoneFeat = byId("ps-everyonePingFeat");
@@ -6798,8 +6713,7 @@
     var form = byId("vc-dashboard-partnership-form");
     if (!form || !partnership) return;
     var safePickers = pickers && typeof pickers === "object" ? pickers : {};
-    // Non togliere hidden qui: decide applyView (altrimenti flash form vuoto / race col loader).
-    setPartnershipNavVisible(true);
+        setPartnershipNavVisible(true);
 
     var text = safePickers.textChannels || [];
     var roles = safePickers.roles || [];
@@ -6895,8 +6809,7 @@
     var descMode = byId("ps-partnerDescMode");
     if (descMode) {
       var mode = (p.partnerDesc && p.partnerDesc.mode) || "clear";
-      // Off lato server → UI su Canale con select vuoto (già disattivata).
-      if (mode !== "channel" && mode !== "static") mode = "channel";
+            if (mode !== "channel" && mode !== "static") mode = "channel";
       descMode.value = mode;
     }
     var staticText = byId("ps-partnerDescStaticText");
@@ -6908,8 +6821,7 @@
 
     var completeBtn = byId("ps-complete-btn");
     var setupBar = byId("vc-dashboard-setup-bar");
-    // Wizard sostituisce la barra sticky: nascondila sempre.
-    if (completeBtn) completeBtn.setAttribute("hidden", "");
+        if (completeBtn) completeBtn.setAttribute("hidden", "");
     if (setupBar) setupBar.setAttribute("hidden", "");
     setPartnershipSetupLocked(p.setupCompleted !== true);
     if (p.setupCompleted !== true) {
@@ -6918,9 +6830,7 @@
 
     syncFeatCardsFromValues({ fromServer: true });
     updateDescModeVisibility();
-    // Prima la view (così Filtri/Generale appaiono subito), poi i fancy-select:
-    // sul main i picker Discord sono enormi e bloccavano il main thread → UI “solo footer”.
-    try {
+            try {
       applyView(gatePartnershipView(currentView()));
     } catch (eView) {
       try {
@@ -7089,8 +6999,7 @@
     var textEl = textNodes[0];
     if (!textEl) return;
 
-    // Reset duplicates / animation before measuring.
-    nameEl.classList.remove("is-marquee");
+        nameEl.classList.remove("is-marquee");
     nameEl.style.removeProperty("--vc-marquee-distance");
     nameEl.style.removeProperty("--vc-marquee-duration");
     for (var i = textNodes.length - 1; i >= 1; i--) {
@@ -7103,8 +7012,7 @@
     var containerW = nameEl.clientWidth || 0;
     if (containerW <= 0) return;
 
-    // Misura fuori layout: evita scrollWidth “compresso” dal parent overflow.
-    var probe = document.createElement("span");
+        var probe = document.createElement("span");
     probe.textContent = textEl.textContent || "";
     probe.setAttribute("aria-hidden", "true");
     try {
@@ -7134,8 +7042,7 @@
     trackEl.appendChild(clone);
     textEl.style.paddingInlineEnd = "2rem";
 
-    // Larghezza di un segmento (testo + gap) per loop continuo a -100% segmento.
-    var segmentW = Math.ceil(textEl.getBoundingClientRect().width || textEl.scrollWidth || textW);
+        var segmentW = Math.ceil(textEl.getBoundingClientRect().width || textEl.scrollWidth || textW);
     if (segmentW <= 0) segmentW = textW + 32;
     nameEl.style.setProperty("--vc-marquee-distance", segmentW + "px");
     var duration = Math.max(8, Math.min(30, segmentW / 26));
@@ -7185,8 +7092,7 @@
   function resolveBotAvatarFallback(src) {
     var url = String(src || "").trim();
     if (!url) return "";
-    // Asset locale mai deployato / 404: usa l’avatar Discord del bot.
-    if (/vinili-avatar\.png/i.test(url) || /\{\{\s*WIKI_BOT_VINILI_AVATAR_URL\s*\}\}/.test(url)) {
+        if (/vinili-avatar\.png/i.test(url) || /\{\{\s*WIKI_BOT_VINILI_AVATAR_URL\s*\}\}/.test(url)) {
       return "https://cdn.discordapp.com/avatars/1329118940110127204/a_2f3825915a41d0f9bcbf9f2675e6d6f0.gif?size=128";
     }
     return url;
@@ -7195,8 +7101,7 @@
   function applyHeaderGuildBrand(guildName, guildIcon) {
     var dashLabel = i18n("footer.dashboard", "Dashboard");
     var rawName = String(guildName || "").trim();
-    // Placeholder "Server" (API/i18n) non deve sostituire Dashboard nell'header.
-    var isPlaceholder = !rawName || /^server$/i.test(rawName);
+        var isPlaceholder = !rawName || /^server$/i.test(rawName);
     var name = isPlaceholder ? dashLabel : rawName;
     var nameUpper = name.toLocaleUpperCase("it-IT");
     var icon = String(guildIcon || "").trim();
@@ -7209,8 +7114,7 @@
       state.headerGuildIcon = icon || state.headerGuildIcon || "";
     } else {
       state.headerGuildName = "";
-      // Non tenere un'icona guild "fantasma" se il nome non è noto.
-      if (!icon) state.headerGuildIcon = "";
+            if (!icon) state.headerGuildIcon = "";
     }
 
     if (nameEl) {
@@ -7237,8 +7141,7 @@
       if (isPlaceholder) nameEl.setAttribute("data-i18n", "footer.dashboard");
       else nameEl.removeAttribute("data-i18n");
       wireHeaderGuildNameMarquee();
-      // Dopo layout (font/flex): misura overflow.
-      requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
         requestAnimationFrame(syncHeaderGuildNameMarquee);
       });
     }
@@ -7251,15 +7154,13 @@
         if (storedBot) iconEl.setAttribute("data-vc-bot-avatar", storedBot);
       }
       if (!isPlaceholder && (icon || state.headerGuildIcon)) {
-        // Sulla dashboard guild: icona del server corrente.
-        var nextIcon = icon || state.headerGuildIcon;
+                var nextIcon = icon || state.headerGuildIcon;
         if (nextIcon && iconEl.getAttribute("src") !== nextIcon) {
           iconEl.src = nextIcon;
         }
         iconEl.setAttribute("data-vc-guild-brand", "1");
       } else {
-        // Fuori da un server / nome non noto: avatar bot.
-        var botAvatar = resolveBotAvatarFallback(iconEl.getAttribute("data-vc-bot-avatar") || "");
+                var botAvatar = resolveBotAvatarFallback(iconEl.getAttribute("data-vc-bot-avatar") || "");
         if (botAvatar && iconEl.getAttribute("src") !== botAvatar) {
           iconEl.src = botAvatar;
         }
@@ -7350,8 +7251,7 @@
     var form = byId("vc-dashboard-partnership-form");
     var inviteBtn = byId("vc-dashboard-invite-btn");
     var modulesEl = byId("vc-dashboard-modules");
-    // Partnership + impostazioni anche sul server principale (overlay Mongo / config legacy).
-    var canUsePartnership = Boolean(guild.botPresent && setup);
+        var canUsePartnership = Boolean(guild.botPresent && setup);
     var canUseSettings = Boolean(guild.botPresent);
     var ticketsOk = Boolean(guild.botPresent);
     setTicketsNavVisible(ticketsOk);
@@ -7494,10 +7394,8 @@
     var s = settings || state.settings || {};
     var protectedGuild = state.settingsProtectedGuild === true;
     var prefixLocked = protectedGuild || s.prefixLocked === true;
-    // Ruoli accesso: editabili anche sul principale (rolesLocked arriva dall’API).
-    var rolesLocked = s.rolesLocked === true;
-    // Canale aggiornamenti resta bloccato sul principale Vinili.
-    var updatesLocked = protectedGuild || s.updatesLocked === true;
+        var rolesLocked = s.rolesLocked === true;
+        var updatesLocked = protectedGuild || s.updatesLocked === true;
     state.settingsPrefixLocked = prefixLocked;
     state.settingsRolesLocked = rolesLocked;
 
@@ -7792,8 +7690,7 @@
     var nick = normalizeBotNick(nickEl && nickEl.value);
     var roleIds = Array.isArray(state.dashboardRoleIds) ? state.dashboardRoleIds.slice() : [];
     var patch = {};
-    // Guild Vinili protetti: prefisso/ruoli/canale non persistono — esclusi anche dal dirty-check.
-    if (!state.settingsPrefixLocked) {
+        if (!state.settingsPrefixLocked) {
       patch.prefix = String((prefixEl && prefixEl.value) || "").trim() || "+";
     }
     if (!state.settingsRolesLocked) {
@@ -7803,9 +7700,7 @@
     if (!state.settingsProtectedGuild) {
       patch.updatesChannelId = String((chEl && chEl.value) || "").trim() || null;
     }
-    // Solo se l’utente ha cambiato il nick in dashboard: altrimenti Discord resta source of truth
-    // (un rename fatto sul server non viene riscritto dall’autosave di altri campi).
-    if (forCompare || nick !== state.settingsNickLoaded) {
+            if (forCompare || nick !== state.settingsNickLoaded) {
       patch.botNickname = nick;
     }
     if (state.pendingBotAvatar !== undefined) {
@@ -7882,9 +7777,7 @@
   }
 
   function syncBachecaModeUi() {
-    // Modalità Unico/Separati rimossa dalla UI: i canali sono per-funzione.
-    // Manteniamo mode=split lato salvataggio.
-    var modeEl = byId("bc-boardsMode");
+            var modeEl = byId("bc-boardsMode");
     if (modeEl) modeEl.value = "split";
     syncBachecaFeatureChannelVisibility();
   }
@@ -7911,8 +7804,7 @@
 
   function syncBachecaFeatureChannelVisibility() {
     var feats = getBachecaFeaturesFromForm();
-    // Se il form non è ancora popolato, fallback alle settings.
-    if (!byId("bc-feat-quote") && !byId("bc-feat-repost") && !byId("bc-feat-clip") && !byId("bc-feat-skull")) {
+        if (!byId("bc-feat-quote") && !byId("bc-feat-repost") && !byId("bc-feat-clip") && !byId("bc-feat-skull")) {
       feats = getBachecaFeaturesFromSettings(state.settings);
     }
     Array.prototype.forEach.call(document.querySelectorAll("[data-bc-feature-channel]"), function (el) {
@@ -7929,8 +7821,7 @@
 
   function fillBachecaFeaturesForm(settings) {
     var feats = getBachecaFeaturesFromSettings(settings || state.settings);
-    // Funzioni disattivabili anche sul server Vinili; i canali restano bloccati.
-    ["quote", "repost", "clip", "skull"].forEach(function (kind) {
+        ["quote", "repost", "clip", "skull"].forEach(function (kind) {
       var el = byId("bc-feat-" + kind);
       if (!el) return;
       el.checked = feats[kind] !== false;
@@ -8002,8 +7893,7 @@
       state.settingsPickers = data.pickers || state.settingsPickers;
       fillBachecaFeaturesForm(state.settings);
       syncBachecaModuleUi(state.settings);
-      // I toggle comandi devono riflettere subito le funzioni disattivate.
-      if (state.commandsCatalog) {
+            if (state.commandsCatalog) {
         refreshCommandsPage({ silent: true }).catch(function () {});
       }
       showSaveToast(i18n("dash.boards.featuresSaved", "Funzioni bacheca salvate."), false);
@@ -8283,15 +8173,13 @@
     );
   }
 
-  /** Colore fade al bordo cover↔testo (stesso campionamento del canvas). */
-  function resolveQuoteFadeEdgeUi(colors, style) {
+    function resolveQuoteFadeEdgeUi(colors, style) {
     var bg = normalizeQuoteHex(colors && colors.bg) || "#070707";
     var to = normalizeQuoteHex(colors && colors.bgGradTo);
     if (!to || to === bg) return bg;
     var vertical = style && String(style.orientation || "") === "vertical";
     var flip = Boolean(style && style.flip);
-    // Seam: cover 50% orizz / 42% vert.
-    var x = 0.5;
+        var x = 0.5;
     var y = vertical ? (flip ? 1 - 0.42 : 0.42) : 0.5;
     var angle = clampQuoteAngle(colors && colors.bgGradAngle, 135);
     var rad = ((angle - 90) * Math.PI) / 180;
@@ -8425,8 +8313,7 @@
     }
   }
 
-  /** Preferisci .gif per avatar Discord animati (`a_…`) così l’anteprima si muove. */
-  function toAnimatedDiscordMediaUrl(url) {
+    function toAnimatedDiscordMediaUrl(url) {
     var raw = String(url || "").trim();
     if (!raw) return "";
     try {
@@ -8584,8 +8471,7 @@
     if (bgGradAngleVal) bgGradAngleVal.textContent = String(bgGradAngle) + "°";
     if (fgGradAngleVal) fgGradAngleVal.textContent = String(fgGradAngle) + "°";
 
-    // Con gradiente attivo non evidenziare i solidi (niente “nero + viola” insieme).
-    Array.prototype.forEach.call(document.querySelectorAll("button[data-qs-bg]"), function (btn) {
+        Array.prototype.forEach.call(document.querySelectorAll("button[data-qs-bg]"), function (btn) {
       var active =
         !bgGradTo &&
         bg !== "custom" &&
@@ -8705,8 +8591,7 @@
       btn.classList.remove("is-active");
       btn.setAttribute("aria-pressed", "false");
     });
-    // Se il testo è in automatico, aggiorna il picker testo al fg calcolato
-    var fgColorEl = byId("qs-fg-color");
+        var fgColorEl = byId("qs-fg-color");
     if (fgColorEl && !normalizeQuoteHex(fgColorEl.value)) {
       var autoFg = colorsFromQuoteHex(normalized).fg;
       var fgPicker = byId("qs-fg-picker");
@@ -8734,8 +8619,7 @@
     if (!opts || opts.autosave !== false) scheduleBachecaStyleAutosave(0);
   }
 
-  /** Cambia il colore di inizio del gradiente (senza spegnere il gradiente). */
-  function setQuoteGradFromColor(which, hex, opts) {
+    function setQuoteGradFromColor(which, hex, opts) {
     var normalized = normalizeQuoteHex(hex);
     if (!normalized) return;
     var isBg = which === "bg";
@@ -8747,8 +8631,7 @@
       var fromHex = byId("qs-bg-grad-from-hex");
       if (fromPicker) fromPicker.value = normalized;
       if (fromHex && (!opts || !opts.skipHex)) fromHex.value = normalized;
-      // setQuoteStyleCustomColor spegneva i solidi: tieni il gradiente acceso.
-      if (onEl) onEl.checked = true;
+            if (onEl) onEl.checked = true;
     } else {
       setQuoteStyleFgColor(normalized, { autosave: false, skipHex: false });
       var fgFromPicker = byId("qs-fg-grad-from-picker");
@@ -9024,8 +8907,7 @@
     var mode = String(boards.mode || "shared") === "split" ? "split" : "shared";
     var modeEl = byId("bc-boardsMode");
     if (modeEl) {
-      // UI unificata: salviamo sempre in split; shared legacy → stesso canale su ogni select.
-      modeEl.value = "split";
+            modeEl.value = "split";
       refreshDashFancySelect(modeEl);
     }
     var text = (pickers && pickers.textChannels) || (state.settingsPickers && state.settingsPickers.textChannels) || [];
@@ -9084,8 +8966,7 @@
     var repostId = repostEl ? repostEl.value || null : null;
     var clipId = clipEl ? clipEl.value || null : null;
     var skullId = skullEl ? skullEl.value || null : null;
-    // Compatibilità: shared = primo canale valorizzato (quote → repost → clip → skull).
-    var sharedId = quoteId || repostId || clipId || skullId || null;
+        var sharedId = quoteId || repostId || clipId || skullId || null;
     var sharedEl = byId("bc-sharedChannelId");
     if (sharedEl) sharedEl.value = sharedId || "";
     var modeEl = byId("bc-boardsMode");
@@ -9142,8 +9023,7 @@
       }
       state.settings = data.settings;
       state.settingsPickers = data.pickers || state.settingsPickers;
-      // Autosave: non rifare fill (riporta indietro canali/stile se l’utente sta ancora modificando).
-      if (silent) {
+            if (silent) {
         syncBachecaModuleUi(state.settings);
       } else if (data.settings && data.settings.boards && typeof data.settings.boards === "object") {
         fillBachecaForm(data.settings, data.pickers || state.settingsPickers, { skipStyle: true });
@@ -9197,8 +9077,7 @@
       return false;
     }
 
-    // Evita race col autosave canali.
-    if (state.bachecaAutosaveTimer) {
+        if (state.bachecaAutosaveTimer) {
       clearTimeout(state.bachecaAutosaveTimer);
       state.bachecaAutosaveTimer = null;
     }
@@ -9333,8 +9212,7 @@
       }
       state.settings = data.settings;
       state.settingsPickers = data.pickers || state.settingsPickers;
-      // Autosave: non rifare fillQuoteStyleForm (snap-back su slider/colori).
-      if (silent) {
+            if (silent) {
         syncBachecaModuleUi(data.settings);
       } else if (data.settings && data.settings.boards && typeof data.settings.boards === "object") {
         fillQuoteStyleForm(data.settings);
@@ -9559,8 +9437,7 @@
       var presetHex = (QUOTE_STYLE_BG[bgKey] && QUOTE_STYLE_BG[bgKey].bg) || "#070707";
       if (picker) picker.value = presetHex;
       if (hexInput) hexInput.value = presetHex;
-      // Scelta solida → spegne il gradiente (una sola selezione attiva).
-      var bgGradOn = byId("qs-bg-grad-on");
+            var bgGradOn = byId("qs-bg-grad-on");
       var bgGradTo = byId("qs-bg-grad-to");
       if (bgGradOn) bgGradOn.checked = false;
       if (bgGradTo) bgGradTo.value = "";
@@ -9670,8 +9547,7 @@
     var nickEl = byId("gs-botNickname");
     var prefixEl = byId("gs-prefix");
     var active = document.activeElement;
-    // Non sovrascrivere mentre l’utente sta digitando nick/prefix.
-    if (active && (active === nickEl || active === prefixEl)) return;
+        if (active && (active === nickEl || active === prefixEl)) return;
     try {
       var out = await fetchDashboardJson(
         resolveApiBase() + "/guilds/" + encodeURIComponent(state.guildId) + "/settings",
@@ -9790,9 +9666,7 @@
         var curIsLocal = /^data:image\//i.test(curSrc);
         if (preview && data.settings && data.settings.botAvatarUrl) {
           var nextUrl = String(data.settings.botAvatarUrl || "").trim();
-          // Non sovrascrivere una preview locale con l’avatar globale se Discord non ha ancora
-          // (o la cache non ha ancora) il guild avatar.
-          if (!curIsLocal || data.settings.hasGuildAvatar) {
+                              if (!curIsLocal || data.settings.hasGuildAvatar) {
             preview.src = nextUrl;
           }
         }
@@ -9898,8 +9772,7 @@
     var liveCatName =
       s.categoryNameLive ||
       findLiveTicketCategoryName(categories, s.categoryName || "Tickets", fancyFallback);
-    // Mai mostrare il placeholder plain "Tickets" se abbiamo il nome Discord fancy.
-    var displayCatName = liveCatName || fancyFallback || s.categoryName || "Tickets";
+        var displayCatName = liveCatName || fancyFallback || s.categoryName || "Tickets";
     if (
       String(displayCatName).toLowerCase() === "tickets" &&
       fancyFallback &&
@@ -9955,8 +9828,7 @@
     var prev = state.tickets || {};
     return {
       maxOpenTicketsPerUser: Number((byId("tk-maxOpenTicketsPerUser") && byId("tk-maxOpenTicketsPerUser").value) || 1),
-      // Campi nascosti dalla UI: conserva i valori già salvati.
-      language: String(prev.language || "server"),
+            language: String(prev.language || "server"),
       allowUserClose: Boolean(byId("tk-allowUserClose") && byId("tk-allowUserClose").checked),
       closeConfirmation: Boolean(byId("tk-closeConfirmation") && byId("tk-closeConfirmation").checked),
       ratingEnabled: Boolean(byId("tk-ratingEnabled") && byId("tk-ratingEnabled").checked),
@@ -9968,8 +9840,7 @@
       categoryName: (function () {
         var typed = String((byId("tk-categoryName") && byId("tk-categoryName").value) || "").trim();
         var live = String((prev.categoryNameLive || prev.defaultDiscordCategoryName || "")).trim();
-        // Se il campo è rimasto sul placeholder "Tickets", non sovrascrivere il nome Discord fancy.
-        if ((!typed || typed.toLowerCase() === "tickets") && live && live.toLowerCase() !== "tickets") {
+                if ((!typed || typed.toLowerCase() === "tickets") && live && live.toLowerCase() !== "tickets") {
           return live;
         }
         return typed || "Tickets";
@@ -10048,8 +9919,7 @@
       }
       var prevTickets = state.tickets || {};
       var nextTickets = out.data.settings || prevTickets || null;
-      // PATCH senza enrichment non deve ripristinare il placeholder "Tickets".
-      if (nextTickets && prevTickets) {
+            if (nextTickets && prevTickets) {
         if (!nextTickets.categoryNameLive && prevTickets.categoryNameLive) {
           nextTickets.categoryNameLive = prevTickets.categoryNameLive;
         }
@@ -10376,8 +10246,7 @@
       }
       var html = await res.text();
       if (String(state.transcriptViewerTicketId || "") !== tid) return;
-      // Cintura: se l'HTML è la gate pubblica, non montarla nell'iframe.
-      if (/vc-tx-gate|Accedi per vedere il transcript/i.test(html)) {
+            if (/vc-tx-gate|Accedi per vedere il transcript/i.test(html)) {
         var fallbackApi = transcriptApiUrlFromPublicOrRow(row);
         if (fallbackApi) {
           var html2 = await fetchTranscriptHtmlWithBearer(fallbackApi, token);
@@ -10689,8 +10558,7 @@
 
   function scheduleTranscriptsFilterRefresh() {
     if (state.transcriptsFilterTimer) clearTimeout(state.transcriptsFilterTimer);
-    // Aspetta che l'utente finisca di scrivere, poi cerca subito.
-    state.transcriptsFilterTimer = setTimeout(function () {
+        state.transcriptsFilterTimer = setTimeout(function () {
       state.transcriptsFilterTimer = null;
       flushTranscriptsFilterRefresh();
     }, 550);
@@ -10872,8 +10740,7 @@
       sel,
       teams.map(function (t) {
         var label = String(t.name || "").trim() || t.id;
-        // Evita "Default (Default)" quando il nome è già quello del team di sistema.
-        if (t.isDefault && label.toLowerCase() !== "default") {
+                if (t.isDefault && label.toLowerCase() !== "default") {
           label = label + " (Default)";
         }
         return { id: t.id, name: label };
@@ -11870,8 +11737,7 @@
       if (trackW > 0) maxOut.style.left = pad + maxPct * trackW + "px";
       else maxOut.style.left = maxPct * 100 + "%";
     }
-    // Pollice attivo sopra quando si sovrappongono.
-    if (minEl && maxEl) {
+        if (minEl && maxEl) {
       var minOnTop = document.activeElement === minEl;
       minEl.style.zIndex = minOnTop ? "4" : "2";
       maxEl.style.zIndex = minOnTop ? "3" : "4";
@@ -11888,8 +11754,7 @@
       ph.classList.toggle("is-multiline", multi);
     }
     card.classList.toggle("is-text-multiline", multi);
-    // Short = barra 0–255; Multi-line = 0–1024. Il valore selezionato resta (clamp solo se supera il nuovo cap).
-    syncTicketFormLengthSlider(card);
+        syncTicketFormLengthSlider(card);
   }
 
   function syncTicketFormFieldCardUi(card) {
@@ -12266,13 +12131,11 @@
       Array.isArray(state.ticketFormsDraftFields) &&
       String(state.ticketFormsDraftFormId || "") === String(form.id)
     ) {
-      // mantieni bozza non salvata
-    } else {
+          } else {
       state.ticketFormsDraftFields = (form.fields || []).map(function (f) {
         return Object.assign({}, f, { options: Array.isArray(f.options) ? f.options.slice() : [] });
       });
-      // Form senza campi: mostra subito un campo editabile.
-      if (!state.ticketFormsDraftFields.length) {
+            if (!state.ticketFormsDraftFields.length) {
         state.ticketFormsDraftFields = [newTicketFormFieldDraft()];
         state.ticketFormsDraftDirty = true;
       } else {
@@ -12395,8 +12258,7 @@
           });
           if (out.data.form) {
             state.ticketFormsSelectedId = String(out.data.form.id);
-            // Apri subito l'editor con un campo vuoto (come TicketsBot).
-            state.ticketFormsDraftFields = [newTicketFormFieldDraft()];
+                        state.ticketFormsDraftFields = [newTicketFormFieldDraft()];
             state.ticketFormsDraftFormId = out.data.form.id;
             state.ticketFormsDraftDirty = true;
           }
@@ -12969,8 +12831,7 @@
       );
     }
     syncTicketPanelGlobalInheritedControls(data);
-    // Ripristina override espliciti dopo rebuild delle option «Globale».
-    if (Object.prototype.hasOwnProperty.call(data, "maxOpenTicketsPerUser")) {
+        if (Object.prototype.hasOwnProperty.call(data, "maxOpenTicketsPerUser")) {
       setValue(
         "tk-panel-maxOpenTicketsPerUser",
         data.maxOpenTicketsPerUser != null ? data.maxOpenTicketsPerUser : "",
@@ -13357,8 +13218,7 @@
     if (!root.__vcPillWired) {
       root.__vcPillWired = true;
       root.addEventListener("mousedown", function (ev) {
-        // Evita che il document click chiuda prima del click sul control.
-        if (ev.target && ev.target.closest && ev.target.closest(".vc-dash-tk-pillsel")) {
+                if (ev.target && ev.target.closest && ev.target.closest(".vc-dash-tk-pillsel")) {
           ev.stopPropagation();
         }
       });
@@ -13442,8 +13302,7 @@
       );
     }
 
-    // Delegazione click opzioni: il menu può stare su document.body
-    if (!document.__vcMentionPillMenuWired) {
+        if (!document.__vcMentionPillMenuWired) {
       document.__vcMentionPillMenuWired = true;
       document.addEventListener("click", function (ev) {
         var btn = ev.target && ev.target.closest ? ev.target.closest(".vc-dash-tk-pillsel__option[data-pill-add]") : null;
@@ -13452,8 +13311,7 @@
         if (!menu) return;
         var host = menu.__vcHomeParent;
         if (!host || typeof host.__vcPillAdd !== "function") {
-          // fallback: find open pillsel
-          host = document.querySelector(".vc-dash-tk-pillsel.is-open");
+                    host = document.querySelector(".vc-dash-tk-pillsel.is-open");
         }
         if (!host) return;
         ev.preventDefault();
@@ -13737,8 +13595,7 @@
       out[key] = on;
       if (on !== isGlobalTicketPermOn(global, key)) differs = true;
     });
-    // Se identico al globale, nessuna override sul pannello.
-    return differs ? out : null;
+        return differs ? out : null;
   }
 
   function renderAccessRulesList(rules) {
@@ -13934,8 +13791,7 @@
         return;
       }
 
-      // disabled
-      if (allDayEl) allDayEl.checked = true;
+            if (allDayEl) allDayEl.checked = true;
       if (range) range.setAttribute("hidden", "");
       if (badge) {
         badge.removeAttribute("hidden");
@@ -14179,8 +14035,7 @@
     select.innerHTML = html;
     select.value = current;
     if (current && select.value !== current) {
-      // valore fuori range: aggiungi voce dedicata
-      var extra = document.createElement("option");
+            var extra = document.createElement("option");
       extra.value = current;
       extra.textContent = current;
       select.appendChild(extra);
@@ -14271,9 +14126,7 @@
         ? String(ov.description).trim()
         : defaultDesc;
 
-    // Come pannello singolo: il valore in campo è l'emoji effettiva;
-    // lo switch indica se stai usando catalogo custom (server) o unicode.
-    var emojiVal = "";
+            var emojiVal = "";
     if (ov && ov.useCustomEmoji) {
       emojiVal = emojiValueToInputString(ov.emoji);
     } else {
@@ -14320,8 +14173,7 @@
       var labelChanged = label && label !== defaultLabel;
       var descChanged = description && description !== defaultDesc;
       var emojiChanged = emoji !== defaultEmoji;
-      // Solo se diverso dal default (o vuoto esplicito vs default pieno) salva override emoji.
-      var useCustomEmoji = emojiChanged;
+            var useCustomEmoji = emojiChanged;
       if (!labelChanged && !descChanged && !useCustomEmoji) return;
       out[panelId] = {
         label: labelChanged ? label : label || null,
@@ -14329,8 +14181,7 @@
         useCustomEmoji: useCustomEmoji,
         emoji: useCustomEmoji ? emoji || null : null,
       };
-      // Se label/desc sono ancora i default ma c'è override emoji, non forzare label/desc.
-      if (!labelChanged) out[panelId].label = null;
+            if (!labelChanged) out[panelId].label = null;
       if (!descChanged) out[panelId].description = null;
       if (!out[panelId].label && !out[panelId].description && !out[panelId].useCustomEmoji) {
         delete out[panelId];
@@ -14535,8 +14386,7 @@
           preferCustom: t.checked,
           keepToggle: true,
         });
-        // Non aprire il menu sullo switch: aggiorna solo se è già aperto.
-        if (menu && !menu.hasAttribute("hidden") && state.optcustEmojiBlock === block) {
+                if (menu && !menu.hasAttribute("hidden") && state.optcustEmojiBlock === block) {
           renderOptcustEmojiGrid();
         }
         scheduleTicketPanelsDraftSave();
@@ -14970,8 +14820,7 @@
         search.focus();
       } catch (_) {}
     }
-    // Se custom è on ma i pickers non hanno ancora le emoji (site-api), ricarica.
-    if (customToggle && customToggle.checked) {
+        if (customToggle && customToggle.checked) {
       var have = ((getTicketPanelEmojiPickers().emojis) || []).length;
       if (!have && typeof refreshTicketPanels === "function") {
         refreshTicketPanels({ silent: true }).then(function () {
@@ -15018,8 +14867,7 @@
       if (!grid) return;
       var items = tkEmojiGridState.items || [];
       if (tkEmojiGridState.shown >= items.length) return;
-      // Se le emoji rotte/nascoste lasciano spazio, continua a paginare senza scroll.
-      if (grid.scrollHeight <= grid.clientHeight + 12) {
+            if (grid.scrollHeight <= grid.clientHeight + 12) {
         appendTicketPanelButtonEmojiPage();
       }
     });
@@ -15166,8 +15014,7 @@
           var img = ev.target;
           if (!img || img.tagName !== "IMG") return;
           var src = String(img.getAttribute("src") || img.src || "");
-          // GIF fallita → riprova PNG una volta (alcune animate hanno solo frame statico).
-          if (!img.dataset.vcEmojiFallback && /\.gif(\?|$)/i.test(src)) {
+                    if (!img.dataset.vcEmojiFallback && /\.gif(\?|$)/i.test(src)) {
             img.dataset.vcEmojiFallback = "1";
             img.src = src.replace(/\.gif(\?|$)/i, ".png$1");
             return;
@@ -15258,8 +15105,7 @@
     byId("tk-panel-id").value = isEdit ? String(panel.id) : "";
     var typeSelect = byId("tk-panel-ticketType");
     if (typeSelect) {
-      // Editor sempre custom: niente UI tipo Supporto/Partnership/… (solo valore interno).
-      typeSelect.value = isEdit
+            typeSelect.value = isEdit
         ? String((panel && panel.ticketType) || "supporto")
         : createType || "supporto";
     }
@@ -15291,8 +15137,7 @@
     );
     setValue("tk-panel-formId", (panel && panel.formId) || "");
 
-    // Riallinea voci «Globale» dopo aver valorizzato i campi panel.
-    syncTicketPanelGlobalInheritedControls(panel);
+        syncTicketPanelGlobalInheritedControls(panel);
 
     var welcomePanel = panel;
     if (!isEdit && createType) {
@@ -15307,8 +15152,7 @@
       var draft = readTicketPanelsDraft();
       if (draftMatchesRoute(draft, state.ticketPanelsEditor) && draft.form) {
         var draftForm = Object.assign({}, draft.form);
-        // In creazione il tipo si sceglie nell'editor (non da un menu preset).
-        if (!isEdit && createType) draftForm.ticketType = createType;
+                if (!isEdit && createType) draftForm.ticketType = createType;
         applySinglePanelFormData(draftForm);
       } else {
         persistTicketPanelsDraftNow();
@@ -15318,8 +15162,7 @@
     if (!isEdit && typeSelect && createType) {
       typeSelect.value = createType;
     }
-    // All'apertura: prime 2 sezioni aperte, le altre chiuse (ma apribili).
-    Array.prototype.forEach.call(editor ? editor.querySelectorAll("details.vc-dash-tk-acc") : [], function (acc, idx) {
+        Array.prototype.forEach.call(editor ? editor.querySelectorAll("details.vc-dash-tk-acc") : [], function (acc, idx) {
       if (idx < 2) acc.setAttribute("open", "");
       else acc.removeAttribute("open");
     });
@@ -15416,8 +15259,7 @@
       var draft = readTicketPanelsDraft();
       if (draftMatchesRoute(draft, state.ticketPanelsEditor) && draft.form) {
         applyMultiPanelFormData(draft.form);
-        // Non lasciare che una draft vuota cancelli i pannelli già salvati.
-        if (
+                if (
           multi &&
           Array.isArray(multi.panelIds) &&
           multi.panelIds.length &&
@@ -15425,9 +15267,7 @@
         ) {
           fillMultiPanelSelectOptions(multi.panelIds, multi.optionOverrides || {});
         }
-        // Personalizzazione: se non c'è override salvato, ignora draft "emoji custom vuota"
-        // che lascia la UI fuori sync rispetto a Discord.
-        var savedOv =
+                        var savedOv =
           multi && multi.optionOverrides && typeof multi.optionOverrides === "object"
             ? multi.optionOverrides
             : {};
@@ -15459,8 +15299,7 @@
       ticketType: (function () {
         var el = byId("tk-panel-ticketType");
         if (!el) return "";
-        // In modifica il select è disabilitato: va letto comunque (disabled non entra in FormData, ma .value sì).
-        return String(el.value || "").trim();
+                return String(el.value || "").trim();
       })(),
       channelId: byId("tk-panel-channelId").value,
       title: byId("tk-panel-title").value,
@@ -15489,8 +15328,7 @@
       ticketPerms: readTicketPermsForm(),
       accessRules: readAccessRulesList(),
       supportHours: readSupportHoursForm(),
-      // Salva config; backend aggiorna il messaggio Discord solo se già pubblicato.
-      publish: false,
+            publish: false,
       syncExisting: true,
     };
   }
@@ -15515,8 +15353,7 @@
       footerTimestamp: Boolean(byId("tk-multipanel-footerTimestamp") && byId("tk-multipanel-footerTimestamp").checked),
       fields: readMultiPanelFieldsList(),
       optionOverrides: readMultiPanelOptionOverrides(),
-      // Multi: salva + aggiorna messaggio Discord solo se già pubblicato.
-      publish: false,
+            publish: false,
       syncExisting: true,
     };
   }
@@ -15735,8 +15572,7 @@
     var toggle = byId("vc-dashboard-sidebar-tickets-toggle");
     var group = byId("vc-dashboard-sidebar-tickets");
     if (toggle && group && !toggle.__vcTkWired) {
-      // Wire principale: pointerdown in wireForm (come bacheca/partnership).
-      toggle.__vcTkWired = true;
+            toggle.__vcTkWired = true;
     }
 
     var newPanelBtn = byId("tk-panels-new-btn");
@@ -15865,8 +15701,7 @@
       permsGrid.addEventListener("change", function (ev) {
         var input = ev.target;
         if (!input || !input.matches || !input.matches('input[type="checkbox"][id^="tk-panel-perm-"]')) return;
-        // Aggiorna hint override senza resettare i valori appena cambiati.
-        var draft = { replace: true };
+                var draft = { replace: true };
         TICKET_PANEL_PERM_KEYS.forEach(function (key) {
           var el = byId("tk-panel-perm-" + key);
           draft[key] = Boolean(el && el.checked);
@@ -15888,8 +15723,7 @@
         if (input.matches('[id$="-enabled"]')) {
           var allDayEl = byId("tk-panel-supportHours-" + day + "-allDay");
           if (input.checked) {
-            // Abilitato = fascia oraria (come Ticket Tool).
-            if (allDayEl) allDayEl.checked = false;
+                        if (allDayEl) allDayEl.checked = false;
             var startEl = byId("tk-panel-supportHours-" + day + "-start");
             var endEl = byId("tk-panel-supportHours-" + day + "-end");
             if (startEl && !startEl.value) startEl.value = "09:00";
@@ -16068,9 +15902,7 @@
     var token = getToken();
     if (!token || !state.guildId) return false;
     try {
-      // Niente ?fresh=1 qui: sul main (centinaia di canali/ruoli/emoji) blocca il loader a tempo indefinito.
-      // Il refresh forzato resta in refreshPartnershipPickers quando serve.
-      var out = await fetchDashboardJson(
+                  var out = await fetchDashboardJson(
         resolveApiBase() + "/guilds/" + encodeURIComponent(state.guildId) + "/partnership",
         token,
         { attempts: 3 },
@@ -16092,8 +15924,7 @@
       setPremiumFromApi(data);
       fillPartnershipForm(data.partnership, data.pickers);
       applyPremiumUi();
-      // Prefetch stato migrazione così aprendo la tab non flashano i pannelli setup.
-      refreshMigrationStatus();
+            refreshMigrationStatus();
       setError("");
       return true;
     } catch (e) {
@@ -16164,9 +15995,7 @@
       state.partnership = data.partnership;
       state.pickers = data.pickers || state.pickers;
       setPremiumFromApi(data);
-      // Autosave silenzioso: non rifare fill+sync (riaccendeva i toggle spenti via valori residui
-      // e faceva “lampeggiare” lo stato mentre l’utente cliccava ancora).
-      if (silent) {
+                  if (silent) {
         captureBaseline();
         var completeBtnSilent = byId("ps-complete-btn");
         var setupBarSilent = byId("vc-dashboard-setup-bar");
@@ -16307,9 +16136,7 @@
       if (ok === false) return;
     }
     hideGate();
-    // I poll silenziosi non devono abortire un load completo (altrimenti fill/applyView
-    // restano a metà → sidebar partnership + solo footer).
-    if (silent && state.loadBusy) return;
+            if (silent && state.loadBusy) return;
     var seq = ++state.loadSeq;
     if (!silent) {
       state.loadBusy = true;
@@ -16318,8 +16145,7 @@
       setError("");
       setSuccess("");
     }
-    // Barra server: solo al load “vero”, non ad ogni poll silenzioso (evita storm → 502).
-    if (!silent) void loadServerSwitcher();
+        if (!silent) void loadServerSwitcher();
 
     try {
       var out = await fetchDashboardJson(
@@ -16347,23 +16173,19 @@
         return;
       }
       state.overview = data;
-      // Se lo switcher non è ancora uscito (race/API lenta), riprova dopo overview.
-      if (!silent) {
+            if (!silent) {
         var sw = byId("vc-dash-server-switcher");
         if (sw && sw.hasAttribute("hidden")) void loadServerSwitcher({ force: true });
         else if (Array.isArray(state.switcherGuilds) && state.switcherGuilds.length) {
           renderServerSwitcher(state.switcherGuilds);
         }
       }
-      // Sblocca subito overview: partnership/settings non devono tenere il loader infinito
-      // (soprattutto sul server principale con picker Discord enormi).
-      if (!silent) {
+                  if (!silent) {
         setError("");
         renderOverview(data);
         setLoading(false);
         revealGuildMain();
-        // Lascia dipingere overview prima dei moduli pesanti (pickers enormi sul main).
-        await new Promise(function (resolve) {
+                await new Promise(function (resolve) {
           if (typeof requestAnimationFrame === "function") {
             requestAnimationFrame(function () {
               requestAnimationFrame(resolve);
@@ -16432,8 +16254,7 @@
       }
       if (seq !== state.loadSeq) return;
       if (!silent) {
-        // Aggiorna nav/form dopo i moduli (es. ripristina #partnership/... dall’hash).
-        renderOverview(state.overview);
+                renderOverview(state.overview);
         revealGuildMain();
         ensureVisibleDashboardContent();
       }
@@ -16496,8 +16317,7 @@
     form.addEventListener("focusout", function (ev) {
       var t = ev && ev.target;
       if (!isTypingField(t)) return;
-      // Uscita dal campo: salva subito se c’è un debounce in corso.
-      if (state.settingsAutosaveTimer) scheduleSettingsAutosave(0);
+            if (state.settingsAutosaveTimer) scheduleSettingsAutosave(0);
     });
 
     var fileInput = byId("gs-botAvatarFile");
@@ -16608,8 +16428,7 @@
       form.addEventListener("change", function (ev) {
         var t = ev && ev.target;
         if (t && t.closest && t.closest("#ps-migration-setup, #ps-migration-actions, #ps-migration-progress, #ps-blacklist-root, #ps-setup-wizard")) return;
-        // Feat switch / chip già gestiti in wireFeatCards.
-        if (t && t.matches && (t.matches("[data-feat-switch]") || t.matches(".vc-dash-chip input"))) return;
+                if (t && t.matches && (t.matches("[data-feat-switch]") || t.matches(".vc-dash-chip input"))) return;
         if (!shouldAutosaveFeatField(t)) return;
         scheduleAutosave(0);
       });
@@ -16740,19 +16559,14 @@
         }
         var group = byId("vc-dashboard-sidebar-partnership");
         var isOpen = Boolean(group && group.classList.contains("is-open"));
-        // Durante ignore anti-ghost: ignora solo i tap che riaprirebbero subito dopo una chiusura.
-        if (!isOpen && Date.now() < Number(state.partnershipSheetIgnoreUntil || 0)) return;
-        // Se già aperto e siamo ancora nella finestra anti-ghost dell’apertura,
-        // non trattare il click successivo come chiusura (bordo / ghost click).
-        if (isOpen && Date.now() < Number(state.partnershipSheetIgnoreUntil || 0)) return;
+                if (!isOpen && Date.now() < Number(state.partnershipSheetIgnoreUntil || 0)) return;
+                        if (isOpen && Date.now() < Number(state.partnershipSheetIgnoreUntil || 0)) return;
         setPartnershipNavOpen(!isOpen);
         if (isOpen) {
-          // Chiusura intenzionale: blocca un eventuale click sintetico successivo.
-          state.partnershipSheetIgnoreUntil = Date.now() + 400;
+                    state.partnershipSheetIgnoreUntil = Date.now() + 400;
         }
       }
-      // pointerdown = risposta immediata su telefono (il click arriva dopo e lagga).
-      toggle.addEventListener("pointerdown", onPartnershipToggle, true);
+            toggle.addEventListener("pointerdown", onPartnershipToggle, true);
       toggle.addEventListener(
         "click",
         function (ev) {
@@ -16987,15 +16801,13 @@
         if (shell) ro.observe(shell);
       }
     }
-    // Watchdog: ripristina main/sidebar/form se restano bloccati (UI “solo footer”).
-    if (!window.__vcDashMainWatchdog) {
+        if (!window.__vcDashMainWatchdog) {
       window.__vcDashMainWatchdog = setInterval(function () {
         try {
           ensureVisibleDashboardContent();
           var loading = byId("vc-dashboard-guild-loading");
           if (loading && !loading.hasAttribute("hidden") && state.overview) {
-            // Loader non deve restare appiccicato sopra una overview già pronta.
-            var loadingAgeOk = Date.now() - Number(state.__loadStartedAt || 0) > 12000;
+                        var loadingAgeOk = Date.now() - Number(state.__loadStartedAt || 0) > 12000;
             if (loadingAgeOk && !state.loadBusy) {
               loading.setAttribute("hidden", "");
               document.body.classList.remove("vc-dashboard-guild-loading-active");
@@ -17022,8 +16834,7 @@
     wireGateLogin();
     wireForm();
     syncSidebarHeaderOffset();
-    // Conserva l’avatar bot di default per quando il nome server non è ancora noto.
-    try {
+        try {
       var iconEl = byId("vc-dashboard-header-guild-icon");
       if (iconEl && !iconEl.getAttribute("data-vc-bot-avatar")) {
         var src = resolveBotAvatarFallback(iconEl.getAttribute("src") || "");
@@ -17034,8 +16845,7 @@
       }
     } catch (eBrand) {}
     if (getToken()) {
-      // Mostra subito lo switcher da cache sessione, se disponibile.
-      void loadServerSwitcher();
+            void loadServerSwitcher();
       loadOverview();
       return;
     }
@@ -17045,8 +16855,7 @@
   window.addEventListener("vc-discord-profile", function (ev) {
     var u = ev && ev.detail ? ev.detail.user : null;
     if (u) {
-      // Evita doppio fetch se boot() ha già avviato il load con lo stesso token.
-      if (!bootedOnce || !state.overview) loadOverview();
+            if (!bootedOnce || !state.overview) loadOverview();
       else void loadServerSwitcher({ force: true });
       return;
     }

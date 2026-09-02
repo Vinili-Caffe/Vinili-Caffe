@@ -19,7 +19,6 @@ function partnersChatChannelId(guildId) {
   return String(IDs.channels?.partnersChat || "").trim();
 }
 
-/** #partners-chat o thread sotto quel canale. */
 function isChannelOrThreadUnderPartnersChat(channel) {
   const guildId = String(channel?.guild?.id || channel?.guildId || "").trim();
   const chat = partnersChatChannelId(guildId);
@@ -91,7 +90,6 @@ function formatTenantPmCommandsZoneHint(guildId, guild) {
   return parts.join(" o ");
 }
 
-/** Thread comandi PM sotto #staff-cmds. */
 async function isPartnerPmDailyCommandsThread(channel) {
   return isStaffCmdsPmCommandsThread(channel);
 }
@@ -145,11 +143,6 @@ function isPartnershipPublishChannel(channel) {
   return false;
 }
 
-/**
- * Nel canale partnership (pubblicazione) non si usano comandi prefix/slash:
- * solo messaggi di descrizione partner (manuale) o post del bot.
- * Eccezioni contestuali: Segnala (main) e Elimina partnership (main + tenant).
- */
 const PARTNERSHIP_PUBLISH_CHANNEL_ALLOWED_COMMANDS = new Set([
   "segnala",
   "elimina partnership",
@@ -167,10 +160,6 @@ function partnershipPublishChannelCommandsDeniedReplyContent(channel, options = 
   );
 }
 
-/**
- * Se il comando PM è fuori dal thread dedicato (partners-chat, #staff-chat, #staff-cmds o thread High),
- * restituisce il testo di rifiuto; altrimenti null.
- */
 async function partnersChatPartnerCommandDeniedReplyContent(channel, options = {}) {
   const guildId = String(channel?.guild?.id || channel?.guildId || "").trim();
   if (guildId && !isViniliFullFeatureGuild(guildId)) {
@@ -205,7 +194,6 @@ async function partnersChatPartnerCommandDeniedReplyContent(channel, options = {
   );
 }
 
-/** Risposta a un comando prefisso + cancellazione dopo ~8s del messaggio utente e della risposta bot. */
 async function sendPartnersChatDeniedPrefixCleanup(message, content) {
   const ttl = EPHEMERAL_TTL_SHORT_MS;
   const { buildSimpleNoticePayload } = require("../Embeds/simpleNoticeEmbed");
@@ -228,7 +216,6 @@ async function sendPartnersChatDeniedPrefixCleanup(message, content) {
   return sent;
 }
 
-/** Dopo `reply` ephemeral a un’interazione, rimuove la risposta (es. avviso zona sbagliata). */
 function schedulePartnersDeniedDeleteReply(interaction, ttlMs = EPHEMERAL_TTL_SHORT_MS) {
   const t = Number(ttlMs) > 0 ? ttlMs : EPHEMERAL_TTL_SHORT_MS;
   const timer = setTimeout(() => {

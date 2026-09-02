@@ -1,7 +1,3 @@
-/**
- * Allinea la wiki ai comandi visibili con +help per un membro che ha solo il ruolo Member
- * (stessa logica di canMemberSeeEntry in Vinyls/Prefix/Utility/help.js).
- */
 import fs from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
@@ -128,10 +124,6 @@ function normalizePermissionRoles(value) {
   return null;
 }
 
-/**
- * Slash / context: visibile in wiki se il membro “solo Member” può usare almeno la base
- * o una subcommand (stesso spirito di buildEntries + canMemberSeeEntry).
- */
 export function isSlashOrContextVisibleOnWiki(permNode, memberRoleSet, ids) {
   if (permNode == null) return true;
   if (Array.isArray(permNode)) {
@@ -157,9 +149,6 @@ export function isSlashOrContextVisibleOnWiki(permNode, memberRoleSet, ids) {
   return true;
 }
 
-/**
- * Prefix: come buildEntries — se ci sono canonical/subcommands, basta che una riga sia visibile.
- */
 export function isPrefixCommandVisibleOnWiki(
   permCfg,
   canonicalSubs,
@@ -222,10 +211,6 @@ export function isWikiEconomyCategoryVisible(botRoot, nowMs = Date.now()) {
   return isGaleoniEconomyUnlockedAtMs(loadGaleoniEconomyUnlockMs(botRoot), nowMs);
 }
 
-/**
- * @param {string} botRoot Vinyls o Coffee
- * @returns {{ ids: object; permissions: { slash: object; prefix: object }; memberRoleSet: Set<string> } | null}
- */
 export function loadWikiHelpContext(botRoot) {
   if (!fs.existsSync(botRoot)) return null;
   const ids = loadIds(botRoot);

@@ -19,7 +19,6 @@ function isTicketCategoryName(name) {
   return false;
 }
 
-/** Dashboard mostra "Tickets"; su Discord creiamo/riusiamo il nome fancy storico. */
 function resolveDiscordTicketCategoryName(dashboardOrDiscordName) {
   const raw = String(dashboardOrDiscordName || "").trim();
   if (!raw) return TICKETS_CATEGORY_NAME;

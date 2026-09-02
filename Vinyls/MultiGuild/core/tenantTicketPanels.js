@@ -151,8 +151,7 @@ function normalizeSingle(raw, fallback = {}) {
     buttonText: String(src.buttonText ?? base.buttonText ?? DEFAULT_TICKET_PANEL_TITLE).trim().slice(0, 80) || DEFAULT_TICKET_PANEL_TITLE,
     buttonEmoji: normalizeEmoji(src.buttonEmoji ?? base.buttonEmoji),
     ticketType,
-    // Unique per-panel control id so open runtime can load this panel's options.
-    openCustomId: panelOpenCustomId(id) || ticketTypeToCustomId(ticketType),
+        openCustomId: panelOpenCustomId(id) || ticketTypeToCustomId(ticketType),
     largeImageUrl: normalizeUrl(src.largeImageUrl ?? base.largeImageUrl),
     smallImageUrl: normalizeUrl(src.smallImageUrl ?? base.smallImageUrl),
     mentionOnOpen: normalizeMentionOnOpen(src.mentionOnOpen ?? base.mentionOnOpen),
@@ -219,8 +218,7 @@ function normalizeMulti(raw, fallback = {}) {
     const description = String(raw.description || "").trim().slice(0, 100);
     const useCustomEmoji = asBool(raw.useCustomEmoji, false);
     const emoji = useCustomEmoji ? normalizeEmoji(raw.emoji) : null;
-    // useCustomEmoji alone (even with empty emoji) must persist so defaults can be cleared.
-    if (!label && !description && !useCustomEmoji) continue;
+        if (!label && !description && !useCustomEmoji) continue;
     optionOverrides[String(panelId)] = {
       label: label || null,
       description: description || null,

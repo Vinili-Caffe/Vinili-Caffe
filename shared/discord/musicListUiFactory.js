@@ -49,14 +49,6 @@ function chunkRowsToPageBodies(rows, lineFn) {
   return bodies.length ? bodies : ["_(vuoto)_"];
 }
 
-/**
- * @param {{
- *   applyDefaultFooterToEmbeds: Function,
- *   fetchGuildQueueEntryRows: Function,
- *   fetchGuildUpcomingQueueRows: Function,
- *   fetchGuildRequestedSessionRows: Function,
- * }} deps
- */
 function createMusicListUi(deps) {
   const applyDefaultFooterToEmbeds = deps.applyDefaultFooterToEmbeds;
   const KIND = {

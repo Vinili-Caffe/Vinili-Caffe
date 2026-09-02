@@ -36,11 +36,11 @@ const { fetchWebsiteGuildMember, readCachedWebsiteMember } = require("./websiteG
 const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi");
 
 const PROFILE_CACHE_TTL_MS = 120_000;
+const PROFILE_STALE_CACHE_MS = 15 * 60 * 1000;
 const PROFILE_CACHE_MAX = 200;
 const profileCache = new Map();
 const PROFILE_PAYLOAD_VERSION = 21;
-/** Soft caps: first paint staff come community. */
-const STAFF_MEMBER_SOFT_TIMEOUT_MS = 500;
+const STAFF_MEMBER_SOFT_TIMEOUT_MS = 2800;
 const STAFF_LEGACY_SOFT_TIMEOUT_MS = 350;
 
 function stripDiscordDecorations(text) {
@@ -67,11 +67,19 @@ function readProfileCache(viewerUserId, targetUserId) {
   const key = profileCacheKey(viewerUserId, targetUserId);
   if (!key) return null;
   const entry = profileCache.get(key);
-  if (!entry || Number(entry.exp || 0) <= Date.now()) {
-    profileCache.delete(key);
-    return null;
-  }
+  if (!entry || !entry.payload) return null;
+  if (Number(entry.exp || 0) <= Date.now()) return null;
   return entry.payload;
+}
+
+function readStaleProfileCache(viewerUserId, targetUserId) {
+  const key = profileCacheKey(viewerUserId, targetUserId);
+  if (!key) return null;
+  const entry = profileCache.get(key);
+  if (!entry || !entry.payload) return null;
+  const age = Date.now() - Number(entry.writtenAt || 0);
+  if (!Number.isFinite(age) || age > PROFILE_STALE_CACHE_MS) return null;
+  return { ...entry.payload, cached: true, stale: true };
 }
 
 function writeProfileCache(viewerUserId, targetUserId, payload) {
@@ -83,6 +91,7 @@ function writeProfileCache(viewerUserId, targetUserId, payload) {
   }
   profileCache.set(key, {
     exp: Date.now() + PROFILE_CACHE_TTL_MS,
+    writtenAt: Date.now(),
     payload,
   });
 }
@@ -267,7 +276,6 @@ function roleNameFromId(guild, roleIdOrName) {
   return raw;
 }
 
-/** Canonical form for career dedupe (Mod ≈ Moderator, ID ≈ name). */
 function normalizeCareerRoleToken(value) {
   let s = stripDiscordDecorations(String(value || ""))
     .toLowerCase()
@@ -329,7 +337,6 @@ function preferCareerRow(a, b) {
   return a;
 }
 
-/** Scala staff Helper→Founder (Partner Manager è traccia parallela, non va mescolata). */
 function isOnStaffCareerLadder(token) {
   if (!token) return false;
   if (token === "member" || token === "community" || token === "partner manager") return false;
@@ -349,15 +356,10 @@ function isPartnerManagerRole(token) {
   return token === "partner manager";
 }
 
-/** true se oldRole non è già nella ladder staff (ingresso da Member / fuori organico / PM). */
 function isOutsideStaffCareerLadder(token) {
   return !isOnStaffCareerLadder(token);
 }
 
-/**
- * Traccia Partner Manager (parallela allo staff).
- * Solo passaggi → Partner Manager dell'ultimo stint PM; niente Helper/Mod.
- */
 function slicePartnerManagerCareer(rows, opts = {}) {
   if (!Array.isArray(rows) || !rows.length) return [];
   const stillActive = Boolean(opts.stillActive);
@@ -380,8 +382,7 @@ function slicePartnerManagerCareer(rows, opts = {}) {
   }
   if (!found) {
     if (!stillActive) return [];
-    // Nessun pex →PM in history: non inventare la riga Helper.
-    return [];
+        return [];
   }
   if (!onPm && !stillActive) return [];
 
@@ -393,18 +394,11 @@ function slicePartnerManagerCareer(rows, opts = {}) {
       kept.push(chrono[i]);
       continue;
     }
-    // Fine stint PM (es. PM → Member / PM → Helper): stop, non includere.
-    if (isPartnerManagerRole(from) && !isPartnerManagerRole(to)) break;
+        if (isPartnerManagerRole(from) && !isPartnerManagerRole(to)) break;
   }
   return kept.sort((a, b) => (b._sort || 0) - (a._sort || 0));
 }
 
-/**
- * Tiene solo l'ultimo stint sulla scala Helper→Founder.
- * Partner Manager conta come "fuori" (traccia parallela).
- * - Se uscito e non più in organico → lista vuota.
- * - Mostra TUTTO il percorso di quello stint (Member→Helper→Mod→…).
- */
 function sliceToLatestCareerStart(rows, opts = {}) {
   if (!Array.isArray(rows) || !rows.length) return [];
   const stillActive = Boolean(opts.stillActive);
@@ -435,13 +429,11 @@ function sliceToLatestCareerStart(rows, opts = {}) {
     if (!stillActive) return [];
     startIdx = 0;
   } else if (!onLadder && !stillActive) {
-    // Depex → Member / fuori organico: non mostrare la carriera interrotta.
-    return [];
+        return [];
   }
 
   let endExclusive = chrono.length;
-  // Mai mostrare uscite → Member / fuori ladder in coda allo stint.
-  while (
+    while (
     endExclusive > startIdx &&
     !isOnStaffCareerLadder(normalizeCareerRoleToken(chrono[endExclusive - 1]?.newRole))
   ) {
@@ -465,9 +457,15 @@ function dedupeCareerHistoryRows(rows) {
       .toLowerCase()
       .replace(/\s+/g, " ")
       .trim();
+    const tripKey = from && to ? `${day}|${from}|${to}` : "";
     const key = `${day}|${from}|${to}|${reason}`;
     if (!from && !to) {
       out.push(row);
+      continue;
+    }
+        if (tripKey && seen.has(tripKey)) {
+      const idx = seen.get(tripKey);
+      out[idx] = preferCareerRow(out[idx], row);
       continue;
     }
     if (seen.has(key)) {
@@ -475,15 +473,16 @@ function dedupeCareerHistoryRows(rows) {
       out[idx] = preferCareerRow(out[idx], row);
       continue;
     }
-    // Same day + same destination role + same reason (oldRole may differ as Member vs —).
-    const softKey = `${day}|*|${to}|${reason}`;
+        const softKey = `${day}|*|${to}|${reason}`;
     if (to && reason && seen.has(softKey)) {
       const idx = seen.get(softKey);
       out[idx] = preferCareerRow(out[idx], row);
       continue;
     }
-    seen.set(key, out.length);
-    if (to && reason) seen.set(softKey, out.length);
+    const idx = out.length;
+    if (tripKey) seen.set(tripKey, idx);
+    seen.set(key, idx);
+    if (to && reason) seen.set(softKey, idx);
     out.push(row);
   }
   return out;
@@ -532,8 +531,7 @@ function resolveTenureIso(staffObj, opts = {}) {
         _iso: iso,
       };
     });
-  // Per tenure: normalizza anche ID ruolo → token via normalizeCareerRoleToken (alias ID).
-  const withNames = mapped.map((row) => ({
+    const withNames = mapped.map((row) => ({
     ...row,
     oldRole: normalizeCareerRoleToken(row.oldRole) || row.oldRole,
     newRole: normalizeCareerRoleToken(row.newRole) || row.newRole,
@@ -544,8 +542,7 @@ function resolveTenureIso(staffObj, opts = {}) {
     track: opts.track,
   });
   if (!current.length) return null;
-  // current è newest-first: la tenure è la riga più vecchia della carriera corrente.
-  let earliest = null;
+    let earliest = null;
   for (const row of current) {
     if (!row?._iso) continue;
     const d = new Date(row._iso);
@@ -615,8 +612,7 @@ async function resolveStaffProfileAvatarUrl(client, guild, member, user, userId)
   let avatarSubject = member;
   let targetUser = member?.user || user || null;
 
-  // Mai rifare members.fetch qui: è la causa tipica di loader lentissimi su Discord.
-  const fromMember =
+    const fromMember =
     avatarSubject?.avatar != null && avatarSubject.avatar !== ""
       ? userAvatarUrlDynamic(avatarSubject, { size: 256 })
       : null;
@@ -696,8 +692,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
 
   const guild = member.guild || client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   let targetUser = member?.user || user || null;
-  // Niente users.fetch sincrono: avatar da cache member/user basta per il first paint.
-  const username = accountUsername(targetUser) || accountUsername(member) || userId;
+    const username = accountUsername(targetUser) || accountUsername(member) || userId;
   const displayName = memberDisplayName(member, targetUser) || username;
 
   const profileKind = resolveStaffProfileKind(member);
@@ -713,8 +708,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
     };
   }
 
-  // Avvia subito le parti lente in parallelo (avatar sync + modstats soft + DB).
-  const showModstats = profileKind === PROFILE_FULL;
+    const showModstats = profileKind === PROFILE_FULL;
   const avatarPromise = resolveStaffProfileAvatarUrl(client, guild, member, targetUser, userId);
   const modstatsPromise = showModstats ? buildModstatsWithBudget(guildId, userId) : Promise.resolve(null);
   const activityPromise = ActivityUserProfile.findOne({ guildId, userId })
@@ -888,10 +882,6 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
   };
 }
 
-/**
- * GET Bearer — profilo staff (self o altro staff se viewer è staff).
- * Query opzionale: ?userId= per profilo di un altro membro staff.
- */
 async function handleSiteStaffProfileGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -924,9 +914,7 @@ async function handleSiteStaffProfileGet(client, req, res) {
 
     let targetMember = access.member;
     let targetUser = access.member?.user || access.user || null;
-    // Per isSelf il member arriva già dall'access: non rifetchare Discord.
-    // Per altri utenti: cache guild prima, poi fetch con timeout corto.
-    if (!isSelf) {
+            if (!isSelf) {
       const guildId = String(IDs.guilds.main || access.member?.guild?.id || "").trim();
       const guild =
         access.member?.guild ||
@@ -941,36 +929,26 @@ async function handleSiteStaffProfileGet(client, req, res) {
       }
       const cachedMember =
         guild.members.cache.get(targetUserId) || readCachedWebsiteMember(targetUserId) || null;
-      // Preferisci cache; altrimenti soft-timeout come profilo community.
-      if (cachedMember) {
+            if (cachedMember) {
         targetMember = cachedMember;
       } else {
-        targetMember = await Promise.race([
+        targetMember = await fetchWebsiteGuildMember(guild, targetUserId, {
+          timeoutMs: STAFF_MEMBER_SOFT_TIMEOUT_MS,
+          retry: true,
+        }).catch(() => null);
+                if (!targetMember) {
           fetchWebsiteGuildMember(guild, targetUserId, {
-            timeoutMs: STAFF_MEMBER_SOFT_TIMEOUT_MS,
+            timeoutMs: 10_000,
             retry: false,
-          }).catch(() => null),
-          new Promise((resolve) => setTimeout(() => resolve(null), STAFF_MEMBER_SOFT_TIMEOUT_MS)),
-        ]);
-        // Warm in background per il refresh successivo (salta se già in negative-cache).
-        if (!targetMember) {
-          try {
-            const { isOnNegativeCache } = require("./websiteGuildMemberFetch");
-            if (!isOnNegativeCache(targetUserId)) {
-              fetchWebsiteGuildMember(guild, targetUserId, {
-                timeoutMs: 8_000,
-                retry: false,
-              }).catch(() => null);
-            }
-          } catch (_) {
-            fetchWebsiteGuildMember(guild, targetUserId, {
-              timeoutMs: 8_000,
-              retry: false,
-            }).catch(() => null);
-          }
+          }).catch(() => null);
         }
       }
       if (!targetMember) {
+        const stale = readStaleProfileCache(viewerUserId, targetUserId);
+        if (stale) {
+          res.setHeader("Cache-Control", "private, max-age=5");
+          return res.status(200).json(stale);
+        }
         return res.status(503).json({
           ok: false,
           error: "member_unavailable",

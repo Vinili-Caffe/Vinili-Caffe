@@ -133,9 +133,7 @@ async function restoreOrphanedBookNameDecor(guild, decor, payload, options = {})
     ...(Array.isArray(payload?.nameChannelsHistory) ? payload.nameChannelsHistory : []),
   ]);
   let restored = 0;
-  // Solo canali tracciati dall'evento (catalogo/history). Non scansionare tutti i 📖:
-  // può includere canali già ripristinati o non-evento.
-  for (const [channelId, originalNameRaw] of Object.entries(catalog)) {
+      for (const [channelId, originalNameRaw] of Object.entries(catalog)) {
     if (activeIds.has(channelId)) continue;
     const originalName = String(originalNameRaw || "").trim();
     if (!originalName) continue;
@@ -146,8 +144,7 @@ async function restoreOrphanedBookNameDecor(guild, decor, payload, options = {})
     await sleep(RENAME_GAP_MS);
   }
 
-  // Fallback: canali ancora con emoji libro ma fuori catalogo → ultimo nome pre-📖 dagli audit log.
-  const leftovers = listBookDecoratedChannels(guild, decor.bookEmoji).filter((channel) => {
+    const leftovers = listBookDecoratedChannels(guild, decor.bookEmoji).filter((channel) => {
     if (activeIds.has(channel.id)) return false;
     const known = String(catalog[channel.id] || "").trim();
     return !known || known !== String(channel.name || "");
@@ -846,8 +843,7 @@ async function syncForbiddenSectionChannelDecor(client) {
   const huntActive = runtime.roundActive === true;
 
   if (!huntActive) {
-    // Evento chiuso: evita restore ogni minuto, ma se restano canali 📖 ripristina (catalogo/audit).
-    if (docStatus === "restored" || docStatus === "") {
+        if (docStatus === "restored" || docStatus === "") {
       await guild.channels.fetch().catch(() => null);
       const leftovers = listBookDecoratedChannels(guild, decor.bookEmoji);
       const hasBookTopic = guildHasBookTopicDecor(guild, decor.bookEmoji);

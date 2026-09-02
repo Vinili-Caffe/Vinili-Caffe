@@ -12,7 +12,6 @@ const SLASH_KIND_TO_DISCORD_TYPE = Object.freeze({
 
 let globalCommandsCache = { at: 0, appId: "", byKey: new Map() };
 const GLOBAL_CMDS_TTL_MS = 60_000;
-/** Cache guild application commands: `${appId}:${guildId}` → { at, byKey } */
 const guildCommandsCache = new Map();
 const GUILD_CMDS_TTL_MS = 60_000;
 
@@ -91,10 +90,6 @@ async function fetchGuildCommandsByKey(applicationId, botToken, guildId) {
   return byKey;
 }
 
-/**
- * Global + guild application commands. Guild wins on same type+name
- * (main Vinili deploys staff/admin slash as guild commands).
- */
 async function fetchApplicationCommandsByKey(applicationId, botToken, guildId) {
   const globalByKey = await fetchGlobalCommandsByKey(applicationId, botToken);
   const gid = String(guildId || "").trim();
@@ -117,10 +112,6 @@ async function fetchApplicationCommandsByKey(applicationId, botToken, guildId) {
   return merged;
 }
 
-/**
- * Convert dashboard ACL → Discord application command permissions payload.
- * Mirrors Integrations UI: include = allow-list, exclude = deny-list.
- */
 function aclToDiscordPermissions(acl, guildId) {
   const gid = String(guildId || "").trim();
   if (!/^\d{16,22}$/.test(gid)) return [];
@@ -140,8 +131,7 @@ function aclToDiscordPermissions(acl, guildId) {
 
   const enabled = acl?.enabled !== false;
   if (!enabled) {
-    // Disattivo = nessuno può usarlo e in nessun canale (come da Integrazioni Discord).
-    push(everyoneId, ApplicationCommandPermissionType.Role, false);
+        push(everyoneId, ApplicationCommandPermissionType.Role, false);
     if (allChannelsId) push(allChannelsId, ApplicationCommandPermissionType.Channel, false);
     return permissions.slice(0, 100);
   }
@@ -167,9 +157,6 @@ function aclToDiscordPermissions(acl, guildId) {
   return permissions.slice(0, 100);
 }
 
-/**
- * Convert Discord permissions → dashboard ACL shape.
- */
 function discordPermissionsToAcl(permissions, guildId) {
   const gid = String(guildId || "").trim();
   const allChannelsId = allChannelsPermissionId(gid);
@@ -214,8 +201,7 @@ function discordPermissionsToAcl(permissions, guildId) {
     allChannelsDenied &&
     !allowedChannels.length;
 
-  // Compat: vecchio formato (solo @everyone negato).
-  const legacyDisabled = everyoneDenied && !allowedRoles.length && !allowedChannels.length;
+    const legacyDisabled = everyoneDenied && !allowedRoles.length && !allowedChannels.length;
 
   if (fullyDisabled || legacyDisabled) {
     return {
@@ -299,8 +285,7 @@ async function getCommandPermissions({ accessToken, applicationId, guildId, comm
   }
   if (!res.ok) {
     const code = Number(json?.code || 0);
-    // Unknown application command permissions / empty
-    if (code === 10066) return { permissions: [] };
+        if (code === 10066) return { permissions: [] };
     const err = new Error(json?.message || text || `Discord permissions GET ${res.status}`);
     err.status = res.status;
     err.code = code;
@@ -310,10 +295,6 @@ async function getCommandPermissions({ accessToken, applicationId, guildId, comm
   return json || { permissions: [] };
 }
 
-/**
- * Bulk: all command permissions for the guild in one Discord request.
- * GET /applications/{app}/guilds/{guild}/commands/permissions
- */
 async function getAllGuildCommandPermissions({ accessToken, applicationId, guildId }) {
   const token = String(accessToken || "").replace(/^Bearer\s+/i, "").trim();
   const appId = String(applicationId || "").trim();
@@ -379,9 +360,6 @@ function classifyDiscordPermissionsError(err) {
   };
 }
 
-/**
- * Sync one slash ACL key to Discord. acl=null clears overrides.
- */
 async function syncSlashAclToDiscord({
   accessToken,
   botToken,
@@ -422,10 +400,6 @@ async function syncSlashAclToDiscord({
   }
 }
 
-/**
- * Load Discord permissions for all known slash keys into an ACL map overlay.
- * Preferisce 1 sola GET bulk; fallback a GET per comando solo se il bulk non è disponibile.
- */
 async function loadSlashAclMapFromDiscord({
   accessToken,
   botToken,
@@ -484,15 +458,13 @@ async function loadSlashAclMapFromDiscord({
       if (!parsed) continue;
       const cmd = byKey.get(slashAclKey(parsed.type, parsed.name));
       if (!cmd?.id) continue;
-      // Assente dal bulk = nessun override Discord.
-      const permissions = permsByCommandId.has(cmd.id) ? permsByCommandId.get(cmd.id) : [];
+            const permissions = permsByCommandId.has(cmd.id) ? permsByCommandId.get(cmd.id) : [];
       out[key] = aclFromDiscordPermissionsList(permissions, guildId);
     }
     return { ok: true, commands: out, partial: false };
   }
 
-  // Fallback lento (raro): GET per comando, con parallelismo limitato.
-  const CONCURRENCY = 6;
+    const CONCURRENCY = 6;
   let failed = null;
   const pending = [];
   for (const key of keys) {

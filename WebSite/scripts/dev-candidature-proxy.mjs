@@ -1,18 +1,3 @@
-/**
- * Proxy locale solo per sviluppo: il sito (localhost:3000, 5173, ecc.) chiama questo processo;
- * lui inoltra a http://IP-VPS:porta senza CORS browser→VPS (il browser parla solo con 127.0.0.1).
- *
- * Avvio (dalla root del repo):
- *   node WebSite/scripts/dev-candidature-proxy.mjs --target http://45.143.196.131:3000
- *
- * Poi in site.config candidatureSubmitApiUrlLocal (e rebuild):
- *   http://127.0.0.1:3042/webhooks/site-candidature
- *
- * Lascia questo processo SEMPRE aperto in un terminale mentre provi il sito (se lo chiudi -> ERR_CONNECTION_REFUSED).
- * Verifica: http://127.0.0.1:3042/webhooks/status (inoltra al bot) oppure http://127.0.0.1:3042/
- *
- * Sul VPS non serve WEBSITE_CANDIDATURE_CORS_ORIGIN per questo flusso (il fetch non va al VPS).
- */
 import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";

@@ -135,7 +135,6 @@ function hasCustomActivity(presence) {
   return getActivitiesArray(presence).some((a) => Number(a?.type) === ActivityType.Custom);
 }
 
-/** Custom presente ma senza testo utile (solo emoji / state null): tipico durante cambio online/idle/dnd. */
 function isCustomStatusTextMissing(presence) {
   const customs = getActivitiesArray(presence).filter((a) => Number(a?.type) === ActivityType.Custom);
   if (!customs.length) return false;
@@ -149,22 +148,16 @@ function isCustomStatusTextMissing(presence) {
   return true;
 }
 
-/**
- * true = invite visto, false = assente in modo affidabile, null = presence incompleta/ambigua
- * (non usare come “tolto”: Discord spesso svuota le activities al cambio status).
- */
 function getInviteState(presence, prevHas = false) {
   if (!presence) return null;
   if (isOfflinePresence(presence)) return null;
   if (hasInvite(presence)) return true;
   if (!getActivitiesArray(presence).length && prevHas) return null;
   if (prevHas && hasRichPresenceWithoutCustom(presence)) return null;
-  // Custom “vuoto” o solo emoji: non è una rimozione del link.
-  if (prevHas && hasCustomActivity(presence) && isCustomStatusTextMissing(presence)) return null;
+    if (prevHas && hasCustomActivity(presence) && isCustomStatusTextMissing(presence)) return null;
   return false;
 }
 
-/** true solo se l'invite è visibile ora; false se assente certo; null se non si può decidere. */
 function readInvitePresence(presence, assumeHadLink = false) {
   return getInviteState(presence, assumeHadLink);
 }
@@ -301,8 +294,7 @@ async function executeFanRemoval(member, channel) {
 
   const liveChannel = channel?.isTextBased?.() ? channel : await resolveSupportersChannel(member.guild);
   const cached = getCachedState(guildId, userId);
-  // Offline: scadenza wall-clock vale comunque. Online: solo assenza CERTA del link.
-  if (!isOfflinePresence(member.presence)) {
+    if (!isOfflinePresence(member.presence)) {
     const inviteState = readInvitePresence(member.presence, true);
     if (inviteState === true) {
       const info = cached || {};
@@ -319,8 +311,7 @@ async function executeFanRemoval(member, channel) {
       return false;
     }
     if (inviteState === null) {
-      // Activities vuote/incompleti (cambio status Discord): non togliere i perks.
-      const dueAt = Date.now() + REMOVE_CONFIRM_MS;
+            const dueAt = Date.now() + REMOVE_CONFIRM_MS;
       const info = cached || getCachedState(guildId, userId) || {};
       setCachedState(guildId, userId, {
         ...info,
@@ -340,8 +331,7 @@ async function executeFanRemoval(member, channel) {
 
   const removed = await removeRoleIfPossible(member);
   if (!removed && !(await hasFanRole(member))) {
-    // già senza ruolo
-  } else if (!removed) {
+      } else if (!removed) {
     return false;
   }
 
@@ -396,8 +386,7 @@ function scheduleRemovalConfirm(member, channel, opts = {}) {
       await executeFanRemoval(freshMember, channel);
     };
 
-    // Scadenza già passata (flash online / restart): togli subito, non aspettarne altri 5.
-    if (waitMs <= 0) {
+        if (waitMs <= 0) {
       await run();
       return;
     }
@@ -911,28 +900,23 @@ async function bootstrapSupporter(client) {
   await guild.members.fetch({ withPresences: true }).catch(() => null);
   for (const member of guild.members.cache.values()) {
     if (isBotMember(member)) continue;
-    // Dopo il bulk fetch con presenze, non rifare preferFresh per ogni membro:
-    // ~1.6k fetch sequenziali finiscono in ~8–9 minuti di rate-limit Discord.
-    const freshMember = member;
+            const freshMember = member;
     if (!freshMember || isBotMember(freshMember)) continue;
 
     const online = !isOfflinePresence(freshMember.presence);
-    // Fan in DB: assumevano il link → presence incompleta ≠ tolto.
-    const inviteState = readInvitePresence(freshMember.presence, true);
+        const inviteState = readInvitePresence(freshMember.presence, true);
     const inviteOk = inviteState === true;
     const inviteMissing = inviteState === false;
     const hasFan = freshMember.roles.cache.has(ROLE_ID);
     const existing = getCachedState(guildId, freshMember.id) || {};
     const dueAt = Number(existing.removalDueAt || 0) || 0;
 
-    // Scadenza wall-clock già passata: togli solo se link assente in modo affidabile (o offline).
-    if (hasFan && dueAt > 0 && dueAt <= Date.now() && !(online && !inviteMissing)) {
+        if (hasFan && dueAt > 0 && dueAt <= Date.now() && !(online && !inviteMissing)) {
       await executeFanRemoval(freshMember, channel);
       continue;
     }
 
-    // Fan online senza link (certo): marca dueAt e schedula (persistente).
-    if (online && hasFan && inviteMissing) {
+        if (online && hasFan && inviteMissing) {
       setCachedState(guildId, freshMember.id, {
         hasLink: false,
         lastAnnounced: existing.lastAnnounced || 0,
@@ -976,35 +960,30 @@ function startCleanupClock(client, guildId) {
     if (!guild) return;
     const channel = await resolveSupportersChannel(guild);
 
-    // Sweep ruolo Fan: chi ha il ruolo senza invite (o scadenza già passata).
-    if (ROLE_ID) {
+        if (ROLE_ID) {
       for (const member of guild.members.cache.values()) {
         if (isBotMember(member)) continue;
         if (!member.roles?.cache?.has(ROLE_ID)) continue;
         if (hasPendingState(guildId, member.id)) continue;
 
         const online = !isOfflinePresence(member.presence);
-        // Chi ha già Fan: presence senza activities ≠ link tolto (cambio status Discord).
-        const inviteState = readInvitePresence(member.presence, true);
+                const inviteState = readInvitePresence(member.presence, true);
         if (inviteState === true) {
           await clearRemovalDue(guildId, member.id);
           continue;
         }
-        // Presence incompleta (es. cambio online→idle): non schedulare rimozione.
-        if (inviteState === null) continue;
+                if (inviteState === null) continue;
 
         const existing = getCachedState(guildId, member.id) || {};
         const dueAt = Number(existing.removalDueAt || 0) || 0;
 
-        // Offline con due già scaduta: togli senza aspettarli online 5 min di fila.
-        if (!online && dueAt > 0 && dueAt <= Date.now()) {
+                if (!online && dueAt > 0 && dueAt <= Date.now()) {
           await executeFanRemoval(member, channel);
           continue;
         }
         if (!online) continue;
 
-        // Online senza link (certo): niente warmup — la due è wall-clock persistita.
-        setCachedState(guildId, member.id, {
+                setCachedState(guildId, member.id, {
           hasLink: false,
           lastAnnounced: existing.lastAnnounced || 0,
           lastMessageId: existing.lastMessageId || null,
@@ -1047,8 +1026,7 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
   const guildId = member.guild.id;
   const presence = presenceFresh || member.presence;
   const effectivePrev = prev != null ? prev : { hasLink: Boolean(prevHas) };
-  // Ruolo Fan già assegnato: tratta presence ambigua come “link ancora presente”.
-  const linkPrev = {
+    const linkPrev = {
     ...effectivePrev,
     hasLink:
       Boolean(effectivePrev?.hasLink) ||
@@ -1113,8 +1091,7 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
     return;
   }
 
-  // Fan già assegnato ma status senza link (cache/DB non marcati hasLink): togli comunque.
-  if (!newHas && (member.roles.cache.has(ROLE_ID) || (await hasFanRole(member)))) {
+    if (!newHas && (member.roles.cache.has(ROLE_ID) || (await hasFanRole(member)))) {
     const channel = await resolveSupportersChannel(member.guild);
     await clearPending(guildId, userId, channel);
     setCachedState(guildId, userId, {

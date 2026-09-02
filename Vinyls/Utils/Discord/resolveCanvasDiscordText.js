@@ -1,13 +1,5 @@
 const { accountUsername } = require("./guildDiscordIdentity");
 
-/**
- * Sostituisce menzioni Discord (`<@…>`, `<#…>`, `<@&…>`) con testo leggibile per canvas.
- * Le custom emoji `<:name:id>` / `<a:name:id>` restano intatte per il renderer emoji.
- * @param {import("discord.js").Guild|null|undefined} guild
- * @param {import("discord.js").Client|null|undefined} client
- * @param {string} text
- * @returns {Promise<string>}
- */
 async function resolveCanvasDiscordMarkup(guild, client, text) {
   let s = String(text || "");
   if (!guild || !client) {

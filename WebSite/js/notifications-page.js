@@ -12,6 +12,10 @@
   var ignoreSelfNotifSync = 0;
   var notifPeerSyncTimer = null;
   var notifSyncBc = null;
+  var pageNotifKnownIds = null;
+  var justArrivedNotifIds = new Set();
+  var pageMarkReadTimer = null;
+  var pageMarkReadQueue = new Set();
   try {
     notifSyncBc = new BroadcastChannel("vc_notifications_sync_v1");
   } catch (eBc) {
@@ -22,8 +26,144 @@
     return document.getElementById(id);
   }
 
+  function isOnNotificationsPage() {
+    return Boolean(document.body && document.body.classList.contains("vc-notifications-page"));
+  }
+
+  function refreshNotifBell() {
+    try {
+      if (window.vcNotify && typeof window.vcNotify.refresh === "function") {
+        window.vcNotify.refresh({ force: true });
+      }
+    } catch (eRefreshBell) {}
+  }
+
+  function syncClearAllBtnVisibility() {
+    var btn = byId("vc-notify-clear-all-page");
+    if (!btn) return;
+    var onStaff = Boolean(document.body && document.body.classList.contains("vc-notif-scope-staff"));
+    btn.hidden = onStaff;
+    if (onStaff) btn.setAttribute("hidden", "");
+    else btn.removeAttribute("hidden");
+  }
+
+  function bootstrapPageNotifIds(items) {
+    var next = new Set();
+    var list = Array.isArray(items) ? items : [];
+    for (var i = 0; i < list.length; i += 1) {
+      var id = String((list[i] && list[i].id) || "").trim();
+      if (id) next.add(id);
+    }
+    pageNotifKnownIds = next;
+  }
+
+  function rememberPageNotifIds(items) {
+    if (!(pageNotifKnownIds instanceof Set)) pageNotifKnownIds = new Set();
+    var list = Array.isArray(items) ? items : [];
+    for (var i = 0; i < list.length; i += 1) {
+      var id = String((list[i] && list[i].id) || "").trim();
+      if (id) pageNotifKnownIds.add(id);
+    }
+  }
+
+  function queuePageMarkReadOnServer(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    pageMarkReadQueue.add(sid);
+    if (pageMarkReadTimer) clearTimeout(pageMarkReadTimer);
+    pageMarkReadTimer = setTimeout(function () {
+      pageMarkReadTimer = null;
+      flushPageMarkReadQueue();
+    }, 350);
+  }
+
+  function flushPageMarkReadQueue() {
+    if (!pageMarkReadQueue.size) return;
+    var ids = Array.from(pageMarkReadQueue);
+    pageMarkReadQueue.clear();
+    if (ids.length > 3) {
+      markAllReadOnServer().finally(function () {
+        refreshNotifBell();
+      });
+      return;
+    }
+    Promise.all(
+      ids.map(function (sid) {
+        return markReadOnServer(sid);
+      }),
+    ).finally(function () {
+      refreshNotifBell();
+    });
+  }
+
+  function scheduleJustArrivedCleanup(id) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    window.setTimeout(function () {
+      if (!justArrivedNotifIds.has(sid)) return;
+      justArrivedNotifIds.delete(sid);
+      lastNotifyListRenderSig = "";
+      renderList();
+    }, 5200);
+  }
+
+  function markAllAsReadWhileOnPage(opts) {
+    if (!isOnNotificationsPage()) return;
+    var items = loadStored();
+    var hadUnread = false;
+    var next = items.map(function (x) {
+      if (!x || x.read) return x;
+      hadUnread = true;
+      var sid = String(x.id || "").trim();
+      if (sid) rememberPendingRead(sid);
+      return Object.assign({}, x, { read: true });
+    });
+    if (!hadUnread && !(opts && opts.forceServer)) {
+      refreshNotifBell();
+      return;
+    }
+    saveStored(next);
+    lastNotifyListRenderSig = "";
+    renderList();
+    refreshNotifBell();
+    if (pageMarkReadTimer) clearTimeout(pageMarkReadTimer);
+    pageMarkReadTimer = setTimeout(function () {
+      pageMarkReadTimer = null;
+      markAllReadOnServer().finally(function () {
+        refreshNotifBell();
+      });
+    }, opts && opts.immediate ? 80 : 400);
+  }
+
+  var NOTIF_PAGE_FB = {
+    "notifPage.timeNow": "Ora",
+    "notifPage.timeMinute": "{n} minuto fa",
+    "notifPage.timeMinutes": "{n} minuti fa",
+    "notifPage.timeHour": "{n} ora fa",
+    "notifPage.timeHours": "{n} ore fa",
+    "notifPage.timeDay": "{n} giorno fa",
+    "notifPage.timeDays": "{n} giorni fa",
+    "notifPage.timeOverWeek": "Più di una settimana fa",
+    "notifPage.goTo": "Vai",
+    "notifPage.goToAria": "Vai alla schermata principale",
+    "notifPage.deleteAria": "Elimina notifica",
+  };
+
+  function interpolateFallback(str, vars) {
+    if (!vars) return str;
+    return String(str).replace(/\{(\w+)\}/g, function (_, k) {
+      return vars[k] != null ? String(vars[k]) : "{" + k + "}";
+    });
+  }
+
   function t(key, vars) {
-    if (window.VcI18n && typeof window.VcI18n.t === "function") return window.VcI18n.t(key, vars);
+    if (window.VcI18n && typeof window.VcI18n.t === "function") {
+      var out = window.VcI18n.t(key, vars);
+      if (out !== key) return out;
+    }
+    if (Object.prototype.hasOwnProperty.call(NOTIF_PAGE_FB, key)) {
+      return interpolateFallback(NOTIF_PAGE_FB[key], vars);
+    }
     return key;
   }
 
@@ -598,14 +738,14 @@
 
   function timeAgoIt(atMs) {
     var s = Math.floor((Date.now() - atMs) / 1000);
-    if (s < 45) return t("notifPage.timeNow");
+    if (s < 45) return t("notif.justNow") || t("notifPage.timeNow");
     var m = Math.floor(s / 60);
-    if (m < 60) return m === 1 ? t("notifPage.timeMinute", { n: m }) : t("notifPage.timeMinutes", { n: m });
+    if (m < 60) return m === 1 ? t("notif.minuteAgo") || t("notifPage.timeMinute", { n: m }) : t("notif.minutesAgo", { n: m }) || t("notifPage.timeMinutes", { n: m });
     var h = Math.floor(m / 60);
-    if (h < 24) return h === 1 ? t("notifPage.timeHour", { n: h }) : t("notifPage.timeHours", { n: h });
+    if (h < 24) return h === 1 ? t("notif.hourAgo") || t("notifPage.timeHour", { n: h }) : t("notif.hoursAgo", { n: h }) || t("notifPage.timeHours", { n: h });
     var d = Math.floor(h / 24);
-    if (d < 7) return d === 1 ? t("notifPage.timeDay", { n: d }) : t("notifPage.timeDays", { n: d });
-    return t("notifPage.timeOverWeek");
+    if (d < 7) return d === 1 ? t("notif.dayAgo") || t("notifPage.timeDay", { n: d }) : t("notif.daysAgo", { n: d }) || t("notifPage.timeDays", { n: d });
+    return t("notif.weekPlusAgo") || t("notifPage.timeOverWeek");
   }
 
   function filteredRows(rows) {
@@ -877,6 +1017,8 @@
       if (oid && oldItems[ori] && oldItems[ori].read) oldReadMap[oid] = true;
     }
     var pendingReadMap = loadPendingReadMap();
+    var onPage = isOnNotificationsPage();
+    var bootstrapped = pageNotifKnownIds instanceof Set;
     for (var i = 0; i < list.length; i += 1) {
       var row = list[i];
       if (!row || !row.title) continue;
@@ -900,6 +1042,19 @@
         delete oldReadMap[sid];
         forgetPendingRead(sid);
         if (fpId) forgetPendingRead(fpId);
+      }
+      if (onPage) {
+        var isNewArrival = bootstrapped && !pageNotifKnownIds.has(sid);
+        if (isNewArrival) {
+          justArrivedNotifIds.add(sid);
+          scheduleJustArrivedCleanup(sid);
+          queuePageMarkReadOnServer(sid);
+        }
+        if (!mapped.read || isNewArrival || !bootstrapped) {
+          mapped = Object.assign({}, mapped, { read: true });
+          rememberPendingRead(sid);
+          if (fpId) rememberPendingRead(fpId);
+        }
       }
       fromServer.push(
         Object.assign({}, mapped, {
@@ -925,6 +1080,12 @@
     }
     var merged = keepLocal.concat(fromServer);
     saveStored(merged);
+    if (onPage) {
+      if (!bootstrapped) bootstrapPageNotifIds(merged);
+      else rememberPageNotifIds(fromServer);
+      refreshNotifBell();
+      flushPageMarkReadQueue();
+    }
     return beforeSig !== buildNotifyPageSignature(merged, filteredRows(merged).length);
   }
   function readCachedDiscordUser(token) {
@@ -997,6 +1158,7 @@
 
   function bootNotifList() {
     resolveCurrentUserEarly();
+    markAllAsReadWhileOnPage({ immediate: true });
     renderList();
     waitForNotifSession().then(function (ok) {
       if (!ok) return;
@@ -1115,18 +1277,31 @@
     }
     empty.hidden = true;
 
+    var scrollToId = "";
     shown.forEach(function (n) {
       var li = document.createElement("li");
-      li.className = "vc-notify-row";
+      li.className = "vc-notify-row vc-staff-inbox-item";
       li.classList.add("vc-notify-row--kind-" + String(n.kind || "info"));
       if (n.kind === "success") li.classList.add("vc-notify-row--success");
       if (n.read) li.classList.add("vc-notify-row--read");
       if (n.filtered) li.classList.add("vc-notify-row--filtered");
+      if (justArrivedNotifIds.has(String(n.id || ""))) {
+        li.classList.add("vc-notify-row--just-arrived");
+        if (!scrollToId) scrollToId = String(n.id || "");
+      }
       li.setAttribute("data-id", n.id);
+      li.setAttribute("tabindex", "0");
+      li.setAttribute("role", "button");
       var destRaw = String((n && n.openUrl) || "").trim();
       if (destRaw) li.classList.add("vc-notify-row--link");
       li.addEventListener("click", function (ev) {
-        if (ev.target.closest(".vc-notify-close-btn") || ev.target.closest(".vc-notify-open-btn")) return;
+        if (ev.target.closest(".vc-notify-close-btn")) return;
+        openAndMarkRead(n, destRaw);
+      });
+      li.addEventListener("keydown", function (ev) {
+        if (ev.key !== "Enter" && ev.key !== " ") return;
+        if (ev.target.closest(".vc-notify-close-btn")) return;
+        ev.preventDefault();
         openAndMarkRead(n, destRaw);
       });
 
@@ -1151,53 +1326,49 @@
       when.className = "vc-notify-row-time";
       when.textContent = timeAgoIt(n.at || Date.now());
       meta.appendChild(when);
-      if (!n.read) {
-        var badge = document.createElement("span");
-        badge.className = "vc-notify-row-badge";
-        badge.textContent = kindUiLabel(n.kind);
-        meta.appendChild(badge);
-      }
 
       main.appendChild(title);
       main.appendChild(desc);
       main.appendChild(meta);
 
-      var actions = document.createElement("div");
-      actions.className = "vc-notify-row-actions";
-
-      var openBtn = document.createElement(destRaw ? "a" : "button");
-      if (!destRaw) openBtn.type = "button";
-      openBtn.className = "vc-notify-open-btn";
-      if (destRaw) openBtn.href = resolveNotifDestUrl(destRaw);
-      openBtn.appendChild(document.createTextNode(t("notifPage.goTo") + " "));
-      var openChev = document.createElement("i");
-      openChev.className = "fa fa-chevron-right";
-      openChev.setAttribute("aria-hidden", "true");
-      openBtn.appendChild(openChev);
-      openBtn.setAttribute("aria-label", t("notifPage.goToAria"));
-      openBtn.addEventListener("click", function (ev) {
-        if (destRaw && ev && typeof ev.preventDefault === "function") ev.preventDefault();
-        openAndMarkRead(n, destRaw);
-      });
+      var badge = document.createElement("span");
+      badge.className = "vc-notify-row-badge";
+      if (destRaw) {
+        badge.textContent = t("notifPage.goTo");
+      } else if (!n.read) {
+        badge.textContent = kindUiLabel(n.kind);
+        badge.classList.add("is-pending");
+      } else {
+        badge.textContent = kindUiLabel(n.kind);
+        badge.classList.add("is-ok");
+      }
 
       var closeBtn = document.createElement("button");
       closeBtn.type = "button";
       closeBtn.className = "vc-notify-close-btn";
-      closeBtn.setAttribute("aria-label", t("notifPage.deleteAria"));
+      closeBtn.setAttribute("aria-label", t("notifPage.deleteAria") || t("notif.close"));
       closeBtn.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
-      closeBtn.addEventListener("click", function () {
+      closeBtn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
         removeOne(n.id);
         renderList();
       });
 
-      actions.appendChild(openBtn);
-      actions.appendChild(closeBtn);
-
       li.appendChild(iconWrap);
       li.appendChild(main);
-      li.appendChild(actions);
+      li.appendChild(badge);
+      li.appendChild(closeBtn);
       list.appendChild(li);
     });
+    if (scrollToId) {
+      window.requestAnimationFrame(function () {
+        var target = list.querySelector('[data-id="' + scrollToId.replace(/"/g, "") + '"]');
+        if (target && typeof target.scrollIntoView === "function") {
+          target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      });
+    }
   }
 
   function init() {
@@ -1249,8 +1420,10 @@
     }
 
     flushPendingLoginNotification();
+    syncClearAllBtnVisibility();
     bootNotifList();
     initNotifPrefs();
+    window.addEventListener("vc:notif-scope", syncClearAllBtnVisibility);
   }
 
   var VOTE_DM_KEYS = { bump: true, vote_topgg: true };
@@ -1284,16 +1457,28 @@
   }
 
   function setPrefsStatus(msg, isErr) {
+    var text = String(msg || "").trim();
     var el = byId("vc-notif-prefs-status");
-    if (!el) return;
-    if (!msg) {
+    if (el) {
       el.hidden = true;
       el.textContent = "";
       el.classList.remove("is-error");
+    }
+    if (!text) {
+      if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") {
+        window.VcSiteToast.hide();
+      }
       return;
     }
+    if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+      window.VcSiteToast.show(text, Boolean(isErr), {
+        pending: /[…]$|\.\.\.$/.test(text),
+      });
+      return;
+    }
+    if (!el) return;
     el.hidden = false;
-    el.textContent = msg;
+    el.textContent = text;
     el.classList.toggle("is-error", Boolean(isErr));
   }
 

@@ -1,19 +1,11 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
-/** Default legacy: tra due partnership con lo stesso server target devono passare almeno 12 ore. */
 const PARTNER_SAME_TARGET_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
 function escapeRegExp(s) {
   return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/**
- * Data/ora dell’ultima azione `create` verso lo stesso partner (per guildId Discord del target o stesso codice invite).
- * @param {string} guildId
- * @param {string} partnerGuildId
- * @param {string} inviteCode codice invite (senza URL)
- * @returns {Promise<Date|null>}
- */
 async function getLatestPartnerCreateAtForTarget(guildId, partnerGuildId, inviteCode) {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
@@ -49,10 +41,6 @@ async function getLatestPartnerCreateAtForTarget(guildId, partnerGuildId, invite
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/**
- * @param {number|null|undefined} cooldownMs durata minima tra due partner verso lo stesso server; ≤0/null = nessun limite
- * @returns {Promise<{ ok: true } | { ok: false, nextAllowedAt: Date, cooldownMs: number }>}
- */
 async function checkSamePartnerTargetCooldown(guildId, partnerGuildId, inviteCode, cooldownMs) {
   const windowMs = Math.floor(Number(cooldownMs));
   if (!Number.isFinite(windowMs) || windowMs <= 0) return { ok: true };
@@ -64,11 +52,6 @@ async function checkSamePartnerTargetCooldown(guildId, partnerGuildId, inviteCod
   return { ok: false, nextAllowedAt: new Date(last.getTime() + windowMs), cooldownMs: windowMs };
 }
 
-/**
- * Risolve il cooldown effettivo dalla config partnership.
- * - Tenant: solo se impostato (>0)
- * - Legacy senza valore in mongo: default 12h
- */
 function resolveSameServerCooldownMs(partnershipCfg) {
   const raw = partnershipCfg?.sameServerCooldownMs;
   if (raw === undefined) {

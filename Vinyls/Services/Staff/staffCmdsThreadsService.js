@@ -24,8 +24,7 @@ const STAFF_CMDS_THREAD_SPECS = [
     key: "pm",
     name: "Comandi Partner Manager",
     roleIds: () => [IDs.roles?.PartnerManager].filter(Boolean).map(String),
-    // Revisore resoconto PM (anche senza ruolo Partner Manager).
-    reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
+        reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
     introLines: (mentions) => [
       `${mentions} **Comandi Partner Manager**`,
       "Partnership, classifica PM, blacklist, pannello profilo PM e comandi dedicati vanno usati solo qui.",
@@ -147,8 +146,7 @@ async function populateThreadMembers(thread, guild, spec, opts = {}) {
     totals.failed += userStats.failed;
     totals.skipped += userStats.skipped;
   }
-  // Togli chi non dovrebbe più esserci (Director con HS, ecc.).
-  try {
+    try {
     const { pruneUnauthorizedStaffThreadMembers } = require("../../Utils/Staff/staffManagedThreadsGuard");
     await pruneUnauthorizedStaffThreadMembers(thread, {
       zone: "cmds",

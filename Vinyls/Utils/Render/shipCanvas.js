@@ -16,7 +16,6 @@ const {
   discordCdnStaticAvatarUrl,
 } = require("./safeLoadImage");
 
-/** `VC_SHIP_CANVAS_PNG=1` → niente GIF/ffmpeg (molto più veloce). */
 const SHIP_CANVAS_USE_PNG = String(process.env.VC_SHIP_CANVAS_PNG ?? "0").trim() === "1";
 
 function hashSeed(source) {
@@ -35,7 +34,6 @@ function pickFrom(arr, seed) {
   return a[seed % a.length];
 }
 
-/** Frasi per fascia percentuale (0 e 100 dedicate; seed = varietà stabile per coppia+msg). */
 function pickMessage(percent, seed) {
   const h = hashSeed(String(seed ?? ""));
   const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
@@ -279,14 +277,6 @@ function pickShipAvatarFrame(frames, frameIndex) {
   return frames[i % frames.length];
 }
 
-/**
- * Carica frame avatar per la ship: GIF → più `Image` (ffmpeg), altrimenti un solo frame.
- * @param {string} tmpDir
- * @param {string} url
- * @param {string} prefix
- * @param {string|null} ffmpegBin
- * @returns {Promise<any[]>}
- */
 async function loadShipSideAvatarFrames(tmpDir, url, prefix, ffmpegBin, staticUrl = "") {
   const loadImage = canvasModule.loadImage;
   const u = String(url || "").trim();
@@ -343,8 +333,7 @@ async function loadShipSideAvatarFrames(tmpDir, url, prefix, ffmpegBin, staticUr
       try {
         fs.rmSync(sideDir, { recursive: true, force: true });
       } catch {
-        /* ignore */
-      }
+              }
     }
   }
 }
@@ -467,21 +456,18 @@ function easeOutCubic(t) {
   return 1 - (1 - x) ** 3;
 }
 
-/** Indice ultimo frame in cui la barra ragunge il 100% del riempimento (prima del testo). */
 function shipMeterFillEndFrame(totalFrames) {
   if (totalFrames <= 1) return 0;
   const last = totalFrames - 1;
   return Math.max(1, Math.floor(last * 0.32));
 }
 
-/** Progresso riempimento barra (0→1), completo entro `shipMeterFillEndFrame`. */
 function shipMeterFillProgress(frameIndex, totalFrames) {
   if (totalFrames <= 1) return 1;
   const end = shipMeterFillEndFrame(totalFrames);
   return easeOutCubic(Math.min(1, frameIndex / end));
 }
 
-/** Testo percentuale: compare dopo la barra e resta visibile fino alla fine del GIF. */
 function shipPercentTextReveal(frameIndex, totalFrames) {
   if (totalFrames <= 1) return 1;
   const last = totalFrames - 1;
@@ -493,7 +479,6 @@ function shipPercentTextReveal(frameIndex, totalFrames) {
   return easeOutCubic(Math.min(1, (frameIndex - textStart + 1) / span));
 }
 
-/** Barra verticale: riempimento dal basso verso l'alto fino a (percent/100) dell'altezza traccia. */
 function drawVerticalMeter(ctx, cx, topY, bottomY, width, percentNorm, fillAnim01) {
   const w = Math.max(24, width);
   const x = cx - w / 2;
@@ -686,8 +671,7 @@ async function renderSinglePngBuffer(params) {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       } catch {
-        /* ignore */
-      }
+              }
     }
   }
   drawShipFrame(ctx, {
@@ -707,9 +691,6 @@ async function renderSinglePngBuffer(params) {
   return canvas.toBuffer("image/png");
 }
 
-/**
- * @returns {Promise<{ buffer: Buffer, format: 'gif'|'png' }>}
- */
 module.exports = async function renderShipCanvas(params) {
   if (!canvasModule) throw new Error("Canvas module not available");
   registerCanvasFonts(canvasModule);
@@ -885,8 +866,7 @@ module.exports = async function renderShipCanvas(params) {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       } catch {
-        /* ignore */
-      }
+              }
     }
   }
 };

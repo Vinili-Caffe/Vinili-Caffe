@@ -20,28 +20,14 @@ function gatewayMemberListRetryAfterSeconds(err) {
   return 12;
 }
 
-/**
- * Timeout gateway chunk members: default d.js = 120s.
- * Sulle guild grandi / sotto carico i chunk non arrivano in tempo → GuildMembersTimeout.
- */
 function resolveMemberFetchTimeoutMs(guild, opts = {}) {
   const explicit = Number(opts.time);
   if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit);
   const count = Math.max(0, Number(guild?.memberCount || 0));
-  // Base 3 min + 1s ogni 40 membri, cap 15 min.
-  const scaled = 180_000 + Math.ceil(count / 40) * 1000;
+    const scaled = 180_000 + Math.ceil(count / 40) * 1000;
   return Math.min(900_000, Math.max(180_000, scaled));
 }
 
-/**
- * @param {import("discord.js").Guild} guild
- * @param {{
- *   maxAttempts?: number,
- *   time?: number,
- *   onRateLimit?: (waitMs: number, attempt: number, maxAttempts: number) => void,
- *   onTimeout?: (timeMs: number, attempt: number, maxAttempts: number) => void,
- * }} [opts]
- */
 async function fetchGuildMembersRespectingGatewayRateLimit(guild, opts = {}) {
   const maxAttempts = Math.max(1, Number(opts.maxAttempts) || 15);
   const onRateLimit = typeof opts.onRateLimit === "function" ? opts.onRateLimit : null;
@@ -57,8 +43,7 @@ async function fetchGuildMembersRespectingGatewayRateLimit(guild, opts = {}) {
       if (!canRetryRl && !canRetryTo) throw err;
 
       if (canRetryTo) {
-        // Prossimo tentativo: +50% timeout (fino al cap).
-        timeMs = Math.min(900_000, Math.ceil(timeMs * 1.5));
+                timeMs = Math.min(900_000, Math.ceil(timeMs * 1.5));
         onTimeout?.(timeMs, attempt + 1, maxAttempts);
         await new Promise((r) => setTimeout(r, 1500 + Math.floor(Math.random() * 1000)));
         continue;

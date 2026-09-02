@@ -1,5 +1,4 @@
 // Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
-// Uso, copia, modifica e distribuzione vietati — vedi ../../LICENSE.
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
@@ -19,7 +18,6 @@ const DIST = path.join(ROOT, "dist");
 const CONFIG_PATH = path.join(ROOT, "site.config.json");
 const botIds = require(path.join(ROOT, "..", "Vinyls", "Utils", "Config", "ids.js"));
 const FALLBACK_GUILD_ICON = "images/vc-header-logo.png";
-/** Discord snowflake epoch (2015-01-01 UTC), ms since Unix epoch. */
 const DISCORD_EPOCH_MS = 1420070400000;
 
 function envFlagTrue(name) {
@@ -27,7 +25,6 @@ function envFlagTrue(name) {
   return v === "1" || v === "true" || v === "yes";
 }
 
-/** Log informativi build (OAuth, override env, ecc.); disattiva con VC_BUILD_QUIET=1. */
 function buildInfoLog(...args) {
   if (envFlagTrue("VC_BUILD_QUIET")) return;
   console.log(...args);
@@ -63,7 +60,7 @@ function rmrf(dir) {
     rmrfContentsExceptLockedLarge(dir);
     try {
       if (fs.existsSync(dir) && fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
-    } catch { /* */ }
+    } catch {  }
   }
 }
 
@@ -82,7 +79,7 @@ function rmrfContentsExceptLockedLarge(dir) {
       rmrfContentsExceptLockedLarge(p);
       try {
         if (fs.readdirSync(p).length === 0) fs.rmdirSync(p);
-      } catch { /* */ }
+      } catch {  }
     } else {
       try {
         fs.unlinkSync(p);
@@ -110,7 +107,7 @@ function copyRecursive(srcDir, dstDir) {
         try {
           const dstSt = fs.statSync(dst);
           if (dstSt.size === st.size) continue;
-        } catch { /* ricopia */ }
+        } catch {  }
       }
       fs.copyFileSync(src, dst);
     }
@@ -195,6 +192,7 @@ function buildPremiumFooterTemplate() {
                 </a>
               </div>
             </section>
+            <div class="vc-premium-footer__navcols">
             <nav class="vc-premium-footer__col" aria-label="Community" data-i18n-attr="aria-label:footer.community">
               <h4 data-i18n="footer.community">Community</h4>
               <ul>
@@ -230,6 +228,7 @@ function buildPremiumFooterTemplate() {
                 <li><a href="{{TICKETS_PAGE_URL}}" data-i18n="footer.tickets">Tickets</a></li>
               </ul>
             </nav>
+            </div>
           </div>
         </div>
         <div class="vc-premium-footer__legal">
@@ -247,7 +246,28 @@ function buildPremiumFooterTemplate() {
   </footer>`;
 }
 
-/** Footer dashboard: stesso look del sito, senza colonne/link community. */
+function buildSimpleFooterTemplate() {
+  return `
+  <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+    <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+      <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
+        {{FOOTER_SOCIAL_LEFT}}
+        <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]" href="{{SITE_URL}}">{{SITE_NAME}}</a>
+        {{FOOTER_SOCIAL_RIGHT}}
+      </div>
+      <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
+        <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
+        <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
+        <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+      </nav>
+      <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+        © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
+        <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
+      </p>
+    </div>
+  </footer>`;
+}
+
 function buildDashboardFooterTemplate() {
   return `
   <footer class="vc-premium-footer vc-premium-footer--dashboard" aria-label="Footer dashboard" data-i18n-attr="aria-label:footer.aria">
@@ -267,6 +287,7 @@ function buildDashboardFooterTemplate() {
               </a>
               <p class="vc-premium-footer__desc" data-i18n="footer.dashboardDesc">Da qui configuri Vinili sui tuoi server: identità e prefisso, accesso alla dashboard, partnership, avvisi e le altre impostazioni del bot.</p>
             </section>
+            <div class="vc-premium-footer__navcols">
             <nav class="vc-premium-footer__col" aria-label="Dashboard" data-i18n-attr="aria-label:footer.dashboard">
               <h4 data-i18n="footer.dashboard">Dashboard</h4>
               <ul>
@@ -285,6 +306,7 @@ function buildDashboardFooterTemplate() {
                 <li><a href="{{SITE_URL}}" data-i18n="footer.site">Sito</a></li>
               </ul>
             </nav>
+            </div>
           </div>
         </div>
         <div class="vc-premium-footer__legal">
@@ -308,8 +330,7 @@ function stripPremiumFooterExtraLegalLinks(html) {
     /(<div class="vc-premium-footer__legal">\s*(?:<p>[\s\S]*?<\/p>\s*)?<nav\b[^>]*>)([\s\S]*?)(<\/nav>)/gi,
     (_full, open, inner, close) => {
       let next = String(inner || "");
-      // Solo link espliciti della riga legale (data-i18n), mai href generici.
-      next = next.replace(
+            next = next.replace(
         /\s*<span\b[^>]*aria-hidden="true"[^>]*>\s*<\/span>\s*<a\b[^>]*data-i18n="footer\.copyright"[^>]*>[\s\S]*?<\/a>/gi,
         "",
       );
@@ -324,7 +345,6 @@ function stripPremiumFooterExtraLegalLinks(html) {
   );
 }
 
-/** Ripristina il link Tickets in navbar Richieste + colonna footer se manca. */
 function ensureTicketsInRichiesteChrome(html) {
   let next = String(html || "");
   const ticketNavRow =
@@ -348,8 +368,7 @@ function ensureTicketsInRichiesteChrome(html) {
     },
   );
 
-  // Summary con solo data-i18n="nav.requests" senza testo "Richieste" literal in alcuni template.
-  next = next.replace(
+    next = next.replace(
     /(<summary class="vc-snav-summary"><span[^>]*data-i18n="nav\.requests"[^>]*>[\s\S]*?<\/span>[\s\S]*?<div class="vc-snav-panel">)([\s\S]*?)(<\/div>\s*<\/details>)/gi,
     (full, open, inner, close) => {
       if (/\{\{(?:TICKETS_PAGE_URL|SUPPORTO_PAGE_URL)\}\}/.test(inner)) return full;
@@ -389,8 +408,7 @@ function ensureTicketsInRichiesteChrome(html) {
 }
 
 function replaceLegacyFooter(html) {
-  // Pagine immersive / utility: niente upgrade a footer premium.
-  if (
+    if (
     html.includes("vc-hw-page") ||
     html.includes("vc-seratafilm-page") ||
     html.includes("vc-seratafilm") ||
@@ -401,28 +419,9 @@ function replaceLegacyFooter(html) {
   ) {
     return html;
   }
-  const useDashboardFooter =
-    html.includes("vc-dashboard-page") || html.includes("data-vc-dashboard-footer");
-  const footerTpl = useDashboardFooter ? buildDashboardFooterTemplate() : buildPremiumFooterTemplate();
+  const simpleTpl = buildSimpleFooterTemplate();
   let out = html;
-  // Solo il footer di pagina (contenuto brand-row), mai altri <footer> UI (wizard, modal, …).
-  // Il vecchio lookahead `(?=[\s\S]*?vc-footer-brand-row)` matchava QUALSIASI footer
-  // precedente al brand-row e sostituiva Avanti / footers modal col footer premium.
-  if (out.includes("vc-footer-brand-row")) {
-    out = out.replace(
-      /<footer\b[^>]*>[\s\S]*?vc-footer-brand-row[\s\S]*?<\/footer>/gi,
-      footerTpl,
-    );
-  }
-  // Footer minimale (es. copyright senza brand-row): upgrade al premium.
-  out = out.replace(
-    /<footer\b[^>]*class="[^"]*border-t border-white\/8[^"]*"[^>]*>[\s\S]*?<\/footer>/gi,
-    footerTpl,
-  );
-  out = out.replace(
-    /<footer\b[^>]*data-vc-dashboard-footer[^>]*>[\s\S]*?<\/footer>/gi,
-    footerTpl,
-  );
+    out = out.replace(/<footer\b[^>]*\bvc-premium-footer\b[^>]*>[\s\S]*?<\/footer>/gi, simpleTpl);
   return out;
 }
 
@@ -450,7 +449,6 @@ function applyPlaceholderMap(html, map) {
   return ensureSeoEnhancements(ensureDiscordShareMeta(html, map), map);
 }
 
-/** Canonical + JSON-LD (homepage) per SEO / Lighthouse. */
 function ensureSeoEnhancements(html, map) {
   let out = String(html || "");
   const pageOgUrl = (out.match(/<meta\s+property=["']og:url["']\s+content=["']([^"']+)["']/i) || [])[1] || "";
@@ -458,8 +456,7 @@ function ensureSeoEnhancements(html, map) {
   if (canonical && !/<link\s+rel=["']canonical["']/i.test(out)) {
     out = out.replace(/<\/head>/i, `    <link rel="canonical" href="${canonical}" />\n  </head>`);
   } else if (canonical && pageOgUrl) {
-    // Prefer page og:url over homepage SITE_URL injected on subpages.
-    out = out.replace(
+        out = out.replace(
       /(<link\s+rel=["']canonical["']\s+href=["'])([^"']+)(["']\s*\/?>)/i,
       `$1${canonical}$3`,
     );
@@ -491,10 +488,6 @@ function ensureSeoEnhancements(html, map) {
   return out;
 }
 
-/**
- * Discord embed: niente GIF animate del CDN guild (spesso senza banner),
- * + theme-color / dimensioni / twitter su tutte le pagine.
- */
 function isDiscordAnimatedOgUrl(url) {
   return /cdn\.discordapp\.com\/(?:banners|icons)\/[^"'?\s]+\/a_[^"'?\s]+\.gif/i.test(
     String(url || ""),
@@ -518,8 +511,7 @@ function ensureDiscordShareMeta(html, map) {
   out = out.replace(
     /(<meta\s+property=["']og:image["']\s+content=["'])([^"']+)(["']\s*\/?>)/gi,
     (full, pre, url, post) => {
-      // Sempre URL WA/Slack-safe (CF challenge su /images/* per alcuni crawler).
-      if (isDiscordAnimatedOgUrl(url) || !/\/og\.(?:gif|jpg)(?:\?|$)/i.test(url)) {
+            if (isDiscordAnimatedOgUrl(url) || !/\/og\.(?:gif|jpg)(?:\?|$)/i.test(url)) {
         return `${pre}${ogImage}${post}`;
       }
       return full;
@@ -561,9 +553,7 @@ function ensureDiscordShareMeta(html, map) {
     /(<meta\s+name=["']twitter:card["']\s+content=["'])([^"']+)(["']\s*\/?>)/gi,
     `$1summary$3`,
   );
-  // Browser/PWA chrome only. Discord embed sidebar is swapped at nginx
-  // for Discordbot (see deploy/patch-nginx-discord-embed-theme.py).
-  const browserTheme = theme || "#140f0c";
+      const browserTheme = theme || "#140f0c";
   out = out.replace(/\s*<meta[^>]+name=["']theme-color["'][^>]*>/gi, "");
   out = out.replace(
     /<head([^>]*)>/i,
@@ -574,8 +564,7 @@ function ensureDiscordShareMeta(html, map) {
       `<meta name="twitter:card" content="summary" />\n    <meta name="twitter:image" content="${ogImage}" />`,
     );
   }
-  // WhatsApp / Slack / iMessage: secure_url + type + image_src (and CF-safe JPEG path).
-  if (!/property=["']og:image:secure_url["']/i.test(out)) {
+    if (!/property=["']og:image:secure_url["']/i.test(out)) {
     injectAfterOgImage(`<meta property="og:image:secure_url" content="${ogImage}" />`);
   }
   if (!/property=["']og:image:type["']/i.test(out)) {
@@ -602,8 +591,7 @@ function ensureDiscordShareMeta(html, map) {
         `<meta name="twitter:title" content="${twitterTitle}" />\n    <meta name="twitter:description" content="${twitterDesc}" />`,
       );
     } else {
-      // Subpages: never keep homepage twitter:title if page already has og:title.
-      out = out.replace(
+            out = out.replace(
         /(<meta\s+name=["']twitter:title["']\s+content=["'])([^"']+)(["']\s*\/?>)/i,
         `$1${twitterTitle}$3`,
       );
@@ -617,17 +605,14 @@ function ensureDiscordShareMeta(html, map) {
   }
   const appleTouchIcon =
     `<link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="apple-touch-icon" href="/favicon.ico?v=iosfix6" />\n    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="icon" type="image/png" sizes="180x180" href="/favicon.ico?v=iosfix6" />\n    <link rel="shortcut icon" href="/favicon.ico?v=iosfix6" />`;
-  // Prefer apple-touch early in <head>; strip Discord GIF favicons that steal iOS icon pick.
-  // NOTE: Cloudflare Managed Challenge blocks /apple-touch-icon*.png for Safari's
-  // icon fetcher; only /favicon.ico is allowed without challenge — keep icons there.
-  out = out.replace(
+        out = out.replace(
     /<link[^>]+rel=["'](?:shortcut )?icon["'][^>]*cdn\.discordapp\.com[^>]*>\s*/gi,
     "",
   );
   if (!/rel=["']manifest["']/i.test(out)) {
     out = out.replace(
       /<\/head>/i,
-      `  <link rel="manifest" href="/site.webmanifest?v=20260825pwa7" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="Vinili & Caffè" />\n    ${appleTouchIcon}\n  </head>`,
+      `  <link rel="manifest" href="/site.webmanifest?v=20260831pwaNameFix1" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-title" content="Vinili & Caffè" />\n    ${appleTouchIcon}\n  </head>`,
     );
   } else {
     out = out.replace(
@@ -648,7 +633,7 @@ function ensureDiscordShareMeta(html, map) {
     }
     out = out.replace(
       /(href=["'])\/site\.webmanifest(?:\?[^"']*)?(["'])/i,
-      `$1/site.webmanifest?v=20260825pwa7$2`,
+      `$1/site.webmanifest?v=20260831pwaNameFix1$2`,
     );
   }
   return out;
@@ -661,7 +646,6 @@ function warnLeftoverPlaceholders(html, label) {
   }
 }
 
-/** Evita pubblicare un dist incompleto (es. build interrotta dopo copyRecursive). */
 function assertDistHasNoTemplatePlaceholders(distDir) {
   const re = /\{\{[A-Z0-9_]+\}\}/g;
   const bad = [];
@@ -715,7 +699,6 @@ function guildIconCdnUrl(guildId, iconHash, size = 256) {
   return `https://cdn.discordapp.com/icons/${gid}/${h}.${ext}?size=${s}`;
 }
 
-/** URL assoluto per og:image (Discord anteprima link) se path è relativo. */
 function absUrlForMetadata(siteUrl, pathOrUrl) {
   const p = String(pathOrUrl || "").trim();
   if (!p) return "";
@@ -725,7 +708,6 @@ function absUrlForMetadata(siteUrl, pathOrUrl) {
   return `${base}/${p.replace(/^\//, "")}`;
 }
 
-/** Normalizza og:image: niente GIF animate Discord CDN (Discord spesso non mostra il banner). */
 function forceStaticOgImageUrl(url) {
   const raw = String(url || "").trim();
   if (!raw) return "";
@@ -739,7 +721,6 @@ function forceStaticOgImageUrl(url) {
   }
 }
 
-/** Data approssimativa di creazione guild dall’ID snowflake (l’API invite non espone created_at). */
 function snowflakeGuildCreatedUtcDate(guildId) {
   try {
     const bid = BigInt(String(guildId || "").trim());
@@ -762,7 +743,6 @@ function formatItalianDateRome(d) {
   }).format(d);
 }
 
-/** Stesso query string usato da `js/live-stats.js` sul fallback Discord. */
 async function fetchInviteInvitePayload(inviteCode) {
   const code = String(inviteCode || "").trim();
   if (!code) return null;
@@ -827,7 +807,6 @@ function discordCdnUserAvatarUrl(userId, avatarHash) {
   }
 }
 
-/** Avatar dell’account bot da Discord API (richiede token del bot). */
 async function fetchBotSelfAvatarUrl(botToken, label) {
   const t = String(botToken || "").trim();
   if (!t) return null;
@@ -872,7 +851,6 @@ async function discordBotGet(path, botToken, attempt = 0) {
   return res;
 }
 
-/** Conteggi membri/boost da GET /guilds/:id?with_counts=true. Preferisci `approximate_member_count` (totale pubblico); `member_count` può essere più basso o non affidabile. */
 async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
   const gid = String(guildId || "").trim();
   const t = String(botToken || "").trim();
@@ -966,6 +944,12 @@ async function fetchGuildMembersUpTo(guildId, botToken, maxTotal) {
   return all;
 }
 
+const STAFF_DEL_MESE_ROLE_ID = "1442568895251611924";
+
+function memberIsStaffDelMese(m) {
+  return memberRoleIds(m).includes(STAFF_DEL_MESE_ROLE_ID);
+}
+
 function memberRoleIds(m) {
   const ids = m?.roles;
   if (Array.isArray(ids)) return ids.map(String);
@@ -990,7 +974,6 @@ function maintenanceBypassUserIdsFromMembers(members, roleIdList) {
   return out;
 }
 
-/** Nome in elenco tipo “Blear#3218” (discriminator) o display / @handle senza #0. */
 function memberStaffLineName(m) {
   const u = m?.user;
   if (!u) return "Utente";
@@ -1013,7 +996,6 @@ function memberStaffDisplayName(m, ownerUserId = "") {
   return memberBoostDisplayName(m);
 }
 
-/** Nick / global name come in Discord; salta nick “vuoti” (spazi invisibili, una lettera). */
 function memberBoostDisplayName(m) {
   const cleanup = (v) =>
     String(v || "")
@@ -1044,15 +1026,16 @@ function memberStaffProfileHref(m) {
 function memberStaffAvatarUrl(m, guildId = "") {
   const uid = String(m?.user?.id || "").trim();
   if (!uid) return "";
-  // Preferisci avatar globale PNG: gli hash guild/webp scadono spesso (404 → lettera fallback).
-  const userHash = m?.user?.avatar != null ? String(m.user.avatar).trim() : "";
+    const userHash = m?.user?.avatar != null ? String(m.user.avatar).trim() : "";
   if (userHash) {
-    return `https://cdn.discordapp.com/avatars/${uid}/${userHash}.png?size=80`;
+    const ext = userHash.startsWith("a_") ? "gif" : "png";
+    return `https://cdn.discordapp.com/avatars/${uid}/${userHash}.${ext}?size=80`;
   }
   const gid = String(guildId || "").trim();
   const guildHash = m?.avatar != null ? String(m.avatar).trim() : "";
   if (gid && guildHash) {
-    return `https://cdn.discordapp.com/guilds/${gid}/users/${uid}/avatars/${guildHash}.png?size=80`;
+    const ext = guildHash.startsWith("a_") ? "gif" : "png";
+    return `https://cdn.discordapp.com/guilds/${gid}/users/${uid}/avatars/${guildHash}.${ext}?size=80`;
   }
   return discordCdnUserAvatarUrl(uid, "") || "";
 }
@@ -1065,6 +1048,7 @@ function staffHoverMemberPayload(mem, roleId, roleLabel, ownerUserId, guildId, f
     isOwner: isServerOwnerMember(mem, ownerUserId),
     isNew: flags.isNew === true,
     isPaused: flags.isPaused === true,
+    isStaffDelMese: flags.isStaffDelMese === true || memberIsStaffDelMese(mem),
     roleId: String(roleId || "").trim(),
     roleLabel: String(roleLabel || "").trim(),
   };
@@ -1085,6 +1069,10 @@ function staffNewBadgeHtml() {
 
 function staffPauseBadgeHtml() {
   return '<span class="vc-staff-pause-badge" title="In pausa" aria-label="In pausa">Pausa</span>';
+}
+
+function staffBestBadgeHtml() {
+  return '<span class="vc-staff-best-badge" title="Best staff" aria-label="Best staff">Best</span>';
 }
 
 function hueFromDiscordRoleId(roleId) {
@@ -1155,8 +1143,7 @@ function buildKickLivePipBootHtml(cfg, opts) {
 function applyKickLivePipToDist(distDir, cfg) {
   const pip = cfg.kickLivePip && typeof cfg.kickLivePip === "object" ? cfg.kickLivePip : null;
   if (!pip || pip.enabled === false) return;
-  // Solo homepage: non iniettare Kick PIP su altre pagine.
-  const homePath = path.join(distDir, "index.html");
+    const homePath = path.join(distDir, "index.html");
   if (!fs.existsSync(homePath)) return;
   const html = fs.readFileSync(homePath, "utf8");
   if (html.includes("window.__VC_KICK_PIP") || html.includes("js/vc-kick-pip.js")) return;
@@ -1424,6 +1411,7 @@ const SITE_ROUTE_GUARD_PATTERNS = Object.freeze([
   { s: "^/users?/\\d{17,20}$", f: "" },
   { s: "^/users/\\d{17,20}/customize$", f: "" },
   { s: "^/user/\\d{17,20}/personalizza$", f: "" },
+  { s: "^/personalizza$", f: "" },
 ]);
 
 const SITE_ROUTE_GUARD_HIDDEN_DEFAULTS = Object.freeze(["/seratafilm/accesso-richiesto"]);
@@ -1438,9 +1426,7 @@ function buildSiteRouteGuardBoot(routesPayload) {
 
 function applySiteRouteGuardToHtml(html, routeGuardBoot) {
   if (!routeGuardBoot || html.includes("window.__VC_SITE_ROUTES")) return html;
-  // Keep Open Graph / Twitter meta first in <head> for link-preview crawlers
-  // (WhatsApp/Slack often stop parsing after early scripts).
-  if (html.includes("</head>")) {
+      if (html.includes("</head>")) {
     return html.replace("</head>", `${routeGuardBoot}  </head>`);
   }
   const headOpen = html.match(/<head\b[^>]*>/i);
@@ -1531,12 +1517,59 @@ function applyHeaderPromoToDist(distDir, promoButtonHtml, headerPromoClientConfi
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
       const rel = path.relative(distDir, p).replace(/\\/g, "/").toLowerCase();
-      if (html.includes("vc-dashboard-page") || rel.startsWith("dashboard/")) {
+      if (/<body\b[^>]*\bvc-dashboard-page\b/i.test(html) || rel.startsWith("dashboard/")) {
         continue;
       }
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
       const promoBootHtml = buildHeaderPromoBootHtml(headerPromoClientConfig, scriptPrefix);
       const next = applyHeaderPromoToHtml(html, { promoButtonHtml, promoBootHtml });
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function pageWantsLiveStatsBoot(rel, html) {
+  const r = String(rel || "").replace(/\\/g, "/").toLowerCase();
+  if (r === "index.html" || r === "") return true;
+  if (r.startsWith("status/")) return true;
+  if (html.includes('id="stats"') || html.includes("data-live-stat")) return true;
+  return false;
+}
+
+function applyDashboardDeferToDist(distDir) {
+  const deferNames = [
+    "discord-auth.js",
+    "vc-mobile-nav.js",
+    "dashboard-staff-notifs.js",
+    "dashboard-premium-credits-nav.js",
+    "dashboard-page.js",
+    "dashboard-guild-boot.js",
+    "dashboard-guild-core.js",
+    "dashboard-guild-ext.js",
+    "dashboard-profile-page.js",
+    "dashboard-faq-page.js",
+    "dashboard-feedback-page.js",
+    "dashboard-transcript-page.js",
+    "dashboard-premium-page.js",
+    "vc-site-toast.js",
+  ];
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (!html.includes("vc-dashboard-page") && !p.replace(/\\/g, "/").includes("/dashboard/")) continue;
+      let next = html;
+      for (const js of deferNames) {
+        const re = new RegExp(`(<script\\s+src="[^"]*${js.replace(".", "\\.")}[^"]*")(?![^>]*\\bdefer\\b)([^>]*></script>)`, "gi");
+        next = next.replace(re, '$1 defer$2');
+      }
       if (next !== html) fs.writeFileSync(p, next, "utf8");
     }
   };
@@ -1557,8 +1590,9 @@ function applyLiveStatsBootToDist(distDir, cfg, inviteCode) {
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
       if (html.includes("window.__VC_DISABLE_LIVE_EVENT_UI = true") || html.includes("vc-hw-page") || html.includes("vc-seratafilm-page")) continue;
-      const rel = path.relative(distDir, p).replace(/\\/g, "/").toLowerCase();
-      if (html.includes("vc-dashboard-page") || rel.startsWith("dashboard/")) continue;
+      const rel = path.relative(distDir, p).replace(/\\/g, "/");
+      if (html.includes("vc-dashboard-page") || rel.toLowerCase().startsWith("dashboard/")) continue;
+      if (!pageWantsLiveStatsBoot(rel, html)) continue;
       if (html.includes("window.__VC_LIVE") || html.includes("js/live-stats.js")) continue;
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
       const boot = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix });
@@ -1587,11 +1621,157 @@ function applyAvatarFallbackToDist(distDir, assetVersion = "") {
       const html = fs.readFileSync(p, "utf8");
       if (html.includes("vc-avatar-fallback.js")) continue;
       const scriptPrefix = relativeScriptPrefixFromHtml(p);
-      const boot = `  <script src="${scriptPrefix}js/vc-avatar-fallback.js${suffix}" defer></script>\n`;
+      const animBoot = `  <script src="${scriptPrefix}js/vc-discord-avatar.js${suffix}" defer></script>\n`;
+      const boot = `${animBoot}  <script src="${scriptPrefix}js/vc-avatar-fallback.js${suffix}" defer></script>\n`;
       let next = html;
       if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
       else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
       else next += `\n${boot}`;
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function applyDiscordAvatarToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (!html.includes("vc-avatar-fallback.js") || html.includes("vc-discord-avatar.js")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const next = ensureDiscordAvatarScriptBeforeFallback(html, {
+        scriptPrefix,
+        assetSuffix: suffix,
+      });
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+function ensureDiscordAvatarScriptBeforeFallback(html, { scriptPrefix = "", assetSuffix = "" } = {}) {
+  if (!html.includes("vc-avatar-fallback.js") || html.includes("vc-discord-avatar.js")) return html;
+  const anim = `  <script src="${scriptPrefix}js/vc-discord-avatar.js${assetSuffix}" defer></script>\n`;
+  return html.replace(
+    /(<script[^>]*vc-avatar-fallback\.js[^>]*><\/script>)/i,
+    `${anim.trimEnd()}\n$1`,
+  );
+}
+
+const AUTH_INSTANT_BOOT_SNIPPET =
+  `<script id="vc-auth-instant-boot">(function(){try{var t=localStorage.getItem("vc_discord_access_token");if(!t)return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;document.documentElement.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
+<style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}</style>
+`;
+
+function ensureAuthPendingBootInHtml(html, { scriptPrefix = "", assetSuffix = "" } = {}) {
+  if (!html.includes("discord-auth.js")) return html;
+  let next = html;
+  if (!next.includes("vc-auth-instant-boot")) {
+    if (/<head>/i.test(next)) {
+      next = next.replace(/<head>/i, `<head>\n${AUTH_INSTANT_BOOT_SNIPPET}`);
+    } else {
+      next = `${AUTH_INSTANT_BOOT_SNIPPET}\n${next}`;
+    }
+  }
+  if (!next.includes("vc-auth-pending.js")) {
+    const pendingTag = `<script src="${scriptPrefix}js/vc-auth-pending.js${assetSuffix}"></script>`;
+    next = next.replace(
+      /(<script[^>]*discord-auth\.js[^>]*><\/script>)/i,
+      `${pendingTag}\n$1`,
+    );
+  }
+  if (!next.includes("vc-discord-avatar.js")) {
+    const animTag = `<script src="${scriptPrefix}js/vc-discord-avatar.js${assetSuffix}" defer></script>`;
+    next = next.replace(
+      /(<script[^>]*discord-auth\.js[^>]*><\/script>)/i,
+      `$1\n${animTag}`,
+    );
+  }
+  if (!next.includes("vc-avatar-fallback.js")) {
+    const fbTag = `<script src="${scriptPrefix}js/vc-avatar-fallback.js${assetSuffix}" defer></script>`;
+    next = next.replace(
+      /(<script[^>]*vc-discord-avatar\.js[^>]*><\/script>)/i,
+      `$1\n${fbTag}`,
+    );
+  }
+  return next;
+}
+
+function applyAuthPendingBootToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (!html.includes("discord-auth.js")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const next = ensureAuthPendingBootInHtml(html, {
+        scriptPrefix,
+        assetSuffix: suffix,
+      });
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
+const FA_NOFLASH_STYLE =
+  `<style id="vc-fa-noflash-css">html:not(.vc-fa-ready) .fa{visibility:hidden!important;opacity:0!important}html:not(.vc-fa-ready) .fa:before{content:""!important}html.vc-fa-ready .fa{visibility:visible!important;opacity:1!important}</style>`;
+
+function ensureFaBootInHtml(html, { scriptPrefix = "", assetSuffix = "" } = {}) {
+  if (!html.includes("font-awesome")) return html;
+  let next = html;
+  if (!next.includes("vc-fa-noflash-css")) {
+    if (/<head>/i.test(next)) {
+      next = next.replace(/<head>/i, `<head>\n${FA_NOFLASH_STYLE}`);
+    } else {
+      next = `${FA_NOFLASH_STYLE}\n${next}`;
+    }
+  }
+  const preload =
+    '<link rel="preload" as="font" type="font/woff2" href="/css/font-awesome/fonts/fontawesome-webfont.woff2?v=4.7.0" crossorigin />';
+  if (!next.includes("fontawesome-webfont.woff2")) {
+    next = next.replace(/(<link[^>]*font-awesome[^>]*>)/i, `${preload}\n$1`);
+  }
+  if (!next.includes("vc-fa-boot.js")) {
+    const bootTag = `<script src="${scriptPrefix}js/vc-fa-boot.js${assetSuffix}"></script>`;
+    next = next.replace(/(<link[^>]*font-awesome[^>]*>)/i, `${bootTag}\n$1`);
+  }
+  return next;
+}
+
+function applyFaBootToDist(distDir, assetVersion = "") {
+  const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      if (!html.includes("font-awesome")) continue;
+      const scriptPrefix = relativeScriptPrefixFromHtml(p);
+      const next = ensureFaBootInHtml(html, {
+        scriptPrefix,
+        assetSuffix: suffix,
+      });
       if (next !== html) fs.writeFileSync(p, next, "utf8");
     }
   };
@@ -1670,6 +1850,8 @@ function applyCursorTrailToDist(distDir, assetVersion = "") {
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
       if (html.includes("vc-cursor-trail.js")) continue;
+      const rel = path.relative(distDir, p).replace(/\\/g, "/").toLowerCase();
+      if (html.includes("vc-dashboard-page") || rel.startsWith("dashboard/")) continue;
       if (!html.includes("vc-landing.css") && !html.includes("discord-auth.js")) continue;
       const boot = `  <script src="/js/vc-cursor-trail.js${suffix}" defer></script>\n`;
       let next = html;
@@ -1695,6 +1877,8 @@ function applyTypeSfxToDist(distDir, assetVersion = "") {
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
       if (html.includes("vc-type-sfx.js")) continue;
+      const rel = path.relative(distDir, p).replace(/\\/g, "/").toLowerCase();
+      if (html.includes("vc-dashboard-page") || rel.startsWith("dashboard/")) continue;
       if (
         !html.includes("vc-landing.css") &&
         !html.includes("vc-cursor-trail.js") &&
@@ -1717,6 +1901,7 @@ function applyTypeSfxToDist(distDir, assetVersion = "") {
 
 function applyPtrToDist(distDir, assetVersion = "") {
   const suffix = assetVersion ? `?v=${encodeURIComponent(String(assetVersion))}` : "";
+  const headBoot = `  <script src="/js/vc-ptr-scroll-restore-boot.js${suffix}"></script>\n`;
   const walk = (dir) => {
     for (const name of fs.readdirSync(dir)) {
       const p = path.join(dir, name);
@@ -1726,27 +1911,46 @@ function applyPtrToDist(distDir, assetVersion = "") {
         continue;
       }
       if (!name.toLowerCase().endsWith(".html")) continue;
-      const html = fs.readFileSync(p, "utf8");
-      if (html.includes("vc-ptr.js")) continue;
+      let html = fs.readFileSync(p, "utf8");
+      let next = html.replace(
+        /\s*<script src="\/js\/vc-ptr-scroll-restore-boot\.js[^"]*"><\/script>\s*/g,
+        "\n",
+      );
       if (
-        !html.includes("vc-landing.js") &&
-        !html.includes("vc-landing.css") &&
-        !html.includes("vc-cursor-trail.js") &&
-        !html.includes("discord-auth.js") &&
-        !html.includes("vc-dashboard-page") &&
-        !html.includes("vc-seratafilm-page") &&
-        !html.includes("vc-staff-area") &&
-        !html.includes("vc-staff-route") &&
-        !html.includes("staff-access-gate.js") &&
-        !html.includes("staff-tools-common.js")
+        !next.includes("vc-ptr-scroll-restore-boot.js") &&
+        (next.includes("vc-landing.js") ||
+          next.includes("vc-landing.css") ||
+          next.includes("vc-cursor-trail.js") ||
+          next.includes("discord-auth.js") ||
+          next.includes("vc-dashboard-page") ||
+          next.includes("vc-seratafilm-page") ||
+          next.includes("vc-staff-area") ||
+          next.includes("vc-staff-route") ||
+          next.includes("staff-access-gate.js") ||
+          next.includes("staff-tools-common.js"))
       ) {
-        continue;
+        if (next.includes("<head>")) next = next.replace("<head>", `<head>\n${headBoot}`);
+        else if (next.includes("</head>")) next = next.replace("</head>", `${headBoot}</head>`);
       }
-      const boot = `  <script src="/js/vc-ptr.js${suffix}" defer></script>\n`;
-      let next = html;
-      if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
-      else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
-      else next += `\n${boot}`;
+      if (!html.includes("vc-ptr.js")) {
+        if (
+          html.includes("vc-landing.js") ||
+          html.includes("vc-landing.css") ||
+          html.includes("vc-cursor-trail.js") ||
+          html.includes("discord-auth.js") ||
+          html.includes("vc-dashboard-page") ||
+          html.includes("vc-seratafilm-page") ||
+          html.includes("vc-staff-area") ||
+          html.includes("vc-staff-route") ||
+          html.includes("staff-access-gate.js") ||
+          html.includes("staff-tools-common.js")
+        ) {
+          const boot = `  <script src="/js/vc-ptr.js${suffix}" defer></script>\n`;
+          if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
+          else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
+          else next += `\n${boot}`;
+        }
+      }
       if (next !== html) fs.writeFileSync(p, next, "utf8");
     }
   };
@@ -1766,6 +1970,7 @@ function applyMobileNavToDist(distDir, assetVersion = "") {
       if (!name.toLowerCase().endsWith(".html")) continue;
       const html = fs.readFileSync(p, "utf8");
       if (html.includes("vc-mobile-nav.js")) continue;
+      if (html.includes("vc-hw-page") || html.includes("hogwarts-event-nav.js")) continue;
       if (!html.includes("vc-mobile-nav-toggle") && !html.includes("header-quick-actions")) continue;
       const boot = `  <script src="/js/vc-mobile-nav.js${suffix}" defer></script>\n`;
       let next = html;
@@ -1909,8 +2114,7 @@ function annotateSharedChromeI18n(html) {
   for (const [re, rep] of spanSubs) {
     next = next.replace(re, rep);
   }
-  // Icona biglietto al posto della chat per il link tickets/supporto.
-  next = next.replace(
+    next = next.replace(
     /(<a class="vc-snav-row(?:\s+vc-snav-row--active)?" href="\{\{(?:TICKETS_PAGE_URL|SUPPORTO_PAGE_URL)\}\}"[^>]*>[\s\S]*?<i class=")fa fa-comments-o(")/g,
     "$1fa fa-ticket$2",
   );
@@ -1990,16 +2194,23 @@ function annotateSharedChromeI18n(html) {
 }
 
 function applyI18nToHtml(html, { scriptPrefix = "", assetSuffix = "" } = {}) {
-  if (!html.includes("vc-landing.css") && !html.includes("vc-dashboard-page")) return html;
+  if (
+    !html.includes("vc-landing.css") &&
+    !html.includes("vc-landing-core.css") &&
+    !html.includes("vc-dashboard-page")
+  ) {
+    return html;
+  }
   let next = injectLangSwitcherNearBrand(html);
   next = annotateSharedChromeI18n(next);
   if (next.includes("vc-i18n.js")) return next;
+  const lazyExtraBoot =
+    `  <script>(function(){var p=${JSON.stringify(scriptPrefix)};var v=${JSON.stringify(assetSuffix)};var extraLoaded=0;function loadScript(name,cb){var s=document.createElement("script");s.src=p+"js/"+name+v;s.defer=true;s.onload=function(){if(cb)cb();};s.onerror=function(){if(cb)cb();};(document.head||document.documentElement).appendChild(s);}function loadExtra(){if(extraLoaded)return;extraLoaded=1;loadScript("vc-i18n-pages-extra.js");try{var l=String(localStorage.getItem("vc_site_lang")||"it").toLowerCase();if(l&&l!=="it"&&l!=="en")loadScript("vc-i18n-locales.js");}catch(eL){}}function scheduleExtra(){if(typeof requestIdleCallback==="function")requestIdleCallback(loadExtra,{timeout:2800});else setTimeout(loadExtra,900);}document.addEventListener("vc:langmenuopen",loadExtra,{once:true});window.addEventListener("vc:langchange",function(ev){try{if(ev&&ev.detail&&ev.detail.lang&&String(ev.detail.lang).toLowerCase()!=="it")loadExtra();}catch(eC){}});if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",scheduleExtra,{once:true});else scheduleExtra();})();</script>\n`;
   const boot =
     `  <script>(function(){try{var l=String(localStorage.getItem("vc_site_lang")||"").toLowerCase();var ok=["it","en","es","fr","de","pt","ru","zh","ja","ko","ar","nl","pl","tr","hi","id","uk","vi","ro","sv"];if(ok.indexOf(l)>=0){document.documentElement.lang=l;document.documentElement.setAttribute("dir",l==="ar"?"rtl":"ltr");}}catch(e){}})();</script>\n` +
     `  <script src="${scriptPrefix}js/vc-i18n.js${assetSuffix}" defer></script>\n` +
     `  <script src="${scriptPrefix}js/vc-i18n-pages.js${assetSuffix}" defer></script>\n` +
-    `  <script src="${scriptPrefix}js/vc-i18n-pages-extra.js${assetSuffix}" defer></script>\n` +
-    `  <script src="${scriptPrefix}js/vc-i18n-locales.js${assetSuffix}" defer></script>\n`;
+    lazyExtraBoot;
   if (next.includes("</head>")) next = next.replace("</head>", `${boot}</head>`);
   else if (next.includes("</body>")) next = next.replace("</body>", `${boot}</body>`);
   else next += `\n${boot}`;
@@ -2010,7 +2221,7 @@ function ensureI18nPagesScript(html, { scriptPrefix = "", assetSuffix = "" } = {
   if (!html.includes("vc-i18n.js")) return html;
   let next = html;
   if (!next.includes("vc-i18n-pages.js")) {
-    const tag = `  <script src="${scriptPrefix}js/vc-i18n-pages.js${assetSuffix}"></script>\n`;
+    const tag = `  <script src="${scriptPrefix}js/vc-i18n-pages.js${assetSuffix}" defer></script>\n`;
     if (next.includes("js/vc-i18n.js")) {
       next = next.replace(
         /(<script[^>]*js\/vc-i18n\.js[^>]*><\/script>)/i,
@@ -2018,27 +2229,7 @@ function ensureI18nPagesScript(html, { scriptPrefix = "", assetSuffix = "" } = {
       );
     }
   }
-  if (!next.includes("vc-i18n-pages-extra.js") && next.includes("vc-i18n-pages.js")) {
-    const extra = `  <script src="${scriptPrefix}js/vc-i18n-pages-extra.js${assetSuffix}"></script>\n`;
-    next = next.replace(
-      /(<script[^>]*js\/vc-i18n-pages\.js[^>]*><\/script>)/i,
-      `$1\n${extra}`,
-    );
-  }
-  if (!next.includes("vc-i18n-locales.js") && next.includes("vc-i18n-pages-extra.js")) {
-    const locales = `  <script src="${scriptPrefix}js/vc-i18n-locales.js${assetSuffix}"></script>\n`;
-    next = next.replace(
-      /(<script[^>]*js\/vc-i18n-pages-extra\.js[^>]*><\/script>)/i,
-      `$1\n${locales}`,
-    );
-  } else if (!next.includes("vc-i18n-locales.js") && next.includes("vc-i18n-pages.js")) {
-    const locales = `  <script src="${scriptPrefix}js/vc-i18n-locales.js${assetSuffix}"></script>\n`;
-    next = next.replace(
-      /(<script[^>]*js\/vc-i18n-pages\.js[^>]*><\/script>)/i,
-      `$1\n${locales}`,
-    );
-  }
-  return next;
+    return next;
 }
 
 function applyI18nToDist(distDir, assetVersion = "") {
@@ -2309,8 +2500,9 @@ async function buildStaffListBlock(cfg, guildId) {
                 ? staffNewBadgeHtml()
                 : "";
               const pauseB = staffStatusFlags.paused.has(uid) ? staffPauseBadgeHtml() : "";
+              const bestB = memberIsStaffDelMese(mem) ? staffBestBadgeHtml() : "";
               const roleB = staffRoleBadgeHtml(g.roleLabel, g.roleId);
-              const badgeBits = [ownerB, newB, pauseB, roleB].filter(Boolean).join("");
+              const badgeBits = [ownerB, newB, pauseB, bestB, roleB].filter(Boolean).join("");
               const badges = badgeBits
                 ? `<span class="vc-staff-member-chip__badges">${badgeBits}</span>`
                 : "";
@@ -2340,6 +2532,7 @@ async function buildStaffListBlock(cfg, guildId) {
           return staffHoverMemberPayload(mem, g.roleId, g.roleLabel, ownerUserId, gid, {
             isNew: staffStatusFlags.newRolesByUser.get(uid)?.has(String(g.roleId)) === true,
             isPaused: staffStatusFlags.paused.has(uid),
+            isStaffDelMese: memberIsStaffDelMese(mem),
           });
         })
         .filter((mem) => mem.name),
@@ -2358,6 +2551,7 @@ async function buildStaffListBlock(cfg, guildId) {
         return staffHoverMemberPayload(m, rid, targetRoleLabel, ownerUserId, gid, {
           isNew: staffStatusFlags.newRolesByUser.get(uid)?.has(rid) === true,
           isPaused: staffStatusFlags.paused.has(uid),
+          isStaffDelMese: memberIsStaffDelMese(m),
         });
       })
       .filter((m) => m.name)
@@ -2475,7 +2669,6 @@ function mergeLivePulseIntoPayload(payload, pulse, presenceCount) {
   return payload;
 }
 
-/** Solo `live-stats-extra.json` (nessun rebuild HTML). Utile con cron sul VPS. */
 async function mainLiveStatsExtraOnly() {
   if (!fs.existsSync(CONFIG_PATH)) {
     console.error("Manca site.config.json in", ROOT);
@@ -2550,13 +2743,11 @@ async function mainLiveStatsExtraOnly() {
   );
 }
 
-/** Entry CLI Tailwind (evita `.cmd` in PATH con `&` nel percorso su Windows). */
 function tailwindCliJsPath(webRoot) {
   const cli = path.join(webRoot, "node_modules", "tailwindcss", "lib", "cli.js");
   return fs.existsSync(cli) ? cli : null;
 }
 
-/** Genera `css/tw-build.css` (Tailwind v3 CLI). Richiede `npm install` in WebSite/. */
 function runTailwindProductionBuild(webRoot) {
   const cli = tailwindCliJsPath(webRoot);
   if (!cli) return false;
@@ -2780,8 +2971,7 @@ async function main() {
   const ogImageOverride = String(cfg.openGraphImageUrl ?? "").trim() || siteOgFallback;
   const ogIconLarge =
     snap?.guildId && snap?.icon && wantIcon ? guildIconCdnUrl(snap.guildId, snap.icon, 1024) : guildIconUrl;
-  // Mai usare banner/icon GIF Discord come og:image (Discord non li mostra bene → embed senza banner).
-  const ogCandidates = [ogImageOverride, siteOgFallback, guildBannerUrl, ogIconLarge, guildIconUrl];
+    const ogCandidates = [ogImageOverride, siteOgFallback, ogIconLarge, guildIconUrl, guildBannerUrl];
   let ogImageUrl = "";
   for (const cand of ogCandidates) {
     const abs = forceStaticOgImageUrl(absUrlForMetadata(siteUrlTrim, cand));
@@ -2811,7 +3001,7 @@ async function main() {
   const discordInviteResolved = cfg.discordInviteUrl || "https://discord.gg/viniliecaffe";
   const discordSponsorTicketsMessageResolved =
     String(cfg.discordSponsorTicketsMessageUrl ?? "").trim() ||
-    "https://discord.com/channels/1329080093599076474/1442569095068254219/1469836204873744404";
+    (siteBaseNoSlash ? `${siteBaseNoSlash}/tickets/` : "/tickets/");
   const siteBaseNoSlash = siteUrlTrim.replace(/\/+$/, "");
   const defaultLegalPath = (slug) =>
     siteBaseNoSlash ? `${siteBaseNoSlash}/${slug}` : `/${slug}`;
@@ -2830,8 +3020,7 @@ async function main() {
   const discordInviteDisplay = inviteCode ? `discord.gg/${inviteCode}` : "Discord";
   const wikiUrlResolved =
     String(cfg.wikiUrl ?? "").trim() || (siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : "/wiki");
-  // Non usare siteUrlTrim come fallback: href alla home fa scattare vc-landing.js e segna tutto il menu "corrente".
-  const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || defaultLegalPath("faq");
+    const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || defaultLegalPath("faq");
   const sponsorUrlResolved = String(cfg.sponsorUrl ?? "").trim() || defaultLegalPath("sponsor");
   const communityRulesUrlResolved =
     String(cfg.communityRulesUrl ?? "").trim() || defaultLegalPath("regole");
@@ -2864,8 +3053,7 @@ async function main() {
   const tokenCaffe = process.env.DISCORD_TOKEN_TEST?.trim();
   let wikiViniliFromApi = null;
   let wikiCaffeFromApi = null;
-  // Avatar: una sola GET /users/@me — anche in VC_BUILD_FAST (altrimenti resta il placeholder Discord).
-  if (!wikiViniliCfgUrl && tokenVinili) {
+    if (!wikiViniliCfgUrl && tokenVinili) {
     wikiViniliFromApi = await fetchBotSelfAvatarUrl(tokenVinili, "Vinili");
     if (wikiViniliFromApi) {
       buildInfoLog("[build-site] Wiki Vinili: avatar da Discord GET /users/@me (account bot).");
@@ -3262,6 +3450,10 @@ async function main() {
   const hogwartsEventCalendarWeb = serializeCalendarForWeb(hogwartsEventCalendarResolved);
   const hogwartsEventNav = {
     previewMode: hogwartsEventRaw.previewMode === true,
+    enabled: hogwartsEventRaw.enabled !== false,
+    eventEndMs: Number.isFinite(parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone))
+      ? parseDateEndMs(hogwartsEventRaw.endDate || "2026-09-01T12:00:00", hogwartsEventTimezone)
+      : null,
     accessApiUrl: `${String(hogwartsSortingApiResolved || "/webhooks/site-hogwarts-sorting").replace(/\/+$/, "")}/access`,
     accessApiUrlLocal: distApiLocal(
       hogwartsSortingApiLocalResolved
@@ -3549,8 +3741,7 @@ async function main() {
         : 0,
     },
     overrideIso: String(seratafilmEventRaw.overrideIso || seratafilmEventRaw.fixedIso || "").trim(),
-    // Path pubblico in config: in produzione nginx lo blocca; lo stream reale arriva da filmStreamUrl.
-    linkFilm: String(seratafilmEventRaw.linkFilm || "").trim(),
+        linkFilm: String(seratafilmEventRaw.linkFilm || "").trim(),
     hogwartsThemeVideoUrl: String(seratafilmEventRaw.hogwartsThemeVideoUrl || hogwartsIntroVideo).trim(),
     hogwartsEventWindow: {
       enabled: hogwartsEventRaw.enabled !== false,
@@ -3691,8 +3882,7 @@ async function main() {
   const statusPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/status/` : "/status/";
   const premiumCheckoutFromCfg = String(cfg.premiumCheckoutUrl ?? "").trim();
   const discordAppId = String(cfg.discordOauth?.clientId ?? "").trim();
-  /** SKU Guild subscription — Vinili Premium (Discord Shop). */
-  const premiumStoreSkuId = String(cfg.premiumStoreSkuId ?? "1530970777694896239").trim();
+    const premiumStoreSkuId = String(cfg.premiumStoreSkuId ?? "1530970777694896239").trim();
   const premiumCheckoutUrlResolved =
     premiumCheckoutFromCfg ||
     (discordAppId && /^\d{16,22}$/.test(premiumStoreSkuId)
@@ -3755,6 +3945,7 @@ async function main() {
     LIVE_STATS_BOOT: liveStatsBoot,
     LIVE_STATS_BOOT_WIKI: liveStatsBootWiki,
     LIVE_STATS_BOOT_USER: liveStatsBootUser,
+    KICK_LIVE_PIP_BOOT: buildKickLivePipBootHtml(cfg, { scriptPrefix: "/" }),
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
     SITE_URL: escAttr(siteUrlTrim),
@@ -3768,7 +3959,7 @@ async function main() {
       `Avviso di copyright e licenza proprietaria di ${siteName}.`,
     ),
     NOTIFICATIONS_URL: escAttr(defaultLegalPath("notifications")),
-    USER_PERSONALIZZA_URL: escAttr(defaultLegalPath("user/personalizza")),
+    USER_PERSONALIZZA_URL: escAttr(defaultLegalPath("personalizza")),
     LEGAL_TERMS_UPDATED: escHtml(legalTermsDate),
     LEGAL_PRIVACY_UPDATED: escHtml(legalPrivacyDate),
     LEGAL_COOKIE_UPDATED: escHtml(legalCookieDate),
@@ -3782,8 +3973,8 @@ async function main() {
     PRIVACY_OG_DESCRIPTION: escAttr(`Informativa sulla privacy per il sito e la community ${siteName}.`),
     USER_RANK_CUSTOMIZE_OG_TITLE: escAttr(`${siteName} | Personalizza rank card`),
     USER_RANK_CUSTOMIZE_OG_DESCRIPTION: escAttr(`Personalizza la tua rank card direttamente dal sito.`),
-    USER_PERSONALIZZA_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/user/personalizza` : ""),
-    USER_CUSTOMIZE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/user/customize` : ""),
+    USER_PERSONALIZZA_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/personalizza` : ""),
+    USER_CUSTOMIZE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/personalizza?target=rank` : ""),
     DISCORD_INVITE_DISPLAY: escHtml(discordInviteDisplay),
     SUPPORT_MAILTO: supEmail ? escAttr(`mailto:${supEmail}`) : escAttr("#"),
     VOTE_URL: escAttr(votePageUrl),
@@ -3966,7 +4157,7 @@ async function main() {
     USER_OG_URL: escAttr(userPageUrl),
     RUOLI_PAGE_TITLE: `${siteName} | Ruoli Personalizzati`,
     RUOLI_META_DESCRIPTION: escAttr(
-      `Tutti i ruoli personalizzati creati con +profile nella community Discord ${siteName}.`,
+      `Tutti i ruoli personalizzati creati con <a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a> nella community Discord ${siteName}.`,
     ),
     RUOLI_OG_TITLE: escAttr(`${siteName} | Ruoli Personalizzati`),
     RUOLI_OG_URL: escAttr(ruoliPageUrl),
@@ -4481,7 +4672,7 @@ async function main() {
     console.warn("[build-site] Manca sponsor/index.html (saltato placeholder).");
   }
 
-  const rankCustomizeRel = ["user/personalizza/index.html", "user/customize/index.html", "user/custom/index.html"];
+  const rankCustomizeRel = ["personalizza/index.html", "user/personalizza/index.html", "user/customize/index.html", "user/custom/index.html"];
   for (const rel of rankCustomizeRel) {
     const customizePath = path.join(DIST, rel);
     if (!fs.existsSync(customizePath)) {
@@ -4514,6 +4705,9 @@ async function main() {
   }
 
   applyAvatarFallbackToDist(DIST, buildAssetVersion);
+  applyDiscordAvatarToDist(DIST, buildAssetVersion);
+  applyAuthPendingBootToDist(DIST, buildAssetVersion);
+  applyFaBootToDist(DIST, buildAssetVersion);
   applyEmojiRenderToDist(DIST, buildAssetVersion);
   applyVcDialogToDist(DIST, buildAssetVersion);
   applyCursorTrailToDist(DIST, buildAssetVersion);
@@ -4522,6 +4716,7 @@ async function main() {
   applyMobileNavToDist(DIST, buildAssetVersion);
   applyHeaderNameMarqueeToDist(DIST, buildAssetVersion);
   applyI18nToDist(DIST, buildAssetVersion);
+  applyDashboardDeferToDist(DIST);
   applyLiveStatsBootToDist(DIST, cfg, inviteCode);
   applySiteSponsorAdToDist(DIST, cfg);
   applyKickLivePipToDist(DIST, cfg);

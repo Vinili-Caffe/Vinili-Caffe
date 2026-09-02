@@ -40,6 +40,8 @@ function extractProfileSectionFromMessage(message) {
 }
 
 async function refreshProfilePanelIfPresent(interaction, client) {
+  const { isDiscordProfileEnabled } = require("../Utils/Web/discordWorkflowUiGate");
+  if (!isDiscordProfileEnabled()) return;
   const msg = interaction?.message;
   if (!msg?.edit || !interaction?.guild) return;
   const ownerId = extractProfilePanelOwnerIdFromMessage(msg);
@@ -75,8 +77,7 @@ module.exports = {
         return;
       }
 
-      // Top channel: ack immediato (build payload può superare i 3s col gate/handler chain).
-      try {
+            try {
         const topChannel = require("../Buttons/topChannelHandler");
         if (
           typeof topChannel.isTopChannelInteraction === "function" &&
@@ -84,8 +85,7 @@ module.exports = {
           !interaction.replied &&
           !interaction.deferred
         ) {
-          // showModal non può seguire un deferUpdate: solo update-path qui.
-          const id = String(interaction.customId || "");
+                    const id = String(interaction.customId || "");
           const isPageModalOpen = id === "top_channel_page_modal_open" || id.startsWith("top_channel_page_modal_open:");
           if (!isPageModalOpen) {
             await interaction.deferUpdate().catch(() => {});

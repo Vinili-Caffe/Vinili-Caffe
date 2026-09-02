@@ -174,7 +174,6 @@ async function openIncomePanel(client, message, incomeType) {
   return { ok: true, session, payload: await buildIncomeClaimPayload(session, notice, false, client) };
 }
 
-/** Esegue subito la riscossione (senza conferma bottoni), come +duel vs bot. */
 async function runIncomeDirect(client, message, incomeType) {
   if (!validIncomeType(incomeType)) return { ok: false, message: "Tipo ricompensa non valido." };
   const peek =

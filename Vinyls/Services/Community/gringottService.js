@@ -142,9 +142,7 @@ async function ensureGringottCanonicalFromLegacy(guildId, userId) {
     nestedSpent > 0 ||
     (Array.isArray(nested.ledger) && nested.ledger.length > 0) ||
     (Array.isArray(nested.rewardKeys) && nested.rewardKeys.length > 0);
-  // Se Gringott nested è già attivo, NON rialzare mai il saldo dal vecchio flat:
-  // altrimenti ogni spend (blackjack ecc.) veniva annullato al read successivo.
-  if (nestedHasData) return;
+      if (nestedHasData) return;
   const flatBalance = Math.max(0, Math.floor(Number(hw.balance) || 0));
   if (flatBalance <= 0) return;
   const $set = {

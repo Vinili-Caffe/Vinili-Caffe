@@ -80,7 +80,6 @@ async function unregisterTenantGuild(guildId) {
   return true;
 }
 
-/** Aggiorna una feature tenant (es. ticket) nel registry dinamico Mongo. */
 async function setTenantGuildFeature(guildId, featureKey, enabled) {
   const gid = normalizeGuildId(guildId);
   const key = String(featureKey || "").trim();

@@ -108,8 +108,7 @@
     var p = videoEl.play();
     if (p && typeof p.catch === "function") {
       p.catch(function () {
-        /* autoplay block: resta sfondo opaco, riprova al prossimo gesto */
-      });
+              });
     }
   }
 

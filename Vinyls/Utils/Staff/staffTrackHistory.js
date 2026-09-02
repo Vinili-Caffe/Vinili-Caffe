@@ -14,10 +14,6 @@ const TRACK_KINDS = new Set([
   "warn_rm",
 ]);
 
-/**
- * Nasconde dalla carriera i pex/depex automatici per ruoli messi/tolti a mano
- * (es. "Ruolo staff aggiunto manualmente.").
- */
 function isHiddenManualStaffCareerReason(reason) {
   const r = String(reason || "")
     .toLowerCase()
@@ -27,8 +23,7 @@ function isHiddenManualStaffCareerReason(reason) {
     .trim();
   if (!r) return false;
   if (!/\bmanualmente\b/.test(r)) return false;
-  // aggiunto / aggunto (typo) / rimosso
-  if (/\b(aggiunt[oa]|aggunto|rimoss[oa])\b/.test(r)) return true;
+    if (/\b(aggiunt[oa]|aggunto|rimoss[oa])\b/.test(r)) return true;
   return /\bruolo\b/.test(r);
 }
 
@@ -63,9 +58,6 @@ function normalizeTrackEntry(raw) {
   return entry;
 }
 
-/**
- * Append-only action log on staff (pex/depex/val/warn + removals) with actor.
- */
 async function appendStaffTrackHistory(guildId, userId, rawEntry) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
@@ -108,9 +100,6 @@ function fingerprint(row) {
   ].join("|");
 }
 
-/**
- * Unified timeline for gestione: trackHistory + legacy rolesHistory + val logs.
- */
 function buildStaffTrackTimeline(guild, staff, { limit = 400 } = {}) {
   const items = [];
   const seen = new Set();
@@ -197,8 +186,7 @@ function buildStaffTrackTimeline(guild, staff, { limit = 400 } = {}) {
   pushValLogs(staff?.positiveValutazioni, "val_pos");
   pushValLogs(staff?.negativeValutazioni, "val_neg");
 
-  // Legacy warnReasons (stringhe) se non già presenti in trackHistory.
-  const existingWarnText = new Set(
+    const existingWarnText = new Set(
     items
       .filter((r) => r && (r.kind === "warn" || r.kind === "warn_rm"))
       .map((r) => String(r.reason || "").trim().slice(0, 120).toLowerCase())

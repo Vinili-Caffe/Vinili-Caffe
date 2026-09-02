@@ -2,6 +2,14 @@
   var cfg = typeof window !== "undefined" ? window.__VC_LIVE : null;
   if (!cfg || cfg.enabled !== true) return;
 
+    function hasLiveStatsSurface() {
+    if (document.getElementById("stats")) return true;
+    if (document.querySelector("[data-live-stat]")) return true;
+    return false;
+  }
+  if (!hasLiveStatsSurface()) return;
+
+  
   var introHasStarted = false;
   var pollStarted = false;
   var ioFallbackTimer = null;
@@ -152,6 +160,7 @@
                   isOwner: entry.isOwner === true,
                   isNew: entry.isNew === true,
                   isPaused: entry.isPaused === true,
+                  isStaffDelMese: entry.isStaffDelMese === true,
                   roleId: String(entry.roleId || "").trim(),
                   roleLabel: String(entry.roleLabel || "").trim(),
                 };
@@ -164,6 +173,7 @@
                 isOwner: false,
                 isNew: false,
                 isPaused: false,
+                isStaffDelMese: false,
                 roleId: "",
                 roleLabel: "",
               };
@@ -440,17 +450,35 @@
     return m ? m[1] : "";
   }
 
-  function preferStableDiscordAvatarUrl(url) {
+  function preferDiscordAvatarDisplayUrl(url) {
+    if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferAnimatedUrl === "function") {
+      return window.VcDiscordAvatar.preferAnimatedUrl(url, 0) || String(url || "").trim();
+    }
     var u = String(url || "").trim();
     if (!u) return "";
-    // Preferisci PNG statico: webp/gif guild a volte 404 dopo cambio avatar.
-    return u.replace(/\.(webp|gif|jpe?g)(\?|#|$)/i, ".png$2");
+        try {
+      var parsed = new URL(u);
+      var path = String(parsed.pathname || "");
+      var base = path.split("/").pop() || "";
+      var hash = base.replace(/\.[a-z0-9]+$/i, "");
+      if (/^a_/i.test(hash)) {
+        parsed.pathname = path.replace(/\.(png|webp|jpg|jpeg)(\?|$)/i, ".gif$2");
+        return parsed.toString();
+      }
+      parsed.pathname = path.replace(/\.(webp|gif|jpe?g)(\?|$)/i, ".png$2");
+      return parsed.toString();
+    } catch (e) {
+      if (/\/a_[^/?#]+\./i.test(u)) {
+        return u.replace(/\.(png|webp|jpg|jpeg)(\?|#|$)/i, ".gif$2");
+      }
+      return u.replace(/\.(webp|gif|jpe?g)(\?|#|$)/i, ".png$2");
+    }
   }
 
   function safeDiscordAvatarUrl(url) {
     var u = String(url || "").trim();
     if (/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(u)) {
-      return preferStableDiscordAvatarUrl(u) || u;
+      return preferDiscordAvatarDisplayUrl(u) || u;
     }
     return "";
   }
@@ -483,8 +511,7 @@
         "</span>"
       );
     }
-    // Niente this.remove(): vc-avatar-fallback.js gestisce PNG → default Discord → SVG.
-    return (
+        return (
       '<span class="vc-home-staff-roster__avatar vc-home-staff-roster__avatar--img" style="--vc-staff-badge-h:' +
       hue +
       '" aria-hidden="true">' +
@@ -580,6 +607,10 @@
     var t0 = performance.now();
     function frame(now) {
       if (!trackEl.isConnected) return;
+      if (document.hidden) {
+        trackEl._vcMarqueeRaf = requestAnimationFrame(frame);
+        return;
+      }
       var p = ((now - t0) % dur) / dur;
       trackEl.style.transform = "translateX(" + (-dist * p).toFixed(2) + "px)";
       trackEl._vcMarqueeRaf = requestAnimationFrame(frame);
@@ -618,6 +649,9 @@
     var pauseB = Boolean(member && member.isPaused === true)
       ? '<span class="vc-staff-pause-badge" title="In pausa" aria-label="In pausa">Pausa</span>'
       : "";
+    var bestB = Boolean(member && member.isStaffDelMese === true)
+      ? '<span class="vc-staff-best-badge" title="Best staff" aria-label="Best staff">Best</span>'
+      : "";
     var groupRole = String((group && group.role) || "").replace(/^༄\s*/, "").trim().toLowerCase();
     var memberRole = String((member && member.roleLabel) || "").replace(/^༄\s*/, "").trim();
     var roleB = memberRole && memberRole.toLowerCase() !== groupRole
@@ -630,8 +664,8 @@
         "</span>"
       : "";
     var badges =
-      ownerB || newB || pauseB || roleB
-        ? '<span class="vc-staff-member-chip__badges">' + ownerB + newB + pauseB + roleB + "</span>"
+      ownerB || newB || pauseB || bestB || roleB
+        ? '<span class="vc-staff-member-chip__badges">' + ownerB + newB + pauseB + bestB + roleB + "</span>"
         : "";
     var inner =
       renderStaffAvatarHtml(member, hue) +
@@ -977,8 +1011,8 @@
       try {
         list.push(new URL(String(proxy).trim(), location.origin).toString());
       } catch (e) {
-        /* ignore */
-      }
+              }
+      if (list.length) return list;
     }
     list.push(
       "https://discord.com/api/v10/invites/" + encodeURIComponent(code) + "?with_counts=true",
@@ -991,24 +1025,20 @@
     var gid = guild && guild.id != null ? String(guild.id).trim() : "";
     var icon = guild && guild.icon != null ? String(guild.icon).trim() : "";
     if (!gid || !icon) return "";
-    // Always use static PNG at display size — animated GIF hurts Lighthouse (bytes + 3P cookies).
-    return "https://cdn.discordapp.com/icons/" + gid + "/" + icon + ".png?size=64";
+        return "https://cdn.discordapp.com/icons/" + gid + "/" + icon + ".png?size=64";
   }
 
   function applyHeaderGuildIcon(url) {
     var u = String(url || "").trim();
     if (!u) return;
-    // Dashboard: il logo header è del server selezionato, non del server principale Vinili.
-    try {
+        try {
       if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
     } catch (e0) {}
     var imgs = document.querySelectorAll("img.vc-header-logo-img");
     for (var i = 0; i < imgs.length; i += 1) {
-      // Non sovrascrivere logo del server sulla dashboard guild.
-      if (imgs[i].getAttribute("data-vc-guild-brand") === "1") continue;
+            if (imgs[i].getAttribute("data-vc-guild-brand") === "1") continue;
       if (imgs[i].id === "vc-dashboard-header-guild-icon") continue;
-      // Keep local static brand asset when present (Lighthouse + no Discord CDN cookies).
-      var cur = String(imgs[i].getAttribute("src") || "");
+            var cur = String(imgs[i].getAttribute("src") || "");
       if (cur.indexOf("/images/vc-header-logo.") >= 0) continue;
       if (imgs[i].getAttribute("src") !== u) imgs[i].setAttribute("src", u);
     }
@@ -1053,11 +1083,7 @@
     });
   }
 
-  /**
-   * Membri/boost: priorità all’invite Discord (conteggi live ~ogni poll).
-   * live-stats-extra.json resta per staff/hover/pulse e fallback se l’invite fallisce.
-   */
-  function tick() {
+    function tick() {
     Promise.all([fetchExtraStatsJson(), refreshInvite().catch(function () {
       return null;
     })]).then(function (pair) {
@@ -1219,8 +1245,7 @@
     if (window.__VC_DISABLE_LIVE_EVENT_UI === true) return;
     if (document.body && document.body.classList.contains("vc-hw-page")) return;
     if (document.body && document.body.classList.contains("vc-seratafilm-page")) return;
-    // Banner evento Discord live: solo homepage
-    var isHome =
+        var isHome =
       (document.body && document.body.classList.contains("vc-body--home")) ||
       (function () {
         var p = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";

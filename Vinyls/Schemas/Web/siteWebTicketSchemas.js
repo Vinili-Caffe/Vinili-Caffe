@@ -8,7 +8,6 @@ const WEB_TICKET_CATEGORIES = Object.freeze([
   "perks",
 ]);
 
-/** Categorie web legacy (pre-allineamento ai pannelli Discord). */
 const WEB_TICKET_CATEGORY_LEGACY = Object.freeze(["segnalazione", "tecnico", "altro"]);
 
 const WEB_TICKET_STATUS = Object.freeze({
@@ -64,25 +63,24 @@ const siteWebTicketSchema = new Schema(
     closeRequestedByName: { type: String, default: "", trim: true, maxlength: 80 },
     closeRequestedAt: { type: Date, default: null },
     closeRequestReason: { type: String, default: "", trim: true, maxlength: 1800 },
-    /** Valutazione post-chiusura (owner): esperienza ticket + staffer. */
-    ratingTicketScore: { type: Number, default: null, min: 1, max: 5 },
+        ratingTicketScore: { type: Number, default: null, min: 1, max: 5 },
     ratingStafferScore: { type: Number, default: null, min: 1, max: 5 },
     ratingBy: { type: String, default: null, index: true },
     ratingAt: { type: Date, default: null },
     ratedStafferId: { type: String, default: null, index: true },
     ratedStafferName: { type: String, default: "", trim: true, maxlength: 80 },
-    /** Log Discord chiusura (canale ticket logs, come i ticket Discord). */
-    closeLogChannelId: { type: String, default: "", trim: true, maxlength: 32 },
+        closeLogChannelId: { type: String, default: "", trim: true, maxlength: 32 },
     closeLogMessageId: { type: String, default: "", trim: true, maxlength: 32 },
-    /** Riscatto shop Partner Manager (tier 150/200/250) — ticket High Staff dedicato. */
-    partnerManagerShopRedeemTier: { type: Number, default: null },
+        partnerManagerShopRedeemTier: { type: Number, default: null },
     partnerManagerShopRedeemAckResult: { type: String, default: null, trim: true, maxlength: 32 },
     partnerManagerShopRedeemAckAt: { type: Date, default: null },
+        discordImportKey: { type: String, default: null, trim: true, maxlength: 80, index: true },
   },
   { timestamps: true },
 );
 
 siteWebTicketSchema.index({ guildId: 1, ticketNumber: 1 }, { unique: true });
+siteWebTicketSchema.index({ guildId: 1, discordImportKey: 1 }, { unique: true, sparse: true });
 siteWebTicketSchema.index({ guildId: 1, status: 1, lastMessageAt: -1 });
 siteWebTicketSchema.index({ guildId: 1, userId: 1, status: 1, updatedAt: -1 });
 siteWebTicketSchema.index({ guildId: 1, "addedUsers.id": 1, status: 1 });

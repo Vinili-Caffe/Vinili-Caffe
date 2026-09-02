@@ -27,6 +27,7 @@ const { buildHogwartsProfileHomeLines, fetchHogwartsProfileSection, isHogwartsPr
 const { buildCustomVocWeeklyActivityPanelState, buildCustomVocWeeklyActivityEmbedLines, getLastSunday21BoundaryMsAtOrBefore } = require("../Utils/Community/customVocWeeklyActivityUtils");
 const { isCustomVocRecreationBlocked } = require("../Services/Community/customVocWeeklyActivityService");
 const { withMongoTimeout } = require("../Utils/Database/mongoConnect");
+const { isDiscordProfileEnabled, replyProfileMovedToSite, siteUserProfilePageDiscordRef } = require("../Utils/Web/discordWorkflowUiGate");
 
 const PROFILE_DB_MS = 10_000;
 const PROFILE_DISCORD_MS = 8_000;
@@ -127,7 +128,6 @@ function clearBirthdayDraft(guildId, userId) {
   persistBirthdayDraftsNow();
 }
 
-/** Unisce bozza + profilo e salva se data+età sono complete. */
 async function commitBirthdayProfileAuto(guild, ownerId, client, patch = {}) {
   const gid = String(guild?.id || "").trim();
   const uid = String(ownerId || "").trim();
@@ -234,8 +234,7 @@ function trimRoleName(name) {
   const clean = String(name || "").replace(/\s+/g, " ").trim();
   const base = clean || "Custom Role";
   const prefixed = base.startsWith("༄") ? base : `༄ ${base}`;
-  // Discord role name max is 100 (32 is nickname-only).
-  return prefixed.slice(0, 100).trim();
+    return prefixed.slice(0, 100).trim();
 }
 
 function sanitizeVoiceBaseName(name) {
@@ -431,12 +430,10 @@ function parsePanelCustomId(customId) {
   if (parts.length < 3) return null;
   const [prefix, kind, a, b, ...rest] = parts;
   if (prefix !== PANEL_PREFIX) return null;
-  // Nuovo: kind:viewerId:ownerId:...
-  if (/^\d{16,20}$/.test(String(a || "")) && /^\d{16,20}$/.test(String(b || ""))) {
+    if (/^\d{16,20}$/.test(String(a || "")) && /^\d{16,20}$/.test(String(b || ""))) {
     return { kind, viewerId: String(a), ownerId: String(b), rest };
   }
-  // Legacy: kind:ownerId:...
-  if (/^\d{16,20}$/.test(String(a || ""))) {
+    if (/^\d{16,20}$/.test(String(a || ""))) {
     return {
       kind,
       viewerId: null,
@@ -542,9 +539,7 @@ async function fetchProfilePanelState(guild, userId, client) {
     ? { ...customState, doc: mergedCustomDoc || null }
     : { status: "none", doc: mergedCustomDoc || null, role: null, secondaryRole: null };
 
-  // Cap only for display / feature access. Do not persist trims on panel open:
-  // losing VIP+/Booster² briefly would otherwise erase reactions 4–5 forever.
-  const cappedReactionList = Array.isArray(reactionDoc?.reactions)
+      const cappedReactionList = Array.isArray(reactionDoc?.reactions)
     ? reactionDoc.reactions.slice(0, customReactionMax)
     : [];
 
@@ -1052,6 +1047,7 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
 }
 
 async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME, rolePanelCategory = null, viewerId = null) {
+  if (!isDiscordProfileEnabled()) return null;
   const state = await fetchProfilePanelState(guild, ownerId, client);
   if (String(section || SECTION_HOME) === SECTION_CUSTOMVOC && state?.featureAccess?.customVoc) {
     const vocDoc = state?.custom?.doc;
@@ -1150,7 +1146,7 @@ async function ensureOwner(interaction, ownerId) {
     content: viewingOnly
       ? "<:vegax:1443934876440068179> Stai solo guardando questo profilo: puoi cambiare sezione, non modificarlo."
       : deniedOwnerId && String(interaction?.user?.id || "") !== String(deniedOwnerId)
-        ? `<:vegax:1443934876440068179> Questo pannello è del profilo di <@${deniedOwnerId}>. Usa \`+profile\` per aprire il tuo.`
+        ? `<:vegax:1443934876440068179> Questo pannello è del profilo di <@${deniedOwnerId}>. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per aprire il tuo.`
         : "<:vegax:1443934876440068179> Questo pannello non è tuo.",
     flags: PRIVATE_FLAG,
   }).catch(() => { });
@@ -1517,6 +1513,7 @@ async function handleReactionSetModal(interaction, ownerId) {
 }
 
 async function handleProfileMentionResponsePromptMessage(message) {
+  if (!isDiscordProfileEnabled()) return false;
   if (!message?.guild || message.author?.bot || message.webhookId || message.system) return false;
   const key = mentionResponsePromptKey(message.guild.id, message.author.id);
   const pending = mentionResponsePrompts.get(key);
@@ -1575,6 +1572,10 @@ function match(interaction) {
 }
 
 async function execute(interaction, client) {
+  if (!isDiscordProfileEnabled()) {
+    await replyProfileMovedToSite(interaction);
+    return true;
+  }
   const parsed = parsePanelCustomId(interaction.customId);
   if (!parsed) return false;
   const control = await resolveProfilePanelControl(interaction, parsed.ownerId);
@@ -1609,8 +1610,7 @@ async function execute(interaction, client) {
   }
 
   if (interaction.isButton() && kind === "action" && String(rest?.[0] || "") === "close") {
-    // Chi ha aperto il pannello (anche in sola lettura) può chiuderlo.
-    const { cancelProfilePrompt } = require("../Events/interaction/customRoleHandlers");
+        const { cancelProfilePrompt } = require("../Events/interaction/customRoleHandlers");
     await cancelProfilePrompt(
       interaction.guild.id,
       interaction.user.id,
@@ -2013,13 +2013,8 @@ async function execute(interaction, client) {
     }
 
     if (action === "open_customrole" || action === "open_customvoc" || action === "open_customreaction") {
-      const cmd = action === "open_customrole"
-        ? "+profile"
-        : action === "open_customvoc"
-          ? "+profile"
-          : "+profile";
       await interaction.reply({
-        content: `Usa ${cmd} nel canale comandi per aprire il pannello dedicato.`,
+        content: `Usa ${siteUserProfilePageDiscordRef()} per aprire il pannello dedicato.`,
         flags: PRIVATE_FLAG,
       }).catch(() => { });
       return true;

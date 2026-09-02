@@ -34,7 +34,7 @@ function buildDmPrivacyBlockedNoticeContent(userId, botLabel) {
     "",
     "In alternativa: **Impostazioni utente** → **Privacy e sicurezza** → abilita i messaggi diretti dai membri del server.",
     "",
-    "Dopo averli attivati, usa `+profile` in questo canale per gestire le notifiche del bot.",
+    "Dopo averli attivati, usa il [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per gestire le notifiche del bot.",
   ].filter(Boolean).join("\n");
 }
 

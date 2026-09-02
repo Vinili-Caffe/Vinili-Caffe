@@ -10,10 +10,6 @@ const {
   normalizeTeamIdList,
 } = require("../../MultiGuild/core/tenantTicketTeams");
 
-/**
- * Overwrite create per i support team del pannello.
- * Unisce i membri; se un soggetto è in più team, i permessi vengono OR-ati.
- */
 function mergePermissionMaps(maps) {
   const out = {
     ViewChannel: true,
@@ -42,7 +38,7 @@ function buildTeamPermissionOverwrites({
   const teams = findGuildTeamsByIds(guildId, teamIds);
   if (!teams.length) return null;
 
-  const byTarget = new Map(); // key: `${type}:${id}` -> permission maps[]
+  const byTarget = new Map();
   for (const team of teams) {
     const permMap = teamPermsToPermissionMap(team);
     for (const member of team.members || []) {

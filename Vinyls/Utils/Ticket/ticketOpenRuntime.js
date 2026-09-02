@@ -92,8 +92,7 @@ async function resolveCustomTicketCategory(guild, dashboardName) {
   if (reusable) return reusable;
 
   if (matches.length) {
-    // Tutte piene: crea overflow con lo stesso nome base.
-    return createNamedTicketCategory(
+        return createNamedTicketCategory(
       guild,
       `${categoryName}${TICKETS_OVERFLOW_SEPARATOR}${matches.length + 1}`,
       (matches[matches.length - 1].rawPosition || 0) + 1,
@@ -229,9 +228,6 @@ async function createTicketsCategory(interaction, guild, options = {}) {
   return cacheAndReturn(auto);
 }
 
-/**
- * Dopo la chiusura di un ticket: se modalità Custom e la categoria è vuota, eliminala.
- */
 async function maybeDeleteEmptyCustomTicketCategory(guild, categoryId) {
   const cid = String(categoryId || "").trim();
   if (!guild || !cid) return false;
@@ -259,9 +255,6 @@ async function maybeDeleteEmptyCustomTicketCategory(guild, categoryId) {
   return true;
 }
 
-/**
- * Rinomina su Discord la categoria custom quando cambia il nome in dashboard.
- */
 async function syncCustomTicketCategoryName(client, guildId, prevSettings, nextSettings) {
   const gid = String(guildId || "").trim();
   if (!client || !gid) return { ok: false };
@@ -292,8 +285,7 @@ async function syncCustomTicketCategoryName(client, guildId, prevSettings, nextS
     }
   }
   if (!target) {
-    // Fallback: prima categoria “ticket-like” sul server (es. nome fancy già presente).
-    const soft = [...guild.channels.cache.values()]
+        const soft = [...guild.channels.cache.values()]
       .filter((ch) => ch.type === ChannelType.GuildCategory)
       .filter((ch) => {
         const nl = String(ch.name || "").toLowerCase();

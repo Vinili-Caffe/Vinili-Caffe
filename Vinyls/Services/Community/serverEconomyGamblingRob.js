@@ -672,8 +672,7 @@ async function playRps(client, message, betRaw, choiceRaw, currency = CURRENCY_C
   if (!player) return { ok: false, message: "Scegli `sasso`, `carta` o `forbici`." };
   const bet = await spendBet(client, message, "rps", betRaw, currency, options);
   if (!bet.ok) return bet;
-  // ~4% house tilt: soft counter bias (near-fair, not scammy).
-  const counter = { sasso: "carta", carta: "forbici", forbici: "sasso" };
+    const counter = { sasso: "carta", carta: "forbici", forbici: "sasso" };
   const bot = randomInt(1, 101) <= 4 ? counter[player] : ["sasso", "carta", "forbici"][randomInt(0, 3)];
   const draw = player === bot;
   const win = !draw && ((player === "sasso" && bot === "forbici") || (player === "carta" && bot === "sasso") || (player === "forbici" && bot === "carta"));
@@ -687,8 +686,7 @@ async function playSlotsBanked(client, message, betRaw, currency = CURRENCY_CAFF
   if (!bet.ok) return bet;
   const symbols = ["🍒", "🍋", "🔔", "⭐", "💎", "7️⃣"];
   const reels = [symbols[randomInt(0, symbols.length)], symbols[randomInt(0, symbols.length)], symbols[randomInt(0, symbols.length)]];
-  // Linea classica L→R: coppia solo sui primi due rulli; 💎🍒💎 e 🍒💎💎 non pagano.
-  const triple = reels[0] === reels[1] && reels[1] === reels[2];
+    const triple = reels[0] === reels[1] && reels[1] === reels[2];
   const adjacentPair = !triple && reels[0] === reels[1];
   const jackpot = triple && reels[0] === "7️⃣";
   const multiplier = jackpot
@@ -842,8 +840,7 @@ async function rob(client, message, targetUser, currency = CURRENCY_CAFFE) {
   }
   const reserve = await reserveCooldown(message.guild.id, message.author.id, "rob", access.cfg.rob.cooldownMs);
   if (!reserve.ok) return { ok: false, code: "cooldown", message: `Puoi riprovare un furto tra ${svc().formatDuration(reserve.remainingMs)}.` };
-  // Evita di bruciare il cooldown se lo scudo arriva tra check e reserve.
-  const liveCheck = await evaluateRobTarget(client, message.guild, targetUser.id, access.cfg, message.author.id, cur);
+    const liveCheck = await evaluateRobTarget(client, message.guild, targetUser.id, access.cfg, message.author.id, cur);
   if (!liveCheck.ok) {
     await releaseCooldown(message.guild.id, message.author.id, "rob");
     return { ok: false, code: liveCheck.code || "target_blocked", message: liveCheck.message };

@@ -86,8 +86,7 @@ module.exports = {
     const first = String(args[0] || "").trim();
     const sub = first.toLowerCase();
 
-    // Scheda partnership: disponibile su main e tenant.
-    if (sub === "info") {
+        if (sub === "info") {
       return executeTenantServerInfo(message, args.slice(1));
     }
 
@@ -96,8 +95,7 @@ module.exports = {
       return executeTenantServerInfo(message, args);
     }
 
-    // Solo tenant: +server senza argomenti → hint verso info.
-    if (shouldUseTenantStatsInfoRouting(guildId)) {
+        if (shouldUseTenantStatsInfoRouting(guildId)) {
       return safeMessageReply(message, {
         content:
           "<:vegax:1443934876440068179> Su questo server usa `+server info` per la scheda partnership.",
@@ -105,8 +103,7 @@ module.exports = {
       });
     }
 
-    // Stats attività (main sempre; tenant senza override partnership).
-    const { lookbackDays } = serverButton.parseServerActivityArgs(args);
+        const { lookbackDays } = serverButton.parseServerActivityArgs(args);
     const { safeMessageEdit } = require("../../../shared/discord/replyRuntime");
     const loading = await safeMessageReply(
       message,

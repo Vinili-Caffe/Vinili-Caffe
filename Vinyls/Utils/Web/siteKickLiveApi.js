@@ -7,13 +7,11 @@ const {
 } = require("../../Services/Community/kickLiveAlertService");
 
 const CACHE_TTL_MS = 25_000;
-/** Se Kick/VOD fallisce un tick, tieni l’ultimo payload buono così il PiP non sparisce a caso. */
 const STALE_KEEP_MS = 12 * 60_000;
 const PLAYBACK_RESOLVE_TIMEOUT_MS = 8_000;
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-/** @type {{ at: number, payload: any, bySlug: Map<string, any> }} */
 let cache = { at: 0, payload: null, bySlug: new Map() };
 
 function isAllowedKickMediaHost(hostname) {
@@ -42,6 +40,8 @@ function publicStreamPayload(streamer, stream) {
       : slug
         ? `https://kick.com/${slug}`
         : "https://kick.com/");
+  const thumbUrl =
+    thumb && slug ? `/webhooks/site-kick-live/thumb?slug=${encodeURIComponent(slug)}` : thumb;
   return {
     id: String(stream?.id || "").trim(),
     slug,
@@ -53,13 +53,11 @@ function publicStreamPayload(streamer, stream) {
     category: String(stream?.category || "").trim(),
     viewerCount: Math.max(0, Math.floor(Number(stream?.viewer_count) || 0)),
     durationMs: Math.max(0, Math.floor(Number(stream?.duration_ms) || 0)),
-    thumbnailUrl: thumb,
+    thumbnailUrl: thumbUrl,
     url: pageUrl,
     startedAt: stream?.started_at || null,
-    // Same-origin HLS solo se upstream risponde (altrimenti iframe embed / thumb).
-    playbackUrl: hasHls && slug ? `/webhooks/site-kick-live/stream.m3u8?slug=${encodeURIComponent(slug)}` : null,
-    // MP4 progressivo: affidabile su Chrome/Edge/PWA Windows (HLS+MSE spesso nero).
-    previewMp4Url: hasHls && slug ? `/webhooks/site-kick-live/preview.mp4?slug=${encodeURIComponent(slug)}` : null,
+        playbackUrl: hasHls && slug ? `/webhooks/site-kick-live/stream.m3u8?slug=${encodeURIComponent(slug)}` : null,
+        previewMp4Url: hasHls && slug ? `/webhooks/site-kick-live/preview.mp4?slug=${encodeURIComponent(slug)}` : null,
     embedUrl:
       kind === "live" && slug
         ? `https://player.kick.com/${encodeURIComponent(slug)}?autoplay=true&muted=true&parent=www.viniliecaffe.it&parent=viniliecaffe.it`
@@ -123,7 +121,6 @@ function pickLowestBandwidthVariant(masterText, masterUrl) {
   return best?.url || null;
 }
 
-/** @type {Map<string, number>} */
 const playbackFailLogAt = new Map();
 
 function notePlaybackFail(slug, detail) {
@@ -173,8 +170,7 @@ async function ensurePlaybackOnStream(stream) {
   const slug = normalizeSlug(stream.slug);
   let next = { ...stream, kind: stream.kind || "live" };
 
-  // Live: arricchisci da API pubblica (thumbnail + playback_url).
-  try {
+    try {
     const pub = await fetchLiveStreamPublic(slug);
     if (pub) {
       next = {
@@ -230,12 +226,10 @@ function rewritePlaylistUrls(playlistText, playlistUrl) {
   return out.join("\n");
 }
 
-/** Limita VOD lunghi: solo i primi N secondi per la mini-anteprima PiP. */
 function clipMediaPlaylistForPreview(playlistText, maxSeconds = 180) {
   const text = String(playlistText || "");
   if (!text.includes("#EXTM3U")) return text;
-  // Master (varianti) non si taglia.
-  if (/#EXT-X-STREAM-INF:/i.test(text)) return text;
+    if (/#EXT-X-STREAM-INF:/i.test(text)) return text;
 
   const lines = text.split(/\r?\n/);
   const out = [];
@@ -253,14 +247,12 @@ function clipMediaPlaylistForPreview(playlistText, maxSeconds = 180) {
       continue;
     }
     if (/^#EXT-X-ENDLIST/i.test(trimmed)) continue;
-    // EVENT + ENDLIST confonde hls.js (live edge → nero). Anteprima = VOD.
-    if (/^#EXT-X-PLAYLIST-TYPE:/i.test(trimmed)) {
+        if (/^#EXT-X-PLAYLIST-TYPE:/i.test(trimmed)) {
       out.push("#EXT-X-PLAYLIST-TYPE:VOD");
       wrotePlaylistType = true;
       continue;
     }
-    // Tag live/IVS inutili sull’anteprima tagliata.
-    if (
+        if (
       /^#EXT-X-TWITCH-/i.test(trimmed) ||
       /^#ID3-EQUIV-TDTG:/i.test(trimmed) ||
       /^#EXT-X-PROGRAM-DATE-TIME:/i.test(trimmed) ||
@@ -282,8 +274,7 @@ function clipMediaPlaylistForPreview(playlistText, maxSeconds = 180) {
       continue;
     }
 
-    // URI segmento
-    if (elapsed >= maxSec) break;
+        if (elapsed >= maxSec) break;
     out.push(line);
     sawMedia = true;
     elapsed += pendingDur;
@@ -293,8 +284,7 @@ function clipMediaPlaylistForPreview(playlistText, maxSeconds = 180) {
 
   if (sawMedia) {
     if (!wrotePlaylistType) {
-      // Dopo #EXTM3U se manca.
-      const insertAt = out.findIndex((l) => String(l || "").trim() === "#EXTM3U");
+            const insertAt = out.findIndex((l) => String(l || "").trim() === "#EXTM3U");
       if (insertAt >= 0) out.splice(insertAt + 1, 0, "#EXT-X-PLAYLIST-TYPE:VOD");
       else out.unshift("#EXT-X-PLAYLIST-TYPE:VOD");
     }
@@ -308,12 +298,10 @@ async function resolveStreamerRow(streamer, liveBySlug) {
   let stream = liveBySlug.get(slug);
   if (stream?.id) {
     stream = await ensurePlaybackOnStream(stream);
-    // Live ma HLS morto: resta live con embed/thumb.
-    if (stream?.id) return stream;
+        if (stream?.id) return stream;
   }
 
-  // Offline → ultimo VOD disponibile.
-  try {
+    try {
     const vod = await fetchLatestVodPublic(slug);
     if (!vod?.id) return null;
     return await attachResolvedPlayback(vod);
@@ -334,8 +322,7 @@ async function refreshLiveCache(client) {
 
   const keepStale = () => {
     if (prevGood && now - Number(prevGood.at || 0) < STALE_KEEP_MS) {
-      // Aggiorna solo `at` così non martelliamo Kick, ma il client continua a vedere lo stream.
-      cache = { ...prevGood, at: now };
+            cache = { ...prevGood, at: now };
       return cache;
     }
     return null;
@@ -379,11 +366,11 @@ async function refreshLiveCache(client) {
       ...pub,
       _playbackLow: String(stream.playback_url_low || stream.playback_url || "").trim() || null,
       _playbackMaster: String(stream.playback_url || "").trim() || null,
+      _thumbSrc: String(stream.thumbnail_url || "").trim() || null,
     });
   }
 
-  // Preferisci live come primary se presente.
-  const primary = streams.find((s) => s.kind === "live") || streams[0] || null;
+    const primary = streams.find((s) => s.kind === "live") || streams[0] || null;
 
   if (!primary?.id) {
     const stale = keepStale();
@@ -403,7 +390,6 @@ async function refreshLiveCache(client) {
   return cache;
 }
 
-/** GET JSON — live Kick o ultimo VOD per mini-anteprima sul sito. */
 async function handleSiteKickLiveGet(client, req, res) {
   try {
     const pack = await refreshLiveCache(client);
@@ -415,7 +401,6 @@ async function handleSiteKickLiveGet(client, req, res) {
   }
 }
 
-/** GET HLS playlist same-origin (variante low / VOD anteprima). */
 async function handleSiteKickLiveStreamPlaylist(client, req, res) {
   try {
     const slug = normalizeSlug(req.query?.slug || "");
@@ -425,8 +410,7 @@ async function handleSiteKickLiveStreamPlaylist(client, req, res) {
     const src = String(row?._playbackLow || row?._playbackMaster || "").trim();
     if (!src) return res.status(404).type("text/plain").send("offline");
     let text = await fetchText(src);
-    // VOD interi = centinaia di segmenti → PiP non parte. Anteprima ~3 min.
-    if (String(row?.kind || "").toLowerCase() === "vod") {
+        if (String(row?.kind || "").toLowerCase() === "vod") {
       text = clipMediaPlaylistForPreview(text, 180);
     }
     const rewritten = rewritePlaylistUrls(text, src);
@@ -440,7 +424,6 @@ async function handleSiteKickLiveStreamPlaylist(client, req, res) {
   }
 }
 
-/** GET proxy segment/playlist Kick (allowlist host). */
 async function handleSiteKickLiveProxy(client, req, res) {
   try {
     const raw = String(req.query?.u || "").trim();
@@ -496,9 +479,7 @@ async function buildPreviewMp4File(srcUrl, outPath, seconds = 40) {
     await fs.promises.unlink(tmp);
   } catch (_) {}
   await new Promise((resolve, reject) => {
-    // Re-encode (no stream copy): Chrome/Edge/PWA Windows often paint black on
-    // TS→MP4 `-c:v copy` remuxes even when ffprobe looks fine.
-    const args = [
+            const args = [
       "-hide_banner",
       "-loglevel",
       "error",
@@ -574,7 +555,6 @@ async function buildPreviewMp4File(srcUrl, outPath, seconds = 40) {
   return outPath;
 }
 
-/** GET anteprima MP4 same-origin (Chrome/Edge/PWA Windows). */
 async function handleSiteKickLivePreviewMp4(client, req, res) {
   const fs = require("node:fs");
   try {
@@ -640,9 +620,29 @@ async function handleSiteKickLivePreviewMp4(client, req, res) {
   }
 }
 
+async function handleSiteKickLiveThumb(client, req, res) {
+  try {
+    const slug = normalizeSlug(req.query?.slug || "");
+    if (!slug) return res.status(400).type("text/plain").send("missing_slug");
+    const pack = await refreshLiveCache(client);
+    const row = pack.bySlug.get(slug);
+    const thumb = String(row?._thumbSrc || "").trim();
+    if (!thumb) return res.status(404).type("text/plain").send("no_thumb");
+    const { buf, contentType } = await fetchBinary(thumb, 10_000);
+    res.setHeader("Content-Type", contentType || "image/webp");
+    res.setHeader("Cache-Control", "public, max-age=120");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    return res.status(200).send(buf);
+  } catch (err) {
+    global.logger?.warn?.("[WEBHOOK] site-kick-live thumb:", err?.message || err);
+    return res.status(502).type("text/plain").send("thumb_error");
+  }
+}
+
 module.exports = {
   handleSiteKickLiveGet,
   handleSiteKickLiveStreamPlaylist,
   handleSiteKickLiveProxy,
   handleSiteKickLivePreviewMp4,
+  handleSiteKickLiveThumb,
 };

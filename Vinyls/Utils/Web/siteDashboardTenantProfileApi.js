@@ -274,8 +274,7 @@ async function patchDashboardTenantProfile(client, accessToken, body) {
     await updateTenantProfilePrefs(guildId, gate.userId, next);
   }
 
-  // Come +profile su Discord: qualsiasi toggle privacy sblocca la missione.
-  if (
+    if (
     patch.toggleEphemeralCommands === true ||
     Object.prototype.hasOwnProperty.call(patch, "ephemeralCommands")
   ) {

@@ -26,7 +26,6 @@ const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
 const { isEconomyCommandsVisible, isEconomyGameEnabled, isServerEconomyEnabled } = require("../../Services/Community/activeEconomyService");
-const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
 const {
   PREFIX_COMMAND_DESCRIPTIONS: PREFIX_HELP_DESCRIPTIONS,
   PREFIX_SUBCOMMAND_DESCRIPTIONS: PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS,
@@ -414,26 +413,19 @@ const OBSOLETE_SLASH_HELP_NAMES = new Set(
 const OBSOLETE_PREFIX_HELP_NAMES = new Set([
   "staff",
   "colors",
+  "verify",
+  "ticket",
+  "notify",
   "no-dm-list",
   "recensione",
   "evento",
   "live",
 ]);
 
-function isBotDevUser(client, userId) {
-  return getDevIds(client).includes(String(userId || ""));
-}
-
 function shouldIncludePrefixCommandInHelp(command, client, userId) {
   if (!command?.name) return false;
   if (command.tenantOnly) return false;
-  if (command.hideFromHelp) {
-    const name = String(command.name).toLowerCase();
-    if (name === "notify" && isBotDevUser(client, userId)) {
-      return true;
-    }
-    return false;
-  }
+  if (command.hideFromHelp) return false;
   if (OBSOLETE_PREFIX_HELP_NAMES.has(String(command.name).trim().toLowerCase())) return false;
   return true;
 }
@@ -467,8 +459,7 @@ function buildEntries(client, permissions, options = {}) {
     const declaredSubs = Array.isArray(command?.canonicalSubcommands)
       ? command.canonicalSubcommands
       : null;
-    // Solo i subcomandi dichiarati finiscono in help (non quelli inferiti dal codice).
-    const canonicalSubs = Array.isArray(declaredSubs)
+        const canonicalSubs = Array.isArray(declaredSubs)
       ? Array.from(
           new Set(
             declaredSubs
@@ -661,9 +652,7 @@ function filterEntriesByHelpChannel(entries, channelId, memberRoles = null) {
   if (!ch) return list;
   if (ch === HELP_CHANNEL_STAFF_COMMANDS_ID) return list;
   if (ch === HELP_CHANNEL_PUBLIC_COMMANDS_ID) {
-    // Nei comandi pubblici nascondi staff/mod, ma mostra i comandi Partner Manager
-    // a chi ha quel ruolo (+profile pm, +points, +server info, …).
-    return list.filter((entry) => {
+            return list.filter((entry) => {
       if (!entryHasAnyRole(entry, HELP_PRIVILEGED_ROLE_IDS)) return true;
       if (!memberRoles) return false;
       if (!hasAnyRole(memberRoles, [IDs.roles.PartnerManager].filter(Boolean))) return false;
@@ -718,7 +707,6 @@ function chunkEntriesByCategory(entries, maxPerPage) {
   return chunks.length ? chunks : [];
 }
 
-/** Unisce chunk consecutivi se insieme restano entro maxPerPage (evita pagine quasi vuote dopo una categoria che non entrava nella pagina precedente). */
 function mergeAdjacentHelpChunks(chunks, maxPerPage) {
   if (!Array.isArray(chunks) || chunks.length <= 1) return chunks;
   const out = [];

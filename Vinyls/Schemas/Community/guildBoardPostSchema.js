@@ -10,7 +10,6 @@ const BOARD_POST_TYPE = Object.freeze({
   REPOST: "repost",
 });
 
-/** Campi comuni a quote / repost / clip-in-repost. */
 const guildBoardPostBaseSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },

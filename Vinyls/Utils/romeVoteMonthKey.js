@@ -1,8 +1,5 @@
 const ROME_TZ = "Europe/Rome";
 
-/**
- * Calendar month key for vote counters (YYYY-MM) in Europe/Rome, aligned with site boards.
- */
 function voteCountMonthKeyRome(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
   const ref = Number.isFinite(d.getTime()) ? d : new Date();
@@ -18,7 +15,6 @@ function voteCountMonthKeyRome(date = new Date()) {
   return `${y}-${m}`;
 }
 
-/** True se `date` è il primo giorno del mese nel calendario Europe/Roma. */
 function isFirstCalendarDayRome(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
   const ref = Number.isFinite(d.getTime()) ? d : new Date();
@@ -26,7 +22,6 @@ function isFirstCalendarDayRome(date = new Date()) {
   return day === "1";
 }
 
-/** First millisecond of the current Rome calendar month (for vote display caps). */
 function romeMonthStartMs(now = new Date()) {
   const end = Number.isFinite(now.getTime()) ? now.getTime() : Date.now();
   const k = voteCountMonthKeyRome(new Date(end));

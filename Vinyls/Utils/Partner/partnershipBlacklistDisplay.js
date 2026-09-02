@@ -2,7 +2,6 @@ const axios = require("axios");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { guildIconUrl } = require("../Discord/guildDiscordIdentity");
 
-/** Cache processo: evita rifetch Discord sulla cronologia. */
 const INVITE_META_CACHE = new Map();
 const INVITE_META_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 let inviteRateLimitedUntilMs = 0;
@@ -60,8 +59,7 @@ function getCachedInviteGuildMeta(inviteCodeOrUrl, options = {}) {
     return null;
   }
   const meta = hit.meta || null;
-  // Cache con memberCount sconosciuto/0 avvelena i ping partnership (soglie mai soddisfatte).
-  if (options?.requireMemberCount && !(Number(meta?.memberCount) > 0)) return null;
+    if (options?.requireMemberCount && !(Number(meta?.memberCount) > 0)) return null;
   return meta;
 }
 
@@ -70,8 +68,7 @@ function setCachedInviteGuildMeta(inviteCodeOrUrl, meta) {
   if (!code || !meta?.guildId) return;
   const prev = INVITE_META_CACHE.get(code)?.meta || null;
   const next = { ...meta };
-  // Non sovrascrivere un conteggio valido con uno sconosciuto.
-  if (!(Number(next.memberCount) > 0) && Number(prev?.memberCount) > 0) {
+    if (!(Number(next.memberCount) > 0) && Number(prev?.memberCount) > 0) {
     next.memberCount = prev.memberCount;
   }
   INVITE_META_CACHE.set(code, { meta: next, at: Date.now() });
@@ -169,13 +166,11 @@ async function fetchInviteGuildMeta(inviteCodeOrUrl, options = {}) {
         });
     });
 
-  // Preferisci client Discord autenticato: le GET anonime da VPS prendono spesso 429.
-  if (client && typeof client.fetchInvite === "function") {
+    if (client && typeof client.fetchInvite === "function") {
     const first = await withHardTimeout(client.fetchInvite(code, { withCounts: true }));
     if (first.err) noteRateLimit(first.err);
     let invite = first.value;
-    // Retry sempre con counts: senza counts memberCount resta null e i ping soglia falliscono.
-    if ((!invite || readApproximateMemberCount(invite, invite?.guild) == null) && !rateLimited) {
+        if ((!invite || readApproximateMemberCount(invite, invite?.guild) == null) && !rateLimited) {
       const second = await withHardTimeout(client.fetchInvite(code, { withCounts: true }));
       if (second.err) noteRateLimit(second.err);
       if (second.value) invite = second.value;
@@ -249,11 +244,6 @@ async function findStoredPartnerInviteForGuildId(targetGuildId) {
   return meta?.invite || null;
 }
 
-/**
- * Ultima partnership nota verso un guild: nome + invite (qualsiasi server Vinili/tenant).
- * @param {string} targetGuildId
- * @returns {Promise<{ guildName: string|null, invite: string|null }|null>}
- */
 async function findStoredPartnerMetaForGuildId(targetGuildId) {
   const gid = String(targetGuildId || "").trim();
   if (!/^\d{17,22}$/.test(gid)) return null;

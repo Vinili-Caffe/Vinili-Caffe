@@ -60,7 +60,6 @@ function formatStaffHpTrailForModal(sourceMessageId, panelMessageId) {
   return formatStaffHpTrail(sourceMessageId, panelMessageId);
 }
 
-
 function formatStaffHpModalSectionShort(section) {
   const sec = String(section || SECTION_HOME).toLowerCase();
   return SECTION_CHAR_FOR_MODAL[sec] || "h";
@@ -240,8 +239,7 @@ async function ensurePartnerPointsViewer(interaction) {
 
 function viewerMayRunDepexFull(member) {
   if (!member?.roles?.cache) return false;
-  // Director senza High Staff: niente pex/depex (né depex completo).
-  if (
+    if (
     IDs.roles.Director &&
     member.roles.cache.has(IDs.roles.Director) &&
     !(IDs.roles.HighStaff && member.roles.cache.has(IDs.roles.HighStaff))
@@ -422,7 +420,6 @@ function buildIdReasonModal(customId, title) {
   return modal;
 }
 
-/** Rimuovi warn: stessi campi ID/motivo + n. positive da scambiare (facoltativo). */
 function buildWarnRemoveModal(customId, title) {
   const modal = buildIdReasonModal(customId, title);
   const tradeInput = new TextInputBuilder()

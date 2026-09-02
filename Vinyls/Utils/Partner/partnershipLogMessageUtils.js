@@ -29,7 +29,6 @@ function isPartnershipPublishChannel(channel, guildId) {
   return isChannelOrThreadUnderTargetChannel(channel, publishId);
 }
 
-/** Canale partnership (pubblicazione) o canale log partnership. */
 function isPartnershipDeleteContextChannel(channel, guildId) {
   return (
     isPartnershipPublishChannel(channel, guildId) ||
@@ -72,7 +71,6 @@ function extractManagerIdFromPartnershipText(text) {
   return mentions.length ? mentions[mentions.length - 1] : null;
 }
 
-/** User id da URL avatar Discord (author icon del thank-you embed). */
 function extractUserIdFromDiscordAssetUrl(url) {
   const raw = String(url || "").trim();
   if (!raw) return null;

@@ -117,8 +117,7 @@ function mergePermissionsJsonIntoCommands(guildId, commands, catalog) {
       names.add(name);
     }
   }
-  // Also cover keys only present in permissions.json / mongo.
-  for (const key of Object.keys(out)) {
+    for (const key of Object.keys(out)) {
     const name = normalizeCommandAclKey(key);
     if (name && !isSlashCommandAclKey(name)) names.add(name);
   }
@@ -160,8 +159,7 @@ async function buildCommandsResponse(client, accessToken, guildId) {
       slashKeys,
     });
     if (loaded.ok) {
-      // Discord is source of truth for slash keys present in catalog.
-      const slashPatch = {};
+            const slashPatch = {};
       for (const key of slashKeys) {
         if (Object.prototype.hasOwnProperty.call(loaded.commands, key)) {
           const acl = loaded.commands[key];
@@ -177,12 +175,10 @@ async function buildCommandsResponse(client, accessToken, guildId) {
           slashPatch[key] = null;
         }
       }
-      // Mirror Discord → Mongo so prefix inheritance works also a runtime (senza dashboard aperta).
-      await patchTenantCommandAclMap(guildId, slashPatch).catch(() => null);
+            await patchTenantCommandAclMap(guildId, slashPatch).catch(() => null);
       await refreshTenantGuildSettingsCache().catch(() => null);
       commands = getTenantCommandAclMapSync(guildId);
-      // Re-apply Discord overlay after refresh (cache may lag a beat).
-      for (const key of slashKeys) {
+            for (const key of slashKeys) {
         if (Object.prototype.hasOwnProperty.call(loaded.commands, key)) {
           const acl = loaded.commands[key];
           if (!acl || isAclEmpty(acl)) delete commands[key];
@@ -208,8 +204,7 @@ async function buildCommandsResponse(client, accessToken, guildId) {
 
   const catalog = buildTenantCommandCatalog(guildId);
   commands = mergePermissionsJsonIntoCommands(guildId, commands, catalog);
-  // Prefix senza ACL esplicita ereditano i permessi Discord di /partnership.
-  commands = applyPartnershipPrefixInheritance(commands, guildId);
+    commands = applyPartnershipPrefixInheritance(commands, guildId);
   try {
     const {
       isTenantBoardFeatureEnabledSync,
@@ -225,8 +220,7 @@ async function buildCommandsResponse(client, accessToken, guildId) {
     }
   } catch (_) {}
   const prefix = getTenantPrefixSync(guildId, "+");
-  // Cache gateway: evita un fetch completo canali/ruoli a ogni apertura Comandi.
-  const pickers = await listGuildPickerData(client, guildId).catch(() => ({
+    const pickers = await listGuildPickerData(client, guildId).catch(() => ({
     textChannels: [],
     voiceChannels: [],
     categories: [],
@@ -296,8 +290,7 @@ async function patchDashboardGuildCommands(client, accessToken, guildId, body) {
     }
   }
 
-  // Salvataggio /partnership su Discord → allinea anche i prefix partnership (stessi ruoli/canali).
-  const partnerSlashKey = partnershipSlashAclKey();
+    const partnerSlashKey = partnershipSlashAclKey();
   if (Object.prototype.hasOwnProperty.call(patch, partnerSlashKey)) {
     const partnerAcl = patch[partnerSlashKey];
     for (const prefixName of PARTNERSHIP_PREFIX_COMMANDS) {
@@ -313,8 +306,7 @@ async function patchDashboardGuildCommands(client, accessToken, guildId, body) {
   const applicationId = resolveBotApplicationId(client);
   const botToken = resolveBotToken(client);
 
-  // Slash must sync to Discord first (source of truth for integrations).
-  for (const job of slashSyncJobs) {
+    for (const job of slashSyncJobs) {
     if (!applicationId || !botToken) {
       return fail(
         500,
@@ -336,8 +328,7 @@ async function patchDashboardGuildCommands(client, accessToken, guildId, body) {
     }
   }
 
-  // Persist prefix (e slash mirror) anche sul server principale / protetti.
-  const saved = await patchTenantCommandAclMap(access.guildId, patch);
+    const saved = await patchTenantCommandAclMap(access.guildId, patch);
   if (!saved.ok) {
     return fail(500, saved.reason || "persist_failed", reasonToMessage(saved.reason));
   }

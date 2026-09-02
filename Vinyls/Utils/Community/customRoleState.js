@@ -12,10 +12,6 @@ function isUnknownRoleError(err) {
   return Number(code) === 10011;
 }
 
-/**
- * Resolve a guild role without caching null on transient failures.
- * @returns {Promise<{ role: import("discord.js").Role|null, gone: boolean }>}
- */
 async function fetchRoleStrict(guild, roleId) {
   const id = String(roleId || "").trim();
   if (!guild || !id) return { role: null, gone: false };
@@ -63,8 +59,7 @@ async function resolveCustomRoleState({ guild, userId, client = null, cleanupExp
     secondaryGone = secondary.gone;
   }
 
-  // Promote secondary → primary if primary Discord role is confirmed gone.
-  if (doc?.roleId && !role && primaryGone && doc?.secondaryRoleId && secondaryRole) {
+    if (doc?.roleId && !role && primaryGone && doc?.secondaryRoleId && secondaryRole) {
     await CustomRole.updateOne(
       { guildId: guild.id, userId: String(userId) },
       { $set: { roleId: secondaryRole.id, secondaryRoleId: null } },
@@ -75,8 +70,7 @@ async function resolveCustomRoleState({ guild, userId, client = null, cleanupExp
     secondaryGone = false;
   }
 
-  // Soft-clear only IDs Discord confirms as deleted. Never wipe customVoc / eligibility / whole blob.
-  const softClear = {};
+    const softClear = {};
   if (doc?.roleId && !role && primaryGone) softClear.roleId = null;
   if (doc?.secondaryRoleId && !secondaryRole && secondaryGone) softClear.secondaryRoleId = null;
   if (Object.keys(softClear).length) {
@@ -84,8 +78,7 @@ async function resolveCustomRoleState({ guild, userId, client = null, cleanupExp
   }
 
   if (!role && !secondaryRole) {
-    // Keep Mongo links on transient fetch failures so +profile can recover next time.
-    return {
+        return {
       status: primaryGone && secondaryGone ? "missing_role" : "unavailable",
       doc,
       role: null,

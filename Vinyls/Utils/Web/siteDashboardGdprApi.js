@@ -41,9 +41,6 @@ function normalizeConfirmToken(raw) {
     .replace(/^@/, "");
 }
 
-/**
- * Self-service: solo i dati dell'utente autenticato via Discord OAuth.
- */
 async function exportSelfGdprData(client, accessToken) {
   const user = await fetchDiscordUser(accessToken);
   if (!user.ok) return user;

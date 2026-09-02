@@ -94,6 +94,7 @@ const {
   ticketFormOpenBlockReason,
 } = require("../../Utils/Ticket/ticketFormModalRuntime");
 const { findGuildFormById, refreshTicketFormsCache } = require("../../MultiGuild/core/tenantTicketForms");
+const { isDiscordTicketsEnabled, replyWorkflowMovedToSite } = require("../../Utils/Web/discordWorkflowUiGate");
 
 function isLegacyTicketOpenAction(id) {
   return ["ticket_partnership", "ticket_supporto", "ticket_highstaff", "ticket_perks"].includes(String(id || ""));
@@ -110,6 +111,10 @@ function ticketTypeToPanelKey(type) {
 }
 
 async function handleTicketInteraction(interaction) {
+  if (!isDiscordTicketsEnabled()) {
+    await replyWorkflowMovedToSite(interaction, "tickets");
+    return true;
+  }
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
   let ticketActionId = selectedTicketAction || interaction.customId;
   let openFormDoc = null;
@@ -834,8 +839,7 @@ async function handleTicketInteraction(interaction) {
                 : tagRole
                   ? [String(tagRole)]
                   : [];
-          // Perks: assicurati sempre Senior Moderator + Director tra i ruoli pingati.
-          if (config.type === "perks") {
+                    if (config.type === "perks") {
             for (const id of PERKS_PING_ROLE_IDS.map(String).filter(Boolean)) {
               if (!supportIds.includes(id)) supportIds.push(id);
             }
@@ -848,8 +852,7 @@ async function handleTicketInteraction(interaction) {
           });
           const mentionContent = mentionPayload.content;
           const mentionAllowed = mentionPayload.allowedMentions;
-          // Welcome: nomi plain (SENIOR MODERATOR, ecc.) → menzioni vere <@&id>.
-          const pingRoleIds = [
+                    const pingRoleIds = [
             ...roleIdsFromMentionOnOpen(storedPanel?.mentionOnOpen),
             ...supportIds,
           ];
@@ -871,17 +874,14 @@ async function handleTicketInteraction(interaction) {
                   return null;
                 })
             : null;
-          // Ghost-ping solo se esplicitamente richiesto (default off).
-          if (mentionMsg && storedPanel?.deleteMentionsOnOpen === true) {
-            // 2.5s: Discord spesso non consegna il ping ruolo se il messaggio sparisce troppo presto.
-            const mentionCleanupTimer = setTimeout(() => {
+                    if (mentionMsg && storedPanel?.deleteMentionsOnOpen === true) {
+                        const mentionCleanupTimer = setTimeout(() => {
               mentionMsg.delete().catch(() => { });
             }, 2500);
             mentionCleanupTimer.unref?.();
           }
           const row = buildTicketControlButtons(guildId, storedPanel) || new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("close_ticket").setEmoji("🔒").setLabel("Chiudi").setStyle(ButtonStyle.Danger), new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("🔒").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger), new ButtonBuilder().setCustomId("claim_ticket").setEmoji("🙋‍♂️").setLabel("Claim").setStyle(ButtonStyle.Success),);
-          // Embed: mostra <@&id> (non testo), ma non ri-pinga se c'è già il messaggio spoiler.
-          const welcomeMentionIds = collectDiscordMentionIds(
+                    const welcomeMentionIds = collectDiscordMentionIds(
             String(config.embed?.data?.description || ""),
           );
           const mainMsg = await channel
@@ -1327,8 +1327,7 @@ async function handleTicketInteraction(interaction) {
             return true;
           }
           const claimerId = String(claimedTicket.claimedBy || "").trim();
-          // Non annunciare claim se il DB non ha persistito claimedBy (falso positivo update).
-          if (claimerId !== String(interaction.user.id)) {
+                    if (claimerId !== String(interaction.user.id)) {
             await replyTicketClaim({
               embeds: [
                 makeErrorEmbed(
@@ -1347,9 +1346,7 @@ async function handleTicketInteraction(interaction) {
             embeds: [claimSuccessEmbed],
             allowedMentions: { parse: [], users: claimerId ? [claimerId] : [] },
           };
-          // Annuncio subito (prima degli overwrite): altrimenti un fallimento permessi
-          // lascia Unclaim sui bottoni senza messaggio in canale.
-          let claimAnnounced = await interaction.channel
+                              let claimAnnounced = await interaction.channel
             .send(claimAnnouncePayload)
             .catch((err) => {
               global.logger?.error?.("[ticketHandlers] claim channel send:", err?.message || err);
@@ -1374,8 +1371,7 @@ async function handleTicketInteraction(interaction) {
                 ReadMessageHistory: true,
                 AddReactions: true,
               };
-              // Serve OverwriteType: con cache sweepers l'opener spesso non è risolvibile come User.
-              if (ticket.userId) {
+                            if (ticket.userId) {
                 await editTicketMemberOverwrite(interaction.channel, ticket.userId, claimMemberPerms);
               }
               await editTicketMemberOverwrite(interaction.channel, interaction.user.id, claimMemberPerms);
@@ -1735,8 +1731,7 @@ async function handleTicketInteraction(interaction) {
           interaction.customId === "close_ticket" &&
           getTicketSettingsSync(interaction.guild?.id).closeConfirmation === true
         ) {
-          // Pubblica nel canale (non ephemeral): Conferma/Annulla editano questo messaggio.
-          await safeReply(interaction, {
+                    await safeReply(interaction, {
             embeds: [
               new EmbedBuilder()
                 .setTitle("<:VC_close:1478517239136256020> • **__CONFERMA CHIUSURA__**")

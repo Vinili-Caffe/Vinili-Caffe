@@ -18,8 +18,7 @@ function stripDiscordDecorations(text, opts = {}) {
   let s = String(text || "")
     .replace(/<a?:[\w~-]+:\d+>/g, "")
     .replace(/<(?:@(?:!|&)?|#)\d+>/g, "")
-    // Dopo strip menzioni resta spesso " (`123...`)" / "(123...)" — ridondante sul sito.
-    .replace(/\(\s*`?\d{16,20}`?\s*\)/g, "")
+        .replace(/\(\s*`?\d{16,20}`?\s*\)/g, "")
     .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
     .replace(/\*\*(.+?)\*\*/g, "$1")
     .replace(/__(.+?)__/g, "$1")
@@ -179,8 +178,7 @@ async function getAppealDetail(guild, messageId) {
     fields: embedFieldsToPlain(embed),
   };
 
-  // Bannati spesso non sono in guild: risolvi username globale Discord.
-  const uid = String(parsed.userId || "").trim();
+    const uid = String(parsed.userId || "").trim();
   if (uid && /^\d{16,20}$/.test(uid)) {
     const member =
       guild?.members?.cache?.get(uid) || (await guild?.members?.fetch(uid).catch(() => null));

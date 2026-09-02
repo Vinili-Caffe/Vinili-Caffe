@@ -30,7 +30,6 @@ function getCustomReactionMax(member) {
     : MAX_REACTIONS;
 }
 
-/** Risolve `:short:` sul guild corrente, poi su ogni altro guild dove il bot è membro (nome univoco ambiguo: guild id crescente). */
 function findEmojiByShortName(guild, shortName) {
   const name = String(shortName || "");
   if (!name || !guild?.emojis?.cache) return null;
@@ -49,7 +48,6 @@ function findEmojiByShortName(guild, shortName) {
   return candidates[0];
 }
 
-/** Emoji custom per id, cercando in tutti i guild del client (cache). */
 function resolveStoredCustomEmojiFromClient(client, emojiId) {
   const id = String(emojiId || "").trim();
   if (!/^\d{16,20}$/.test(id) || !client?.guilds?.cache) return null;
@@ -114,9 +112,7 @@ function toDisplay(token, clientOrGuild = null) {
       const name = String(emoji.name || "emoji").replace(/[^\w]/g, "").slice(0, 32) || "emoji";
       return `<${emoji.animated ? "a" : ""}:${name}:${emoji.id}>`;
     }
-    // Senza cache: Discord spesso non renderizza `<:emoji:id>` (nome finto) → mostra ":emoji:".
-    // Meglio non inventare un nome: lascia un hint leggibile.
-    return `\`custom:${id}\``;
+            return `\`custom:${id}\``;
   }
   if (raw.startsWith("unicode:")) {
     return raw.slice("unicode:".length);

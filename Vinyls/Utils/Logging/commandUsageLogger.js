@@ -12,10 +12,9 @@ function truncateEmbedField(value, max = EMBED_FIELD_MAX) {
   return `${s.slice(0, Math.max(0, max - 1))}…`;
 }
 
-/** Campo comando in codeblock, sempre ≤ 1024 (limite Discord embed field). */
 function formatCommandContentField(content) {
   const raw = String(content ?? "");
-  const overhead = 6; // ```…```
+  const overhead = 6;
   const maxInner = Math.max(0, EMBED_FIELD_MAX - overhead);
   const inner = raw.length <= maxInner ? raw : `${raw.slice(0, Math.max(0, maxInner - 1))}…`;
   return `\`\`\`${inner}\`\`\``;

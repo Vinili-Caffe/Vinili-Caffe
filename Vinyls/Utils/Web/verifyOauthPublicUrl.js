@@ -6,7 +6,6 @@ function resolvePublicSiteBase() {
     .replace(/\/+$/, "");
 }
 
-/** URL assoluto del “ponte” HTTP: una risposta HTML imposta il nonce OAuth e reindirizza a discord.com/oauth2/authorize. */
 function buildSiteVerifyOAuthStartUrl(guildId) {
   const base = resolvePublicSiteBase();
   const params = new URLSearchParams();
@@ -31,7 +30,6 @@ function resolveDiscordOauthRedirectUriForSite() {
   return `${resolvePublicSiteBase()}/`;
 }
 
-/** Percorso di ritorno post OAuth (stesse regole di `discord-auth.js` / fragment state). */
 function normalizeSiteOAuthReturnPath(raw) {
   const s = String(raw ?? "").trim();
   if (!s) return "";

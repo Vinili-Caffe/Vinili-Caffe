@@ -77,9 +77,7 @@ function voteStateLastAt(state, voteListing) {
 
 function voteStateLastRemindedAt(state, voteListing) {
   const listing = voteListingKey(voteListing);
-  // Solo i campi per listing: il legacy `lastRemindedAt` condiviso bloccava il reminder
-  // dell'altra piattaforma (es. reminder Discadian → niente DM Top.gg).
-  return listing === "topgg" ? state?.lastRemindedAtTopgg || null : state?.lastRemindedAtDiscadia || null;
+      return listing === "topgg" ? state?.lastRemindedAtTopgg || null : state?.lastRemindedAtDiscadia || null;
 }
 
 function shouldSendVoteReminderForListing(state, voteListing, cooldownMs) {
@@ -93,11 +91,6 @@ function shouldSendVoteReminderForListing(state, voteListing, cooldownMs) {
   return true;
 }
 
-/**
- * Claim atomico dello slot reminder (come i bump): evita doppi DM/notifiche
- * quando timer per-utente e sweep periodico partono insieme.
- * @returns {Promise<Date|null>} claimedAt se siamo i soli a procedere
- */
 async function claimVoteReminderSlot(guildId, userId, voteListing, lastVoteAtMs) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
@@ -112,8 +105,7 @@ async function claimVoteReminderSlot(guildId, userId, voteListing, lastVoteAtMs)
   const lastAtPath = voteLastAtPath(listing);
   const claimedAt = new Date();
 
-  // findOneAndUpdate: se non matcha torna null (più affidabile di modifiedCount).
-  const claimed = await ActivityUserProfile.findOneAndUpdate(
+    const claimed = await ActivityUserProfile.findOneAndUpdate(
     {
       guildId: gid,
       userId: uid,
@@ -844,7 +836,7 @@ async function buildVoteReminderEmbed(client, opts = {}) {
     .setColor(client?.config?.embedInfo || "#6f4e37")
     .setDescription(description)
     .setFooter({
-      text: "DM voti: +profile → Privacy (Discadia e Top.gg separati) o Notifiche DM.",
+      text: "DM voti: [profilo sul sito](https://www.viniliecaffe.it/personalizza/) → Privacy (Discadia e Top.gg separati) o Notifiche DM.",
     });
 
   const components = [];
@@ -894,8 +886,7 @@ async function shouldSkipVoteDmByNoDm(client, guildId, userId, voteListing = "di
 }
 
 async function sendVoteFallbackChannelReminder(client, guildId, userId, voteListing = "discadia") {
-  // Solo se configurato esplicitamente — non usare #supporters di default (ping pubblici indesiderati).
-  const fallbackId = String(client?.config?.discadiaVoteReminder?.fallbackChannelId || "").trim();
+    const fallbackId = String(client?.config?.discadiaVoteReminder?.fallbackChannelId || "").trim();
   if (!fallbackId || !/^\d{5,30}$/.test(fallbackId)) return false;
 
   const guild = await getClientGuildCached(client, guildId || IDs.guilds.main);
@@ -942,8 +933,7 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
   voteReminderDispatchInflight.add(lockKey);
 
   try {
-    // Claim prima di qualsiasi invio: timer + sweep non possono entrambi passare.
-    const claimedAt = await claimVoteReminderSlot(gid, uid, listing, lastVoteAtMs);
+        const claimedAt = await claimVoteReminderSlot(gid, uid, listing, lastVoteAtMs);
     if (!claimedAt) {
       return { ok: true, delivered: false, skippedOptOut: false, skippedDuplicate: true };
     }
@@ -957,8 +947,7 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
 
     const skipDm = await shouldSkipVoteDmByNoDm(client, gid, uid, listing);
     if (skipDm) {
-      // Stesso opt-out dei DM: niente notifica in-app sul sito.
-      return { ok: true, delivered: false, skippedOptOut: true };
+            return { ok: true, delivered: false, skippedOptOut: true };
     }
 
     const siteOpts = buildVoteSiteInAppNotificationOpts(client, gid, uid, listing, lastVoteAtMs, cooldownMs);
@@ -966,8 +955,7 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
       global.logger?.warn?.("[VOTE REMINDER] site notification failed:", uid, err?.message || err);
     });
 
-    // Push web attiva → solo sito/OS push, niente DM Discord (né fallback in canale).
-    const skipDiscordForPush = await shouldSkipDiscordDmForActiveWebPush(gid, uid, siteOpts).catch(() => false);
+        const skipDiscordForPush = await shouldSkipDiscordDmForActiveWebPush(gid, uid, siteOpts).catch(() => false);
     if (skipDiscordForPush) {
       return { ok: true, delivered: true, skippedOptOut: false, skippedDiscordForWebPush: true };
     }
@@ -975,8 +963,7 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
     const guild = await getClientGuildCached(client, gid);
     const member = guild ? await getGuildMemberCached(guild, uid) : null;
     if (!member) {
-      // Utente fuori dal server: niente DM e niente ping in canale (slot già claimato).
-      return { ok: true, delivered: false, skippedOptOut: false, skippedNotInGuild: true };
+            return { ok: true, delivered: false, skippedOptOut: false, skippedNotInGuild: true };
     }
 
     let user = member.user || (await getUserCached(client, uid));
@@ -1004,13 +991,11 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
       delivered = await sendVoteFallbackChannelReminder(client, gid, uid, listing);
     }
 
-    // Slot già claimato: non ritentiamo anche se DM/fallback falliscono.
-    return { ok: true, delivered: Boolean(delivered), skippedOptOut: false };
+        return { ok: true, delivered: Boolean(delivered), skippedOptOut: false };
   } finally {
     voteReminderDispatchInflight.delete(lockKey);
   }
 }
-
 
 function resolveVoteCompletedSiteOpenUrl(client) {
   const fromTopgg = String(client?.config?.topgg?.votePageUrl || "").trim();
@@ -1151,8 +1136,7 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
 
   scheduleDiscadiaVoteReminder(client, mainGuildId, userId, now, voteListing);
 
-  // Sempre dopo il record: la notifica "voto completato" non dipende dal reminder timer.
-  await enqueueVoteCompletedSiteNotification(client, userId, voteListing, {
+    await enqueueVoteCompletedSiteNotification(client, userId, voteListing, {
     voteAtMs: now.getTime(),
   });
 
@@ -1353,9 +1337,7 @@ function startDiscadiaVoteReminderLoop(client) {
   discadiaVoteReminderLoopHandle = setInterval(tick, intervalMs);
   client._discadiaVoteReminderInterval = discadiaVoteReminderLoopHandle;
   if (typeof discadiaVoteReminderLoopHandle.unref === "function") discadiaVoteReminderLoopHandle.unref();
-  // Niente tick immediato: restorePendingVoteReminders ha già schedulato/inviato i due.
-  // Un sweep subito dopo il ready gareggiava coi timer overdue → doppio DM.
-  return discadiaVoteReminderLoopHandle;
+      return discadiaVoteReminderLoopHandle;
 }
 
 const DEFAULT_REWARD = {

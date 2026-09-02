@@ -157,8 +157,7 @@
     }
   }
 
-  /** Nginx blocca gli MP4 pubblici della serata: serve solo /webhooks/site-seratafilm-film?st=… */
-  function isNginxBlockedPublicFilmUrl(url) {
+    function isNginxBlockedPublicFilmUrl(url) {
     var s = String(url || "").trim();
     if (!s) return false;
     try {
@@ -185,8 +184,7 @@
     return true;
   }
 
-  /** Cache-bust stabile per lo spot (versione asset pagina), senza ricaricare a ogni tick. */
-  function withAdAssetVersion(url) {
+    function withAdAssetVersion(url) {
     var ver = "";
     try {
       ver = String(window.__vcSeratafilmAssetVersion || "").trim();
@@ -209,8 +207,7 @@
     }
   }
 
-  /** Confronta URL media ignorando cache-bust (?vcadb=…) così non si ricarica in loop. */
-  function sameMediaUrlIgnoreCacheBust(a, b) {
+    function sameMediaUrlIgnoreCacheBust(a, b) {
     function strip(u) {
       try {
         var parsed = new URL(String(u || ""), window.location.href);
@@ -279,8 +276,7 @@
   var adBreakLastCurrentTime = 0;
   var AD_SEEN_LS_PREFIX = "vc_seratafilm_ad_seen_v10:";
   var AD_PRELOAD_LINK_ID = "vc-seratafilm-ad-preload";
-  /** True after a real user gesture (click/tap/key) during the countdown page. */
-  var playbackGestureArmed = false;
+    var playbackGestureArmed = false;
   var filmPostAdGraceUntil = 0;
   var filmSeenCurrentTime = 0;
   var filmGestureTapEl = null;
@@ -393,8 +389,7 @@
     setAdVideoStage(document.getElementById("vc-seratafilm-ad-video"), "idle");
   }
 
-  /** Preload prima del break: toglie [hidden]/display:none] senza coprire il film. */
-  function setAdBreakWarming(active) {
+    function setAdBreakWarming(active) {
     var root = document.getElementById("vc-seratafilm-ad-break");
     if (!root) return;
     try {
@@ -416,8 +411,7 @@
     root.setAttribute("aria-hidden", "true");
   }
 
-  /** idle | preload | play — evita [hidden] in preload (blocca il download dello spot). */
-  function setAdVideoStage(adVideo, stage) {
+    function setAdVideoStage(adVideo, stage) {
     if (!adVideo) return;
     var mode = String(stage || "idle");
     adVideo.classList.remove("is-preloading", "is-playing");
@@ -498,16 +492,14 @@
     if (!adVideo || !url) return;
     var hasSrc = Boolean(adVideo.currentSrc || adVideo.src);
     var same = hasSrc && sameMediaUrlIgnoreCacheBust(adVideo.currentSrc || adVideo.src, url);
-    // readyState 0 = ancora in caricamento, NON “rotto”. Network 3 = NETWORK_NO_SOURCE.
-    var broken = Boolean(adVideo.error) || Number(adVideo.networkState) === 3;
+        var broken = Boolean(adVideo.error) || Number(adVideo.networkState) === 3;
     var reallyReady = Number(adVideo.readyState) >= 2 && !adVideo.error;
     if (!forceReload && same && !broken && reallyReady) return;
     if (forceReload || !same || broken) {
       forceAssignAdVideoSrc(adVideo, url, Boolean(forceReload || broken));
       return;
     }
-    // Stesso URL ma mai bufferizzato (es. era in parent [hidden]): ricarica senza cache-bust.
-    adVideo.preload = "auto";
+        adVideo.preload = "auto";
     adVideoLoadLocked = true;
     try {
       adVideo.load();
@@ -521,8 +513,7 @@
     var countdownEl = document.getElementById("vc-seratafilm-ad-countdown");
     var adVideo = document.getElementById("vc-seratafilm-ad-video");
     if (!card || !titleEl || !textEl || !countdownEl) return waitMs(durationMs);
-    // Mantieni lo spot in preload (opaco) sotto la card: niente pause/hidden.
-    if (adVideo) setAdVideoStage(adVideo, "preload");
+        if (adVideo) setAdVideoStage(adVideo, "preload");
     titleEl.textContent = String(title || "");
     textEl.textContent = String(text || "");
     card.hidden = false;
@@ -611,14 +602,12 @@
     try {
       if (el.parentNode) el.parentNode.removeChild(el);
     } catch (eRm) {}
-    // Non revocare cachedAdObjectUrl: riusiamo lo stesso blob tra i tap.
-    if (blob && blob !== cachedAdObjectUrl) revokeAdBlobUrl(blob);
+        if (blob && blob !== cachedAdObjectUrl) revokeAdBlobUrl(blob);
   }
 
   function looksLikeMp4(bytes) {
     if (!bytes || bytes.length < 12) return false;
-    // ....ftyp........
-    return (
+        return (
       bytes[4] === 0x66 &&
       bytes[5] === 0x74 &&
       bytes[6] === 0x79 &&
@@ -631,12 +620,7 @@
     return s.indexOf("<!doctype") >= 0 || s.indexOf("<html") >= 0;
   }
 
-  /**
-   * Scarica lo spot via fetch (stesso canale della pagina/JS).
-   * Il tag <video src="/images/..."> sul nuovo file spesso non arriva a nginx
-   * (challenge CF → HTML → player nero a 0:00 senza errori console).
-   */
-  function adFetchUrl(url, bust) {
+    function adFetchUrl(url, bust) {
     var abs = url;
     try {
       abs = new URL(url, window.location.href).href;
@@ -801,8 +785,7 @@
 
     var adVideo = null;
     var usedUrl = url;
-    // Finestra play: almeno ~52s (spot ~48s) anche se totalMs è stretto.
-    var maxMsSafe = Math.max(52000, Math.floor(Number(maxMs) || 0));
+        var maxMsSafe = Math.max(52000, Math.floor(Number(maxMs) || 0));
 
     return fetchAdObjectUrl(url).then(function (fetched) {
       return new Promise(function (resolve) {
@@ -961,20 +944,17 @@
           };
         }
 
-        // Soft cap: lascia finire lo spot; non tagliare a 45s.
-        adBreakMaxTimer = setTimeout(function () {
+                adBreakMaxTimer = setTimeout(function () {
           finish({ completed: adVideo && Number(adVideo.currentTime) > 1 });
         }, maxMsSafe + 3000);
 
-        // Auto: player fullscreen + attendi buffer prima del play.
-        var bootEl = prepareAdBreakVideoEl(playSrc);
+                var bootEl = prepareAdBreakVideoEl(playSrc);
         wirePlayer(bootEl);
         waitForAdVideoReady(bootEl, 15000).then(function () {
           if (done) return;
           attemptPlay().then(function (ok) {
             if (ok || done) return;
-            // Solo se il browser blocca l’autoplay mostriamo il tap.
-            armTap("Tocca per avviare lo spot");
+                        armTap("Tocca per avviare lo spot");
             gaveUpTimer = setTimeout(function () {
               if (done || (adVideo && Number(adVideo.currentTime) > 0.5)) return;
               finish({ completed: false });
@@ -1050,12 +1030,10 @@
     try {
       video.pause();
     } catch (ePause) {}
-    // Durante lo spot la BGM di pagina non deve ripartire.
-    if (typeof window.__vcSeratafilmBgmStop === "function") {
+        if (typeof window.__vcSeratafilmBgmStop === "function") {
       window.__vcSeratafilmBgmStop();
     }
-    // MAI toccare video.src del film (file enorme): solo pausa + overlay spot dedicato.
-    setAdSpotPlaying(false);
+        setAdSpotPlaying(false);
     setAdBreakUi(true);
     var breakStart = Date.now();
     var adPlayedMs = 0;
@@ -1118,8 +1096,7 @@
       video.removeAttribute("muted");
       video.controls = true;
     } catch (eMu) {}
-    // Reset stall clock after midroll — otherwise the ~60s ad pause looks like an 8s stall.
-    filmPostAdGraceUntil = Date.now() + 45000;
+        filmPostAdGraceUntil = Date.now() + 45000;
     filmLastProgressAt = Date.now();
     filmLastProgressTime = Number(video.currentTime) || resumeAt || 0;
     filmSeenCurrentTime = filmLastProgressTime;
@@ -1139,8 +1116,7 @@
     if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(current)) return false;
     var threshold = duration * (cfg.atPercent / 100);
     var prev = Number(adBreakLastCurrentTime) || 0;
-    // Solo attraversamento della soglia (play naturale o seek avanti), non "sempre sopra 50%".
-    var crossed = prev < threshold && current >= threshold;
+        var crossed = prev < threshold && current >= threshold;
     adBreakLastCurrentTime = current;
     return crossed;
   }
@@ -1153,8 +1129,7 @@
     video.addEventListener("timeupdate", function () {
       if (shouldTriggerAdBreak(video)) runAdBreakSequence(video);
     });
-    // Niente listener "seeked": dopo un fail il seek di ripresa riapriva lo spot a vuoto.
-  }
+      }
 
   var filmStarted = false;
   var filmThanksRedirected = false;
@@ -1307,9 +1282,7 @@
     try {
       if (document.fullscreenElement || document.webkitFullscreenElement) return;
     } catch (eChk) {}
-    // Fullscreen richiede user gesture: se già armato (click durante countdown / openNow) ok.
-    // Altrimenti il tap post-autoplay muted lo chiede in tryPlayInlineFilm.
-    if (playbackGestureArmed) requestFilmFullscreen(video);
+            if (playbackGestureArmed) requestFilmFullscreen(video);
   }
 
   function kickInlineFilmPlayback(video) {
@@ -1327,8 +1300,7 @@
         video.removeAttribute("muted");
       } catch (eMu) {}
     }
-    // Timer auto-start: muted first (browser policy). Unmute only with a prior gesture.
-    try {
+        try {
       video.muted = !playbackGestureArmed;
       if (video.muted) video.setAttribute("muted", "");
     } catch (eM0) {}
@@ -1473,8 +1445,7 @@
     var t = Number(video.currentTime) || 0;
     var prev = Number(filmSeenCurrentTime) || 0;
     var delta = Math.abs(t - prev);
-    // Qualsiasi avanzamento O seek (anche indietro) aggiorna l'orologio stall — mai high-water only.
-    if (delta > 0.04) {
+        if (delta > 0.04) {
       filmSeenCurrentTime = t;
       filmLastProgressTime = t;
       filmLastProgressAt = Date.now();
@@ -1489,13 +1460,11 @@
     var cur = Number(video.currentTime) || 0;
     var nearEnd = Number.isFinite(duration) && duration > 30 && cur >= Math.max(0, duration - 120);
     filmStallRecoveries += 1;
-    // Vicino alla fine: niente hard load()+seek (salta minuti avanti). Solo play soft.
-    if (nearEnd || Date.now() < filmPostAdGraceUntil) {
+        if (nearEnd || Date.now() < filmPostAdGraceUntil) {
       tryPlayInlineFilm(video);
       return;
     }
-    // Mai riportare avanti a un vecchio high-water mark dopo un seek indietro.
-    var resumeAt = Math.max(0, cur - 0.25);
+        var resumeAt = Math.max(0, cur - 0.25);
     try {
       if (hard) {
         video.load();
@@ -1620,8 +1589,7 @@
         video.load();
       } catch (eL) {}
     } else if (preloadMode === "auto") {
-      // Già stesso URL ma magari era in display:none: rilancia il download.
-      try {
+            try {
         if (Number(video.readyState) < 2) video.load();
       } catch (eReload) {}
     }
@@ -1693,8 +1661,7 @@
         video.load();
       } catch (eV) {}
     }
-    // Non resettare a 0 se il preload ha già buffer: evita di buttare i dati scaricati.
-    try {
+        try {
       var curT = Number(video.currentTime) || 0;
       if (!alreadySame || curT > 1.25) video.currentTime = 0;
     } catch (eT) {}
@@ -1736,7 +1703,7 @@
 
   function openFilm(forcePreload) {
     var openAttempt = 0;
-    var maxAttempts = 48; // ~12s @ 250ms — attende filmStreamUrl dal gate/prefetch
+    var maxAttempts = 48;
     function attempt() {
       var url = resolveFilmUrl(linkFilmUrl());
       if (usableInlineFilmUrl(url)) {
@@ -1831,8 +1798,7 @@
     }
   }
 
-  /** Scadenza assoluta filmAt−10,25s (non legata al tick 1s); chunk se oltre il max di setTimeout. */
-  function scheduleCountdownAudioFromFilmAt() {
+    function scheduleCountdownAudioFromFilmAt() {
     clearCountdownAudioArm();
     function step() {
       if (tenSecondsAudioTriggered) return;
@@ -1968,8 +1934,7 @@
         }
         clearCountdownAudioArm();
         clearCountdownAudioFastGuard();
-        // Keep FS if already active — exiting here burns the user gesture for play/FS.
-        clearFinalCountdownUi({ keepFullscreen: true });
+                clearFinalCountdownUi({ keepFullscreen: true });
         var clickFilmUrl = currentFilmUrl();
         if (usableInlineFilmUrl(clickFilmUrl)) preloadInlineFilm(clickFilmUrl, { forceAuto: true });
         openFilm(true);
@@ -1987,8 +1952,7 @@
 
       if (usableInlineFilmUrl(filmUrl)) {
         if (distanza <= 600000) {
-          // Ultimi 10 minuti: preload aggressivo (container offscreen, non display:none).
-          injectFilmPreloadLink(filmUrl);
+                    injectFilmPreloadLink(filmUrl);
           preloadInlineFilm(filmUrl, { forceAuto: true, distanzaMs: distanza });
           if (distanza <= 180000) {
             var adCfgTick = resolveAdBreakConfig();

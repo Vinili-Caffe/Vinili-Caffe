@@ -11,10 +11,8 @@ const DEFAULT_OBSOLETE_SLASH_NAMES = [
   "kick",
 ];
 
-/** Context menu / slash da rimuovere anche se il nome coincide con comandi ancora attivi (altro type). */
 const DEFAULT_OBSOLETE_TYPED_COMMANDS = [
-  // Legacy "Sanziona" sul messaggio: sostituito dal menu utente (ApplicationCommandType.User = 2).
-  { name: "sanziona", type: 3 },
+    { name: "sanziona", type: 3 },
 ];
 
 function normalizeObsoleteCommand(entry) {
@@ -52,14 +50,6 @@ function commandMatchesObsolete(cmd, matchers) {
   });
 }
 
-/**
- * Elimina dalla Discord API i comandi slash/context con nome ancora registrato ma rimossi dal codice.
- * @param {import("@discordjs/rest").REST} rest
- * @param {string} clientId
- * @param {string[]} guildIds
- * @param {Array<string|{name: string, type?: number|null}>} obsoleteNames
- * @returns {Promise<number>} numero di DELETE eseguiti
- */
 async function purgeObsoleteApplicationCommands(
   rest,
   clientId,
@@ -91,8 +81,7 @@ async function purgeObsoleteApplicationCommands(
         await rest.delete(delPath);
         removed += 1;
       } catch {
-        /* Missing Access, comando già assente, ecc. */
-      }
+              }
     }
   }
 

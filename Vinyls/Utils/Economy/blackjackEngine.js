@@ -3,7 +3,6 @@ const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
 const SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const SUIT_SYMBOL = { spades: "♠", hearts: "♥", diamonds: "♦", clubs: "♣" };
 const SUIT_COLOR = { spades: "#0f172a", hearts: "#b91c1c", diamonds: "#b91c1c", clubs: "#0f172a" };
-/** Shoe da 6 mazzi: riduce edge favorevole al giocatore rispetto al mazzo singolo. */
 const DEFAULT_SHOE_DECKS = 6;
 
 function buildDeck() {
@@ -64,7 +63,6 @@ function isNaturalBlackjack(hand) {
   return cards.length === 2 && handValue(cards).total === 21;
 }
 
-/** Banco pesca sotto 17 e sul soft 17 (H17) — edge di casa più alto. */
 function dealerShouldHit(hand) {
   const value = handValue(hand);
   if (value.total < 17) return true;
@@ -103,8 +101,7 @@ function compareOutcome(playerHand, dealerHand) {
 
 function payoutMultiplier(outcome, cfg) {
   const winPayout = Math.max(1, Number(cfg?.blackjack?.winPayout) || 2);
-  // Default 6:5 sul blackjack naturale (2.2x stake), meno generoso del 3:2.
-  const bjPayout = Math.max(winPayout, Number(cfg?.blackjack?.blackjackPayout) || 2.2);
+    const bjPayout = Math.max(winPayout, Number(cfg?.blackjack?.blackjackPayout) || 2.2);
   if (outcome === "blackjack") return bjPayout;
   if (outcome === "win") return winPayout;
   if (outcome === "push") return 1;

@@ -185,8 +185,7 @@ async function executePartnershipDeletion(guild, match, actorUserId, client, rea
   doc.staff.partnerActions.splice(index, 1);
 
   if (leaveReason === "manager_leave" && !staffIsPartnerManager && !wasPenalized) {
-    // Ex PM: partner eliminata ma punti storici restano.
-  } else if (!wasPenalized) {
+      } else if (!wasPenalized) {
     doc.staff.partnerCount = Math.max(0, Number(doc.staff.partnerCount || 0) - 1);
   } else {
     const { getPartnerServerResetMs } = require("../../Utils/Staff/partnerPointsDisplayUtils");
@@ -232,8 +231,7 @@ async function executePartnershipDeletion(guild, match, actorUserId, client, rea
     pmUserId: doc.userId,
     managerId: action?.managerId || null,
     partnerName: action?.partner || "",
-    /** Punti già aggiornati qui (actions + partnerCount); non chiamare removePartnerPoints. */
-    pointsAdjusted: !(leaveReason === "manager_leave" && !staffIsPartnerManager && !wasPenalized) && !wasPenalized,
+        pointsAdjusted: !(leaveReason === "manager_leave" && !staffIsPartnerManager && !wasPenalized) && !wasPenalized,
   };
 }
 
@@ -303,10 +301,6 @@ async function deletePartnershipsForManagerLeave(guild, managerUserId, client) {
   return removed;
 }
 
-/**
- * Main server: quando un Partner Manager esce, elimina tutte le partner
- * create da lui (DB + messaggi nel canale partnership).
- */
 async function deletePartnershipsForPmStaffLeave(guild, pmUserId, client) {
   const gid = String(guild?.id || "").trim();
   const uid = String(pmUserId || "").trim();

@@ -11,8 +11,7 @@
   var fadeWindowMs = 120000;
   var player = null;
   var playerReady = false;
-  /** Dopo l’avvio film/spot la BGM non deve ripartire da sola. */
-  var lockedOffForFilm = false;
+    var lockedOffForFilm = false;
   var volumeUiBound = false;
   var seekUiBound = false;
   var seekUiTimer = 0;

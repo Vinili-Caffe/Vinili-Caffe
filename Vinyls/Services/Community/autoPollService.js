@@ -27,6 +27,11 @@ const AUTO_POLL_NO_PAYLOAD_LOG_COOLDOWN_MS = 30 * 60 * 1000;
 const AUTO_POLL_CRON_HOUR = 20;
 const AUTO_POLL_CRON_MINUTE = 0;
 const AUTO_POLL_RECOVERY_START_DELAY_MS = 12_000;
+const AUTO_POLL_OPENROUTER_MAX_WAIT_MS = 45_000;
+const DEFAULT_AUTO_POLL_SLOTS = [
+  { hour: 14, minute: 30, key: "1430" },
+  { hour: 20, minute: 0, key: "2000" },
+];
 const MIN_MAX_CANDIDATE_ATTEMPTS = 5;
 const ABS_MAX_CANDIDATE_ATTEMPTS = 250;
 const GENERIC_OPENROUTER_MODEL_ALIASES = new Set(["openrouter/free", "openrouter/auto"]);
@@ -40,7 +45,6 @@ function resolveMaxOptions(cfg = {}) {
   const min = resolveMinOptions(cfg);
   return Math.max(min, clampOptionCount(cfg.maxOptions, 6));
 }
-
 
 function normalizeText(value) {
   return String(value || "")
@@ -233,7 +237,6 @@ function isRomeTimeOnOrAfterDailyTrigger(now = new Date(), cfg = {}) {
   return rh * 60 + rm >= triggerTotal;
 }
 
-/** Finestra "stretta" oppure stesso giorno Roma dopo l'inizio finestra (per retry/recovery fino a mezzanotte). */
 function canRunAutoPollNow(now = new Date(), cfg = {}, catchUp = false) {
   if (isWithinAutoPollWindow(now, cfg)) return true;
   if (!catchUp) return false;
@@ -371,10 +374,97 @@ async function hasManualPollToday(guildId) {
   return Number(count || 0) > 0;
 }
 
-async function hasAutoPollToday(guildId) {
+function resolveAutoPollSlots(cfg = {}) {
+  const raw = Array.isArray(cfg.slots) ? cfg.slots : [];
+  const parsed = raw
+    .map((slot) => {
+      const hourRaw = Number(slot?.hour);
+      const minuteRaw = Number(slot?.minute);
+      const hour = Number.isFinite(hourRaw) ? Math.min(23, Math.max(0, Math.floor(hourRaw))) : null;
+      const minute = Number.isFinite(minuteRaw) ? Math.min(59, Math.max(0, Math.floor(minuteRaw))) : null;
+      const key = String(slot?.key || "").trim() || (hour != null && minute != null ? `${hour}${String(minute).padStart(2, "0")}` : "");
+      if (hour == null || minute == null || !key) return null;
+      return { hour, minute, key, total: hour * 60 + minute };
+    })
+    .filter(Boolean);
+  if (parsed.length) {
+    return parsed.sort((a, b) => a.total - b.total);
+  }
+  const { hour, minute } = getAutoPollScheduleParts(cfg);
+  return [{ hour, minute, key: `${hour}${String(minute).padStart(2, "0")}`, total: hour * 60 + minute }];
+}
+
+function getSlotEndTotal(slot, allSlots) {
+  const idx = allSlots.findIndex((entry) => entry.key === slot.key);
+  const next = idx >= 0 ? allSlots[idx + 1] : null;
+  if (next) return next.total - 1;
+  return 23 * 60 + 59;
+}
+
+function canRunAutoPollForSlot(now = new Date(), slot, allSlots, catchUp = false) {
+  if (!slot) return false;
+  const { hour, minute } = getRomeTimeParts(now);
+  const nowTotal = hour * 60 + minute;
+  const startTotal = slot.total;
+  const endTotal = getSlotEndTotal(slot, allSlots);
+  if (catchUp) return nowTotal >= startTotal && nowTotal <= endTotal;
+  return nowTotal >= startTotal && nowTotal <= Math.min(endTotal, startTotal + 10);
+}
+
+function isRomeTimeOnOrAfterSlot(now = new Date(), slot) {
+  if (!slot) return false;
+  const { hour, minute } = getRomeTimeParts(now);
+  return hour * 60 + minute >= slot.total;
+}
+
+function buildAutoPollCronExpressionForSlot(slot) {
+  return `${slot.minute} ${slot.hour} * * *`;
+}
+
+function resolveAutoPollSlot(cfg = {}, slotKey = "") {
+  const slots = resolveAutoPollSlots(cfg);
+  const key = String(slotKey || "").trim();
+  if (key) {
+    const match = slots.find((slot) => slot.key === key);
+    if (match) return match;
+  }
+  return slots[0] || null;
+}
+
+async function hasAutoPollTodayForSlot(guildId, slotKey) {
+  const key = String(slotKey || "").trim();
+  if (!key) return false;
   const { startRome, endRome } = getRomeDayBounds();
-  const count = await Poll.countDocuments({ guildId: String(guildId), domanda: { $ne: COUNTER_FILTER_QUESTION }, source: "auto", createdAt: { $gte: startRome, $lt: endRome }, }).catch(() => 0);
+  const count = await Poll.countDocuments({
+    guildId: String(guildId),
+    domanda: { $ne: COUNTER_FILTER_QUESTION },
+    source: "auto",
+    autoSlot: key,
+    createdAt: { $gte: startRome, $lt: endRome },
+  }).catch(() => 0);
   return Number(count || 0) > 0;
+}
+
+async function getTodayAutoPollQuestions(guildId) {
+  const { startRome, endRome } = getRomeDayBounds();
+  const rows = await Poll.find({
+    guildId: String(guildId),
+    domanda: { $ne: COUNTER_FILTER_QUESTION },
+    source: "auto",
+    createdAt: { $gte: startRome, $lt: endRome },
+  }, { domanda: 1 }).lean().catch(() => []);
+  return new Set(
+    rows
+      .map((row) => normalizeText(String(row?.domanda || "")).toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+async function isDuplicateQuestionToday(guildId, question, todayQuestions = null) {
+  const normalized = normalizeText(question).toLowerCase();
+  if (!normalized) return true;
+  const set = todayQuestions || (await getTodayAutoPollQuestions(guildId));
+  return set.has(normalized);
 }
 
 async function isDuplicateQuestion(guildId, question) {
@@ -540,7 +630,7 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
   return null;
 }
 
-async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = null) {
+async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = null, options = {}) {
   if (!String(process.env.OPENROUTER_API_KEY || "").trim()) return null;
   if (!resolveOpenRouterModels(cfg).length) return null;
 
@@ -550,9 +640,16 @@ async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = 
   const deadlineHour = Number.isFinite(rawDeadline)
     ? Math.min(23, Math.max(0, Math.floor(rawDeadline)))
     : DEFAULT_OPENROUTER_RETRY_UNTIL_HOUR;
+  const rawMaxWait = Number(options?.maxTotalMs ?? cfg?.openrouterAutoPollMaxWaitMs);
+  const maxTotalMs = Number.isFinite(rawMaxWait) && rawMaxWait > 0
+    ? Math.max(5_000, Math.min(5 * 60 * 1000, Math.floor(rawMaxWait)))
+    : null;
+  const startedAt = Date.now();
 
   while (msUntilRomeLocalHourDeadline(deadlineHour) > 0) {
+    if (maxTotalMs != null && Date.now() - startedAt >= maxTotalMs) break;
     for (let round = 0; round < maxRounds; round += 1) {
+      if (maxTotalMs != null && Date.now() - startedAt >= maxTotalMs) break;
       if (isOpenRouterCoolingDown()) break;
       const payload = await fetchPollFromOpenRouter(cfg, forcedTargetOptions).catch(() => null);
       if (payload?.question && Array.isArray(payload?.answers) && payload.answers.length >= resolveMinOptions(cfg)) {
@@ -561,9 +658,18 @@ async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = 
       if (isOpenRouterCoolingDown()) break;
       if (round < maxRounds - 1 && retryDelayMs > 0) {
         const cap = msUntilRomeLocalHourDeadline(deadlineHour);
-        await sleep(cap > 0 ? Math.min(retryDelayMs, cap) : retryDelayMs);
+        const waitMs = cap > 0 ? Math.min(retryDelayMs, cap) : retryDelayMs;
+        if (maxTotalMs != null) {
+          const remaining = maxTotalMs - (Date.now() - startedAt);
+          if (remaining <= 0) break;
+          await sleep(Math.min(waitMs, remaining));
+        } else {
+          await sleep(waitMs);
+        }
       }
     }
+
+    if (maxTotalMs != null && Date.now() - startedAt >= maxTotalMs) break;
 
     const untilDeadline = msUntilRomeLocalHourDeadline(deadlineHour);
     if (untilDeadline <= 0) break;
@@ -571,22 +677,48 @@ async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = 
     if (isOpenRouterCoolingDown()) {
       const untilCool = Math.max(0, Number(openRouterCooldownUntil || 0) - Date.now());
       const sleepMs = Math.min(untilCool, untilDeadline);
-      if (sleepMs > 0) await sleep(sleepMs);
+      if (maxTotalMs != null) {
+        const remaining = maxTotalMs - (Date.now() - startedAt);
+        if (remaining <= 0) break;
+        if (sleepMs > 0) await sleep(Math.min(sleepMs, remaining));
+      } else if (sleepMs > 0) {
+        await sleep(sleepMs);
+      }
       continue;
     }
 
     const stagger = Math.min(retryDelayMs > 0 ? retryDelayMs : 1500, untilDeadline);
-    if (stagger > 0) await sleep(stagger);
+    if (maxTotalMs != null) {
+      const remaining = maxTotalMs - (Date.now() - startedAt);
+      if (remaining <= 0) break;
+      if (stagger > 0) await sleep(Math.min(stagger, remaining));
+    } else if (stagger > 0) {
+      await sleep(stagger);
+    }
   }
 
   return null;
 }
 
-async function pickPollCandidate(cfg = {}, forcedTargetOptions = null, guildId = "") {
+function resolveAutoPollSources(cfg = {}) {
   const configuredSources = Array.isArray(cfg.sources) && cfg.sources.length
     ? cfg.sources.map((v) => String(v || "").trim().toLowerCase()).filter(Boolean)
     : DEFAULT_SOURCES;
-  const sources = shuffle(configuredSources.length ? configuredSources : DEFAULT_SOURCES);
+  const rank = (source) => {
+    if (source === "local") return 0;
+    if (source === "openrouter") return 1;
+    return 2;
+  };
+  return [...new Set(configuredSources.length ? configuredSources : DEFAULT_SOURCES)].sort(
+    (a, b) => rank(a) - rank(b),
+  );
+}
+
+async function pickPollCandidate(cfg = {}, forcedTargetOptions = null, guildId = "") {
+  const sources = resolveAutoPollSources(cfg);
+  const openRouterWaitMs = Number.isFinite(Number(cfg?.openrouterAutoPollMaxWaitMs))
+    ? Number(cfg.openrouterAutoPollMaxWaitMs)
+    : AUTO_POLL_OPENROUTER_MAX_WAIT_MS;
 
   for (const source of sources) {
     if (source === "local") {
@@ -597,7 +729,9 @@ async function pickPollCandidate(cfg = {}, forcedTargetOptions = null, guildId =
     }
 
     if (source === "openrouter") {
-      const candidate = await fetchPollFromOpenRouterWithRetry(cfg, forcedTargetOptions).catch(() => null);
+      const candidate = await fetchPollFromOpenRouterWithRetry(cfg, forcedTargetOptions, {
+        maxTotalMs: openRouterWaitMs,
+      }).catch(() => null);
       if (candidate?.question && Array.isArray(candidate?.answers)) return candidate;
     }
   }
@@ -612,16 +746,19 @@ function clearAutoPollRetryTimer(client) {
   client._autoPollRetryTimer = null;
 }
 
-function scheduleAutoPollRetry(client, reason = "") {
+function scheduleAutoPollRetry(client, reason = "", slotKey = "") {
   clearAutoPollRetryTimer(client);
   const baseDelay = String(reason || "") === "no_payload"
     ? AUTO_POLL_NO_PAYLOAD_RETRY_MS
     : AUTO_POLL_RETRY_MS;
   const jitter = Math.floor(Math.random() * (AUTO_POLL_RETRY_JITTER_MS + 1));
   const delay = baseDelay + jitter;
+  const pendingSlot = String(slotKey || client?._autoPollPendingSlot || "").trim();
+  if (pendingSlot) client._autoPollPendingSlot = pendingSlot;
   client._autoPollRetryTimer = setTimeout(() => {
     client._autoPollRetryTimer = null;
-    runAutoPollAndMaybeScheduleRetry(client, { catchUp: true }).catch((error) => {
+    const retrySlot = String(client?._autoPollPendingSlot || "").trim() || null;
+    runAutoPollAndMaybeScheduleRetry(client, { catchUp: true, slotKey: retrySlot }).catch((error) => {
       global.logger?.error?.("[poll.auto] retry run failed:", error);
     });
   }, delay);
@@ -634,61 +771,82 @@ async function runAutoPollAndMaybeScheduleRetry(client, pollOpts = {}) {
     outcome = await runAutoPoll(client, pollOpts);
   } catch (error) {
     global.logger?.error?.("[poll.auto] run failed:", error);
-    outcome = { retry: true, reason: "exception" };
+    outcome = { retry: true, reason: "exception", slotKey: pollOpts?.slotKey || null };
   }
-  if (outcome?.retry) scheduleAutoPollRetry(client, outcome?.reason);
-  else clearAutoPollRetryTimer(client);
+  if (outcome?.retry) {
+    scheduleAutoPollRetry(client, outcome?.reason, outcome?.slotKey || pollOpts?.slotKey);
+  } else {
+    clearAutoPollRetryTimer(client);
+    client._autoPollPendingSlot = null;
+  }
 }
 
 async function runRecoveryAutoPollIfNeeded(client) {
   const cfg = client?.config?.autoPoll || {};
   if (cfg.enabled === false) return;
-  const channelId = IDs.channels?.polls;
-  if (!channelId) return;
-  const pollChannel =
-    client.channels.cache.get(channelId) || (await getClientChannelCached(client, String(channelId)));
-  const gid = pollChannel?.guild?.id || pollChannel?.guildId;
+  const chatChannelId = IDs.channels?.chat;
+  if (!chatChannelId) return;
+  const chatChannel =
+    client.channels.cache.get(chatChannelId) ||
+    (await getClientChannelCached(client, String(chatChannelId)));
+  const gid = chatChannel?.guild?.id || chatChannel?.guildId;
   if (!gid) return;
-  if (await hasManualPollToday(gid)) return;
-  if (await hasAutoPollToday(gid)) return;
+
+  const slots = resolveAutoPollSlots(cfg);
   const now = new Date();
-  if (!isRomeTimeOnOrAfterDailyTrigger(now, cfg)) return;
-  if (!canRunAutoPollNow(now, cfg, true)) return;
-  global.logger?.info?.("[poll.auto] recovery: oggi non risulta un poll automatico dopo l'orario programmato, tento la pubblicazione.");
-  await runAutoPollAndMaybeScheduleRetry(client, { catchUp: true });
+  for (const slot of slots) {
+    if (!isRomeTimeOnOrAfterSlot(now, slot)) continue;
+    if (!canRunAutoPollForSlot(now, slot, slots, true)) continue;
+    if (await hasAutoPollTodayForSlot(gid, slot.key)) continue;
+    global.logger?.info?.(
+      `[poll.auto] recovery slot ${slot.key}: nessun poll automatico oggi, tento la pubblicazione.`,
+    );
+    await runAutoPollAndMaybeScheduleRetry(client, { catchUp: true, slotKey: slot.key });
+    return;
+  }
 }
 
 async function runAutoPoll(client, pollOpts = {}) {
   const cfg = client?.config?.autoPoll || {};
   const catchUp = Boolean(pollOpts.catchUp);
+  const slots = resolveAutoPollSlots(cfg);
+  const slot = resolveAutoPollSlot(cfg, pollOpts.slotKey);
   if (cfg.enabled === false) {
-    return { retry: false, reason: "disabled" };
+    return { retry: false, reason: "disabled", slotKey: slot?.key || null };
+  }
+  if (!slot) {
+    return { retry: false, reason: "no_slot", slotKey: null };
   }
 
-  const channelId = IDs.channels?.polls;
+  const channelId = IDs.channels?.chat;
   if (!channelId) {
-    return { retry: false, reason: "no_channel_id" };
+    return { retry: false, reason: "no_channel_id", slotKey: slot.key };
   }
-  const pollChannel = client.channels.cache.get(channelId) || (await getClientChannelCached(client, String(channelId))) || (await client.channels.fetch(String(channelId)).catch(() => null));
+  const pollChannel =
+    client.channels.cache.get(channelId) ||
+    (await getClientChannelCached(client, String(channelId))) ||
+    (await client.channels.fetch(String(channelId)).catch(() => null));
   if (!pollChannel?.guild?.id || !pollChannel.isTextBased?.()) {
-    return { retry: true, reason: "channel_resolve" };
+    return { retry: true, reason: "channel_resolve", slotKey: slot.key };
   }
   const guild = pollChannel.guild;
 
-  if (await hasManualPollToday(guild.id)) {
-    return { retry: false, reason: "manual_exists" };
-  }
-  if (await hasAutoPollToday(guild.id)) {
-    return { retry: false, reason: "auto_exists" };
+  if (await hasAutoPollTodayForSlot(guild.id, slot.key)) {
+    return { retry: false, reason: "auto_exists", slotKey: slot.key };
   }
 
-  if (!canRunAutoPollNow(new Date(), cfg, catchUp)) {
-    return { retry: false, reason: "outside_window" };
+  if (!canRunAutoPollForSlot(new Date(), slot, slots, catchUp)) {
+    return { retry: false, reason: "outside_window", slotKey: slot.key };
   }
 
+  client._autoPollPendingSlot = slot.key;
+  global.logger?.info?.(
+    `[poll.auto] slot ${slot.key}: avvio pubblicazione${catchUp ? " (recovery)" : ""}.`,
+  );
   const optionTarget = pickNextOptionTarget(client, cfg);
   let payload = null;
   const maxAttempts = resolveMaxCandidateAttempts(cfg);
+  const todayQuestions = await getTodayAutoPollQuestions(guild.id);
 
   for (let i = 0; i < maxAttempts && !payload; i += 1) {
     if (i > 0 && i % 20 === 0) await sleep(300);
@@ -697,11 +855,16 @@ async function runAutoPoll(client, pollOpts = {}) {
       continue;
     }
     if (await isDuplicateQuestion(guild.id, candidate.question)) continue;
+    if (await isDuplicatePollContent(guild.id, candidate)) continue;
+    if (await isDuplicateQuestionToday(guild.id, candidate.question, todayQuestions)) continue;
     payload = candidate;
   }
 
   if (!payload) {
     payload = await pickNonDuplicateLocalPoll(guild.id, cfg, optionTarget);
+    if (payload && await isDuplicateQuestionToday(guild.id, payload.question, todayQuestions)) {
+      payload = null;
+    }
   }
 
   if (!payload) {
@@ -710,21 +873,44 @@ async function runAutoPoll(client, pollOpts = {}) {
     if (!Number.isFinite(lastWarnAt) || now - lastWarnAt >= AUTO_POLL_NO_PAYLOAD_LOG_COOLDOWN_MS) {
       client._autoPollNoPayloadWarnAt = now;
       global.logger?.warn?.(
-        "[poll.auto] impossibile costruire un poll valido (banco locale vuoto o opzioni non valide), riprovo più tardi se resta la finestra.",
+        `[poll.auto] slot ${slot.key}: impossibile costruire un poll valido, riprovo più tardi se resta la finestra.`,
       );
     }
-    return { retry: true, reason: "no_payload" };
+    return { retry: true, reason: "no_payload", slotKey: slot.key };
   }
 
-  const result = await createPollForGuild(guild, { question: payload.question, answers: payload.answers, source: "auto", });
+  const result = await createPollForGuild(guild, {
+    question: payload.question,
+    answers: payload.answers,
+    source: "auto",
+    autoSlot: slot.key,
+    publishInChat: true,
+    useNativePoll: false,
+    skipThread: true,
+    skipReactions: true,
+    skipChatAlert: true,
+  });
   if (!result?.ok) {
     global.logger?.warn?.("[poll.auto] createPollForGuild failed:", result?.error || "unknown");
-    return { retry: true, reason: "create_failed" };
+    return { retry: true, reason: "create_failed", slotKey: slot.key };
   }
-  return { retry: false, reason: "success" };
+  global.logger?.info?.(
+    `[poll.auto] slot ${slot.key}: poll #${result.pollNumber} pubblicato in chat (${result.messageId}).`,
+  );
+  return { retry: false, reason: "success", slotKey: slot.key };
 }
 
 function startAutoPollLoop(client) {
+  if (Array.isArray(client._autoPollTasks)) {
+    for (const task of client._autoPollTasks) {
+      try {
+        task?.stop?.();
+      } catch (err) {
+        global.logger?.warn?.("[autoPoll] stop task:", err?.message || err);
+      }
+    }
+  }
+  client._autoPollTasks = [];
   if (client._autoPollTask?.stop) {
     try {
       client._autoPollTask.stop();
@@ -732,23 +918,32 @@ function startAutoPollLoop(client) {
       global.logger?.warn?.("[autoPoll] ", err?.message || err);
     }
   }
+  client._autoPollTask = null;
   clearAutoPollRetryTimer(client);
 
   const scheduleCfg = client?.config?.autoPoll || {};
   if (scheduleCfg.enabled !== false && !String(process.env.OPENROUTER_API_KEY || "").trim()) {
     global.logger?.info?.("[poll.auto] OPENROUTER_API_KEY assente: i sondaggi useranno il banco locale.");
   }
-  global.logger?.info?.(`[poll.auto] banco locale: ${LOCAL_POLLS_BANK.length} domande.`);
-  client._autoPollTask = cron.schedule(
-    buildAutoPollCronExpression(scheduleCfg),
-    () => {
-      clearAutoPollRetryTimer(client);
-      void runAutoPollAndMaybeScheduleRetry(client, { catchUp: false }).catch((error) => {
-        global.logger?.error?.("[poll.auto] run failed:", error);
-      });
-    },
-    { timezone: TIMEZONE },
+  const slots = resolveAutoPollSlots(scheduleCfg);
+  global.logger?.info?.(
+    `[poll.auto] banco locale: ${LOCAL_POLLS_BANK.length} domande; slot: ${slots.map((s) => `${String(s.hour).padStart(2, "0")}:${String(s.minute).padStart(2, "0")}`).join(", ")}.`,
   );
+
+  for (const slot of slots) {
+    const task = cron.schedule(
+      buildAutoPollCronExpressionForSlot(slot),
+      () => {
+        clearAutoPollRetryTimer(client);
+        void runAutoPollAndMaybeScheduleRetry(client, { catchUp: false, slotKey: slot.key }).catch((error) => {
+          global.logger?.error?.("[poll.auto] run failed:", error);
+        });
+      },
+      { timezone: TIMEZONE },
+    );
+    client._autoPollTasks.push(task);
+  }
+
   const recoveryTimer = setTimeout(() => {
     runRecoveryAutoPollIfNeeded(client).catch((err) => {
       global.logger?.error?.("[poll.auto] recovery on start failed:", err);

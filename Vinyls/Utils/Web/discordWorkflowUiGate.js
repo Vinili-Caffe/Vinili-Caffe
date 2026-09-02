@@ -1,17 +1,15 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
-/**
- * Gate UI Discord per pause / candidature / appelli / resoconti.
- * Default OFF: create/review solo sul sito, senza post nei canali Discord.
- * - DISCORD_WORKFLOW_UI=1 → bottoni + post Discord (canali devono esistere)
- * - DISCORD_WORKFLOW_LOGS=1 → solo post log (senza bottoni), anche se UI off
- * - DISCORD_WORKFLOW_LOGS=0 → forza zero post anche se UI on
- *
- * Post canali staff legacy (staff-list, pex-depex, valutazioni, warn, resoconti, punti-tolti):
- * - Default OFF (dati solo Mongo / sito)
- * - DISCORD_STAFF_CHANNEL_POSTS=1 per riattivare
- */
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
+const {
+  sitePublicOrigin: sharedSitePublicOrigin,
+  siteTicketsPageUrl,
+  siteTicketsPageDiscordRef,
+  siteTicketsPagePlainRef,
+  siteUserProfilePageUrl,
+  siteUserProfilePageDiscordRef,
+  siteUserProfilePagePlainRef,
+} = require("../../../shared/web/siteTicketsPageRef");
 const EPHEMERAL = 1 << 6;
 
 function envFlagOn(name) {
@@ -26,18 +24,12 @@ function isDiscordWorkflowUiEnabled() {
   return envFlagOn("DISCORD_WORKFLOW_UI");
 }
 
-/** Post nei canali pause / visioneModuli / resoconti. Default: solo se UI Discord attiva. */
 function isDiscordWorkflowChannelPostsEnabled() {
   if (envFlagOff("DISCORD_WORKFLOW_LOGS")) return false;
   if (envFlagOn("DISCORD_WORKFLOW_LOGS")) return true;
   return isDiscordWorkflowUiEnabled();
 }
 
-/**
- * Post Discord su canali staff legacy.
- * Staff-list, pex/depex, valutazioni/warn, resoconti, punti-tolti.
- * Default OFF.
- */
 function isDiscordStaffChannelPostsEnabled() {
   return envFlagOn("DISCORD_STAFF_CHANNEL_POSTS");
 }
@@ -57,15 +49,7 @@ function isWorkflowMessageId(id) {
 }
 
 function sitePublicOrigin() {
-  const raw = String(
-    process.env.WEBSITE_PUBLIC_ORIGIN || process.env.WEBSITE_PUBLIC_URL || DEFAULT_SITE_ORIGIN,
-  ).trim();
-  try {
-    const u = new URL(raw.includes("://") ? raw : `https://${raw}`);
-    return u.origin.replace("://viniliecaffe.it", "://www.viniliecaffe.it");
-  } catch {
-    return DEFAULT_SITE_ORIGIN;
-  }
+  return sharedSitePublicOrigin();
 }
 
 function siteAbsoluteUrl(pathOrUrl) {
@@ -91,8 +75,61 @@ const WORKFLOW_SITE_PATHS = {
   puntiTolti: "/notifications/?view=staff&inbox=punti-tolti",
   guida: "/staff/guida/",
   tickets: "/tickets/",
-  ticketsStaff: "/staff/ticket/",
+  ticketsStaff: "/tickets/?view=staff",
+  userProfile: "/user/",
+  userPersonalize: "/personalizza/",
 };
+
+function isDiscordProfileEnabled() {
+  return envFlagOn("DISCORD_PROFILE_UI");
+}
+
+function isTenantPrefixProfileEmbedAllowed(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return false;
+  try {
+    const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
+    if (isViniliFullFeatureGuild(gid)) return false;
+  } catch {
+    return false;
+  }
+  try {
+    const {
+      isPartnershipOperational,
+      shouldBlockTenantPartnershipPrefixCommands,
+      isTenantPartnershipPrefixToolkitEnabled,
+    } = require("../Partner/partnershipConfigResolver");
+    if (shouldBlockTenantPartnershipPrefixCommands(guildId)) return false;
+    if (!isTenantPartnershipPrefixToolkitEnabled(guildId)) return false;
+    return isPartnershipOperational(guildId);
+  } catch {
+    return false;
+  }
+}
+
+function isDiscordTicketsEnabled() {
+  return envFlagOn("DISCORD_TICKETS_UI");
+}
+
+function profileMovedToSiteMessage() {
+  const url = siteWorkflowUrl("userPersonalize");
+  return `<a:VC_Alert:1482706673176150077> Il **profilo** si gestisce **solo sul sito** (non più via [profilo sul sito](https://www.viniliecaffe.it/personalizza/)):\n${url}`;
+}
+
+async function replyProfileMovedToSite(interaction) {
+  const content = profileMovedToSiteMessage();
+  const row = buildSiteLinkRow("Apri il tuo profilo", siteWorkflowPath("userPersonalize"));
+  try {
+    if (interaction?.deferred || interaction?.replied) {
+      await interaction.followUp({ content, components: [row], flags: EPHEMERAL }).catch(() => null);
+      return true;
+    }
+    await interaction.reply({ content, components: [row], flags: EPHEMERAL }).catch(() => null);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function siteWorkflowPath(kind) {
   return WORKFLOW_SITE_PATHS[kind] || WORKFLOW_SITE_PATHS.inbox;
@@ -112,7 +149,6 @@ function buildSiteLinkRow(label, pathOrUrl) {
   );
 }
 
-/** Deep-link chat richiedente (?chat=<dedupeKey>) su candidature / appelli. */
 function subjectWorkflowChatPath(queue, dedupeKey) {
   const q = String(queue || "").trim().toLowerCase();
   const key = String(dedupeKey || "").trim();
@@ -122,7 +158,6 @@ function subjectWorkflowChatPath(queue, dedupeKey) {
   return `${base}${sep}chat=${encodeURIComponent(key)}`;
 }
 
-/** Link "gestisci in inbox" per i log Discord (senza bottoni Accetta/Rifiuta). */
 function buildInboxManageLinkRow(queue) {
   const map = {
     pause: "pauseInbox",
@@ -157,12 +192,23 @@ module.exports = {
   isDiscordWorkflowUiEnabled,
   isDiscordWorkflowChannelPostsEnabled,
   isDiscordStaffChannelPostsEnabled,
+  isDiscordProfileEnabled,
+  isTenantPrefixProfileEmbedAllowed,
+  isDiscordTicketsEnabled,
+  profileMovedToSiteMessage,
+  replyProfileMovedToSite,
   newSiteWorkflowMessageId,
   isWorkflowMessageId,
   sitePublicOrigin,
   siteAbsoluteUrl,
   siteWorkflowPath,
   siteWorkflowUrl,
+  siteTicketsPageUrl,
+  siteTicketsPageDiscordRef,
+  siteTicketsPagePlainRef,
+  siteUserProfilePageUrl,
+  siteUserProfilePageDiscordRef,
+  siteUserProfilePagePlainRef,
   buildSiteLinkRow,
   subjectWorkflowChatPath,
   buildInboxManageLinkRow,

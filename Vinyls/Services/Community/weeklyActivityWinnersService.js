@@ -10,6 +10,7 @@ const { housePointPeriodKey, periodEndingOnDate, resolvePeriodBounds } = require
 const IDs = require("../../Utils/Config/ids");
 const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
+const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity");
 const TIME_ZONE = "Europe/Rome";
@@ -31,7 +32,6 @@ const MONTHLY_TOP_REWARD_ROLE_RANK_3 = IDs.roles.VIP;
 const MONTHLY_TOP_REWARD_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const MONTHLY_TOP_REWARD_PATH = "profile.totals.exp.monthlyTopReward";
 const MONTHLY_TOP_NEW_REWARDS_FIRST_RANKED = Object.freeze({ year: 2026, month: 6 });
-const MONTHLY_PRIZE_TICKET_CHANNEL_ID = String(IDs.channels?.ticket || "1442569095068254219");
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set( [IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder].filter(Boolean).map((id) => String(id)));
 const HOGWARTS_EVENT_TOP_EXCLUDED_ROLE_IDS = new Set();
@@ -145,7 +145,6 @@ function buildBiweekPeriodKey(endMs) {
   return `${romeDateKeyFromMs(end - HOGWARTS_BIWEEKLY_MS)}_${romeDateKeyFromMs(end)}`;
 }
 
-/** Finestra chiusura: periodo anno scolastico se oggi è end-date ufficiale, altrimenti 14gg dal boundary domenica 12. */
 function resolveHogwartsBiweeklyWindow(now = new Date()) {
   const boundaryMs = getLastSunday12BoundaryMsAtOrBefore(now);
   const dateKey = romeDateKeyFromMs(boundaryMs);
@@ -208,8 +207,7 @@ function isHogwartsWeeklyTopReplaced(client) {
 
 function shouldPublishHogwartsBiweeklyToday(now = new Date(), eventStartMs) {
   const endMs = getLastSunday12BoundaryMsAtOrBefore(now);
-  // Chiusura ufficiale anno scolastico (anche il 7° anno da 1 settimana).
-  if (periodEndingOnDate(romeDateKeyFromMs(endMs))) return true;
+    if (periodEndingOnDate(romeDateKeyFromMs(endMs))) return true;
   const start = Number(eventStartMs);
   if (!Number.isFinite(start)) return false;
   const anchorMs = getLastSunday12BoundaryMsAtOrBefore(new Date(start));
@@ -532,7 +530,6 @@ async function collectHogwartsBiweeklyActivityRows(guild, anchorDate = new Date(
   };
 }
 
-/** True se il membro risulta aver avuto un ruolo staff (stesso set delle esclusioni top weekly) in qualunque momento nella finestra attività settimanale (tra due boundary domenica 21:00 Roma), da `staff.rolesHistory` + `staffRolesHistoryRetention` (dopo depex `staff` è unset). */
 function wasStaffDuringWeeklyActivityWindow(staff, weekPeriodStartMs, weekPeriodEndMs, trackedStaffRoleIds, staffRolesHistoryRetention) {
   const set =
     trackedStaffRoleIds instanceof Set
@@ -622,7 +619,6 @@ function getLastCompletedWeekKey(date = new Date()) {
   return getWeekKey(lastSundayDate);
 }
 
-/** ISO week key allineata al periodo minigame chiuso al boundary domenica 21:00 e a `prevWeekKey` dopo reset (evita mismatch con getLastCompletedWeekKey). */
 function getMinigameRankWeekKeyForPublish(now = new Date()) {
   const boundaryEnd = getLastSunday21BoundaryMsAtOrBefore(now);
   const anchor = new Date(boundaryEnd - 2 * 60 * 60 * 1000);
@@ -759,8 +755,7 @@ function buildAnchorDateFromWeekKey(weekKey) {
   const month = Number(m[2]);
   const day = Number(m[3]);
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
-  // 22:00 locale domenica: garantisce boundary alle 21:00 della stessa settimana.
-  return createUtcFromRomeLocal(year, month, day, 22, 0, 0);
+    return createUtcFromRomeLocal(year, month, day, 22, 0, 0);
 }
 
 async function resolveMemberRole(guild) {
@@ -830,9 +825,7 @@ async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys, cli
   const wanted = new Set(keys);
   const projection = { _id: 0, userId: 1 };
   for (const k of keys) projection[`profile.totals.hourly.${k}`] = 1;
-  // Solo i bucket della finestra (mai tutto `profile.totals.hourly` → OOM).
-  // Query a chunk di 24h per non sforare il planner Mongo con $or enormi.
-  const perUser = new Map();
+      const perUser = new Map();
   try {
     for (let i = 0; i < keys.length; i += 24) {
       const chunk = keys.slice(i, i + 24);
@@ -927,7 +920,6 @@ async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3,
   return out;
 }
 
-/** Minigame: se la top “pulita” è vuota ma ci sono punti in DB, garantisce almeno una classifica (annuncio / MVP). */
 async function resolveMinigameTopForced(client, guild, docs, valueGetter, limit = 10, excludedRoleIdsFirst = WEEKLY_WINNERS_EXCLUDED_ROLE_IDS) {
   const cap = Math.max(1, Math.min(25, Number(limit) || 10));
   let rows = await resolveTopThreeUsers(client, guild, docs, valueGetter, cap, excludedRoleIdsFirst);
@@ -1169,7 +1161,6 @@ function formatRankLine(index, userMention, value, unit) {
   return `${medal} ${userMention} <a:VC_Arrow:1482706699365257397> **${value}** *${unit}*`;
 }
 
-/** voiceExp → minuti (VOICE_EXP_PER_MINUTE), poi etichetta ore/min per gli embed. */
 function voiceExpToMinutes(voiceExp) {
   return Math.max(0, Math.floor(Number(voiceExp) || 0) / Math.max(1, VOICE_EXP_PER_MINUTE));
 }
@@ -1634,7 +1625,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
         content: `<@&1442568949605597264>
 ${introLine}
 
-<:VC_Podio1:1482694399283433582> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__** e riceve il ruolo <@&1500848813680758836> e un **Nitro Boost** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`.
+<:VC_Podio1:1482694399283433582> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__** e riceve il ruolo <@&1500848813680758836> e un **Nitro Boost** riscattabile tramite ${siteTicketsPageDiscordRef("HIGH STAFF")}.
 ${monthlyAnnounce.secondLine}
 ${monthlyAnnounce.thirdLine}
 ${votersTextLine}
@@ -1799,7 +1790,7 @@ function monthlyTopVipPlusMention() {
 }
 
 function monthlyPrizeTicketRef() {
-  return `<#${MONTHLY_PRIZE_TICKET_CHANNEL_ID}> \`HIGH STAFF\``;
+  return siteTicketsPageDiscordRef("HIGH STAFF");
 }
 
 function buildMonthlyTopPrizeEmbedLines(displayTopCombined, rankedYear, rankedMonth) {
@@ -1977,7 +1968,6 @@ async function revokeActiveMonthlyVoterRewardsExcept(guild, ranking) {
   }
 }
 
-/** Se più utenti hanno lo stesso premio mensile attivo sullo stesso ruolo, tiene solo l'ultimo assegnato. */
 async function reconcileDuplicateActiveMonthlyRewardRoles(guild) {
   const nowMs = Date.now();
   for (const rewardPath of [MONTHLY_TOP_REWARD_PATH, MONTHLY_VOTER_REWARD_PATH]) {

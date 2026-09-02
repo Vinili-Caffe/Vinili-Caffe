@@ -14,11 +14,6 @@ const MUSIC_LOGS = String(process.env.MUSIC_LOGS || "0").trim() === "1";
 const MUSIC_DEFAULT_LAVALINK_VOLUME = 20;
 const YT_DLP_BIN = String(process.env.YT_DLP_BIN || "/usr/local/bin/yt-dlp").trim() || "/usr/local/bin/yt-dlp";
 
-/**
- * Lavalink v4: il volume globale del player è in percentuale 0–100 (100 = 100%).
- * La vecchia mappa `percentuale × 10` mandava 10% → 100 (già al massimo) e oltre clip/distorsione.
- * @param {number} percent0to100
- */
 function lavalinkGlobalVolumeFromUserPercent(percent0to100) {
   const n = Math.round(Number(percent0to100));
   if (!Number.isFinite(n)) return 100;
@@ -58,14 +53,10 @@ function isYoutubeLikeUrl(query) {
   );
 }
 
-/** @type {Map<string, { tracks: unknown[], textChannelId: string | null, nowPlaying: string | null, musicSessionOwnerId?: string | null, currentRequesterUserId?: string | null, currentRequesterUserTag?: string | null, repeatOne?: boolean, repeatEncoded?: string | null, repeatQueue?: boolean, repeatQueueSnapshot?: { encoded: string, label: string }[] | null, history?: { encoded: string, label: string }[] }>} */
 const guildQueues = new Map();
-/** @type {Set<string>} */
 const endListeners = new Set();
 const lastMusicEndHandledByGuild = new Map();
-/** @type {Map<string, ReturnType<typeof setTimeout>>} */
 const pendingQueueEndedTimers = new Map();
-/** @type {Map<string, number>} guildId -> timestamp (ms) inizio stato “inattivo” */
 const musicIdleSince = new Map();
 const MUSIC_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "musicQueueSnapshot.json");
 const MUSIC_QUEUE_SNAPSHOT_INTERVAL_MS = 15000;
@@ -441,13 +432,8 @@ function startMusicQueueSnapshotLoop(client) {
   client._musicQueueSnapshotTimer.unref?.();
 }
 
-/** Cache access token YouTube (youtube-source REST `/youtube/oauth/{refreshToken}`). */
 let _ytOauthAccessCache = { token: "", expiresAtMs: 0 };
 
-/**
- * Access token OAuth per `userData["oauth-token"]` su playTrack (sblocca client TV / age-gate).
- * @returns {Promise<string|null>}
- */
 async function getYoutubeOauthAccessToken() {
   const now = Date.now();
   if (_ytOauthAccessCache.token && now < _ytOauthAccessCache.expiresAtMs - 60_000) {
@@ -481,11 +467,6 @@ async function getYoutubeOauthAccessToken() {
   }
 }
 
-/**
- * Sostituisce la traccia partendo da 0 ms: senza `position`, Lavalink può riusare il minutaggio del brano precedente (es. +previous).
- * @param {import("shoukaku").Player} player
- * @param {string} encoded
- */
 async function playEncodedFromStart(player, encoded, options = {}) {
   const enc = String(encoded || "").trim();
   if (!enc || typeof player?.playTrack !== "function") {
@@ -514,7 +495,6 @@ function getShardIdForGuild(guild) {
   return 0;
 }
 
-/** Secondi: handshake voce Discord ↔ Lavalink (Shoukaku `voiceConnectionTimeout`). Env `SHOUKAKU_VOICE_CONNECTION_TIMEOUT`. */
 function getShoukakuVoiceConnectionTimeoutSeconds() {
   const n = Number(process.env.SHOUKAKU_VOICE_CONNECTION_TIMEOUT);
   if (Number.isFinite(n) && n >= 15 && n <= 300) return Math.floor(n);
@@ -532,7 +512,6 @@ function musicJoinVoiceChannelErrorMessage(err) {
   return `Entrata in vocale fallita: ${m || "errore sconosciuto"}`;
 }
 
-/** True se c’è una VoiceConnection @discordjs/voice (es. TTS): Shoukaku non può joinare senza conflitto. */
 function guildHasBlockingNativeVoiceConnection(guildId) {
   const gid = String(guildId || "");
   if (!gid) return false;
@@ -553,10 +532,6 @@ function normalizeLavalinkLoadType(res) {
   return s;
 }
 
-/**
- * @param {import("shoukaku").LavalinkResponse | undefined} res
- * @returns {import("shoukaku").Track[]}
- */
 function tracksFromResolve(res) {
   if (!res) return [];
   const lt = normalizeLavalinkLoadType(res);
@@ -616,7 +591,6 @@ function openSpotifyHttpsToSpotifyUri(query) {
   return `spotify:${m[1].toLowerCase()}:${m[2]}`;
 }
 
-/** Link Spotify musica: track / album / playlist. Esclusi show ed episode (podcast). */
 function isSpotifyPodcastOnlyInput(query) {
   const q = String(query || "").trim();
   if (!q) return false;
@@ -625,7 +599,6 @@ function isSpotifyPodcastOnlyInput(query) {
   return /open\.spotify\.com\/(?:intl-[a-z-]+\/)?(show|episode)\//i.test(lower);
 }
 
-/** Link musica Spotify (web o URI) che Lavalink risolve via LavaSrc, non come stream HTTP. */
 function isOpenSpotifyMusicUrlInput(query) {
   const q = String(query || "").trim();
   if (!q) return false;
@@ -643,27 +616,18 @@ function isLikelySpotifyPodcastTrack(t) {
   return false;
 }
 
-/**
- * @param {import("shoukaku").Track[]} tracks
- * @returns {import("shoukaku").Track[]}
- */
 function filterOutSpotifyPodcastTracks(tracks) {
   if (!Array.isArray(tracks) || !tracks.length) return [];
   return tracks.filter((t) => !isLikelySpotifyPodcastTrack(t));
 }
 
-/**
- * @param {string} userQuery
- * @returns {string[]}
- */
 function buildResolveAttempts(userQuery) {
   const raw = String(userQuery || "").trim();
   if (!raw) return [];
   const mode = getMusicSearchMode();
   const primary = normalizeLavalinkResolveQuery(raw);
   const attempts = [];
-  // Testo libero: YouTube Music prima. SoundCloud spesso resolve ok ma lo stream dà 404.
-  if (isPlainTextMusicQuery(raw)) {
+    if (isPlainTextMusicQuery(raw)) {
     attempts.push(`ytmsearch:${raw}`, `ytsearch:${raw}`, `scsearch:${raw}`);
     const simplified = raw.replace(/,/g, " ").replace(/\s+/g, " ").trim();
     if (simplified && simplified !== raw) {
@@ -680,11 +644,6 @@ function buildResolveAttempts(userQuery) {
   return [...new Set(attempts)];
 }
 
-/**
- * Metadata oEmbed Spotify (anche quando /v1/tracks dà 404 su ID “ sporchi ”).
- * @param {string} url
- * @returns {Promise<{ title: string, author: string } | null>}
- */
 async function fetchSpotifyOembedMeta(url) {
   const u = String(url || "").trim();
   if (!u || !/open\.spotify\.com/i.test(u)) return null;
@@ -710,8 +669,7 @@ function buildStableRemirrorAttempts(title, author, isrc) {
   const a = String(author || "").trim().split(",")[0].trim();
   const isrcClean = String(isrc || "").trim().replace(/\s+/g, "");
   const q = [t, a].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-  // ytmsearch prima (ytsearch spesso empty). Niente scsearch: lavaplayer SC stream 404.
-  if (t && a) attempts.push(`ytmsearch:"${t}" ${a}`);
+    if (t && a) attempts.push(`ytmsearch:"${t}" ${a}`);
   if (t) attempts.push(`ytmsearch:"${t}"`);
   if (q) attempts.push(`ytsearch:${q}`);
   if (isrcClean) attempts.push(`ytmsearch:${isrcClean}`, `ytsearch:${isrcClean}`);
@@ -756,11 +714,6 @@ function jaccardTokenSimilarity(a, b) {
   return inter / (A.size + B.size - inter);
 }
 
-/**
- * 0..1 score: how well a candidate title/author matches the requested track.
- * Substring alone is NOT enough — "SESSO GAY" must not match
- * "SESSO GAY BAREBACK … RIVA" just because the short title is contained.
- */
 function scoreTrackMetaMatch(wanted, candidate) {
   const wantTitle = normalizeMusicMatchText(wanted?.title);
   const candTitle = normalizeMusicMatchText(candidate?.title);
@@ -790,12 +743,10 @@ function scoreTrackMetaMatch(wanted, candidate) {
     const lenRatio =
       Math.min(wantTitle.length, candTitle.length) /
       Math.max(wantTitle.length, candTitle.length);
-    // Exact-ish containment only helps when lengths are close (remix/feat suffixes).
-    score = Math.max(score, 0.45 + 0.5 * lenRatio);
+        score = Math.max(score, 0.45 + 0.5 * lenRatio);
   }
 
-  // Short wanted titles that only cover a tiny slice of a long candidate → kill.
-  if (wantTokens.size && candTokens.size && candTokens.size >= wantTokens.size * 2 && precision < 0.5) {
+    if (wantTokens.size && candTokens.size && candTokens.size >= wantTokens.size * 2 && precision < 0.5) {
     score = Math.min(score, 0.45);
   }
 
@@ -831,10 +782,6 @@ function pickBestTrackMatch(tracks, wanted, { minScore = 0.55 } = {}) {
   return best;
 }
 
-/**
- * Clone mirror audio. Never fake title/uri unless the mirror really matches —
- * otherwise Now Playing shows the right song while audio is totally different.
- */
 function cloneTrackWithRequester(fromTrack, pick, fallbackInfo, matchScore = 0) {
   const info = fallbackInfo || fromTrack?.info || {};
   const pickInfo = { ...(pick.info || {}) };
@@ -858,12 +805,6 @@ function cloneTrackWithRequester(fromTrack, pick, fallbackInfo, matchScore = 0) 
 
 const MIRROR_MATCH_MIN = 0.72;
 
-/**
- * Candidati riproducibili (Spotify = solo metadati: serve sempre un mirror).
- * @param {import("shoukaku").Node} node
- * @param {import("shoukaku").Track} track
- * @returns {Promise<import("shoukaku").Track[]>}
- */
 async function collectPlayableMirrorCandidates(node, track) {
   const info = track?.info || {};
   const src = String(info.sourceName || "").toLowerCase();
@@ -910,8 +851,7 @@ async function collectPlayableMirrorCandidates(node, track) {
     }
   }
 
-  // Due ytmsearch in parallelo bastano per l’embed veloce; il resto solo se match debole.
-  const firstBatch = attempts.slice(0, 2);
+    const firstBatch = attempts.slice(0, 2);
   const rest = attempts.slice(2);
   const early = (await Promise.all(firstBatch.map(resolveOne))).flat();
   for (const row of early) {
@@ -930,17 +870,14 @@ async function collectPlayableMirrorCandidates(node, track) {
     return b.bonus - a.bonus;
   });
   const best = Number(scored[0]?.matchScore || 0);
-  // Non fare fallback a titoli "che contengono" il brano giusto ma sono un'altra canzone.
-  const nearBest = scored.filter((row) => Number(row.matchScore) >= best - 0.08);
-  // Tieni anche il miglior mirror non-YouTube (es. SoundCloud) se YouTube poi fallisce.
-  const alt = scored.find((row) => {
+    const nearBest = scored.filter((row) => Number(row.matchScore) >= best - 0.08);
+    const alt = scored.find((row) => {
     const s = String(row.track?.info?.sourceName || "").toLowerCase();
     return s && s !== "youtube" && s !== "youtubemusic" && Number(row.matchScore) >= MIRROR_MATCH_MIN;
   });
   const out = [...nearBest];
   if (alt && !out.some((row) => row.track?.encoded === alt.track?.encoded)) out.push(alt);
-  // Diversifica: fino a 3 YouTube con videoId diversi (se uno fallisce AAC/login, prova il successivo).
-  const ytExtra = [];
+    const ytExtra = [];
   const seenIds = new Set(
     out.map((row) => String(row.track?.info?.identifier || row.track?.encoded || "")),
   );
@@ -960,11 +897,6 @@ async function collectPlayableMirrorCandidates(node, track) {
   return out.slice(0, 5).map((row) => row.track);
 }
 
-/**
- * Spotify non streamma audio: mirror su YouTube/altro.
- * @param {import("shoukaku").Node} node
- * @param {import("shoukaku").Track} track
- */
 async function remirrorToStableAudio(node, track) {
   const candidates = await collectPlayableMirrorCandidates(node, track);
   if (!candidates.length) {
@@ -994,11 +926,6 @@ function youtubeWatchUrlFromTrack(track) {
   return "";
 }
 
-/**
- * YouTube innertube/SABR spesso loadfailed: yt-dlp → URL stream → source http.
- * @param {string} watchUrl
- * @returns {Promise<string|null>}
- */
 async function resolveYoutubeStreamUrlViaYtDlp(watchUrl) {
   const url = String(watchUrl || "").trim();
   if (!url) return null;
@@ -1023,11 +950,6 @@ async function resolveYoutubeStreamUrlViaYtDlp(watchUrl) {
   }
 }
 
-/**
- * @param {import("shoukaku").Node} node
- * @param {import("shoukaku").Track} track
- * @returns {Promise<import("shoukaku").Track|null>}
- */
 async function remirrorYoutubeViaHttp(node, track) {
   const watch = youtubeWatchUrlFromTrack(track);
   if (!watch || typeof node?.rest?.resolve !== "function") return null;
@@ -1054,13 +976,6 @@ async function remirrorYoutubeViaHttp(node, track) {
   }
 }
 
-/**
- * Prova più mirror finché lo stream resta vivo ~1s.
- * @param {import("shoukaku").Player} player
- * @param {object} session
- * @param {import("shoukaku").Node} node
- * @param {import("shoukaku").Track} track
- */
 async function playWithMirrorFallbacks(player, session, node, track) {
   let list = Array.isArray(track?._mirrorCandidates) ? track._mirrorCandidates : null;
   if (!list?.length) list = await collectPlayableMirrorCandidates(node, track);
@@ -1081,8 +996,7 @@ async function playWithMirrorFallbacks(player, session, node, track) {
   };
   const isHttp = (cand) => String(cand?.info?.sourceName || "").toLowerCase() === "http";
 
-  // YouTube nativo loadfailed (SABR/login): yt-dlp → URL stream → source http.
-  const ytSeed =
+    const ytSeed =
     list.find((c) => isYt(c)) ||
     (isYt(track) ? track : null);
   if (ytSeed) {
@@ -1133,10 +1047,6 @@ async function playWithMirrorFallbacks(player, session, node, track) {
   return { ok: false, interrupted: false, track: null };
 }
 
-/**
- * Attende loadfailed o conferma che la traccia è ancora viva (senza richiedere position).
- * @returns {Promise<"ok"|"failed"|"interrupted">}
- */
 async function probeMirrorPlayback(player, session, playGen, cand, maxMs = 1800) {
   const step = 200;
   let waited = 0;
@@ -1148,8 +1058,7 @@ async function probeMirrorPlayback(player, session, playGen, cand, maxMs = 1800)
     if (session.earlyPlayFailed) return "failed";
     const stillEncoded = encodedFromPlayerTrack(player.track);
     if (!stillEncoded || stillEncoded !== wantEnc) return "failed";
-    // ~700ms senza loadfailed → ok (embed non aspetta 5s il playerUpdate).
-    if (waited >= 700) return "ok";
+        if (waited >= 700) return "ok";
   }
   if (Number(session.playGeneration || 0) !== playGen) return "interrupted";
   if (session.earlyPlayFailed) return "failed";
@@ -1158,11 +1067,6 @@ async function probeMirrorPlayback(player, session, playGen, cand, maxMs = 1800)
   return "ok";
 }
 
-/**
- * @param {import("shoukaku").Node} node
- * @param {string} userQuery
- * @param {{ metaHint?: { title?: string, author?: string } | null }} [options]
- */
 async function resolvePlayableTracks(node, userQuery, options = {}) {
   let attempts = buildResolveAttempts(userQuery);
   const mode = getMusicSearchMode();
@@ -1171,8 +1075,7 @@ async function resolvePlayableTracks(node, userQuery, options = {}) {
   let lastResolved = null;
   const metaHint = options?.metaHint && typeof options.metaHint === "object" ? options.metaHint : null;
 
-  // Link Spotify morto (ID case-sensitive / 404): passa da oEmbed / Discord embed → ricerca testo.
-  if (isOpenSpotifyMusicUrlInput(userQuery)) {
+    if (isOpenSpotifyMusicUrlInput(userQuery)) {
     const probe = await node.rest.resolve(attempts[0]).catch(() => null);
     lastResolved = probe;
     if (!tracksFromResolve(probe).length) {
@@ -1189,8 +1092,7 @@ async function resolvePlayableTracks(node, userQuery, options = {}) {
         attempts = buildResolveAttempts(q);
       }
     } else {
-      // Riparti dal primo attempt già risolto
-      attempts = [attempts[0], ...attempts.slice(1)];
+            attempts = [attempts[0], ...attempts.slice(1)];
     }
   }
 
@@ -1203,8 +1105,7 @@ async function resolvePlayableTracks(node, userQuery, options = {}) {
     }
     logMusic("resolve ok", { loadType: lastResolved?.loadType, identifier: identifier.slice(0, 80) });
     let tracks = tracksFromResolve(lastResolved);
-    // `search` = risultati singoli: scegli il match migliore, non il primo a caso.
-    if (normalizeLavalinkLoadType(lastResolved) === "search" && tracks.length > 1) {
+        if (normalizeLavalinkLoadType(lastResolved) === "search" && tracks.length > 1) {
       const wanted = metaHint?.title
         ? metaHint
         : isPlainTextMusicQuery(userQuery)
@@ -1236,7 +1137,6 @@ function describeTrack(t) {
   return `${info.title || "Senza titolo"} — ${info.author || "?"}`;
 }
 
-/** Solo encoded + info: niente pluginInfo LavaSrc (evita auto-loop playlist Spotify). */
 function trackForManualQueue(track) {
   if (!track) return null;
   const encoded =
@@ -1250,8 +1150,7 @@ function trackForManualQueue(track) {
   if (track.info && typeof track.info === "object") out.info = track.info;
   if (track.vcRequestedByUserId) out.vcRequestedByUserId = String(track.vcRequestedByUserId);
   if (track.vcRequestedByUserTag) out.vcRequestedByUserTag = String(track.vcRequestedByUserTag);
-  // Conserva i mirror già risolti: altrimenti play rifà 5 search e l’embed ritarda ~1s+.
-  if (Array.isArray(track._mirrorCandidates) && track._mirrorCandidates.length) {
+    if (Array.isArray(track._mirrorCandidates) && track._mirrorCandidates.length) {
     out._mirrorCandidates = track._mirrorCandidates;
   }
   return out;
@@ -1308,7 +1207,6 @@ function delayMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
 }
 
-/** Evita «Coda finita» quando un play appena avviato muore subito (stream Spotify/YouTube). */
 function markFreshPlayAttempt(session) {
   if (!session) return 0;
   session.playGeneration = Number(session.playGeneration || 0) + 1;
@@ -1430,7 +1328,6 @@ function spotifyIsrcSearchUrl(t) {
   return `https://open.spotify.com/search/isrc%3A${encodeURIComponent(hyphenated)}`;
 }
 
-/** URL pagina traccia Spotify (o null). */
 function spotifyDirectUrlFromTrack(t) {
   if (!t?.info) return null;
   const uri = String(t.info.uri || "").trim();
@@ -1446,10 +1343,6 @@ function spotifyDirectUrlFromTrack(t) {
   return null;
 }
 
-/**
- * @param {import("shoukaku").Node} node
- * @param {import("shoukaku").Track | undefined | null} track
- */
 async function trySpotifyDirectUrlViaSearch(node, track) {
   if (!MUSIC_SPOTIFY_URL_LOOKUP || !node?.rest || !track?.info) return null;
   const title = String(track.info.title || "").trim();
@@ -1469,10 +1362,6 @@ async function trySpotifyDirectUrlViaSearch(node, track) {
   }
 }
 
-/**
- * @param {import("shoukaku").Node} node
- * @param {import("shoukaku").Track | undefined | null} track
- */
 async function resolveSpotifyWebUrl(node, track) {
   const direct = spotifyDirectUrlFromTrack(track);
   if (direct) return direct;
@@ -1506,11 +1395,6 @@ function splitNowPlayingLabel(label) {
   return { title: s, author: "" };
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild | null} guild
- * @returns {Promise<{ ok: true, rows: { queueIndex: number, dur: string, title: string, author: string, url: string | null }[] } | { ok: false, message: string }>}
- */
 async function fetchGuildQueueEntryRows(client, guild) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
@@ -1613,7 +1497,6 @@ function formatTrackDurationMs(ms) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-/** Posizione riproduzione (anche 0 ms → 00:00). */
 function formatPlaybackPositionClock(ms) {
   const n = Number(ms);
   if (!Number.isFinite(n) || n < 0) return "00:00";
@@ -1638,12 +1521,6 @@ function formatEstimatedUntilPlayMs(ms) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-/**
- * Solo brani in coda (non il corrente), con orario stimato di inizio rispetto a ora.
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild | null} guild
- * @returns {Promise<{ ok: true, rows: { upcomingIndex: number, etaClock: string, title: string, author: string, url: string | null }[] } | { ok: false, message: string }>}
- */
 async function fetchGuildUpcomingQueueRows(client, guild) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
@@ -1713,12 +1590,6 @@ async function fetchGuildUpcomingQueueRows(client, guild) {
   return { ok: true, rows };
 }
 
-/**
- * Cronologia sessione (già riprodotte) + brano attuale + coda.
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild | null} guild
- * @returns {Promise<{ ok: true, rows: { listIndex: number, dur: string, title: string, author: string, url: string | null }[] } | { ok: false, message: string }>}
- */
 async function fetchGuildRequestedSessionRows(client, guild) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
@@ -1836,10 +1707,6 @@ async function fetchGuildRequestedSessionRows(client, guild) {
   return { ok: true, rows };
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild | null} guild
- */
 async function fetchGuildNextUpDetails(client, guild) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
@@ -1923,10 +1790,6 @@ function renderPlaybackProgressBar(positionMs, lengthMs, width = 14) {
   return `${"█".repeat(filled)}${"░".repeat(w - filled)}`;
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild | null} guild
- */
 async function fetchGuildNowPlayingDetails(client, guild) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
@@ -1994,10 +1857,6 @@ async function fetchGuildNowPlayingDetails(client, guild) {
   };
 }
 
-/**
- * Testo libero: prefisso Lavalink (`ytsearch:`, `spsearch:`, …). URL passano così come sono.
- * @param {string} raw
- */
 function normalizeLavalinkResolveQuery(raw) {
   const q = String(raw || "").trim();
   if (!q) return q;
@@ -2048,12 +1907,6 @@ function getSession(guildId) {
   return s;
 }
 
-/**
- * Comandi “DJ”: chi ha avviato la sessione (`musicSessionOwnerId`) o ha richiesto il brano attuale (`currentRequesterUserId`).
- * Se `musicSessionOwnerId` è assente (sessioni legacy), non bloccare.
- * @param {string} guildId
- * @param {string | null | undefined} requesterUserId
- */
 function assertMusicSessionOwnerOrAllowLegacy(guildId, requesterUserId) {
   const session = guildQueues.get(guildId);
   const ownerRaw = session?.musicSessionOwnerId;
@@ -2084,11 +1937,6 @@ function isLavalinkUsable(client) {
   return String(node.state || "").toUpperCase() === "CONNECTED";
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {string | null | undefined} textChannelId
- * @param {string | null | undefined} guildId
- */
 async function sendMusicQueueEndedEmbed(client, textChannelId, guildId) {
   const cid = String(textChannelId || "").trim();
   const gid = String(guildId || "").trim();
@@ -2106,7 +1954,6 @@ async function sendMusicQueueEndedEmbed(client, textChannelId, guildId) {
   } catch (_) {}
 }
 
-/** Debounce: evita «Coda finita» mentre un nuovo play sta ancora partendo. */
 function cancelPendingQueueEndedEmbed(guildId) {
   const gid = String(guildId || "").trim();
   if (!gid) return;
@@ -2174,11 +2021,6 @@ async function sendMusicInactivityLeaveEmbed(client, textChannelId, guildId) {
   } catch (_) {}
 }
 
-/**
- * Canale vocale vuoto: non far uscire subito il bot se c’è una sessione Lavalink musica (timer 3 min).
- * @param {import("discord.js").Client} client
- * @param {string} guildId
- */
 function shouldDeferTtsLeaveForMusicEmptyVc(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !client?.shoukaku) return false;
@@ -2254,11 +2096,6 @@ function startMusicInactivityWatcher(client) {
   client._musicInactivityTickTimer.unref?.();
 }
 
-/**
- * Evita l’embed “kick” quando lasciamo il vocale da codice (stop, fine coda, cambio stanza, ecc.).
- * @param {import("discord.js").Client} client
- * @param {string} guildId
- */
 function markMusicVoiceLeaveIntentional(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !client) return;
@@ -2270,10 +2107,6 @@ function markMusicVoiceLeaveIntentional(client, guildId) {
   t.unref?.();
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {string} guildId
- */
 async function leaveMusicVoiceChannelMarked(client, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !client) return;
@@ -2288,12 +2121,6 @@ async function leaveMusicVoiceChannelMarked(client, guildId) {
   }
 }
 
-/**
- * Bot uscito dal vocale senza leave “intenzionale” (es. kick / disconnessione): pulizia sessione musica + embed.
- * `intentional` sopprime solo l’embed (leave da codice), non la pulizia: altrimenti resta un player Lavalink “fantasma”.
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild} guild
- */
 async function handleMusicBotVoiceDisconnect(client, guild) {
   const gid = String(guild?.id || "").trim();
   if (!gid || !client) return;
@@ -2334,11 +2161,6 @@ async function handleMusicBotVoiceDisconnect(client, guild) {
   } catch (_) {}
 }
 
-/**
- * Se il bot non è in vocale su Discord ma Lavalink ha ancora sessione (kick / desync), azzera tutto.
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild} guild
- */
 async function destroyGhostMusicStateIfBotNotInVoice(client, guild) {
   const gid = String(guild?.id || "").trim();
   if (!gid || !client?.shoukaku) return;
@@ -2362,10 +2184,6 @@ async function destroyGhostMusicStateIfBotNotInVoice(client, guild) {
   } catch (_) {}
 }
 
-/**
- * @param {import("shoukaku").Player} player
- * @param {string} guildId
- */
 function attachEndHandler(client, player, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !player) return;
@@ -2475,13 +2293,9 @@ function attachEndHandler(client, player, guildId) {
   });
 }
 
-/**
- * @param {import("discord.js").Client} client
- */
 function initLavalinkMusicIfEnabled(client) {
   if (client._shoukakuInitPending) return;
-  // Se init era “done” ma i nodi non ci sono (race clientReady), riprova.
-  if (client._shoukakuInitDone && client?.shoukaku?.nodes?.size) return;
+    if (client._shoukakuInitDone && client?.shoukaku?.nodes?.size) return;
   if (client._shoukakuInitDone && !client?.shoukaku?.nodes?.size) {
     client._shoukakuInitDone = false;
     try {
@@ -2601,8 +2415,7 @@ async function waitForLavalinkTcpThenInitShoukaku(client) {
       restTimeout: 120,
       voiceConnectionTimeout: getShoukakuVoiceConnectionTimeoutSeconds(),
     });
-    /* Connector DiscordJS: once("clientReady"). Se init gira già dentro clientReady, i nodi non si aggiungono. */
-    if (typeof client.isReady === "function" && client.isReady() && client.user?.id && shoukaku.nodes.size === 0) {
+        if (typeof client.isReady === "function" && client.isReady() && client.user?.id && shoukaku.nodes.size === 0) {
       shoukaku.id = client.user.id;
       for (const nodeOpt of nodes) {
         shoukaku.addNode(Utils.mergeDefault(Constants.NodeDefaults, { ...nodeOpt }));
@@ -2644,10 +2457,6 @@ async function waitForLavalinkTcpThenInitShoukaku(client) {
   }
 }
 
-/**
- * @param {{ client: import("discord.js").Client; guild: import("discord.js").Guild; member: import("discord.js").GuildMember | import("discord.js").APIInteractionGuildMember | null; textChannelId?: string | null; requesterUser?: import("discord.js").User | null }} ctx
- * @param {string} query
- */
 async function playMusicRequest(ctx, query) {
   const client = ctx.client;
   const guild = ctx.guild;
@@ -2665,8 +2474,7 @@ async function playMusicRequest(ctx, query) {
     }
   }
   if (!isLavalinkUsable(client)) {
-    // Ultimo tentativo: reset se nodes vuoti
-    if (client._shoukakuInitDone && !client?.shoukaku?.nodes?.size) {
+        if (client._shoukakuInitDone && !client?.shoukaku?.nodes?.size) {
       client._shoukakuInitDone = false;
       initLavalinkMusicIfEnabled(client);
       const waitUntil = Date.now() + 20_000;
@@ -2974,12 +2782,6 @@ async function playMusicRequest(ctx, query) {
   };
 }
 
-/**
- * @param {import("discord.js").Client} client
- * @param {import("discord.js").Guild | null} guild
- * @param {string | number | null | undefined} rawPercent volume utente 0–100
- * @param {string | null | undefined} requesterUserId
- */
 async function setGuildMusicVolume(client, guild, rawPercent, requesterUserId) {
   const guildId = guild?.id;
   if (!guildId) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
@@ -3234,10 +3036,6 @@ function shuffleInPlace(arr) {
   }
 }
 
-/**
- * @param {unknown} interaction
- * @param {string} [keyword] disable | enable | queue | off | on | vuoto (toggle)
- */
 async function toggleRepeatOneGuild(interaction, keyword) {
   const client = interaction.client;
   const guild = interaction.guild;

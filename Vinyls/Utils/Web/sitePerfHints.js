@@ -1,10 +1,5 @@
 "use strict";
 
-/**
- * Client perf hints for site-api handlers (query + headers).
- * lite → smaller payloads / skip expensive Discord enrich when safe.
- */
-
 function header(req, name) {
   const h = req && req.headers ? req.headers : {};
   const key = String(name || "").toLowerCase();

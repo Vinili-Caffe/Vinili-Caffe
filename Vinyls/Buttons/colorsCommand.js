@@ -6,9 +6,9 @@ const CMD_COLORS_SEG = "cmd_colors_seg:";
 const CMD_COLORS_BTN = "cmd_colors_btn:";
 const PRIVATE_FLAG = 1 << 6;
 const IGNORED_INTERACTION_CODES = new Set([
-  10062, // Unknown interaction (ack >3s / token scaduto)
-  10015, // Unknown webhook
-  40060, // Already acknowledged
+  10062,
+  10015,
+  40060,
 ]);
 
 function logButtonErr(err, opts = {}) {
@@ -96,7 +96,7 @@ module.exports = {
       const ownerId = parts[1];
       const action = parts[2];
       if (interaction.user?.id !== ownerId) {
-        await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo. Usa `+profile`.", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
+        await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
         return true;
       }
       if (!(await ackEphemeral(interaction))) return true;
@@ -132,12 +132,11 @@ module.exports = {
     const ownerId = parts[1];
     const segment = parts[2];
     if (interaction.user?.id !== ownerId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo menu non è tuo. Usa `+profile`.", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo menu non è tuo. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
       return true;
     }
 
-    // Ack subito: fetch level/ruoli possono sforare i ~3s di Discord.
-    if (!(await ackUpdate(interaction))) return true;
+        if (!(await ackUpdate(interaction))) return true;
 
     const values = Array.isArray(interaction.values) ? interaction.values : [];
     const value = String(values[0] || "");

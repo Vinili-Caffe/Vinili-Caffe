@@ -6,8 +6,7 @@
   var BYPASS_CLASS = "vc-maintenance-bypass";
   var PAGE_CLASS = "vc-maintenance-page";
   var STYLE_ID = "vc-maintenance-style";
-  /** Stesso nome di `discord-auth.js` per il ritorno OAuth se il fragment perde lo `state`. */
-  var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
+    var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
 
   function cfg() {
     return (typeof window !== "undefined" && window.__VC_MAINTENANCE) || {};

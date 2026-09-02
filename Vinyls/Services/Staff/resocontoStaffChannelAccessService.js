@@ -23,9 +23,7 @@ async function ensureResocontoStaffChannelMemberOverwrite(channel, userId) {
   const guild = channel.guild;
   if (!guild?.members?.fetch) return;
 
-  // Discord richiede User/Role/Member risolvibile: un snowflake “nudo” di chi non è più
-  // nel server (o non in cache) → "Supplied parameter is not a User nor a Role."
-  const member =
+      const member =
     guild.members.cache.get(uid) ||
     (await guild.members.fetch(uid).catch(() => null));
   if (!member) return;

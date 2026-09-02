@@ -37,8 +37,7 @@ function toDisplayRepostImageUrl(url) {
       parsed.hostname = "media.discordapp.net";
     }
     if (/media\.discordapp\.net|cdn\.discordapp\.com/i.test(parsed.hostname)) {
-      // I GIF restano intere: il resize webp le spezza spesso.
-      if (/\.gif(\?|$)/i.test(parsed.pathname)) return raw;
+            if (/\.gif(\?|$)/i.test(parsed.pathname)) return raw;
       parsed.searchParams.set("width", "480");
       parsed.searchParams.set("height", "270");
       parsed.searchParams.set("format", "webp");

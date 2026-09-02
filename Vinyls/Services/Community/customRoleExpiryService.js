@@ -67,10 +67,6 @@ async function canManageChannels(guild) {
   );
 }
 
-/**
- * Elimina su Discord ruoli custom e canale voc collegati (nessuna scrittura su `ActivityUserProfile`).
- * @returns {{ roleHandled: boolean, channelHandled: boolean }}
- */
 async function deleteDiscordCustomPerkArtifacts(guild, doc) {
   if (!guild || !doc?.userId) return { roleHandled: true, channelHandled: true };
   const userId = String(doc.userId);

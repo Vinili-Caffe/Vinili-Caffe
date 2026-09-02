@@ -14,13 +14,11 @@ const STATS_GAP = 22;
 const STATS_HEADER_BADGE_W = 340;
 const ROME_TIME_ZONE = "Europe/Rome";
 
-/** GIF attività (+me / +server / +channel): `VC_ACTIVITY_CANVAS_GIF=1` per animazione (default: PNG statico). */
 const ACTIVITY_CANVAS_GIF = String(process.env.VC_ACTIVITY_CANVAS_GIF ?? "0").trim() === "1";
 const ACTIVITY_CANVAS_ANIM_FRAMES = Math.max(
   2,
   Math.min(30, Math.floor(Number(process.env.VC_ACTIVITY_CANVAS_ANIM_FRAMES ?? 12))),
 );
-/** Un solo frame “fermo” in coda con delay lungo (prima: 20 frame identici ridisegnati). */
 const ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS = Math.max(
   100,
   Math.min(20000, Math.floor(Number(process.env.VC_ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS ?? 2800))),
@@ -70,7 +68,6 @@ function stripBrokenReplacementChars(input) {
   return String(input || "").replace(/\uFFFD/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
-/** Rimuove spazi invisibili / ZW e comprime spazi che rompono nomi tipo `i.4m.cris` su canvas. */
 function sanitizeDisplayLabel(input) {
   return String(input || "")
     .replace(/[\u00AD\u034F\u200B-\u200D\uFEFF]/g, "")
@@ -173,7 +170,6 @@ function getFittedFontSize(ctx, text, maxWidth, maxSize = 52, minSize = 14, weig
   return minSize;
 }
 
-/** Una sola riga, larghezza misurata con emoji (Twemoji token width) come in wrapRichTextToLines. */
 function getFittedFontSizeOneLineEmoji(ctx, text, maxWidth, maxSize, minSize, weight) {
   const prep = prepareVisibleText(String(text || "").trim());
   if (!prep) return maxSize;
@@ -184,7 +180,6 @@ function getFittedFontSizeOneLineEmoji(ctx, text, maxWidth, maxSize, minSize, we
   return minSize;
 }
 
-/** Titolo su più righe (Twemoji-aware via wrapRichTextToLines) per header stats. */
 function computeWrappedTitleLines(ctx, rawText, nameMaxW, options = {}) {
   const weight = options.weight ?? "700";
   const fallback = options.fallback ?? "—";

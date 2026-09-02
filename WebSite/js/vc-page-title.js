@@ -1,7 +1,3 @@
-/**
- * Titoli pagina unificati: "Vinili & Caffè | <Pagina>"
- * Usare sempre questo modulo (mai "Brand - …" / solo pagina).
- */
 (function (global) {
   "use strict";
 
@@ -12,26 +8,34 @@
     try {
       var auth = global.__VC_AUTH;
       var fromAuth = String((auth && auth.siteName) || "").trim();
-      if (fromAuth) return fromAuth;
+      if (fromAuth) return decodeHtmlEntities(fromAuth);
     } catch (e0) {}
     try {
       var cfg = global.__VC_SITE;
       var fromSite = String((cfg && (cfg.siteName || cfg.name)) || "").trim();
-      if (fromSite) return fromSite;
+      if (fromSite) return decodeHtmlEntities(fromSite);
     } catch (e1) {}
     return DEFAULT_BRAND;
   }
 
-  /** Canonicalizza etichette pagina (es. "Profilo staff" → "Profilo Staff"). */
-  function polishPageLabel(label) {
+    function polishPageLabel(label) {
     var s = String(label || "").trim().replace(/\s+/g, " ");
     if (!s) return "";
     s = s.replace(/\bstaff\b/gi, "Staff");
     return s;
   }
 
-  function stripDecorations(raw) {
+  function decodeHtmlEntities(raw) {
     return String(raw || "")
+      .replace(/&amp;/gi, "&")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">");
+  }
+
+  function stripDecorations(raw) {
+    return decodeHtmlEntities(String(raw || ""))
       .trim()
       .replace(/\{\{\s*SITE_NAME\s*\}\}/gi, siteBrandName())
       .replace(/\{\{[A-Z0-9_]+\}\}/g, "")
@@ -42,14 +46,13 @@
   }
 
   function isBrandLabel(label, brand) {
-    var t = String(label || "").trim();
+    var t = decodeHtmlEntities(String(label || "")).trim();
     if (!t) return true;
     if (t === brand) return true;
     return /^vinili(?:\s*&\s*caff[eè])?$/i.test(t);
   }
 
-  /** Sempre: "Brand | Pagina" (pipe, mai trattino). */
-  function format(pageOrFull, brandOpt) {
+    function format(pageOrFull, brandOpt) {
     var brand = String(brandOpt || siteBrandName()).trim() || DEFAULT_BRAND;
     var cleaned = stripDecorations(pageOrFull);
     if (!cleaned) return brand;
@@ -68,12 +71,10 @@
       if (isBrandLabel(left, brand)) {
         return brand + SEP + right;
       }
-      // "Pagina | Pagina" o formato misto: preferisci la parte non-brand.
-      return brand + SEP + polishPageLabel(isBrandLabel(left, brand) ? right : left || right);
+            return brand + SEP + polishPageLabel(isBrandLabel(left, brand) ? right : left || right);
     }
 
-    // "Brand - Pagina" / "Brand – Pagina" → pipe
-    var dash = cleaned.search(/\s+[-–—]\s+/);
+        var dash = cleaned.search(/\s+[-–—]\s+/);
     if (dash > 0) {
       left = cleaned.slice(0, dash).trim();
       right = polishPageLabel(cleaned.slice(dash).replace(/^\s+[-–—]\s+/, ""));
@@ -126,7 +127,12 @@
         global.document.querySelector('meta[property="og:title"]') ||
         global.document.querySelector('meta[name="og:title"]');
       if (!el) return;
+      var rawOg = decodeHtmlEntities(el.getAttribute("content") || "");
       var want = format(fullTitle || (global.document && global.document.title) || "");
+            if (rawOg && /^\s*vinili/i.test(rawOg) && rawOg.indexOf("|") >= 0 && rawOg.length > want.length + 2) {
+        var ogFmt = format(rawOg);
+        if (ogFmt.length > want.length) want = ogFmt;
+      }
       if (el.getAttribute("content") !== want) el.setAttribute("content", want);
     } catch (eOg) {}
   }
@@ -146,16 +152,14 @@
 
   global.VcPageTitle = api;
 
-  // Applica subito (script sync in <head> o prima di altri title writer).
-  try {
+    try {
     if (global.document && global.document.title) {
       applyFromDocument();
       syncOgTitle();
     }
   } catch (eBoot) {}
 
-  // Se lo script è in head prima del <title>, ritenta a DOM ready.
-  try {
+    try {
     if (global.document && global.document.readyState === "loading") {
       global.document.addEventListener(
         "DOMContentLoaded",

@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html class="vc-site-polish" lang="it">
+  <head>
+<style id="vc-fa-noflash-css">html:not(.vc-fa-ready) .fa{visibility:hidden!important;opacity:0!important}html:not(.vc-fa-ready) .fa:before{content:""!important}html.vc-fa-ready .fa{visibility:visible!important;opacity:1!important}</style>
+<script id="vc-auth-instant-boot">(function(){try{var t=localStorage.getItem("vc_discord_access_token");if(!t)return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;document.documentElement.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
+<style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}</style>
+
+    <style id="vc-anti-fouc-css">html,body{background:#100c09!important;color-scheme:dark}</style><style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed,body.vc-dashboard-page>header,body.vc-vote-page>header,body.vc-body--home>header{background:transparent!important;background-color:transparent!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass,body.vc-body header .vc-nav-shell.vc-nav-shell--scrolled,body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled{background:#140f0c!important;background-color:#140f0c!important;border-radius:1rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 10px 28px rgba(0,0,0,.35)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;transition:none!important;animation:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}html:not(.vc-home-styles-ready):not(.vc-page-cine-ready):not(.vc-styles-ready) #vc-mobile-nav-drawer{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}html:not(.vc-home-styles-ready):not(.vc-page-cine-ready):not(.vc-styles-ready) body.vc-body header nav.vc-header-snav,html:not(.vc-home-styles-ready):not(.vc-page-cine-ready):not(.vc-styles-ready) body.vc-body header #header-quick-actions{display:none!important}html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) #vc-mobile-nav-drawer{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header nav.vc-header-snav,html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header #header-quick-actions{display:none!important}html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>header,html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>main,html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) #vc-mobile-nav-drawer,html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) .vc-mobile-nav-drawer{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header nav.vc-header-snav,html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header #header-quick-actions{display:none!important}</style>
+
+    <meta charset="utf-8" />
+    <title>Vinili &amp; Caffè | Personalizza</title>
+    <script src="/js/vc-page-title.js?v=20260825pageTitle1"></script>
+    <meta name="description" content="Personalizza rank card, ruoli, privacy e impostazioni profilo Discord dal pannello web Vinili &amp; Caffè." />
+    <meta name="author" content="Vinili &amp; Caffè" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/cormorant/cormorant-garamond-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/inter/inter-latin.woff2" crossorigin />
+    <link rel="stylesheet" href="/css/vc-fonts.css?v=1788285883454" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Vinili &amp; Caffè" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:title" content="Vinili &amp; Caffè | Personalizza profilo" />
+    <meta property="og:description" content="Rank card, ruoli, privacy e impostazioni profilo in un unico pannello web." />
+    <meta property="og:url" content="https://www.viniliecaffe.it/personalizza/" />
+    <meta property="og:image" content="/images/og-banner.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Vinili &amp; Caffè" />
+    <meta name="twitter:card" content="summary" /><script src="/js/vc-fa-boot.js?v=20260831faBootFix1"></script>
+<link rel="preload" as="font" type="font/woff2" href="/css/font-awesome/fonts/fontawesome-webfont.woff2?v=4.7.0" crossorigin />
+<link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css?v=20260831faLocal1" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="/css/tw-build.css?v=1788285883454" />
+    <link rel="stylesheet" href="/css/vc-landing-core.css?v=20260902persLeadFix1" />
+    <script src="/js/vc-api-cache.js?v=20260902persExtrasFix2"></script>
+    <script src="/js/vc-perf.js?v=20260831sitePerfFix1" defer></script>
+    <link rel="stylesheet" href="/css/vc-landing-ext.css?v=20260902headerMarqueeFix1" /><style>
+      .vc-rank-editor-colorrow {
+        display: grid !important;
+        grid-template-columns: minmax(5.5rem, 6.2rem) minmax(6.75rem, 8rem) auto !important;
+        align-items: center !important;
+        justify-content: start !important;
+        gap: 0.45rem !important;
+      }
+
+      .vc-rank-editor-colorrow__hex {
+        width: 100% !important;
+        min-width: 6.75rem !important;
+        max-width: 8rem !important;
+        height: 3rem !important;
+        box-sizing: border-box !important;
+        text-align: center !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.04em !important;
+        color: #f8fafc !important;
+        opacity: 1 !important;
+      }
+
+      .vc-rank-editor-updatebtn {
+        width: auto !important;
+        min-width: 0 !important;
+        white-space: nowrap !important;
+        justify-self: start !important;
+      }
+
+      .vc-rank-editor-previewcard {
+        overflow: hidden !important;
+      }
+
+      .vc-rank-editor-preview__card {
+        width: 100% !important;
+        max-width: 43rem !important;
+        margin-inline: auto !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+      }
+
+      .vc-rank-editor-preview__hero {
+        display: grid !important;
+        grid-template-columns: auto minmax(0, 1fr) auto !important;
+        align-items: center !important;
+        gap: clamp(1rem, 2vw, 2rem) !important;
+      }
+
+      .vc-rank-editor-preview__copy,
+      .vc-rank-editor-preview__topline {
+        min-width: 0 !important;
+      }
+
+      .vc-rank-editor-preview__topline {
+        flex-wrap: wrap !important;
+        row-gap: 0.35rem !important;
+      }
+
+      .vc-rank-editor-preview__bar {
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+
+      .vc-rank-editor-preview__stats {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 1rem !important;
+      }
+
+      .vc-rank-editor-preview__stat {
+        min-width: 0 !important;
+      }
+
+      @media (max-width: 860px) {
+        .vc-rank-editor-colorrow {
+          grid-template-columns: minmax(5.5rem, 6.2rem) minmax(6.75rem, 8rem) !important;
+          justify-content: start !important;
+          gap: 0.45rem !important;
+        }
+
+        .vc-rank-editor-updatebtn {
+          grid-column: 1 / -1 !important;
+          justify-self: stretch !important;
+        }
+
+        .vc-rank-editor-preview__hero {
+          grid-template-columns: 1fr !important;
+          justify-items: center !important;
+          text-align: center !important;
+        }
+
+        .vc-rank-editor-preview__rankbox {
+          justify-self: center !important;
+        }
+
+        .vc-rank-editor-preview__stats {
+          grid-template-columns: 1fr !important;
+        }
+      }
+    </style>
+    <script>
+      (function () {
+        function readCachedOwnUserId() {
+          try {
+            var t = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+            var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+            if (!t || (exp && Date.now() >= exp)) return "";
+            var fp = exp + "|" + t.slice(0, 32);
+            var raw = sessionStorage.getItem("vc_discord_me_cache_v1");
+            if (raw) {
+              var o = JSON.parse(raw);
+              if (o && o.v === 1 && o.user && String(o.fp || "") === fp) {
+                var uid = String(o.user.id || "").trim();
+                if (/^\d{17,20}$/.test(uid)) return uid;
+              }
+            }
+            var uidRaw = localStorage.getItem("vc_discord_uid_v1");
+            if (uidRaw) {
+              var uo = JSON.parse(uidRaw);
+              if (uo && String(uo.fp || "") === fp && /^\d{17,20}$/.test(String(uo.uid || ""))) {
+                return String(uo.uid);
+              }
+            }
+          } catch (e) {}
+          return "";
+        }
+        function parseTabEarly() {
+          try {
+            var q = new URLSearchParams(window.location.search || "");
+            var t = String(q.get("target") || q.get("slot") || q.get("tab") || "")
+              .trim()
+              .toLowerCase();
+            if (t === "vocale") return "voice";
+            if (t === "primary" || t === "secondary" || t === "voice") return t;
+            if (t === "ruoli" || t === "rolepanel" || t === "colors" || t === "colori") return "roles";
+            if (t === "mention" || t === "mention_reaction") return "reactions";
+            if (t === "mention_response") return "response";
+            if (
+              t === "birthday" ||
+              t === "privacy" ||
+              t === "roles" ||
+              t === "reactions" ||
+              t === "response"
+            )
+              return t;
+            if (t === "rank" || t === "wallpaper") return "rank";
+          } catch (e) {}
+          return "rank";
+        }
+        function tryRedirectOwnPersonalizzaEarly() {
+          try {
+            var path = String(window.location.pathname || "")
+              .replace(/\/index\.html?$/i, "")
+              .replace(/\/+$/, "") || "/";
+            if (path !== "/personalizza") return false;
+            var q = new URLSearchParams(window.location.search || "");
+            var id = String(q.get("id") || q.get("userId") || "").trim();
+            if (/^\d{17,20}$/.test(id)) return false;
+            var uid = readCachedOwnUserId();
+            if (!/^\d{17,20}$/.test(uid)) return false;
+            q.set("id", uid);
+            if (!q.has("target")) q.set("target", parseTabEarly());
+            window.location.replace("/personalizza/?" + q.toString());
+            return true;
+          } catch (e) {}
+          return false;
+        }
+        if (tryRedirectOwnPersonalizzaEarly()) return;
+        function parseTab() {
+          try {
+            var q = new URLSearchParams(window.location.search || "");
+            var t = String(q.get("target") || q.get("slot") || q.get("tab") || "")
+              .trim()
+              .toLowerCase();
+            if (t === "vocale") return "voice";
+            if (t === "primary" || t === "secondary" || t === "voice") return t;
+            if (t === "ruoli" || t === "rolepanel" || t === "colors" || t === "colori") return "roles";
+            if (t === "mention" || t === "mention_reaction") return "reactions";
+            if (t === "mention_response") return "response";
+            if (
+              t === "birthday" ||
+              t === "privacy" ||
+              t === "roles" ||
+              t === "reactions" ||
+              t === "response"
+            )
+              return t;
+            if (t === "rank" || t === "wallpaper") return "rank";
+          } catch (e) {}
+          return "rank";
+        }
+        var tab = parseTab();
+        var isRank = tab === "rank";
+        var isExtras =
+          tab === "birthday" ||
+          tab === "privacy" ||
+          tab === "roles" ||
+          tab === "reactions" ||
+          tab === "response";
+        window.__VC_PERS_HUB = { enabled: true, tab: tab, isRank: isRank, isExtras: isExtras, isCustom: !isRank && !isExtras };
+        document.documentElement.setAttribute("data-vc-pers-tab", tab);
+        document.documentElement.classList.add(isRank ? "vc-pers-tab-rank" : "vc-pers-tab-custom");
+        document.documentElement.classList.add(isRank ? "vc-rank-customize-pending" : "vc-custom-profile-pending");
+      })();
+    </script>
+    <style id="vc-rank-customize-boot-css">
+      html.vc-rank-customize-pending,
+      html.vc-rank-customize-pending body,
+      html.vc-custom-profile-pending,
+      html.vc-custom-profile-pending body {
+        overflow: hidden !important;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
+        overscroll-behavior: none !important;
+        height: 100% !important;
+        max-height: 100dvh !important;
+        touch-action: manipulation;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        html.vc-rank-customize-pending body,
+        html.vc-custom-profile-pending body {
+          position: fixed !important;
+          inset: 0 !important;
+          width: 100% !important;
+          background: #100c09 !important;
+        }
+      }
+
+      html.vc-rank-customize-pending body,
+      html.vc-custom-profile-pending body {
+        background: #100c09 !important;
+      }
+
+      html.vc-rank-customize-pending .vc-home-cine,
+      html.vc-rank-customize-pending .vc-blob,
+      html.vc-rank-customize-pending body > footer,
+      html.vc-custom-profile-pending .vc-home-cine,
+      html.vc-custom-profile-pending .vc-blob,
+      html.vc-custom-profile-pending body > footer,
+      html.vc-custom-profile-pending body > main {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+
+      html.vc-rank-customize-pending body > header,
+      html.vc-custom-profile-pending body > header {
+        display: block !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        z-index: 2147483647 !important;
+      }
+      html.vc-rank-customize-pending body > header .vc-nav-shell,
+      html.vc-custom-profile-pending body > header .vc-nav-shell {
+        background: #140f0c !important;
+        background-color: #140f0c !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
+        transition: none !important;
+        transform: none !important;
+      }
+
+      html.vc-rank-customize-pending body > main,
+      html.vc-custom-profile-pending body > main {
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+
+      html.vc-rank-customize-pending #vc-pers-hub,
+      html.vc-custom-profile-pending #vc-pers-hub {
+        display: none !important;
+      }
+
+      html.vc-rank-customize-pending #vc-rank-customize-loading,
+      html.vc-custom-profile-pending #vc-custom-profile-loading {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2147483646 !important;
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.95rem;
+        margin: 0 !important;
+        width: 100vw !important;
+        max-width: none !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        padding: 1.5rem !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        pointer-events: auto !important;
+        background-color: #0b0806 !important;
+        background-image:
+          radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
+      }
+      html.vc-pers-tab-rank #vc-custom-profile-page,
+      html.vc-pers-tab-rank #vc-custom-profile-loading,
+      html.vc-pers-tab-rank body > #vc-custom-profile-loading.vc-user-profile-loader {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      html.vc-pers-tab-custom #vc-rank-customize-page,
+      html.vc-pers-tab-custom #vc-rank-customize-loading,
+      html.vc-pers-tab-custom body > #vc-rank-customize-loading.vc-user-profile-loader {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+
+      html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending),
+      html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending),
+      html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body,
+      html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        overflow: auto !important;
+        height: auto !important;
+        max-height: none !important;
+        touch-action: auto !important;
+      }
+      html.vc-page-cine-ready.vc-pers-tab-rank:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body,
+      html.vc-page-cine-ready.vc-pers-tab-custom:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) body {
+        position: static !important;
+        inset: auto !important;
+        width: auto !important;
+      }
+      html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) #vc-rank-customize-loading,
+      html.vc-page-cine-ready:not(.vc-rank-customize-pending):not(.vc-custom-profile-pending) #vc-custom-profile-loading {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+
+      html.vc-pers-extras-ready.vc-page-cine-ready body.vc-body > main,
+      html.vc-pers-extras-ready.vc-page-cine-ready body.vc-body > footer {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+      }
+    </style>
+    <script src="/js/vc-auth-pending.js?v=20260831navAuthCacheFix1"></script>
+    <link rel="icon" href="https://cdn.discordapp.com/icons/1329080093599076474/a_152fffe587276d12887237d53390e495.gif?size=256" />
+  </head>
+  <body class="vc-body vc-users-page vc-rank-customize-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-home-cine" aria-hidden="true">
+      <canvas class="vc-home-cine__canvas"></canvas>
+      <div class="vc-home-cine__veil"></div>
+      <div class="vc-home-cine__grain"></div>
+    </div>
+
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-nav-shell rounded-2xl mx-auto flex flex-col gap-0 overflow-visible border border-white/[0.08] bg-[#140f0c] shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
+        <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+          <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
+              href="https://discord.gg/viniliecaffe" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
+                src="https://cdn.discordapp.com/icons/1329080093599076474/a_152fffe587276d12887237d53390e495.gif?size=256" width="40" height="40" class="vc-header-logo-img" alt=""
+                loading="eager" decoding="async" /></a>
+            <a class="vc-header-site-name min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+              href="https://www.viniliecaffe.it/" aria-label="Vai alla homepage">Vinili &amp; Caffè</a>
+            <div class="vc-lang-dropdown" id="vc-lang-dropdown">
+              <button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language"><span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>
+              <div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">
+                <button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>
+                <button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>
+              </div>
+            </div>
+          </div>
+          <nav
+            class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
+            aria-label="Collegamenti rapidi">
+            <a class="vc-snav-item" href="/wiki/"><i class="fa fa-map-o" aria-hidden="true"></i><span>Wiki</span></a>
+            <a class="vc-header-site-name vc-snav-item" href="/sponsor/"><i class="fa fa-handshake-o" aria-hidden="true"></i><span>Sponsor</span></a>
+            <span class="vc-snav-sep mx-0.5 h-5 w-px shrink-0 bg-white/15"
+              aria-hidden="true"></span>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Supporta</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="/vote/" data-vc-loading="vote"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
+                <a class="vc-header-site-name vc-snav-row" href="/recensioni/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
+                <a class="vc-header-site-name vc-snav-row" href="/donazioni/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-header-site-name vc-snav-row" href="/perks/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
+              </div>
+            </details>
+            <details class="vc-snav-details vc-snav-details--current">
+              <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row vc-snav-row--active" href="https://www.viniliecaffe.it/user/" aria-current="page"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
+                <a class="vc-snav-row" href="/ruoli/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
+                <a class="vc-snav-row" href="/regole/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
+                <a class="vc-snav-row" href="/faq/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
+              </div>
+            </details>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="/unban/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-balance-scale"></i></span><span data-i18n="nav.appeals">Appelli</span></a>
+                <a class="vc-snav-row" href="/candidature/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
+                <a class="vc-snav-row" href="/suggerimenti/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
+                <a class="vc-snav-row" href="/tickets/"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-ticket"></i></span><span data-i18n="nav.tickets">Tickets</span></a>
+              </div>
+            </details>
+          </nav>
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
+          <a class="vc-header-promo-btn vc-header-promo-btn--candidature" id="vc-header-promo-btn" href="https://www.viniliecaffe.it/candidature/" aria-label="Candidature staff aperte"><span class="vc-header-promo-btn__dot" aria-hidden="true"></span><span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track"><span class="vc-header-promo-btn__unit"><span class="vc-header-promo-btn__label">Candidature</span><span class="vc-header-promo-btn__badge">APERTE</span></span></span></span></a>
+            <details class="vc-notif-dropdown" id="vc-notif-dropdown">
+              <summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"><i
+                  class="fa fa-bell-o" aria-hidden="true"></i>
+                <span class="vc-notif-badge" id="vc-notif-badge" hidden aria-live="polite">0</span>
+              </summary>
+              <div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">
+                <div class="vc-notif-panel-head">
+                  <div class="vc-notif-panel-head-start">
+                    <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
+                    <div class="vc-notif-panel-head-text">
+                      <span class="vc-notif-panel-title">Notifiche</span>
+                      <span class="vc-notif-panel-sub" id="vc-notif-unread-sub">0 non lette</span>
+                    </div>
+                  </div>
+                  <div class="vc-notif-panel-head-actions">
+                    <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte" aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-body">
+                  <div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap">
+                    <div class="vc-notif-empty">
+                      <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
+                      <p class="vc-notif-empty-title">Nessuna notifica</p>
+                      <p class="vc-notif-empty-sub">Sei tutto aggiornato!</p>
+                    </div>
+                  </div>
+                  <div class="vc-notif-list-wrap" id="vc-notif-list-wrap">
+                    <ul class="vc-notif-list" id="vc-notif-list" role="list"></ul>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
+                  <a href="https://www.viniliecaffe.it/notifications/" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
+                </div>
+              </div>
+            </details>
+            <button type="button" id="vc-mobile-nav-toggle" class="vc-mobile-nav-toggle vc-icon-btn" aria-label="Apri menu di navigazione" aria-controls="vc-mobile-nav-drawer" aria-expanded="false"><span class="vc-mobile-nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span></button>
+            <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
+            <div class="header-login-state" id="discord-login-state" hidden></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="vc-user-profile-loader vc-user-profile-boot" id="vc-custom-profile-loading" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento Personalizza">
+      <span class="vc-user-profile-loader__spin" aria-hidden="true"></span>
+      <p class="vc-user-profile-loader__title">Caricamento Personalizza</p>
+      <p class="vc-user-profile-loader__sub">Sto preparando rank card, ruoli e impostazioni profilo…</p>
+    </div>
+    <div class="vc-user-profile-loader vc-user-profile-boot" id="vc-rank-customize-loading" data-vc-profile-boot role="status" aria-live="polite" aria-label="Caricamento Personalizza">
+      <span class="vc-user-profile-loader__spin" aria-hidden="true"></span>
+      <p class="vc-user-profile-loader__title">Caricamento Personalizza</p>
+      <p class="vc-user-profile-loader__sub">Sto preparando rank card, ruoli e impostazioni profilo…</p>
+    </div>
+
+    <main id="vc-personalizza-root" class="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-28 sm:pt-32" data-vc-page-hero="off">
+      <header class="vc-pers-hub" id="vc-pers-hub">
+        <p class="vc-pers-hub__kicker"><i class="fa fa-magic" aria-hidden="true"></i> Personalizzazione profilo</p>
+        <h1 class="vc-pers-hub__title">Personalizza</h1>
+        <p class="vc-pers-hub__lead">Rank card, ruoli, privacy e impostazioni del profilo accessibili dal browser.</p>
+        <nav class="vc-pers-hub__tabs" id="vc-pers-hub-tabs" aria-label="Sezioni personalizzazione">
+          <a class="vc-pers-hub__tab" data-pers-tab="rank" href="/personalizza/?target=rank"><i class="fa fa-id-card-o" aria-hidden="true"></i><span>Rank card</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="primary" href="/personalizza/?target=primary"><i class="fa fa-star" aria-hidden="true"></i><span>Principale</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="secondary" href="/personalizza/?target=secondary"><i class="fa fa-star-o" aria-hidden="true"></i><span>Secondario</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="voice" href="/personalizza/?target=voice"><i class="fa fa-microphone" aria-hidden="true"></i><span>Vocale</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="roles" href="/personalizza/?target=roles"><i class="fa fa-tags" aria-hidden="true"></i><span>Ruoli</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="birthday" href="/personalizza/?target=birthday"><i class="fa fa-birthday-cake" aria-hidden="true"></i><span>Compleanno</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="privacy" href="/personalizza/?target=privacy"><i class="fa fa-lock" aria-hidden="true"></i><span>Privacy</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="reactions" href="/personalizza/?target=reactions"><i class="fa fa-smile-o" aria-hidden="true"></i><span>Reactions</span></a>
+          <a class="vc-pers-hub__tab" data-pers-tab="response" href="/personalizza/?target=response"><i class="fa fa-commenting-o" aria-hidden="true"></i><span>Response</span></a>
+        </nav>
+      </header>
+
+      <section id="vc-rank-customize-page" class="vc-rank-customize-page">
+        <div id="vc-rank-save-toast-host" class="vc-rank-save-toast-host" aria-live="polite"></div>
+        <div id="vc-rank-customize-app" hidden></div>
+        <script>
+          (function () {
+            var hub = window.__VC_PERS_HUB || {};
+            if (hub.enabled && !hub.isRank) {
+              var loadingEarly = document.getElementById("vc-rank-customize-loading");
+              if (loadingEarly) loadingEarly.hidden = true;
+              return;
+            }
+            var fired = false;
+            window.setTimeout(function () {
+              if (fired) return;
+              var loading = document.getElementById("vc-rank-customize-loading");
+              var app = document.getElementById("vc-rank-customize-app");
+              if (!loading || !app) return;
+              if (loading.hidden) return;
+              fired = true;
+              loading.hidden = true;
+              try {
+                document.documentElement.classList.remove("vc-rank-customize-pending");
+                document.documentElement.classList.remove("vc-loading-scroll-lock");
+              } catch (ePending) {}
+              app.hidden = false;
+              app.innerHTML =
+                '<div class="vc-rank-customize-fatal">' +
+                '<section class="vc-rank-editor-hero">' +
+                '<div class="vc-rank-editor-hero__icon"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></div>' +
+                "<div><h1>Caricamento non riuscito</h1><p>Ricarica la pagina. Se il problema continua, esegui logout/login Discord e riprova.</p></div>" +
+                "</section></div>";
+            }, 8000);
+          })();
+        </script>
+      </section>
+
+      <section id="vc-custom-profile-page" class="vc-custom-profile-page" hidden>
+        <div id="vc-custom-profile-app" hidden></div>
+        <script>
+          (function () {
+            var hub = window.__VC_PERS_HUB || {};
+            var customLoading = document.getElementById("vc-custom-profile-loading");
+            if (hub.enabled && hub.isRank) {
+              if (customLoading) customLoading.hidden = true;
+              return;
+            }
+            if (customLoading) customLoading.hidden = false;
+            window.__VC_CPF_BOOT = window.__VC_CPF_BOOT || { done: false, timer: 0 };
+            window.__VC_CPF_BOOT.timer = window.setTimeout(function () {
+              if (window.__VC_CPF_BOOT && window.__VC_CPF_BOOT.done) return;
+              var loading = document.getElementById("vc-custom-profile-loading");
+              var app = document.getElementById("vc-custom-profile-app");
+              if (!loading || !app) return;
+              if (loading.hidden || !loading.isConnected) return;
+              if (app.dataset.vcCpfReady === "1") return;
+              loading.hidden = true;
+              try {
+                document.documentElement.classList.remove("vc-loading-scroll-lock");
+                document.documentElement.classList.remove("vc-rank-customize-pending");
+                document.documentElement.classList.remove("vc-custom-profile-pending");
+                document.documentElement.classList.remove("vc-page-cine-boot");
+                document.documentElement.classList.add("vc-page-cine-ready");
+              } catch (ePending) {}
+              app.hidden = false;
+              app.innerHTML =
+                '<div class="vc-custom-profile-fatal">' +
+                '<section class="vc-custom-profile-hero">' +
+                '<div class="vc-custom-profile-hero__icon"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></div>' +
+                "<div><h1>Caricamento non riuscito</h1><p>Ricarica la pagina. Se il problema continua, esegui logout/login Discord e riprova.</p></div>" +
+                "</section></div>";
+            }, 45000);
+          })();
+        </script>
+      </section>
+    </main>
+
+    <footer class="vc-premium-footer" aria-label="Footer" data-i18n-attr="aria-label:footer.aria">
+      <div class="vc-premium-footer__card">
+        <div class="vc-premium-footer__outer">
+          <div class="vc-premium-footer__inner">
+            <div class="vc-premium-footer__grid">
+              <section class="vc-premium-footer__brand" aria-label="Vinili &amp; Caffè">
+                <a class="vc-premium-footer__logo-row" href="https://www.viniliecaffe.it/">
+                  <span class="vc-premium-footer__logo" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                      <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="vc-premium-footer__wordmark">Vinili &amp; Caffè</span>
+                </a>
+                <p class="vc-premium-footer__desc" data-i18n="footer.desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+                <div class="vc-premium-footer__socials" aria-label="Social" data-i18n-attr="aria-label:footer.social">
+                  <a class="vc-premium-footer__social" href="https://www.instagram.com/viniliecaffe/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
+                  </a>
+                  <a class="vc-premium-footer__social" href="https://discord.gg/viniliecaffe" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 5.4A17 17 0 0 0 15.2 4l-.2.4a13 13 0 0 1 3.2 1.6 10.8 10.8 0 0 0-4-1.2 11.2 11.2 0 0 0-4.4.2A10.8 10.8 0 0 0 5.8 6a13 13 0 0 1 3.3-1.6L8.9 4a17 17 0 0 0-4.4 1.4C1.8 9.4 1 13.3 1.4 17.2A17 17 0 0 0 6.6 20l1.1-1.5c-.6-.2-1.2-.5-1.8-.9l.4-.3c3.4 1.6 7.2 1.6 10.6 0l.4.3c-.6.4-1.2.7-1.8.9l1.1 1.5a17 17 0 0 0 5.2-2.8c.5-4.5-.8-8.4-2.3-11.8ZM8.8 15.1c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" fill="currentColor"/></svg>
+                  </a>
+                  <a class="vc-premium-footer__social" href="https://www.tiktok.com/@viniliecaffe" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4v9.1a4.4 4.4 0 1 1-4.4-4.4c.35 0 .7.04 1.03.12v2.55a1.9 1.9 0 1 0 1.03 1.68V4h2.34Zm0 0c.4 2.15 1.74 3.43 3.7 3.84v2.42c-1.52-.08-2.8-.56-3.7-1.36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </a>
+                </div>
+              </section>
+              <div class="vc-premium-footer__navcols">
+<nav class="vc-premium-footer__col" aria-label="Community" data-i18n-attr="aria-label:footer.community">
+                <h4 data-i18n="footer.community">Community</h4>
+                <ul>
+                  <li><a href="https://www.viniliecaffe.it/" data-i18n="footer.home">Home</a></li>
+                  <li><a href="https://www.viniliecaffe.it/user/" data-i18n="footer.users">Users</a></li>
+                  <li><a href="/ruoli/" data-i18n="footer.roles">Ruoli</a></li>
+                </ul>
+              </nav>
+              <nav class="vc-premium-footer__col" aria-label="Scopri" data-i18n-attr="aria-label:footer.discover">
+                <h4 data-i18n="footer.discover">Scopri</h4>
+                <ul>
+                  <li><a href="/wiki/" data-i18n="footer.wiki">Wiki</a></li>
+                  <li><a href="/regole/" data-i18n="footer.rules">Regole</a></li>
+                  <li><a href="/faq/" data-i18n="footer.faq">FAQ</a></li>
+                  <li><a href="/sponsor/" data-i18n="footer.sponsor">Sponsor</a></li>
+                </ul>
+              </nav>
+              <nav class="vc-premium-footer__col" aria-label="Supporta" data-i18n-attr="aria-label:footer.support">
+                <h4 data-i18n="footer.support">Supporta</h4>
+                <ul>
+                  <li><a href="/perks/" data-i18n="footer.perks">Perks</a></li>
+                  <li><a href="/vote/" data-i18n="footer.vote">Vota</a></li>
+                  <li><a href="/recensioni/" data-i18n="footer.reviews">Recensioni</a></li>
+                  <li><a href="/donazioni/" data-i18n="footer.donations">Donazioni</a></li>
+                </ul>
+              </nav>
+              <nav class="vc-premium-footer__col" aria-label="Richieste" data-i18n-attr="aria-label:footer.requests">
+                <h4 data-i18n="footer.requests">Richieste</h4>
+                <ul>
+                  <li><a href="/unban/" data-i18n="footer.appeals">Appelli</a></li>
+                  <li><a href="/candidature/" data-i18n="footer.applications">Candidature</a></li>
+                  <li><a href="/suggerimenti/" data-i18n="footer.suggestions">Suggerimenti</a></li>
+                  <li><a href="/tickets/" data-i18n="footer.tickets">Tickets</a></li>
+                </ul>
+              </nav>
+            </div>
+</div>
+          </div>
+          <div class="vc-premium-footer__legal">
+            <p><a class="vc-footer-copy-link" href="/copyright/">© 2026 Vinili &amp; Caffè. All rights reserved.</a></p>
+            <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+              <a href="/terms/" data-i18n="footer.terms">Termini di Servizio</a>
+              <span aria-hidden="true"></span>
+              <a href="/dati/" data-i18n="footer.privacy">Privacy Policy</a>
+              <span aria-hidden="true"></span>
+              <a href="/cookie/" data-i18n="footer.cookies">Cookie Policy</a>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+<script id="vc-pers-canonical-boot">(function(){try{var h=String(location.hostname||"").toLowerCase();if(h==="viniliecaffe.it"){location.replace("https://www.viniliecaffe.it"+location.pathname+location.search+location.hash)}}catch(e){}})();</script>
+    <script>
+      window.__VC_DISABLE_PRETTY_PROFILE_REDIRECT = true;
+      window.__VC_AUTH = {
+        clientId: "1329118940110127204",
+        redirectUri: "https://www.viniliecaffe.it/",
+        homeUrl: "https://www.viniliecaffe.it/",
+      };
+      window.__VC_SITE_NOTIFS = {
+        apiUrl: "/webhooks/site-notifications",
+        apiUrlLocal: "",
+      };
+      window.__VC_RANK_CUSTOMIZE = {
+        userApiUrl: "/webhooks/site-users",
+        userApiUrlLocal: "",
+        rankApiUrl: "/webhooks/site-rank-card",
+        rankApiUrlLocal: ""
+      };
+      window.__VC_CUSTOM_PROFILE = {
+        apiUrl: "/webhooks/site-custom-profile",
+        apiUrlLocal: "",
+        profileUrl: "/user/"
+      };
+      window.__VC_PROFILE_EXTRAS = {
+        apiUrl: "/webhooks/site-profile-extras",
+        apiUrlLocal: ""
+      };
+      (function () {
+        var c = window.__VC_RANK_CUSTOMIZE;
+        if (!c) return;
+        if (!c.rankApiUrl || c.rankApiUrl === "#" || String(c.rankApiUrl).indexOf("{{") >= 0) {
+          c.rankApiUrl = "/webhooks/site-rank-card";
+        }
+      })();
+    </script>
+    <script src="/js/user-personalizza-hub.js?v=20260902persLeadFix1"></script>
+<script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
+    <script src="/js/discord-auth.js?v=20260831navAuthCacheFix1" defer></script>
+    <script>
+      (function () {
+        var VER = "20260902persExtrasFix2";
+        var BUILD = "1788285883454";
+        var hub = window.__VC_PERS_HUB || {};
+        var tab = String(hub.tab || "rank");
+        var needEmoji =
+          hub.isExtras ||
+          tab === "reactions" ||
+          tab === "response" ||
+          tab === "primary" ||
+          tab === "secondary" ||
+          tab === "voice";
+        function tag(src) {
+          document.write('<script src="' + src + '" defer><\/script>');
+        }
+        function loadLater(src) {
+          window.addEventListener(
+            "load",
+            function () {
+              var s = document.createElement("script");
+              s.src = src;
+              s.defer = true;
+              document.body.appendChild(s);
+            },
+            { once: true }
+          );
+        }
+                if (hub.isRank) {
+          tag("/js/user-rank-customize-page.js?v=" + VER);
+        } else if (hub.isExtras) {
+          if (needEmoji) tag("/js/vc-emoji-picker.js?v=" + BUILD);
+          tag("/js/user-profile-extras-page.js?v=" + VER);
+        } else {
+          if (needEmoji) tag("/js/vc-emoji-picker.js?v=" + BUILD);
+          tag("/js/user-custom-profile-page.js?v=" + VER);
+        }
+        tag("/js/vc-i18n.js?v=" + BUILD);
+        tag("/js/vc-dialog.js?v=" + BUILD);
+        tag("/js/vc-ptr.js?v=" + BUILD);
+        tag("/js/vc-cursor-trail.js?v=20260825cursorFx1");
+        tag("/js/vc-mobile-nav-canonical.js?v=20260902headerMarqueeFix1");
+        tag("/js/vc-mobile-nav.js?v=20260902mobileNavUnify1");
+        tag("/js/vc-landing.js?v=" + BUILD);
+        loadLater("/js/vc-site-polish.js?v=" + BUILD);
+        loadLater("/js/vc-home-cine.js?v=" + BUILD);
+      })();
+    </script>
+    <script id="vc-pers-failsafe">
+      (function () {
+        window.setTimeout(function () {
+          try {
+            var h = document.documentElement;
+            var pending =
+              h.classList.contains("vc-rank-customize-pending") ||
+              h.classList.contains("vc-custom-profile-pending");
+            var ready = h.classList.contains("vc-page-cine-ready");
+            var app = document.getElementById("vc-custom-profile-app");
+            var appReady = app && app.dataset && app.dataset.vcCpfReady === "1";
+            if (!pending && ready && !appReady) return;
+            if (!pending && ready && appReady) {
+              h.classList.add("vc-core-styles-ready", "vc-styles-ready");
+            }
+            h.classList.remove(
+              "vc-rank-customize-pending",
+              "vc-custom-profile-pending",
+              "vc-loading-scroll-lock",
+              "vc-page-cine-boot"
+            );
+            h.classList.add("vc-page-cine-ready");
+            var b = document.body;
+            if (b) {
+              b.style.removeProperty("position");
+              b.style.removeProperty("inset");
+              b.style.removeProperty("width");
+              b.style.removeProperty("height");
+              b.style.removeProperty("max-height");
+              b.style.removeProperty("overflow");
+              b.style.removeProperty("touch-action");
+            }
+            h.style.removeProperty("overflow");
+            h.style.removeProperty("height");
+            h.style.removeProperty("max-height");
+            h.style.removeProperty("touch-action");
+            var nodes = document.querySelectorAll(
+              '[id="vc-rank-customize-loading"], [id="vc-custom-profile-loading"]'
+            );
+            for (var i = 0; i < nodes.length; i++) {
+              nodes[i].hidden = true;
+              nodes[i].setAttribute("hidden", "");
+              nodes[i].style.setProperty("display", "none", "important");
+              if (nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]);
+            }
+            var main = document.getElementById("vc-personalizza-root");
+            if (main) {
+              main.style.visibility = "visible";
+              main.style.opacity = "1";
+              main.style.pointerEvents = "auto";
+            }
+          } catch (e) {}
+        }, 2200);
+      })();
+    </script>
+<script>window.__VC_HEADER_PROMO={"eventUrl":"https://www.viniliecaffe.it/evento/","candidatureUrl":"https://www.viniliecaffe.it/candidature/","event":{"enabled":false,"previewMode":false,"startDate":"2026-06-01T12:00:00","sortingStartDate":"2026-06-01T12:00:00","endDate":"2026-09-01T12:00:00","startMs":1780308000000,"endMs":1788256800000,"timezone":"Europe/Rome"}};</script>
+  <script src="/js/vc-header-name-marquee.js?v=20260902headerMarqueeFix1" defer></script>
+<script src="/js/vc-header-promo.js?v=20260902headerMarqueeFix1" defer></script>
+  </body>
+</html>

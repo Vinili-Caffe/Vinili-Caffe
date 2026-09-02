@@ -8,7 +8,6 @@ const PARTNER_REWARD_LABELS = Object.freeze({
   250: "5 € PayPal",
 });
 
-/** Europe/Rome — dal 1° luglio (incluso) al 1° settembre (escluso). */
 const PARTNER_REWARD_DISCOUNT_WINDOW = Object.freeze({
   startIso: "2026-07-01T00:00:00+02:00",
   endIso: "2026-09-01T00:00:00+02:00",

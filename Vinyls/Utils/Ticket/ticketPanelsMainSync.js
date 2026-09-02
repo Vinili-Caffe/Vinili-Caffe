@@ -208,8 +208,7 @@ async function syncGuildTicketPanelsFromLegacy(client, guildId, options = {}) {
   if (isMainGuild(guildId)) {
     return ensureMainTicketPanelsSeeded({ client, publish: options.publish !== false });
   }
-  // Tenant: niente seed hardcoded; solo refresh store.
-  const bucket = await getGuildPanels(guildId);
+    const bucket = await getGuildPanels(guildId);
   return { ok: true, guildId: String(guildId), bucket, published: null };
 }
 

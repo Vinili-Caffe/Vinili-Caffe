@@ -351,7 +351,13 @@ function buildEventNavItemsHtml(pages, activeId, options = {}) {
 
 function buildHogwartsEventNavBootHtml(eventNav) {
   const json = JSON.stringify(eventNav || {}).replace(/</g, "\\u003c");
-  return `<script>window.__VC_HOGWARTS_EVENT_NAV=${json};</script>\n<script src="/js/vc-mobile-nav.js"></script>\n<script src="/js/hogwarts-event-nav.js"></script>\n<script src="/js/hogwarts-event-preview-gate.js"></script>\n`;
+  return (
+    `<script>window.__VC_HOGWARTS_EVENT_NAV=${json};</script>\n` +
+    `<script>window.__vcLandingMobileNavActive=true;</script>\n` +
+    `<script src="/js/hogwarts-event-nav.js"></script>\n` +
+    `<script src="/js/hogwarts-event-preview-gate.js"></script>\n` +
+    `<script src="/js/hogwarts-event-closed-redirect.js?v=20260831eventoClosed1"></script>\n`
+  );
 }
 
 function resolvePublicHeaderPromoMode(eventRaw = {}, nowMs = Date.now()) {
@@ -368,7 +374,7 @@ function resolvePublicHeaderPromoMode(eventRaw = {}, nowMs = Date.now()) {
 }
 
 function resolveEventHeaderPromoMode(eventRaw = {}, nowMs = Date.now()) {
-  return resolvePublicHeaderPromoMode(eventRaw, nowMs) === "event" ? "event" : "";
+  return "";
 }
 
 function buildHeaderPromoButtonHtml({ mode, eventUrl, candidatureUrl }) {
@@ -380,7 +386,7 @@ function buildHeaderPromoButtonHtml({ mode, eventUrl, candidatureUrl }) {
   const modClass = isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature";
   const aria = isEvent ? "Evento Hogwarts attivo – vai al calendario" : "Candidature staff aperte";
   const unitInner = `<span class="vc-header-promo-btn__label">${escHtml(label)}</span><span class="vc-header-promo-btn__badge">${escHtml(badge)}</span>`;
-  return `<a class="vc-header-promo-btn ${modClass}" id="vc-header-promo-btn" href="${escHtml(href)}" aria-label="${escHtml(aria)}"><span class="vc-header-promo-btn__dot" aria-hidden="true"></span><span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track"><span class="vc-header-promo-btn__unit">${unitInner}</span><span class="vc-header-promo-btn__unit is-clone" aria-hidden="true">${unitInner}</span></span></span></a>`;
+  return `<a class="vc-header-promo-btn ${modClass}" id="vc-header-promo-btn" href="${escHtml(href)}" aria-label="${escHtml(aria)}"><span class="vc-header-promo-btn__dot" aria-hidden="true"></span><span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track"><span class="vc-header-promo-btn__unit">${unitInner}</span></span></span></a>`;
 }
 
 function buildHeaderPromoClientConfig({ eventRaw = {}, eventUrl, candidatureUrl }) {
@@ -407,7 +413,7 @@ function buildHeaderPromoClientConfig({ eventRaw = {}, eventUrl, candidatureUrl 
 
 function buildHeaderPromoBootHtml(clientConfig, scriptPrefix = "") {
   const json = JSON.stringify(clientConfig || {}).replace(/</g, "\\u003c");
-  const src = `${scriptPrefix}js/vc-header-promo.js`;
+  const src = `${scriptPrefix}js/vc-header-promo.js?v=20260902promoNavUnify1`;
   return `<script>window.__VC_HEADER_PROMO=${json};</script>\n<script src="${src}" defer></script>`;
 }
 
@@ -418,6 +424,15 @@ function resolveEventHeaderIconSrc(guildIconUrl) {
   if (raw.startsWith("/")) return raw;
   return `/${raw.replace(/^\/+/, "")}`;
 }
+
+const EVENT_LANG_SWITCHER_HTML =
+  `<div class="vc-lang-dropdown" id="vc-lang-dropdown">` +
+  `<button type="button" class="vc-lang-toggle" id="vc-lang-toggle" aria-label="Lingua" aria-haspopup="listbox" aria-expanded="false" data-i18n-attr="aria-label:nav.language">` +
+  `<span class="vc-lang-flag vc-lang-flag--it" id="vc-lang-flag" data-vc-lang-flag="it" aria-hidden="true"></span></button>` +
+  `<div class="vc-lang-panel" id="vc-lang-panel" role="listbox" hidden aria-label="Scegli lingua" data-i18n-attr="aria-label:nav.languageList">` +
+  `<button type="button" class="vc-lang-option" data-vc-lang="it" role="option" aria-selected="true"><span class="vc-lang-flag vc-lang-flag--it" aria-hidden="true"></span><span data-i18n="lang.it">Italiano</span></button>` +
+  `<button type="button" class="vc-lang-option" data-vc-lang="en" role="option" aria-selected="false"><span class="vc-lang-flag vc-lang-flag--en" aria-hidden="true"></span><span data-i18n="lang.en">English</span></button>` +
+  `</div></div>`;
 
 function buildEventHeaderHtml({
   siteName,
@@ -447,8 +462,9 @@ function buildEventHeaderHtml({
             href="${escHtml(discordInviteUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
               src="${headerIconSrc}" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager"
               decoding="async" /></a>
-          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+          <a class="vc-header-site-name min-w-0 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
             href="${escHtml(siteUrl)}" aria-label="Vai alla homepage"><span class="text-emerald-300">${escHtml(siteName)}</span></a>
+          ${EVENT_LANG_SWITCHER_HTML}
         </div>
         <nav
           class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"

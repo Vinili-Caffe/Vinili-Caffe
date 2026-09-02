@@ -16,10 +16,6 @@ function isPokeNameAllowedChannel(message) {
   return parentId === POKE_NAME_ALLOWED_CHANNEL_ID;
 }
 
-/**
- * Elimina i messaggi di Poké-Name fuori dal canale pokétwo.
- * @returns {Promise<boolean>} true se il messaggio è stato rimosso (o tentato).
- */
 async function maybeDeletePokeNameOutsideAllowedChannel(message) {
   if (!message?.guild || message.system) return false;
   if (!isPokeNameBotMessage(message)) return false;

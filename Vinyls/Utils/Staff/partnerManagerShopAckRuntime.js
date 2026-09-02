@@ -62,10 +62,6 @@ async function sendPartnerManagerShopAckPromptInTicket(channel, ticketDoc, guild
     .catch(() => null);
 }
 
-/**
- * Se il ticket è riscatto shop PM manuale, chiede conferma nel canale e non chiude subito.
- * @returns {Promise<boolean>} true se la chiusura è stata messa in attesa
- */
 async function maybeDeferCloseForPartnerManagerShopAck({
   interaction,
   ticketDoc,

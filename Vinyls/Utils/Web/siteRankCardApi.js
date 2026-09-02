@@ -9,7 +9,8 @@ const {
 } = require("../Render/rankCardTheme");
 const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
 const renderRankCanvas = require("../Render/rankCanvas");
-const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlForSite, memberDisplayName } = require("../Discord/guildDiscordIdentity");
+const { animatedDiscordCdnAvatarUrl } = require("./siteLiveAvatars");
 
 const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1495472189347074119").trim();
 const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1494996567214788818").trim();
@@ -31,10 +32,10 @@ function getRankCardPermissions(member) {
 }
 
 function resolvePreferredAvatarUrl(member) {
-  return guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || "";
+  const live = guildMemberDisplayAvatarUrlForSite(member, { size: 256, preferAnimated: true }) || "";
+  return animatedDiscordCdnAvatarUrl(live, { size: 256 }) || live;
 }
 
-/** Solo avatar guild (per header account). Niente rank/Mongo count. */
 async function getServerAvatarOnly(client, payload) {
   const accessToken = String(payload?.accessToken || "").trim();
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
@@ -45,6 +46,18 @@ async function getServerAvatarOnly(client, payload) {
     userId: resolved.userId,
     avatarUrl: resolvePreferredAvatarUrl(resolved.member),
   };
+}
+
+const MAX_RANK_CARD_API_WALLPAPER_BYTES = 350000;
+
+function compactRankCardThemeForApi(theme) {
+  const next = theme && typeof theme === "object" ? { ...theme } : {};
+  const wallpaperUrl = String(next.wallpaperUrl || "").trim();
+  if (wallpaperUrl.length > MAX_RANK_CARD_API_WALLPAPER_BYTES) {
+    next.wallpaperUrl = "";
+    next.wallpaperUrlOmitted = true;
+  }
+  return next;
 }
 
 async function getRankCardCustomization(client, payload) {
@@ -77,7 +90,7 @@ async function getRankCardCustomization(client, payload) {
     username: String(resolved.member?.user?.username || "").trim(),
     displayName: memberDisplayName(resolved.member, resolved.member?.user),
     avatarUrl: resolvePreferredAvatarUrl(resolved.member),
-    theme,
+    theme: compactRankCardThemeForApi(theme),
     defaults: DEFAULT_RANK_CARD_THEME,
     wallpapers: listRankCardWallpapers(),
     permissions,

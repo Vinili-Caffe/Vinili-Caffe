@@ -216,7 +216,6 @@ function findGuildTeamsByIds(guildId, teamIds) {
   return ids.map((id) => byId.get(id)).filter(Boolean);
 }
 
-/** Ruoli con Administrator + owner del server (solo per seed Default). */
 function collectDefaultTeamMembers(guild) {
   const members = [];
   const seen = new Set();
@@ -325,7 +324,6 @@ async function refreshTicketTeamsCache() {
   return loadTeamsRoot();
 }
 
-/** Mappa perms team → flag Discord per overwrite. */
 function teamPermsToPermissionMap(team) {
   const map = {
     ViewChannel: true,

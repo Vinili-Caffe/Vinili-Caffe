@@ -25,8 +25,7 @@ function resolveFfmpegPath() {
       const which = spawnSync("ffmpeg", ["-version"], { stdio: "ignore", windowsHide: true });
       if (Number(which?.status) === 0) _ffmpegPath = "ffmpeg";
     } catch {
-      /* ignore */
-    }
+          }
   }
   return _ffmpegPath;
 }
@@ -39,7 +38,6 @@ function isWebpImageBuffer(buf) {
   );
 }
 
-/** node-canvas non decodifica WebP: primo frame → PNG via ffmpeg. */
 function convertWebpBufferToPng(buf) {
   const ffmpegBin = resolveFfmpegPath();
   if (!ffmpegBin || !isWebpImageBuffer(buf)) return null;
@@ -66,8 +64,7 @@ function convertWebpBufferToPng(buf) {
       try {
         fs.unlinkSync(p);
       } catch {
-        /* ignore */
-      }
+              }
     }
   }
 }
@@ -118,7 +115,6 @@ function isDiscordCdnRewritableHost(host) {
   return h === "cdn.discordapp.com" || h === "media.discordapp.net";
 }
 
-/** Hash animato Discord (`a_…`) in path avatar/guild/emoji. */
 function discordCdnPathLooksAnimatedAsset(pathname) {
   return /\/a_[a-f0-9]+/i.test(String(pathname || ""));
 }
@@ -162,9 +158,7 @@ function buildDiscordCdnImageCandidates(url) {
   const isEmojiAsset = /\/emojis\/\d+/i.test(path);
 
   if (animated || ext === "gif" || isEmojiAsset) {
-    // Discord ora serve spesso solo WebP per hash `a_…` (PNG/GIF → 404).
-    // WebP viene convertito a PNG via ffmpeg in loadImageFromBuffer.
-    add(`${basePath}.webp`, { dropLossless: true });
+            add(`${basePath}.webp`, { dropLossless: true });
     add(`${basePath}.png`, { format: "png", dropLossless: true });
     add(`${basePath}.gif`, { dropLossless: true });
     add(path, { dropLossless: true });
@@ -325,12 +319,6 @@ async function safeLoadImage(source, opts = {}) {
   }
 }
 
-/**
- * Scarica un’immagine HTTP(S) come buffer (stessi URL candidati di `safeLoadImage` per CDN Discord).
- * @param {string} url
- * @param {{ timeoutMs?: number }} [opts]
- * @returns {Promise<Buffer|null>}
- */
 async function fetchHttpImageBuffer(url, opts = {}) {
   const src = String(url || "").trim();
   if (!isHttpUrl(src)) return null;
@@ -378,7 +366,6 @@ async function fetchHttpImageBuffer(url, opts = {}) {
   return buf?.length ? buf : null;
 }
 
-/** Per ship/canvas animati: evita il PNG statico come prima scelta su avatar `a_`. */
 function buildDiscordCdnAnimatedCandidates(url) {
   const raw = String(url || "");
   if (!/^https?:\/\//i.test(raw)) return [raw];
@@ -411,15 +398,13 @@ function buildDiscordCdnAnimatedCandidates(url) {
   };
   const extMatch = path.match(/^(.*)\.(gif|webp|png|jpe?g)$/i);
   const basePath = extMatch ? extMatch[1] : path;
-  // GIF prima: Discord WebP su `a_` è spesso un singolo frame → quote “gif” ferma.
-  add(`${basePath}.gif`, { dropLossless: true });
+    add(`${basePath}.gif`, { dropLossless: true });
   add(`${basePath}.webp`, { dropLossless: true });
   add(path, { dropLossless: true });
   add(`${basePath}.png`, { format: "png", dropLossless: true });
   return candidates.length ? candidates : [raw];
 }
 
-/** Solo PNG / static: per garantire un frame su canvas prima di tentare WebP/GIF animati. */
 function buildDiscordCdnStaticCandidates(url) {
   const raw = String(url || "");
   if (!/^https?:\/\//i.test(raw)) return [raw];
@@ -448,8 +433,7 @@ function buildDiscordCdnStaticCandidates(url) {
   };
   const extMatch = path.match(/^(.*)\.(gif|webp|png|jpe?g)$/i);
   const basePath = extMatch ? extMatch[1] : path;
-  // PNG statico spesso 404 su hash animati: prova anche WebP (convertito in safeLoadImage).
-  add(`${basePath}.png`, { format: "png" });
+    add(`${basePath}.png`, { format: "png" });
   add(`${basePath}.webp`);
   if (extMatch && extMatch[2].toLowerCase() !== "png") add(path);
   if (!extMatch) add(`${path}.png`, { format: "png" });
@@ -521,8 +505,7 @@ function discordCdnStaticAvatarUrl(url) {
   const basePath = extMatch ? extMatch[1] : path;
   const animated = discordCdnPathLooksAnimatedAsset(path);
   const c = new URL(u.toString());
-  // Hash `a_…`: Discord espone spesso solo WebP; PNG → 404.
-  c.pathname = animated ? `${basePath}.webp` : `${basePath}.png`;
+    c.pathname = animated ? `${basePath}.webp` : `${basePath}.png`;
   c.searchParams.delete("format");
   if (!animated) c.searchParams.set("format", "png");
   if (!c.searchParams.get("size")) c.searchParams.set("size", size);

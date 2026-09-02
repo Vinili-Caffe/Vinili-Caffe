@@ -13,14 +13,12 @@ const { guildIconUrl } = require("../Discord/guildDiscordIdentity");
 const { getPartnerManagerRoleId } = require("./partnershipConfigResolver");
 const { applyPartnershipPayloadBranding, resolveEmbedColorForGuild } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
-/** @deprecated Prefer countPartnerCreateActions — stesso criterio (create valide, no audit penalty). */
 function countValidAllTimePartners(actions) {
   return countPartnerCreateActions(actions);
 }
 
 function computeTotalPartnerScore(staff) {
-  // All Time: partnership valide − punti già riscattati (saldo spendibile).
-  return resolvePartnerPointsShown(staff || {});
+    return resolvePartnerPointsShown(staff || {});
 }
 
 function isPartnerCreateInResocontoWeek(action, weekStart, weekEndExclusive) {
