@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  /* confessionale4: Area staff = Guida + Confessionale (/staff/confessionale/) */
+  /* staffFooter1: Area staff nav = Guida + Confessionale; footer staff col = tool set */
 
   function perms() {
     return (window.__VC_STAFF_PERMS && typeof window.__VC_STAFF_PERMS === "object" && window.__VC_STAFF_PERMS) || {};
@@ -248,6 +248,63 @@
     } catch (eEnforce) {}
   }
 
+  function staffFooterToolLinks() {
+    return [
+      { href: "/staff/guida/", label: "Guida" },
+      { href: "/staff/confessionale/", label: "Confessionale" },
+      { href: "/staff/pause/", label: "Pause" },
+      { href: "/staff/organico/", label: "Organico" },
+      { href: "/notifications/?view=staff", label: "Inbox" },
+      { href: "/notifications/?view=staff&inbox=punti-tolti", label: "Punti tolti" },
+      { href: "/staff/gestione/", label: "Gestione" },
+    ];
+  }
+
+  function removeStaffFooterColumns() {
+    try {
+      var nodes = document.querySelectorAll('[data-vc-footer-staff="1"]');
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+      }
+    } catch (eRm) {}
+  }
+
+  function injectStaffFooterColumns() {
+    try {
+      if (!isStaffNavContext()) {
+        removeStaffFooterColumns();
+        return;
+      }
+      var footers = document.querySelectorAll("footer.vc-premium-footer");
+      if (!footers || !footers.length) return;
+      var links = staffFooterToolLinks();
+      var lis = "";
+      for (var i = 0; i < links.length; i++) {
+        var item = links[i];
+        lis +=
+          '<li><a href="' +
+          String(item.href) +
+          '">' +
+          String(item.label) +
+          "</a></li>";
+      }
+      var colHtml =
+        '<nav class="vc-premium-footer__col" data-vc-footer-staff="1" aria-label="Staff">' +
+        "<h4>Staff</h4>" +
+        "<ul>" +
+        lis +
+        "</ul></nav>";
+      for (var f = 0; f < footers.length; f++) {
+        var footer = footers[f];
+        if (!footer || footer.querySelector('[data-vc-footer-staff="1"]')) continue;
+        var navcols = footer.querySelector(".vc-premium-footer__navcols");
+        if (!navcols) continue;
+        navcols.insertAdjacentHTML("beforeend", colHtml);
+      }
+    } catch (eFoot) {}
+  }
+
   function stripLegacyStaffNavRows(root) {
     try {
       var scope = root || document;
@@ -256,6 +313,7 @@
       );
       for (var i = 0; i < links.length; i++) {
         var a = links[i];
+        if (a.closest && a.closest('[data-vc-footer-staff="1"], footer.vc-premium-footer')) continue;
                 var inStaffMenu = a.closest
           ? a.closest(
               "[data-vc-staff-tools-nav], .vc-snav-details--staff, .vc-header-snav, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, header",
@@ -1180,20 +1238,27 @@
   }
 
   function upgrade() {
-    if (!isStaffNavContext()) return;
-    var header = document.querySelector("body > .vc-staff-app > header, body > header, .vc-staff-app header");
-    if (!header) return;
-    ensureSiteBrand(header);
-    injectStaffMenu(header);
-    stripLegacyStaffNavRows(header);
-    stripLegacyStaffNavRows(document);
-    enforceStaffMenuGuidaOnly(header);
-    enforceStaffMenuGuidaOnly(document);
-    if (isEventDedicatedNavPage()) {
-      watchEventNavStaffStrip(header);
+    if (!isStaffNavContext()) {
+      removeStaffFooterColumns();
+      return;
     }
-    ensureNotifSlot(header);
-    ensureHeaderPromo();
+    var header = document.querySelector("body > .vc-staff-app > header, body > header, .vc-staff-app header");
+    if (header) {
+      ensureSiteBrand(header);
+      injectStaffMenu(header);
+      stripLegacyStaffNavRows(header);
+      stripLegacyStaffNavRows(document);
+      enforceStaffMenuGuidaOnly(header);
+      enforceStaffMenuGuidaOnly(document);
+      if (isEventDedicatedNavPage()) {
+        watchEventNavStaffStrip(header);
+      }
+      ensureNotifSlot(header);
+      ensureHeaderPromo();
+      ensureStaffDrawerShell();
+      wireStaffHamburger();
+    }
+    injectStaffFooterColumns();
     try {
       document.body.classList.add("vc-staff-site-nav");
     } catch (e) {}
@@ -1203,8 +1268,6 @@
     try {
       if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
     } catch (eRebuild) {}
-    ensureStaffDrawerShell();
-    wireStaffHamburger();
   }
 
   function boot() {
@@ -1218,6 +1281,7 @@
     try {
       document.body && document.body.classList.remove("vc-staff-site-nav");
     } catch (e1) {}
+    removeStaffFooterColumns();
     try {
       var header = document.querySelector("body > .vc-staff-app > header, body > header, .vc-staff-app header");
       if (header) {

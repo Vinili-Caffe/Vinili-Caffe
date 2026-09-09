@@ -14,32 +14,33 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-blob {
   z-index: 0 !important;
 }
 
-html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-ready body.vc-confessionale-page > main,
-html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-ready body.vc-confessionale-page > footer {
+html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-ready.vc-confessionale-curtain-done body.vc-confessionale-page > main,
+html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-ready.vc-confessionale-curtain-done body.vc-confessionale-page > footer {
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
 }
 
 html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-confessionale-page > main,
-html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-confessionale-page > footer {
+html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-confessionale-page > footer,
+html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-confessionale-page > main,
+html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-confessionale-page > footer,
+html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-confessionale-page > header {
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
-/* Keep page covered until intro sequence finishes */
-html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-confessionale-page > main,
-html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-confessionale-page > footer {
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-confessionale-page .vc-home-cine__photo,
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-confessionale-page .vc-home-cine__canvas {
   opacity: 0 !important;
   visibility: hidden !important;
-  pointer-events: none !important;
 }
 
 /* Photo background: confessional booth (locked — do not let site GIF override) */
 html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
   background-color: #100c09;
-  background-image: url("/images/Confessionale-GF.jpg?v=20260909confessionale3") !important;
+  background-image: url("/images/Confessionale-GF.jpg?v=20260909confessionale6") !important;
   background-size: cover !important;
   background-position: center center !important;
   background-repeat: no-repeat !important;
@@ -64,6 +65,13 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
   z-index: 80;
   pointer-events: auto;
   overflow: hidden;
+  background: #080504;
+}
+
+html.vc-confessionale-curtain-done .vc-confessionale-curtain {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .vc-confessionale-curtain[hidden],
@@ -168,9 +176,19 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  background: rgba(6, 3, 3, 0.55);
+  background:
+    linear-gradient(180deg, rgba(6, 3, 3, 0.98) 0%, rgba(8, 4, 4, 0.96) 100%);
   opacity: 0;
   transition: opacity 0.9s ease;
+}
+
+.vc-confessionale-smoke::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #060303;
+  opacity: 0.94;
+  pointer-events: none;
 }
 
 .vc-confessionale-smoke.is-visible {
@@ -238,7 +256,10 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
 
 .vc-confessionale-smoke__face {
   display: block;
+  font-size: clamp(3.6rem, 12vw, 5rem);
+  line-height: 1;
   filter: drop-shadow(0 0 18px rgba(240, 208, 144, 0.28));
+  user-select: none;
 }
 
 .vc-confessionale-smoke__text {

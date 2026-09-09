@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html class="vc-staff-route vc-staff-cine-route vc-confessionale-route vc-site-polish vc-page-cine-boot" lang="it">
   <head>
+<script id="vc-confessionale-intro-boot">(function(){try{var sp=new URLSearchParams(location.search||"");if(sp.get("skipIntro")==="1"||sp.get("skip")==="1"){document.documentElement.classList.add("vc-confessionale-curtain-done");return}try{sessionStorage.removeItem("vc_confessionale_curtain_done_v1");sessionStorage.removeItem("vc_confessionale_curtain_done_v2")}catch(e0){}document.documentElement.classList.add("vc-confessionale-intro-active");document.documentElement.classList.remove("vc-confessionale-curtain-done")}catch(e){document.documentElement.classList.add("vc-confessionale-intro-active")}})();</script>
+<style id="vc-confessionale-intro-critical-css">html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-confessionale-page>header,html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-confessionale-page>main,html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-confessionale-page>footer{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) #vc-confessionale-curtain{display:block!important;visibility:visible!important;pointer-events:auto!important}html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) #vc-confessionale-curtain[hidden]{display:block!important}</style>
 <style id="vc-fa-noflash-css">html:not(.vc-fa-ready) .fa{visibility:hidden!important;opacity:0!important}html:not(.vc-fa-ready) .fa:before{content:""!important}html.vc-fa-ready .fa{visibility:visible!important;opacity:1!important}</style>
 <script id="vc-auth-instant-boot">(function(){try{var t=localStorage.getItem("vc_discord_access_token");if(!t)return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;document.documentElement.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
 <style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}</style>
@@ -29,7 +31,7 @@
     <link rel="stylesheet" href="/css/vc-fonts.css?v=20260907staffCineType1" />
     <link rel="stylesheet" href="../../css/vc-landing-ext.css?v=20260907heroIconBg1" />
     <link rel="stylesheet" href="../../css/staff-pause.css?v=20260907staffCineType1" />
-    <link rel="stylesheet" href="../../css/confessionale-page.css?v=20260909confessionale3" />
+    <link rel="stylesheet" href="../../css/confessionale-page.css?v=20260909confessionale6" />
     <style id="vc-anti-fouc-css">html,body{background:#100c09!important;color-scheme:dark}</style>
   <script id="vc-site-photo-bg-prime">(function(){try{window.__VC_SITE_PHOTO_BG=true;document.documentElement.classList.add("vc-site-photo-bg","vc-cine-static-bg","vc-home-cine-live","vc-home-motion-ready")}catch(e){}})();</script>
   <link rel="stylesheet" id="vc-site-photo-bg-link" href="/css/vc-site-photo-bg.css?v=20260906gifNeverWebp1" />
@@ -37,12 +39,15 @@
     <style id="vc-nav-noflash">body.vc-body>header,body.vc-body header.fixed{background:transparent!important;background-color:transparent!important;padding-top:max(0.85rem,env(safe-area-inset-top,0px))!important;padding-left:max(1rem,env(safe-area-inset-left,0px))!important;padding-right:max(1rem,env(safe-area-inset-right,0px))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important;transform:none!important;box-shadow:none!important}body.vc-body header .vc-nav-shell,body.vc-body header .vc-nav-shell.vc-glass{background:#140f0c!important;background-color:#140f0c!important;background-image:none!important;border-radius:1.75rem!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:0 4px 24px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;max-width:none!important;width:100%!important;margin:0!important}body.vc-body header .vc-nav-shell::before{content:none!important;display:none!important}html:not(.vc-home-styles-ready):not(.vc-page-cine-ready):not(.vc-styles-ready) #vc-mobile-nav-drawer{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}html:not(.vc-home-styles-ready):not(.vc-page-cine-ready):not(.vc-styles-ready) body.vc-body header nav.vc-header-snav,html:not(.vc-home-styles-ready):not(.vc-page-cine-ready):not(.vc-styles-ready) body.vc-body header #header-quick-actions{display:none!important}html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) #vc-mobile-nav-drawer{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header nav.vc-header-snav,html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header #header-quick-actions{display:none!important}</style>
     <style id="vc-staff-cine-boot-css">
       html.vc-staff-cine-route body.vc-staff-cine-page .vc-blob{position:fixed!important;pointer-events:none!important;margin:0!important;z-index:0!important}
-      html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-ready body.vc-staff-cine-page>main,
-      html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-ready body.vc-staff-cine-page>footer{
+      html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-ready.vc-confessionale-curtain-done body.vc-staff-cine-page>main,
+      html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-ready.vc-confessionale-curtain-done body.vc-staff-cine-page>footer{
         opacity:1!important;visibility:visible!important;pointer-events:auto!important
       }
       html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-staff-cine-page>main,
-      html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-staff-cine-page>footer{
+      html.vc-staff-app-revealed.vc-staff-cine-route.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-staff-cine-page>footer,
+      html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-staff-cine-page>main,
+      html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-staff-cine-page>footer,
+      html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-staff-cine-page>header{
         opacity:0!important;visibility:hidden!important;pointer-events:none!important
       }
     </style>
@@ -67,7 +72,7 @@
         <p class="vc-staff-loading__hint">Verifica in corso</p>
       </div>
     </div>
-    <div id="vc-confessionale-curtain" class="vc-confessionale-curtain" hidden aria-hidden="true" data-vc-confessionale-curtain="1">
+    <div id="vc-confessionale-curtain" class="vc-confessionale-curtain" aria-hidden="true" data-vc-confessionale-curtain="1">
       <div class="vc-confessionale-curtain__panel vc-confessionale-curtain__panel--left" aria-hidden="true"></div>
       <div class="vc-confessionale-curtain__panel vc-confessionale-curtain__panel--right" aria-hidden="true"></div>
       <button type="button" id="vc-confessionale-curtain-skip" class="vc-confessionale-curtain__skip">Salta</button>
@@ -76,17 +81,7 @@
       <div class="vc-confessionale-smoke__fog" aria-hidden="true"></div>
       <div class="vc-confessionale-smoke__fog vc-confessionale-smoke__fog--2" aria-hidden="true"></div>
       <button type="button" id="vc-confessionale-smoke-continue" class="vc-confessionale-smoke__card" aria-label="Continua al confessionale">
-        <span class="vc-confessionale-smoke__face" aria-hidden="true">
-          <svg viewBox="0 0 120 120" width="96" height="96" focusable="false">
-            <circle cx="60" cy="60" r="54" fill="rgba(20,10,10,0.72)" stroke="rgba(240,208,144,0.55)" stroke-width="2.5"/>
-            <ellipse cx="42" cy="52" rx="7" ry="9" fill="#f0d090"/>
-            <ellipse cx="78" cy="52" rx="7" ry="9" fill="#f0d090"/>
-            <path d="M38 78c8 10 36 10 44 0" fill="none" stroke="#f0d090" stroke-width="3.2" stroke-linecap="round"/>
-            <path d="M74 34c10-2 18 4 20 14" fill="none" stroke="#f0d090" stroke-width="3" stroke-linecap="round"/>
-            <circle cx="96" cy="52" r="5.5" fill="none" stroke="#f0d090" stroke-width="2.6"/>
-            <text x="96" y="56" text-anchor="middle" font-size="11" fill="#f0d090" font-family="Georgia, serif">shh</text>
-          </svg>
-        </span>
+        <span class="vc-confessionale-smoke__face" aria-hidden="true" role="img" aria-label="Silenzio">🤫</span>
         <span class="vc-confessionale-smoke__text">Sei pronto a confessarti?</span>
         <span class="vc-confessionale-smoke__hint">Tocca per entrare</span>
       </button>
@@ -269,6 +264,88 @@
         </div>
       </main>
 
+    <footer class="vc-premium-footer" aria-label="Footer" data-i18n-attr="aria-label:footer.aria">
+    <div class="vc-premium-footer__card">
+      <div class="vc-premium-footer__outer">
+        <div class="vc-premium-footer__inner">
+          <div class="vc-premium-footer__grid">
+            <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
+              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}">
+                <span class="vc-premium-footer__logo" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                    <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="vc-premium-footer__wordmark">{{SITE_NAME}}</span>
+              </a>
+              <p class="vc-premium-footer__desc" data-i18n="footer.desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+              <div class="vc-premium-footer__socials" aria-label="Social" data-i18n-attr="aria-label:footer.social">
+                <a class="vc-premium-footer__social" href="{{INSTAGRAM_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 5.4A17 17 0 0 0 15.2 4l-.2.4a13 13 0 0 1 3.2 1.6 10.8 10.8 0 0 0-4-1.2 11.2 11.2 0 0 0-4.4.2A10.8 10.8 0 0 0 5.8 6a13 13 0 0 1 3.3-1.6L8.9 4a17 17 0 0 0-4.4 1.4C1.8 9.4 1 13.3 1.4 17.2A17 17 0 0 0 6.6 20l1.1-1.5c-.6-.2-1.2-.5-1.8-.9l.4-.3c3.4 1.6 7.2 1.6 10.6 0l.4.3c-.6.4-1.2.7-1.8.9l1.1 1.5a17 17 0 0 0 5.2-2.8c.5-4.5-.8-8.4-2.3-11.8ZM8.8 15.1c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="{{TIKTOK_URL}}" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4v9.1a4.4 4.4 0 1 1-4.4-4.4c.35 0 .7.04 1.03.12v2.55a1.9 1.9 0 1 0 1.03 1.68V4h2.34Zm0 0c.4 2.15 1.74 3.43 3.7 3.84v2.42c-1.52-.08-2.8-.56-3.7-1.36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+              </div>
+            </section>
+            <div class="vc-premium-footer__navcols">
+            <nav class="vc-premium-footer__col" aria-label="Community" data-i18n-attr="aria-label:footer.community">
+              <h4 data-i18n="footer.community">Community</h4>
+              <ul>
+                <li><a href="{{SITE_URL}}" data-i18n="footer.home">Home</a></li>
+                <li><a href="{{USER_PAGE_URL}}" data-i18n="footer.users">Users</a></li>
+                <li><a href="{{RUOLI_PAGE_URL}}" data-i18n="footer.roles">Ruoli</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Scopri" data-i18n-attr="aria-label:footer.discover">
+              <h4 data-i18n="footer.discover">Scopri</h4>
+              <ul>
+                <li><a href="{{WIKI_URL}}" data-i18n="footer.wiki">Wiki</a></li>
+                <li><a href="{{COMMUNITY_RULES_URL}}" data-i18n="footer.rules">Regole</a></li>
+                <li><a href="{{FAQ_URL}}" data-i18n="footer.faq">FAQ</a></li>
+                <li><a href="{{SPONSOR_URL}}" data-i18n="footer.sponsor">Sponsor</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Supporta" data-i18n-attr="aria-label:footer.support">
+              <h4 data-i18n="footer.support">Supporta</h4>
+              <ul>
+                <li><a href="{{PERKS_URL}}" data-i18n="footer.perks">Perks</a></li>
+                <li><a href="{{VOTE_URL}}" data-i18n="footer.vote">Vota</a></li>
+                <li><a href="{{REVIEWS_PAGE_URL}}" data-i18n="footer.reviews">Recensioni</a></li>
+                <li><a href="{{DONATIONS_URL}}" data-i18n="footer.donations">Donazioni</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Richieste" data-i18n-attr="aria-label:footer.requests">
+              <h4 data-i18n="footer.requests">Richieste</h4>
+              <ul>
+                <li><a href="{{RICHIESTE_UNBAN_URL}}" data-i18n="footer.appeals">Appelli</a></li>
+                <li><a href="{{RICHIESTE_CANDIDATURE_URL}}" data-i18n="footer.applications">Candidature</a></li>
+                <li><a href="{{RICHIESTE_SUGGERIMENTI_URL}}" data-i18n="footer.suggestions">Suggerimenti</a></li>
+                <li><a href="{{TICKETS_PAGE_URL}}" data-i18n="footer.tickets">Tickets</a></li>
+              </ul>
+            </nav>
+            </div>
+          </div>
+        </div>
+        <div class="vc-premium-footer__legal">
+          <p><a class="vc-footer-copy-link" href="{{COPYRIGHT_URL}}">© {{YEAR}} {{SITE_NAME}}. All rights reserved.</a></p>
+          <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+            <a href="{{TERMS_URL}}" data-i18n="footer.terms">Termini di Servizio</a>
+            <span aria-hidden="true"></span>
+            <a href="{{PRIVACY_URL}}" data-i18n="footer.privacy">Privacy Policy</a>
+            <span aria-hidden="true"></span>
+            <a href="{{COOKIE_POLICY_URL}}" data-i18n="footer.cookies">Cookie Policy</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+
     <script>
       window.__VC_AUTH = {
         clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
@@ -292,7 +369,7 @@
     <script src="../../js/vc-auth-pending.js?v=20260831navAuthCacheFix1"></script>
 <script src="/js/vc-discord-avatar.js?v=20260906avatarHub1" defer></script>
 <script src="/js/vc-avatar-fallback.js?v=20260906avatarHub1" defer></script>
-<script src="../../js/discord-auth.js?v=20260909confessionale3" defer></script>
+<script src="../../js/discord-auth.js?v=20260909staffFooter1" defer></script>
 <script src="/js/vc-chrome-sync.js?v=20260909confessionale3" defer></script>
 <script src="/js/vc-image-lightbox.js?v=20260908imgLightbox2" defer data-vc-img-lightbox="1"></script>
 <script src="../../js/vc-landing.js?v=20260909confessionale3" defer></script>
@@ -301,8 +378,8 @@
     <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
     <script src="/js/vc-dialog.js?v=20260826dialog1" defer></script>
     <script src="../../js/staff-tools-common.js?v=20260906avatarHub1" defer></script>
-    <script src="../../js/staff-site-nav.js?v=20260909confessionale3" defer></script>
-    <script src="../../js/confessionale-page.js?v=20260909confessionale3" defer></script>
+    <script src="../../js/staff-site-nav.js?v=20260909staffFooter1" defer></script>
+    <script src="../../js/confessionale-page.js?v=20260909confessionale6" defer></script>
     <script src="../../js/confessionale-bgm.js?v=20260909confessionale3" defer></script>
     <script src="/js/vc-ptr.js?v=20260831sitePerfFix1" defer></script>
   <script src="/js/vc-mobile-nav.js?v=20260909confessionale3" defer></script>

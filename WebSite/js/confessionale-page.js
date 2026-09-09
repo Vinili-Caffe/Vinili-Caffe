@@ -1,9 +1,9 @@
 (function () {
-  var VER = "20260909confessionale3";
+  var VER = "20260909confessionale6";
   var MAX = 1500;
-  var SESSION_CURTAIN_KEY = "vc_confessionale_curtain_done_v1";
+  /* Intro a ogni visita (niente skip session). Solo ?skipIntro=1 salta. */
   var CURTAIN_OPEN_MS = 3500;
-  var SMOKE_AUTO_MS = 5200;
+  var SMOKE_AUTO_MS = 0;
   var apiCfg = window.__VC_CONFESSIONALE || {};
   var canModerate = false;
   var loadedOnce = false;
@@ -261,18 +261,43 @@
     if (curtainDone) return;
     curtainDone = true;
     clearSmokeTimer();
-    try {
-      sessionStorage.setItem(SESSION_CURTAIN_KEY, "1");
-    } catch (e) {}
     hideCurtainEl();
     hideSmokeEl();
     try {
+      document.documentElement.classList.remove("vc-confessionale-intro-active");
       document.documentElement.classList.add("vc-confessionale-curtain-done");
       document.body.classList.add("vc-confessionale-curtain-done");
     } catch (e2) {}
     try {
       window.dispatchEvent(new CustomEvent("vc:confessionale-curtain-done"));
     } catch (e3) {}
+  }
+
+  function introAlreadyDone() {
+    try {
+      var sp = new URLSearchParams(location.search || "");
+      if (sp.get("skipIntro") === "1" || sp.get("skip") === "1") return true;
+    } catch (eQ) {}
+    return false;
+  }
+
+  function primeIntroOverlay() {
+    if (introAlreadyDone()) {
+      markSequenceDone();
+      return false;
+    }
+    try {
+      document.documentElement.classList.add("vc-confessionale-intro-active");
+      document.documentElement.classList.remove("vc-confessionale-curtain-done");
+    } catch (ePrime) {}
+    var el = byId("vc-confessionale-curtain");
+    if (el) {
+      el.hidden = false;
+      el.removeAttribute("hidden");
+      el.setAttribute("aria-hidden", "false");
+      el.classList.remove("is-done", "is-open");
+    }
+    return true;
   }
 
   function showSmokeBeat() {
@@ -291,26 +316,23 @@
       smoke.classList.add("is-visible");
     });
     clearSmokeTimer();
-    smokeTimer = window.setTimeout(markSequenceDone, SMOKE_AUTO_MS);
+    if (SMOKE_AUTO_MS > 0) {
+      smokeTimer = window.setTimeout(markSequenceDone, SMOKE_AUTO_MS);
+    }
   }
 
   function openCurtain() {
-    var el = byId("vc-confessionale-curtain");
-    if (!el || curtainDone) {
+    if (curtainDone || introAlreadyDone()) {
       markSequenceDone();
       return;
     }
-    try {
-      if (sessionStorage.getItem(SESSION_CURTAIN_KEY) === "1") {
-        markSequenceDone();
-        return;
-      }
-    } catch (eS) {}
+    if (!primeIntroOverlay()) return;
+    var el = byId("vc-confessionale-curtain");
+    if (!el) {
+      markSequenceDone();
+      return;
+    }
 
-    el.hidden = false;
-    el.removeAttribute("hidden");
-    el.setAttribute("aria-hidden", "false");
-    el.classList.remove("is-done", "is-open");
     void el.offsetWidth;
     requestAnimationFrame(function () {
       el.classList.add("is-open");
@@ -322,20 +344,12 @@
   }
 
   function bootCurtainWhenReady() {
-    function tryOpen() {
-      if (!document.documentElement.classList.contains("vc-staff-app-revealed")) return false;
-      openCurtain();
-      return true;
+    if (introAlreadyDone()) {
+      markSequenceDone();
+      return;
     }
-    if (tryOpen()) return;
-    window.addEventListener("vc:access-ok", function () {
-      window.setTimeout(openCurtain, 120);
-    });
-    var n = 0;
-    var t = window.setInterval(function () {
-      n += 1;
-      if (tryOpen() || n > 80) window.clearInterval(t);
-    }, 100);
+    primeIntroOverlay();
+    openCurtain();
   }
 
   function bind() {
@@ -366,7 +380,7 @@
       skip.addEventListener("click", function () {
         var el = byId("vc-confessionale-curtain");
         if (el) el.classList.add("is-open");
-        markSequenceDone();
+        showSmokeBeat();
       });
     }
     function onSmokeContinue(ev) {
@@ -382,6 +396,10 @@
     if (smokeRoot) smokeRoot.addEventListener("click", onSmokeContinue);
 
     bootCurtainWhenReady();
+  }
+
+  if (!introAlreadyDone()) {
+    primeIntroOverlay();
   }
 
   if (document.readyState === "loading") {

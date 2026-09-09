@@ -413,6 +413,15 @@ function replaceLegacyFooter(html) {
   return html;
 }
 
+/** Staff cine pages: inject homepage premium footer after </main> if missing. */
+function ensureStaffPremiumFooter(html) {
+  const src = String(html || "");
+  if (/class=["'][^"']*\bvc-premium-footer\b/i.test(src)) return src;
+  if (!/<\/main>/i.test(src)) return src;
+  const footer = buildPremiumFooterTemplate().replace(/^\n/, "\n");
+  return src.replace(/<\/main>/i, (m) => `${m}\n${footer}`);
+}
+
 function applyPlaceholderMap(html, map) {
   html = replaceLegacyFooter(html);
   html = ensureTicketsInRichiesteChrome(html);
@@ -4729,6 +4738,7 @@ async function main() {
       continue;
     }
     let staffHtml = fs.readFileSync(staffPath, "utf8");
+    staffHtml = ensureStaffPremiumFooter(staffHtml);
     staffHtml = applyPlaceholderMap(staffHtml, map);
     warnLeftoverPlaceholders(staffHtml, rel);
     fs.writeFileSync(staffPath, staffHtml, "utf8");
