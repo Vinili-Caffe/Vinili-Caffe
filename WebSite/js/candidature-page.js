@@ -466,6 +466,27 @@
     return String((row && row.code) || "").trim().toLowerCase();
   }
 
+  function isAlreadyStaffOrPmCode(code) {
+    var c = String(code || "").trim().toLowerCase();
+    return c === "already_role" || c === "helper_blocked";
+  }
+
+  function isAlreadyStaffOrPmRow(row) {
+    return isAlreadyStaffOrPmCode(candidatureRowCode(row));
+  }
+
+  function shouldHideModuloCard(d, kind) {
+    /* candHideModuloIfStaff1: già staff/PM → nascondi card modulo */
+    if (!d || d.ok !== true) return false;
+    if (hasGlobalBlock(d)) return false;
+    var row = kind === "partnermanager" ? d.partnermanager : d.helper;
+    if (isAlreadyStaffOrPmRow(row)) return true;
+    var h = d.helper;
+    var p = d.partnermanager;
+    if (isAlreadyStaffOrPmRow(h) && isAlreadyStaffOrPmRow(p)) return true;
+    return false;
+  }
+
   function buildNoApplicableMessage(d) {
     var h = d.helper;
     var p = d.partnermanager;
@@ -480,10 +501,11 @@
       );
     }
     if (hc === "helper_blocked" && pc === "already_role") {
+      var staffLabel = String((h && h.roleLabel) || "").trim() || "Staff";
       return t(
-        "cand.eligibility.pmBlocksHelper",
-        "Sei già Partner Manager e, con i ruoli che hai sul server, non puoi inviare una candidatura Helper: da qui non risultano candidature possibili.",
-      );
+        "cand.eligibility.pmBlocksHelperNamed",
+        "Sei già Partner Manager e {role}: da qui non risultano candidature possibili.",
+      ).replace(/\{role\}/g, staffLabel);
     }
     if (hm && pm && hm === pm) return hm;
     if (hm && pm) {
@@ -522,28 +544,101 @@
     }
   }
 
+  var ROLE_DISCORD_EMOJI = {
+    helper: "https://cdn.discordapp.com/emojis/1502328751638450426.webp?size=48&quality=lossless",
+    pm: "https://cdn.discordapp.com/emojis/1494286911286808576.webp?size=48&quality=lossless",
+    staff: "https://cdn.discordapp.com/emojis/1494286904089247754.webp?size=48&quality=lossless",
+  };
+
   function clearGate() {
     var gate = byId("vc-candidature-gate");
     var body = byId("vc-candidature-gate-body");
     if (gate) {
       gate.hidden = true;
-      gate.className = "vc-candidature-notice mt-6";
+      gate.className = "vc-candidature-notice mt-4";
+      gate.removeAttribute("data-gate-icon");
     }
     if (body) body.textContent = "";
   }
 
-  function showGateMessage(variant, message) {
+  function setGateIcon(gate, iconKind) {
+    var wrap = gate ? gate.querySelector(".vc-candidature-notice-ico") : null;
+    if (!wrap) return;
+    var kind = String(iconKind || "info").trim().toLowerCase();
+    var url = ROLE_DISCORD_EMOJI[kind] || "";
+    if (url) {
+      wrap.innerHTML =
+        '<img class="vc-candidature-notice-roleico" src="' +
+        url +
+        '" alt="" width="20" height="20" decoding="async" referrerpolicy="no-referrer" />';
+      gate.setAttribute("data-gate-icon", kind);
+      return;
+    }
+    wrap.innerHTML =
+      kind === "warn"
+        ? '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>'
+        : '<i class="fa fa-info-circle" aria-hidden="true"></i>';
+    gate.setAttribute("data-gate-icon", kind === "warn" ? "warn" : "info");
+  }
+
+  function gateIconForEligibility(d, kind, variant) {
+    if (variant === "amber") return "warn";
+    if (!d || d.ok !== true) return "info";
+    if (hasGlobalBlock(d)) return "warn";
+    var row = kind === "partnermanager" ? d.partnermanager : d.helper;
+    var rid = String((row && row.roleId) || "").trim();
+    if (rid === "1544831242510270464") return "pm";
+    if (rid === "1442568904311570555") return "helper";
+    if (rid === "1442568910070349985") return "staff";
+    var c = candidatureRowCode(row);
+    if (c === "helper_blocked") {
+      if (rid === "1442568904311570555") return "helper";
+      return "staff";
+    }
+    if (c === "already_role") return kind === "partnermanager" ? "pm" : "helper";
+    if (c === "cooldown") return kind === "partnermanager" ? "pm" : "helper";
+    var hc = candidatureRowCode(d.helper);
+    var pc = candidatureRowCode(d.partnermanager);
+    if (hc === "already_role" && pc === "already_role") return "staff";
+    if (hc === "helper_blocked" && pc === "already_role") return "staff";
+    if (pc === "already_role") return "pm";
+    if (hc === "helper_blocked") return "staff";
+    if (hc === "already_role") return "helper";
+    return "info";
+  }
+
+  function polishGateMessage(d, kind, raw) {
+    var text = String(raw || "").trim();
+    var row = kind === "partnermanager" ? d && d.partnermanager : d && d.helper;
+    var c = candidatureRowCode(row);
+    var label = String((row && row.roleLabel) || "").trim();
+    if ((c === "helper_blocked" || c === "already_role") && label) {
+      return t("cand.eligibility.alreadyRoleNamed", "Sei già un {role}.").replace(/\{role\}/g, label);
+    }
+    if (c === "helper_blocked") {
+      return text || t("cand.eligibility.alreadyStaff", "Sei già un membro dello Staff.");
+    }
+    if (c === "already_role") {
+      if (kind === "partnermanager") {
+        return t("cand.eligibility.alreadyPm", "Sei già un Partner Manager.");
+      }
+      return t("cand.eligibility.alreadyHelper", "Sei già un Helper.");
+    }
+    if (kind === "helper" && /partner\s*manager/i.test(text) && /sei gi[aà]/i.test(text)) {
+      return t("cand.eligibility.alreadyHelper", "Sei già un Helper.");
+    }
+    return text;
+  }
+
+  function showGateMessage(variant, message, iconKind) {
     var gate = byId("vc-candidature-gate");
     var body = byId("vc-candidature-gate-body");
-    var icoWrap = gate ? gate.querySelector(".vc-candidature-notice-ico i") : null;
     if (!gate || !body) return;
     gate.hidden = false;
     gate.className =
-      "vc-candidature-notice mt-6 vc-candidature-notice--" + (variant === "amber" ? "amber" : "slate");
+      "vc-candidature-notice mt-4 vc-candidature-notice--" + (variant === "amber" ? "amber" : "slate");
     setShuffleText(body, message || "");
-    if (icoWrap) {
-      icoWrap.className = variant === "amber" ? "fa fa-exclamation-triangle" : "fa fa-info-circle";
-    }
+    setGateIcon(gate, iconKind || (variant === "amber" ? "warn" : "info"));
   }
 
   function isSuccessBannerVisible() {
@@ -559,7 +654,7 @@
 
     if (!currentUser) {
       clearGate();
-      setFormInnerAndModuloTitleHidden(inner, false);
+      setFormInnerAndModuloTitleHidden(inner, true);
       syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
@@ -576,11 +671,12 @@
     }
 
     if (eligibilityState.loading) {
+      /* candHideModuloNoFlash1: niente flash modulo mentre arriva eligibility */
       clearGate();
-      setFormInnerAndModuloTitleHidden(inner, false);
+      setFormInnerAndModuloTitleHidden(inner, true);
       syncTabDisabledState();
-      setFieldsDisabled(false);
-      if (sub) sub.disabled = false;
+      setFieldsDisabled(true);
+      if (sub) sub.disabled = true;
       return;
     }
 
@@ -593,6 +689,7 @@
             "cand.eligibility.checkFailed",
             "Non è stato possibile verificare se puoi inviare la candidatura (API non raggiungibile). Ricarica la pagina o riprova tra poco.",
           ),
+          "warn",
         );
         setFormInnerAndModuloTitleHidden(inner, false);
         syncTabDisabledState();
@@ -601,7 +698,7 @@
         return;
       }
       clearGate();
-      setFormInnerAndModuloTitleHidden(inner, false);
+      setFormInnerAndModuloTitleHidden(inner, true);
       syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
@@ -612,8 +709,9 @@
       showGateMessage(
         "amber",
         globalBlockMessage(d) || t("cand.eligibility.blocked", "Non puoi usare il modulo candidature con questo account."),
+        "warn",
       );
-      setFormInnerAndModuloTitleHidden(inner, false);
+      setFormInnerAndModuloTitleHidden(inner, true);
       syncTabDisabledState();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
@@ -623,16 +721,14 @@
     var hInteractive = isKindInteractive(d, "helper");
     var pInteractive = isKindInteractive(d, "partnermanager");
     if (!hInteractive && !pInteractive) {
-      showGateMessage("slate", buildNoApplicableMessage(d));
-      setFormInnerAndModuloTitleHidden(inner, false);
+      showGateMessage("slate", buildNoApplicableMessage(d), gateIconForEligibility(d, activeKind, "slate"));
+      setFormInnerAndModuloTitleHidden(inner, true);
       syncTabDisabledState();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
-      renderFields();
       return;
     }
 
-    setFormInnerAndModuloTitleHidden(inner, false);
     syncTabDisabledState();
     if (!isKindInteractive(d, activeKind)) {
       if (pInteractive) activeKind = "partnermanager";
@@ -641,32 +737,58 @@
       var b2 = byId("vc-candidature-tab-pm");
       if (b1) b1.classList.toggle("vc-candidature-tab--on", activeKind === "helper");
       if (b2) b2.classList.toggle("vc-candidature-tab--on", activeKind === "partnermanager");
-      renderFields();
     }
 
     if (!currentTypeEligible(d)) {
       var row = rowForActiveKind(d);
+      var hideModulo = shouldHideModuloCard(d, activeKind);
       if (isSuccessBannerVisible()) {
         clearGate();
+        setFormInnerAndModuloTitleHidden(inner, false);
+        renderFields();
       } else {
         showGateMessage(
           "slate",
-          (row && row.message) ||
-            t(
-              "cand.eligibility.roleBlocked",
-              "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
-            ),
+          polishGateMessage(
+            d,
+            activeKind,
+            (row && row.message) ||
+              t(
+                "cand.eligibility.roleBlocked",
+                "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
+              ),
+          ),
+          gateIconForEligibility(d, activeKind, "slate"),
         );
+        setFormInnerAndModuloTitleHidden(inner, hideModulo);
+        if (!hideModulo) renderFields();
       }
-      renderFields();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
       return;
     }
 
     clearGate();
+    setFormInnerAndModuloTitleHidden(inner, false);
+    renderFields();
     setFieldsDisabled(false);
     if (sub) sub.disabled = false;
+  }
+
+  function isTransientCandidatureError(status, data) {
+    var err = data && data.error ? String(data.error) : "";
+    if (status === 503 || status === 502 || status === 429) return true;
+    return (
+      err === "member_fetch_failed" ||
+      err === "discord_unreachable" ||
+      err === "guild_unavailable"
+    );
+  }
+
+  async function sleepMs(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
+    });
   }
 
   async function refreshEligibility() {
@@ -679,24 +801,38 @@
     }
     eligibilityState = { loading: true, data: null };
     syncEligibilityToDom();
-    try {
-      var res = await fetch(url, {
-        method: "GET",
-        headers: { Authorization: "Bearer " + token },
-      });
-      var data = {};
+    var attempt = 0;
+    var maxAttempts = 3;
+    while (attempt < maxAttempts) {
+      attempt += 1;
       try {
-        data = await res.json();
-      } catch (e2) {
-        data = {};
-      }
-      if (res.ok && data && data.ok === true) {
-        eligibilityState = { loading: false, data: data };
-      } else {
+        var res = await fetch(url, {
+          method: "GET",
+          headers: { Authorization: "Bearer " + token },
+        });
+        var data = {};
+        try {
+          data = await res.json();
+        } catch (e2) {
+          data = {};
+        }
+        if (res.ok && data && data.ok === true) {
+          eligibilityState = { loading: false, data: data };
+          break;
+        }
+        if (attempt < maxAttempts && isTransientCandidatureError(res.status, data)) {
+          await sleepMs(450 * attempt);
+          continue;
+        }
+        eligibilityState = { loading: false, data: null };
+        break;
+      } catch (e) {
+        if (attempt < maxAttempts) {
+          await sleepMs(450 * attempt);
+          continue;
+        }
         eligibilityState = { loading: false, data: null };
       }
-    } catch (e) {
-      eligibilityState = { loading: false, data: null };
     }
     syncEligibilityToDom();
   }
@@ -1113,16 +1249,21 @@
     function notify(message, opts) {
       var text = String(message || "").trim();
       if (!text) return Promise.resolve();
+      var payload = {
+        title: (opts && opts.title) || t("cand.alertTitle", "Avviso"),
+        message: text,
+        okLabel: "OK",
+        danger: Boolean(opts && opts.danger),
+        icon: (opts && opts.icon) || "fa-info-circle",
+      };
       if (window.VcDialog && typeof window.VcDialog.alert === "function") {
-        return window.VcDialog.alert({
-          title: (opts && opts.title) || t("cand.alertTitle", "Avviso"),
-          message: text,
-          okLabel: "OK",
-          danger: Boolean(opts && opts.danger),
-          icon: (opts && opts.icon) || "fa-info-circle",
+        return window.VcDialog.alert(payload);
+      }
+      if (typeof window.__vcEnsureDialog === "function") {
+        return window.__vcEnsureDialog().then(function (D) {
+          if (D && typeof D.alert === "function") return D.alert(payload);
         });
       }
-      window.alert(text);
       return Promise.resolve();
     }
 
@@ -1165,19 +1306,36 @@
     setSubmitSuccessVisible(false);
     setSubmitLoading(true);
     try {
-      var res = await fetch(api, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
-        },
-        body: JSON.stringify({ type: activeKind, answers: ans }),
-      });
+      var res = null;
       var data = {};
-      try {
-        data = await res.json();
-      } catch (e2) {
+      var attempt = 0;
+      var maxAttempts = 3;
+      while (attempt < maxAttempts) {
+        attempt += 1;
+        res = await fetch(api, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+          },
+          body: JSON.stringify({ type: activeKind, answers: ans }),
+        });
         data = {};
+        try {
+          data = await res.json();
+        } catch (e2) {
+          data = {};
+        }
+        if (res.ok && data && data.ok) break;
+        if (
+          attempt < maxAttempts &&
+          isTransientCandidatureError(res.status, data) &&
+          !(res.status === 401)
+        ) {
+          await sleepMs(550 * attempt);
+          continue;
+        }
+        break;
       }
       if (!res.ok || !data.ok) {
         if (res.status === 401 && (data.error === "missing_token" || data.error === "invalid_token")) {
@@ -1258,13 +1416,15 @@
     currentUser = user;
     setWelcome(user);
     showFormWrap(Boolean(user));
+    var inner = byId("vc-candidature-form-inner");
+    /* candHideModuloNoFlash1: nascondi modulo subito, fino a eligibility */
+    setFormInnerAndModuloTitleHidden(inner, true);
     if (!user) {
       setSubmitSuccessVisible(false);
       eligibilityState = { loading: false, data: null };
       syncEligibilityToDom();
       return;
     }
-    renderFields();
     refreshEligibility();
   }
 

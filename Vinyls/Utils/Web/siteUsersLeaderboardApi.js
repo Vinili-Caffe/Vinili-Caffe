@@ -44,7 +44,7 @@ const IT_MONTH_NAMES = [
   "novembre",
   "dicembre",
 ];
-const PROFILE_CACHE_VER = 5;
+const PROFILE_CACHE_VER = 7;
 const PROFILE_MEMBER_SOFT_TIMEOUT_MS = 400;
 const LIST_MEMBER_WARM_MS = 180;
 const listCache = new Map();
@@ -267,6 +267,14 @@ async function resolveMemberForProfileFast(guild, userId) {
   }).catch(() => null);
 }
 
+async function resolveCustomProfileOwnerMember(guild, userId) {
+  const uid = String(userId || "").trim();
+  if (!guild || !uid) return null;
+  const cached = readCachedWebsiteMember(uid) || guild.members?.cache?.get?.(uid) || null;
+  if (cached) return cached;
+  return guild.members.fetch({ user: uid, force: false }).catch(() => null);
+}
+
 function boardQuery(board, guildId) {
   const g = { guildId, "profile.totals.exp.totalExp": { $gt: 0 } };
   if (board === "level") return g;
@@ -353,6 +361,7 @@ function identityFromCacheOnly(client, guild, userId) {
     displayName: "",
     username: "",
     avatar: "",
+    memberAvatar: "",
     avatarUrl: "",
     discriminator: "0",
   };
@@ -374,6 +383,7 @@ function identityFromCacheOnly(client, guild, userId) {
   out.displayName = publicDisplayNameFromMemberOrUser(member, u) || out.username;
   const userObj = u || member?.user;
   out.avatar = userObj?.avatar ? String(userObj.avatar) : "";
+  out.memberAvatar = member?.avatar ? String(member.avatar) : "";
   out.discriminator = String(userObj?.discriminator || "0");
   const rawAvatarUrl =
     (member && siteMemberAvatarUrl(member, 256)) ||
@@ -391,6 +401,7 @@ async function fetchUserIdentity(client, guild, userId, opts) {
     displayName: "",
     username: "",
     avatar: "",
+    memberAvatar: "",
     avatarUrl: "",
     discriminator: "0",
   };
@@ -410,8 +421,8 @@ async function fetchUserIdentity(client, guild, userId, opts) {
       ? client?.users?.cache?.get?.(id) || null
       : await fetchDiscordUserForIdentity(client, guild, id));
   if (!u && !member) {
-        out.username = id;
-    out.displayName = id;
+    out.username = "";
+    out.displayName = "Utente";
     try {
       const idx = Number((BigInt(id) >> 22n) % 6n);
       out.avatarUrl = `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
@@ -424,6 +435,7 @@ async function fetchUserIdentity(client, guild, userId, opts) {
   out.displayName = publicDisplayNameFromMemberOrUser(member, u) || out.username;
   const userObj = u || member?.user;
   out.avatar = userObj?.avatar ? String(userObj.avatar) : "";
+  out.memberAvatar = member?.avatar ? String(member.avatar) : "";
   out.discriminator = String(userObj?.discriminator || "0");
   const rawAvatarUrl =
     (member && siteMemberAvatarUrl(member, 256)) ||
@@ -576,6 +588,8 @@ async function buildCustomProfileData(guild, userId, opts) {
   if (!doc || (!doc.roleId && !doc.secondaryRoleId && !doc.customVocChannelId)) return null;
   const ownerSid = String(userId || "").trim();
   const botSid = String(guild.members?.me?.id || guild.client?.user?.id || "").trim();
+  const ownerMember = await resolveCustomProfileOwnerMember(guild, ownerSid);
+  if (!ownerMember || ownerMember.user?.bot) return null;
 
     if (ultraLite) {
     const role = doc.roleId ? guild.roles.cache.get(String(doc.roleId)) || null : null;
@@ -1324,7 +1338,7 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
             new Promise((resolve) => setTimeout(() => resolve(null), PROFILE_MEMBER_SOFT_TIMEOUT_MS)),
           ])
         : Promise.resolve(null),
-    buildCustomProfileData(guild, searchId, { lite: true, ultraLite: true }),
+    buildCustomProfileData(guild, searchId, { lite: true }),
     getGlobalMultiplier(guildId).catch(() => 1),
     getGuildExpSettings(guildId).catch(() => null),
   ]);
@@ -1474,6 +1488,7 @@ async function buildRowFromDoc(
       displayName: id.displayName,
       discriminator: id.discriminator,
       avatar: id.avatar,
+      memberAvatar: id.memberAvatar || "",
       avatarUrl: id.avatarUrl,
       level,
       exp: totalExp,
@@ -1496,6 +1511,7 @@ async function buildRowFromDoc(
       displayName: id.displayName,
       discriminator: id.discriminator,
       avatar: id.avatar,
+      memberAvatar: id.memberAvatar || "",
       avatarUrl: id.avatarUrl,
       level,
       exp: totalExp,
@@ -1525,6 +1541,7 @@ async function buildRowFromDoc(
       displayName: id.displayName,
       discriminator: id.discriminator,
       avatar: id.avatar,
+      memberAvatar: id.memberAvatar || "",
       avatarUrl: id.avatarUrl,
       messagesTotal,
       messagesWeekly,
@@ -1548,6 +1565,7 @@ async function buildRowFromDoc(
       displayName: id.displayName,
       discriminator: id.discriminator,
       avatar: id.avatar,
+      memberAvatar: id.memberAvatar || "",
       avatarUrl: id.avatarUrl,
       voiceTotalSeconds,
       voiceWeeklySeconds,
@@ -1641,7 +1659,13 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       if (payload && Object.prototype.hasOwnProperty.call(payload, "_memberResolved")) {
         delete payload._memberResolved;
       }
-            if (!payload.notFound && memberResolved) {
+      if (payload && !payload.notFound) {
+        payload.inGuild = memberResolved;
+        if (payload.profile && typeof payload.profile === "object") {
+          payload.profile.inGuild = memberResolved;
+        }
+      }
+      if (!payload.notFound && memberResolved) {
         cacheSet(profileCacheKey, payload, PROFILE_CACHE_TTL_MS);
       }
       res.setHeader("Cache-Control", payload.notFound ? "no-store" : "public, max-age=45");
@@ -1889,12 +1913,12 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         const uid = String(first.userId || "");
         if (uid) {
           const cachedId = identityFromCacheOnly(client, guild, uid);
-          topDisplayName = String(cachedId.username || cachedId.displayName || "").trim();
+          topDisplayName = String(cachedId.displayName || cachedId.username || "").trim();
         }
         topWeeklyExp = nInt(first.exp);
       }
       if (!String(topDisplayName || "").trim() && rows.length && skip === 0) {
-        const fb = String(rows[0].username || rows[0].displayName || "").trim();
+        const fb = String(rows[0].displayName || rows[0].username || "").trim();
         if (fb) topDisplayName = fb;
       }
       const stats = {
@@ -1978,7 +2002,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       const uid = String(topDoc.userId || "");
             if (uid) {
         const cachedId = identityFromCacheOnly(client, guild, uid);
-        topDisplayName = String(cachedId.username || cachedId.displayName || "").trim();
+        topDisplayName = String(cachedId.displayName || cachedId.username || "").trim();
       }
       if (board === "level") {
         const te = nInt(topDoc.profile?.totals?.exp?.totalExp);
@@ -2050,7 +2074,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     );
 
     if (!String(topDisplayName || "").trim() && rows.length && skip === 0) {
-      const fb = String(rows[0].username || rows[0].displayName || "").trim();
+      const fb = String(rows[0].displayName || rows[0].username || "").trim();
       if (fb) topDisplayName = fb;
     }
 

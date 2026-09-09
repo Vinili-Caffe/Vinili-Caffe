@@ -6,7 +6,9 @@ let last403LogAt = 0;
 let sportsDb429Until = 0;
 let sportsDb429Consecutive = 0;
 let sportsDb429LastHitAt = 0;
-const SPORTSDB_429_BACKOFF_FLOOR_MS = 60_000;
+/** Free-tier TheSportsDB 429 is routine; keep quiet and back off hard. */
+const SPORTSDB_429_BACKOFF_FLOOR_MS = 15 * 60_000;
+const SPORTSDB_429_BACKOFF_CAP_MS = 6 * 60 * 60_000;
 const { registerCanvasFonts, fontStackPrimaryOnly } = require("../../Utils/Render/canvasFonts");
 const { drawLabelWithEmoji, tokenizeEmojiText } = require("../../Utils/Render/canvasEmojiRichText");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, AttachmentBuilder, } = require("discord.js");
@@ -30,6 +32,10 @@ const mongoose = require("mongoose");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const { isBurrobirraActive, refreshBurrobirraActiveCache } = require("./burrobirraEffectService");
 const { applyBurrobirraToPayload, distortMinigameText, shuffleSpacedTokens } = require("../../Utils/Minigames/burrobirraDistortion");
+const {
+  mergeFindBotVoiceExcludedChannelIds,
+  isVoiceChannelEligibleForFindBotMinigame,
+} = require("../../Utils/Minigames/findBotVoiceChannelEligibility");
 const { formatItalianMinutesBold } = require("../../Utils/Text/italianDurationLabels");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
@@ -230,25 +236,8 @@ function warnMinigame(err) {
   const is403 = status === 403 || (typeof msg === "string" && msg.includes("403"));
   if (is403 && typeof url === "string" && /wikipedia\.org\/api\/rest_v1\/page\/summary/i.test(url)) return;
   if (is429 && typeof url === "string" && /thesportsdb\.com/i.test(url)) {
-    const now = Date.now();
-    const retryAfterRaw = err?.response?.headers?.["retry-after"] || err?.response?.headers?.["Retry-After"];
-    if (now - sportsDb429LastHitAt < SPORTSDB_429_BACKOFF_FLOOR_MS) sportsDb429Consecutive += 1;
-    else sportsDb429Consecutive = 1;
-    sportsDb429LastHitAt = now;
-    let retryAfterMs = 0;
-    if (typeof retryAfterRaw === "string" && retryAfterRaw.trim()) {
-      const asNum = Number(retryAfterRaw);
-      if (Number.isFinite(asNum) && asNum > 0) retryAfterMs = asNum * 1000;
-      else {
-        const t = Date.parse(retryAfterRaw);
-        if (Number.isFinite(t)) retryAfterMs = Math.max(0, t - now);
-      }
-    }
-    if (!retryAfterMs) {
-      const expMultiplier = Math.min(8, 2 ** Math.max(0, sportsDb429Consecutive - 1));
-      retryAfterMs = SPORTSDB_429_BACKOFF_FLOOR_MS * expMultiplier;
-    }
-    sportsDb429Until = Math.max(sportsDb429Until, now + retryAfterMs);
+    noteSportsDb429(err);
+    return;
   }
   const now = Date.now();
   if (is429 && now - last429LogAt < MINIGAME_429_THROTTLE_MS) return;
@@ -259,12 +248,33 @@ function warnMinigame(err) {
   if (is429) {
     let host = null;
     try { host = url ? new URL(String(url)).host : null; } catch { host = null; }
-    const remainingMs = Math.max(0, sportsDb429Until - Date.now());
-    const remainingMin = Math.ceil(remainingMs / 60000);
-    logMsg = `429 rate limit${host ? ` (${host})` : ""}${remainingMin > 0 ? `, cooldown ${remainingMin}m` : ""}`;
+    logMsg = `429 rate limit${host ? ` (${host})` : ""}`;
   }
   if (is403 && url) logMsg += ` URL: ${typeof url === "string" ? url.replace(/\/api\/v1\/json\/[^/]+/, "/api/v1/json/***") : url}`;
   global.logger?.warn?.(`[minigameService] ${logMsg}`);
+}
+
+function noteSportsDb429(err) {
+  const now = Date.now();
+  const retryAfterRaw = err?.response?.headers?.["retry-after"] || err?.response?.headers?.["Retry-After"];
+  if (now - sportsDb429LastHitAt < SPORTSDB_429_BACKOFF_FLOOR_MS) sportsDb429Consecutive += 1;
+  else sportsDb429Consecutive = 1;
+  sportsDb429LastHitAt = now;
+  let retryAfterMs = 0;
+  if (typeof retryAfterRaw === "string" && retryAfterRaw.trim()) {
+    const asNum = Number(retryAfterRaw);
+    if (Number.isFinite(asNum) && asNum > 0) retryAfterMs = asNum * 1000;
+    else {
+      const t = Date.parse(retryAfterRaw);
+      if (Number.isFinite(t)) retryAfterMs = Math.max(0, t - now);
+    }
+  }
+  if (!retryAfterMs) {
+    const expMultiplier = Math.min(8, 2 ** Math.max(0, sportsDb429Consecutive - 1));
+    retryAfterMs = SPORTSDB_429_BACKOFF_FLOOR_MS * expMultiplier;
+  }
+  retryAfterMs = Math.min(SPORTSDB_429_BACKOFF_CAP_MS, Math.max(SPORTSDB_429_BACKOFF_FLOOR_MS, retryAfterMs));
+  sportsDb429Until = Math.max(sportsDb429Until, now + retryAfterMs);
 }
 
 function isThesportsdb429(err) {
@@ -275,11 +285,13 @@ function isThesportsdb429(err) {
   return is429 && typeof url === "string" && /thesportsdb\.com/i.test(url);
 }
 
+function isSportsDbCoolingDown() {
+  return Date.now() < sportsDb429Until;
+}
+
+/** Do not sleep on SportsDB 429 — skip the fetch and reuse cache. */
 async function waitIfSportsDb429() {
-  const now = Date.now();
-  if (now >= sportsDb429Until) return;
-  const ms = sportsDb429Until - now;
-  await new Promise((resolve) => setTimeout(resolve, ms));
+  return;
 }
 let canvasModule = null;
 let createCanvas = null;
@@ -689,10 +701,10 @@ function getConfig(client) {
     findBotVoice: {
       ...(cfg.findBotVoice || {}),
       requiredRoleId: IDs.roles.Member,
-      excludedChannelIds:
-        cfg.findBotVoice?.excludedChannelIds ||
-        cfg.findBot?.excludedChannelIds ||
-        [],
+      excludedChannelIds: mergeFindBotVoiceExcludedChannelIds(
+        client,
+        cfg.findBotVoice?.excludedChannelIds || cfg.findBot?.excludedChannelIds || [],
+      ),
     },
   };
   if (hogwartsEventLive && hogwartsExclusiveDuringEvent) {
@@ -709,6 +721,10 @@ function getConfig(client) {
 }
 
 function isHogwartsEventLiveForMinigames(client, nowMs = Date.now()) {
+  try {
+    const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+    if (isHogwartsRuntimeDisabled(client)) return false;
+  } catch (_) {}
   const eventCfg = resolveHogwartsEventConfig(client);
   return Boolean(isEventWindowOpen(eventCfg, nowMs)?.open);
 }
@@ -2957,12 +2973,15 @@ async function loadFootballTeamsFromApi(cfg) {
   const now = Date.now();
   if (cachedTeams && now - cachedTeamsAt < TEAM_CACHE_TTL_MS)
     return cachedTeams;
-  await waitIfSportsDb429();
+  if (isSportsDbCoolingDown()) {
+    return Array.isArray(cachedTeams) ? cachedTeams : [];
+  }
 
   const apiBase = cfg?.guessTeam?.apiUrl || "https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=";
   const leagues = Array.isArray(cfg?.guessTeam?.leagues) && cfg.guessTeam.leagues.length ? cfg.guessTeam.leagues : DEFAULT_FOOTBALL_LEAGUES;
   const out = [];
   for (const league of leagues) {
+    if (isSportsDbCoolingDown()) break;
     try {
       const url = `${apiBase}${encodeURIComponent(league)}`;
       const res = await axios.get(url, { timeout: 15000 });
@@ -2981,11 +3000,12 @@ async function loadFootballTeamsFromApi(cfg) {
         out.push({ team: displayName, teamId: team?.idTeam ? String(team.idTeam) : null, league, answers: aliases, image: badge });
       }
     } catch (err) {
-      warnMinigame(err);
       if (isThesportsdb429(err)) {
+        noteSportsDb429(err);
         if (Array.isArray(cachedTeams) && cachedTeams.length) return cachedTeams;
         return out;
       }
+      warnMinigame(err);
     }
   }
 
@@ -4391,6 +4411,127 @@ async function buildGuessFlagCardAttachment(flagUrl) {
   }
 }
 
+/** Marker: sports_guess_attach_v1 — always attach puzzle image (Discord often fails to unfurl r2.thesportsdb.com). */
+function normalizeExternalImageUrl(imageUrl) {
+  let url = String(imageUrl || "").trim();
+  if (!url) return null;
+  if (/^http:\/\//i.test(url)) url = `https://${url.slice("http://".length)}`;
+  if (!/^https:\/\//i.test(url)) return null;
+  return url;
+}
+
+async function loadImageBufferFromUrl(imageUrl) {
+  const url = normalizeExternalImageUrl(imageUrl);
+  if (!url) return null;
+  try {
+    const viaSafe = await safeLoadImage(url, { suppressWarning: true });
+    if (viaSafe?.width && viaSafe?.height) return viaSafe;
+  } catch (_) {}
+  try {
+    const res = await axios.get(url, {
+      responseType: "arraybuffer",
+      timeout: 15000,
+      maxContentLength: 8 * 1024 * 1024,
+      headers: { "User-Agent": "ViniliCaffeBot/1.0", Accept: "image/*,*/*" },
+      validateStatus: (status) => status >= 200 && status < 300,
+    });
+    const buf = Buffer.from(res.data || []);
+    if (!buf.length) return null;
+    const img = await loadImage(buf).catch(() => null);
+    if (img?.width && img?.height) return img;
+  } catch (_) {}
+  return null;
+}
+
+async function fetchRawImageAttachment(imageUrl, fileName = "guess_image.jpg") {
+  const url = normalizeExternalImageUrl(imageUrl);
+  if (!url) return null;
+  try {
+    const res = await axios.get(url, {
+      responseType: "arraybuffer",
+      timeout: 15000,
+      maxContentLength: 8 * 1024 * 1024,
+      headers: { "User-Agent": "ViniliCaffeBot/1.0", Accept: "image/*,*/*" },
+      validateStatus: (status) => status >= 200 && status < 300,
+    });
+    const buf = Buffer.from(res.data || []);
+    if (!buf || buf.length < 64) return null;
+    let name = String(fileName || "guess_image.jpg").replace(/[^\w.\-]+/g, "_");
+    const isPng = buf[0] === 0x89 && buf[1] === 0x50;
+    const isJpg = buf[0] === 0xff && buf[1] === 0xd8;
+    const isWebp = buf.length > 12 && buf.slice(0, 4).toString("ascii") === "RIFF" && buf.slice(8, 12).toString("ascii") === "WEBP";
+    if (isPng) name = name.replace(/\.[^.]+$/, ".png");
+    else if (isJpg) name = name.replace(/\.[^.]+$/, ".jpg");
+    else if (isWebp) name = name.replace(/\.[^.]+$/, ".webp");
+    else if (/\.png($|\?)/i.test(url)) name = name.replace(/\.[^.]+$/, ".png");
+    else name = name.replace(/\.[^.]+$/, ".jpg");
+    if (!/\.(png|jpe?g|webp)$/i.test(name)) name = `${name}.jpg`;
+    return new AttachmentBuilder(buf, { name });
+  } catch (_) {
+    return null;
+  }
+}
+
+async function buildRemoteGuessImageCardAttachment(imageUrl, title, fileName = "guess_image.png") {
+  try {
+    registerCanvasFonts(canvasModule);
+    const photo = await loadImageBufferFromUrl(imageUrl);
+    if (!photo) return null;
+    const width = 1400;
+    const height = 780;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    fillCanvasBackground(ctx, width, height);
+    const cardX = CANVAS_STYLE.padding;
+    const cardY = CANVAS_STYLE.padding;
+    const cardW = width - CANVAS_STYLE.padding * 2;
+    const cardH = height - CANVAS_STYLE.padding * 2;
+    fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
+    ctx.textAlign = "center";
+    ctx.fillStyle = CANVAS_STYLE.titleColor;
+    ctx.font = fontStackPrimaryOnly(64, "700");
+    ctx.fillText(String(title || "Indovina").slice(0, 48), width / 2, cardY + 48);
+    const maxW = cardW - 120;
+    const maxH = cardH - 200;
+    const scale = Math.min(maxW / photo.width, maxH / photo.height, 1);
+    const drawW = Math.round(photo.width * scale);
+    const drawH = Math.round(photo.height * scale);
+    const x = (width - drawW) / 2;
+    const y = cardY + 140;
+    ctx.drawImage(photo, x, y, drawW, drawH);
+    const name = String(fileName || "guess_image.png").replace(/[^\w.\-]+/g, "_");
+    return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: name.endsWith(".png") ? name : `${name}.png` });
+  } catch {
+    return null;
+  }
+}
+
+async function resolveGuessPuzzleAttachment({
+  imageUrl = null,
+  title,
+  fallbackLines = [],
+  fileBaseName = "guess_image",
+  client = null,
+  channelId = null,
+}) {
+  const base = String(fileBaseName || "guess_image").replace(/[^\w.\-]+/g, "_");
+  const fileName = `${base}.png`;
+  if (imageUrl) {
+    const card = await buildRemoteGuessImageCardAttachment(imageUrl, title, fileName);
+    if (card) return card;
+    const raw = await fetchRawImageAttachment(imageUrl, `${base}.jpg`);
+    if (raw) return raw;
+  }
+  return buildPromptImageAttachment(
+    title,
+    fallbackLines,
+    fileBaseName,
+    "",
+    client,
+    isBurrobirraActiveForChannel(client, channelId),
+  );
+}
+
 function buildMathExpressionImageAttachment(expression) {
   try {
     registerCanvasFonts(canvasModule);
@@ -4709,7 +4850,9 @@ function buildPlayerInfoFromApiPlayer(player) {
 async function loadLeaguePlayersFromApi(cfg) {
   const now = Date.now();
   if (cachedLeaguePlayers && now - cachedLeaguePlayersAt < LEAGUE_PLAYER_CACHE_TTL_MS) return cachedLeaguePlayers;
-  await waitIfSportsDb429();
+  if (isSportsDbCoolingDown()) {
+    return Array.isArray(cachedLeaguePlayers) ? cachedLeaguePlayers : [];
+  }
 
   const teams = await loadFootballTeamsFromApi(cfg);
   const playerApiBase = cfg?.guessPlayer?.teamApiUrl || "https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=";
@@ -4718,6 +4861,7 @@ async function loadLeaguePlayersFromApi(cfg) {
   const seenNames = new Set();
 
   for (const team of teams) {
+    if (isSportsDbCoolingDown()) break;
     const teamId = String(team?.teamId || "").trim();
     if (!teamId) continue;
     try {
@@ -4734,11 +4878,12 @@ async function loadLeaguePlayersFromApi(cfg) {
         out.push(info);
       }
     } catch (err) {
-      warnMinigame(err);
       if (isThesportsdb429(err)) {
+        noteSportsDb429(err);
         if (Array.isArray(cachedLeaguePlayers) && cachedLeaguePlayers.length) return cachedLeaguePlayers;
         return out;
       }
+      warnMinigame(err);
     }
   }
 
@@ -4752,7 +4897,7 @@ async function fetchPlayerInfo(cfg, name) {
   if (!apiBase || !name) return null;
   const url = `${apiBase}${encodeURIComponent(name)}`;
   try {
-    await waitIfSportsDb429();
+    if (isSportsDbCoolingDown()) return null;
     const res = await axios.get(url, { timeout: 15000 });
     const players = res?.data?.player;
     if (!Array.isArray(players) || players.length === 0) return null;
@@ -4770,6 +4915,10 @@ async function fetchPlayerInfo(cfg, name) {
       aliases: buildPlayerAliases(player),
     };
   } catch (err) {
+    if (isThesportsdb429(err)) {
+      noteSportsDb429(err);
+      return null;
+    }
     warnMinigame(err);
     return null;
   }
@@ -4778,12 +4927,13 @@ async function fetchPlayerInfo(cfg, name) {
 async function fetchPlayerFromRandomLetter(cfg) {
   const apiBase = cfg?.guessPlayer?.apiUrl;
   if (!apiBase) return null;
+  if (isSportsDbCoolingDown()) return null;
   const letters = "abcdefghijklmnopqrstuvwxyz";
   for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (isSportsDbCoolingDown()) return null;
     const letter = letters[randomBetween(0, letters.length - 1)];
     const url = `${apiBase}${encodeURIComponent(letter)}`;
     try {
-      await waitIfSportsDb429();
       const res = await axios.get(url, { timeout: 15000 });
       const players = res?.data?.player;
       if (!Array.isArray(players) || players.length === 0) continue;
@@ -4803,8 +4953,11 @@ async function fetchPlayerFromRandomLetter(cfg) {
         aliases: buildPlayerAliases(player),
       };
     } catch (err) {
+      if (isThesportsdb429(err)) {
+        noteSportsDb429(err);
+        return null;
+      }
       warnMinigame(err);
-      if (isThesportsdb429(err)) return null;
     }
   }
   return null;
@@ -8616,13 +8769,25 @@ async function startGuessPlayerGame(client, cfg) {
 
   const roleId = cfg.roleId;
   await sendMinigameRolePing(channel, cfg, roleId);
-  const playerFallbackAttachment = !info.image ? buildPromptImageAttachment("Indovina il calciatore", [buildMaskedTextHint(info.name) || info.name], "guess_player", "", client, isBurrobirraActiveForChannel(client, channelId)) : null;
-  const playerEmbed = buildGuessPlayerEmbed(rewardExp, durationMs, info.image || null);
-  if (playerFallbackAttachment) {
-    playerEmbed.setImage(`attachment://${playerFallbackAttachment.name}`);
-  }
+  const playerAttachment = await resolveGuessPuzzleAttachment({
+    imageUrl: info.image,
+    title: "Indovina il calciatore",
+    fallbackLines: [buildPlainMaskedTextHint(info.name) || "Chi è questo calciatore?"],
+    fileBaseName: "guess_player",
+    client,
+    channelId,
+  });
+  const playerEmbed = buildGuessPlayerEmbed(
+    rewardExp,
+    durationMs,
+    playerAttachment ? `attachment://${playerAttachment.name}` : null,
+  );
 
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [playerEmbed], files: playerFallbackAttachment ? [playerFallbackAttachment] : [], }, MINIGAME_QUESTION_BURROBIRRA).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [playerEmbed], ...(playerAttachment ? { files: [playerAttachment] } : {}) },
+    MINIGAME_QUESTION_BURROBIRRA,
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutPlayerEmbed(game.displayName)); }, durationMs); timeout.unref?.();
 
@@ -9173,9 +9338,24 @@ async function startGuessTeamGame(client, cfg) {
 
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
-  const teamAttachment = !pick.image ? buildPromptImageAttachment("Indovina la squadra", [pick.team], "guess_team", "", client, isBurrobirraActiveForChannel(client, channelId)) : null;
-  const teamEmbed = buildGuessTeamEmbed(rewardExp, durationMs, pick.image || (teamAttachment ? `attachment://${teamAttachment.name}` : null));
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [teamEmbed], files: teamAttachment ? [teamAttachment] : [], }, MINIGAME_QUESTION_BURROBIRRA).catch(() => null);
+  const teamAttachment = await resolveGuessPuzzleAttachment({
+    imageUrl: pick.image,
+    title: "Indovina la squadra",
+    fallbackLines: [buildPlainMaskedTextHint(pick.team) || "Quale squadra è?"],
+    fileBaseName: "guess_team",
+    client,
+    channelId,
+  });
+  const teamEmbed = buildGuessTeamEmbed(
+    rewardExp,
+    durationMs,
+    teamAttachment ? `attachment://${teamAttachment.name}` : null,
+  );
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [teamEmbed], ...(teamAttachment ? { files: [teamAttachment] } : {}) },
+    MINIGAME_QUESTION_BURROBIRRA,
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutTeamEmbed(game.team)); }, durationMs); timeout.unref?.();
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, `Squadra: ${buildRevealHint(pick.team)}`,
@@ -9226,9 +9406,24 @@ async function startGuessSingerGame(client, cfg) {
 
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
-  const singerAttachment = !resolvedImage ? buildPromptImageAttachment("Indovina il cantante", [pick.name], "guess_singer", "", client, isBurrobirraActiveForChannel(client, channelId)) : null;
-  const singerEmbed = buildGuessSingerEmbed(rewardExp, durationMs, resolvedImage || (singerAttachment ? `attachment://${singerAttachment.name}` : null));
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [singerEmbed], files: singerAttachment ? [singerAttachment] : [], }, MINIGAME_QUESTION_BURROBIRRA).catch(() => null);
+  const singerAttachment = await resolveGuessPuzzleAttachment({
+    imageUrl: resolvedImage,
+    title: "Indovina il cantante",
+    fallbackLines: [buildPlainMaskedTextHint(pick.name) || "Chi è questo cantante?"],
+    fileBaseName: "guess_singer",
+    client,
+    channelId,
+  });
+  const singerEmbed = buildGuessSingerEmbed(
+    rewardExp,
+    durationMs,
+    singerAttachment ? `attachment://${singerAttachment.name}` : null,
+  );
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [singerEmbed], ...(singerAttachment ? { files: [singerAttachment] } : {}) },
+    MINIGAME_QUESTION_BURROBIRRA,
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutSingerEmbed(game.name)); }, durationMs); timeout.unref?.();
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, `Cantante: ${buildRevealHint(pick.name)}`,
@@ -10930,15 +11125,11 @@ async function pickRandomEmptyVoiceChannel(guild, requiredRoleId, excludedChanne
   const me = guild.members.me || guild.members.cache.get(guild.client?.user?.id);
   const botUserId = String(me?.id || guild.client?.user?.id || "");
   const roleToCheck = requiredRoleId ? guild.roles.cache.get(requiredRoleId) : guild.roles.everyone;
-  const excludedSet = new Set(
-    Array.isArray(excludedChannelIds)
-      ? excludedChannelIds.filter((id) => id != null && String(id).trim()).map(String)
-      : [],
-  );
+  const client = guild.client;
 
   const channels = guild.channels.cache.filter((channel) => {
     if (channel.type !== ChannelType.GuildVoice) return false;
-    if (excludedSet.has(String(channel.id))) return false;
+    if (!isVoiceChannelEligibleForFindBotMinigame(channel, client, excludedChannelIds)) return false;
     if (!channel.viewable) return false;
     if (countHumanMembersInVoiceChannel(channel, botUserId) > 0) return false;
     const otherBots = channel.members?.filter((member) => member.user?.bot && String(member.id) !== botUserId).size || 0;
@@ -10959,6 +11150,27 @@ async function pickRandomEmptyVoiceChannel(guild, requiredRoleId, excludedChanne
   return pickRandomItem(list);
 }
 
+function resolveFindBotVoiceBotChannelId(guild, game) {
+  const session = findBotVoiceSessionByGuild.get(String(guild?.id || "").trim());
+  const fromSession = String(session?.channelId || "").trim();
+  const fromGame = String(game?.channelId || game?.voiceChannelId || "").trim();
+  const me = guild?.members?.me;
+  const fromVoice = String(me?.voice?.channelId || "").trim();
+  return fromVoice || fromSession || fromGame;
+}
+
+function syncFindBotVoiceTargetChannel(guild, game, channelId) {
+  const nextId = String(channelId || "").trim();
+  if (!game || !nextId) return;
+  const prevId = String(game.channelId || game.voiceChannelId || "").trim();
+  if (prevId === nextId) return;
+  game.channelId = nextId;
+  game.voiceChannelId = nextId;
+  const gid = String(guild?.id || "").trim();
+  const session = findBotVoiceSessionByGuild.get(gid);
+  if (session) session.channelId = nextId;
+}
+
 function getActiveFindBotVoiceGame(client) {
   const cfg = getConfig(client);
   const mainChannelId = String(cfg?.channelId || "").trim();
@@ -10971,9 +11183,11 @@ function getActiveFindBotVoiceGame(client) {
 function shouldDeferTtsLeaveForFindBotVoiceMinigame(client, guildId, channelId) {
   const active = getActiveFindBotVoiceGame(client);
   if (!active) return false;
+  const guild = client?.guilds?.cache?.get(String(guildId || "")) || null;
+  const botVoiceId = guild ? resolveFindBotVoiceBotChannelId(guild, active.game) : String(active.game.channelId || active.game.voiceChannelId || "");
   return (
     String(active.game.guildId || "") === String(guildId || "") &&
-    String(active.game.channelId || active.game.voiceChannelId || "") === String(channelId || "")
+    String(botVoiceId || "") === String(channelId || "")
   );
 }
 
@@ -13934,21 +14148,25 @@ function startMinigameExpireSweep(client) {
 }
 
 async function bootstrapMinigameScheduler(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  const hogwartsOff = isHogwartsRuntimeDisabled(client);
   hogwartsSpawnPersistClientRef = client;
-  armHogwartsSpawnShutdownPersist();
+  if (!hogwartsOff) armHogwartsSpawnShutdownPersist();
   const cfg = getConfig(client);
   const eventCfg = resolveHogwartsEventConfig(client);
-  const eventOpen = isEventWindowOpen(eventCfg, Date.now());
+  const eventOpen = hogwartsOff ? { open: false } : isEventWindowOpen(eventCfg, Date.now());
 
       try {
     await restoreActiveGames(client);
   } catch (err) {
     global.logger?.error?.("[MINIGAMES] restoreActiveGames failed:", err?.message || err);
   }
-  try {
-    await restoreHouseChannelActiveGames(client);
-  } catch (err) {
-    global.logger?.warn?.("[MINIGAMES] restore house channel games:", err?.message || err);
+  if (!hogwartsOff) {
+    try {
+      await restoreHouseChannelActiveGames(client);
+    } catch (err) {
+      global.logger?.warn?.("[MINIGAMES] restore house channel games:", err?.message || err);
+    }
   }
 
   let activityBackfill = { ok: false, count: 0 };
@@ -13959,19 +14177,22 @@ async function bootstrapMinigameScheduler(client) {
   }
 
   let spawnSchedulerResumed = false;
-  try {
-    spawnSchedulerResumed = await restoreHogwartsSpawnSchedulerFromDb(client);
-  } catch (err) {
-    global.logger?.warn?.("[MINIGAMES] restore spawn scheduler:", err?.message || err);
+  if (!hogwartsOff) {
+    try {
+      spawnSchedulerResumed = await restoreHogwartsSpawnSchedulerFromDb(client);
+    } catch (err) {
+      global.logger?.warn?.("[MINIGAMES] restore spawn scheduler:", err?.message || err);
+    }
   }
   logMinigameSpawn("bootstrap scheduler", {
     channelId: cfg?.channelId,
     minigamesEnabled: Boolean(cfg?.enabled),
+    hogwartsRuntimeDisabled: hogwartsOff,
     hogwartsEventWindowOpen: Boolean(eventOpen?.open),
     hogwartsEventLive: Boolean(cfg?.hogwartsEventLive),
     hogwartsExclusiveDuringEvent: cfg?.hogwartsExclusiveDuringEvent !== false,
     hogwartsExclusive: isHogwartsExclusiveMinigamesEnabled(client, cfg),
-    hogwartsRandomMode: isHogwartsRandomSpawnMode(cfg, client),
+    hogwartsRandomMode: !hogwartsOff && isHogwartsRandomSpawnMode(cfg, client),
     spawnCfg: cfg ? getHogwartsEventSpawnCfg(cfg) : null,
     spawnSchedulerResumed,
     activityBackfill,
@@ -13987,17 +14208,20 @@ async function bootstrapMinigameScheduler(client) {
   } catch (err) {
     global.logger?.warn?.("[MINIGAMES] expire sweep failed to start:", err?.message || err);
   }
-  try {
-    const { bootstrapHogwartsHouseChannelMinigameScheduler } = require("../Community/hogwartsHouseChannelMinigameService");
-    await bootstrapHogwartsHouseChannelMinigameScheduler(client);
-  } catch (err) {
-    global.logger?.warn?.("[MINIGAMES] house channel scheduler:", err?.message || err);
+  if (!hogwartsOff) {
+    try {
+      const { bootstrapHogwartsHouseChannelMinigameScheduler } = require("../Community/hogwartsHouseChannelMinigameService");
+      await bootstrapHogwartsHouseChannelMinigameScheduler(client);
+    } catch (err) {
+      global.logger?.warn?.("[MINIGAMES] house channel scheduler:", err?.message || err);
+    }
   }
 }
 
 function scheduleMinigameLoopTick(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
   const cfg = getConfig(client);
-  if (isHogwartsRandomSpawnMode(cfg, client)) {
+  if (!isHogwartsRuntimeDisabled(client) && isHogwartsRandomSpawnMode(cfg, client)) {
     logMinigameSpawn("scheduler: Hogwarts random mode active", {
       channelId: cfg?.channelId,
       hogwartsEventLive: Boolean(cfg?.hogwartsEventLive),
@@ -16671,21 +16895,34 @@ async function handleFindBotVoiceWin(client, guild, member, game, cfg) {
 }
 
 async function handleMinigameVoiceState(oldState, newState, client) {
-  const member = newState?.member || oldState?.member;
   const guild = newState?.guild || oldState?.guild;
-  if (!guild || !member?.user || member.user.bot) return false;
+  if (!guild) return false;
+
+  const botId = String(client?.user?.id || "");
+  const stateUserId = String(newState?.id || oldState?.id || "");
+  const active = getActiveFindBotVoiceGame(client);
+
+  if (active && botId && stateUserId === botId) {
+    const nextChannelId = String(newState?.channelId || "").trim();
+    if (nextChannelId) {
+      syncFindBotVoiceTargetChannel(guild, active.game, nextChannelId);
+    }
+  }
+
+  const member = newState?.member || oldState?.member;
+  if (!member?.user || member.user.bot) return false;
   const joinedChannelId = String(newState?.channelId || "");
   const previousChannelId = String(oldState?.channelId || "");
   if (!joinedChannelId || joinedChannelId === previousChannelId) return false;
 
-  const active = getActiveFindBotVoiceGame(client);
   if (!active) return false;
-  const targetVoiceId = String(active.game.channelId || active.game.voiceChannelId || "");
-  if (!targetVoiceId || targetVoiceId !== joinedChannelId) return false;
   if (String(guild.id) !== String(active.game.guildId || guild.id)) return false;
 
+  const botVoiceId = resolveFindBotVoiceBotChannelId(guild, active.game);
+  if (!botVoiceId || botVoiceId !== joinedChannelId) return false;
+
   const botMember = guild.members.me || guild.members.cache.get(client?.user?.id);
-  if (!botMember?.voice?.channelId || String(botMember.voice.channelId) !== targetVoiceId) return false;
+  if (!botMember?.voice?.channelId || String(botMember.voice.channelId) !== botVoiceId) return false;
 
   return handleFindBotVoiceWin(client, guild, member, active.game, active.cfg);
 }

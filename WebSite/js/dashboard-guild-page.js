@@ -859,19 +859,27 @@
 
   function setError(msg) {
     var el = byId("vc-dashboard-guild-error");
-    if (!el) return;
     clearErrorTimer();
-    if (!msg) {
+    if (el) {
       el.setAttribute("hidden", "");
       el.textContent = "";
+    }
+    var text = String(msg || "").trim();
+    // toastOnlyAlerts1: errori guild → toast (niente banner).
+    if (!text) {
       state.errorView = "";
       return;
     }
-    el.removeAttribute("hidden");
-    el.textContent = msg;
     state.errorView = state.view || currentView();
     setSuccess("");
-        state.errorTimer = setTimeout(function () {
+    if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+      window.VcSiteToast.show(text, true, { ms: 4200 });
+      return;
+    }
+    if (!el) return;
+    el.removeAttribute("hidden");
+    el.textContent = text;
+    state.errorTimer = setTimeout(function () {
       state.errorTimer = null;
       setError("");
     }, 6000);
@@ -886,18 +894,25 @@
 
   function setSuccess(msg) {
     var el = byId("vc-dashboard-guild-success");
-    if (!el) return;
     clearSuccessTimer();
-    if (!msg) {
+    if (el) {
       el.setAttribute("hidden", "");
       el.textContent = "";
+    }
+    var text = String(msg || "").trim();
+    // toastOnlyAlerts1: successi guild → toast.
+    if (!text) {
       state.successView = "";
       return;
     }
-    el.removeAttribute("hidden");
-    el.textContent = msg;
     state.successView = state.view || currentView();
-    setError("");
+    if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+      window.VcSiteToast.show(text, false, { ms: 2800 });
+      return;
+    }
+    if (!el) return;
+    el.removeAttribute("hidden");
+    el.textContent = text;
     state.successTimer = setTimeout(function () {
       state.successTimer = null;
       setSuccess("");
@@ -6338,8 +6353,12 @@
   async function undoMigration() {
     var token = getToken();
     if (!token || !state.guildId || state.saving) return;
-    var ok = await (window.VcDialog
-      ? window.VcDialog.confirm({
+    var ok = await (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return false;
+      return D.confirm({
           title: i18n("dash.mig.undoTitle", "Annullare i dati migrazione?"),
           message: i18n(
             "dash.mig.undoConfirm",
@@ -6349,15 +6368,8 @@
           cancelLabel: i18n("dash.bl.cancel", "Annulla"),
           danger: true,
           icon: "fa-trash-o",
-        })
-      : Promise.resolve(
-          window.confirm(
-            i18n(
-              "dash.mig.undoConfirm",
-              "Cancellare SOLO i dati importati dall’ultima migrazione? I punti/partnership fatti a mano dopo restano.",
-            ),
-          ),
-        ));
+        });
+    });
     if (!ok) return;
     var undoBtn = byId("ps-migration-undo-btn");
     state.saving = true;
@@ -11133,7 +11145,20 @@
       renameBtn.addEventListener("click", async function () {
         var team = getSelectedTicketTeam();
         if (!team || team.isDefault) return;
-        var next = window.prompt(i18n("dash.tickets.teamsRenamePrompt", "Nuovo nome team"), team.name);
+        var __D = window.VcDialog;
+        if (!__D || typeof __D.prompt !== "function") {
+          if (typeof window.__vcEnsureDialog === "function") __D = await window.__vcEnsureDialog();
+        }
+        if (!__D || typeof __D.prompt !== "function") return;
+        var next = await __D.prompt({
+          title: i18n("dash.tickets.teamsRenameTitle", "Rinomina team"),
+          message: i18n("dash.tickets.teamsRenamePrompt", "Nuovo nome team"),
+          label: i18n("dash.tickets.teamsName", "Nome"),
+          defaultValue: team.name,
+          confirmLabel: i18n("dash.tickets.teamsRenameOk", "Rinomina"),
+          cancelLabel: i18n("dash.bl.cancel", "Annulla"),
+          icon: "fa-pencil",
+        });
         if (next == null) return;
         next = String(next).trim();
         if (!next || next === team.name) return;
@@ -11147,13 +11172,22 @@
       deleteBtn.addEventListener("click", async function () {
         var team = getSelectedTicketTeam();
         if (!team || team.isDefault || state.ticketTeamsSaving) return;
-        if (
-          !window.confirm(
-            i18n("dash.tickets.teamsDeleteConfirm", "Eliminare il team \"{name}\"?", {
-              name: team.name,
-            }),
-          )
-        ) {
+        var __Ddel = window.VcDialog;
+        if (!__Ddel || typeof __Ddel.confirm !== "function") {
+          if (typeof window.__vcEnsureDialog === "function") __Ddel = await window.__vcEnsureDialog();
+        }
+        if (!__Ddel || typeof __Ddel.confirm !== "function") return;
+        var confirmedTeam = await __Ddel.confirm({
+          title: i18n("dash.tickets.teamsDeleteTitle", "Eliminare il team?"),
+          message: i18n("dash.tickets.teamsDeleteConfirm", "Eliminare il team \"{name}\"?", {
+            name: team.name,
+          }),
+          confirmLabel: i18n("dash.tickets.teamsDeleteOk", "Elimina"),
+          cancelLabel: i18n("dash.bl.cancel", "Annulla"),
+          danger: true,
+          icon: "fa-trash-o",
+        });
+        if (!confirmedTeam) {
           return;
         }
         state.ticketTeamsSaving = true;
@@ -11443,11 +11477,20 @@
         if (!btn || state.ticketBlacklistSaving) return;
         var id = String(btn.getAttribute("data-tk-bl-remove") || "").trim();
         if (!id) return;
-        if (
-          !window.confirm(
-            i18n("dash.tickets.blacklistConfirmRemove", "Rimuovere questa entry dalla blacklist?"),
-          )
-        ) {
+        var __Dbl = window.VcDialog;
+        if (!__Dbl || typeof __Dbl.confirm !== "function") {
+          if (typeof window.__vcEnsureDialog === "function") __Dbl = await window.__vcEnsureDialog();
+        }
+        if (!__Dbl || typeof __Dbl.confirm !== "function") return;
+        var confirmedBl = await __Dbl.confirm({
+          title: i18n("dash.tickets.blacklistRemoveTitle", "Rimuovere dalla blacklist?"),
+          message: i18n("dash.tickets.blacklistConfirmRemove", "Rimuovere questa entry dalla blacklist?"),
+          confirmLabel: i18n("dash.tickets.blacklistRemoveOk", "Rimuovi"),
+          cancelLabel: i18n("dash.bl.cancel", "Annulla"),
+          danger: true,
+          icon: "fa-trash-o",
+        });
+        if (!confirmedBl) {
           return;
         }
         state.ticketBlacklistSaving = true;
@@ -12291,10 +12334,20 @@
       renameBtn.addEventListener("click", async function () {
         var form = getSelectedTicketForm();
         if (!form || state.ticketFormsSaving) return;
-        var next = window.prompt(
-          i18n("dash.tickets.formsRenamePrompt", "Nuovo titolo del form:"),
-          String(form.title || ""),
-        );
+        var __Df = window.VcDialog;
+        if (!__Df || typeof __Df.prompt !== "function") {
+          if (typeof window.__vcEnsureDialog === "function") __Df = await window.__vcEnsureDialog();
+        }
+        if (!__Df || typeof __Df.prompt !== "function") return;
+        var next = await __Df.prompt({
+          title: i18n("dash.tickets.formsRenameTitle", "Rinomina form"),
+          message: i18n("dash.tickets.formsRenamePrompt", "Nuovo titolo del form:"),
+          label: i18n("dash.tickets.formsTitle", "Titolo"),
+          defaultValue: String(form.title || ""),
+          confirmLabel: i18n("dash.tickets.formsRenameOk", "Rinomina"),
+          cancelLabel: i18n("dash.bl.cancel", "Annulla"),
+          icon: "fa-pencil",
+        });
         if (next == null) return;
         next = String(next).trim();
         if (!next || next === form.title) return;
@@ -12336,8 +12389,12 @@
         var form = getSelectedTicketForm();
         if (!form || state.ticketFormsSaving) return;
         var formName = String(form.title || "").trim() || form.id;
-        var ok = await (window.VcDialog
-          ? window.VcDialog.confirm({
+        var ok = await (typeof window.__vcEnsureDialog === "function"
+          ? window.__vcEnsureDialog()
+          : Promise.resolve(window.VcDialog)
+        ).then(function (D) {
+          if (!D || typeof D.confirm !== "function") return false;
+          return D.confirm({
               title: i18n("dash.tickets.formsDeleteTitle", "Eliminare il form?"),
               message: i18n(
                 "dash.tickets.formsConfirmDelete",
@@ -12350,15 +12407,8 @@
               cancelLabel: i18n("dash.bl.cancel", "Annulla"),
               danger: true,
               icon: "fa-trash-o",
-            })
-          : Promise.resolve(
-              window.confirm(
-                i18n("dash.tickets.formsConfirmDelete", "Eliminare il form «{name}»?").replace(
-                  "{name}",
-                  formName,
-                ),
-              ),
-            ));
+            });
+        });
         if (!ok) return;
         state.ticketFormsSaving = true;
         try {
@@ -15819,8 +15869,12 @@
           return;
         }
         if (delId) {
-          var delOk = await (window.VcDialog
-            ? window.VcDialog.confirm({
+          var delOk = await (typeof window.__vcEnsureDialog === "function"
+            ? window.__vcEnsureDialog()
+            : Promise.resolve(window.VcDialog)
+          ).then(function (D) {
+            if (!D || typeof D.confirm !== "function") return false;
+            return D.confirm({
                 title: i18n("dash.tickets.panelDeleteTitle", "Eliminare il pannello?"),
                 message: i18n(
                   "dash.tickets.panelConfirmDelete",
@@ -15830,8 +15884,8 @@
                 cancelLabel: i18n("dash.bl.cancel", "Annulla"),
                 danger: true,
                 icon: "fa-trash-o",
-              })
-            : Promise.resolve(window.confirm("Eliminare questo pannello?")));
+              });
+          });
           if (!delOk) return;
           var dout = await ticketPanelsApi("/panels/" + encodeURIComponent(delId), "DELETE");
           if (!dout.res.ok || !dout.data || dout.data.ok === false) {
@@ -15872,8 +15926,12 @@
           return;
         }
         if (delId) {
-          var delOk = await (window.VcDialog
-            ? window.VcDialog.confirm({
+          var delOk = await (typeof window.__vcEnsureDialog === "function"
+            ? window.__vcEnsureDialog()
+            : Promise.resolve(window.VcDialog)
+          ).then(function (D) {
+            if (!D || typeof D.confirm !== "function") return false;
+            return D.confirm({
                 title: i18n("dash.tickets.multiDeleteTitle", "Eliminare il multi-panel?"),
                 message: i18n(
                   "dash.tickets.multiConfirmDelete",
@@ -15883,8 +15941,8 @@
                 cancelLabel: i18n("dash.bl.cancel", "Annulla"),
                 danger: true,
                 icon: "fa-trash-o",
-              })
-            : Promise.resolve(window.confirm("Eliminare questo multi-panel?")));
+              });
+          });
           if (!delOk) return;
           var dout = await ticketPanelsApi("/multipanels/" + encodeURIComponent(delId), "DELETE");
           if (!dout.res.ok || !dout.data || dout.data.ok === false) {

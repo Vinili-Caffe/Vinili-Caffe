@@ -43,6 +43,8 @@
   var inboxRealtimeRefreshPending = false;
   var inboxPollTimer = null;
   var initialQueueLoaded = false;
+  var pendingFocusItemId = "";
+  var pendingFocusConsumed = false;
   var lastQueueLoadFailed = false;
   var initialLoadPromise = null;
   var loadQueueCoalesce = null;
@@ -62,6 +64,35 @@
   var SUMMARY_CACHE_TTL_MS = 90000;
   var SUMMARY_CACHE_LOCAL_TTL_MS = 300000;
   var inboxBooting = false;
+  var lastInboxListPaintSig = "";
+
+  function inboxListPaintSig() {
+    try {
+      return (
+        String(state.tab || "") +
+        "|" +
+        String(state.scope || "") +
+        "|" +
+        String(state.filter || "") +
+        "|" +
+        String(state.selectedKey || "") +
+        "|" +
+        (state.items || [])
+          .map(function (it) {
+            return [
+              itemKey(it),
+              String((it && it.status) || ""),
+              String((it && it.displayName) || ""),
+              String((it && it.avatarUrl) || ""),
+              String((it && it.updatedAt) || (it && it.createdAt) || ""),
+            ].join(":");
+          })
+          .join(",")
+      );
+    } catch (eSig) {
+      return String(Date.now());
+    }
+  }
 
   function inboxLoadBusy() {
     return Boolean(loadInFlightNonQuiet);
@@ -84,6 +115,16 @@
       if (loadAbortCtrl) loadAbortCtrl.abort();
     } catch (eAbort) {}
     loadAbortCtrl = null;
+    /* Always lift FS gate — mobile watchdogs used to leave GATE_HOLD forever after staffBooted. */
+    try {
+      initialQueueLoaded = true;
+      inboxBooting = false;
+      hideInboxFsLoading(true);
+      hideInboxBootScreen(true);
+    } catch (eGate) {}
+    try {
+      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eUnpin) {}
   }
 
   function forceAppealSyncLoad(reason) {
@@ -235,11 +276,81 @@
     syncUrlState();
   }
 
+  function urlHasExplicitInboxTab() {
+    try {
+      var params = new URLSearchParams(location.search);
+      var key = inboxTabQueryKey();
+      var q = String(params.get(key) || "").trim().toLowerCase();
+      if (q === "staff" || q === "personal") q = "";
+      if (
+        TABS.some(function (t) {
+          return t.id === q;
+        })
+      ) {
+        return true;
+      }
+      if (isInboxEmbed()) {
+        var legacy = String(params.get("tab") || "").trim().toLowerCase();
+        return TABS.some(function (t) {
+          return t.id === legacy;
+        });
+      }
+    } catch (eExplicit) {}
+    return false;
+  }
+
+  function readPendingFocusFromUrl() {
+    try {
+      var params = new URLSearchParams(location.search);
+      var raw = String(params.get("item") || "").trim();
+      if (raw && !pendingFocusConsumed) pendingFocusItemId = raw;
+    } catch (eFocus) {}
+  }
+
+  function itemMatchesFocusId(item, focusId) {
+    if (!item || !focusId) return false;
+    var fid = String(focusId);
+    var mid = String(item.messageId || "").trim();
+    var rid = String(item.recordId || "").trim();
+    var iid = String(item.id || "").trim();
+    var dk = String(item.dedupeKey || "").trim();
+    if (mid && mid === fid) return true;
+    if (rid && rid === fid) return true;
+    if (iid && iid === fid) return true;
+    if (dk && (dk === fid || dk.indexOf(":" + fid) >= 0)) return true;
+    return false;
+  }
+
+  function clearPendingFocusFromUrl() {
+    try {
+      var u = new URL(location.href);
+      if (!u.searchParams.has("item")) return;
+      u.searchParams.delete("item");
+      history.replaceState({}, "", u.pathname + u.search);
+    } catch (eClrFocus) {}
+  }
+
+  function tryOpenPendingFocusItem() {
+    if (!pendingFocusItemId || pendingFocusConsumed || !state.items.length) return false;
+    var focusId = pendingFocusItemId;
+    var item = state.items.find(function (it) {
+      return itemMatchesFocusId(it, focusId);
+    });
+    if (!item) return false;
+    pendingFocusConsumed = true;
+    pendingFocusItemId = "";
+    clearPendingFocusFromUrl();
+    openDetail(item);
+    return true;
+  }
+
     function pickBestTabFromSummary(opts) {
     opts = opts || {};
     if (!permissionsReady()) return;
     if (!state.summary || typeof state.summary !== "object") return;
     ensureAccessibleTab();
+    if (opts.respectUrl && urlHasExplicitInboxTab()) return;
+    if (pendingFocusItemId && urlHasExplicitInboxTab()) return;
     var skipEmpty = Boolean(opts.skipEmpty);
     function tabHasPending(id) {
       if (!canAccessTab(id)) return false;
@@ -262,9 +373,9 @@
 
   function listEmptyDespitePending() {
     if (state.items && state.items.length) return false;
-    if (state.scope !== "pending") return false;
+    if (state.page > 1) return false;
     if (!state.summary || typeof state.summary !== "object") return false;
-            return Number(state.summary[state.tab] || 0) > 0 && !emptyLoadedTabs[state.tab];
+    return Number(state.summary[state.tab] || 0) > 0 && !emptyLoadedTabs[state.tab];
   }
 
   function markTabConfirmedEmpty(tabId) {
@@ -405,12 +516,24 @@
       scheduleMobileAppealBootGuarantee();
     }
     armSkeletonWatchdog();
-        return loadQueue({ soft: true, _boot: true }).then(function () {
+    // Hard boot: soft+quiet follow-up used to wipe a good first stamp with an empty payload.
+    return loadQueue({ soft: false, _boot: true, _userIntent: true }).then(function () {
       afterBootQueue();
       window.setTimeout(function () {
         if (!isStaffScopeActive()) return;
-                loadQueue({ soft: true, sync: true, quiet: true, _internal: true }).catch(function () {});
-      }, 120);
+        if (!state.items.length && Number((state.summary && state.summary[state.tab]) || 0) > 0) {
+          loadQueue({
+            soft: false,
+            sync: true,
+            _internal: true,
+            _emptyRetry: true,
+            _userIntent: true,
+          }).catch(function () {});
+          return;
+        }
+        if (!state.items.length) return;
+        loadQueue({ soft: true, sync: true, quiet: true, _internal: true }).catch(function () {});
+      }, 180);
     });
   }
 
@@ -474,7 +597,8 @@
   function schedulePendingListRetry() {
     if (pendingListRetryTimer || !isStaffScopeActive()) return;
     if (inboxLoadBusy()) return;
-        if (!initialQueueLoaded || bootLoadSeq) return;
+    // Allow retry even late in boot when badge says items exist but list is empty.
+    if (bootLoadSeq && seqMatchesBootStillLoading()) return;
     if (pendingListRetryCount >= PENDING_LIST_RETRY_MAX) {
       reconcileStalePendingSummary();
       finishQueueLoad(loadSeq, { force: true });
@@ -484,8 +608,18 @@
       pendingListRetryTimer = null;
       if (!listEmptyDespitePending() || inboxLoadBusy()) return;
       pendingListRetryCount += 1;
-      loadQueue({ soft: true, _internal: true, sync: true, _emptyRetry: true }).catch(function () {});
-    }, 650);
+      loadQueue({
+        soft: false,
+        _internal: true,
+        sync: true,
+        _emptyRetry: true,
+        _userIntent: true,
+      }).catch(function () {});
+    }, 450);
+  }
+
+  function seqMatchesBootStillLoading() {
+    return Boolean(bootLoadSeq && loadInFlightNonQuiet && bootLoadSeq === loadSeq);
   }
 
   function waitForDiscordToken() {
@@ -522,7 +656,6 @@
 
   function finalizeVisibleQueueLoad(seq, quiet) {
     if (!quiet && seq === loadSeq) {
-            hideInboxBootScreen();
       initialQueueLoaded = true;
       try {
         renderTabs();
@@ -563,9 +696,12 @@
       state.week = String(params.get("week") || "").trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(state.week)) state.week = "";
       state.page = Math.max(1, Number(params.get("page") || "1") || 1);
+      readPendingFocusFromUrl();
+      if (pendingFocusItemId && state.scope !== "all") state.scope = "pending";
     } catch (eUrl) {
       state.tab = currentTab();
       state.scope = currentScope();
+      readPendingFocusFromUrl();
     }
     ensureAccessibleTab();
   }
@@ -657,6 +793,7 @@
           var data = JSON.parse(String(ev.data || ""));
           if (!data) return;
           if (data.type === "staff_workflow_changed" || data.type === "staff_pauses_changed") {
+            invalidateWorkflowCache();
             scheduleInboxRefreshFromRealtime();
           }
         } catch (eMsg) {}
@@ -686,6 +823,7 @@
     }
     var row = state.items[idx];
     var prev = state.detail || {};
+    var prevDecidedName = String(prev.decidedByName || "").trim();
     state.detail = Object.assign({}, prev, row, {
       dedupeKey: row.dedupeKey || prev.dedupeKey || "",
       messageId: row.messageId || prev.messageId || "",
@@ -693,12 +831,32 @@
       body: row.body || prev.body || "",
       content: row.content || prev.content || "",
       fields: Array.isArray(prev.fields) && prev.fields.length ? prev.fields : row.fields,
+      decidedBy: preferNonEmptyText(row.decidedBy, prev.decidedBy) || null,
+      decidedByName: preferNonEmptyText(row.decidedByName, prev.decidedByName) || null,
+      decidedAt: row.decidedAt || prev.decidedAt || null,
     });
     renderList();
-    renderDetail();
-    if (String(row.status || "").toLowerCase() !== "pending") {
-      teardownChat();
+    var nextDecidedName = String((state.detail && state.detail.decidedByName) || "").trim();
+    if (!shouldRemountDetailForSoftSync(row)) {
+      if (nextDecidedName && nextDecidedName !== prevDecidedName) {
+        if (!patchDecisionMetaInDom(state.detail)) renderDetail();
+      } else {
+        patchDecisionMetaInDom(state.detail);
+      }
+      return;
     }
+    renderDetail();
+  }
+
+  function shouldRemountDetailForSoftSync(row) {
+    if (!state.selectedKey || !state.detail) return true;
+    if (!row) return true;
+    try {
+      if (document.getElementById("vc-wfc-root") && window.VcWorkflowChat) {
+        return false;
+      }
+    } catch (eRoot) {}
+    return true;
   }
 
   function selectedItemStillInList() {
@@ -736,8 +894,9 @@
         return;
       }
       inboxRealtimeRefreshPending = false;
-      loadQueue({ quiet: true, sync: Boolean(opts.sync) }).then(function () {
-        loadSummary().catch(function () {});
+      /* inboxLiveDecisionFix1: bypass GET cache on live decision refresh */
+      loadQueue({ quiet: true, sync: Boolean(opts.sync), _realtime: true, cache: false }).then(function () {
+        loadSummary({ cache: false }).catch(function () {});
         syncDetailWithList();
       });
     }, opts.immediate ? 80 : 320);
@@ -747,9 +906,17 @@
     if (state.inboxSoftRefreshTimer) clearTimeout(state.inboxSoftRefreshTimer);
     state.inboxSoftRefreshTimer = setTimeout(function () {
       state.inboxSoftRefreshTimer = null;
-      loadQueue({ quiet: true }).catch(function () {});
-      loadSummary().catch(function () {});
+      loadQueue({ quiet: true, _realtime: true, cache: false }).catch(function () {});
+      loadSummary({ cache: false }).catch(function () {});
     }, 450);
+  }
+
+  function invalidateWorkflowCache() {
+    try {
+      if (window.VcApiCache && typeof window.VcApiCache.invalidateContains === "function") {
+        window.VcApiCache.invalidateContains("site-staff-workflows");
+      }
+    } catch (eInv) {}
   }
 
   function ensureInboxPoll() {
@@ -914,6 +1081,7 @@
       false,
     );
     teardownChat();
+    invalidateWorkflowCache();
     scheduleInboxSoftRefresh();
         scheduleInboxRefreshFromRealtime({ immediate: true });
   }
@@ -973,15 +1141,36 @@
       statusLabel: itemPatch.statusLabel || prev.statusLabel || "",
       actionKey: itemPatch.actionKey != null ? itemPatch.actionKey : prev.actionKey,
       canAct: itemPatch.canAct != null ? itemPatch.canAct : prev.canAct,
+      decidedBy: preferNonEmptyText(itemPatch.decidedBy, prev.decidedBy) || null,
+      decidedByName: preferNonEmptyText(itemPatch.decidedByName, prev.decidedByName) || null,
+      decidedAt: itemPatch.decidedAt || prev.decidedAt || null,
     });
     if (state.selectedKey && itemKey(state.items[idx]) === state.selectedKey) {
-      state.detail = Object.assign({}, state.detail || {}, state.items[idx]);
+      var prevDetail = state.detail || {};
+      var prevDecidedName = String(prevDetail.decidedByName || "").trim();
+      state.detail = Object.assign({}, prevDetail, state.items[idx], {
+        decidedBy: preferNonEmptyText(state.items[idx].decidedBy, prevDetail.decidedBy) || null,
+        decidedByName:
+          preferNonEmptyText(state.items[idx].decidedByName, prevDetail.decidedByName) || null,
+        decidedAt: state.items[idx].decidedAt || prevDetail.decidedAt || null,
+      });
+    renderList();
+      var nextDecidedName = String((state.detail && state.detail.decidedByName) || "").trim();
+      if (!shouldRemountDetailForSoftSync(state.items[idx])) {
+        if (nextDecidedName !== prevDecidedName || state.items[idx].decidedAt) {
+          if (!patchDecisionMetaInDom(state.detail)) renderDetail();
+        }
+        return;
+      }
+    renderDetail();
+      return;
     }
     renderList();
-    renderDetail();
-    if (String(state.items[idx].status || "").toLowerCase() !== "pending") {
-      teardownChat();
+    // Mai teardown della discussione su sync lista (post-decisione: canSend→false via status).
+    if (!shouldRemountDetailForSoftSync(state.items[idx])) {
+      return;
     }
+    renderDetail();
   }
 
   function applyWorkflowActionResponse(out, body) {
@@ -1016,16 +1205,30 @@
 
   function workflowDedupeKey(item, tab) {
     if (!item) return "";
-    if (item.dedupeKey) return String(item.dedupeKey);
     var q = String(tab || state.tab || "").trim().toLowerCase();
     if (q === "pause") {
       var uid = String(item.userId || "").trim();
       var pid = String(item.id || item.pauseId || "").trim();
+      if (item.dedupeKey && String(item.dedupeKey).indexOf("pause:") === 0) {
+        return String(item.dedupeKey);
+      }
       return uid && pid ? "pause:" + uid + ":" + pid : "";
     }
-    var mid = String(item.messageId || item.recordId || item.id || "").trim();
-    if (!mid || !q) return "";
-    return q + ":" + mid;
+    // Prefer messageId so list→detail remount keeps the same chat key.
+    var mid = String(item.messageId || "").trim();
+    if (mid && q) return q + ":" + mid;
+    if (item.dedupeKey) return String(item.dedupeKey);
+    var rid = String(item.recordId || item.id || "").trim();
+    if (!rid || !q) return "";
+    return q + ":" + rid;
+  }
+
+  function captureWorkflowChatDraft() {
+    try {
+      if (window.VcWorkflowChat && typeof window.VcWorkflowChat.captureDraft === "function") {
+        window.VcWorkflowChat.captureDraft();
+      }
+    } catch (eCap) {}
   }
 
   function initWorkflowChat() {
@@ -1043,7 +1246,13 @@
       byId: T.byId,
       getToken: T.getToken,
       sendBtnClass: "vc-staff-inbox-btn vc-staff-inbox-btn--ok",
+      // inboxReadonly1: never force archive mode; pending → composer, closed → sola lettura.
+      forceReadOnly: false,
+      panelTitle: "Discussione",
+      panelHint: "Emoji · @utenti · #canali · risposte · allegati",
+      closedHint: "Pratica chiusa",
       closedMessage: "Chat in sola lettura: la pratica non è più in attesa.",
+      emptyReadOnlyMessage: "Nessun messaggio in discussione.",
       notify: function (msg, isError) {
         inboxNotify(msg, isError);
       },
@@ -1051,6 +1260,12 @@
   }
 
   function teardownChat() {
+    try {
+      if (bootChatForDetail._timer) {
+        window.clearTimeout(bootChatForDetail._timer);
+        bootChatForDetail._timer = 0;
+      }
+    } catch (eT) {}
     if (window.VcWorkflowChat) window.VcWorkflowChat.teardown();
   }
 
@@ -1066,7 +1281,19 @@
 
   function bootChatForDetail(item) {
     initWorkflowChat();
-    if (window.VcWorkflowChat) window.VcWorkflowChat.boot(item, state.tab);
+    if (!window.VcWorkflowChat || !item) return;
+    // inboxDetailChatRace1: leave a beat so detail fetch goes first (avoids 429 stampede).
+    try {
+      if (bootChatForDetail._timer) window.clearTimeout(bootChatForDetail._timer);
+    } catch (eClr) {}
+    var key = itemKey(item);
+    bootChatForDetail._timer = window.setTimeout(function () {
+      bootChatForDetail._timer = 0;
+      if (state.selectedKey !== key) return;
+      try {
+        window.VcWorkflowChat.boot(item, state.tab);
+      } catch (eBoot) {}
+    }, 420);
   }
 
   initWorkflowChat();
@@ -1151,7 +1378,7 @@
         return;
       }
       var s = document.createElement("script");
-      s.src = "/js/staff-punti-tolti-page.js?v=20260830chatRole1";
+      s.src = "/js/staff-punti-tolti-page.js?v=20260904ptScopeUnified1";
       s.async = true;
       s.setAttribute("data-vc-staff-pt-js", "1");
       s.onload = function () {
@@ -1204,8 +1431,8 @@
       filters.innerHTML = "";
     }
     if (scopeEl) {
-      scopeEl.hidden = true;
-      scopeEl.innerHTML = "";
+      scopeEl.hidden = false;
+      scopeEl.removeAttribute("hidden");
     }
     if (week) {
       week.hidden = true;
@@ -1231,6 +1458,10 @@
       } catch (eMount) {
         return false;
       }
+      try {
+        renderScopeToggle();
+        renderTabs();
+      } catch (eChrome) {}
       return true;
     });
   }
@@ -1250,7 +1481,7 @@
     state.pagination = null;
     syncUrlState();
     showInboxLoading("skeleton");
-    loadQueue();
+    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true });
   }
 
   function setScope(scope) {
@@ -1260,9 +1491,12 @@
     state.detailLoading = false;
     state.detailError = "";
     state.page = 1;
+    state.items = [];
+    state.pagination = null;
     syncUrlState();
     renderDetail();
-    loadQueue({ soft: true });
+    showInboxLoading("skeleton");
+    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true });
   }
 
   function setFilter(filterId) {
@@ -1271,9 +1505,12 @@
     state.selectedKey = "";
     state.detailLoading = false;
     state.page = 1;
+    state.items = [];
+    state.pagination = null;
     syncUrlState();
     renderDetail();
-    loadQueue({ soft: true });
+    showInboxLoading("skeleton");
+    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true });
   }
 
   function setWeek(weekKey) {
@@ -1283,9 +1520,12 @@
     state.selectedKey = "";
     state.detailLoading = false;
     state.page = 1;
+    state.items = [];
+    state.pagination = null;
     syncUrlState();
     renderDetail();
-    loadQueue({ soft: true });
+    showInboxLoading("skeleton");
+    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true });
   }
 
   function setPage(page) {
@@ -1367,6 +1607,9 @@
   }
 
   function inboxFilterHint() {
+    if (isPuntiToltiTab()) {
+      return "Conferma o nega le segnalazioni in attesa prima di chiudere il turno.";
+    }
     if (state.tab === "pause") return "Controlla le richieste di pausa in coda prima di chiudere.";
     if (state.tab === "candidature") return "Approva o rifiuta le candidature in attesa.";
     if (state.tab === "appelli") return "Valuta unban e unmute in coda.";
@@ -1386,7 +1629,7 @@
     wrap.classList.add("vc-staff-inbox-board-toolbar");
     var hint = wrap.querySelector(".vc-staff-inbox-board-toolbar__hint");
     var text = inboxFilterHint();
-    if (!text || isPuntiToltiTab()) {
+    if (!text) {
       if (hint) hint.remove();
       return;
     }
@@ -1500,31 +1743,70 @@
   function buildPaginationHtml() {
     var p = state.pagination;
     if (!p) return "";
-    var pageSize = currentPageSize();
     var page = Math.max(1, Number(p.page) || state.page || 1);
     var totalPages = Math.max(1, Number(p.totalPages) || 1);
     var total = Math.max(0, Number(p.total) || 0);
     if (!total && !(state.items && state.items.length)) return "";
-    var from = total ? (page - 1) * pageSize + 1 : 0;
-    var to = Math.min(total, page * pageSize);
-    var navDisabled = totalPages <= 1;
+    if (totalPages <= 1) return "";
+
+    function pageBtn(n, active) {
     return (
-      '<div class="vc-staff-inbox-pagination__info">' +
-      T.esc(total ? from + "\u2013" + to + " di " + total : "0 risultati") +
-      "</div>" +
-      '<div class="vc-staff-inbox-pagination__nav">' +
-      '<button type="button" class="vc-staff-inbox-page-btn" data-page="prev"' +
-      (navDisabled || page <= 1 ? " disabled" : "") +
-      ">\u2190 Prec</button>" +
-      '<span class="vc-staff-inbox-pagination__label">Pagina ' +
-      page +
-      " / " +
-      totalPages +
-      "</span>" +
-      '<button type="button" class="vc-staff-inbox-page-btn" data-page="next"' +
-      (navDisabled || page >= totalPages ? " disabled" : "") +
-      ">Succ \u2192</button>" +
-      "</div>"
+        '<button type="button" class="vc-staff-pt-seg__btn' +
+        (active ? " is-active" : "") +
+        '" data-page="' +
+        n +
+        '" aria-label="Pagina ' +
+        n +
+        '"' +
+        (active ? ' aria-current="page"' : "") +
+        ">" +
+        n +
+        "</button>"
+      );
+    }
+
+    function gap() {
+      return '<span class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__gap" aria-hidden="true">\u2026</span>';
+    }
+
+    // Finestra numeri tipo switcher (mai "1 / 8" come label unica).
+    var nums = [];
+    var windowSize = 5;
+    if (totalPages <= windowSize + 2) {
+      for (var i = 1; i <= totalPages; i += 1) nums.push(i);
+    } else {
+      var half = Math.floor(windowSize / 2);
+      var start = Math.max(2, page - half);
+      var end = Math.min(totalPages - 1, page + half);
+      if (page - half < 2) end = Math.min(totalPages - 1, windowSize + 1);
+      if (page + half > totalPages - 1) start = Math.max(2, totalPages - windowSize);
+      nums.push(1);
+      if (start > 2) nums.push("…");
+      for (var j = start; j <= end; j += 1) nums.push(j);
+      if (end < totalPages - 1) nums.push("…");
+      nums.push(totalPages);
+    }
+
+    var pagesHtml =
+      '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__navbtn" data-page="prev"' +
+      (page <= 1 ? " disabled" : "") +
+      ' aria-label="Pagina precedente">\u2190</button>';
+    nums.forEach(function (n) {
+      if (n === "…") pagesHtml += gap();
+      else pagesHtml += pageBtn(n, n === page);
+    });
+    pagesHtml +=
+      '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__navbtn" data-page="next"' +
+      (page >= totalPages ? " disabled" : "") +
+      ' aria-label="Pagina successiva">\u2192</button>';
+
+    return (
+      '<div class="vc-staff-inbox-pagination__row">' +
+      '<div class="vc-staff-pt-seg vc-staff-inbox-pagination__seg" role="navigation" aria-label="Pagine elenco (' +
+      T.esc(String(total)) +
+      ' voci)">' +
+      pagesHtml +
+      "</div></div>"
     );
   }
 
@@ -1534,8 +1816,15 @@
       btn.addEventListener("click", function () {
         if (btn.disabled) return;
         var dir = btn.getAttribute("data-page");
-        if (dir === "prev") setPage(page - 1);
-        else if (dir === "next") setPage(page + 1);
+        var next = page;
+        if (dir === "prev") next = page - 1;
+        else if (dir === "next") next = page + 1;
+        else {
+          var n = Number(dir);
+          if (Number.isFinite(n) && n >= 1) next = n;
+        }
+        if (next === page) return;
+        setPage(next);
         var list = T.byId("vc-staff-inbox-list");
         if (list && list.scrollIntoView) list.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -1574,8 +1863,35 @@
       wrap.classList.add("vc-staff-inbox-board-toolbar");
     }
     if (isPuntiToltiTab()) {
-      root.hidden = true;
-      root.innerHTML = "";
+      var pendingOnly = false;
+      try {
+        if (window.VCStaffPuntiTolti && typeof window.VCStaffPuntiTolti.isPendingOnly === "function") {
+          pendingOnly = Boolean(window.VCStaffPuntiTolti.isPendingOnly());
+        }
+      } catch (ePt) {}
+      root.hidden = false;
+      root.removeAttribute("hidden");
+      root.className = "vc-staff-inbox-filter-group vc-staff-inbox-filter-group--board";
+      root.innerHTML =
+        '<div class="vc-staff-pt-seg" role="group" aria-label="Filtro elenco">' +
+        '<button type="button" class="' +
+        filterBtnClass(!pendingOnly) +
+        '" data-pt-scope="all">Tutti</button>' +
+        '<button type="button" class="' +
+        filterBtnClass(pendingOnly) +
+        '" data-pt-scope="pending">In attesa</button>' +
+        "</div>";
+      root.querySelectorAll("[data-pt-scope]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var next = btn.getAttribute("data-pt-scope") === "pending";
+          try {
+            if (window.VCStaffPuntiTolti && typeof window.VCStaffPuntiTolti.setPendingOnly === "function") {
+              window.VCStaffPuntiTolti.setPendingOnly(next);
+            }
+          } catch (eSet) {}
+          renderScopeToggle();
+        });
+      });
       syncInboxFilterHint();
       return;
     }
@@ -1599,6 +1915,10 @@
     });
     syncInboxFilterHint();
   }
+
+  try {
+    window.__vcRenderStaffInboxScope = renderScopeToggle;
+  } catch (eScopeHook) {}
 
   function renderTabs() {
     var root = T.byId("vc-staff-inbox-tabs");
@@ -1793,6 +2113,14 @@
     return formatWorkflowType(type) || name || "Voce";
   }
 
+  function discordIdOnlyValue(item, rawValue) {
+    var uid = String((item && item.userId) || "").trim();
+    if (/^\d{16,22}$/.test(uid)) return uid;
+    var raw = String(rawValue || "");
+    var m = raw.match(/(\d{16,22})/);
+    return m ? m[1] : "\u2014";
+  }
+
     function resolveSubjectUserValue(item, rawValue) {
     var name = cleanDiscordText(item && item.displayName ? item.displayName : "");
     var uid = String((item && item.userId) || "").trim();
@@ -1855,10 +2183,69 @@
   }
 
   function typeBadge(item) {
-    if (state.tab !== "candidature" || !item.type) return "";
+    if (state.tab === "pause" && item) {
+      return pauseRoleBadgesHtml(item);
+    }
+    if (state.tab === "candidature" && item && item.type) {
     return (
       '<span class="vc-staff-inbox-type-badge">' + T.esc(formatWorkflowType(item.type)) + "</span>"
     );
+    }
+    if (state.tab === "appelli" && item && item.kind) {
+      var kindLabel =
+        item.kind === "unban" ? "Unban" : item.kind === "unmute" ? "Unmute" : "";
+      if (!kindLabel) return "";
+      return (
+        '<span class="vc-staff-inbox-type-badge vc-staff-inbox-type-badge--appeal">' +
+        T.esc(kindLabel) +
+        "</span>"
+      );
+    }
+    return "";
+  }
+
+  function pauseRoleBadgeLabels(item) {
+    if (!item) return [];
+    var track = String(item.ruoloTrack || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+    var label = String(item.ruoloRichiesto || item.ruolo || "")
+      .trim()
+      .toLowerCase();
+    if (
+      track === "entrambi" ||
+      track === "both" ||
+      /entrambi|\bboth\b/.test(label)
+    ) {
+      return ["Staff", "Partner Manager"];
+    }
+    if (
+      track === "partnermanager" ||
+      track === "pm" ||
+      /partner\s*manager|\bpm\b/.test(label)
+    ) {
+      return ["Partner Manager"];
+    }
+    var pretty = String(item.ruoloRichiesto || item.ruolo || "").trim();
+    if (pretty && !/^(staff|partnermanager|partner manager|entrambi|both)$/i.test(pretty)) {
+      return [pretty];
+    }
+    return ["Staff"];
+  }
+
+  function pauseRoleBadgesHtml(item) {
+    var labels = pauseRoleBadgeLabels(item);
+    if (!labels.length) return "";
+    return labels
+      .map(function (lab) {
+        return (
+          '<span class="vc-staff-inbox-type-badge vc-staff-inbox-type-badge--pause-role">' +
+          T.esc(lab) +
+          "</span>"
+        );
+      })
+      .join("");
   }
 
     function resocontoStaffFlags(item) {
@@ -1903,18 +2290,69 @@
     return '<span class="vc-staff-reso-flags">' + bits.join("") + "</span>";
   }
 
-  function parseNumberedSections(text) {
+  function parseNumberedSections(text, opts) {
+    var sequential = Boolean(opts && opts.sequential);
     var raw = cleanDiscordText(text, { keepNewlines: true, keepCustomEmoji: true });
     if (!raw) return [];
 
-        var normalized = raw
+    var normalized = raw
       .replace(/(\d{1,2})\\\./g, "$1.")
+      .replace(/\*\*/g, "")
       .replace(/\r\n/g, "\n")
       .replace(/[ \t]+\n/g, "\n")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
-        normalized = normalized.replace(/([^\n])\s+(?=(\d{1,2})[.)]\s+)/g, "$1\n");
+    if (sequential) {
+      var lines = normalized.split("\n");
+      var blocks = [];
+      var expected = 1;
+      var current = null;
+      function flushSeq() {
+        if (!current) return;
+        var name = String(current.name || "").trim();
+        var value = String(current.value || "").trim();
+        if (!name && !value) {
+          current = null;
+          return;
+        }
+        var qInline = name.match(/^(\d{1,2}\.\s*[\s\S]{1,280}?\?)\s+([\s\S]+)$/);
+        if (qInline && !value) {
+          blocks.push({ name: qInline[1].trim(), value: qInline[2].trim() || "\u2014" });
+        } else {
+          blocks.push({ name: name || "Domanda " + (blocks.length + 1), value: value || "\u2014" });
+        }
+        current = null;
+      }
+      for (var li = 0; li < lines.length; li += 1) {
+        var line = lines[li];
+        var mSeq = String(line || "").match(/^(\d{1,2})\.\s*(.*)$/);
+        var numSeq = mSeq ? Number(mSeq[1]) : 0;
+        if (mSeq && Number.isFinite(numSeq) && numSeq === expected) {
+          flushSeq();
+          var restSeq = String(mSeq[2] || "").trim();
+          var idLineSeq = restSeq.match(/^(ID(?:\s+Discord)?)\s+(.+)$/i);
+          var ageLineSeq = restSeq.match(/^(Et[aà])\s+(.+)$/i);
+          if (idLineSeq) {
+            current = { name: "1. ID Discord", value: idLineSeq[2].trim() };
+          } else if (/^ID(?:\s+Discord)?$/i.test(restSeq)) {
+            current = { name: "1. ID Discord", value: "" };
+          } else if (ageLineSeq) {
+            current = { name: numSeq + ". " + ageLineSeq[1], value: ageLineSeq[2].trim() };
+          } else {
+            current = { name: (numSeq + ". " + restSeq).trim(), value: "" };
+          }
+          expected += 1;
+          continue;
+        }
+        if (!current) continue;
+        current.value = current.value ? current.value + "\n" + line : line;
+      }
+      flushSeq();
+      return blocks;
+    }
+
+    normalized = normalized.replace(/([^\n])\s+(?=(\d{1,2})[.)]\s+)/g, "$1\n");
 
     var chunks = normalized
       .split(/\n(?=\d{1,2}[.)]\s+)/)
@@ -1952,7 +2390,10 @@
 
         var idLine = rest.match(/^(ID(?:\s+Discord)?)\s+(.+)$/i);
         if (idLine) {
-          return { name: num + ". " + idLine[1], value: idLine[2].trim() || "\u2014" };
+          return { name: "1. ID Discord", value: idLine[2].trim() || "\u2014" };
+        }
+        if (/^ID(?:\s+Discord)?$/i.test(rest)) {
+          return { name: "1. ID Discord", value: "\u2014" };
         }
 
         var ageLine = rest.match(/^(Et[aà])\s+(.+)$/i);
@@ -1985,7 +2426,8 @@
       .trim();
 
     var labels = [
-      { re: /^Utente\s*:/i, title: "Utente" },
+      { re: /^Utente\s*:/i, title: "1. ID Discord" },
+      { re: /^(?:\d{1,2}\.\s*)?ID(?:\s+Discord)?\s*:?/i, title: "1. ID Discord" },
       { re: /^Come mai sei stato bannato\s*\?/i, title: "Come mai sei stato bannato?" },
       { re: /^Come mai sei stato mutato\s*\?/i, title: "Come mai sei stato mutato?" },
       { re: /^Le tue scuse allo staff e alla community/i, title: "Le tue scuse allo staff e alla community" },
@@ -2123,24 +2565,32 @@
         : window.VcDialog && typeof window.VcDialog.prompt === "function"
           ? window.VcDialog.prompt.bind(window.VcDialog)
           : null;
+    var opts = {
+      title: "Motivo · " + label,
+      message: "Inserisci la motivazione per applicare " + label + ".",
+      label: "Motivazione",
+      placeholder: placeholder,
+      confirmLabel: "Applica " + label,
+      cancelLabel: "Annulla",
+      multiline: true,
+      maxLength: 500,
+    };
     if (runner) {
-      return runner({
-        title: "Motivo · " + label,
-        message: "Inserisci la motivazione per applicare " + label + ".",
-        label: "Motivazione",
-        placeholder: placeholder,
-        confirmLabel: "Applica " + label,
-        cancelLabel: "Annulla",
-        multiline: true,
-        maxLength: 500,
-      }).then(function (val) {
+      return runner(opts).then(function (val) {
         if (val == null) return null;
         return String(val || "").trim();
       });
     }
-    var fallback = window.prompt("Motivazione per " + label + ":", "");
-    if (fallback == null) return null;
-    return Promise.resolve(String(fallback || "").trim());
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.prompt !== "function") return null;
+      return D.prompt(opts).then(function (val) {
+        if (val == null) return null;
+        return String(val || "").trim();
+      });
+    });
   }
 
   function resocontoEffectiveActionKey(body) {
@@ -2514,13 +2964,14 @@
 
   function cardMeta(item, opts) {
     var roleOnly = Boolean(opts && opts.roleOnly);
+    var dateOnly = Boolean(opts && opts.dateOnly);
     var meta = [];
     if (item.start && item.end) meta.push(item.start + " \u2192 " + item.end);
-    if (item.ruoloRichiesto) meta.push(item.ruoloRichiesto);
-    if (item.kind && state.tab === "appelli") meta.push(item.kind === "unban" ? "Unban" : "Unmute");
-    if ((state.tab === "appelli" || state.tab === "candidature") && item.userId && !roleOnly) {
-      meta.push(String(item.userId));
+    // Role lives in the sheet kicker for candidature — never as a hero "HELPER" chip.
+    if (!dateOnly && state.tab !== "candidature" && item.ruoloRichiesto) {
+      meta.push(item.ruoloRichiesto);
     }
+    // Appelli: Unban/Unmute = type badge next to name; never dump userId in meta.
     if (state.tab === "resoconti") {
       if (item.kind === "p") meta.push("Partner Manager");
       else if (item.kind === "s") meta.push("Staff");
@@ -2535,62 +2986,105 @@
     return meta.join(" \u00B7 ") || "";
   }
 
+  function clearSheetTitle(titleEl) {
+    if (!titleEl) return;
+    titleEl.textContent = "";
+    titleEl.hidden = true;
+    titleEl.setAttribute("hidden", "");
+    titleEl.setAttribute("aria-hidden", "true");
+  }
+
   function actionButtons(item, tab) {
     if (!item.canAct) return "";
     if (tab === "pause") {
       return (
-        '<div class="vc-staff-inbox-actions">' +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--ok" data-act="accept" data-user-id="' +
+        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--forge">' +
+        '<div class="vc-staff-rank-forge__rail">' +
+        '<button type="button" class="vc-staff-rank-forge__card is-up" data-act="accept" data-user-id="' +
         T.esc(item.userId) +
         '" data-id="' +
         T.esc(item.id) +
-        '">Accetta</button>' +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--no" data-act="reject" data-user-id="' +
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Accetta</span>' +
+        '<span class="vc-staff-rank-forge__hint">Approva la pausa richiesta</span></button>' +
+        '<button type="button" class="vc-staff-rank-forge__card is-down" data-act="reject" data-user-id="' +
         T.esc(item.userId) +
         '" data-id="' +
         T.esc(item.id) +
-        '">Rifiuta</button></div>'
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-times"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Rifiuta</span>' +
+        '<span class="vc-staff-rank-forge__hint">Chiudi senza accettare</span></button>' +
+        "</div></div>"
       );
     }
     if (tab === "candidature") {
+      var candMid = T.esc(item.messageId);
+      var candType = T.esc(item.type);
+      var candUid = T.esc(item.userId);
       return (
-        '<div class="vc-staff-inbox-actions">' +
-        '<label class="vc-staff-inbox-reason"><span>Motivo accettazione</span><input type="text" data-reason-for="' +
-        T.esc(item.messageId) +
-        '" placeholder="Motivo accettazione\u2026" /></label>' +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--ok" data-act="accept" data-message-id="' +
-        T.esc(item.messageId) +
+        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--forge">' +
+        '<div class="vc-staff-rank-forge__rail">' +
+        '<button type="button" class="vc-staff-rank-forge__card is-up" data-act="accept" data-message-id="' +
+        candMid +
         '" data-type="' +
-        T.esc(item.type) +
+        candType +
         '" data-user-id="' +
-        T.esc(item.userId) +
-        '">Accetta</button>' +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--no" data-act="reject" data-message-id="' +
-        T.esc(item.messageId) +
+        candUid +
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Accetta</span>' +
+        '<span class="vc-staff-rank-forge__hint">Approva la candidatura</span></button>' +
+        '<button type="button" class="vc-staff-rank-forge__card is-down" data-act="reject" data-message-id="' +
+        candMid +
         '" data-type="' +
-        T.esc(item.type) +
+        candType +
         '" data-user-id="' +
-        T.esc(item.userId) +
-        '">Rifiuta</button></div>'
+        candUid +
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-times"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Rifiuta</span>' +
+        '<span class="vc-staff-rank-forge__hint">Chiudi senza accettare</span></button>' +
+        "</div></div>"
       );
     }
     if (tab === "appelli") {
+      var appealMid = T.esc(item.messageId);
+      var appealKind = T.esc(item.kind);
+      var appealUid = T.esc(item.userId);
+      var appealHint =
+        item.kind === "unban"
+          ? "Approva l'appello unban"
+          : item.kind === "unmute"
+            ? "Approva l'appello unmute"
+            : "Approva l'appello";
       return (
-        '<div class="vc-staff-inbox-actions">' +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--ok" data-act="accept" data-message-id="' +
-        T.esc(item.messageId) +
+        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--forge">' +
+        '<div class="vc-staff-rank-forge__rail">' +
+        '<button type="button" class="vc-staff-rank-forge__card is-up" data-act="accept" data-message-id="' +
+        appealMid +
         '" data-kind="' +
-        T.esc(item.kind) +
+        appealKind +
         '" data-user-id="' +
-        T.esc(item.userId) +
-        '">Accetta</button>' +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--no" data-act="reject" data-message-id="' +
-        T.esc(item.messageId) +
+        appealUid +
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Accetta</span>' +
+        '<span class="vc-staff-rank-forge__hint">' +
+        T.esc(appealHint) +
+        "</span></button>" +
+        '<button type="button" class="vc-staff-rank-forge__card is-down" data-act="reject" data-message-id="' +
+        appealMid +
         '" data-kind="' +
-        T.esc(item.kind) +
+        appealKind +
         '" data-user-id="' +
-        T.esc(item.userId) +
-        '">Rifiuta</button></div>'
+        appealUid +
+        '">' +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-times"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Rifiuta</span>' +
+        '<span class="vc-staff-rank-forge__hint">Chiudi senza accettare</span></button>' +
+        "</div></div>"
       );
     }
     if (tab === "resoconti") {
@@ -2654,7 +3148,7 @@
             { key: "nl", label: "Nulla", reason: "" },
           ];
       return (
-        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--resoconti" data-reso-actions="1">' +
+        '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--resoconti vc-staff-inbox-actions--forge" data-reso-actions="1">' +
         '<p class="vc-staff-inbox-actions__hint">' +
         T.esc(
           isPm
@@ -2662,17 +3156,27 @@
             : "Conferma le valutazioni automatiche oppure rifiuta per sceglierne altre.",
         ) +
         "</p>" +
-        '<div class="vc-staff-inbox-actions__decide vc-staff-inbox-actions__decide--pair">' +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--ok vc-staff-inbox-btn--confirm" data-act="accept"' +
+        '<div class="vc-staff-rank-forge__rail vc-staff-inbox-actions__decide vc-staff-inbox-actions__decide--pair">' +
+        '<button type="button" class="vc-staff-rank-forge__card is-up vc-staff-inbox-btn--confirm" data-act="accept"' +
         attrs +
-        ">Conferma</button>" +
-        '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--no" data-reso-reject-ui="1"' +
+        ">" +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Conferma</span>' +
+        '<span class="vc-staff-rank-forge__hint">' +
+        T.esc(isPm ? "Applica l\u2019esito proposto" : "Conferma le proposte automatiche") +
+        "</span></button>" +
+        '<button type="button" class="vc-staff-rank-forge__card is-down" data-reso-reject-ui="1"' +
         attrs +
-        ">Rifiuta</button>" +
+        ">" +
+        '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-times"></i></span>' +
+        '<span class="vc-staff-rank-forge__name">Rifiuta</span>' +
+        '<span class="vc-staff-rank-forge__hint">' +
+        T.esc(isPm ? "Scegli Richiamo o Depex" : "Scegli un\u2019altra valutazione") +
+        "</span></button>" +
         "</div>" +
         '<div class="vc-staff-inbox-alt vc-staff-inbox-alt--reso" hidden data-reso-alts="1" aria-label="Valutazioni alternative">' +
         '<span class="vc-staff-inbox-alt__label">' +
-        T.esc(isPm ? "Scegli azione" : "Valutazioni automatiche") +
+        T.esc(isPm ? "Scegli azione" : "Valutazioni alternative") +
         "</span>" +
         '<div class="vc-staff-inbox-alt__pills">' +
         alts
@@ -2723,7 +3227,7 @@
       var list = box.querySelector(".vc-staff-reso-auto__list");
       if (list) {
         list.innerHTML =
-          '<p class="vc-staff-reso-auto__empty">Valutazioni automatiche annullate. Scegli un\u2019opzione sotto.</p>';
+          '<p class="vc-staff-reso-auto__empty">Esito automatico annullato. Scegli un\u2019opzione sotto.</p>';
       }
     }
     var rejectBtn = root.querySelector("[data-reso-reject-ui]");
@@ -2778,12 +3282,6 @@
           body.userId = btn.getAttribute("data-user-id") || (item && item.userId);
           if (state.tab === "candidature") {
             body.type = btn.getAttribute("data-type") || (item && item.type);
-            if (act === "accept") {
-              var inp = root.querySelector(
-                '[data-reason-for="' + (body.messageId || "") + '"]',
-              );
-              body.reason = inp ? String(inp.value || "").trim() : "";
-            }
           }
           if (state.tab === "appelli") body.kind = btn.getAttribute("data-kind") || (item && item.kind);
         }
@@ -2800,16 +3298,28 @@
     return "";
   }
 
-  function renderList() {
+  function renderList(opts) {
+    opts = opts || {};
     var root = T.byId("vc-staff-inbox-list");
     if (!root) return;
+    if (!opts.force && state.items.length) {
+      var sig = inboxListPaintSig();
+      if (sig && sig === lastInboxListPaintSig && root.querySelector(".vc-staff-inbox-item, .vc-notify-row")) {
+        return;
+      }
+      lastInboxListPaintSig = sig;
+    } else if (state.items.length) {
+      lastInboxListPaintSig = inboxListPaintSig();
+    } else {
+      lastInboxListPaintSig = "";
+    }
     if (!state.items.length) {
       if (listEmptyDespitePending()) {
         if (inboxLoadBusy()) {
           root.hidden = false;
           root.classList.add("is-loading");
           root.classList.remove("is-refreshing");
-          root.innerHTML = "";
+          root.innerHTML = inboxListSkeletonHtml();
                     if (inboxBooting || !initialQueueLoaded) {
             showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
           }
@@ -2852,81 +3362,73 @@
       state.items
         .map(function (item) {
           var title = itemTitle(item);
-          var previewSource =
-            state.tab === "resoconti"
-              ? extractResocontoListPreview(item.body || item.content || item.preview || "", item) ||
-                stripResocontoText(item.preview || "") ||
-                ""
-              : state.tab === "appelli"
-                ? cleanAppealListPreview(item.preview || item.body || "")
-                : item.motivazione || item.preview || "";
-          var preview = truncatePreview(previewSource, state.tab === "resoconti" ? 180 : 130);
           var key = itemKey(item);
           var selected = state.selectedKey && state.selectedKey === key;
-          var meta = cardMeta(item);
-          var previewHtml =
-            state.tab === "resoconti" ? T.esc(preview) : formatDiscordHtml(preview);
           var flagBits = resocontoFlagBadgesHtml(item);
+          // inboxListCompactAll1: tutte le tab = avatar + nome/badge + azione a destra (come resoconti).
+          var sideBit =
+            state.tab === "resoconti" ? resocontoRoleBadgeHtml(item) : typeBadge(item);
+          var actionLabel =
+            state.tab === "resoconti"
+              ? String(resocontoCardAction(item) || statusLabel(item) || "").trim() || "—"
+              : String(statusLabel(item) || "").trim() || "—";
           if (embed) {
-            var typeBit = typeBadge(item);
             return (
-              '<li class="vc-notify-row vc-notify-row--link vc-staff-inbox-item' +
+              '<li class="vc-notify-row vc-notify-row--link vc-staff-inbox-item vc-staff-inbox-item--list-compact' +
               (selected ? " is-selected" : "") +
               '" data-item-key="' +
               T.esc(key) +
               '" tabindex="0" role="button">' +
               '<span class="vc-notify-row-icon">' +
-              T.avatarImgHtml(item.avatarUrl, item.userId, { width: 44, height: 44 }) +
+              T.avatarImgHtml(item.avatarUrl, item.userId, {
+                width: 44,
+                height: 44,
+                loading: "eager",
+                fetchPriority: "high",
+              }) +
               "</span>" +
               '<div class="vc-notify-row-main">' +
               '<p class="vc-notify-row-title">' +
               T.esc(title) +
-              (typeBit ? " " + typeBit : "") +
+              (sideBit ? " " + sideBit : "") +
               (flagBits ? " " + flagBits : "") +
-              "</p>" +
-              (preview
-                ? '<p class="vc-notify-row-desc">' + previewHtml + "</p>"
-                : "") +
-              (meta ? '<p class="vc-notify-row-meta">' + T.esc(meta) + "</p>" : "") +
-              "</div>" +
+              "</p></div>" +
               '<span class="vc-notify-row-badge ' +
               notifyBadgeClass(item) +
               '">' +
-              T.esc(statusLabel(item)) +
+              T.esc(actionLabel) +
               "</span></li>"
             );
           }
           return (
-            '<li class="vc-staff-inbox-item vc-staff-inbox-item--card' +
+            '<li class="vc-staff-inbox-item vc-staff-inbox-item--card vc-staff-inbox-item--list-compact' +
             (selected ? " is-selected" : "") +
             '" data-item-key="' +
             T.esc(key) +
             '" tabindex="0" role="button">' +
             '<span class="vc-staff-avatar-wrap">' +
-            T.avatarImgHtml(item.avatarUrl, item.userId, { width: 44, height: 44 }) +
+            T.avatarImgHtml(item.avatarUrl, item.userId, {
+              width: 44,
+              height: 44,
+              loading: "eager",
+              fetchPriority: "high",
+            }) +
             "</span>" +
             '<div class="vc-staff-inbox-item__body">' +
             '<div class="vc-staff-inbox-item__head">' +
             '<div class="vc-staff-inbox-item__titles">' +
-            typeBadge(item) +
             '<div class="vc-staff-inbox-item__title-row">' +
             '<h3 class="vc-staff-inbox-item__title">' +
             T.esc(title) +
             "</h3>" +
+            sideBit +
             flagBits +
             "</div></div>" +
             '<span class="vc-staff-inbox-status ' +
             statusClass(item) +
             '">' +
-            T.esc(statusLabel(item)) +
-            "</span></div>" +
-            (meta ? '<p class="vc-staff-inbox-item__meta">' + T.esc(meta) + "</p>" : "") +
-            (preview
-              ? '<p class="vc-staff-inbox-item__preview">' +
-                previewHtml +
-                "</p>"
-              : "") +
-            "</div></li>"
+            T.esc(actionLabel) +
+            "</span></div></div></li>"
           );
         })
         .join("") +
@@ -2953,6 +3455,60 @@
         }
       });
     });
+    scanInboxAvatars(root);
+  }
+
+  function scanInboxAvatars(root) {
+    var base = root && root.querySelectorAll ? root : document;
+    try {
+      if (typeof window.VcWakeDeferredMedia === "function") {
+        window.VcWakeDeferredMedia(base);
+      }
+    } catch (eWake) {}
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.scan === "function") {
+        window.VcDiscordAvatar.scan(base);
+      }
+    } catch (eDa) {}
+    try {
+      if (window.VcAvatarFallback && typeof window.VcAvatarFallback.scan === "function") {
+        window.VcAvatarFallback.scan(base);
+      }
+    } catch (eFb) {}
+    try {
+      var imgs = base.querySelectorAll
+        ? base.querySelectorAll("img[data-vc-avatar], img.vc-staff-avatar, img.vc-avatar")
+        : [];
+      for (var i = 0; i < imgs.length; i += 1) {
+        var img = imgs[i];
+        if (img && img.complete && img.naturalWidth > 0) {
+          img.classList.add("vc-avatar", "vc-avatar--ready");
+          img.classList.remove("vc-avatar--pending");
+          if (window.VcAvatarFallback && typeof window.VcAvatarFallback.markReady === "function") {
+            window.VcAvatarFallback.markReady(img);
+          }
+        }
+      }
+    } catch (eReady) {}
+    try {
+      if (window.VcAvatarFallback && typeof window.VcAvatarFallback.sweepStuckPending === "function") {
+        window.setTimeout(function () {
+          try {
+            window.VcAvatarFallback.sweepStuckPending();
+          } catch (eSw) {}
+        }, 120);
+        window.setTimeout(function () {
+          try {
+            window.VcAvatarFallback.sweepStuckPending();
+          } catch (eSw2) {}
+        }, 600);
+        window.setTimeout(function () {
+          try {
+            window.VcAvatarFallback.sweepStuckPending();
+          } catch (eSw3) {}
+        }, 1600);
+      }
+    } catch (eSched) {}
   }
 
   function clearDetailState() {
@@ -3063,9 +3619,35 @@
     var RESOCONTO_ROLE_LIMITS = {
     "1442568904311570555": { label: "Helper", messages: 400, hours: 4, sanctions: 1 },
     "1442568901887000618": { label: "Mod", messages: 500, hours: 5, sanctions: 2 },
-    "1502321956236824677": { label: "Senior Moderator", messages: 600, hours: 6, sanctions: 2 },
+    "1544831236868931636": { label: "Senior Moderator", messages: 600, hours: 6, sanctions: 2 },
     "1502322782602530977": { label: "Director", messages: 550, hours: 5.5, sanctions: 1 },
+    "1544831242510270464": { label: "Partner Manager", messages: 0, hours: 0, sanctions: 0 },
+    "1442568910070349985": { label: "Staff", messages: 0, hours: 0, sanctions: 0 },
   };
+
+  function resocontoRoleBadgeLabel(item) {
+    if (!item) return "";
+    if (String(item.kind || "").toLowerCase() === "p") return "Partner Manager";
+    var explicit = String(item.roleLabel || "").trim();
+    if (explicit && !/^\d{16,22}$/.test(explicit) && explicit.toLowerCase() !== "questo ruolo") {
+      return explicit;
+    }
+    var byId = RESOCONTO_ROLE_LIMITS[String(item.roleId || "")] || null;
+    if (byId && byId.label) return byId.label;
+    if (String(item.kind || "").toLowerCase() === "s") return "Staff";
+    return "";
+  }
+
+  function resocontoRoleBadgeHtml(item) {
+    if (state.tab !== "resoconti" || !item) return "";
+    var label = resocontoRoleBadgeLabel(item);
+    if (!label) return "";
+    return (
+      '<span class="vc-staff-inbox-type-badge vc-staff-inbox-type-badge--reso-role">' +
+      T.esc(label) +
+      "</span>"
+    );
+  }
 
   function resocontoRoleLimits(item) {
     var wfLimits =
@@ -3387,17 +3969,177 @@
     return out;
   }
 
-  function renderRolesChronology(rows) {
+  function normalizeResoCareerRoleToken(value) {
+    var s = String(value == null ? "" : value)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    if (!s) return "";
+    var aliases = {
+      mod: "moderator",
+      mods: "moderator",
+      moderator: "moderator",
+      "senior moderator": "senior moderator",
+      "sr moderator": "senior moderator",
+      srmod: "senior moderator",
+      "senior mod": "senior moderator",
+      helper: "helper",
+      "trial helper": "helper",
+      "partner manager": "partner manager",
+      pm: "partner manager",
+      director: "director",
+      admin: "admin",
+      manager: "manager",
+      founder: "founder",
+      member: "member",
+    };
+    if (aliases[s]) return aliases[s];
+    if (/\bstaff\b/.test(s)) {
+      var withoutStaff = s.replace(/\bstaff\b/g, " ").replace(/\s+/g, " ").trim();
+      if (withoutStaff && aliases[withoutStaff]) return aliases[withoutStaff];
+    }
+    if (s.charAt(s.length - 1) === "s" && aliases[s.slice(0, -1)]) return aliases[s.slice(0, -1)];
+    return s;
+  }
+
+  function filterResoRolesToProfileCareer(rows, opts) {
+    opts = opts || {};
+    var mapped = (Array.isArray(rows) ? rows : [])
+      .filter(Boolean)
+      .map(function (row) {
+        var from = String(row.from || row.oldRole || "").trim();
+        var to = String(row.to || row.newRole || "").trim();
+        return {
+          from: from || null,
+          to: to || null,
+          oldRole: from || null,
+          newRole: to || null,
+          dateIso: row.dateIso || row.date || null,
+          date: row.date || row.dateIso || null,
+          dateLabel: row.dateLabel || null,
+          reason: row.reason || null,
+        };
+      });
+    var R = typeof window !== "undefined" ? window.VCStaffProfileRender : null;
+    if (R && typeof R.sliceToLatestCareer === "function" && typeof R.dedupeCareerRows === "function") {
+      return R.dedupeCareerRows(
+        R.sliceToLatestCareer(mapped, {
+          stillActive: opts.stillActive !== false,
+          currentRole: opts.currentRole || "",
+          track: opts.track || "staff",
+        }),
+      );
+    }
+    // Fallback: same rules as profilo carriera (staff-profile-render).
+    function careerRowSortMs(row) {
+      var iso = row && (row.dateIso || row.date);
+      if (!iso) return 0;
+      var t = new Date(iso).getTime();
+      return Number.isFinite(t) ? t : 0;
+    }
+    function isOnLadder(token) {
+      if (!token || token === "member" || token === "community" || token === "partner manager") return false;
+      return !!(
+        {
+          helper: 1,
+          moderator: 1,
+          "senior moderator": 1,
+          director: 1,
+          admin: 1,
+          manager: 1,
+          founder: 1,
+        }[token]
+      );
+    }
+    function isPm(token) {
+      return token === "partner manager";
+    }
+    var chrono = mapped.slice().sort(function (a, b) {
+      return careerRowSortMs(a) - careerRowSortMs(b);
+    });
+    var stillActive = opts.stillActive !== false;
+    var currentRole = normalizeResoCareerRoleToken(opts.currentRole || "");
+    var trackPm = opts.track === "pm" || isPm(currentRole);
+    var start = 0;
+    var found = false;
+    var onTrack = false;
+    var i;
+    if (trackPm) {
+      for (i = 0; i < chrono.length; i += 1) {
+        var toPm = normalizeResoCareerRoleToken(chrono[i].newRole);
+        var fromPm = normalizeResoCareerRoleToken(chrono[i].oldRole);
+        if (isPm(toPm) && !isPm(fromPm)) {
+          start = i;
+          found = true;
+          onTrack = true;
+          continue;
+        }
+        if (onTrack && isPm(fromPm) && !isPm(toPm)) onTrack = false;
+      }
+      if (!found) return [];
+      if (!onTrack && !stillActive) return [];
+      var keptPm = [];
+      for (var j = start; j < chrono.length; j += 1) {
+        var toJ = normalizeResoCareerRoleToken(chrono[j].newRole);
+        var fromJ = normalizeResoCareerRoleToken(chrono[j].oldRole);
+        if (isPm(toJ)) {
+          keptPm.push(chrono[j]);
+          continue;
+        }
+        if (isPm(fromJ) && !isPm(toJ)) break;
+      }
+      return keptPm.sort(function (a, b) {
+        return careerRowSortMs(b) - careerRowSortMs(a);
+      });
+    }
+    for (i = 0; i < chrono.length; i += 1) {
+      var to = normalizeResoCareerRoleToken(chrono[i].newRole);
+      var from = normalizeResoCareerRoleToken(chrono[i].oldRole);
+      if (isOnLadder(to) && (!isOnLadder(from) || !onTrack)) {
+        start = i;
+        found = true;
+        onTrack = true;
+        continue;
+      }
+      if (onTrack && !isOnLadder(to)) onTrack = false;
+    }
+    if (!found) {
+      if (!stillActive) return [];
+      start = 0;
+    } else if (!onTrack && !stillActive) {
+      return [];
+    }
+    var endExclusive = chrono.length;
+    while (
+      endExclusive > start &&
+      !isOnLadder(normalizeResoCareerRoleToken(chrono[endExclusive - 1].newRole))
+    ) {
+      endExclusive -= 1;
+    }
+    if (endExclusive <= start) return [];
+    return chrono.slice(start, endExclusive).sort(function (a, b) {
+      return careerRowSortMs(b) - careerRowSortMs(a);
+    });
+  }
+
+  function renderRolesChronology(rows, opts) {
+    opts = opts || {};
     var raw = Array.isArray(rows) ? rows.filter(Boolean) : [];
     var list = dedupeResoRoleRows(raw);
-    list = list.slice(0, 5);
+    list = filterResoRolesToProfileCareer(list, opts);
     if (!list.length) return "";
     var items = list
       .map(function (row) {
         var to = String(row.to || row.newRole || "").trim();
         var from = String(row.from || row.oldRole || "").trim();
+        // Never show bare snowflakes in the UI.
+        if (/^\d{16,22}$/.test(to)) to = "";
+        if (/^\d{16,22}$/.test(from)) from = "";
+        if (!to && !from) return "";
         var when = String(row.dateLabel || "").trim();
-        var label = to ? (from ? from + " → " + to : to) : from || "Ruolo";
+        var label = to ? (from ? from + " \u2192 " + to : to) : from;
         return (
           '<li><span class="vc-staff-reso-hero__role-name">' +
           T.esc(label) +
@@ -3406,9 +4148,11 @@
           "</li>"
         );
       })
+      .filter(Boolean)
       .join("");
+    if (!items) return "";
     return (
-            '<div class="vc-staff-reso-hero__roles" aria-label="Cronologia ruoli">' +
+      '<div class="vc-staff-reso-hero__roles" aria-label="Cronologia ruoli">' +
       '<p class="vc-staff-reso-hero__roles-kicker">Cronologia ruoli</p>' +
       '<ul class="vc-staff-reso-hero__roles-list">' +
       items +
@@ -3495,21 +4239,43 @@
       .filter(Boolean);
   }
 
+  function renderPmEsitoBox(model) {
+    var raw = stripResocontoText((model && model.azione) || "") || "Nulla";
+    // Collapse duplicated "Nulla + Nulla" / "Nulla — Nulla" noise from older payloads.
+    raw = String(raw)
+      .replace(/(?:^|\s*)nulla(?:\s*[+—–-]\s*nulla)+/gi, "Nulla")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    var label = "Nulla";
+    var hint =
+      "Esito automatico Partner Manager: sotto 30 partner \u2192 Richiamo; sotto soglia critica \u2192 Depex; altrimenti Nulla (o promozione in finestra).";
+    if (/^depex\b/i.test(raw) || /\bdepex\b/i.test(raw)) label = "Depex";
+    else if (/^richiamo\b/i.test(raw) || /\brichiamo\b/i.test(raw)) label = "Richiamo";
+    else if (/^pex\b/i.test(raw) || /\bpex\b/i.test(raw)) label = "Pex";
+    else if (/^nulla\b/i.test(raw) || /^—$|^-$/i.test(raw)) label = "Nulla";
+    else label = raw.slice(0, 64) || "Nulla";
+    return (
+      '<article id="vc-staff-reso-auto-box" class="vc-staff-reso-grade vc-staff-reso-grade--action vc-staff-reso-grade--wide vc-staff-reso-auto vc-staff-reso-auto--pm" data-pm-esito="1">' +
+      '<div class="vc-staff-reso-grade__head"><span>Esito proposto</span>' +
+      resoTipHtml(hint) +
+      "</div>" +
+      '<p class="vc-staff-reso-auto__pm-outcome"><strong>' +
+      T.esc(label) +
+      "</strong></p></article>"
+    );
+  }
+
   function renderAutoValutazioniBox(model, isPm) {
+    if (isPm) return renderPmEsitoBox(model);
     var parts = splitAutoValutazioneParts(model.azione);
     if (!parts.length && model.azione && !/^—$/.test(model.azione)) {
       parts = [model.azione];
     }
-    var autoTip = isPm
-      ? "Esito automatico PM: sotto 30 partner → Richiamo; sotto soglia critica → Depex; altrimenti Nulla o promozione in finestra."
-      : "Proposte automatiche da attività/condotta, limiti, pause e compito sanzioni. Conferma o rifiuta sotto.";
+    var autoTip =
+      "Proposte automatiche da attività/condotta, limiti, pause e compito sanzioni. Conferma o rifiuta sotto.";
     var sanzioniDone = null;
     var sanzioniMin = null;
-    if (
-      !isPm &&
-      model.sanctionLimit != null &&
-      Number.isFinite(Number(model.sanctionLimit))
-    ) {
+    if (model.sanctionLimit != null && Number.isFinite(Number(model.sanctionLimit))) {
       sanzioniMin = Number(model.sanctionLimit);
       sanzioniDone =
         model.weeklySanctions != null && Number.isFinite(Number(model.weeklySanctions))
@@ -3519,11 +4285,7 @@
             : null;
       if (sanzioniDone != null) {
         autoTip +=
-          " Compito sanzioni: " +
-          sanzioniDone +
-          "/" +
-          sanzioniMin +
-          " questa settimana.";
+          " Compito sanzioni: " + sanzioniDone + "/" + sanzioniMin + " questa settimana.";
       }
     }
     var rows =
@@ -3533,6 +4295,8 @@
               var isNeg = /valutazione negativa/i.test(part);
               var isCompito = /compito sanzioni/i.test(part);
               var isPos = /valutazione positiva/i.test(part) || isCompito;
+              var isSimple =
+                /^nulla\b/i.test(part) || /^richiamo\b/i.test(part) || /^depex\b/i.test(part);
               var tone = isNeg ? "is-neg" : isPos ? "is-pos" : "is-neutral";
               var title = isNeg
                 ? "Valutazione negativa"
@@ -3540,13 +4304,15 @@
                   ? "Compito sanzioni"
                   : isPos
                     ? "Valutazione positiva"
-                    : /^nulla/i.test(part)
+                    : /^nulla\b/i.test(part)
                       ? "Nulla"
-                      : /^richiamo/i.test(part)
+                      : /^richiamo\b/i.test(part)
                         ? "Richiamo"
-                        : "Esito";
+                        : /^depex\b/i.test(part)
+                          ? "Depex"
+                          : "Esito";
               var already = /gi[aà]\s*registrat/i.test(part);
-                                          var detail = "";
+              var detail = "";
               var purposeMatch = String(part || "").match(
                 /[—–]\s*(.+?)(?:\s*\(\s*gi[aà]\s*registrat[aoe]?\s*\))?\s*$/i,
               );
@@ -3567,18 +4333,31 @@
                   .replace(/\s*[—–-]\s*$/g, "")
                   .trim();
               }
-                            if (isCompito) {
+              if (isSimple && (!detail || /^nulla$|^richiamo$|^depex$/i.test(detail))) {
+                return (
+                  '<li class="vc-staff-reso-auto__item ' +
+                  tone +
+                  ' is-simple"><strong>' +
+                  T.esc(title) +
+                  "</strong>" +
+                  (already
+                    ? '<span class="vc-staff-reso-flag vc-staff-reso-flag--done">già registrata</span>'
+                    : "") +
+                  "</li>"
+                );
+              }
+              if (isCompito) {
                 if (!detail || /^compito sanzioni\s*$/i.test(detail)) {
                   detail = "compito sanzioni completato";
                 }
-                                if (sanzioniMin != null && sanzioniDone != null) {
+                if (sanzioniMin != null && sanzioniDone != null) {
                   detail =
                     "minimo sanzioni raggiunto (" + sanzioniDone + "/" + sanzioniMin + ")";
                 } else if (/^completato\.?$/i.test(detail)) {
                   detail = "compito sanzioni completato";
                 }
               }
-                            if (!detail || /gi[aà]\s*registrat/i.test(detail)) {
+              if (!detail || /gi[aà]\s*registrat/i.test(detail)) {
                 detail = isCompito
                   ? "compito sanzioni completato"
                   : isPos
@@ -3586,7 +4365,20 @@
                     : isNeg
                       ? "valutazione negativa"
                       : String(part || "").replace(/\bgi[aà]\s*registrat[aoe]?\b/gi, "").trim() ||
-                        "—";
+                        "\u2014";
+              }
+              if (detail.toLowerCase() === title.toLowerCase()) {
+                return (
+                  '<li class="vc-staff-reso-auto__item ' +
+                  tone +
+                  ' is-simple"><strong>' +
+                  T.esc(title) +
+                  "</strong>" +
+                  (already
+                    ? '<span class="vc-staff-reso-flag vc-staff-reso-flag--done">già registrata</span>'
+                    : "") +
+                  "</li>"
+                );
               }
               return (
                 '<li class="vc-staff-reso-auto__item ' +
@@ -3602,7 +4394,7 @@
               );
             })
             .join("")
-        : '<li class="vc-staff-reso-auto__item is-neutral"><span class="vc-staff-reso-auto__kind">Esito</span><strong>Nulla</strong></li>';
+        : '<li class="vc-staff-reso-auto__item is-neutral is-simple"><strong>Nulla</strong></li>';
     return (
       '<article id="vc-staff-reso-auto-box" class="vc-staff-reso-grade vc-staff-reso-grade--action vc-staff-reso-grade--wide vc-staff-reso-auto">' +
       '<div class="vc-staff-reso-grade__head"><span>Valutazioni automatiche</span>' +
@@ -3625,7 +4417,12 @@
     var isPm = model.isPm || String(item.kind || "").toLowerCase() === "p";
     var kindLabel = isPm ? "Partner Manager" : "Staff";
     var limits = model.limits || {};
-    if (titleEl) titleEl.textContent = item.displayName || itemTitle(item) || "Resoconto";
+    sheet.classList.remove("is-cand-sheet", "is-appeal-sheet", "is-pause-sheet");
+    sheet.classList.add("is-reso-sheet");
+    var displayName =
+      cleanDiscordText(item.displayName || "") || itemTitle(item) || "Resoconto";
+    // Nickname only in the hero (next to avatar), never as sheet header title.
+    clearSheetTitle(titleEl);
     var kicker = sheet.querySelector(".vc-staff-reso-sheet__kicker");
     if (kicker) {
       kicker.textContent =
@@ -3735,28 +4532,36 @@
     }
 
     var heroFlags = resocontoFlagBadgesHtml(item);
-    var rolesChrono = renderRolesChronology(model.rolesHistory || item.rolesHistory || []);
+    var isPmTrack = isPm || String(item.kind || "").toLowerCase() === "p";
+    var sheetRoleLabel =
+      resocontoRoleBadgeLabel(item) ||
+      cardMeta(item, { roleOnly: true }) ||
+      (isPmTrack ? "Partner Manager" : "") ||
+      "";
+    var rolesChrono = renderRolesChronology(model.rolesHistory || item.rolesHistory || [], {
+      stillActive: true,
+      track: isPmTrack ? "pm" : "staff",
+      currentRole: isPmTrack ? "Partner Manager" : sheetRoleLabel || "",
+    });
+    captureWorkflowChatDraft();
+    // sheetNoActionBadge1: niente badge azione (Nulla / Val+/…) nell'hero — restano solo flag contesto.
     body.innerHTML =
-      '<div class="vc-staff-reso-hero' +
+      '<div class="vc-staff-reso-hero vc-staff-reso-hero--reso' +
       (rolesChrono ? " has-roles" : "") +
       '">' +
       '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--lg">' +
       T.avatarImgHtml(item.avatarUrl, item.userId, { width: 64, height: 64 }) +
       '</span><div class="vc-staff-reso-hero__main">' +
-      '<p class="vc-staff-reso-hero__meta">' +
-      T.esc(cardMeta(item, { roleOnly: true }) || kindLabel) +
-      "</p>" +
-      "<h3>" +
-      T.esc(item.displayName || itemTitle(item)) +
+      '<h3 class="vc-staff-reso-hero__name">' +
+      T.esc(displayName) +
       "</h3>" +
-      '<div class="vc-staff-reso-hero__badges">' +
-      '<span class="vc-staff-inbox-status ' +
-      statusClass(item) +
-      '">' +
-      T.esc(statusLabel(item)) +
-      "</span>" +
-      (heroFlags || "") +
-      "</div></div>" +
+      '<p class="vc-staff-reso-hero__meta">' +
+      T.esc(sheetRoleLabel || kindLabel) +
+      "</p>" +
+      (heroFlags
+        ? '<div class="vc-staff-reso-hero__badges">' + heroFlags + "</div>"
+        : "") +
+      "</div>" +
       rolesChrono +
       "</div>" +
       stats +
@@ -3775,6 +4580,622 @@
     foot.innerHTML = actionButtons(item, "resoconti") || "";
     bindActionButtons(foot, item);
     bootChatForDetail(item);
+    scanInboxAvatars(sheet);
+  }
+
+  function normalizeCandidaturaDetailFields(fields, item) {
+    var uid = String((item && item.userId) || "").trim();
+    return (Array.isArray(fields) ? fields : [])
+      .filter(function (field) {
+        if (!field) return false;
+        return !/^(utente|user)$/i.test(String(field.name || "").trim());
+      })
+      .map(function (field) {
+        var name = String(field.name || "").trim();
+        var value = String(field.value || "").trim();
+        var idName = name.match(/^(?:\d{1,2}\.\s*)?(ID(?:\s+Discord)?)$/i);
+        if (idName) {
+          var lines = value
+            .split(/\n+/)
+            .map(function (l) {
+              return String(l || "").trim();
+            })
+            .filter(Boolean);
+          var snow = "";
+          for (var i = 0; i < lines.length; i += 1) {
+            var m = lines[i].match(/(\d{16,22})/);
+            if (m) {
+              snow = m[1];
+              break;
+            }
+          }
+          if (!snow) {
+            var inline = value.match(/(\d{16,22})/);
+            if (inline) snow = inline[1];
+          }
+          if (!snow && uid) snow = uid;
+          return { name: "1. ID Discord", value: snow || value || "\u2014" };
+        }
+        // "Discord" alone as value prefix under a plain ID question
+        if (/^(?:\d{1,2}\.\s*)?ID$/i.test(name) && /^discord\b/i.test(value)) {
+          var onlyId = (value.match(/(\d{16,22})/) || [])[1] || uid || value.replace(/^discord\s*/i, "").trim();
+          return { name: "1. ID Discord", value: onlyId || "\u2014" };
+        }
+        return field;
+      });
+  }
+
+  function candidaturaRoleLabel(item) {
+    return formatWorkflowType(item && item.type) || "";
+  }
+
+  function candidaturaKickerLabel(item) {
+    var role = candidaturaRoleLabel(item);
+    return role ? "Candidatura " + role : "Candidatura";
+  }
+
+  function candidaturaDisplayName(item) {
+    var name = cleanDiscordText((item && item.displayName) || "");
+    if (
+      name &&
+      !isRoleSlug(name, item && item.type) &&
+      !/^\d{16,22}$/.test(name) &&
+      !looksLikeCandidaturaTitle(name)
+    ) {
+      return name;
+    }
+    return "";
+  }
+
+  function renderCandSheet(item) {
+    openResoSheet();
+    var sheet = ensureResoSheet();
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    var titleEl = sheet.querySelector("#vc-staff-reso-title");
+    var kicker = sheet.querySelector(".vc-staff-reso-sheet__kicker");
+    if (!body || !foot) return;
+    sheet.classList.remove("is-reso-sheet", "is-appeal-sheet", "is-pause-sheet");
+    sheet.classList.add("is-cand-sheet");
+    if (kicker) kicker.textContent = candidaturaKickerLabel(item);
+    var displayName = candidaturaDisplayName(item);
+    if (!displayName) {
+      var fallbackTitle = itemTitle(item);
+      if (
+        fallbackTitle &&
+        !looksLikeCandidaturaTitle(fallbackTitle) &&
+        !/^candidatura\b/i.test(fallbackTitle) &&
+        !isRoleSlug(fallbackTitle, item && item.type)
+      ) {
+        displayName = fallbackTitle;
+      }
+    }
+    if (!displayName) displayName = "Candidatura";
+    // Nickname only beside the avatar — header title stays empty.
+    clearSheetTitle(titleEl);
+    var detailErrorHtml = state.detailError
+      ? '<div class="vc-staff-inbox-detail__error" role="alert">' + T.esc(state.detailError) + "</div>"
+      : "";
+    var candFull =
+      String(item.content || "").length > 200 ||
+      String(item.body || "").length > 200 ||
+      (Array.isArray(item.fields) && item.fields.length >= 2) ||
+      String(item.preview || "").length > 80;
+    var heroMeta = cardMeta(item, { dateOnly: true });
+    var heroType = typeBadge(item);
+    var heroHtml =
+      '<div class="vc-staff-reso-hero vc-staff-reso-hero--cand">' +
+      '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--lg">' +
+      T.avatarImgHtml(item.avatarUrl, item.userId, { width: 56, height: 56 }) +
+      '</span><div class="vc-staff-reso-hero__main">' +
+      '<div class="vc-staff-reso-hero__name-row">' +
+      '<h3 class="vc-staff-reso-hero__name">' +
+      T.esc(displayName) +
+      "</h3>" +
+      (heroType || "") +
+      "</div>" +
+      (heroMeta
+        ? '<p class="vc-staff-reso-hero__meta">' + T.esc(heroMeta) + "</p>"
+        : "") +
+      "</div>" +
+      '<span class="vc-staff-inbox-status vc-staff-reso-hero__status ' +
+      statusClass(item) +
+      '">' +
+      T.esc(statusLabel(item)) +
+      "</span></div>";
+    if (state.detailLoading && !candFull) {
+      captureWorkflowChatDraft();
+      body.innerHTML =
+        detailErrorHtml +
+        heroHtml +
+        '<div class="vc-staff-inbox-detail__loading">Caricamento risposte\u2026</div>';
+      foot.innerHTML = "";
+      return;
+    }
+    captureWorkflowChatDraft();
+    body.innerHTML =
+      detailErrorHtml +
+      heroHtml +
+      renderDetailFields(item) +
+      renderChatPanel(item);
+    foot.innerHTML = actionButtons(item, "candidature") || "";
+    bindActionButtons(foot, item);
+    bootChatForDetail(item);
+    scanInboxAvatars(sheet);
+  }
+
+  function appealKickerLabel(item) {
+    if (item && item.kind === "unban") return "Appello unban";
+    if (item && item.kind === "unmute") return "Appello unmute";
+    return "Appello";
+  }
+
+  function appealDisplayName(item) {
+    var name = cleanDiscordText((item && item.displayName) || "");
+    if (name && !/^\d{16,22}$/.test(name) && !isGenericAppealLabel(name)) return name;
+    var title = cleanDiscordText((item && item.title) || "");
+    if (
+      title &&
+      !isGenericAppealLabel(title) &&
+      !/richiesta\s+(unban|unmute)/i.test(title)
+    ) {
+      return title;
+    }
+    return "";
+  }
+
+  function renderAppealSheet(item) {
+    openResoSheet();
+    var sheet = ensureResoSheet();
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    var titleEl = sheet.querySelector("#vc-staff-reso-title");
+    var kicker = sheet.querySelector(".vc-staff-reso-sheet__kicker");
+    if (!body || !foot) return;
+    sheet.classList.remove("is-reso-sheet", "is-cand-sheet", "is-pause-sheet");
+    sheet.classList.add("is-appeal-sheet", "is-cand-sheet");
+    if (kicker) kicker.textContent = appealKickerLabel(item);
+    var displayName = appealDisplayName(item) || itemTitle(item) || "Appello";
+    clearSheetTitle(titleEl);
+    var detailErrorHtml = state.detailError
+      ? '<div class="vc-staff-inbox-detail__error" role="alert">' + T.esc(state.detailError) + "</div>"
+      : "";
+    var appealFull =
+      String(item.content || "").length > 120 ||
+      String(item.body || "").length > 120 ||
+      (Array.isArray(item.fields) && item.fields.length >= 1) ||
+      String(item.preview || "").length > 60;
+    var heroMeta = cardMeta(item, { dateOnly: true });
+    var heroType = typeBadge(item);
+    var heroHtml =
+      '<div class="vc-staff-reso-hero vc-staff-reso-hero--cand vc-staff-reso-hero--appeal">' +
+      '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--lg">' +
+      T.avatarImgHtml(item.avatarUrl, item.userId, { width: 56, height: 56 }) +
+      '</span><div class="vc-staff-reso-hero__main">' +
+      '<div class="vc-staff-reso-hero__name-row">' +
+      '<h3 class="vc-staff-reso-hero__name">' +
+      T.esc(displayName) +
+      "</h3>" +
+      (heroType || "") +
+      "</div>" +
+      (heroMeta
+        ? '<p class="vc-staff-reso-hero__meta">' + T.esc(heroMeta) + "</p>"
+        : "") +
+      "</div>" +
+      '<span class="vc-staff-inbox-status vc-staff-reso-hero__status ' +
+      statusClass(item) +
+      '">' +
+      T.esc(statusLabel(item)) +
+      "</span></div>";
+    if (state.detailLoading && !appealFull) {
+      captureWorkflowChatDraft();
+      body.innerHTML =
+        detailErrorHtml +
+        heroHtml +
+        '<div class="vc-staff-inbox-detail__loading">Caricamento appello\u2026</div>';
+      foot.innerHTML = "";
+      return;
+    }
+    captureWorkflowChatDraft();
+    body.innerHTML =
+      detailErrorHtml +
+      heroHtml +
+      renderDetailFields(item) +
+      renderChatPanel(item);
+    foot.innerHTML = actionButtons(item, "appelli") || "";
+    bindActionButtons(foot, item);
+    bootChatForDetail(item);
+    scanInboxAvatars(sheet);
+  }
+
+  function usesWorkflowSheet() {
+    return (
+      state.tab === "resoconti" ||
+      state.tab === "candidature" ||
+      state.tab === "appelli" ||
+      state.tab === "pause"
+    );
+  }
+
+  function pauseCalApiUrl(year, month) {
+    var base = T.resolveApiUrl(window.__VC_STAFF_PAUSE || {}, "/webhooks/site-staff-pause");
+    var sep = base.indexOf("?") >= 0 ? "&" : "?";
+    return (
+      base +
+      sep +
+      "year=" +
+      encodeURIComponent(String(year)) +
+      "&month=" +
+      encodeURIComponent(String(month))
+    );
+  }
+
+  function parsePauseDayFlexible(raw) {
+    var s = String(raw || "").trim();
+    if (!s) return null;
+    var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+      return new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])));
+    }
+    var it = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
+    if (it) {
+      return new Date(Date.UTC(Number(it[3]), Number(it[2]) - 1, Number(it[1])));
+    }
+    var t = Date.parse(s);
+    if (Number.isFinite(t)) {
+      var d = new Date(t);
+      return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+    return null;
+  }
+
+  function pauseIsoDay(y, m, d) {
+    return (
+      String(y) +
+      "-" +
+      String(m).padStart(2, "0") +
+      "-" +
+      String(d).padStart(2, "0")
+    );
+  }
+
+  function pauseMonthLabelIt(y, m) {
+    var names = [
+      "Gennaio",
+      "Febbraio",
+      "Marzo",
+      "Aprile",
+      "Maggio",
+      "Giugno",
+      "Luglio",
+      "Agosto",
+      "Settembre",
+      "Ottobre",
+      "Novembre",
+      "Dicembre",
+    ];
+    return names[m - 1] + " " + y;
+  }
+
+  function pauseRequestDayKeys(item) {
+    var a = parsePauseDayFlexible(item && (item.startIso || item.start));
+    var b = parsePauseDayFlexible(item && (item.endIso || item.end));
+    if (!a || !b || b < a) return [];
+    var keys = [];
+    for (var t = a.getTime(); t <= b.getTime(); t += 86400000) {
+      var d = new Date(t);
+      keys.push(
+        pauseIsoDay(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()),
+      );
+    }
+    return keys;
+  }
+
+  function pickPauseSheetMonth(item) {
+    var start = parsePauseDayFlexible(item && (item.startIso || item.start));
+    if (start) {
+      return { y: start.getUTCFullYear(), m: start.getUTCMonth() + 1 };
+    }
+    var now = new Date();
+    try {
+      var fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Rome",
+        year: "numeric",
+        month: "2-digit",
+      });
+      var parts = fmt.formatToParts(now);
+      var py = parts.find(function (p) {
+        return p.type === "year";
+      });
+      var pm = parts.find(function (p) {
+        return p.type === "month";
+      });
+      if (py && pm) return { y: Number(py.value), m: Number(pm.value) };
+    } catch (e) {}
+    return { y: now.getFullYear(), m: now.getMonth() + 1 };
+  }
+
+  function mergePauseRequestIntoDays(daysMap, item) {
+    var out = daysMap && typeof daysMap === "object" ? Object.assign({}, daysMap) : {};
+    var keys = pauseRequestDayKeys(item);
+    var uid = String((item && item.userId) || "").trim();
+    var pid = String((item && item.id) || "").trim();
+    keys.forEach(function (key) {
+      var list = Array.isArray(out[key]) ? out[key].slice() : [];
+      var exists = list.some(function (e) {
+        return String(e.userId || "") === uid && (!pid || String(e.id || "") === pid);
+      });
+      if (!exists) {
+        list.push({
+          id: pid,
+          userId: uid,
+          displayName: (item && item.displayName) || "Staff",
+          avatarUrl: (item && item.avatarUrl) || "",
+          phase: String((item && item.phase) || "planned") || "planned",
+          ruolo: pauseRoleBadgeLabels(item).join(" · "),
+          start: (item && item.start) || "",
+          end: (item && item.end) || "",
+          isRequest: true,
+        });
+      }
+      out[key] = list;
+    });
+    return out;
+  }
+
+  function buildPauseSheetCalHtml(item, year, month, daysMap, selectedDay) {
+    var days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    var firstDow = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    var mondayFirst = (firstDow + 6) % 7;
+    var map = mergePauseRequestIntoDays(daysMap, item);
+    var reqKeys = {};
+    pauseRequestDayKeys(item).forEach(function (k) {
+      reqKeys[k] = true;
+    });
+    var cells = "";
+    var i;
+    for (i = 0; i < mondayFirst; i += 1) {
+      cells += '<span class="vc-staff-pause-sheet-cal__day is-empty" aria-hidden="true"></span>';
+    }
+    for (var d = 1; d <= days; d += 1) {
+      var key = pauseIsoDay(year, month, d);
+      var entries = map[key] || [];
+      var cls = "vc-staff-pause-sheet-cal__day";
+      if (entries.length) cls += " is-marked is-" + String(entries[0].phase || "active");
+      if (reqKeys[key]) cls += " is-request";
+      if (selectedDay && selectedDay === key) cls += " is-selected";
+      var chips = "";
+      if (entries.length) {
+        chips = '<span class="vc-staff-pause-sheet-cal__chips">';
+        var maxShow = Math.min(3, entries.length);
+        for (var c = 0; c < maxShow; c += 1) {
+          var av = String(entries[c].avatarUrl || "").replace(/"/g, "");
+          chips +=
+            '<span class="vc-staff-pause-sheet-cal__chip" title="' +
+            T.esc(entries[c].displayName || "") +
+            '"' +
+            (av ? ' style="background-image:url(\'' + av + "')\"" : "") +
+            "></span>";
+        }
+        if (entries.length > 3) {
+          chips +=
+            '<span class="vc-staff-pause-sheet-cal__more">+' +
+            (entries.length - 3) +
+            "</span>";
+        }
+        chips += "</span>";
+      }
+      cells +=
+        '<button type="button" class="' +
+        cls +
+        '" data-pause-cal-day="' +
+        T.esc(key) +
+        '" aria-label="Giorno ' +
+        d +
+        (entries.length ? ", " + entries.length + " in pausa" : "") +
+        '"><span class="vc-staff-pause-sheet-cal__num">' +
+        d +
+        "</span>" +
+        chips +
+        "</button>";
+    }
+
+    var dayEntries = selectedDay && map[selectedDay] ? map[selectedDay] : [];
+    var previewHtml = "";
+    if (selectedDay && dayEntries.length) {
+      previewHtml =
+        '<div class="vc-staff-pause-sheet-cal__preview">' +
+        '<p class="vc-staff-pause-sheet-cal__preview-title">' +
+        T.esc(selectedDay) +
+        " · " +
+        dayEntries.length +
+        (dayEntries.length === 1 ? " in pausa" : " in pausa") +
+        '</p><ul class="vc-staff-pause-sheet-cal__preview-list">' +
+        dayEntries
+          .map(function (e) {
+            return (
+              "<li>" +
+              '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--sm">' +
+              T.avatarImgHtml(e.avatarUrl, e.userId, { width: 28, height: 28 }) +
+              "</span><div><strong>" +
+              T.esc(e.displayName || "Staff") +
+              "</strong>" +
+              (e.ruolo
+                ? '<span class="vc-staff-pause-sheet-cal__preview-role">' +
+                  T.esc(e.ruolo) +
+                  "</span>"
+                : "") +
+              (e.start && e.end
+                ? "<em>" + T.esc(e.start + " → " + e.end) + "</em>"
+                : "") +
+              "</div></li>"
+            );
+          })
+          .join("") +
+        "</ul></div>";
+    } else if (selectedDay) {
+      previewHtml =
+        '<p class="vc-staff-pause-sheet-cal__preview-empty">Nessuno in pausa in questo giorno.</p>';
+    } else {
+      previewHtml =
+        '<p class="vc-staff-pause-sheet-cal__preview-empty">Tocca un giorno per vedere chi è in pausa.</p>';
+    }
+
+    return (
+      '<section class="vc-staff-pause-sheet-cal" data-pause-cal-y="' +
+      year +
+      '" data-pause-cal-m="' +
+      month +
+      '" aria-label="Calendario pause">' +
+      '<div class="vc-staff-pause-sheet-cal__nav">' +
+      '<button type="button" class="vc-staff-pause-sheet-cal__navbtn" data-pause-cal-nav="-1" aria-label="Mese precedente"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>' +
+      '<span class="vc-staff-pause-sheet-cal__title">' +
+      T.esc(pauseMonthLabelIt(year, month)) +
+      "</span>" +
+      '<button type="button" class="vc-staff-pause-sheet-cal__navbtn" data-pause-cal-nav="1" aria-label="Mese successivo"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>' +
+      "</div>" +
+      '<div class="vc-staff-pause-sheet-cal__dows" aria-hidden="true"><span>L</span><span>M</span><span>M</span><span>G</span><span>V</span><span>S</span><span>D</span></div>' +
+      '<div class="vc-staff-pause-sheet-cal__grid">' +
+      cells +
+      "</div>" +
+      previewHtml +
+      "</section>"
+    );
+  }
+
+  function bindPauseSheetCal(root, item, calState) {
+    if (!root || !item) return;
+    var mount = root.querySelector("[data-pause-cal-mount]");
+    if (!mount) return;
+    function paint() {
+      mount.innerHTML = buildPauseSheetCalHtml(
+        item,
+        calState.y,
+        calState.m,
+        calState.days || {},
+        calState.selectedDay || "",
+      );
+      mount.querySelectorAll("[data-pause-cal-nav]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var delta = Number(btn.getAttribute("data-pause-cal-nav") || 0);
+          var nm = calState.m + delta;
+          var ny = calState.y;
+          if (nm < 1) {
+            nm = 12;
+            ny -= 1;
+          } else if (nm > 12) {
+            nm = 1;
+            ny += 1;
+          }
+          calState.y = ny;
+          calState.m = nm;
+          calState.selectedDay = "";
+          loadPauseCalMonth(item, calState, mount);
+        });
+      });
+      mount.querySelectorAll("[data-pause-cal-day]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          calState.selectedDay = btn.getAttribute("data-pause-cal-day") || "";
+          paint();
+        });
+      });
+    }
+    calState._paint = paint;
+    paint();
+  }
+
+  function loadPauseCalMonth(item, calState, mount) {
+    if (!mount) return;
+    mount.classList.add("is-loading");
+    T.fetchJson(pauseCalApiUrl(calState.y, calState.m), {
+      timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(18000) : 18000,
+      cache: false,
+    })
+      .then(function (out) {
+        if (out && out.res && out.res.ok && out.data && out.data.ok) {
+          calState.days = out.data.days || {};
+          calState.pauses = out.data.pauses || [];
+        } else {
+          calState.days = calState.days || {};
+        }
+      })
+      .catch(function () {
+        calState.days = calState.days || {};
+      })
+      .then(function () {
+        mount.classList.remove("is-loading");
+        if (typeof calState._paint === "function") calState._paint();
+      });
+  }
+
+  function renderPauseSheet(item) {
+    openResoSheet();
+    var sheet = ensureResoSheet();
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    var titleEl = sheet.querySelector("#vc-staff-reso-title");
+    var kicker = sheet.querySelector(".vc-staff-reso-sheet__kicker");
+    if (!body || !foot) return;
+    sheet.classList.remove("is-reso-sheet", "is-cand-sheet", "is-appeal-sheet");
+    sheet.classList.add("is-pause-sheet");
+    if (kicker) kicker.textContent = "Richiesta pausa";
+    var displayName = cleanDiscordText((item && item.displayName) || "") || "Staff";
+    clearSheetTitle(titleEl);
+    var detailErrorHtml = state.detailError
+      ? '<div class="vc-staff-inbox-detail__error" role="alert">' + T.esc(state.detailError) + "</div>"
+      : "";
+    var rangeMeta =
+      item.start && item.end ? String(item.start) + " \u2192 " + String(item.end) : cardMeta(item, { dateOnly: true });
+    var roleBadges = pauseRoleBadgesHtml(item);
+    var heroHtml =
+      '<div class="vc-staff-reso-hero vc-staff-reso-hero--pause">' +
+      '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--lg">' +
+      T.avatarImgHtml(item.avatarUrl, item.userId, { width: 56, height: 56 }) +
+      '</span><div class="vc-staff-reso-hero__main">' +
+      '<div class="vc-staff-reso-hero__name-row">' +
+      '<h3 class="vc-staff-reso-hero__name">' +
+      T.esc(displayName) +
+      "</h3>" +
+      roleBadges +
+      "</div>" +
+      (rangeMeta
+        ? '<p class="vc-staff-reso-hero__meta">' + T.esc(rangeMeta) + "</p>"
+        : "") +
+      "</div>" +
+      '<span class="vc-staff-inbox-status vc-staff-reso-hero__status ' +
+      statusClass(item) +
+      '">' +
+      T.esc(statusLabel(item)) +
+      "</span></div>";
+    var motivazione = String(item.motivazione || item.preview || item.body || "").trim();
+    var motiveHtml = motivazione
+      ? '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa"><h4>Motivazione</h4><p>' +
+        formatDiscordHtml(motivazione) +
+        "</p></div>"
+      : "";
+    var month = pickPauseSheetMonth(item);
+    var reqKeys = pauseRequestDayKeys(item);
+    var initialDay = reqKeys[0] || "";
+    captureWorkflowChatDraft();
+    body.innerHTML =
+      detailErrorHtml +
+      heroHtml +
+      motiveHtml +
+      '<div class="vc-staff-pause-sheet-cal-mount" data-pause-cal-mount></div>' +
+      renderChatPanel(item);
+    foot.innerHTML = actionButtons(item, "pause") || "";
+    bindActionButtons(foot, item);
+    var calState = {
+      y: month.y,
+      m: month.m,
+      days: {},
+      pauses: [],
+      selectedDay: initialDay,
+    };
+    bindPauseSheetCal(body, item, calState);
+    loadPauseCalMonth(item, calState, body.querySelector("[data-pause-cal-mount]"));
+    bootChatForDetail(item);
+    scanInboxAvatars(sheet);
   }
 
   function renderDetailFields(item) {
@@ -3787,8 +5208,8 @@
       fields = (fields || []).map(function (field) {
         if (!field) return field;
         var fname = String(field.name || "").trim();
-        if (/utente/i.test(fname)) {
-          return { name: "Utente", value: resolveSubjectUserValue(item, field.value) };
+        if (/utente/i.test(fname) || /^(?:\d{1,2}\.\s*)?id(?:\s+discord)?$/i.test(fname)) {
+          return { name: "1. ID Discord", value: discordIdOnlyValue(item, field.value) };
         }
                 var cleanedVal = String(field.value || "")
           .replace(/\(\s*`?\d{16,20}`?\s*\)/g, "")
@@ -3796,31 +5217,33 @@
           .trim();
         return { name: field.name, value: cleanedVal || field.value };
       });
-      var hasUtente = (fields || []).some(function (f) {
-        return f && /utente/i.test(String(f.name || ""));
+      var hasDiscordId = (fields || []).some(function (f) {
+        return f && /id discord/i.test(String(f.name || ""));
       });
-      if (!hasUtente) {
-        fields = [{ name: "Utente", value: resolveSubjectUserValue(item, "") }].concat(fields || []);
+      if (!hasDiscordId) {
+        fields = [{ name: "1. ID Discord", value: discordIdOnlyValue(item, "") }].concat(fields || []);
       }
     } else if (state.tab === "candidature") {
-      if (!fieldsLookUseful(fields)) {
-        var parsed = parseNumberedSections(sourceBody);
-        if (parsed.length) fields = parsed;
+      var candSource =
+        item.content ||
+        (String(item.body || "").length >= String(item.preview || "").length ? item.body : "") ||
+        item.body ||
+        item.preview ||
+        sourceBody ||
+        "";
+      var parsedCand = parseNumberedSections(candSource, { sequential: true });
+      if (parsedCand.length >= 2) {
+        fields = parsedCand;
+      } else if (!fieldsLookUseful(fields)) {
+        var parsedLoose = parseNumberedSections(candSource);
+        if (parsedLoose.length) fields = parsedLoose;
+      } else if (
+        parsedCand.length > (Array.isArray(fields) ? fields.length : 0)
+      ) {
+        fields = parsedCand;
       }
-      var hasCandUser = (fields || []).some(function (f) {
-        return f && /^(utente|user(\s*id)?)$/i.test(String(f.name || "").trim());
-      });
-      if (!hasCandUser) {
-        fields = [{ name: "Utente", value: resolveSubjectUserValue(item, "") }].concat(fields || []);
-      } else {
-        fields = (fields || []).map(function (field) {
-          if (!field) return field;
-          if (/^(utente|user(\s*id)?)$/i.test(String(field.name || "").trim())) {
-            return { name: "Utente", value: resolveSubjectUserValue(item, field.value) };
-          }
-          return field;
-        });
-      }
+      // Hero already shows name/avatar; normalize ID field → "1. ID Discord" (solo snowflake).
+      fields = normalizeCandidaturaDetailFields(fields, item);
     } else if (state.tab === "resoconti") {
       var resocontoParsed = parseResocontoSections(sourceBody);
       if (resocontoParsed.length) fields = resocontoParsed;
@@ -3832,21 +5255,25 @@
       var fallbackBody = breakNumberedProse(item.body || item.content || item.preview || sourceBody || "");
       if (state.tab === "resoconti") {
         fallbackBody = stripResocontoText(fallbackBody, { keepNewlines: true });
-        if (!fallbackBody) return "";
-        return (
+        if (!fallbackBody) return appendDetailExtras("", item);
+        return appendDetailExtras(
           '<div class="vc-staff-inbox-detail__body vc-staff-inbox-detail__prose">' +
           T.esc(fallbackBody).replace(/\n/g, "<br>") +
-          "</div>"
+            "</div>",
+          item,
         );
       }
-      if (!cleanDiscordText(fallbackBody, { keepNewlines: true, keepCustomEmoji: true })) return "";
-      return (
+      if (!cleanDiscordText(fallbackBody, { keepNewlines: true, keepCustomEmoji: true })) {
+        return appendDetailExtras("", item);
+      }
+      return appendDetailExtras(
         '<div class="vc-staff-inbox-detail__body vc-staff-inbox-detail__prose">' +
         formatDiscordHtml(fallbackBody, { keepNewlines: true }) +
-        "</div>"
+          "</div>",
+        item,
       );
     }
-    return (
+    return appendDetailExtras(
       '<div class="vc-staff-inbox-detail__fields">' +
       fields
         .map(function (field) {
@@ -3874,32 +5301,92 @@
           );
         })
         .join("") +
+        "</div>",
+      item,
+    );
+  }
+
+  function appendDetailExtras(fieldsHtml, item) {
+    var timing = renderTimingMeta(item);
+    var decision = renderDecisionMeta(item);
+    if (!timing && !decision) return fieldsHtml || "";
+    if (/vc-staff-inbox-detail__fields/.test(String(fieldsHtml || ""))) {
+      return String(fieldsHtml).replace(/<\/div>\s*$/, timing + decision + "</div>");
+    }
+    return (
+      '<div class="vc-staff-inbox-detail__fields">' +
+      (fieldsHtml || "") +
+      timing +
+      decision +
       "</div>"
     );
   }
 
+  function preferNonEmptyText(next, prev) {
+    var a = String(next == null ? "" : next).trim();
+    var b = String(prev == null ? "" : prev).trim();
+    if (a) return a;
+    return b || "";
+  }
+
+  function resolveDecidedByLabel(item) {
+    if (!item) return "";
+    var name = String(item.decidedByName || "").trim();
+    var id = String(item.decidedBy || "").trim();
+    if (/^system$/i.test(name) || /^system$/i.test(id)) return "Sistema";
+    if (name && !/^\d{16,22}$/.test(name)) return name;
+    if (id && !/^\d{16,22}$/.test(id) && !/^system$/i.test(id)) return id;
+    if (id) return "Staff";
+    return "";
+  }
+
   function renderDecisionMeta(item) {
     if (!item || item.status === "pending" || item.canAct) return "";
-    var by = item.decidedByName || item.decidedBy;
-    if (!by) return "";
-    var status = String(item.status || "").toLowerCase();
-    var heading =
-      status === "rejected"
-        ? "Rifiutata da"
-        : status === "accepted"
-          ? "Accettata da"
-          : status === "cancelled"
-            ? "Annullata da"
-            : "Gestita da";
+    var by = resolveDecidedByLabel(item);
     var when = item.decidedAt ? formatDate(item.decidedAt) : "";
+    if (!by && !when) return "";
+    var status = String(item.status || "").toLowerCase();
+    var verb =
+      status === "rejected"
+        ? "Rifiutata"
+        : status === "accepted"
+          ? "Accettata"
+          : status === "cancelled"
+            ? "Annullata"
+            : "Gestita";
+    var heading = by ? verb + " da " + by : verb;
     return (
       '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa vc-staff-inbox-detail__field--decision"><h4>' +
       T.esc(heading) +
-      "</h4><p>" +
-      T.esc(by) +
-      (when ? " · " + T.esc(when) : "") +
-      "</p></div>"
+      "</h4>" +
+      (when ? "<p>" + T.esc(when) + "</p>" : "") +
+      "</div>"
     );
+  }
+
+  function patchDecisionMetaInDom(item) {
+    var html = renderDecisionMeta(item);
+    var existing = document.querySelector(".vc-staff-inbox-detail__field--decision");
+    if (!html) {
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      return true;
+    }
+    var wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    var fresh = wrap.firstChild;
+    if (!fresh) return false;
+    if (existing && existing.parentNode) {
+      existing.replaceWith(fresh);
+      return true;
+    }
+    var fields = document.querySelector(
+      "#vc-staff-reso-body .vc-staff-inbox-detail__fields, #vc-staff-inbox-detail .vc-staff-inbox-detail__fields",
+    );
+    if (fields) {
+      fields.appendChild(fresh);
+      return true;
+    }
+    return false;
   }
 
   function renderTimingMeta(item) {
@@ -3916,21 +5403,74 @@
     var layout = T.byId("vc-staff-inbox");
     if (!panel) return;
 
-        if (state.tab === "resoconti" && (state.detail || state.detailLoading)) {
+        if (usesWorkflowSheet() && (state.detail || state.detailLoading)) {
       if (layout) layout.classList.remove("has-detail");
       panel.hidden = true;
       panel.innerHTML = "";
-      if (state.detailLoading && !state.detail) {
-        openResoSheet();
-        var loadingBody = document.getElementById("vc-staff-reso-body");
-        if (loadingBody) {
-          loadingBody.innerHTML =
-            '<div class="vc-staff-inbox-detail__loading">Caricamento resoconto\u2026</div>';
+      if (state.tab === "resoconti") {
+        if (state.detailLoading && !state.detail) {
+          openResoSheet();
+          var loadingBody = document.getElementById("vc-staff-reso-body");
+          var kickerR = document.querySelector("#vc-staff-reso-sheet .vc-staff-reso-sheet__kicker");
+          if (kickerR) kickerR.textContent = "Resoconto";
+          if (loadingBody) {
+            captureWorkflowChatDraft();
+            loadingBody.innerHTML =
+              '<div class="vc-staff-inbox-detail__loading">Caricamento resoconto\u2026</div>';
+          }
+          return;
         }
+        if (state.detail) renderResoSheet(state.detail);
         return;
       }
-      if (state.detail) renderResoSheet(state.detail);
-      return;
+      if (state.tab === "candidature") {
+        if (state.detailLoading && !state.detail) {
+          openResoSheet();
+          var loadingCand = document.getElementById("vc-staff-reso-body");
+          var kickerC = document.querySelector("#vc-staff-reso-sheet .vc-staff-reso-sheet__kicker");
+          if (kickerC) kickerC.textContent = "Candidatura";
+          if (loadingCand) {
+            captureWorkflowChatDraft();
+            loadingCand.innerHTML =
+              '<div class="vc-staff-inbox-detail__loading">Caricamento candidatura\u2026</div>';
+          }
+          return;
+        }
+        if (state.detail) renderCandSheet(state.detail);
+        return;
+      }
+      if (state.tab === "appelli") {
+        if (state.detailLoading && !state.detail) {
+          openResoSheet();
+          var loadingAppeal = document.getElementById("vc-staff-reso-body");
+          var kickerA = document.querySelector("#vc-staff-reso-sheet .vc-staff-reso-sheet__kicker");
+          if (kickerA) kickerA.textContent = "Appello";
+          if (loadingAppeal) {
+            captureWorkflowChatDraft();
+            loadingAppeal.innerHTML =
+              '<div class="vc-staff-inbox-detail__loading">Caricamento appello\u2026</div>';
+          }
+          return;
+        }
+        if (state.detail) renderAppealSheet(state.detail);
+        return;
+      }
+      if (state.tab === "pause") {
+        if (state.detailLoading && !state.detail) {
+          openResoSheet();
+          var loadingPause = document.getElementById("vc-staff-reso-body");
+          var kickerP = document.querySelector("#vc-staff-reso-sheet .vc-staff-reso-sheet__kicker");
+          if (kickerP) kickerP.textContent = "Richiesta pausa";
+          if (loadingPause) {
+            captureWorkflowChatDraft();
+            loadingPause.innerHTML =
+              '<div class="vc-staff-inbox-detail__loading">Caricamento pausa\u2026</div>';
+          }
+          return;
+        }
+        if (state.detail) renderPauseSheet(state.detail);
+        return;
+      }
     }
 
     closeResoSheet(true);
@@ -3945,6 +5485,7 @@
     }
     panel.hidden = false;
     if (state.detailLoading) {
+      captureWorkflowChatDraft();
       panel.innerHTML = '<div class="vc-staff-inbox-detail__loading">Caricamento dettaglio\u2026</div>';
       return;
     }
@@ -3954,6 +5495,7 @@
     var detailErrorHtml = state.detailError
       ? '<div class="vc-staff-inbox-detail__error" role="alert">' + T.esc(state.detailError) + "</div>"
       : "";
+    captureWorkflowChatDraft();
     panel.innerHTML =
       '<div class="vc-staff-inbox-detail__inner">' +
       '<div class="vc-staff-inbox-detail__top">' +
@@ -3981,8 +5523,6 @@
           formatDiscordHtml(item.motivazione) +
           "</p></div>"
         : "") +
-      renderTimingMeta(item) +
-      renderDecisionMeta(item) +
       renderChatPanel(item) +
       actionButtons(item, state.tab) +
       "</div>";
@@ -3995,6 +5535,26 @@
     }
     bindActionButtons(panel, item);
     bootChatForDetail(item);
+  }
+
+  function preferLongerRolesHistory(a, b) {
+    function score(rows) {
+      return (Array.isArray(rows) ? rows : []).reduce(function (n, r) {
+        if (!r) return n;
+        var f = String(r.from || r.oldRole || "").trim();
+        var t = String(r.to || r.newRole || "").trim();
+        if (f && t) return n + 2;
+        if (f || t) return n + 1;
+        return n;
+      }, 0);
+    }
+    var aa = Array.isArray(a) ? a : [];
+    var bb = Array.isArray(b) ? b : [];
+    var sa = score(aa);
+    var sb = score(bb);
+    if (sa !== sb) return sa >= sb ? aa : bb;
+    if (aa.length !== bb.length) return aa.length >= bb.length ? aa : bb;
+    return aa.length ? aa : bb;
   }
 
   function scheduleResoStatsSoftRefresh(seq, key, detailId, listItem) {
@@ -4023,14 +5583,14 @@
             var prevDetail = state.detail || listItem || {};
             var nextItem = out.data.item || {};
                         state.detail = Object.assign({}, prevDetail, nextItem, {
-              rolesHistory:
-                Array.isArray(nextItem.rolesHistory) && nextItem.rolesHistory.length
-                  ? nextItem.rolesHistory
-                  : Array.isArray(prevDetail.rolesHistory) && prevDetail.rolesHistory.length
-                    ? prevDetail.rolesHistory
-                    : [],
+              rolesHistory: preferLongerRolesHistory(
+                nextItem.rolesHistory,
+                prevDetail.rolesHistory,
+              ),
             });
+            if (shouldRemountDetailForSoftSync(state.detail)) {
             renderDetail();
+            }
           })
           .catch(function () {});
       }, 1100);
@@ -4044,7 +5604,21 @@
       (listItem && (listItem.body || listItem.content || listItem.motivazione || listItem.preview)) ||
         (listItem && Array.isArray(listItem.fields) && listItem.fields.length),
     );
-        state.detailLoading = !hasLocalBody;
+    if (state.tab === "candidature" || state.tab === "appelli") {
+      var fullEnough =
+        (listItem && String(listItem.content || "").length > 200) ||
+        (listItem && String(listItem.body || "").length > 200) ||
+        (listItem && Array.isArray(listItem.fields) && listItem.fields.length >= 2) ||
+        (listItem && String(listItem.preview || "").length > 80);
+      if (state.tab === "appelli") {
+        fullEnough =
+          fullEnough ||
+          (listItem && Array.isArray(listItem.fields) && listItem.fields.length >= 1) ||
+          (listItem && String(listItem.body || listItem.content || listItem.preview || "").length > 80);
+      }
+      hasLocalBody = Boolean(fullEnough || hasLocalBody);
+    }
+    state.detailLoading = !hasLocalBody;
     state.detailError = "";
     state.detail = listItem;
     state.selectedKey = key;
@@ -4064,22 +5638,85 @@
     if (state.tab === "pause") {
       url += "&userId=" + encodeURIComponent(listItem.userId || "");
     }
-    T.fetchJson(url, { timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(25000) : 25000 })
+    function applyDetailFail(out, isNet) {
+      if (seq !== detailSeq || state.selectedKey !== key) return;
+      state.detailLoading = false;
+      var err = String((out && out.data && out.data.error) || "").toLowerCase();
+      var st = Number(out && out.res && out.res.status) || 0;
+      var rateish =
+        isNet ||
+        Boolean(out && out.soft) ||
+        Boolean(out && out.data && out.data.soft) ||
+        err === "rate_limited_client" ||
+        err === "rate_limited" ||
+        err === "timeout" ||
+        err === "aborted" ||
+        err === "network_error" ||
+        err === "invalid_json" ||
+        err === "empty_body" ||
+        err === "missing_token" ||
+        st === 401 ||
+        st === 429 ||
+        st === 408 ||
+        st === 0 ||
+        st === 502 ||
+        st === 503 ||
+        st === 504;
+      var usableLocal =
+        hasLocalBody ||
+        (listItem && Array.isArray(listItem.fields) && listItem.fields.length > 0) ||
+        (listItem &&
+          String(listItem.content || listItem.body || listItem.preview || "").trim().length > 40);
+      if (usableLocal || rateish) {
+        // inboxDetailChatRace1 / notifApiErr1: no red banner on soft/race; keep local + silent retry
+        state.detailError = "";
+        state.detail = listItem;
+        T.hideStaffToast();
+        if (rateish) {
+          window.setTimeout(function () {
+            if (seq !== detailSeq || state.selectedKey !== key) return;
+            T.fetchJson(url, {
+              timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(28000) : 28000,
+              cache: false,
+            })
+              .then(function (retryOut) {
+                if (seq !== detailSeq || state.selectedKey !== key) return;
+                if (!retryOut.res.ok || !retryOut.data || !retryOut.data.ok || !retryOut.data.item) {
+                  return;
+                }
+                state.detailError = "";
+                state.detail = Object.assign({}, listItem, retryOut.data.item, {
+                  dedupeKey: retryOut.data.item.dedupeKey || listItem.dedupeKey || "",
+                  messageId: retryOut.data.item.messageId || listItem.messageId || "",
+                  channelId: retryOut.data.item.channelId || listItem.channelId || "",
+                  rolesHistory: preferLongerRolesHistory(
+                    retryOut.data.item.rolesHistory,
+                    listItem.rolesHistory,
+                  ),
+                });
+                renderDetail();
+              })
+              .catch(function () {});
+          }, 1600);
+        }
+        return;
+      }
+      state.detailError =
+        (out && out.data && out.data.message) ||
+        (isNet ? "Errore di rete sul dettaglio." : "Impossibile caricare il dettaglio.");
+      state.detail = listItem;
+      T.hideStaffToast();
+      renderDetail();
+    }
+    T.fetchJson(url, {
+      timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(25000) : 25000,
+      cache: false,
+    })
       .then(function (out) {
         if (seq !== detailSeq || state.selectedKey !== key) return;
         state.detailLoading = false;
         if (!out.res.ok || !out.data || !out.data.ok || !out.data.item) {
-                    if (hasLocalBody) {
-            state.detailError = "";
-            state.detail = listItem;
-            renderDetail();
-            return;
-          }
-          state.detailError =
-            (out.data && out.data.message) || "Impossibile caricare il dettaglio.";
-          state.detail = listItem;
-          T.hideStaffToast();
-          renderDetail();
+          applyDetailFail(out, false);
           return;
         }
         state.detailError = "";
@@ -4087,12 +5724,10 @@
           dedupeKey: out.data.item.dedupeKey || listItem.dedupeKey || "",
           messageId: out.data.item.messageId || listItem.messageId || "",
           channelId: out.data.item.channelId || listItem.channelId || "",
-                    rolesHistory:
-            Array.isArray(out.data.item.rolesHistory) && out.data.item.rolesHistory.length
-              ? out.data.item.rolesHistory
-              : Array.isArray(listItem.rolesHistory) && listItem.rolesHistory.length
-                ? listItem.rolesHistory
-                : [],
+          rolesHistory: preferLongerRolesHistory(
+            out.data.item.rolesHistory,
+            listItem.rolesHistory,
+          ),
         });
                 var detailItem = out.data.item;
         var listIdx = state.items.findIndex(function (it) {
@@ -4106,9 +5741,16 @@
             status: detailItem.status || prev.status,
             statusLabel: detailItem.statusLabel || prev.statusLabel,
             canAct: detailItem.canAct != null ? detailItem.canAct : prev.canAct,
-            body: detailItem.body || prev.body || "",
-            content: detailItem.content || prev.content || "",
-            fields: Array.isArray(detailItem.fields) && detailItem.fields.length ? detailItem.fields : prev.fields,
+            body: detailItem.body || detailItem.content || prev.body || "",
+            content: detailItem.content || detailItem.body || prev.content || "",
+            fields:
+              Array.isArray(detailItem.fields) &&
+              detailItem.fields.length >=
+                (Array.isArray(prev.fields) ? prev.fields.length : 0)
+                ? detailItem.fields
+                : Array.isArray(detailItem.fields) && detailItem.fields.length
+                  ? detailItem.fields
+                  : prev.fields,
             ruoloRichiesto: detailItem.ruoloRichiesto || prev.ruoloRichiesto || "",
             timing: detailItem.timing || prev.timing || null,
             decidedBy: detailItem.decidedBy || prev.decidedBy || null,
@@ -4124,10 +5766,10 @@
               Array.isArray(detailItem.costanzaChart) && detailItem.costanzaChart.length
                 ? detailItem.costanzaChart
                 : prev.costanzaChart,
-            rolesHistory:
-              Array.isArray(detailItem.rolesHistory) && detailItem.rolesHistory.length
-                ? detailItem.rolesHistory
-                : prev.rolesHistory,
+            rolesHistory: preferLongerRolesHistory(
+              detailItem.rolesHistory,
+              prev.rolesHistory,
+            ),
           });
           renderList();
         }
@@ -4137,14 +5779,7 @@
         }
       })
       .catch(function () {
-        if (seq !== detailSeq || state.selectedKey !== key) return;
-        state.detailLoading = false;
-        state.detail = listItem;
-        if (!hasLocalBody) {
-          state.detailError = "Errore di rete sul dettaglio.";
-          T.hideStaffToast();
-        }
-        renderDetail();
+        applyDetailFail({ res: { ok: false, status: 0 }, data: { ok: false, error: "network" } }, true);
       });
   }
 
@@ -4243,6 +5878,17 @@
     var el = ensureInboxBootEl();
     if (!el) return;
     setInboxFsLoadingHint(hint);
+    try {
+      window.__VC_INBOX_FS_GATE_HOLD = true;
+    } catch (eHold) {}
+    armInboxFsGateHardFailsafe();
+    // Already visible: only refresh hint — avoid class thrash that re-flashes the gate on mobile.
+    if (isInboxFsLoadingVisible()) {
+      try {
+        document.documentElement.classList.add("vc-notif-staff-loading");
+      } catch (eKeep) {}
+      return;
+    }
     el.hidden = false;
     el.removeAttribute("hidden");
     el.classList.remove("vc-staff-loading--hidden");
@@ -4254,13 +5900,18 @@
     } catch (eSync) {}
   }
 
-  function hideInboxFsLoading() {
+  function hideInboxFsLoading(force) {
+    // Hold the fullscreen gate until the first queue paint is ready.
+    if (!force && (inboxBooting || !initialQueueLoaded)) return;
     var el = T.byId("vc-staff-inbox-loading");
     if (el) {
       el.hidden = true;
       el.setAttribute("hidden", "");
       el.classList.add("vc-staff-loading--hidden");
     }
+    try {
+      window.__VC_INBOX_FS_GATE_HOLD = false;
+    } catch (eHold) {}
     try {
       document.documentElement.classList.remove("vc-notif-staff-loading", "vc-notif-early-staff");
       window.__VC_NOTIF_EARLY_STAFF = false;
@@ -4269,12 +5920,59 @@
       window.clearTimeout(window.__vcNotifStaffLoadWatch);
     } catch (eTo) {}
     try {
+      window.clearTimeout(window.__vcInboxFsGateHardFailsafe);
+    } catch (eHf) {}
+    try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
     } catch (eSync) {}
+    try {
+      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eUnpin) {}
+  }
+
+  function armInboxFsGateHardFailsafe() {
+    try {
+      window.clearTimeout(window.__vcInboxFsGateHardFailsafe);
+    } catch (eClr) {}
+    var ms = T.isCoarseMobile && T.isCoarseMobile() ? 8500 : 12000;
+    try {
+      window.__vcInboxFsGateHardFailsafe = window.setTimeout(function () {
+        window.__vcInboxFsGateHardFailsafe = 0;
+        try {
+          if (!isInboxFsLoadingVisible() && !document.documentElement.classList.contains("vc-notif-staff-loading")) {
+            return;
+          }
+        } catch (eVis) {}
+        forceReleaseStuckInboxLoad();
+        try {
+          finishQueueLoad(loadSeq, {
+            force: true,
+            message: "Caricamento inbox troppo lento. Tocca Ricarica.",
+          });
+        } catch (eFin) {}
+      }, ms);
+    } catch (eArm) {}
+  }
+
+  function inboxListSkeletonHtml() {
+    var label = tabLabel(state.tab).toLowerCase();
+    return (
+      '<div class="vc-staff-inbox-loading" role="status" aria-live="polite" aria-busy="true">' +
+      '<div class="vc-staff-inbox-loading__head">' +
+      '<span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>' +
+      "<p>Carico " +
+      T.esc(label) +
+      "\u2026</p></div>" +
+      '<div class="vc-staff-inbox-loading__skel">' +
+      '<div class="vc-staff-inbox-loading__card"></div>' +
+      '<div class="vc-staff-inbox-loading__card"></div>' +
+      '<div class="vc-staff-inbox-loading__card"></div>' +
+      "</div></div>"
+    );
   }
 
   function inboxBootLoadingHtml() {
-    return "";
+    return inboxListSkeletonHtml();
   }
 
   function showInboxBootScreen() {
@@ -4287,27 +5985,33 @@
     showInboxFsLoading("Pause · Candidature · Appelli · Resoconti");
     var list = T.byId("vc-staff-inbox-list");
     if (!list) return;
+    // Keep existing skeleton if already booting — rewriting the list looks like a second loading page.
+    if (list.classList.contains("is-loading") && list.querySelector(".vc-staff-inbox-loading")) {
+      return;
+    }
     state.items = [];
     state.pagination = null;
     list.hidden = false;
     list.classList.remove("is-refreshing");
     list.classList.add("is-loading");
     list.setAttribute("aria-busy", "true");
-    list.innerHTML = "";
+    list.innerHTML = inboxListSkeletonHtml();
   }
 
-  function hideInboxBootScreen() {
+  function hideInboxBootScreen(force) {
+    if (!force && !initialQueueLoaded) return;
     inboxBooting = false;
     var panel = T.byId("vc-staff-inbox");
     if (panel) panel.classList.remove("is-booting");
-    hideInboxFsLoading();
+    hideInboxFsLoading(Boolean(force) || initialQueueLoaded);
     var boot = T.byId("vc-staff-inbox-boot");
     if (boot) boot.remove();
   }
 
   function prepareBootTab() {
     emptyLoadedTabs = Object.create(null);
-    pickBestTabFromSummary();
+    readPendingFocusFromUrl();
+    pickBestTabFromSummary({ respectUrl: true });
     var anyPending = false;
     for (var i = 0; i < TABS.length; i += 1) {
       var tid = TABS[i].id;
@@ -4317,7 +6021,7 @@
         break;
       }
     }
-            if (anyPending || !String(location.search || "").match(/(?:^|[?&])scope=/)) {
+            if (anyPending || !String(location.search || "").match(/(?:^|[?&])scope=/) || pendingFocusItemId) {
       state.scope = "pending";
     }
         var panel = T.byId("vc-staff-inbox");
@@ -4443,9 +6147,11 @@
       });
     return initialLoadPromise;
   }
-  function loadSummary() {
+  function loadSummary(opts) {
+    opts = opts || {};
     return T.fetchJson(apiBase() + (apiBase().indexOf("?") >= 0 ? "&" : "?") + "queue=summary", {
       timeoutMs: T.resolveFetchTimeoutMs ? T.resolveFetchTimeoutMs(12000) : 12000,
+      cache: opts.cache === false ? false : opts.cache,
     })
       .then(function (out) {
         if (out.data && out.data.ok) applySummaryPayload(out.data);
@@ -4486,6 +6192,8 @@
     return "Nessuna richiesta trovata con i filtri selezionati.";
   }
 
+  var inboxLoadingShownAt = 0;
+
   function clearInboxLoading() {
     var list = T.byId("vc-staff-inbox-list");
     if (!list) return;
@@ -4499,12 +6207,13 @@
     if (!list) return;
 
     if (mode === "off") {
+      inboxLoadingShownAt = 0;
       clearInboxLoading();
-      hideInboxFsLoading();
+      if (initialQueueLoaded) hideInboxFsLoading(true);
       return;
     }
 
-    if (mode === "soft" && state.items.length) {
+    if (mode === "soft" && (state.items.length || state.selectedKey || pendingFocusItemId)) {
       list.classList.add("is-refreshing");
       list.classList.remove("is-loading");
       return;
@@ -4538,8 +6247,15 @@
     list.classList.remove("is-refreshing");
     list.classList.add("is-loading");
     list.setAttribute("aria-busy", "true");
-    list.innerHTML = "";
-    showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
+    list.setAttribute("data-inbox-loading", "1");
+    list.innerHTML = inboxListSkeletonHtml();
+    inboxLoadingShownAt = Date.now();
+    // Fullscreen gate solo al primo boot; dopo resta lo skeleton in lista.
+    if (inboxBooting || !initialQueueLoaded) {
+      showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
+    } else {
+      if (initialQueueLoaded) hideInboxFsLoading(true);
+    }
   }
 
   function clearLoadWatchdog() {
@@ -4596,22 +6312,28 @@
 
   function finishQueueLoad(seq, opts) {
     opts = opts || {};
-    hideInboxBootScreen();
     if (!opts.force && seq !== loadSeq) return;
     if (seq === loadSeq) clearLoadWatchdog();
     clearSkeletonWatchdog();
+    // Release FS gate only when first paint is ready, or on hard failure (force + message).
+    if (initialQueueLoaded || (opts.force && opts.message)) {
+      hideInboxBootScreen(true);
+    }
     try {
       renderTabs();
       renderScopeToggle();
       renderQueueFilters();
+      renderWeekNav();
     } catch (eChrome) {}
     var list = T.byId("vc-staff-inbox-list");
     if (!list) return;
     clearInboxLoading();
+    list.removeAttribute("data-inbox-loading");
     var sk = list.querySelector(".vc-staff-inbox-loading");
     if (sk) sk.remove();
     try {
       renderList();
+      tryOpenPendingFocusItem();
     } catch (eRender) {
       list.innerHTML = inboxEmptyBoxHtml(
         T.esc(opts.message || "Errore visualizzazione elenco. Ricarica la pagina."),
@@ -4625,7 +6347,8 @@
     try {
             if (state.items && state.items.length) {
         try {
-          hideInboxBootScreen();
+          initialQueueLoaded = true;
+          hideInboxBootScreen(true);
         } catch (eHide) {}
       }
       renderList();
@@ -4666,6 +6389,7 @@
       syncPuntiToltiMode();
     } catch (eLeave) {}
         if (quiet && loadInFlightNonQuiet) {
+      inboxRealtimeRefreshPending = true;
       return Promise.resolve();
     }
                 if (
@@ -4676,7 +6400,9 @@
       !opts._retried &&
       !opts._retryCount &&
       !opts._waitedPerms &&
-      !opts._waitedToken
+      !opts._waitedToken &&
+      !opts._userIntent &&
+      !opts._scopeSwitch
     ) {
       return loadQueueCoalesce;
     }
@@ -4734,7 +6460,12 @@
       renderWeekNav();
     } catch (eChrome) {}
     if (!quiet && !opts._noSkeleton) {
-            showInboxLoading(soft || state.items.length ? "soft" : "skeleton");
+            var useSoft =
+        soft &&
+        !opts._scopeSwitch &&
+        !opts._userIntent &&
+        (state.items.length || state.selectedKey || pendingFocusItemId);
+      showInboxLoading(useSoft ? "soft" : "skeleton");
       if (state.tab === "appelli" && state.scope === "pending" && appealPendingInSummary()) {
         armSkeletonWatchdog();
       }
@@ -4846,9 +6577,13 @@
                   : 28000,
           signal: loadAbortCtrl ? loadAbortCtrl.signal : null,
         };
+        /* inboxLiveDecisionFix1: quiet/realtime must hit network, not 45s GET cache */
+        if (quiet || opts._realtime || opts.cache === false) {
+          fetchOpts.cache = false;
+        }
         var fetchPromise = prefetched
           ? prefetched.then(function (out) {
-              if (out && out.res) return out;
+              if (out && out.res && !(quiet || opts._realtime || opts.cache === false)) return out;
               return T.fetchJson(url, fetchOpts);
             })
           : T.fetchJson(url, fetchOpts);
@@ -4887,9 +6622,23 @@
               Number(out.res && out.res.status) === 401 ||
               errCode === "missing_token" ||
               errCode === "invalid_token";
+            /* notifApiErr1: soft/abort/json/rete → retry, no scary toast if list already ok */
+            var softFail =
+              Boolean(out.soft) ||
+              Boolean(out.data && out.data.soft) ||
+              errCode === "aborted" ||
+              errCode === "timeout" ||
+              errCode === "network_error" ||
+              errCode === "invalid_json" ||
+              errCode === "empty_body" ||
+              errCode === "rate_limited_client" ||
+              errCode === "rate_limited" ||
+              Number(out.res && out.res.status) === 0 ||
+              Number(out.res && out.res.status) === 408 ||
+              Number(out.res && out.res.status) === 429;
             var retryCount = Number(opts._retryCount || 0) + (opts._retried ? 1 : 0);
             if (!opts._retryCount && opts._retried) retryCount = 1;
-            if ((timedOut || unauthorized || !out.res.ok) && retryCount < 3 && !quiet) {
+            if ((timedOut || unauthorized || softFail || !out.res.ok) && retryCount < 3 && !quiet) {
               return new Promise(function (resolve) {
                 window.setTimeout(resolve, 400 * (retryCount + 1));
               }).then(function () {
@@ -4907,14 +6656,20 @@
             if (!quiet) endNonQuietQueueLoad(seq);
             if (!quiet) {
               lastQueueLoadFailed = true;
+              if (softFail && (soft || state.items.length)) {
+                finalizeVisibleQueueLoad(seq, quiet);
+                return;
+              }
               var loadMsg =
                 (out.data && out.data.message) ||
                 (Number(out.res && out.res.status) >= 500
                   ? "Servizio inbox temporaneamente non disponibile. Riprova tra qualche secondo."
                   : unauthorized
                     ? "Sessione scaduta. Ricarica la pagina e accedi di nuovo."
-                    : "Impossibile caricare la coda.");
-              inboxNotify(loadMsg, true);
+                    : softFail
+                      ? ""
+                      : "Impossibile caricare la coda.");
+              if (loadMsg) inboxNotify(loadMsg, true);
               if (!soft && !state.items.length) {
                 state.items = [];
                 state.pagination = null;
@@ -4932,7 +6687,21 @@
           clearSkeletonWatchdog();
           appealFixWaitCount = 0;
           if (out.data.summary) applySummaryPayload(out.data);
-                    state.items = mergeIncomingWorkflowItems(out.data.items || []);
+          var incomingItems = Array.isArray(out.data.items) ? out.data.items : [];
+          // Quiet boot soft refresh must never wipe a good first stamp with an empty payload.
+          // inboxLiveDecisionFix1: after initial load / realtime, empty pending is a real decision result.
+          if (
+            !(
+              quiet &&
+              !incomingItems.length &&
+              state.items &&
+              state.items.length &&
+              !initialQueueLoaded &&
+              !opts._realtime
+            )
+          ) {
+            state.items = mergeIncomingWorkflowItems(incomingItems);
+          }
           if (state.items.length) initialQueueLoaded = true;
           state.pagination = out.data.pagination || null;
           if (state.pagination && state.pagination.page) state.page = state.pagination.page;
@@ -4944,7 +6713,7 @@
             state.weeks = [];
             state.week = "";
           }
-          if (requestedScope === "pending" && state.summary && state.page <= 1 && state.items.length > 0) {
+          if (state.summary && state.page <= 1 && state.items.length > 0) {
             delete emptyLoadedTabs[requestedTab];
             renderTabs();
           }
@@ -4952,9 +6721,15 @@
           renderPagination();
           renderWeekNav();
           syncDetailWithList();
-                    if (quiet && state.items.length) {
+          if (quiet) {
             safeRenderList();
+            try {
+              renderTabs();
+            } catch (eQt) {}
           }
+          try {
+            tryOpenPendingFocusItem();
+          } catch (eFocusOpen) {}
           var panel = T.byId("vc-staff-inbox");
           if (panel) panel.hidden = false;
           if (!state.summary && out.data.summary) applySummaryPayload(out.data);
@@ -4965,10 +6740,11 @@
             if (state.tab !== bootPrevTab && !opts._switchedBootTab && !quiet) {
               syncUrlState();
               return chainQueueLoad(seq, {
-                soft: true,
+                soft: false,
                 _internal: true,
                 _boot: true,
                 _switchedBootTab: true,
+                _userIntent: true,
               });
             }
           }
@@ -4978,7 +6754,6 @@
               : 0;
           if (
             !quiet &&
-            requestedScope === "pending" &&
             !state.items.length &&
             summaryCount > 0 &&
             !opts._emptyRetry &&
@@ -4989,8 +6764,9 @@
               Object.assign({}, opts, {
                 _emptyRetry: true,
                 _internal: true,
-                sync: requestedTab === "appelli",
-                soft: true,
+                sync: requestedTab === "appelli" || requestedTab === "candidature",
+                soft: false,
+                _userIntent: true,
               }),
             );
           }
@@ -5057,23 +6833,35 @@
                     if (
             !quiet &&
             (opts._boot || !initialQueueLoaded) &&
-            requestedScope === "pending" &&
             !state.items.length &&
             summaryCount > 0 &&
             !opts._bootEmptyRescue
           ) {
-            finalizeVisibleQueueLoad(seq, quiet);
+            // Keep the same FS gate through the rescue fetch — don't hide then re-show.
+            if (seq === loadSeq) {
+              loadInFlightNonQuiet = false;
+              clearLoadWatchdog();
+            }
+            showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
             window.setTimeout(function () {
               if (!isStaffScopeActive()) return;
-              if (state.items.length) return;
-                            loadQueue({
+              if (state.items.length) {
+                initialQueueLoaded = true;
+                hideInboxBootScreen(true);
+                return;
+              }
+              loadQueue({
                 soft: false,
-                sync: requestedTab === "appelli" || requestedTab === "resoconti",
+                sync: requestedTab === "appelli" || requestedTab === "resoconti" || requestedTab === "candidature",
                 quiet: false,
                 _internal: true,
                 _bootEmptyRescue: true,
+                _boot: true,
                 _userIntent: true,
-              }).catch(function () {});
+              }).catch(function () {
+                initialQueueLoaded = true;
+                hideInboxBootScreen(true);
+              });
             }, 180);
             return;
           }
@@ -5125,7 +6913,10 @@
         endNonQuietQueueLoad(seq);
         if (!quiet) {
           lastQueueLoadFailed = true;
-          inboxNotify("Errore di rete. Controlla la connessione e riprova.", true);
+          /* notifApiErr1: abort/rete soft già ritentati — niente toast se lista presente */
+          if (!(soft || state.items.length)) {
+            inboxNotify("Errore di rete. Controlla la connessione e riprova.", true);
+          }
           if (!state.items.length) {
             state.items = [];
             state.pagination = null;
@@ -5148,7 +6939,12 @@
               if (list && (list.classList.contains("is-loading") || isInboxFsLoadingVisible()) && listEmptyDespitePending()) {
                 forceReleaseStuckInboxLoad();
                 finishQueueLoad(seq, { force: true });
-                loadQueue({ soft: false, sync: true, _internal: true, _userIntent: true }).catch(function () {});
+                loadQueue({
+                  soft: Boolean(state.items.length || state.selectedKey || pendingFocusItemId),
+                  sync: true,
+                  _internal: true,
+                  _userIntent: true,
+                }).catch(function () {});
               }
             }, 100);
           }
@@ -5207,7 +7003,8 @@
         }
       })
       .catch(function () {
-        hideInboxBootScreen();
+        initialQueueLoaded = true;
+        hideInboxBootScreen(true);
         finishQueueLoad(loadSeq, { force: true });
         loadInFlightNonQuiet = false;
         lastQueueLoadFailed = true;
@@ -5256,6 +7053,15 @@
 
   try {
     window.VCStaffInboxEmbed = {
+      forceRelease: function () {
+        forceReleaseStuckInboxLoad();
+        try {
+          finishQueueLoad(loadSeq, {
+            force: true,
+            message: "Caricamento inbox interrotto. Tocca Ricarica.",
+          });
+        } catch (eFin) {}
+      },
       boot: function () {
         T.hideStaffToast();
         if (isInboxEmbed() && !isStaffScopeActive()) return;
@@ -5268,7 +7074,7 @@
             armMobileAppealBootFix(500);
           }
                     try {
-            hideInboxBootScreen();
+            hideInboxBootScreen(true);
           } catch (eHideBoot) {}
           safeRenderList();
           return;

@@ -1,8 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-const { wasRoleRestoredByMuteMirror } = require("../../Utils/Moderation/muteRestoreAnnounceSuppress");
+const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { wasRoleRestoredByMuteMirror, isSocialRoleAnnounceGloballySuppressed } = require("../../Utils/Moderation/muteRestoreAnnounceSuppress");
 const { applyPronounGenderToEmbedForMember } = require("../../Utils/Community/pronounGenderUtils");
 const GLOBAL_GUILDED_ROLE_ID = IDs.roles.Guilded;
 const MAIN_GUILD_ID = IDs.guilds.main;
@@ -342,6 +342,7 @@ async function syncClanTagRolesForUserEverywhere(client, user, options = {}) {
 async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
   const uid = String(member?.id || "");
   if (!uid) return;
+  if (isSocialRoleAnnounceGloballySuppressed()) return;
   const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
   if (wasRoleRestoredByMuteMirror(member.guild?.id, member.id, mentionRoleId)) return;
 
@@ -361,7 +362,7 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
       .setAuthor({
-        name: accountUsername(member),
+        name: memberDisplayName(member),
         iconURL: avatarUrl,
       })
       .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")

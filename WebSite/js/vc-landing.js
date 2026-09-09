@@ -3,32 +3,37 @@
 (function () {
   try {
     var ID = "vc-phone-root-unlock-css";
+    /* phoneGateLock1: during boot/loaders lock scroll + hide cine bg (was unlocking and showing GIF behind). */
     var css =
       "@media (pointer:coarse),(max-width:920px){" +
-      "html,html body,html.vc-page-cine-boot,html.vc-page-cine-boot body," +
+      "html.vc-page-cine-boot:not(.vc-page-cine-ready)," +
+      "html.vc-page-cine-boot:not(.vc-page-cine-ready) body," +
       "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)," +
       "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body," +
       "html.vc-user-leader-pending,html.vc-user-leader-pending body," +
       "html.vc-user-profile-pending,html.vc-user-profile-pending body," +
       "html.vc-loading-scroll-lock,html.vc-loading-scroll-lock body," +
+      "html.vc-loader-blocking-live,html.vc-loader-blocking-live body," +
       "html.vc-rank-customize-pending,html.vc-rank-customize-pending body," +
       "html.vc-custom-profile-pending,html.vc-custom-profile-pending body," +
       "html.vc-session-verify-pending,html.vc-session-verify-pending body," +
-      "html.vc-staff-access-pending,html.vc-staff-access-pending body," +
-      "html.vc-notif-sheet-open,html.vc-notif-sheet-open body," +
-      "html.vc-dialog-open,html.vc-dialog-open body," +
-      "html.vc-mobile-nav-open,html.vc-mobile-nav-open body," +
+      "html.vc-staff-access-pending:not(.vc-staff-app-revealed)," +
+      "html.vc-staff-access-pending:not(.vc-staff-app-revealed) body," +
+      "html.vc-notif-staff-loading,html.vc-notif-staff-loading body," +
       "html:has(.vc-ul-loading:not([hidden])),html:has(.vc-ul-loading:not([hidden])) body," +
-      "html:has(#vc-roles-loading:not([hidden])),html:has(#vc-roles-loading:not([hidden])) body{" +
-      "touch-action:manipulation!important}" +
-      "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)," +
-      "html.vc-page-cine-boot:not(.vc-page-cine-ready){" +
-      "overflow:auto!important;overflow-y:auto!important;overscroll-behavior:auto!important}" +
-      "html body,html.vc-user-leader-pending body,html.vc-user-profile-pending body," +
-      "html.vc-rank-customize-pending body,html.vc-custom-profile-pending body," +
-      "html.vc-loading-scroll-lock body,html:has(.vc-ul-loading:not([hidden])) body," +
-      "html:has(#vc-roles-loading:not([hidden])) body{" +
-      "position:static!important;inset:auto!important;width:auto!important;top:auto!important;left:auto!important;right:auto!important}" +
+      "html:has(#vc-roles-loading:not([hidden])),html:has(#vc-roles-loading:not([hidden])) body," +
+      "html:has(#vc-staff-inbox-loading:not([hidden]):not(.vc-staff-loading--hidden))," +
+      "html:has(#vc-staff-inbox-loading:not([hidden]):not(.vc-staff-loading--hidden)) body{" +
+      "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
+      "overscroll-behavior:none!important;touch-action:none!important;" +
+      "height:100%!important;max-height:100dvh!important}" +
+      "html.vc-page-cine-boot:not(.vc-page-cine-ready) .vc-home-cine," +
+      "html.vc-loader-blocking-live .vc-home-cine," +
+      "html.vc-loading-scroll-lock .vc-home-cine," +
+      "html.vc-user-leader-pending .vc-home-cine," +
+      "html.vc-user-profile-pending .vc-home-cine," +
+      "html.vc-notif-staff-loading .vc-home-cine{" +
+      "visibility:hidden!important;opacity:0!important;pointer-events:none!important}" +
       "#vc-ul-loading[hidden],.vc-ul-loading[hidden],#vc-roles-loading[hidden]," +
       "#vc-shared-boot-overlay[hidden]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}" +
       "}";
@@ -37,7 +42,7 @@
       if (!el) {
         el = document.createElement("style");
         el.id = ID;
-        el.setAttribute("data-vc", "phoneRootUnlock1");
+        el.setAttribute("data-vc", "phoneGateLock1");
       }
       el.textContent = css;
       var host = document.head || document.documentElement;
@@ -49,7 +54,7 @@
   try {
     if (!window.VcPerf || !window.VcPerf.__ready) {
       var s = document.createElement("script");
-      s.src = "/js/vc-perf.js?v=20260831sitePerfFix1";
+      s.src = "/js/vc-perf.js?v=20260904forceMidAll1sitePerfFix1";
       s.async = false;
       (document.head || document.documentElement).appendChild(s);
     } else if (typeof window.VcPerf.apply === "function") {
@@ -90,7 +95,7 @@
   try {
     if (!window.VcApiCache) {
       var s = document.createElement("script");
-      s.src = "/js/vc-api-cache.js?v=20260902mobileLoadFix1";
+      s.src = "/js/vc-api-cache.js?v=20260908notifApiErr1";
       (document.head || document.documentElement).appendChild(s);
     }
   } catch (eApiBoot) {}
@@ -99,7 +104,7 @@
   try {
     if (!window.VcPerf || !window.VcPerf.__ready) {
       var s = document.createElement("script");
-      s.src = "/js/vc-perf.js?v=20260831gpuLoadFix1";
+      s.src = "/js/vc-perf.js?v=20260904forceMidAll1";
       s.defer = true;
       (document.head || document.documentElement).appendChild(s);
     } else if (typeof window.VcPerf.apply === "function") {
@@ -555,6 +560,39 @@
     }
   }
 
+  /* 20260908imgLightbox2: non convertire _blank immagini in navigate same-tab (rompe lightbox). */
+  function isInAppImageMediaHref(href) {
+    var u = String(href || "").trim();
+    if (!u || u === "#" || /^javascript:/i.test(u)) return false;
+    if (/\.(gif|png|jpe?g|webp|avif|bmp|svg)(\?|#|$)/i.test(u)) return true;
+    if (/cdn\.discordapp\.com\/attachments|media\.discordapp\.net\/attachments/i.test(u)) return true;
+    if (/\/webhooks\/site-(?:web-tickets|bot-feedback|suggestions|[^/]+-workflow-chat)\/files\//i.test(u)) {
+      return !/\.(mp4|webm|mov|mp3|wav|ogg|pdf|zip)(\?|#|$)/i.test(u);
+    }
+    if (/\/(?:uploads|files|attachments|media)\//i.test(u) && !/\.(mp4|webm|mov|mp3|wav|ogg|pdf|zip)(\?|#|$)/i.test(u)) {
+      return true;
+    }
+    return false;
+  }
+
+  function isInAppImageMediaAnchor(a) {
+    if (!a || !a.getAttribute) return false;
+    if (a.closest && a.closest(".vc-wt-msg__img--video")) return false;
+    if (
+      a.classList &&
+      (a.classList.contains("vc-wt-msg__img") ||
+        a.classList.contains("vc-wt-msg__img-inline") ||
+        a.classList.contains("vc-wfc-media__img") ||
+        (a.parentElement &&
+          a.parentElement.classList &&
+          a.parentElement.classList.contains("vc-bot-feedback-images")))
+    ) {
+      var hrefCls = a.getAttribute("href") || "";
+      if (hrefCls && !/\.(mp4|webm|mov)(\?|#|$)/i.test(hrefCls)) return true;
+    }
+    return isInAppImageMediaHref(a.getAttribute("href") || "");
+  }
+
   document.addEventListener(
     "click",
     function (ev) {
@@ -582,6 +620,7 @@
       ) {
         var target = String(a.getAttribute("target") || "").toLowerCase();
         if (target === "_blank") {
+          if (isInAppImageMediaAnchor(a)) return;
           ev.preventDefault();
           try {
             assignInApp(new URL(href, window.location.href));
@@ -978,11 +1017,13 @@
     var cur = normalizePathname(window.location.pathname);
     var isUserProfileDetail = false;
     try {
-      if (/^\/users\/\d{17,20}$/.test(cur)) {
+      if (/^\/users?\/\d{17,22}$/.test(cur)) {
         isUserProfileDetail = true;
-      } else if (cur === "/user") {
+      } else if (cur === "/user" || cur === "/users") {
         var q = new URLSearchParams(window.location.search || "");
-        isUserProfileDetail = /^\d{17,20}$/.test(String(q.get("id") || "").trim());
+        isUserProfileDetail = /^\d{17,22}$/.test(
+          String(q.get("id") || q.get("userId") || q.get("uid") || "").trim(),
+        );
       }
     } catch (e0) {}
     var allRows = bar.querySelectorAll("a.vc-snav-row");
@@ -1003,6 +1044,7 @@
     allItems.forEach(function (a) {
       var p = pathnameFromHref(a.getAttribute("href"));
       if (!p || p !== cur) return;
+      if (isUserProfileDetail && (p === "/user" || p === "/users")) return;
       itemHit = true;
       a.classList.add("vc-snav-item--active");
       a.setAttribute("aria-current", "page");
@@ -1014,7 +1056,7 @@
       det.querySelectorAll("a.vc-snav-row").forEach(function (a) {
         var p = pathnameFromHref(a.getAttribute("href"));
         if (!p || p !== cur) return;
-        if (isUserProfileDetail && p === "/user") return;
+        if (isUserProfileDetail && (p === "/user" || p === "/users")) return;
         hit = true;
         rowHit = true;
         a.classList.add("vc-snav-row--active");
@@ -1111,7 +1153,7 @@
       row.innerHTML =
         '<span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-ticket"></i></span><span data-i18n="nav.tickets">Tickets</span>';
       var sug = panel.querySelector(
-        'a[href*="suggerimenti"], a[href*="RICHIESTE_SUGGERIMENTI"]',
+        'a[href*="feedback"], a[href*="suggerimenti"], a[href*="RICHIESTE_SUGGERIMENTI"]',
       );
       if (sug && sug.parentNode) sug.parentNode.insertBefore(row, sug.nextSibling);
       else panel.appendChild(row);
@@ -2001,6 +2043,36 @@
     }
   }
 
+  /* notifTicketScrollStay1: overflow-lock / focus / portal must not jump page to top */
+  function restorePageScrollY(y) {
+    var n = Math.max(0, Number(y) || 0);
+    try {
+      window.scrollTo(0, n);
+      if (document.documentElement) document.documentElement.scrollTop = n;
+      if (document.body) document.body.scrollTop = n;
+    } catch (eScr) {}
+  }
+
+  function holdPageScroll(ms) {
+    var y = pageScrollY();
+    function restore() {
+      if (Math.abs(pageScrollY() - y) > 1) restorePageScrollY(y);
+    }
+    restore();
+    try {
+      window.requestAnimationFrame(function () {
+        restore();
+        window.requestAnimationFrame(restore);
+      });
+    } catch (eRaf) {
+      restore();
+    }
+    window.setTimeout(restore, 0);
+    window.setTimeout(restore, 48);
+    if (ms && ms > 48) window.setTimeout(restore, Math.min(Number(ms) || 0, 320));
+    return y;
+  }
+
   function isPageScrollFrozen() {
     if (isBlockingLoaderVisible()) return true;
     try {
@@ -2025,7 +2097,7 @@
           Number(navigator.maxTouchPoints || 0) > 0;
         if (!coarseFreeze && root.classList.contains("vc-session-verify-pending")) return true;
       } catch (eSesF) {}
-            if (root.classList.contains("vc-notif-sheet-open")) {
+            if (isNotifPanelChromeOpen(root)) {
         var ddFrozen = document.getElementById("vc-notif-dropdown");
         if (ddFrozen && (ddFrozen.open || ddFrozen.hasAttribute("open"))) return true;
       }
@@ -2071,16 +2143,12 @@
   }
 
   function pinPageScroll(opts) {
-        try {
-      if (isCoarsePointerDevice() || isStandalonePwaLocal()) return;
-    } catch (ePhoneNoPin) {
-      return;
-    }
     var body = document.body;
     if (!body) return;
     opts = opts || {};
-                var soft = Boolean(opts.soft);
+    var soft = Boolean(opts.soft);
     var phonePin = false;
+    var notifChromeOpen = false;
     try {
       phonePin = isCoarsePointerDevice() || isStandalonePwaLocal();
       if (phonePin) soft = true;
@@ -2088,27 +2156,81 @@
       soft = true;
       phonePin = true;
     }
+    try {
+      /* notifSidebar4/5: notif drawer/sheet must never use position:fixed — fights CSS overflow
+         lock + PTR restore → continuous scroll jitter. notifSidebar5: panel-body scrolls under
+         overflow-only lock (no touch-action:none on panel). */
+      notifChromeOpen = isNotifPanelChromeOpen(document.documentElement);
+      if (notifChromeOpen) {
+        phonePin = true;
+        soft = true;
+        opts.forcePhoneLock = true;
+      }
+    } catch (eNotifPin) {}
     if (!scrollPinned) {
       scrollPinSavedY = pageScrollY();
       scrollPinned = true;
     }
     scrollPinSoft = soft;
     try {
-                  if (phonePin && soft) {
-        document.documentElement.style.removeProperty("overflow");
-        document.documentElement.style.removeProperty("overscroll-behavior");
+      /* phoneSheetPtrLock1: on phone never use position:fixed (breaks unlock),
+         but still lock overflow/overscroll so PTR + page scroll behind sheets die.
+         phoneNavTapFix1: hamburger alone must NOT soft-lock — iOS then eats tile taps.
+         CSS `.vc-mobile-nav-open` already locks overflow for the drawer. */
+      if (phonePin) {
+        var needPhoneOverflowLock = Boolean(opts.forcePhoneLock);
+        try {
+          var rootPin = document.documentElement;
+          needPhoneOverflowLock =
+            needPhoneOverflowLock ||
+            isNotifPanelChromeOpen(rootPin) ||
+            rootPin.classList.contains("vc-staff-manage-sheet-open") ||
+            rootPin.classList.contains("vc-staff-stat-sheet-open") ||
+            rootPin.classList.contains("vc-staff-reso-sheet-open") ||
+            rootPin.classList.contains("vc-staff-datepicker-open") ||
+            rootPin.classList.contains("vc-dialog-open") ||
+            rootPin.classList.contains("vc-dash-confirm-open") ||
+            rootPin.classList.contains("vc-loading-scroll-lock") ||
+            rootPin.classList.contains("vc-loader-blocking-live") ||
+            (rootPin.classList.contains("vc-page-cine-boot") &&
+              !rootPin.classList.contains("vc-page-cine-ready")) ||
+            rootPin.classList.contains("vc-user-leader-pending") ||
+            rootPin.classList.contains("vc-user-profile-pending") ||
+            rootPin.classList.contains("vc-rank-customize-pending") ||
+            rootPin.classList.contains("vc-session-verify-pending") ||
+            rootPin.classList.contains("vc-notif-staff-loading");
+        } catch (eNeedPin) {
+          needPhoneOverflowLock = true;
+        }
+        if (!needPhoneOverflowLock) {
+          try {
+            document.documentElement.classList.remove("vc-scroll-soft-lock");
+          } catch (eSoftOff) {}
+          scrollPinned = false;
+          scrollPinSoft = false;
+          return;
+        }
+        document.documentElement.style.setProperty("overflow", "hidden", "important");
+        document.documentElement.style.setProperty("overscroll-behavior", "none", "important");
         document.documentElement.style.removeProperty("touch-action");
         body.style.removeProperty("position");
         body.style.removeProperty("left");
         body.style.removeProperty("right");
         body.style.removeProperty("top");
         body.style.removeProperty("width");
-        body.style.removeProperty("overflow");
-        body.style.removeProperty("overscroll-behavior");
+        body.style.setProperty("overflow", "hidden", "important");
+        body.style.setProperty("overscroll-behavior", "none", "important");
         body.style.removeProperty("touch-action");
         try {
           document.documentElement.classList.add("vc-scroll-soft-lock");
         } catch (eSoftCls) {}
+        /* notifTicketScrollStay1: soft overflow-lock can reset window scroll on iOS/Chrome */
+        restorePageScrollY(scrollPinSavedY);
+        try {
+          window.requestAnimationFrame(function () {
+            restorePageScrollY(scrollPinSavedY);
+          });
+        } catch (ePinRaf) {}
         return;
       }
       document.documentElement.style.setProperty("overflow", "hidden", "important");
@@ -2118,28 +2240,17 @@
       } else {
         document.documentElement.style.setProperty("touch-action", "none", "important");
       }
-                  if (phonePin) {
-        body.style.removeProperty("position");
-        body.style.removeProperty("left");
-        body.style.removeProperty("right");
-        body.style.removeProperty("top");
-        body.style.removeProperty("width");
-        body.style.setProperty("overflow", "hidden", "important");
-        body.style.setProperty("overscroll-behavior", "none", "important");
-        body.style.removeProperty("touch-action");
+      body.style.setProperty("position", "fixed", "important");
+      body.style.setProperty("left", "0", "important");
+      body.style.setProperty("right", "0", "important");
+      body.style.setProperty("width", "100%", "important");
+      body.style.setProperty("top", "-" + scrollPinSavedY + "px", "important");
+      body.style.setProperty("overflow", "hidden", "important");
+      body.style.setProperty("overscroll-behavior", "none", "important");
+      if (soft) {
+        body.style.setProperty("touch-action", "pan-y", "important");
       } else {
-        body.style.setProperty("position", "fixed", "important");
-        body.style.setProperty("left", "0", "important");
-        body.style.setProperty("right", "0", "important");
-        body.style.setProperty("width", "100%", "important");
-        body.style.setProperty("top", "-" + scrollPinSavedY + "px", "important");
-        body.style.setProperty("overflow", "hidden", "important");
-        body.style.setProperty("overscroll-behavior", "none", "important");
-        if (soft) {
-          body.style.setProperty("touch-action", "pan-y", "important");
-        } else {
-          body.style.setProperty("touch-action", "none", "important");
-        }
+        body.style.setProperty("touch-action", "none", "important");
       }
     } catch (ePin) {}
   }
@@ -2158,7 +2269,7 @@
     try {
       var ddLive = document.getElementById("vc-notif-dropdown");
       var notifReallyOpen = Boolean(
-        ddLive && (ddLive.open || ddLive.hasAttribute("open")) && root.classList.contains("vc-notif-sheet-open"),
+        ddLive && (ddLive.open || ddLive.hasAttribute("open")) && isNotifPanelChromeOpen(root),
       );
       var inboxLoad = document.getElementById("vc-staff-inbox-loading");
       var inboxLive =
@@ -2189,6 +2300,10 @@
       mustLock = false;
     }
     if (mustLock) return;
+    try {
+      if (typeof isBlockingLoaderVisible === "function" && isBlockingLoaderVisible()) return;
+      if (isLoaderScrollLocked()) return;
+    } catch (eLoaderKeep) {}
     try {
       root.style.removeProperty("overflow");
       root.style.removeProperty("overscroll-behavior");
@@ -2252,37 +2367,74 @@
     window.__vcPinPageScroll = pinPageScroll;
     window.__vcUnpinPageScroll = unpinPageScroll;
     window.__vcStripPhoneInlineScrollLocks = stripPhoneInlineScrollLocks;
+    window.__vcIsPageScrollFrozen = isPageScrollFrozen;
+    /* ticketModalScrollStay2: post-confirm postAction must reuse pinned Y, not 0 mid-unpin */
+    window.__vcGetPinnedPageScrollY = function () {
+      try {
+        if (scrollPinned && Number(scrollPinSavedY) > 0) return Number(scrollPinSavedY) || 0;
+      } catch (ePinY) {}
+      return pageScrollY();
+    };
+    window.__vcHoldPageScroll = holdPageScroll;
   } catch (ePinExport) {}
 
   function isLoaderScrollLocked() {
-        try {
-      if (isCoarsePointerDevice() || isStandalonePwaLocal()) return false;
-    } catch (ePhLock) {
-      return false;
-    }
     try {
       var root = document.documentElement;
       if (root.classList.contains("vc-loading-scroll-lock")) return true;
+      if (root.classList.contains("vc-loader-blocking-live")) return true;
+      if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) {
+        return true;
+      }
       if (root.classList.contains("vc-user-leader-pending")) return true;
       if (root.classList.contains("vc-user-profile-pending")) return true;
+      if (root.classList.contains("vc-notif-staff-loading")) return true;
     } catch (eLockCls) {}
     return false;
   }
 
+  function isNotifPanelScrollTarget(t) {
+    /* notifSidebar5: wheel/touch on panel content must scroll — not be swallowed by guards/PTR */
+    try {
+      if (!t || !t.closest) return false;
+      return Boolean(
+        t.closest(
+          ".vc-notif-panel-body, .vc-notif-list, .vc-notif-list-wrap, .vc-notif-bell-pane, .vc-notif-bell-inbox, .vc-notif-panel",
+        ),
+      );
+    } catch (eHit) {
+      return false;
+    }
+  }
+
   function blockLoaderScroll(e) {
-    if (window.__vcPtrTracking) return;
+    try {
+      var tPtr = e && e.target;
+      if (isNotifPanelScrollTarget(tPtr)) return;
+    } catch (eNotifAllow) {}
+    if (window.__vcPtrTracking) {
+      /* phoneSheetPtrLock1: if a sheet/modal froze the page, kill PTR mid-gesture */
+      try {
+        if (typeof isPageScrollFrozen === "function" && isPageScrollFrozen()) {
+          try {
+            e.preventDefault();
+          } catch (ePrevPtr) {}
+        }
+      } catch (eFr) {}
+      return;
+    }
     if (!isPageScrollFrozen() && !isLoaderScrollLocked()) return;
     try {
       var t = e && e.target;
       if (t && t.closest) {
-                if (
+        if (
           t.closest(
-            ".vc-staff-stat-sheet__body, .vc-staff-manage-sheet__panel, .vc-staff-manage-sheet__body, .vc-staff-datepicker.is-sheet, .vc-notif-panel-body, .vc-notif-list, .vc-dialog__text, .vc-dialog__field, .vc-dash-confirm__text, .vc-mobile-nav-drawer__scroll",
+            ".vc-staff-stat-sheet__body, .vc-staff-stat-sheet__panel, .vc-staff-manage-sheet__panel, .vc-staff-manage-sheet__body, .vc-staff-reso-sheet__body, .vc-staff-reso-sheet__panel, .vc-staff-datepicker.is-sheet, .vc-notif-panel-body, .vc-notif-list, .vc-notif-list-wrap, .vc-notif-bell-pane, .vc-notif-bell-inbox, .vc-notif-panel, .vc-dialog__text, .vc-dialog__field, .vc-dash-confirm__text, .vc-mobile-nav-drawer__scroll",
           )
         ) {
           return;
         }
-                if (t.closest(".vc-staff-peer-dock, .vc-notif-mobile-backdrop, .vc-staff-stat-sheet__backdrop, .vc-staff-manage-sheet__backdrop, .vc-dialog__backdrop")) {
+        if (t.closest(".vc-staff-peer-dock, .vc-notif-mobile-backdrop, .vc-staff-stat-sheet__backdrop, .vc-staff-manage-sheet__backdrop, .vc-dialog__backdrop")) {
           try {
             e.preventDefault();
           } catch (ePrevBg) {}
@@ -2298,11 +2450,6 @@
   var loaderScrollGuardOpts = { capture: true, passive: false };
 
   function bindLoaderScrollGuards(enable) {
-        try {
-      if (isCoarsePointerDevice() || isStandalonePwaLocal()) enable = false;
-    } catch (eCoarseBind) {
-      enable = false;
-    }
     var want = Boolean(enable);
     if (want === loaderScrollListenersBound) return;
     try {
@@ -2327,6 +2474,11 @@
       var root = document.documentElement;
       if (root.classList.contains("vc-dialog-open")) return true;
       if (root.classList.contains("vc-dash-confirm-open")) return true;
+      if (isNotifPanelChromeOpen(root)) return true;
+      if (root.classList.contains("vc-staff-manage-sheet-open")) return true;
+      if (root.classList.contains("vc-staff-stat-sheet-open")) return true;
+      if (root.classList.contains("vc-staff-reso-sheet-open")) return true;
+      if (root.classList.contains("vc-staff-datepicker-open")) return true;
                         try {
         var coarseGuard =
           (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
@@ -2364,46 +2516,80 @@
       needGuards = Boolean(on);
     }
 
-                    var softPin = !needGuards;
+    var softPin = !needGuards;
     try {
       if (document.documentElement.classList.contains("vc-mobile-nav-open")) softPin = true;
     } catch (eSoftNav) {}
+    /* phoneGateLock1: while a blocking loader/boot is up, hard-lock scroll on phone too. */
+    var phone = false;
     try {
-      if (isCoarsePointerDevice() || isStandalonePwaLocal()) softPin = true;
-    } catch (eSoftPhone) {
-      softPin = true;
+      phone = isCoarsePointerDevice() || isStandalonePwaLocal();
+    } catch (ePh) {
+      phone = true;
     }
-    var phonePinOff = false;
+    var bootPending = false;
+    var pendingGate = false;
     try {
-      phonePinOff = isCoarsePointerDevice() || isStandalonePwaLocal();
-    } catch (ePhPinOff) {}
-    if (phonePinOff) {
-            if (scrollPinned) unpinPageScroll();
+      var rootLock = document.documentElement;
+      bootPending =
+        rootLock.classList.contains("vc-page-cine-boot") &&
+        !rootLock.classList.contains("vc-page-cine-ready");
+      pendingGate =
+        rootLock.classList.contains("vc-user-leader-pending") ||
+        rootLock.classList.contains("vc-user-profile-pending") ||
+        rootLock.classList.contains("vc-rank-customize-pending") ||
+        rootLock.classList.contains("vc-custom-profile-pending") ||
+        rootLock.classList.contains("vc-session-verify-pending") ||
+        rootLock.classList.contains("vc-notif-staff-loading") ||
+        (rootLock.classList.contains("vc-staff-access-pending") &&
+          !rootLock.classList.contains("vc-staff-app-revealed"));
+    } catch (eGate) {}
+    var wantLock = Boolean(on || frozen || bootPending || pendingGate);
+    /* phoneNavTapFix1: hamburger alone must not arm loading-scroll-lock / soft-lock.
+       CSS `.vc-mobile-nav-open` already freezes page scroll; soft-lock ate iOS tile taps. */
+    try {
+      var rootNavOnly = document.documentElement;
+      var navOnly =
+        rootNavOnly.classList.contains("vc-mobile-nav-open") &&
+        !on &&
+        !bootPending &&
+        !pendingGate &&
+        !isNotifPanelChromeOpen(rootNavOnly) &&
+        !rootNavOnly.classList.contains("vc-staff-manage-sheet-open") &&
+        !rootNavOnly.classList.contains("vc-staff-stat-sheet-open") &&
+        !rootNavOnly.classList.contains("vc-staff-reso-sheet-open") &&
+        !rootNavOnly.classList.contains("vc-staff-datepicker-open") &&
+        !rootNavOnly.classList.contains("vc-dialog-open") &&
+        !rootNavOnly.classList.contains("vc-dash-confirm-open");
+      if (navOnly) wantLock = false;
+    } catch (eNavOnly) {}
+    if (phone && wantLock) softPin = false;
+    else if (phone) softPin = true;
+
+    if (phone && !wantLock) {
+      if (scrollPinned) unpinPageScroll();
       try {
         document.documentElement.classList.remove("vc-ui-scroll-lock", "vc-scroll-soft-lock");
-                document.documentElement.classList.remove("vc-loading-scroll-lock");
+        document.documentElement.classList.remove("vc-loading-scroll-lock");
       } catch (ePhLock) {}
+      bindLoaderScrollGuards(false);
     } else {
-      if (frozen) pinPageScroll({ soft: softPin });
+      if (wantLock) pinPageScroll({ soft: softPin });
       else if (scrollPinned) unpinPageScroll();
-            try {
+      try {
         document.documentElement.classList.remove("vc-ui-scroll-lock");
       } catch (eUiLockOff) {}
       try {
-        document.documentElement.classList.toggle("vc-loading-scroll-lock", on);
+        document.documentElement.classList.toggle("vc-loading-scroll-lock", wantLock);
       } catch (eLock) {}
+      var guardsForBind = needGuards || wantLock;
+      try {
+        if (document.documentElement.classList.contains("vc-mobile-nav-open") && !on && !bootPending) {
+          guardsForBind = false;
+        }
+      } catch (eGuardNav) {}
+      bindLoaderScrollGuards(guardsForBind);
     }
-
-            var guardsForBind = needGuards;
-    try {
-      if (document.documentElement.classList.contains("vc-mobile-nav-open")) guardsForBind = false;
-    } catch (eGuardNav) {}
-    try {
-      if (isCoarsePointerDevice() || isStandalonePwaLocal()) guardsForBind = false;
-    } catch (eGuardPhone) {
-      guardsForBind = false;
-    }
-    bindLoaderScrollGuards(guardsForBind);
 
     if (
       frozen === lastScrollLockFrozen &&
@@ -2457,9 +2643,22 @@
       document.documentElement.classList.remove(
         "vc-notif-dropdown-open",
         "vc-notif-sheet-open",
+        "vc-notif-drawer-open",
         "vc-notif-overlay-active",
       );
     } catch (e1) {}
+  }
+
+  function isNotifPanelChromeOpen(rootEl) {
+    var root = rootEl || document.documentElement;
+    try {
+      return (
+        root.classList.contains("vc-notif-sheet-open") ||
+        root.classList.contains("vc-notif-drawer-open")
+      );
+    } catch (eOpen) {
+      return false;
+    }
   }
 
   function dismissNotifFlyToasts() {
@@ -2582,7 +2781,15 @@
     try {
       var auth = typeof window !== "undefined" && window.__VC_AUTH ? window.__VC_AUTH : null;
       var n = String((auth && auth.siteName) || "").trim();
-      if (n) return n;
+      if (n) {
+        // ampBakeFix1: bake JS often left &amp; — never show entity in tab title
+        return n
+          .replace(/&amp;/gi, "&")
+          .replace(/&quot;/gi, '"')
+          .replace(/&#39;/gi, "'")
+          .replace(/&lt;/gi, "<")
+          .replace(/&gt;/gi, ">");
+      }
     } catch (eAuth) {}
     return "Vinili & Caffè";
   }
@@ -3537,6 +3744,364 @@
       notifyNotifStorePeers();
     } catch (e) {}
   }
+
+  /* notifCats3: classify personal vs inbox; split tickets/reviews/feedback; Punti tolti subject. */
+  /* notifUseful1: Mentions + candidature/appelli personal + SLA */
+  var DEDICATED_INBOX_QUEUES = {
+    pause: 1,
+    candidature: 1,
+    appelli: 1,
+    resoconti: 1,
+    "punti-tolti": 1,
+  };
+  function inboxQueueIdFromNotifUrl(raw) {
+    var s = String(raw || "").trim();
+    if (!s) return "";
+    try {
+      var u = new URL(s, window.location.origin);
+      var inbox = String(u.searchParams.get("inbox") || "")
+        .trim()
+        .toLowerCase();
+      return DEDICATED_INBOX_QUEUES[inbox] ? inbox : "";
+    } catch (eUrl) {
+      var m = s.toLowerCase().match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti)\b/);
+      return m ? m[1] : "";
+    }
+  }
+  function isVoteRegisteredNotifClient(n) {
+    if (!n) return false;
+    var kind = String(n.kind || "").toLowerCase();
+    var title = String(n.title || "");
+    var body = String(n.body || "");
+    var hay = (title + " " + body).toLowerCase();
+    if (kind === "vote_reminder") return false;
+    if (/promemoria|puoi votare di nuovo|reminder/.test(hay)) return false;
+    if (kind === "vote") return true;
+    if (/voto\s+(su\s+)?(top\.?gg|discadia)\s+registrato/.test(hay)) return true;
+    if (/voto registrato/.test(hay) && /(top\.?gg|discadia)/.test(hay)) return true;
+    return false;
+  }
+  function notifMetaKey(n) {
+    return String((n && (n.dedupeKey || n.id)) || "").toLowerCase();
+  }
+  function isPuntiToltiSubjectNotifClient(n) {
+    if (!n) return false;
+    var key = notifMetaKey(n);
+    if (/^pt-removed:/.test(key) || /^pt-review:/.test(key)) return true;
+    var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
+    return /punto partnership rimosso|punti tolti\s*[—\-–]?\s*(rimozione confermata|segnalazione negata)/.test(
+      hay,
+    );
+  }
+  function isPersonalTicketOpenerNotifClient(n) {
+    if (!n) return false;
+    var ch = String(n.channel || "").toLowerCase();
+    var url = String(n.openUrl || "").toLowerCase();
+    if (ch === "inbox" || /(?:\?|&)view=staff\b/.test(url)) return false;
+    var key = notifMetaKey(n);
+    if (
+      /^web_ticket:(staff_reply|needs_reply|closed|claimed|close-request|close-rejected|event):/.test(key)
+    ) {
+      return true;
+    }
+    if (ch === "personal") {
+      var k0 = String(n.kind || "").toLowerCase();
+      if (k0 === "web_ticket" || k0 === "web_ticket_mention") return true;
+    }
+    var k = String(n.kind || "").toLowerCase();
+    if (k !== "web_ticket" && k !== "web_ticket_mention") return false;
+    return /\/tickets\//.test(url) && !/(?:\?|&)view=staff\b/.test(url);
+  }
+  function isStaffTicketSlaNotifClient(n) {
+    if (!n) return false;
+    if (String(n.kind || "").toLowerCase() === "web_ticket_sla") return true;
+    return /^web_ticket:sla:/.test(notifMetaKey(n));
+  }
+  function isMentionNotifClient(n) {
+    if (!n) return false;
+    var k = String(n.kind || "").toLowerCase();
+    if (k === "web_ticket_mention" || k === "workflow_mention") return true;
+    var key = notifMetaKey(n);
+    return /^web_ticket:mention:/.test(key) || /^wfc:mention:/.test(key);
+  }
+  function isWorkflowDecisionNotifClient(n) {
+    if (!n) return false;
+    if (String(n.kind || "").toLowerCase() === "workflow_decision") return true;
+    var key = notifMetaKey(n);
+    return /^(cand-|unban-|unmute-|cand-pex-|cand-rej-|wfc:decision:|appeal-auto-close:)/.test(key);
+  }
+  function isStaffTicketNotifClient(n) {
+    if (!n) return false;
+    if (isPersonalTicketOpenerNotifClient(n)) return false;
+    if (isStaffTicketSlaNotifClient(n)) return true;
+    var key = notifMetaKey(n);
+    if (/^web_ticket:queue:/.test(key) || /^web_ticket:chat:/.test(key) || /^web_ticket:sla:/.test(key)) {
+      return true;
+    }
+    var kind = String(n.kind || "").toLowerCase();
+    if (kind === "web_ticket_sla") return true;
+    if (kind === "web_ticket_mention" || kind === "workflow_mention") {
+      var urlM = String(n.openUrl || "").toLowerCase();
+      if (/\/tickets\//.test(urlM) && /(?:\?|&)view=staff\b/.test(urlM)) return true;
+      if (String(n.channel || "").toLowerCase() === "inbox") return true;
+      return false;
+    }
+    if (kind !== "web_ticket" && kind !== "web_ticket_mention") return false;
+    var url = String(n.openUrl || "").toLowerCase();
+    return /\/tickets\//.test(url) && /(?:\?|&)view=staff\b/.test(url);
+  }
+  function isStaffReviewNotifClient(n) {
+    if (!n) return false;
+    var key = notifMetaKey(n);
+    if (/^rev-new:/.test(key)) return true;
+    if (String(n.kind || "").toLowerCase() !== "review") return false;
+    return /^nuova recensione\b/i.test(String(n.title || "").trim());
+  }
+  function isStaffFeedbackNotifClient(n) {
+    if (!n) return false;
+    var key = notifMetaKey(n);
+    if (/^suggestion:new:/.test(key) || /^bot_feedback_new:/.test(key)) return true;
+    if (String(n.kind || "").toLowerCase() !== "suggestion") return false;
+    return /^(nuovo|nuova)\s+(suggerimento|segnalazione|bug)\b/i.test(String(n.title || "").trim());
+  }
+  function isDedicatedInboxQueueAlertClient(n) {
+    if (!n) return false;
+    var ch = String(n.channel || "").toLowerCase();
+    if (ch === "personal") return false;
+    var key = notifMetaKey(n);
+    if (
+      /^pt-removed:/.test(key) ||
+      /^pt-review:/.test(key) ||
+      /^pause:decision:/.test(key) ||
+      /^val-/.test(key) ||
+      /^wfc:(invite|remove|msg):subj:/.test(key) ||
+      /^wfc:decision:/.test(key)
+    ) {
+      return false;
+    }
+    if (isPuntiToltiSubjectNotifClient(n)) return false;
+    if (isWorkflowDecisionNotifClient(n)) return false;
+    if (/^inbox:(pause|candidature|appelli|resoconti)(?::|$)/.test(key)) return true;
+    if (/^pt-pending:/.test(key)) return true;
+    if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
+    var queue = inboxQueueIdFromNotifUrl(n.openUrl);
+    if (!queue) return false;
+    var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
+    if (
+      /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
+        hay,
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+  function isInboxLinkedNotifClient(n) {
+    if (!n) return false;
+    /* Subject/staff splits win over stale channel=personal. */
+    if (isWorkflowDecisionNotifClient(n) || isPersonalTicketOpenerNotifClient(n)) return false;
+    if (isPuntiToltiSubjectNotifClient(n)) return true;
+    if (isStaffTicketSlaNotifClient(n)) return true;
+    if (isStaffTicketNotifClient(n)) return true;
+    if (isStaffReviewNotifClient(n)) return true;
+    if (isStaffFeedbackNotifClient(n)) return true;
+    if (isMentionNotifClient(n) && String(n.channel || "").toLowerCase() !== "personal") return true;
+    var ch = String(n.channel || "").toLowerCase();
+    if (ch === "personal") return false;
+    if (ch === "inbox") return true;
+    if (isDedicatedInboxQueueAlertClient(n)) return true;
+    var key = String(n.dedupeKey || "").toLowerCase();
+    if (
+      /^inbox:/.test(key) ||
+      /^wfc:(invite|remove|msg):staff:/.test(key) ||
+      /^wfc:mention:/.test(key) ||
+      /^pt-pending:/.test(key) ||
+      /^web_ticket:sla:/.test(key)
+    ) {
+      return true;
+    }
+    return false;
+  }
+  function inboxNotifBucket(n) {
+    if (isPuntiToltiSubjectNotifClient(n)) return "punti-tolti";
+    if (isMentionNotifClient(n)) return "mentions";
+    if (isStaffTicketSlaNotifClient(n) || isStaffTicketNotifClient(n)) return "tickets";
+    if (isStaffReviewNotifClient(n)) return "reviews";
+    if (isStaffFeedbackNotifClient(n)) return "feedback";
+    return "avvisi";
+  }
+  function personalNotifCategory(n) {
+    var kind = String((n && n.kind) || "info").toLowerCase();
+    var key = notifMetaKey(n);
+    if (kind === "vote" || kind === "vote_reminder") return "votes";
+    if (kind === "web_ticket" || kind === "web_ticket_mention") return "tickets";
+    if (isMentionNotifClient(n)) return "tickets";
+    if (isWorkflowDecisionNotifClient(n)) {
+      if (/appelli|unban|unmute|appeal/.test(key + " " + String(n.openUrl || "").toLowerCase())) {
+        return "appelli";
+      }
+      return "candidature";
+    }
+    if (kind === "review") return "reviews";
+    if (kind === "suggestion") return "feedback";
+    if (kind === "staff") return "staff";
+    if (kind === "mod" || kind === "success") return "community";
+    return "system";
+  }
+  var PERSONAL_NOTIF_CATS = [
+    { id: "votes", label: "Voti", ico: "fa-clock-o" },
+    { id: "tickets", label: "Ticket", ico: "fa-ticket" },
+    { id: "candidature", label: "Candidature", ico: "fa-file-text-o" },
+    { id: "appelli", label: "Appelli", ico: "fa-gavel" },
+    { id: "reviews", label: "Recensioni", ico: "fa-star" },
+    { id: "feedback", label: "Feedback", ico: "fa-magic" },
+    { id: "staff", label: "Eventi staff", ico: "fa-id-badge" },
+    { id: "community", label: "Community", ico: "fa-users" },
+    { id: "system", label: "Sistema", ico: "fa-bell-o" },
+  ];
+  var INBOX_NOTIF_CATS = [
+    { id: "tickets", label: "Ticket", ico: "fa-ticket" },
+    { id: "mentions", label: "Mentions", ico: "fa-at" },
+    { id: "reviews", label: "Recensioni", ico: "fa-star" },
+    { id: "feedback", label: "Feedback", ico: "fa-magic" },
+    { id: "avvisi", label: "Avvisi", ico: "fa-bell" },
+  ];
+  function groupPersonalNotifsByCategory(items) {
+    var buckets = Object.create(null);
+    for (var i = 0; i < PERSONAL_NOTIF_CATS.length; i++) buckets[PERSONAL_NOTIF_CATS[i].id] = [];
+    (items || []).forEach(function (n) {
+      var id = personalNotifCategory(n);
+      if (!buckets[id]) buckets[id] = [];
+      buckets[id].push(n);
+    });
+    return PERSONAL_NOTIF_CATS.map(function (cat) {
+      return { id: cat.id, label: cat.label, ico: cat.ico, items: buckets[cat.id] || [] };
+    }).filter(function (g) {
+      return g.items.length > 0;
+    });
+  }
+  function inboxChannelRowsFromStore() {
+    var s = loadStored();
+    var uid = normalizeUserId(currentUserId);
+    var dismissed = loadDismissedSet(uid);
+    return s.filter(function (n) {
+      return (
+        !isClearedAwayServerRow(n, dismissed) &&
+        !isFilteredNotif(n) &&
+        !isVoteRegisteredNotifClient(n) &&
+        isInboxLinkedNotifClient(n) &&
+        !isDedicatedInboxQueueAlertClient(n)
+      );
+    });
+  }
+  function inboxNotifsForBucket(bucketId) {
+    return inboxChannelRowsFromStore().filter(function (n) {
+      return inboxNotifBucket(n) === bucketId;
+    });
+  }
+  function countInboxUnreadNotifs() {
+    return inboxChannelRowsFromStore().filter(function (n) {
+      return !n.read;
+    }).length;
+  }
+  function formatUnreadSub(n) {
+    var count = Math.max(0, Number(n) || 0);
+    if (window.VcI18n && typeof window.VcI18n.t === "function") {
+      try {
+        var t = window.VcI18n.t("notif.unread", { n: count });
+        if (t && t !== "notif.unread") return t;
+      } catch (eT) {}
+    }
+    if (count === 1) return "1 non letta";
+    return count + " non lette";
+  }
+  function clearNotifsByIds(ids) {
+    var idSet = {};
+    (ids || []).forEach(function (id) {
+      var sid = String(id || "").trim();
+      if (sid) idSet[sid] = true;
+    });
+    if (!Object.keys(idSet).length) return;
+    var uid = normalizeUserId(currentUserId);
+    var next = [];
+    loadStored().forEach(function (n) {
+      var nid = String((n && n.id) || "").trim();
+      if (nid && idSet[nid]) {
+        try {
+          rememberDismissedNotif(n, uid);
+        } catch (eRem) {}
+        try {
+          deleteSiteNotificationOnServer(nid);
+        } catch (eDel) {}
+        return;
+      }
+      next.push(n);
+    });
+    saveStored(next);
+    lastNotifRenderSig = "";
+    render({ force: true });
+    if (bellNotifScope === "staff") {
+      try {
+        var cached = readCachedBellStaffSummary();
+        renderBellStaffInbox((cached && cached.summary) || {});
+      } catch (eR) {}
+    }
+  }
+  /* notifTrash1: trash inside unified category header row (right of count, before chev). */
+  function buildNotifCategoryBar(opts) {
+    var bar = document.createElement("div");
+    bar.className = "vc-notif-cat-bar vc-notif-bell-inbox__link";
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className =
+      (opts.toggleClass || "vc-notif-cat-toggle vc-notif-bell-inbox__toggle") +
+      " vc-notif-cat-toggle-inner";
+    toggle.setAttribute("aria-expanded", opts.expanded ? "true" : "false");
+    if (opts.ariaControls) toggle.setAttribute("aria-controls", opts.ariaControls);
+    toggle.innerHTML = opts.toggleHtml;
+    var actions = document.createElement("span");
+    actions.className = "vc-notif-cat-head__actions";
+    var clearBtn = null;
+    if (typeof opts.onClear === "function") {
+      clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "vc-notif-cat-clear";
+      if (opts.clearCatId) clearBtn.setAttribute("data-cat-clear", opts.clearCatId);
+      clearBtn.title = opts.clearTitle || "Elimina categoria";
+      clearBtn.setAttribute("aria-label", opts.clearAriaLabel || clearBtn.title);
+      clearBtn.innerHTML = '<i class="fa fa-trash-o" aria-hidden="true"></i>';
+      clearBtn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        opts.onClear(ev);
+      });
+      actions.appendChild(clearBtn);
+    }
+    var chev = document.createElement("i");
+    chev.className = "fa fa-chevron-down vc-notif-cat-chev vc-notif-bell-inbox__chev";
+    chev.setAttribute("aria-hidden", "true");
+    actions.appendChild(chev);
+    bar.appendChild(toggle);
+    bar.appendChild(actions);
+    if (typeof opts.onToggleClick === "function") {
+      toggle.addEventListener("click", opts.onToggleClick);
+    }
+    return { bar: bar, toggle: toggle, clearBtn: clearBtn, actions: actions, chev: chev };
+  }
+  function clearNotifCategory(catId, scope) {
+    var items =
+      scope === "inbox"
+        ? inboxNotifsForBucket(catId)
+        : rows().filter(function (n) {
+            return personalNotifCategory(n) === catId;
+          });
+    clearNotifsByIds(
+      items.map(function (n) {
+        return n && n.id;
+      }),
+    );
+  }
+
   function isFilteredNotif(n) {
     return Boolean(n && n.filtered);
   }
@@ -3545,9 +4110,15 @@
     var uid = normalizeUserId(currentUserId);
     var dismissed = loadDismissedSet(uid);
     s = s.filter(function (n) {
-      return !isClearedAwayServerRow(n, dismissed) && !isFilteredNotif(n);
+      return (
+        !isClearedAwayServerRow(n, dismissed) &&
+        !isFilteredNotif(n) &&
+        !isVoteRegisteredNotifClient(n) &&
+        !isInboxLinkedNotifClient(n)
+      );
     });
-    return ephemeralDemo ? [ephemeralDemo].concat(s) : s;
+    var demo = ephemeralDemo && !isVoteRegisteredNotifClient(ephemeralDemo) ? ephemeralDemo : null;
+    return demo ? [demo].concat(s) : s;
   }
   function iconClass(kind) {
     if (kind === "vote") return "fa-trophy";
@@ -3555,6 +4126,7 @@
     if (kind === "success") return "fa-check-circle";
     if (kind === "review") return "fa-star";
     if (kind === "mod") return "fa-shield";
+    if (kind === "staff") return "fa-id-badge";
     if (kind === "suggestion") return "fa-magic";
     if (kind === "web_ticket" || kind === "web_ticket_mention") return "fa-ticket";
     return "fa-bell-o";
@@ -3612,8 +4184,19 @@
       seeAll.appendChild(chev);
       foot.appendChild(seeAll);
     }
+    /* notifSeeAll1: CTA always personal /notifications/ — Inbox tab stays separate */
     seeAll.href = notificationsPageUrl();
-    seeAll.setAttribute("aria-label", tUi("notif.seeAll", null, "Vedi tutte le notifiche"));
+    seeAll.setAttribute(
+      "aria-label",
+      tUi("notif.seeAll", null, "Vedi tutte le notifiche"),
+    );
+    try {
+      var labelEl = seeAll.querySelector("span[data-i18n], span");
+      if (labelEl) {
+        labelEl.setAttribute("data-i18n", "notif.seeAll");
+        labelEl.textContent = tUi("notif.seeAll", null, "Vedi tutte le notifiche");
+      }
+    } catch (eLab) {}
     if (isStandalonePwa()) dd.classList.add("vc-notif-dropdown--pwa");
     return seeAll;
   }
@@ -3672,6 +4255,7 @@
     bindClearAllButton();
     wireNotifMobileSheet();
     wireNotifListClicks();
+    ensureNotifBellScopeUi();
     var root = document.getElementById("vc-notif-dropdown");
     var listEl = document.getElementById("vc-notif-list");
     var badge = document.getElementById("vc-notif-badge");
@@ -3694,10 +4278,15 @@
       if (windowAttentionTimer) stopWindowAttention();
     }
     syncBrowserTabNotifBadge(unread);
-    sub.textContent =
-      window.VcI18n && typeof window.VcI18n.t === "function"
-        ? window.VcI18n.t("notif.unread", { n: unread })
-        : unread + " non lette";
+    if (!(bellNotifScope === "staff" && canBellStaffInbox())) {
+      sub.textContent = formatUnreadSub(unread);
+    } else if (typeof renderBellStaffInbox === "function") {
+      try {
+        sub.textContent = formatUnreadSub(countInboxUnreadNotifs());
+        var cachedInbox = typeof readCachedBellStaffSummary === "function" ? readCachedBellStaffSummary() : null;
+        if (cachedInbox && cachedInbox.summary) renderBellStaffInbox(cachedInbox.summary);
+      } catch (eInboxPaint) {}
+    }
     if (all.length > 0) root.classList.add("vc-notif-dropdown--has-items");
     else root.classList.remove("vc-notif-dropdown--has-items");
     syncPushPromptUi();
@@ -3705,7 +4294,8 @@
     lastNotifRenderSig = sig;
     bindClearAllButton();
     listEl.innerHTML = "";
-    all.forEach(function (n) {
+    listEl.classList.add("vc-notif-list--cats");
+    function appendPersonalNotifRow(host, n) {
       var li = document.createElement("li");
       var destRaw = String(n.openUrl || "").trim();
       var btn = document.createElement(destRaw ? "a" : "button");
@@ -3762,7 +4352,59 @@
       dismiss.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
       li.appendChild(btn);
       li.appendChild(dismiss);
-      listEl.appendChild(li);
+      host.appendChild(li);
+    }
+    var groups = groupPersonalNotifsByCategory(all);
+    groups.forEach(function (g) {
+      var section = document.createElement("li");
+      /* notifCats3: categories always start collapsed; chrome matches Inbox bars */
+      section.className = "vc-notif-cat-row vc-notif-bell-inbox__row";
+      section.setAttribute("data-notif-cat", g.id);
+      var unreadCat = g.items.filter(function (x) { return !x.read; }).length;
+      var itemsHost = document.createElement("ul");
+      itemsHost.className = "vc-notif-cat-items vc-notif-bell-inbox__items";
+      itemsHost.setAttribute("role", "list");
+      itemsHost.hidden = true;
+      itemsHost.setAttribute("hidden", "");
+      var catBar = buildNotifCategoryBar({
+        toggleClass: "vc-notif-cat-toggle vc-notif-bell-inbox__toggle",
+        toggleHtml:
+          '<span class="vc-notif-cat-ico vc-notif-bell-inbox__ico" aria-hidden="true"><i class="fa ' +
+          g.ico +
+          '"></i></span>' +
+          '<span class="vc-notif-cat-label vc-notif-bell-inbox__label">' +
+          escBellHtml(g.label) +
+          "</span>" +
+          '<span class="vc-notif-cat-count vc-notif-bell-inbox__count">' +
+          String(g.items.length) +
+          (unreadCat ? " · " + unreadCat : "") +
+          "</span>",
+        clearCatId: g.id,
+        clearAriaLabel: "Elimina tutte in " + g.label,
+        onClear: function () {
+          clearNotifCategory(g.id, "personal");
+        },
+        onToggleClick: function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          var open = !section.classList.contains("is-open");
+          section.classList.toggle("is-open", open);
+          catBar.bar.classList.toggle("is-open", open);
+          catBar.toggle.classList.toggle("is-open", open);
+          catBar.toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          itemsHost.hidden = !open;
+          if (open) itemsHost.removeAttribute("hidden");
+          else itemsHost.setAttribute("hidden", "");
+        },
+      });
+      var bar = catBar.bar;
+      var toggle = catBar.toggle;
+      g.items.forEach(function (n) {
+        appendPersonalNotifRow(itemsHost, n);
+      });
+      section.appendChild(bar);
+      section.appendChild(itemsHost);
+      listEl.appendChild(section);
     });
   }
   function markAllRead() {
@@ -4025,6 +4667,27 @@
             }
             return;
           }
+          /* phoneNotifFlyCard1: card in-app subito (non dipendere dal poll / soft-OS). */
+          try {
+            if (document.visibilityState === "visible") {
+              var pushToastId = String(p.id || p.messageId || "").trim();
+              if (!pushToastId || !wasAlreadyToasted(pushToastId)) {
+                if (pushToastId) rememberToastedId(pushToastId);
+                playNotifSound();
+                showNotifFlyToast({
+                  id: pushToastId || String(Date.now()),
+                  title: String(p.title || "Nuova notifica"),
+                  body: String(p.body || ""),
+                  kind: String(p.kind || "info"),
+                  openUrl: String(p.openUrl || "").trim(),
+                  ticketId: String(p.ticketId || "").trim(),
+                  messageId: String(p.messageId || "").trim(),
+                  at: Date.now(),
+                  read: false,
+                });
+              }
+            }
+          } catch (ePushFly) {}
                     return;
         }
         if (data.type === "vc:push-resubscribe") {
@@ -4125,7 +4788,24 @@
         }
         if (ticketId && /^[a-f0-9]{24}$/i.test(ticketId)) {
           if (String(here.hash || "").replace(/^#/, "") !== ticketId) {
-            here.hash = ticketId;
+            try {
+              var yKeep =
+                window.pageYOffset ||
+                (document.documentElement && document.documentElement.scrollTop) ||
+                0;
+              history.replaceState(
+                null,
+                "",
+                here.pathname + here.search + "#" + ticketId,
+              );
+              window.scrollTo(0, yKeep);
+              if (document.documentElement) document.documentElement.scrollTop = yKeep;
+            } catch (eHash) {
+              /* ticketActionFail1: mai location.hash= — scrolla in alto la pagina */
+              try {
+                history.replaceState(null, "", here.pathname + here.search);
+              } catch (eHash2) {}
+            }
           }
           try {
             window.dispatchEvent(
@@ -4287,8 +4967,8 @@
       renotify: false,
       silent: false,
       lang: "it",
-      icon: "/images/vc-server-icon.png",
-      badge: "/images/vc-server-icon.png",
+      icon: "/images/og-server-icon.gif?v=20260904brandGif1",
+      badge: "/images/og-server-icon.gif?v=20260904brandGif1",
       data: {
         openUrl: String(item.openUrl || "/").trim() || "/",
         kind: String(item.kind || "info"),
@@ -4358,6 +5038,8 @@
     var gap = 10;
     var stack = Math.max(0, notifFlyActiveCount - 1) * 10;
     var rw = Math.min(296, Math.max(220, window.innerWidth - 24));
+    root.style.position = "fixed";
+    root.style.display = "flex";
     root.style.width = rw + "px";
     var left = br.right - rw;
     if (left < 12) left = 12;
@@ -4587,9 +5269,15 @@
 
   function placeNotifFlyFallback(root) {
     if (!root) return;
+    var safeTop = 0;
+    try {
+      safeTop = Number(window.__vcSafeTop) || 0;
+    } catch (eSafe) {}
     var rw = Math.min(320, Math.max(240, window.innerWidth - 24));
+    root.style.position = "fixed";
+    root.style.display = "flex";
     root.style.width = rw + "px";
-    root.style.top = Math.round(Math.max(12, (window.__vcSafeTop || 0) + 12)) + "px";
+    root.style.top = Math.round(Math.max(12, safeTop + 12)) + "px";
     root.style.right = "12px";
     root.style.left = "auto";
     root.style.bottom = "auto";
@@ -4609,11 +5297,7 @@
       pulseNotifSummary();
       return;
     }
-    if (isMobileNotifViewport()) {
-      showDashStyleSiteToast(formatNotifToastMessage(row), false, { ms: 3600 });
-      pulseNotifSummary();
-      return;
-    }
+    /* phoneNotifFlyCard1: stesso popup card del PC (niente toast dash). */
     if (dd && dd.open) {
       pulseNotifSummary();
       return;
@@ -4629,6 +5313,9 @@
     if (kind === "success") root.classList.add("vc-notif-fly-card--success");
     root.setAttribute("role", "status");
     root.setAttribute("aria-live", "polite");
+    root.style.position = "fixed";
+    root.style.zIndex = "100001";
+    root.style.display = "flex";
 
     var ico = document.createElement("span");
     ico.className = "vc-notif-fly-card__ico";
@@ -4735,6 +5422,8 @@
             ? "review"
             : kindRaw === "mod"
               ? "mod"
+              : kindRaw === "staff"
+                ? "staff"
               : kindRaw === "suggestion"
                 ? "suggestion"
                 : kindRaw === "web_ticket" || kindRaw === "web_ticket_mention"
@@ -4905,7 +5594,14 @@
       host.className = "vc-dash-save-toast-host vc-site-toast-host";
       host.setAttribute("aria-live", "polite");
       host.setAttribute("aria-atomic", "true");
+      try {
+        host.style.setProperty("z-index", "300000", "important");
+      } catch (eZ) {}
       document.body.appendChild(host);
+    } else {
+      try {
+        host.style.setProperty("z-index", "300000", "important");
+      } catch (eZ2) {}
     }
     host.innerHTML = "";
     var pending =
@@ -4946,8 +5642,15 @@
     return true;
   }
 
+  try {
+    window.__vcShowSiteToast = showDashStyleSiteToast;
+  } catch (eToastExpo) {}
+
   var notifPortalGuardUntil = 0;
   var notifPortalSyncing = false;
+  /* notifDoubleClose1: invalidate pending portal forceOpen; ignore ghost 2nd tap. */
+  var notifPortalOpenGen = 0;
+  var notifBellGestureLockUntil = 0;
 
   function normalizeHeaderQuickActionsOrder(actions) {
     if (!actions) actions = document.getElementById("header-quick-actions");
@@ -5005,10 +5708,29 @@
     window.__vcEnsureNotifDropdownInHeader = ensureNotifDropdownInHeader;
   } catch (eEnsExport) {}
 
-    function repairNotifDropdownPortal() {
+    /* notifSidebar4: never auto-close on visibility/pageshow/PTR repair; only forceClose. */
+    function repairNotifDropdownPortal(opts) {
+    opts = opts || {};
+    var forceClose = Boolean(opts.forceClose);
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return;
+    var intentionallyOpen = false;
+    try {
+      intentionallyOpen = Boolean(dd.open || dd.hasAttribute("open"));
+    } catch (eOpenChk) {
+      intentionallyOpen = false;
+    }
+    if (!forceClose && intentionallyOpen) {
+      try {
+        syncNotifMobileSheetChrome();
+      } catch (eKeepOpen) {}
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      } catch (eLockKeep) {}
+      return;
+    }
     notifPortalGuardUntil = 0;
+    notifPortalOpenGen += 1;
     try {
       dd.open = false;
       dd.removeAttribute("open");
@@ -5017,6 +5739,7 @@
       document.documentElement.classList.remove(
         "vc-notif-dropdown-open",
         "vc-notif-sheet-open",
+        "vc-notif-drawer-open",
         "vc-notif-overlay-active",
       );
     } catch (eCls) {}
@@ -5040,6 +5763,9 @@
         try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
     } catch (eLockRepair) {}
+    try {
+      restoreNotifScrollAfterClose();
+    } catch (eRestore) {}
   }
 
   try {
@@ -5087,7 +5813,12 @@
         document.body.appendChild(dd);
       }
       setNotifHeaderSlotHold(true);
-            function forceOpen() {
+      /* notifDoubleClose1: only latest portal open may forceOpen. */
+      notifPortalOpenGen += 1;
+      var openGen = notifPortalOpenGen;
+      function forceOpen() {
+        /* notifDoubleClose1: skip if user closed (or newer portal) after this schedule. */
+        if (openGen !== notifPortalOpenGen) return;
         try {
           dd.open = true;
           dd.setAttribute("open", "");
@@ -5100,17 +5831,112 @@
       notifPortalGuardUntil = Date.now() + 700;
       return;
     }
+    notifPortalOpenGen += 1;
     setNotifHeaderSlotHold(false);
     ensureNotifDropdownInHeader(true);
   }
 
+  /* notifSidebar2: intentional close must clear portal guard or Esc/2nd click get reopened.
+     notifDoubleClose1: bump openGen so pending rAF forceOpen cannot reopen. */
+  function requestCloseNotifDropdown(dd) {
+    notifPortalGuardUntil = 0;
+    notifPortalOpenGen += 1;
+    var live = dd || document.getElementById("vc-notif-dropdown");
+    if (!live) return;
+    try {
+      live.open = false;
+      live.removeAttribute("open");
+    } catch (eClose) {
+      try {
+        live.removeAttribute("open");
+      } catch (eClose2) {}
+    }
+  }
+
+  function primeDesktopNotifDrawer(dd) {
+    /* Classes only — do NOT forceOpen (would fight native <details> toggle). */
+    if (!dd || isMobileNotifViewport() || dd.open) return;
+    var root = document.documentElement;
+    try {
+      root.classList.add("vc-notif-drawer-open", "vc-notif-dropdown-open");
+      root.classList.remove("vc-notif-sheet-open");
+    } catch (ePrime) {}
+  }
+
+  function restoreNotifScrollAfterClose() {
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
+    try {
+      var root = document.documentElement;
+      var stillFrozen =
+        (typeof isPageScrollFrozen === "function" && isPageScrollFrozen()) ||
+        isNotifPanelChromeOpen(root);
+      if (!stillFrozen && typeof window.__vcUnpinPageScroll === "function") {
+        window.__vcUnpinPageScroll();
+      }
+    } catch (eUnpin) {}
+    try {
+      if (typeof window.__vcStripPhoneInlineScrollLocks === "function") {
+        window.__vcStripPhoneInlineScrollLocks();
+      }
+    } catch (eStrip) {}
+  }
+
+  function clearStuckNotifDrawerPrime() {
+    /* notifBellFix1: pointerdown prime without a successful open left overflow-lock + dead bell. */
+    try {
+      var live = document.getElementById("vc-notif-dropdown");
+      if (live && live.open) return;
+      var root = document.documentElement;
+      if (!root) return;
+      if (
+        !root.classList.contains("vc-notif-drawer-open") &&
+        !root.classList.contains("vc-notif-sheet-open") &&
+        !root.classList.contains("vc-notif-dropdown-open")
+      ) {
+        return;
+      }
+      root.classList.remove("vc-notif-drawer-open", "vc-notif-sheet-open", "vc-notif-dropdown-open");
+      restoreNotifScrollAfterClose();
+    } catch (eClearPrime) {}
+  }
+
+  function scheduleNotifSheetChromeSync(opts) {
+    /* notifBellFix1: never portal/move <details> synchronously inside toggle — browsers cancel open. */
+    opts = opts || {};
+    var delay = opts.delayMs != null ? Number(opts.delayMs) : 0;
+    function run() {
+      try {
+        syncNotifMobileSheetChrome();
+      } catch (eSync) {}
+      try {
+        var live = document.getElementById("vc-notif-dropdown");
+        if (!live || !live.open) clearStuckNotifDrawerPrime();
+      } catch (eChk) {}
+    }
+    if (delay > 0) {
+      window.setTimeout(run, delay);
+      return;
+    }
+    try {
+      window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(run);
+      });
+    } catch (eRaf) {
+      window.setTimeout(run, 0);
+    }
+  }
+
   function syncNotifMobileSheetChrome() {
+    /* notifSidebar2: mobile sheet + desktop right drawer; no classic popup flash.
+       notifBellFix1: portal only after toggle settles (see scheduleNotifSheetChromeSync). */
     if (notifPortalSyncing) return;
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return;
     var root = document.documentElement;
     var mobile = isMobileNotifViewport();
-        if (!dd.open && mobile && Date.now() < notifPortalGuardUntil) {
+    if (!dd.open && Date.now() < notifPortalGuardUntil) {
       try {
         dd.open = true;
         dd.setAttribute("open", "");
@@ -5119,9 +5945,16 @@
     }
     notifPortalSyncing = true;
     try {
-      if (dd.open && mobile) {
+      if (dd.open) {
+        var yKeepOpen = pageScrollY();
         try {
-          root.classList.add("vc-notif-sheet-open");
+          if (mobile) {
+            root.classList.add("vc-notif-sheet-open");
+            root.classList.remove("vc-notif-drawer-open");
+          } else {
+            root.classList.add("vc-notif-drawer-open");
+            root.classList.remove("vc-notif-sheet-open");
+          }
           root.classList.add("vc-notif-dropdown-open");
         } catch (e0) {}
         portalNotifDropdownToBody(dd, true);
@@ -5133,23 +5966,32 @@
           bd.className = "vc-notif-mobile-backdrop";
           bd.setAttribute("aria-hidden", "true");
           bd.addEventListener("click", function () {
-            notifPortalGuardUntil = 0;
-            dd.removeAttribute("open");
+            notifBellGestureLockUntil = Date.now() + 420;
+            requestCloseNotifDropdown(dd);
+            scheduleNotifSheetChromeSync({ delayMs: 0 });
           });
           dd.insertBefore(bd, dd.firstChild);
         }
-      } else {
         try {
-          root.classList.remove("vc-notif-sheet-open");
-          if (!dd.open) root.classList.remove("vc-notif-dropdown-open");
+          ensureNotifBellScopeUi();
+          syncNotifBellScopeChrome();
+        } catch (eScopeUi) {}
+        /* notifTicketScrollStay1 */
+        restorePageScrollY(yKeepOpen);
+        holdPageScroll(180);
+      } else {
+        notifPortalGuardUntil = 0;
+        try {
+          root.classList.remove("vc-notif-sheet-open", "vc-notif-drawer-open", "vc-notif-dropdown-open");
         } catch (e1) {}
         var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
         if (oldBd) oldBd.remove();
         portalNotifDropdownToBody(dd, false);
-                if (!dd.open) ensureNotifDropdownInHeader(true);
+        ensureNotifDropdownInHeader(true);
+        restoreNotifScrollAfterClose();
       }
       syncGlobalNotifOverlayClass();
-            try {
+      try {
         if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
       } catch (eLockClose) {}
     } finally {
@@ -5339,6 +6181,8 @@
     var perm = currentPushPermission() || "denied";
     if (perm === "denied") return false;
     if (pushSubActive === true) return false;
+    // Already registered successfully before + permission still granted → no nag banner.
+    if (perm === "granted" && hadPushOk() && pushSubActive !== false) return false;
     if (wasPushPromptDismissed()) return false;
         if (needsPushPermissionRecover()) return false;
     if (isIosLikeDevice() && !isStandalonePwa()) return true;
@@ -5461,7 +6305,7 @@
           vapidFetchBlockedUntil = Date.now() + 90000;
           try {
             if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
-              window.VcApiCache.noteWebhook429(0);
+              window.VcApiCache.noteWebhook429(0, url);
             }
           } catch (eV429) {}
           return null;
@@ -5566,7 +6410,7 @@
           pushSubscribeBlockedUntil = Date.now() + 90000;
           try {
             if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
-              window.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"));
+              window.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), url);
             }
           } catch (eP429) {}
           return false;
@@ -5687,6 +6531,10 @@
         Boolean(isIosLikeDevice() && !isStandalonePwa()) ||
         pushNativeGestureInFlight ||
         Boolean(pushSubscribePostInFlight);
+      try {
+        var strayIco = enableEl.querySelector(".fa, i");
+        if (strayIco) strayIco.remove();
+      } catch (eIco) {}
     }
     if (dismissEl) {
       dismissEl.setAttribute("aria-label", tNotif("notif.pushDismiss", "Nascondi"));
@@ -5840,10 +6688,14 @@
             pushSubActive = false;
             return false;
           }
+          // pushActiveLocalFix1: Browser already has a push subscription → treat as active even if
+          // server resync POST fails (429 / temporary block). Avoid false banner.
+          pushSubActive = true;
+          lastPushErrorHint = "";
+          rememberPushOk();
           return postPushSubscription(sub, opts).then(function (ok) {
-            pushSubActive = ok === true;
             if (ok) rememberPushOk();
-            return ok === true;
+            return true;
           });
         });
       })
@@ -5853,6 +6705,7 @@
       })
       .then(function (ok) {
         refreshPushInFlight = null;
+        if (ok) syncPushPromptUi();
         return ok;
       });
     return refreshPushInFlight;
@@ -5921,9 +6774,17 @@
 
     function withPrereqs(reg, publicKey) {
       if (!reg || !reg.pushManager) throw new Error("sw_failed");
-      if (!publicKey) throw new Error("vapid_missing");
       markNativePushAsked();
-      return createOrRepairPushSubscription(reg, publicKey, { fromGesture: true }).then(finishSub);
+      return reg.pushManager.getSubscription().then(function (existing) {
+        if (existing) {
+          if (publicKey && !subscriptionMatchesVapid(existing, publicKey)) {
+            return createOrRepairPushSubscription(reg, publicKey, { fromGesture: true }).then(finishSub);
+          }
+          return finishSub(existing);
+        }
+        if (!publicKey) throw new Error("vapid_missing");
+        return createOrRepairPushSubscription(reg, publicKey, { fromGesture: true }).then(finishSub);
+      });
     }
 
     pushNativeGestureInFlight = true;
@@ -5951,11 +6812,33 @@
         try {
           console.warn("[vc-push] subscribe error", err && err.message ? err.message : err);
         } catch (eLog) {}
-        lastPushErrorHint = describePushError(err);
         pushNativeGestureInFlight = false;
-        setPushSubActive(false);
-        syncPushPromptUi();
-        return false;
+        // If browser already has a subscription, keep active — don't show false "vapid missing".
+        return ensureServiceWorkerRegistration()
+          .then(function (reg) {
+            if (!reg || !reg.pushManager) return null;
+            return reg.pushManager.getSubscription();
+          })
+          .then(function (existing) {
+            if (existing) {
+              lastPushErrorHint = "";
+              rememberPushOk();
+              setPushSubActive(true);
+              syncPushPromptUi();
+              postPushSubscription(existing, { force: true }).catch(function () {});
+              return true;
+            }
+            lastPushErrorHint = describePushError(err);
+            setPushSubActive(false);
+            syncPushPromptUi();
+            return false;
+          })
+          .catch(function () {
+            lastPushErrorHint = describePushError(err);
+            setPushSubActive(false);
+            syncPushPromptUi();
+            return false;
+          });
       });
   }
   function maybeAskNativePush() {
@@ -6426,6 +7309,8 @@
               ? "review"
               : kindRaw === "mod"
                 ? "mod"
+                : kindRaw === "staff"
+                  ? "staff"
               : kindRaw === "suggestion"
                 ? "suggestion"
                 : kindRaw === "web_ticket" || kindRaw === "web_ticket_mention"
@@ -6444,7 +7329,13 @@
     if (row && typeof row.openUrl === "string") openUrl = String(row.openUrl).trim();
     var atMs = typeof row.at === "number" ? row.at : Date.now();
     var ticketId = extractTicketIdFromNotif(row) || extractTicketIdFromOpenUrl(openUrl);
-    return {
+    var channel =
+      String((row && row.channel) || "").toLowerCase() === "inbox"
+        ? "inbox"
+        : String((row && row.channel) || "").toLowerCase() === "personal"
+          ? "personal"
+          : "";
+    var mappedRow = {
       id: String(row.id || "").trim(),
       title: String((row && row.title) || ""),
       body: String((row && row.body) || ""),
@@ -6454,7 +7345,13 @@
       openUrl: openUrl,
       ticketId: ticketId,
       filtered: Boolean(row && row.filtered),
+      channel: channel,
+      dedupeKey: String((row && row.dedupeKey) || "").trim(),
     };
+    if (!mappedRow.channel) {
+      mappedRow.channel = isInboxLinkedNotifClient(mappedRow) ? "inbox" : "personal";
+    }
+    return mappedRow;
   }
   function mergeStoredWithServerNotificationList(list, uid) {
     var oldItems = loadStored();
@@ -6480,6 +7377,7 @@
       var sid = String(row.id || "").trim();
       if (!sid) continue;
       var mapped = mapServerRowToStoredItem(row);
+      if (isVoteRegisteredNotifClient(mapped)) continue;
       var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
       if (isClearedAwayServerRow(mapped, dismissed)) continue;
       serverIdMap[sid] = true;
@@ -6577,7 +7475,7 @@
     if (!opts.force && siteNotifsLastSyncAt && now - siteNotifsLastSyncAt < SITE_NOTIFS_MIN_GAP_MS) return;
     if (siteNotifsBlockedUntil > now) return;
     if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
-      if (window.VcApiCache.isWebhookBlocked()) return;
+      if (window.VcApiCache.isWebhookBlocked(url)) return;
     }
     if (siteNotifsSyncInFlight) return siteNotifsSyncInFlight;
     var ctrl = null;
@@ -6623,7 +7521,7 @@
           siteNotifsBlockedUntil = Date.now() + blockMs;
           try {
             if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
-              window.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"));
+              window.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), url);
             }
           } catch (eN429) {}
           return null;
@@ -6675,14 +7573,7 @@
         return SITE_NOTIFS_POLL_HIDDEN_MS;
       }
     } catch (e) {}
-    try {
-      if (
-        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-        Number(navigator.maxTouchPoints || 0) > 0
-      ) {
-        return 60000;
-      }
-    } catch (eMobPoll) {}
+    /* phoneNotifFlyCard1: stesso poll del PC (prima 60s su touch → in-app in ritardo). */
     return SITE_NOTIFS_POLL_MS;
   }
   function restartSiteNotifsPollTimer() {
@@ -6713,45 +7604,1173 @@
   }
   var notifSheetResizeWired = false;
   var notifSheetEscWired = false;
+  var bellNotifScope = "personal";
+  var bellNotifScopeWired = false;
+  var bellStaffSummaryAt = 0;
+  var bellStaffSummaryInFlight = null;
+  var bellStaffPerms = null;
+  var bellStaffQueueCache = Object.create(null);
+  var bellStaffQueueInFlight = Object.create(null);
+  var BELL_INBOX_PAGE_SIZE = 8;
+  var BELL_SCOPE_PREF_KEY = "vc_notif_scope_pref";
+  /* notifSidebar3: declare queue cache/inFlight (were undeclared → expand stuck on Caricamento…). */
+  /* notifInboxGate1: Pause = HS-only; hide gated rows until perms (like Punti tolti). */
+  var BELL_INBOX_ROWS = [
+    { id: "pause", label: "Pause", icon: "fa-pause-circle", requiresHighStaff: true },
+    { id: "candidature", label: "Candidature", icon: "fa-file-text-o", requiresCandidatureReview: true },
+    { id: "appelli", label: "Appelli", icon: "fa-balance-scale", requiresAppelliReview: true },
+    { id: "resoconti", label: "Resoconti", icon: "fa-bar-chart" },
+    { id: "punti-tolti", label: "Punti tolti", icon: "fa-minus-circle", punti: true },
+  ];
+
+  function readBellScopePref() {
+    try {
+      var v = String(localStorage.getItem(BELL_SCOPE_PREF_KEY) || "")
+        .trim()
+        .toLowerCase();
+      if (v === "staff" || v === "personal") return v;
+    } catch (ePref) {}
+    return "";
+  }
+
+  function writeBellScopePref(next) {
+    try {
+      localStorage.setItem(BELL_SCOPE_PREF_KEY, next === "staff" ? "staff" : "personal");
+    } catch (eWrite) {}
+  }
+
+  function readBellScopeFromUrl() {
+    try {
+      var sp = new URLSearchParams(location.search || "");
+      var view = String(sp.get("view") || sp.get("tab") || "")
+        .trim()
+        .toLowerCase();
+      if (view === "staff") return "staff";
+    } catch (eUrl) {}
+    return "";
+  }
+
+  function canBellStaffInbox() {
+    /* notifMobileSwitch1: do NOT require offsetParent — on phone the staff link/snav
+       is often display:none in the header while still present in DOM. Page dock
+       (revealTabs) already treats that as staff; bell switcher must match. */
+    try {
+      if (window.VcNotifScope && typeof window.VcNotifScope.canStaff === "function") {
+        if (window.VcNotifScope.canStaff()) return true;
+      }
+    } catch (eApi) {}
+    try {
+      if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
+      var p = window.__VC_STAFF_PERMS;
+      if (p && typeof p === "object" && p.ok) return true;
+      var token = getDiscordAccessToken();
+      if (token) {
+        var fp = String(token).slice(0, 24);
+        try {
+          var menu = JSON.parse(sessionStorage.getItem("vc_menu_staff_v1") || "null");
+          if (menu && menu.allowed && menu.fp === fp && Date.now() - Number(menu.at || 0) < 300000) {
+            return true;
+          }
+        } catch (eMenu) {}
+        try {
+          var gate = JSON.parse(
+            sessionStorage.getItem("vc_staff_access_ok_v2") ||
+              localStorage.getItem("vc_staff_access_ok_v2_local") ||
+              "null",
+          );
+          if (gate && gate.ok === true && Number(gate.exp || 0) > Date.now()) return true;
+        } catch (eGate) {}
+      }
+      var link = document.getElementById("discord-staff-link");
+      if (link && !link.hasAttribute("hidden")) return true;
+      if (
+        document.querySelector(
+          "[data-vc-staff-tools-nav], .vc-snav-details--staff, .vc-header-snav [data-vc-staff-nav], .vc-snav-details[data-vc-staff-nav], #vc-staff-snav-details, #discord-staff-link:not([hidden])",
+        )
+      ) {
+        return true;
+      }
+    } catch (eCan) {}
+    return false;
+  }
+
+  function staffWorkflowsApiBase() {
+    try {
+      var c = window.__VC_STAFF_WORKFLOWS;
+      if (c && typeof c === "object") {
+        var u = String(c.apiUrl || "").trim();
+        if (u) return u;
+      }
+    } catch (eCfg) {}
+    return "/webhooks/site-staff-workflows";
+  }
+
+  function notificationsStaffPageUrl(inboxId, itemId) {
+    try {
+      var u = new URL(NOTIFICATIONS_PATH, window.location.origin);
+      u.searchParams.set("view", "staff");
+      if (inboxId) u.searchParams.set("inbox", String(inboxId));
+      if (itemId) {
+        u.searchParams.set("item", String(itemId));
+        u.searchParams.set("scope", "pending");
+      }
+      return u.toString();
+    } catch (eUrl) {
+      var q = "?view=staff";
+      if (inboxId) q += "&inbox=" + encodeURIComponent(String(inboxId));
+      if (itemId) {
+        q += "&item=" + encodeURIComponent(String(itemId)) + "&scope=pending";
+      }
+      return NOTIFICATIONS_PATH + q;
+    }
+  }
+
+  function readBellStaffPerms() {
+    var perms = {};
+    try {
+      var g = window.__VC_STAFF_PERMS;
+      if (g && typeof g === "object" && g.ok) {
+        Object.keys(g).forEach(function (k) {
+          perms[k] = g[k];
+        });
+      }
+    } catch (eG) {}
+    var extra = bellStaffPerms && typeof bellStaffPerms === "object" ? bellStaffPerms : null;
+    if (!extra) {
+      try {
+        var cached = readCachedBellStaffSummary();
+        if (cached && cached.permissions) extra = cached.permissions;
+      } catch (eCache) {}
+    }
+    if (extra && typeof extra === "object") {
+      Object.keys(extra).forEach(function (k) {
+        perms[k] = extra[k];
+      });
+    }
+    return perms;
+  }
+
+  function bellInboxRowIsGated(row) {
+    if (!row) return true;
+    if (row.punti || row.id === "punti-tolti") return true;
+    if (row.requiresHighStaff || row.id === "pause") return true;
+    if (row.requiresCandidatureReview || row.id === "candidature") return true;
+    if (row.requiresAppelliReview || row.id === "appelli") return true;
+    return false;
+  }
+
+  function canBellInboxRow(row) {
+    if (!row) return false;
+    var perms = readBellStaffPerms();
+    var hasPerms = Boolean(
+      perms &&
+        (Object.prototype.hasOwnProperty.call(perms, "highStaff") ||
+          Object.prototype.hasOwnProperty.call(perms, "candidatureReview") ||
+          Object.prototype.hasOwnProperty.call(perms, "appelliReview") ||
+          Object.prototype.hasOwnProperty.call(perms, "isPm") ||
+          Object.prototype.hasOwnProperty.call(perms, "pm") ||
+          Object.prototype.hasOwnProperty.call(perms, "isHighStaff") ||
+          Object.prototype.hasOwnProperty.call(perms, "canViewPmPointsRemoved")),
+    );
+    if (!hasPerms) {
+      /* Optimistic: only ungated queues (Resoconti) before perms; mirror Punti tolti gate. */
+      return !bellInboxRowIsGated(row);
+    }
+    /* Pause API is High Staff only — do not treat director as HS. */
+    var high = Boolean(perms.highStaff || perms.isHighStaff || perms.canManage);
+    var highOrDirector = high || Boolean(perms.director);
+    var pm = Boolean(perms.isPm || perms.pm || perms.partnerManager || perms.isPmGestore);
+    if (row.punti || row.id === "punti-tolti") {
+      return Boolean(perms.canViewPmPointsRemoved) || highOrDirector || pm;
+    }
+    if (row.requiresHighStaff || row.id === "pause") return high;
+    if (row.requiresCandidatureReview || row.id === "candidature") {
+      return Boolean(perms.candidatureReview) || highOrDirector;
+    }
+    if (row.requiresAppelliReview || row.id === "appelli") {
+      return Boolean(perms.appelliReview) || highOrDirector;
+    }
+    return true;
+  }
+
+  function hideBellInboxForbiddenRow(row) {
+    if (!row || !row.id) return;
+    try {
+      var list = document.getElementById("vc-notif-bell-inbox-list");
+      if (!list) return;
+      var el = list.querySelector('[data-bell-inbox="' + String(row.id).replace(/"/g, "") + '"]');
+      if (!el) return;
+      el.remove();
+      var hint = document.getElementById("vc-notif-bell-inbox-hint");
+      var left = list.querySelectorAll(".vc-notif-bell-inbox__row").length;
+      if (hint) {
+        hint.textContent = "";
+        hint.hidden = true;
+        hint.setAttribute("hidden", "");
+      }
+      void left;
+    } catch (eHide) {}
+  }
+
+  function isBellInboxForbiddenErr(err) {
+    if (!err) return false;
+    if (Number(err.status) === 403) return true;
+    var msg = String(err.message || err.error || "").toLowerCase();
+    return (
+      msg.indexOf("solo high staff") >= 0 ||
+      msg.indexOf("forbidden") >= 0 ||
+      msg.indexOf("non hai i permessi") >= 0
+    );
+  }
+
+  /* notifApiErr1: 401 / abort / rete soft → non toastare come fallimento duro */
+  function isBellInboxBenignErr(err) {
+    if (!err) return true;
+    if (err.benign === true) return true;
+    var st = Number(err.status) || 0;
+    if (st === 401 || st === 403 || st === 0 || st === 408 || st === 429) return true;
+    var msg = String(err.message || err.error || "").toLowerCase();
+    return (
+      msg.indexOf("abort") >= 0 ||
+      msg.indexOf("timeout") >= 0 ||
+      msg.indexOf("network") >= 0 ||
+      msg.indexOf("missing_token") >= 0 ||
+      msg.indexOf("invalid_token") >= 0 ||
+      msg.indexOf("accedi") >= 0 ||
+      msg.indexOf("invalid_json") >= 0 ||
+      msg.indexOf("empty") >= 0 ||
+      msg.indexOf("rate_limited") >= 0
+    );
+  }
+
+  function escBellHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function bellInboxItemFocusId(queueId, item) {
+    if (!item) return "";
+    if (queueId === "pause") return String(item.id || "").trim();
+    if (queueId === "punti-tolti") return String(item.messageId || item.id || "").trim();
+    return String(item.messageId || item.recordId || item.id || "").trim();
+  }
+
+  function bellInboxItemLabel(queueId, item) {
+    if (!item) return "Richiesta";
+    if (queueId === "punti-tolti") {
+      var pm = item.pm || {};
+      var who = String(pm.displayName || pm.userId || "").trim();
+      var rule = String(item.rule || "").trim();
+      if (who && rule) return who + " · " + rule;
+      return who || rule || "Punti tolti";
+    }
+    var name = String(item.displayName || "").trim();
+    var title = String(item.title || "").trim();
+    var type = String(item.type || item.kind || "").trim();
+    if (name && !/^\d{16,22}$/.test(name)) return name;
+    if (title) return title;
+    if (type) return type;
+    return "Richiesta";
+  }
+
+  /* notifCats2: richer inbox queue row (who / what / when). */
+  function bellInboxItemDetail(queueId, item) {
+    if (!item) return { title: "Richiesta", subtitle: "", when: "", avatarUrl: "" };
+    var title = bellInboxItemLabel(queueId, item);
+    var subtitle = "";
+    var avatarUrl = String(item.avatarUrl || "").trim();
+    if (queueId === "pause") {
+      var start = String(item.start || "").trim();
+      var end = String(item.end || "").trim();
+      var role = String(item.ruoloRichiesto || item.ruoloTrack || "").trim();
+      var period = start && end ? start + " → " + end : start || end;
+      var bits = [];
+      if (role) bits.push(role);
+      if (period) bits.push(period);
+      var motiv = String(item.motivazione || item.preview || "").trim();
+      if (motiv && bits.length < 2) bits.push(motiv.slice(0, 80));
+      subtitle = bits.join(" · ");
+    } else if (queueId === "punti-tolti") {
+      var pm2 = item.pm || {};
+      title = String(pm2.displayName || pm2.userId || title).trim() || "Punti tolti";
+      avatarUrl = String(pm2.avatarUrl || item.avatarUrl || "").trim();
+      var rule2 = String(item.rule || "").trim();
+      var reporter = String((item.reporter && item.reporter.displayName) || item.reporterName || "").trim();
+      subtitle = [rule2, reporter ? "da " + reporter : ""].filter(Boolean).join(" · ");
+    } else if (queueId === "resoconti") {
+      var resoTitle = String(item.title || "").trim();
+      if (resoTitle && resoTitle !== title) subtitle = resoTitle;
+      else subtitle = String(item.preview || item.roleLabel || item.kind || "").trim().slice(0, 100);
+    } else {
+      subtitle = String(item.preview || item.title || item.type || item.kind || "").trim().slice(0, 100);
+      if (subtitle === title) subtitle = "";
+    }
+    var whenMs = Date.parse(String(item.createdAt || item.updatedAt || item.at || "")) || 0;
+    var when = whenMs ? timeAgoLocalized(whenMs) : "";
+    return { title: title, subtitle: subtitle, when: when, avatarUrl: avatarUrl };
+  }
+
+  function navigateBellInboxHref(href) {
+    var ddNav = document.getElementById("vc-notif-dropdown");
+    if (ddNav) requestCloseNotifDropdown(ddNav);
+    openNotifDestination(href, "mod");
+  }
+
+  function puntiToltiApiBase() {
+    try {
+      var c = window.__VC_STAFF_PM_POINTS_REMOVED;
+      if (c && typeof c === "object") {
+        var u = String(c.apiUrl || "").trim();
+        if (u) return u;
+      }
+    } catch (eCfg) {}
+    return "/webhooks/site-staff-pm-points-removed";
+  }
+
+  function fetchBellInboxQueueItems(row) {
+    var id = row && row.id ? String(row.id) : "";
+    if (!id) return Promise.resolve([]);
+    if (bellStaffQueueInFlight[id]) return bellStaffQueueInFlight[id];
+    var cached = bellStaffQueueCache[id];
+    if (cached && cached.ok !== false && Date.now() - Number(cached.at || 0) < 20000) {
+      return Promise.resolve(cached.items || []);
+    }
+    var token = getDiscordAccessToken();
+    if (!token) {
+      return Promise.reject(new Error("Accedi per vedere questa coda."));
+    }
+
+    var url;
+    if (row.punti || id === "punti-tolti") {
+      var pt = puntiToltiApiBase();
+      url =
+        pt +
+        (pt.indexOf("?") >= 0 ? "&" : "?") +
+        "limit=" +
+        encodeURIComponent(String(BELL_INBOX_PAGE_SIZE)) +
+        "&pending=1";
+    } else {
+      var api = staffWorkflowsApiBase();
+      url =
+        api +
+        (api.indexOf("?") >= 0 ? "&" : "?") +
+        "queue=" +
+        encodeURIComponent(id) +
+        "&scope=pending&pageSize=" +
+        encodeURIComponent(String(BELL_INBOX_PAGE_SIZE));
+    }
+
+    bellStaffQueueInFlight[id] = fetch(url, {
+      method: "GET",
+      credentials: "include",
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+      cache: "no-store",
+    })
+      .then(function (res) {
+        return res
+          .json()
+          .catch(function () {
+            return null;
+          })
+          .then(function (body) {
+            return { ok: res.ok, status: res.status, body: body };
+          });
+      })
+      .then(function (out) {
+        /* notifApiErr1: ok:true senza items → lista vuota, non errore */
+        if (out && out.body && out.body.ok === true) {
+          var itemsOk = Array.isArray(out.body.items) ? out.body.items : [];
+          itemsOk = itemsOk.slice(0, BELL_INBOX_PAGE_SIZE);
+          bellStaffQueueCache[id] = { at: Date.now(), items: itemsOk, ok: true };
+          if (out.body.permissions) {
+            bellStaffPerms = out.body.permissions;
+          }
+          return itemsOk;
+        }
+        var st = Number(out && out.status) || 0;
+        var msg =
+          (out && out.body && (out.body.message || out.body.error)) ||
+          (st === 401 ? "Accedi per vedere questa coda." : "Impossibile caricare la coda.");
+        var err = new Error(String(msg));
+        err.status = st;
+        err.benign =
+          st === 401 ||
+          st === 403 ||
+          st === 0 ||
+          st === 408 ||
+          st === 429 ||
+          st >= 500 ||
+          !out ||
+          !out.body;
+        throw err;
+      })
+      .catch(function (err) {
+        if (cached && cached.ok !== false && Array.isArray(cached.items)) {
+          return cached.items;
+        }
+        throw err || new Error("Impossibile caricare la coda.");
+      })
+      .finally(function () {
+        bellStaffQueueInFlight[id] = null;
+      });
+    return bellStaffQueueInFlight[id];
+  }
+
+  function renderBellInboxItems(row, host, items) {
+    if (!host) return;
+    host.innerHTML = "";
+    host.hidden = false;
+    host.removeAttribute("hidden");
+    var queueItems = Array.isArray(items) ? items.slice() : [];
+    var ptExtra = [];
+    if (row && row.id === "punti-tolti") {
+      ptExtra = inboxNotifsForBucket("punti-tolti");
+      ptExtra.forEach(function (n) {
+        var item = document.createElement("li");
+        item.className =
+          "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--rich" + (n.read ? "" : " is-unread");
+        var a = document.createElement("a");
+        a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
+        var dest = String(n.openUrl || "").trim();
+        a.href = dest ? resolveNotifDestUrl(dest) : notificationsStaffPageUrl("punti-tolti");
+        var bodySnip = String(n.body || "").trim().slice(0, 110);
+        var whenTxt = timeAgoLocalized(n.at || Date.now());
+        a.innerHTML =
+          '<span class="vc-notif-bell-inbox__item-dot" aria-hidden="true"></span>' +
+          '<span class="vc-notif-bell-inbox__item-copy">' +
+          '<span class="vc-notif-bell-inbox__item-label">' +
+          escBellHtml(String(n.title || "Punti tolti")) +
+          "</span>" +
+          (bodySnip
+            ? '<span class="vc-notif-bell-inbox__item-sub">' + escBellHtml(bodySnip) + "</span>"
+            : "") +
+          '<span class="vc-notif-bell-inbox__item-time">' +
+          escBellHtml(whenTxt) +
+          "</span>" +
+          "</span>";
+        a.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          try {
+            markOneRead(n.id);
+          } catch (eMark) {}
+          navigateBellInboxHref(a.href);
+        });
+        item.appendChild(a);
+        host.appendChild(item);
+      });
+    }
+    if (!queueItems.length && !ptExtra.length) {
+      var empty = document.createElement("li");
+      empty.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty";
+      empty.textContent = "Nessuna richiesta";
+      host.appendChild(empty);
+      return;
+    }
+    queueItems.forEach(function (item) {
+      var li = document.createElement("li");
+      li.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--rich";
+      var a = document.createElement("a");
+      a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
+      var focusId = bellInboxItemFocusId(row.id, item);
+      a.href = notificationsStaffPageUrl(row.id, focusId);
+      var det = bellInboxItemDetail(row.id, item);
+      var avHtml = det.avatarUrl
+        ? '<img class="vc-notif-bell-inbox__item-av" src="' +
+          escBellHtml(det.avatarUrl) +
+          '" alt="" width="28" height="28" loading="lazy" decoding="async" />'
+        : '<span class="vc-notif-bell-inbox__item-av vc-notif-bell-inbox__item-av--ph" aria-hidden="true"><i class="fa fa-user"></i></span>';
+      a.innerHTML =
+        avHtml +
+        '<span class="vc-notif-bell-inbox__item-copy">' +
+        '<span class="vc-notif-bell-inbox__item-label">' +
+        escBellHtml(det.title) +
+        "</span>" +
+        (det.subtitle
+          ? '<span class="vc-notif-bell-inbox__item-sub">' + escBellHtml(det.subtitle) + "</span>"
+          : "") +
+        (det.when
+          ? '<span class="vc-notif-bell-inbox__item-time">' + escBellHtml(det.when) + "</span>"
+          : "") +
+        "</span>" +
+        '<i class="fa fa-chevron-right" aria-hidden="true"></i>';
+      a.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        navigateBellInboxHref(a.href);
+      });
+      li.appendChild(a);
+      host.appendChild(li);
+    });
+    var more = document.createElement("li");
+    more.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--more";
+    var moreA = document.createElement("a");
+    moreA.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--more";
+    moreA.href = notificationsStaffPageUrl(row.id);
+    moreA.textContent = "Apri inbox completa";
+    moreA.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      navigateBellInboxHref(moreA.href);
+    });
+    more.appendChild(moreA);
+    host.appendChild(more);
+  }
+
+  function renderBellInboxLoadError(row, host, message) {
+    if (!host) return;
+    host.innerHTML = "";
+    host.hidden = false;
+    host.removeAttribute("hidden");
+    var li = document.createElement("li");
+    li.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty vc-notif-bell-inbox__item--error";
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "vc-notif-bell-inbox__retry";
+    btn.textContent = String(message || "Errore di caricamento") + " — riprova";
+    btn.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      host.removeAttribute("data-loaded");
+      host.removeAttribute("data-loading");
+      host.innerHTML =
+        '<li class="vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty">Caricamento…</li>';
+      loadBellInboxSectionItems(row, host);
+    });
+    li.appendChild(btn);
+    host.appendChild(li);
+  }
+
+  function loadBellInboxSectionItems(row, itemsHost) {
+    if (!row || !itemsHost) return;
+    var gen = String((Number(itemsHost.getAttribute("data-gen") || 0) || 0) + 1);
+    itemsHost.setAttribute("data-gen", gen);
+    itemsHost.setAttribute("data-loading", "1");
+    fetchBellInboxQueueItems(row)
+      .then(function (items) {
+        if (itemsHost.getAttribute("data-gen") !== gen) return;
+        if (!itemsHost.isConnected) return;
+        itemsHost.removeAttribute("data-loading");
+        itemsHost.setAttribute("data-loaded", "1");
+        renderBellInboxItems(row, itemsHost, items || []);
+      })
+      .catch(function (err) {
+        if (itemsHost.getAttribute("data-gen") !== gen) return;
+        if (!itemsHost.isConnected) return;
+        itemsHost.removeAttribute("data-loading");
+        itemsHost.removeAttribute("data-loaded");
+        /* notifInboxGate1: never show "Solo High Staff — riprova"; hide gated queues. */
+        if (isBellInboxForbiddenErr(err) || !canBellInboxRow(row)) {
+          hideBellInboxForbiddenRow(row);
+          return;
+        }
+        /* notifApiErr1: niente toast globale — solo retry inline; benign = copy soft */
+        var benign = isBellInboxBenignErr(err);
+        var msg = benign
+          ? Number(err && err.status) === 401
+            ? "Accedi per vedere questa coda."
+            : "Caricamento non riuscito"
+          : (err && err.message) || "Impossibile caricare la coda.";
+        renderBellInboxLoadError(row, itemsHost, msg);
+      });
+  }
+
+  function toggleBellInboxSection(row, btn, itemsHost, forceOpen) {
+    if (!btn || !itemsHost) return;
+    if (!canBellInboxRow(row)) {
+      hideBellInboxForbiddenRow(row);
+      return;
+    }
+    var wantOpen =
+      typeof forceOpen === "boolean" ? forceOpen : btn.getAttribute("aria-expanded") !== "true";
+    btn.setAttribute("aria-expanded", wantOpen ? "true" : "false");
+    btn.classList.toggle("is-open", wantOpen);
+    var rowEl = btn.closest(".vc-notif-bell-inbox__row");
+    if (rowEl) rowEl.classList.toggle("is-open", wantOpen);
+    if (!wantOpen) {
+      itemsHost.hidden = true;
+      itemsHost.setAttribute("hidden", "");
+      return;
+    }
+    itemsHost.hidden = false;
+    itemsHost.removeAttribute("hidden");
+    if (itemsHost.getAttribute("data-loaded") || itemsHost.getAttribute("data-loading")) return;
+    itemsHost.innerHTML =
+      '<li class="vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty">Caricamento…</li>';
+    loadBellInboxSectionItems(row, itemsHost);
+  }
+
+  function ensureNotifBellScopeUi() {
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (!dd) return false;
+    var panel = dd.querySelector(".vc-notif-panel");
+    if (!panel) return false;
+    var head = panel.querySelector(".vc-notif-panel-head");
+    var body = panel.querySelector(".vc-notif-panel-body");
+    if (!body) return false;
+
+    var switchWrap = document.getElementById("vc-notif-bell-scope");
+    if (!switchWrap) {
+      switchWrap = document.createElement("div");
+      switchWrap.id = "vc-notif-bell-scope";
+      switchWrap.className = "vc-notif-scope-switch";
+      switchWrap.hidden = true;
+      switchWrap.innerHTML =
+        '<div class="vc-notif-scope-switch__seg" role="tablist" aria-label="Ambito notifiche">' +
+        '<button type="button" role="tab" class="vc-notif-scope-switch__btn is-active" id="vc-notif-bell-tab-personal" data-bell-scope="personal" aria-selected="true">' +
+        '<i class="fa fa-bell" aria-hidden="true"></i><span>Personali</span></button>' +
+        '<button type="button" role="tab" class="vc-notif-scope-switch__btn" id="vc-notif-bell-tab-staff" data-bell-scope="staff" aria-selected="false">' +
+        '<i class="fa fa-inbox" aria-hidden="true"></i><span>Inbox</span></button>' +
+        "</div>";
+      if (head && head.parentNode === panel) panel.insertBefore(switchWrap, head.nextSibling);
+      else panel.insertBefore(switchWrap, body);
+    }
+
+    var personalPane = document.getElementById("vc-notif-bell-pane-personal");
+    if (!personalPane) {
+      personalPane = document.createElement("div");
+      personalPane.id = "vc-notif-bell-pane-personal";
+      personalPane.className = "vc-notif-bell-pane";
+      personalPane.setAttribute("data-bell-pane", "personal");
+      while (body.firstChild) personalPane.appendChild(body.firstChild);
+      body.appendChild(personalPane);
+    }
+
+    var staffPane = document.getElementById("vc-notif-bell-pane-staff");
+    if (!staffPane) {
+      staffPane = document.createElement("div");
+      staffPane.id = "vc-notif-bell-pane-staff";
+      staffPane.className = "vc-notif-bell-pane vc-notif-bell-pane--staff";
+      staffPane.setAttribute("data-bell-pane", "staff");
+      staffPane.hidden = true;
+      staffPane.innerHTML =
+        '<div class="vc-notif-bell-inbox" id="vc-notif-bell-inbox">' +
+        '<p class="vc-notif-bell-inbox__hint" id="vc-notif-bell-inbox-hint">Caricamento inbox staff…</p>' +
+        '<ul class="vc-notif-bell-inbox__list" id="vc-notif-bell-inbox-list" role="list"></ul>' +
+        "</div>";
+      body.appendChild(staffPane);
+    }
+
+    if (!bellNotifScopeWired) {
+      bellNotifScopeWired = true;
+      switchWrap.addEventListener("click", function (ev) {
+        var btn =
+          ev.target && ev.target.closest ? ev.target.closest("[data-bell-scope]") : null;
+        if (!btn || !switchWrap.contains(btn)) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        var next = btn.getAttribute("data-bell-scope") === "staff" ? "staff" : "personal";
+        setBellNotifScope(next, { source: "bell" });
+      });
+      window.addEventListener("vc:notif-scope", function (ev) {
+        var next = ev && ev.detail && ev.detail.scope === "staff" ? "staff" : "personal";
+        setBellNotifScope(next, { source: "page", silent: true });
+      });
+      window.addEventListener("vc:staff-access-ok", function () {
+        syncNotifBellScopeChrome();
+      });
+      window.addEventListener("vc:auth-logout", function () {
+        setBellNotifScope("personal", { source: "logout", silent: true, remember: false });
+      });
+    }
+    return true;
+  }
+
+  function resolveInitialBellScope(opts) {
+    opts = opts || {};
+    var fromUrl = readBellScopeFromUrl();
+    if (fromUrl === "staff" && canBellStaffInbox()) return "staff";
+    if (isOnNotificationsPage()) {
+      try {
+        if (document.body && document.body.classList.contains("vc-notif-scope-staff") && canBellStaffInbox()) {
+          return "staff";
+        }
+      } catch (eBody) {}
+      try {
+        if (window.VcNotifScope && typeof window.VcNotifScope.getScope === "function") {
+          var pageScope = window.VcNotifScope.getScope();
+          if (pageScope === "staff" && canBellStaffInbox()) return "staff";
+        }
+      } catch (eGet) {}
+    }
+    /* bellOpenPersonal1: apertura campana → sempre Personali (anche desktop),
+       ignora pref sticky Inbox; deep-link ?view=staff / pagina notifiche staff restano. */
+    if (opts.fromBellOpen) {
+      return "personal";
+    }
+    var pref = readBellScopePref();
+    if (pref === "staff" && canBellStaffInbox()) return "staff";
+    return "personal";
+  }
+
+  function syncNotifBellScopeChrome() {
+    ensureNotifBellScopeUi();
+    var switchWrap = document.getElementById("vc-notif-bell-scope");
+    var tabP = document.getElementById("vc-notif-bell-tab-personal");
+    var tabS = document.getElementById("vc-notif-bell-tab-staff");
+    var personalPane = document.getElementById("vc-notif-bell-pane-personal");
+    var staffPane = document.getElementById("vc-notif-bell-pane-staff");
+    var staffOk = canBellStaffInbox();
+    if (!staffOk && bellNotifScope === "staff") bellNotifScope = "personal";
+    if (switchWrap) {
+      if (staffOk) {
+        switchWrap.hidden = false;
+        switchWrap.removeAttribute("hidden");
+      } else {
+        switchWrap.hidden = true;
+        switchWrap.setAttribute("hidden", "");
+      }
+    }
+    if (tabS) {
+      tabS.disabled = !staffOk;
+      tabS.setAttribute("aria-disabled", staffOk ? "false" : "true");
+      if (!staffOk) tabS.setAttribute("hidden", "");
+      else tabS.removeAttribute("hidden");
+    }
+    var isStaff = bellNotifScope === "staff" && staffOk;
+    if (tabP) {
+      tabP.classList.toggle("is-active", !isStaff);
+      tabP.setAttribute("aria-selected", !isStaff ? "true" : "false");
+    }
+    if (tabS) {
+      tabS.classList.toggle("is-active", isStaff);
+      tabS.setAttribute("aria-selected", isStaff ? "true" : "false");
+    }
+    if (personalPane) {
+      personalPane.hidden = isStaff;
+      if (isStaff) personalPane.setAttribute("hidden", "");
+      else personalPane.removeAttribute("hidden");
+    }
+    if (staffPane) {
+      staffPane.hidden = !isStaff;
+      if (!isStaff) staffPane.setAttribute("hidden", "");
+      else staffPane.removeAttribute("hidden");
+    }
+    try {
+      var dd = document.getElementById("vc-notif-dropdown");
+      if (dd) dd.classList.toggle("vc-notif-dropdown--staff-scope", isStaff);
+    } catch (eCls) {}
+    try {
+      var clearAll = document.getElementById("vc-notif-clear-all");
+      if (clearAll) {
+        clearAll.hidden = isStaff;
+        if (isStaff) clearAll.setAttribute("hidden", "");
+        else clearAll.removeAttribute("hidden");
+      }
+    } catch (eClear) {}
+    ensureNotifSeeAllLink();
+    if (isStaff) loadBellStaffInboxSummary();
+  }
+
+  function setBellNotifScope(next, opts) {
+    opts = opts || {};
+    var want = next === "staff" ? "staff" : "personal";
+    if (want === "staff" && !canBellStaffInbox()) want = "personal";
+    var prev = bellNotifScope;
+    bellNotifScope = want;
+    if (!opts || opts.remember !== false) writeBellScopePref(want);
+    syncNotifBellScopeChrome();
+    if (opts.source === "bell" && !opts.silent) {
+      try {
+        if (isOnNotificationsPage() && window.VcNotifScope && typeof window.VcNotifScope.setScope === "function") {
+          window.VcNotifScope.setScope(want, { remember: false });
+        } else {
+          window.dispatchEvent(new CustomEvent("vc:notif-scope", { detail: { scope: want, source: "bell" } }));
+        }
+      } catch (eSync) {}
+    }
+    if (prev !== want) {
+      try {
+        var sub = document.getElementById("vc-notif-unread-sub");
+        if (sub && want === "staff") sub.textContent = formatUnreadSub(countInboxUnreadNotifs());
+        else if (want === "personal") render({ force: false });
+      } catch (eSub) {}
+    }
+  }
+
+  function readCachedBellStaffSummary() {
+    try {
+      var pref = window.__VC_INBOX_SUMMARY_PREFETCH;
+      if (pref && pref.summary) return pref;
+      var now = Date.now();
+      var raw = sessionStorage.getItem("vc_inbox_summary_v1");
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.summary && now - Number(parsed.at || 0) <= 120000) return parsed;
+      }
+      var rawLocal = localStorage.getItem("vc_inbox_summary_local_v1");
+      if (rawLocal) {
+        var parsedLocal = JSON.parse(rawLocal);
+        if (parsedLocal && parsedLocal.summary && now - Number(parsedLocal.at || 0) <= 600000) {
+          return parsedLocal;
+        }
+      }
+    } catch (eCache) {}
+    return null;
+  }
+
+  function renderBellStaffInbox(summary) {
+    var list = document.getElementById("vc-notif-bell-inbox-list");
+    var hint = document.getElementById("vc-notif-bell-inbox-hint");
+    /* notifCats3 marker */
+    /* notifUseful1 marker */
+    if (!list) return;
+    list.innerHTML = "";
+    try {
+      var subHead = document.getElementById("vc-notif-unread-sub");
+      if (subHead && bellNotifScope === "staff") {
+        subHead.textContent = formatUnreadSub(countInboxUnreadNotifs());
+      }
+    } catch (eSubH) {}
+
+    function appendInboxNotifCategory(cat) {
+      var items = inboxNotifsForBucket(cat.id);
+      if (!items.length && cat.id !== "avvisi") return;
+      if (!items.length) return;
+      var li = document.createElement("li");
+      li.className = "vc-notif-bell-inbox__row has-count";
+      li.setAttribute("data-bell-inbox", cat.id);
+      var unreadA = items.filter(function (x) {
+        return !x.read;
+      }).length;
+      var itemsHost = document.createElement("ul");
+      itemsHost.className = "vc-notif-bell-inbox__items";
+      itemsHost.setAttribute("role", "list");
+      itemsHost.hidden = true;
+      itemsHost.setAttribute("hidden", "");
+      items.slice(0, 12).forEach(function (n) {
+        var item = document.createElement("li");
+        item.className =
+          "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--rich" + (n.read ? "" : " is-unread");
+        var a = document.createElement("a");
+        a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
+        var dest = String(n.openUrl || "").trim();
+        a.href = dest ? resolveNotifDestUrl(dest) : notificationsStaffPageUrl("", "");
+        var bodySnip = String(n.body || "").trim().slice(0, 110);
+        var whenTxt = timeAgoLocalized(n.at || Date.now());
+        a.innerHTML =
+          '<span class="vc-notif-bell-inbox__item-dot" aria-hidden="true"></span>' +
+          '<span class="vc-notif-bell-inbox__item-copy">' +
+          '<span class="vc-notif-bell-inbox__item-label">' +
+          escBellHtml(String(n.title || cat.label)) +
+          "</span>" +
+          (bodySnip
+            ? '<span class="vc-notif-bell-inbox__item-sub">' + escBellHtml(bodySnip) + "</span>"
+            : "") +
+          '<span class="vc-notif-bell-inbox__item-time">' +
+          escBellHtml(whenTxt) +
+          "</span>" +
+          "</span>";
+        a.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          try {
+            markOneRead(n.id);
+          } catch (eMark) {}
+          navigateBellInboxHref(a.href);
+        });
+        item.appendChild(a);
+        itemsHost.appendChild(item);
+      });
+      var catBar = buildNotifCategoryBar({
+        toggleClass: "vc-notif-bell-inbox__toggle",
+        toggleHtml:
+          '<span class="vc-notif-bell-inbox__ico" aria-hidden="true"><i class="fa ' +
+          cat.ico +
+          '"></i></span>' +
+          '<span class="vc-notif-bell-inbox__label">' +
+          escBellHtml(cat.label) +
+          "</span>" +
+          '<span class="vc-notif-bell-inbox__count">' +
+          String(items.length) +
+          (unreadA ? " · " + unreadA : "") +
+          "</span>",
+        clearCatId: cat.id,
+        clearAriaLabel: "Elimina tutte in " + cat.label,
+        onClear: function () {
+          clearNotifCategory(cat.id, "inbox");
+        },
+        onToggleClick: function (ev) {
+          ev.preventDefault();
+          var open = !li.classList.contains("is-open");
+          li.classList.toggle("is-open", open);
+          catBar.bar.classList.toggle("is-open", open);
+          catBar.toggle.classList.toggle("is-open", open);
+          catBar.toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          itemsHost.hidden = !open;
+          if (open) itemsHost.removeAttribute("hidden");
+          else itemsHost.setAttribute("hidden", "");
+        },
+      });
+      var bar = catBar.bar;
+      var btn = catBar.toggle;
+      li.appendChild(bar);
+      li.appendChild(itemsHost);
+      list.appendChild(li);
+    }
+
+    INBOX_NOTIF_CATS.forEach(appendInboxNotifCategory);
+
+    var sum = summary && typeof summary === "object" ? summary : {};
+    var total = 0;
+    var visible = 0;
+    var ptNotifs = inboxNotifsForBucket("punti-tolti");
+    BELL_INBOX_ROWS.forEach(function (row) {
+      if (!canBellInboxRow(row)) return;
+      visible += 1;
+      var count = Number(sum[row.id] || 0) || 0;
+      if (
+        (row.punti || row.id === "punti-tolti") &&
+        !sum[row.id] &&
+        bellStaffQueueCache[row.id] &&
+        Array.isArray(bellStaffQueueCache[row.id].items)
+      ) {
+        count = bellStaffQueueCache[row.id].items.length;
+      }
+      if (row.id === "punti-tolti") count += ptNotifs.length;
+      total += count;
+      var li = document.createElement("li");
+      li.className = "vc-notif-bell-inbox__row" + (count > 0 ? " has-count" : "");
+      li.setAttribute("data-bell-inbox", row.id);
+
+      var itemsHost = document.createElement("ul");
+      itemsHost.className = "vc-notif-bell-inbox__items";
+      itemsHost.id = "vc-notif-bell-inbox-items-" + row.id;
+      itemsHost.hidden = true;
+      itemsHost.setAttribute("hidden", "");
+      itemsHost.setAttribute("role", "list");
+
+      var catBarOpts = {
+        toggleClass: "vc-notif-bell-inbox__toggle",
+        ariaControls: "vc-notif-bell-inbox-items-" + row.id,
+        toggleHtml:
+          '<span class="vc-notif-bell-inbox__ico" aria-hidden="true"><i class="fa ' +
+          row.icon +
+          '"></i></span>' +
+          '<span class="vc-notif-bell-inbox__label">' +
+          escBellHtml(row.label) +
+          "</span>" +
+          '<span class="vc-notif-bell-inbox__count">' +
+          (count > 99 ? "99+" : String(count)) +
+          "</span>",
+        onToggleClick: function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          toggleBellInboxSection(row, catBar.toggle, itemsHost);
+        },
+      };
+      if (row.id === "punti-tolti" && ptNotifs.length) {
+        catBarOpts.clearTitle = "Elimina notifiche Punti tolti";
+        catBarOpts.clearAriaLabel = "Elimina notifiche Punti tolti";
+        catBarOpts.onClear = function () {
+          clearNotifCategory("punti-tolti", "inbox");
+        };
+      }
+      var catBar = buildNotifCategoryBar(catBarOpts);
+      li.appendChild(catBar.bar);
+      li.appendChild(itemsHost);
+      list.appendChild(li);
+    });
+    if (hint) {
+      /* notifCats3: categories with 0 are enough — no empty-copy / sleeping disc. */
+      hint.textContent = "";
+      hint.hidden = true;
+      hint.setAttribute("hidden", "");
+    }
+    void total;
+    void visible;
+  }
+
+  function loadBellStaffInboxSummary(force) {
+    ensureNotifBellScopeUi();
+    var cached = readCachedBellStaffSummary();
+    if (cached && cached.permissions) bellStaffPerms = cached.permissions;
+    if (cached && cached.summary) renderBellStaffInbox(cached.summary);
+    if (!force && bellStaffSummaryAt && Date.now() - bellStaffSummaryAt < 20000 && cached) {
+      return Promise.resolve(cached);
+    }
+    var token = getDiscordAccessToken();
+    if (!token) {
+      renderBellStaffInbox({});
+      var hint = document.getElementById("vc-notif-bell-inbox-hint");
+      if (hint) hint.textContent = "Accedi per vedere l'inbox staff.";
+      return Promise.resolve(null);
+    }
+    if (bellStaffSummaryInFlight) return bellStaffSummaryInFlight;
+    var api = staffWorkflowsApiBase();
+    var url = api + (api.indexOf("?") >= 0 ? "&" : "?") + "queue=summary";
+    bellStaffSummaryInFlight = fetch(url, {
+      method: "GET",
+      credentials: "include",
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+      cache: "no-store",
+    })
+      .then(function (res) {
+        return res
+          .json()
+          .catch(function () {
+            return null;
+          })
+          .then(function (body) {
+            return { ok: res.ok, body: body };
+          });
+      })
+      .then(function (out) {
+        bellStaffSummaryAt = Date.now();
+        if (!out || !out.body || !out.body.ok || !out.body.summary) {
+          if (!cached) renderBellStaffInbox({});
+          return null;
+        }
+        if (out.body.permissions) bellStaffPerms = out.body.permissions;
+        try {
+          var cachePayload = {
+            summary: out.body.summary,
+            permissions: out.body.permissions || null,
+            at: Date.now(),
+          };
+          sessionStorage.setItem("vc_inbox_summary_v1", JSON.stringify(cachePayload));
+          localStorage.setItem("vc_inbox_summary_local_v1", JSON.stringify(cachePayload));
+          window.__VC_INBOX_SUMMARY_PREFETCH = out.body;
+        } catch (eStore) {}
+        renderBellStaffInbox(out.body.summary);
+        return out.body;
+      })
+      .catch(function () {
+        if (!cached) {
+          var hintErr = document.getElementById("vc-notif-bell-inbox-hint");
+          if (hintErr) hintErr.textContent = "Impossibile caricare l'inbox staff.";
+        }
+        return null;
+      })
+      .finally(function () {
+        bellStaffSummaryInFlight = null;
+      });
+    return bellStaffSummaryInFlight;
+  }
 
   function wireNotifMobileSheet() {
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return false;
-        if (!dd.__vcNotifSheetWired) {
+    ensureNotifBellScopeUi();
+    if (!dd.__vcNotifSheetWired) {
       dd.__vcNotifSheetWired = true;
+      /* notifSidebar2: prime drawer class before <details> paints classic popup.
+         notifBellFix1: click owns open/close; defer portal off the toggle stack. */
+      var summary = dd.querySelector("summary.vc-notif-summary");
+      if (summary && !summary.__vcNotifPrimeWired) {
+        summary.__vcNotifPrimeWired = true;
+        summary.addEventListener(
+          "pointerdown",
+          function () {
+            if (dd.open) {
+              notifPortalGuardUntil = 0;
+              return;
+            }
+            primeDesktopNotifDrawer(dd);
+          },
+          true,
+        );
+        summary.addEventListener(
+          "keydown",
+          function (ev) {
+            if (ev.key !== "Enter" && ev.key !== " ") return;
+            if (dd.open) {
+              notifPortalGuardUntil = 0;
+              return;
+            }
+            primeDesktopNotifDrawer(dd);
+          },
+          true,
+        );
+        summary.addEventListener(
+          "click",
+          function (ev) {
+            try {
+              if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+              if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+            } catch (ePrev) {}
+            var live = document.getElementById("vc-notif-dropdown") || dd;
+            if (!live) return;
+            /* notifDoubleClose1: one gesture → one toggle (blocks touch+click / ghost reopen). */
+            var nowMs = Date.now();
+            if (nowMs < notifBellGestureLockUntil) return;
+            notifBellGestureLockUntil = nowMs + 420;
+            if (live.open) {
+              notifPortalGuardUntil = 0;
+              requestCloseNotifDropdown(live);
+              /* toggle event owns chrome sync — avoid double portal/forceOpen. */
+              return;
+            }
+            primeDesktopNotifDrawer(live);
+            holdPageScroll(220);
+            try {
+              live.open = true;
+              live.setAttribute("open", "");
+            } catch (eOpen) {}
+            var repairGen = notifPortalOpenGen;
+            window.setTimeout(function () {
+              try {
+                if (repairGen !== notifPortalOpenGen) return;
+                var again = document.getElementById("vc-notif-dropdown");
+                if (again && again.open) syncNotifMobileSheetChrome();
+                else clearStuckNotifDrawerPrime();
+              } catch (eFix) {}
+            }, 48);
+          },
+          true,
+        );
+      }
       dd.addEventListener("toggle", function () {
-        syncNotifMobileSheetChrome();
+        if (dd.open) holdPageScroll(220);
+        scheduleNotifSheetChromeSync({ delayMs: 0 });
         if (dd.open) {
           markAllReadOnBellOpen();
           syncPushPromptUi();
           maybeAskNativePush();
+          /* bellOpenPersonal1 + notifTicketScrollStay1 */
+          setBellNotifScope(resolveInitialBellScope({ fromBellOpen: true }), {
+            source: "open",
+            silent: true,
+            remember: false,
+          });
+          try {
+            syncNotifBellScopeChrome();
+          } catch (eBellChrome) {}
         } else {
+          notifPortalGuardUntil = 0;
           syncPushPromptUi();
           ensureNotifDropdownInHeader(true);
+          restoreNotifScrollAfterClose();
+          clearStuckNotifDrawerPrime();
         }
       });
     }
     if (!notifSheetResizeWired) {
       notifSheetResizeWired = true;
       window.addEventListener("resize", function () {
-        if (!isMobileNotifViewport()) syncNotifMobileSheetChrome();
+        syncNotifMobileSheetChrome();
         var liveDd = document.getElementById("vc-notif-dropdown");
-        if (!liveDd || !liveDd.open) ensureNotifDropdownInHeader(true);
+        if (!liveDd || !liveDd.open) {
+          ensureNotifDropdownInHeader(true);
+          restoreNotifScrollAfterClose();
+        }
       });
       window.addEventListener("pageshow", function () {
+        /* notifSidebar4: soft repair — keep drawer open across bfcache/app switch. */
         repairNotifDropdownPortal();
+        var liveDd = document.getElementById("vc-notif-dropdown");
+        if (!liveDd || !liveDd.open) restoreNotifScrollAfterClose();
       });
-      document.addEventListener("visibilitychange", function () {
-        if (document.visibilityState === "visible") repairNotifDropdownPortal();
-      });
+      /* notifSidebar4: do NOT close drawer on visibilitychange (tab hide / app background). */
     }
     if (!notifSheetEscWired) {
       notifSheetEscWired = true;
       document.addEventListener("keydown", function (ev) {
         if (ev.key !== "Escape") return;
         var live = document.getElementById("vc-notif-dropdown");
-        if (!isMobileNotifViewport() || !live || !live.open) return;
-        live.removeAttribute("open");
+        if (!live || !live.open) return;
+        notifBellGestureLockUntil = Date.now() + 420;
+        requestCloseNotifDropdown(live);
+        scheduleNotifSheetChromeSync({ delayMs: 0 });
       });
     }
     var head = dd.querySelector(".vc-notif-panel-head");
@@ -6767,7 +8786,9 @@
       closeM.addEventListener("click", function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
-        dd.removeAttribute("open");
+        notifBellGestureLockUntil = Date.now() + 420;
+        requestCloseNotifDropdown(dd);
+        scheduleNotifSheetChromeSync({ delayMs: 0 });
       });
       head.appendChild(closeM);
     }
@@ -6813,6 +8834,10 @@
     ensureNotifSeeAllLink();
     bindClearAllButton();
     removeMarkAllButton();
+    try {
+      /* notifMobileSwitch1: late staff gate must reveal Personali|Inbox on open bell too. */
+      syncNotifBellScopeChrome();
+    } catch (eScopeLate) {}
     if (!had) return;
     lastNotifRenderSig = "";
     render({ force: true });
@@ -6853,7 +8878,8 @@
     if (seeAll) {
       seeAll.addEventListener("click", function (ev) {
         ev.preventDefault();
-        repairNotifDropdownPortal();
+        repairNotifDropdownPortal({ forceClose: true });
+        /* notifSeeAll1: always personal root, never ?view=staff */
         window.location.href = notificationsPageUrl();
       });
     }
@@ -7040,6 +9066,13 @@
 
     function onMobileNavTileClick(ev, a) {
     if (!a) return;
+    if (Date.now() - (onMobileNavTileClick._lastAt || 0) < 450) {
+      try {
+        if (ev && ev.preventDefault) ev.preventDefault();
+      } catch (eDup) {}
+      return;
+    }
+    onMobileNavTileClick._lastAt = Date.now();
     focusPrev = null;
     var hrefAttr = String(a.getAttribute("href") || "").trim();
     var abs = "";
@@ -7060,12 +9093,34 @@
       if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
     } catch (ePrev) {}
     try {
-      window.location.assign(abs);
-    } catch (eAssign) {
+      if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+    } catch (eStop) {}
+    /* phoneNavTapFix1: navigate on next frame so drawer unlock paints before assign */
+    window.setTimeout(function () {
       try {
-        window.location.href = abs;
-      } catch (eHref2) {}
-    }
+        window.location.assign(abs);
+      } catch (eAssign) {
+        try {
+          window.location.href = abs;
+        } catch (eHref2) {}
+      }
+    }, 0);
+  }
+
+  function bindMobileNavTileNav(a) {
+    if (!a || a.getAttribute("data-vc-mobile-nav-bound") === "1") return;
+    a.setAttribute("data-vc-mobile-nav-bound", "1");
+    a.addEventListener("click", function (ev) {
+      onMobileNavTileClick(ev, a);
+    });
+    a.addEventListener(
+      "touchend",
+      function (ev) {
+        if (!ev || (ev.touches && ev.touches.length)) return;
+        onMobileNavTileClick(ev, a);
+      },
+      { passive: false },
+    );
   }
 
   function openDrawer() {
@@ -7113,32 +9168,54 @@
   }
 
   function mobileAvatarUrl(u) {
+    try {
+      var server = window.__VC_SERVER_IDENTITY;
+      if (server && server.avatarUrl && (!u || !u.id || String(server.userId || "") === String(u.id || "") || !server.userId)) {
+        var serverUrl = String(server.avatarUrl || "").trim();
+        if (/^https?:\/\//i.test(serverUrl)) {
+          if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
+            return window.VcDiscordAvatar.resolveUrl(serverUrl, 64, server.memberAvatar || "", u && u.id) || serverUrl;
+          }
+          return serverUrl;
+        }
+      }
+    } catch (eServer) {}
     if (!u || !u.id) return "";
     try {
       if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromUser === "function") {
         var built = window.VcDiscordAvatar.buildFromUser(u, 64);
-        if (built) {
-          try {
-            if (window.VcDiscordAvatar.preferStaticUrl) {
-              return window.VcDiscordAvatar.preferStaticUrl(built, 64) || built;
-            }
-          } catch (eStat) {}
-          return built;
-        }
+        if (built) return built;
       }
     } catch (eBuilt) {}
     if (u.avatar) {
-      var ext = "png";
+      var ext = String(u.avatar).indexOf("a_") === 0 ? "gif" : "png";
       return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
     }
-    if (typeof BigInt === "undefined") return "";
     try {
-      var bi = BigInt(String(u.id));
-      var idx = Number((bi >> 22n) % 6n);
-      return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
-    } catch (e4) {
-      return "";
-    }
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
+      }
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function mobileAccountDisplayName(profile) {
+    try {
+      var server = window.__VC_SERVER_IDENTITY;
+      if (server && String(server.displayName || "").trim()) {
+        if (!profile || !profile.id || String(server.userId || "") === String(profile.id || "") || !server.userId) {
+          return String(server.displayName).trim();
+        }
+      }
+    } catch (eN) {}
+    try {
+      if (window.VcDiscordIdentity && typeof window.VcDiscordIdentity.pickDisplayName === "function") {
+        return window.VcDiscordIdentity.pickDisplayName(profile, "Utente");
+      }
+    } catch (eP) {}
+    return String((profile && (profile.global_name || profile.username)) || "Utente").trim() || "Utente";
   }
 
   function resolveMobileAccountUserId(userId) {
@@ -7155,6 +9232,28 @@
   function mobileProfileHref(userId) {
     var id = resolveMobileAccountUserId(userId);
     return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
+  }
+
+  function mobileProfileDetailUserId() {
+    try {
+      var path = String(window.location.pathname || "/")
+        .replace(/\/index\.html$/i, "")
+        .replace(/\/+$/, "") || "/";
+      var m = path.match(/^\/users?\/(\d{17,22})$/i);
+      if (m) return m[1];
+      if (path === "/user" || path === "/users") {
+        var q = new URLSearchParams(window.location.search || "");
+        var id = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+        if (/^\d{17,22}$/.test(id)) return id;
+      }
+    } catch (e) {}
+    return "";
+  }
+
+  function isMobileOwnProfileCurrent(userId) {
+    var id = resolveMobileAccountUserId(userId);
+    var viewing = mobileProfileDetailUserId();
+    return Boolean(id && viewing && id === viewing);
   }
 
   function readCachedProfileForMobile() {
@@ -7222,8 +9321,7 @@
       var wrap = document.createElement("div");
       wrap.className = "vc-mobile-nav-footer__account";
       var imgUrl = mobileAvatarUrl(profile);
-      var name =
-        String(profile.global_name || profile.username || "Utente").trim() || "Utente";
+      var name = mobileAccountDisplayName(profile);
       var who = document.createElement("div");
       who.className = "vc-mobile-nav-footer__who";
       var left = document.createElement("div");
@@ -7266,6 +9364,10 @@
       prof.href = mobileProfileHref(profile.id);
       prof.setAttribute("aria-label", i18nLabel("auth.profile", "Profilo"));
       prof.title = i18nLabel("auth.profile", "Profilo");
+      if (isMobileOwnProfileCurrent(profile.id)) {
+        prof.classList.add("is-active");
+        prof.setAttribute("aria-current", "page");
+      }
       prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i>';
       prof.addEventListener("click", function (ev) {
         onMobileNavTileClick(ev, prof);
@@ -7294,7 +9396,11 @@
       lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i>';
       lo.addEventListener("click", function () {
         if (logoutBtn) logoutBtn.click();
-        else if (typeof window.__vcDiscordClearToken === "function") {
+        else if (typeof window.__vcDiscordCompleteLogout === "function") {
+          try {
+            window.__vcDiscordCompleteLogout({ reason: "user" });
+          } catch (eOut) {}
+        } else if (typeof window.__vcDiscordClearToken === "function") {
           try {
             window.__vcDiscordClearToken();
           } catch (eClear) {}
@@ -7311,10 +9417,20 @@
       return;
     }
     if (!hasToken) {
+      /* navDiscordLoginGif1 */
       var b = document.createElement("button");
       b.type = "button";
-      b.className = "vc-mobile-nav-footer__login";
-      b.textContent = "Accedi con Discord";
+      b.className = "vc-mobile-nav-footer__login vc-discord-login-btn";
+      b.innerHTML =
+        '<img class="vc-discord-login-emoji" src="/images/discord.gif?v=20260908loginGif1" width="18" height="18" alt="" decoding="async" aria-hidden="true" />' +
+        '<span data-i18n="auth.loginDiscord">Login con Discord</span>';
+      b.setAttribute("data-vc-discord-login", "");
+      try {
+        b.setAttribute(
+          "data-vc-login-default-html",
+          b.innerHTML,
+        );
+      } catch (eDef) {}
       b.addEventListener("click", function () {
         if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
           window.__vcDiscordStartOAuthRedirect(b);
@@ -7425,9 +9541,7 @@
       a.innerHTML =
         '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-book"></i></span>' +
         '<span class="vc-mobile-nav-tile-label">Guida</span>';
-      a.addEventListener("click", function (ev) {
-        onMobileNavTileClick(ev, a);
-      });
+      bindMobileNavTileNav(a);
       tile = a;
     }
     if (!tile) return;
@@ -7455,6 +9569,21 @@
       .trim()
       .toLowerCase();
     return t === "gestione" || t === "gestione staff" || t === "area staff" || t === "staff area";
+  }
+
+  /* feedbackNav1: clone path must never keep legacy "Suggerimenti" tile labels. */
+  function normalizePublicNavLabel(href, label) {
+    var h = String(href || "").toLowerCase();
+    var lab = String(label || "").replace(/\s+/g, " ").trim();
+    if (
+      h.indexOf("/feedback") >= 0 ||
+      h.indexOf("/suggerimenti") >= 0 ||
+      h.indexOf("richieste_suggerimenti") >= 0
+    ) {
+      return i18nLabel("nav.suggestions", "Feedback");
+    }
+    if (/^suggerimenti$/i.test(lab)) return i18nLabel("nav.suggestions", "Feedback");
+    return lab;
   }
 
   function navItemHidden(el) {
@@ -7532,9 +9661,7 @@
     lab.textContent = i18nLabel("auth.dashboard", "Dashboard");
     a.appendChild(ico);
     a.appendChild(lab);
-    a.addEventListener("click", function (ev) {
-      onMobileNavTileClick(ev, a);
-    });
+    bindMobileNavTileNav(a);
     return a;
   }
 
@@ -7577,22 +9704,41 @@
     lab.textContent = i18nLabel("auth.staffArea", "Area Staff");
     a.appendChild(ico);
     a.appendChild(lab);
-    a.addEventListener("click", function (ev) {
-      onMobileNavTileClick(ev, a);
-    });
+    bindMobileNavTileNav(a);
     return a;
   }
 
   function markTileActive(a, source) {
-    if (!a || !source) return;
-    if (
-      source.classList.contains("is-active") ||
-      source.classList.contains("vc-snav-item--active") ||
-      source.classList.contains("vc-snav-row--active") ||
-      source.getAttribute("aria-current") === "page"
-    ) {
+    if (!a) return;
+    var href = "";
+    try {
+      href = a.getAttribute("href") || (source && source.getAttribute && source.getAttribute("href")) || "";
+    } catch (eHref) {}
+    var match = false;
+    try {
+      if (
+        window.__VC_MOBILE_NAV_CANONICAL &&
+        typeof window.__VC_MOBILE_NAV_CANONICAL.hrefMatches === "function"
+      ) {
+        match = window.__VC_MOBILE_NAV_CANONICAL.hrefMatches(href);
+      } else {
+        var here = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+        var target = href;
+        try {
+          target = String(new URL(href, window.location.href).pathname || "/").replace(/\/+$/, "") || "/";
+        } catch (eU) {}
+        if (target === "/") match = here === "/";
+        else match = target === here;
+      }
+    } catch (eMatch) {}
+    if (match) {
       a.classList.add("is-active");
       a.setAttribute("aria-current", "page");
+    } else {
+      a.classList.remove("is-active");
+      try {
+        a.removeAttribute("aria-current");
+      } catch (eRm) {}
     }
   }
 
@@ -7627,13 +9773,11 @@
     }
     if (!labelText) labelText = String(row.textContent || "").trim();
     if (isStaffOnlyNavLabel(labelText)) return null;
-    lab.textContent = labelText;
+    lab.textContent = normalizePublicNavLabel(href, labelText);
     a.appendChild(ico);
     a.appendChild(lab);
     markTileActive(a, row);
-    a.addEventListener("click", function (ev) {
-      onMobileNavTileClick(ev, a);
-    });
+    bindMobileNavTileNav(a);
     return a;
   }
 
@@ -7655,13 +9799,11 @@
     var innerSpan = item.querySelector("span");
     var labelText = innerSpan ? String(innerSpan.textContent || "").trim() : String(item.textContent || "").trim();
     if (isStaffOnlyNavLabel(labelText)) return null;
-    lab.textContent = labelText;
+    lab.textContent = normalizePublicNavLabel(href, labelText);
     a.appendChild(ico);
     a.appendChild(lab);
     markTileActive(a, item);
-    a.addEventListener("click", function (ev) {
-      onMobileNavTileClick(ev, a);
-    });
+    bindMobileNavTileNav(a);
     return a;
   }
 
@@ -7730,13 +9872,11 @@
     }
     if (!labelText) labelText = String(row.textContent || "").replace(/\s+/g, " ").trim();
     if (isStaffOnlyNavLabel(labelText)) return null;
-    lab.textContent = labelText;
+    lab.textContent = normalizePublicNavLabel(href, labelText);
     a.appendChild(ico);
     a.appendChild(lab);
     markTileActive(a, row);
-    a.addEventListener("click", function (ev) {
-      onMobileNavTileClick(ev, a);
-    });
+    bindMobileNavTileNav(a);
     return a;
   }
 
@@ -7792,16 +9932,22 @@
   function rebuildGrid() {
     var gridRoot = document.getElementById("vc-mobile-nav-drawer-grid");
     if (!gridRoot) return;
+    var usedCanonical = false;
     try {
       if (window.__VC_MOBILE_NAV_CANONICAL && window.__VC_MOBILE_NAV_CANONICAL.shouldUse()) {
         window.__VC_MOBILE_NAV_CANONICAL.build(gridRoot);
+        usedCanonical = true;
+      }
+    } catch (eCanon) {}
+    if (usedCanonical) {
+      try {
         appendStaffGuideSection(
           gridRoot,
           document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"),
         );
-        return;
-      }
-    } catch (eCanon) {}
+      } catch (eStaff) {}
+      return;
+    }
     var nav = document.querySelector("nav.vc-header-snav");
     if (!nav) return;
     gridRoot.innerHTML = "";
@@ -7828,7 +9974,7 @@
     }
 
     appendStaffGuideSection(gridRoot, document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
-      }
+  }
 
   function cloneBrand(intoEl) {
     var bar = document.querySelector(".vc-header-bar");
@@ -8117,6 +10263,9 @@
         rebuildGrid();
         removeHeaderDashboardBtn();
       });
+      window.addEventListener("vc-server-identity", function () {
+        syncDrawerFooter();
+      });
       window.addEventListener("vc-dashboard-access", function () {
         rebuildGrid();
         removeHeaderDashboardBtn();
@@ -8290,7 +10439,8 @@
       "/evento/coppa": "evento_coppa",
       "/recensioni": "recensioni",
       "/dashboard/recensioni": "recensioni_bot",
-      "/suggerimenti": "suggerimenti",
+      "/feedback": "feedback",
+      "/suggerimenti": "feedback",
       "/supporto": "supporto",
       "/tickets": "supporto",
       "/user": "user",
@@ -8774,30 +10924,59 @@ function vcPageAssetVer() {
 
 (function loadHeaderNameMarquee() {
   function marqueeAssetVer() {
-    return "20260902brandHomeFix1";
+    return "20260903hamburgerActiveFix1";
+  }
+  function inject() {
+    try {
+      if (document.querySelector('script[src*="vc-header-name-marquee.js"]')) return true;
+    } catch (e0) {
+      return false;
+    }
+    var s = document.createElement("script");
+    s.src = "/js/vc-header-name-marquee.js?v=" + marqueeAssetVer();
+    s.defer = true;
+    s.onload = function () {
+      try {
+        if (typeof window.__vcSyncHeaderSiteNameMarquee === "function") {
+          window.__vcSyncHeaderSiteNameMarquee(document);
+        }
+      } catch (eSync) {}
+    };
+    (document.body || document.documentElement).appendChild(s);
+    return true;
   }
   try {
-    if (!document.querySelector(".vc-header-bar .vc-header-site-name, .vc-header-bar a.vc-header-logo-link + a")) return;
-    if (document.querySelector('script[src*="vc-header-name-marquee.js"]')) return;
-  } catch (e0) {
-    return;
-  }
-  var s = document.createElement("script");
-  s.src = "/js/vc-header-name-marquee.js?v=" + marqueeAssetVer();
-  s.defer = true;
-  s.onload = function () {
+    if (document.querySelector(".vc-header-bar, body > header, .vc-mobile-nav-drawer__brand")) {
+      inject();
+      return;
+    }
+  } catch (eEarly) {}
+  var tries = 0;
+  var iv = setInterval(function () {
+    tries += 1;
+    var ready = false;
     try {
-      if (typeof window.__vcSyncHeaderSiteNameMarquee === "function") {
-        window.__vcSyncHeaderSiteNameMarquee(document);
-      }
-    } catch (eSync) {}
-  };
-  (document.body || document.documentElement).appendChild(s);
+      ready = Boolean(
+        document.querySelector(
+          ".vc-header-bar .vc-header-site-name, .vc-header-bar a.vc-header-logo-link + a, .vc-header-bar, body > header"
+        )
+      );
+    } catch (eReady) {}
+    if (ready || tries >= 40) {
+      clearInterval(iv);
+      inject();
+      try {
+        if (typeof window.__vcSyncHeaderSiteNameMarquee === "function") {
+          window.__vcSyncHeaderSiteNameMarquee(document);
+        }
+      } catch (eLate) {}
+    }
+  }, 250);
 })();
 
 (function loadHeaderPromo() {
   function promoAssetVer() {
-    return "20260902mobilePromoAvatarFix1";
+    return "20260907candPillNoFlash2";
   }
   try {
     var hasActions = Boolean(document.getElementById("header-quick-actions"));
@@ -9359,11 +11538,23 @@ function vcPageAssetVer() {
                         var root = document.documentElement;
             var ddLive = document.getElementById("vc-notif-dropdown");
             var notifReallyOpen = Boolean(
-              ddLive && (ddLive.open || ddLive.hasAttribute("open")) && root.classList.contains("vc-notif-sheet-open"),
+              ddLive &&
+                (ddLive.open || ddLive.hasAttribute("open")) &&
+                (root.classList.contains("vc-notif-sheet-open") ||
+                  root.classList.contains("vc-notif-drawer-open")),
             );
-            if (root.classList.contains("vc-notif-sheet-open") && !notifReallyOpen) {
+            if (
+              (root.classList.contains("vc-notif-sheet-open") ||
+                root.classList.contains("vc-notif-drawer-open")) &&
+              !notifReallyOpen
+            ) {
               try {
-                root.classList.remove("vc-notif-sheet-open", "vc-notif-dropdown-open", "vc-notif-overlay-active");
+                root.classList.remove(
+                  "vc-notif-sheet-open",
+                  "vc-notif-drawer-open",
+                  "vc-notif-dropdown-open",
+                  "vc-notif-overlay-active",
+                );
               } catch (eGhostSheet) {}
             }
             var mustLock =
@@ -9466,12 +11657,25 @@ function vcPageAssetVer() {
     }
     recovering = true;
     lastRecoverAt = now;
+    var keepNotifScrollLock = false;
+    try {
+      var ddKeep = document.getElementById("vc-notif-dropdown");
+      var rootKeep = document.documentElement;
+      keepNotifScrollLock = Boolean(
+        ddKeep &&
+          (ddKeep.open || ddKeep.hasAttribute("open")) &&
+          (rootKeep.classList.contains("vc-notif-sheet-open") ||
+            rootKeep.classList.contains("vc-notif-drawer-open")),
+      );
+    } catch (eKeepN) {
+      keepNotifScrollLock = false;
+    }
     try {
       var root = document.documentElement;
       root.classList.add("vc-page-cine-ready");
       root.classList.add("vc-home-motion-ready");
       root.classList.remove("vc-page-cine-boot");
-      root.classList.remove("vc-loading-scroll-lock");
+      if (!keepNotifScrollLock) root.classList.remove("vc-loading-scroll-lock");
       root.classList.remove("vc-session-verify-pending");
             try {
         var ul = document.getElementById("vc-ul-loading");
@@ -9483,6 +11687,14 @@ function vcPageAssetVer() {
     } catch (e1) {}
     forceReveal();
     clearPhoneHasFreezeGhosts();
+    /* notifSidebar4: never strip scroll lock while notif drawer/sheet is open. */
+    if (keepNotifScrollLock) {
+      try {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      } catch (eKeepLock) {}
+      recovering = false;
+      return;
+    }
     try {
       if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
     } catch (e2) {}
@@ -9675,6 +11887,24 @@ function vcPageAssetVer() {
         (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
         Number(navigator.maxTouchPoints || 0) > 0;
     } catch (eTw) {}
+    /* phoneApiGlobalFix1: su telefono niente storm di warm al first paint */
+    if (touchWarm) {
+      window.setTimeout(function () {
+        try {
+          window.VcApiCache.prefetchIdle(
+            window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles", v: "roles2" }),
+            "/webhooks/site-roles",
+            { ttlMs: 90000, staleMs: 600000, persistMs: 20 * 60 * 1000, timeoutMs: 28000 },
+          );
+          window.VcApiCache.prefetchIdle("vote:anon", "/webhooks/site-vote", {
+            ttlMs: 45000,
+            staleMs: 300000,
+            timeoutMs: 24000,
+          });
+        } catch (eLate) {}
+      }, 12000);
+      return;
+    }
     window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles", v: "roles2" }), "/webhooks/site-roles", {
       ttlMs: 90000,
       staleMs: 600000,
@@ -9688,14 +11918,14 @@ function vcPageAssetVer() {
     });
     try {
       var path = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
-      if (!touchWarm && path !== "/recensioni" && path !== "/reviews") {
+      if (path !== "/recensioni" && path !== "/reviews") {
         window.VcApiCache.prefetchIdle("reviews:server", "/webhooks/site-reviews?kind=server", {
           ttlMs: 60000,
           staleMs: 600000,
           timeoutMs: 15000,
         });
       }
-      if (!touchWarm && path !== "/user" && path.indexOf("/user/") !== 0) {
+      if (path !== "/user" && path.indexOf("/user/") !== 0) {
         window.VcApiCache.prefetchIdle(
           window.VcApiCache.keyFor("/webhooks/site-users?board=level&page=1&perPage=24", { scope: "users" }),
           "/webhooks/site-users?board=level&page=1&perPage=24",

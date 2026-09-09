@@ -6352,8 +6352,12 @@
   async function undoMigration() {
     var token = getToken();
     if (!token || !state.guildId || state.saving) return;
-    var ok = await (window.VcDialog
-      ? window.VcDialog.confirm({
+    var ok = await (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return false;
+      return D.confirm({
           title: i18n("dash.mig.undoTitle", "Annullare i dati migrazione?"),
           message: i18n(
             "dash.mig.undoConfirm",
@@ -6363,15 +6367,8 @@
           cancelLabel: i18n("dash.bl.cancel", "Annulla"),
           danger: true,
           icon: "fa-trash-o",
-        })
-      : Promise.resolve(
-          window.confirm(
-            i18n(
-              "dash.mig.undoConfirm",
-              "Cancellare SOLO i dati importati dall’ultima migrazione? I punti/partnership fatti a mano dopo restano.",
-            ),
-          ),
-        ));
+        });
+    });
     if (!ok) return;
     var undoBtn = byId("ps-migration-undo-btn");
     state.saving = true;

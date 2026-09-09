@@ -5,7 +5,17 @@
   var loadedExtra = 0;
   var EXTRA_STEP = 10;
   var livePollTimer = null;
-  var LIVE_POLL_MS = 45000;
+  var isTouch =
+    typeof window !== "undefined" &&
+    (("ontouchstart" in window) ||
+      (navigator && Number(navigator.maxTouchPoints || 0) > 0));
+  var LIVE_POLL_MS = isTouch ? 90000 : 45000;
+  var hasLoadedOk = false;
+  var lastErrorToastAt = 0;
+  var lastFetchAt = 0;
+  var fetchInFlight = false;
+  var ERROR_TOAST_GAP_MS = isTouch ? 90000 : 12000;
+  var firstLoadRetryDone = false;
 
   function byId(id) {
     return document.getElementById(id);
@@ -50,8 +60,13 @@
   function resolvedApiUrl() {
     var c = cfg();
     var local = String(c.apiUrlLocal || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
-    return String(c.apiUrl || "").trim();
+    if (isLocalFrontendOrigin() && local && local !== "#") return local;
+    var remote = String(c.apiUrl || "").trim();
+    /* voteApiBakeFix1: leftover bake used "#" for unknown {{VOTE_API_URL}} */
+    if (!remote || remote === "#" || remote === "about:blank") {
+      return "/webhooks/site-vote";
+    }
+    return remote;
   }
 
   function esc(s) {
@@ -72,16 +87,48 @@
     }
   }
 
-  function defaultEmbedAvatarUrl(userId) {
-    var idx = 0;
-    if (/^\d{17,20}$/.test(String(userId || ""))) {
-      try {
-        idx = Number((BigInt(String(userId)) >> 22n) % 6n);
-      } catch (e) {
-        idx = 0;
+  function siteAvatarFallback() {
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
       }
-    }
-    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function voteAvatarImg(row, className, size) {
+    var sz = Math.max(32, Number(size) || 48);
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.imgHtml === "function") {
+        return window.VcDiscordAvatar.imgHtml({
+          url: row && row.avatarUrl,
+          userId: row && row.userId,
+          size: sz,
+          className: className,
+          loading: "lazy",
+        });
+      }
+    } catch (eHub) {}
+    var src = String((row && row.avatarUrl) || "").trim();
+    if (!src || /cdn\.discordapp\.com\/embed\/avatars\//i.test(src)) src = siteAvatarFallback();
+    var fb = siteAvatarFallback().replace(/'/g, "%27");
+    return (
+      '<img class="' +
+      esc(className) +
+      ' vc-avatar vc-avatar--pending" src="' +
+      esc(src) +
+      '" alt="" width="' +
+      sz +
+      '" height="' +
+      sz +
+      '" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" data-user-id="' +
+      esc(String((row && row.userId) || "")) +
+      '" onerror="this.onerror=null;this.src=\'' +
+      fb +
+      '\'" />'
+    );
   }
 
   function profileHref(userId) {
@@ -100,21 +147,93 @@
     return url;
   }
 
+  function setText(id, text) {
+    var el = byId(id);
+    if (el) el.textContent = text;
+  }
+
+  function showVoteToast(message, isError) {
+    var msg = String(message || "").trim();
+    if (!msg) return;
+    var now = Date.now();
+    if (isError && now - lastErrorToastAt < ERROR_TOAST_GAP_MS) return;
+    if (isError) lastErrorToastAt = now;
+    var opts = { ms: isError ? 3600 : 1600 };
+    try {
+      if (typeof window.__vcShowSiteToast === "function") {
+        window.__vcShowSiteToast(msg, Boolean(isError), opts);
+        return;
+      }
+    } catch (eExpo) {}
+    try {
+      if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+        window.VcSiteToast.show(msg, Boolean(isError), opts);
+        return;
+      }
+    } catch (eToast) {}
+    try {
+      if (window.VcDashToast && typeof window.VcDashToast.show === "function") {
+        window.VcDashToast.show(msg, Boolean(isError), opts);
+        return;
+      }
+    } catch (eDash) {}
+    /* Inline fallback (vote page may lack vc-site-toast.js) */
+    try {
+      var host = document.getElementById("vc-site-toast-host");
+      if (!host) {
+        host = document.createElement("div");
+        host.id = "vc-site-toast-host";
+        host.className = "vc-dash-save-toast-host vc-site-toast-host";
+        host.setAttribute("aria-live", "polite");
+        host.setAttribute("aria-atomic", "true");
+        document.body.appendChild(host);
+      }
+      host.innerHTML = "";
+      var toast = document.createElement("div");
+      toast.className = "vc-dash-save-toast" + (isError ? " is-error" : "");
+      toast.setAttribute("role", "status");
+      var ico = document.createElement("span");
+      ico.className = "vc-dash-save-toast__icon";
+      ico.setAttribute("aria-hidden", "true");
+      ico.innerHTML = isError
+        ? '<i class="fa fa-times" aria-hidden="true"></i>'
+        : '<i class="fa fa-check" aria-hidden="true"></i>';
+      var p = document.createElement("p");
+      p.className = "vc-dash-save-toast__text";
+      p.textContent = msg;
+      toast.appendChild(ico);
+      toast.appendChild(p);
+      host.appendChild(toast);
+      requestAnimationFrame(function () {
+        toast.classList.add("is-visible");
+      });
+      window.setTimeout(function () {
+        toast.classList.add("is-leaving");
+        toast.classList.remove("is-visible");
+        window.setTimeout(function () {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 200);
+      }, opts.ms);
+    } catch (eInline) {}
+  }
+
   function renderStats(stats, personal) {
     var totalVotes = Number(stats && stats.totalVotes) || 0;
     var goal = Math.max(1, Number(stats && stats.goal) || 10000);
     var personalVotes = Number(personal && personal.votes) || 0;
     var pct = Math.max(0, Math.min(100, (totalVotes / goal) * 100));
 
-    byId("vc-vote-total").textContent = formatIntIt(totalVotes);
-    byId("vc-vote-personal").textContent = formatIntIt(personalVotes);
-    byId("vc-vote-progress-fill").style.width = pct.toFixed(2) + "%";
-    byId("vc-vote-progress-label").textContent =
-      formatIntIt(totalVotes) + " / " + formatIntIt(goal) + " (" + pct.toFixed(1) + "%)";
+    setText("vc-vote-total", formatIntIt(totalVotes));
+    setText("vc-vote-personal", formatIntIt(personalVotes));
+    var fill = byId("vc-vote-progress-fill");
+    if (fill) fill.style.width = pct.toFixed(2) + "%";
+    setText(
+      "vc-vote-progress-label",
+      formatIntIt(totalVotes) + " / " + formatIntIt(goal) + " (" + pct.toFixed(1) + "%)",
+    );
   }
 
   function topRowHtml(row) {
-    var avatar = String(row.avatarUrl || "").trim() || defaultEmbedAvatarUrl(row.userId);
     return (
       '<a class="vc-vote-list-row" href="' +
       esc(profileHref(row.userId)) +
@@ -122,11 +241,7 @@
       '<span class="vc-vote-list-rank">#' +
       esc(String(row.rank || 0)) +
       "</span>" +
-      '<img class="vc-vote-list-avatar" src="' +
-      esc(avatar) +
-      '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
-      esc(defaultEmbedAvatarUrl(row.userId)) +
-      '\'" />' +
+      voteAvatarImg(row, "vc-vote-list-avatar", 40) +
       '<span class="vc-vote-list-name">' +
       esc(row.displayName || row.username || t("vote.userFallback")) +
       "</span>" +
@@ -138,7 +253,6 @@
   }
 
   function podiumRowHtml(row, order) {
-    var avatar = String(row.avatarUrl || "").trim() || defaultEmbedAvatarUrl(row.userId);
     return (
       '<a class="vc-vote-podium-row vc-vote-podium-row--' +
       esc(String(order)) +
@@ -148,11 +262,7 @@
       '<span class="vc-vote-podium-rank">#' +
       esc(String(row.rank || order)) +
       "</span>" +
-      '<img class="vc-vote-podium-avatar" src="' +
-      esc(avatar) +
-      '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
-      esc(defaultEmbedAvatarUrl(row.userId)) +
-      '\'" />' +
+      voteAvatarImg(row, "vc-vote-podium-avatar", 56) +
       '<span class="vc-vote-podium-name">' +
       esc(row.displayName || row.username || t("vote.userFallback")) +
       "</span>" +
@@ -170,26 +280,34 @@
     loadedExtra = 0;
 
     var top3 = allRows.slice(0, 3);
-    var remaining = allRows.slice(3);
-    byId("vc-vote-top-chip").textContent = t("vote.topN", { n: allRows.length || 0 });
-    byId("vc-vote-top3").innerHTML = top3
-      .map(function (row, idx) {
-        return podiumRowHtml(row, idx + 1);
-      })
-      .join("");
+    setText("vc-vote-top-chip", t("vote.topN", { n: allRows.length || 0 }));
+    var top3El = byId("vc-vote-top3");
+    if (top3El) {
+      top3El.innerHTML = top3
+        .map(function (row, idx) {
+          return podiumRowHtml(row, idx + 1);
+        })
+        .join("");
+    }
     renderMore();
   }
 
-  function renderVoteError(message) {
+  /* voteLoadToast2: soft/poll failures stay silent; toast only on hard first fail */
+  function renderVoteError(message, opts) {
+    opts = opts || {};
+    var msg = message || t("vote.loadError");
+    var soft = opts.soft === true || hasLoadedOk || allRows.length > 0;
+    if (!soft) showVoteToast(msg, true);
+    if (soft) return;
     var top3 = byId("vc-vote-top3");
     var chip = byId("vc-vote-top-chip");
     if (chip) chip.textContent = t("vote.notAvailable");
-    if (top3) {
+    if (top3 && !String(top3.innerHTML || "").trim()) {
       top3.innerHTML =
-        '<div class="vc-vote-empty-state">' +
+        '<div class="vc-vote-empty-state" aria-hidden="true">' +
         '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>' +
-        '<span>' +
-        esc(message || t("vote.statsUnavailable")) +
+        "<span>" +
+        esc(t("vote.statsUnavailable")) +
         "</span></div>";
     }
   }
@@ -204,6 +322,7 @@
     var minimizeBtn = byId("vc-vote-minimize");
     var pagerFill = byId("vc-vote-pager-fill");
     var pagerLabel = byId("vc-vote-pager-label");
+    if (!moreWrap || !actions || !pager) return;
 
     moreWrap.hidden = visible.length === 0;
     moreWrap.innerHTML = visible.map(topRowHtml).join("");
@@ -260,35 +379,91 @@
     }
   }
 
-  function fetchVotes() {
+  function fetchVotes(opts) {
+    opts = opts || {};
+    var force = opts.force === true;
+    var now = Date.now();
+    if (!force && fetchInFlight) return;
+    if (!force && lastFetchAt && now - lastFetchAt < (isTouch ? 18000 : 8000)) return;
+
     var url = buildApiUrl();
-    if (!url) return;
+    if (!url) {
+      renderVoteError(t("vote.loadError"), { soft: hasLoadedOk });
+      return;
+    }
     var cacheKey = "vote:" + String((currentUser && currentUser.id) || "anon");
+    lastFetchAt = now;
+    fetchInFlight = true;
 
     function applyOut(out) {
       var body = out && out.body;
-      if (!out || !out.ok) {
-        renderVoteError(t("vote.loadError"));
+      var softFail =
+        Boolean(out && (out.blocked || out.status === 429)) || hasLoadedOk || allRows.length > 0;
+      /* Client cool-down / 429: keep board, never toast */
+      if (out && (out.blocked || out.status === 429)) {
+        if (body && body.ok === true) {
+          try {
+            renderStats(body.stats || {}, body.personal || {});
+            renderTop(Array.isArray(body.rows) ? body.rows : []);
+            hasLoadedOk = true;
+          } catch (eSoft) {}
+        }
         return;
       }
-      if (!body || body.ok !== true) return;
-      renderStats(body.stats || {}, body.personal || {});
-      renderTop(Array.isArray(body.rows) ? body.rows : []);
+      if (!out || !out.ok) {
+        renderVoteError(t("vote.loadError"), { soft: softFail });
+        return;
+      }
+      if (!body || body.ok !== true) {
+        if (!hasLoadedOk) renderVoteError(t("vote.loadError"), { soft: false });
+        return;
+      }
+      try {
+        renderStats(body.stats || {}, body.personal || {});
+        renderTop(Array.isArray(body.rows) ? body.rows : []);
+        hasLoadedOk = true;
+      } catch (eRender) {
+        renderVoteError(t("vote.loadError"), { soft: hasLoadedOk });
+      }
+    }
+
+    function done() {
+      fetchInFlight = false;
     }
 
     if (window.VcApiCache) {
       window.VcApiCache.fetchWithCache(cacheKey, url, {
-        ttlMs: 45000,
-        staleMs: 300000,
+        ttlMs: isTouch ? 90000 : 45000,
+        staleMs: isTouch ? 1200000 : 300000,
+        persistMs: isTouch ? 1800000 : 0,
+        /* voteMobileFast1: shorter client wait — API is cache-only now */
+        timeoutMs: isTouch ? 18000 : 12000,
         fetchInit: { credentials: "omit", cache: "no-store" },
         onStale: function (cached) {
           if (cached) applyOut(cached);
         },
       })
-        .then(applyOut)
+        .then(function (out) {
+          applyOut(out);
+          /* First load hard-fail on phone: one silent retry (same as suggestions). */
+          if (
+            force &&
+            !hasLoadedOk &&
+            !firstLoadRetryDone &&
+            out &&
+            !out.ok &&
+            (out.timedOut || out.networkError || out.status === 408 || out.status === 0)
+          ) {
+            firstLoadRetryDone = true;
+            window.setTimeout(function () {
+              fetchVotes({ force: true });
+            }, isTouch ? 600 : 350);
+          }
+        })
         .catch(function () {
-          renderVoteError(t("vote.loadError"));
-        });
+          renderVoteError(t("vote.loadError"), { soft: hasLoadedOk || allRows.length > 0 });
+        })
+        .then(done, done);
       return;
     }
 
@@ -300,8 +475,9 @@
       })
       .then(applyOut)
       .catch(function () {
-        renderVoteError(t("vote.loadError"));
-      });
+        renderVoteError(t("vote.loadError"), { soft: hasLoadedOk || allRows.length > 0 });
+      })
+      .then(done, done);
   }
 
   function stopLiveVotesPolling() {
@@ -315,7 +491,7 @@
     stopLiveVotesPolling();
     livePollTimer = setInterval(function () {
       if (document.visibilityState !== "visible") return;
-      fetchVotes();
+      fetchVotes({ force: false });
     }, LIVE_POLL_MS);
   }
 
@@ -379,17 +555,22 @@
     initVoteReveal();
     initButtons();
     initVoteResume();
-    fetchVotes();
+    fetchVotes({ force: true });
     startLiveVotesPolling();
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
     currentUser = ev && ev.detail ? ev.detail.user || null : null;
-    fetchVotes();
+    fetchVotes({ force: true });
   });
 
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible") fetchVotes();
+    if (document.visibilityState === "visible") fetchVotes({ force: false });
+  });
+
+  window.addEventListener("vc:site-api-refetch", function () {
+    if (!byId("vc-vote-live-shell")) return;
+    fetchVotes({ force: true });
   });
 
   window.addEventListener("beforeunload", stopLiveVotesPolling);

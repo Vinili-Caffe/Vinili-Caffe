@@ -20,7 +20,10 @@
     var c = cfg();
     var local = String(c.apiUrlLocal || "").trim();
     if (isLocalFrontendOrigin() && local) return local;
-    return String(c.apiUrl || "").trim();
+    var url = String(c.apiUrl || "").trim();
+    /* regoleApiFix1: vecchio bake puntava a /site-community-rules (404) */
+    if (!url || /site-community-rules/i.test(url)) return "/webhooks/site-rules";
+    return url;
   }
 
   var FA_ICON = {
@@ -52,19 +55,59 @@
 
   var payload = null;
   var activeCategory = "generale";
+  var activeItemByCat = {};
 
   function setState(msg, isErr) {
+    var text = String(msg || "").trim();
     var el = byId("vc-regole-state");
-    if (!el) return;
-    el.textContent = msg || "";
-    el.className = "vc-regole-state" + (isErr ? " vc-regole-state--err" : "");
-    el.hidden = !msg;
+    // toastOnlyAlerts1: niente banner in cima — toast in basso (come ruoli/classifica).
+    if (el) {
+      el.textContent = "";
+      el.hidden = true;
+      el.className = "vc-regole-state";
+    }
+    if (!text) {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") window.VcSiteToast.hide();
+      } catch (eHide) {}
+      return;
+    }
+    function paintToast() {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+          window.VcSiteToast.show(text, Boolean(isErr), {
+            ms: isErr ? 4200 : 1800,
+            pending: !isErr && /[…]$|\.\.\.$|caricamento/i.test(text),
+          });
+          return true;
+        }
+      } catch (eToast) {}
+      return false;
+    }
+    if (paintToast()) return;
+    window.setTimeout(function () {
+      if (paintToast()) return;
+      if (!el) return;
+      el.textContent = text;
+      el.className = "vc-regole-state" + (isErr ? " vc-regole-state--err" : "");
+      el.hidden = false;
+    }, 120);
   }
 
   function revealAccordion() {
     if (typeof window.__vcRevealRegoleAccordion === "function") {
       window.__vcRevealRegoleAccordion();
     }
+  }
+
+  function t(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return v;
+      }
+    } catch (e) {}
+    return fallback != null ? fallback : key;
   }
 
   function renderTabs() {
@@ -93,6 +136,133 @@
     revealAccordion();
   }
 
+  function renderSubSwitcher(kids, activeId, onPick) {
+    var track = document.createElement("div");
+    track.className = "vc-regole-tabs vc-regole-tabs--sub";
+    track.setAttribute("role", "tablist");
+    track.setAttribute("aria-label", t("rules.subAria", "Regole"));
+    kids.forEach(function (child) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "vc-regole-tab" + (String(child.id) === String(activeId) ? " vc-regole-tab--on" : "");
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", String(child.id) === String(activeId) ? "true" : "false");
+      btn.setAttribute("data-rule-sub", String(child.id));
+      var ic = document.createElement("i");
+      ic.className = "fa " + faClass(child.icon);
+      ic.setAttribute("aria-hidden", "true");
+      btn.appendChild(ic);
+      btn.appendChild(document.createTextNode(" " + String(child.id || "")));
+      btn.addEventListener("click", function () {
+        onPick(String(child.id));
+      });
+      track.appendChild(btn);
+    });
+    return track;
+  }
+
+  function makePanelShell(opts) {
+    var panel = document.createElement("section");
+    panel.className = "vc-regole-panel vc-regole-card";
+    panel.setAttribute("data-rule-card", opts.id || "");
+    var head = document.createElement("div");
+    head.className = "vc-regole-panel__head";
+    var ico = document.createElement("span");
+    ico.className = "vc-regole-card-ico";
+    var ii = document.createElement("i");
+    ii.className = "fa " + faClass(opts.icon);
+    ii.setAttribute("aria-hidden", "true");
+    ico.appendChild(ii);
+    var title = document.createElement("p");
+    title.className = "vc-regole-card-title";
+    title.textContent = opts.title || "";
+    head.appendChild(ico);
+    head.appendChild(title);
+    if (opts.tag) {
+      var tag = document.createElement("div");
+      tag.className = "vc-regole-card-tag";
+      var ti = document.createElement("i");
+      ti.className = "fa fa-shield";
+      ti.setAttribute("aria-hidden", "true");
+      tag.appendChild(ti);
+      tag.appendChild(document.createTextNode(" " + opts.tag));
+      head.appendChild(tag);
+    }
+    var body = document.createElement("div");
+    body.className = "vc-regole-card-body";
+    body.style.display = "block";
+    var inner = document.createElement("div");
+    inner.className = "vc-regole-card-body-inner";
+    var lab = document.createElement("span");
+    lab.className = "vc-regole-body-label";
+    lab.textContent = t("rules.description", "DESCRIZIONE");
+    var p = document.createElement("p");
+    p.className = "vc-regole-body-text";
+    p.textContent = opts.body || "";
+    inner.appendChild(lab);
+    inner.appendChild(p);
+    body.appendChild(inner);
+    var links = Array.isArray(opts.links) ? opts.links : [];
+    if (links.length) {
+      var row = document.createElement("div");
+      row.className = "vc-regole-card-links";
+      links.forEach(function (lk) {
+        var href = String((lk && lk.href) || "").trim();
+        var label = String((lk && lk.label) || "").trim();
+        if (!label || !/^https:\/\/discord\.com\//i.test(href)) return;
+        var a = document.createElement("a");
+        a.className = "vc-regole-card-linkbtn";
+        a.href = href;
+        a.rel = "noopener noreferrer";
+        a.target = "_blank";
+        var ic = document.createElement("i");
+        ic.className = "fa fa-file-text-o";
+        ic.setAttribute("aria-hidden", "true");
+        a.appendChild(ic);
+        a.appendChild(document.createTextNode(" " + label));
+        row.appendChild(a);
+      });
+      if (row.childNodes.length) body.appendChild(row);
+    }
+    panel.appendChild(head);
+    panel.appendChild(body);
+    return panel;
+  }
+
+  function paintRule(rules, ruleId) {
+    var root = byId("vc-regole-list");
+    if (!root) return;
+    var item = null;
+    for (var i = 0; i < rules.length; i++) {
+      if (String(rules[i].id) === String(ruleId)) {
+        item = rules[i];
+        break;
+      }
+    }
+    if (!item) item = rules[0];
+    if (!item) return;
+    activeItemByCat[activeCategory] = String(item.id);
+    root.innerHTML = "";
+    if (rules.length > 1) {
+      root.appendChild(
+        renderSubSwitcher(rules, item.id, function (id) {
+          paintRule(rules, id);
+        }),
+      );
+    }
+    root.appendChild(
+      makePanelShell({
+        id: String(item.id),
+        icon: item.icon,
+        title: String(item.title || ""),
+        tag: String(item.tag || ""),
+        body: String(item.body != null ? item.body : "").trim(),
+        links: item.links,
+      }),
+    );
+    revealAccordion();
+  }
+
   function renderList() {
     var root = byId("vc-regole-list");
     if (!root || !payload || !payload.rules) return;
@@ -103,106 +273,15 @@
     if (!rules.length) {
       var empty = document.createElement("p");
       empty.className = "vc-regole-state";
-      empty.textContent = window.VcI18n && typeof window.VcI18n.t === "function"
-        ? window.VcI18n.t("rules.empty")
-        : "Nessuna regola in questa categoria.";
+      empty.textContent = t("rules.empty", "Nessuna regola in questa categoria.");
       root.appendChild(empty);
       return;
     }
-    var cards = [];
-    rules.forEach(function (r) {
-      var det = document.createElement("details");
-      det.className = "vc-regole-card";
-      var sum = document.createElement("summary");
-      var ico = document.createElement("span");
-      ico.className = "vc-regole-card-ico";
-      var ii = document.createElement("i");
-      ii.className = "fa " + faClass(r.icon);
-      ii.setAttribute("aria-hidden", "true");
-      ico.appendChild(ii);
-      var main = document.createElement("div");
-      main.className = "vc-regole-card-main";
-      var h = document.createElement("p");
-      h.className = "vc-regole-card-title";
-      h.textContent = String(r.title || "");
-      var bodyStr = String(r.body != null ? r.body : "").trim();
-      var tag = document.createElement("div");
-      tag.className = "vc-regole-card-tag";
-      var ti = document.createElement("i");
-      ti.className = "fa fa-shield";
-      ti.setAttribute("aria-hidden", "true");
-      tag.appendChild(ti);
-      tag.appendChild(document.createTextNode(" " + String(r.tag || "")));
-      main.appendChild(h);
-      main.appendChild(tag);
-      var chev = document.createElement("span");
-      chev.className = "vc-regole-card-chev";
-      chev.setAttribute("aria-hidden", "true");
-      chev.innerHTML = '<i class="fa fa-chevron-down"></i>';
-      sum.appendChild(ico);
-      sum.appendChild(main);
-      sum.appendChild(chev);
-      var body = document.createElement("div");
-      body.className = "vc-regole-card-body";
-      var inner = document.createElement("div");
-      inner.className = "vc-regole-card-body-inner";
-      var lab = document.createElement("span");
-      lab.className = "vc-regole-body-label";
-      lab.textContent = window.VcI18n && typeof window.VcI18n.t === "function"
-        ? window.VcI18n.t("rules.description")
-        : "DESCRIZIONE";
-      var p = document.createElement("p");
-      p.className = "vc-regole-body-text";
-      p.textContent = bodyStr;
-      inner.appendChild(lab);
-      inner.appendChild(p);
-      body.appendChild(inner);
-      var links = Array.isArray(r.links) ? r.links : [];
-      if (links.length) {
-        var row = document.createElement("div");
-        row.className = "vc-regole-card-links";
-        links.forEach(function (lk) {
-          var href = String((lk && lk.href) || "").trim();
-          var label = String((lk && lk.label) || "").trim();
-          if (!label || !/^https:\/\/discord\.com\//i.test(href)) return;
-          var a = document.createElement("a");
-          a.className = "vc-regole-card-linkbtn";
-          a.href = href;
-          a.rel = "noopener noreferrer";
-          a.target = "_blank";
-          var ic = document.createElement("i");
-          ic.className = "fa fa-file-text-o";
-          ic.setAttribute("aria-hidden", "true");
-          a.appendChild(ic);
-          a.appendChild(document.createTextNode(" " + label));
-          row.appendChild(a);
-        });
-        if (row.childNodes.length) body.appendChild(row);
-      }
-      det.appendChild(sum);
-      det.appendChild(body);
-      cards.push(det);
-      root.appendChild(det);
-    });
-    cards.forEach(function (det) {
-      det.addEventListener("toggle", function () {
-        if (!det.open) return;
-        cards.forEach(function (other) {
-          if (other !== det) other.open = false;
-        });
-      });
-    });
-    revealAccordion();
-  }
-
-  function t(key, fallback) {
-    try {
-      if (window.VcI18n && typeof window.VcI18n.t === "function") {
-        var v = window.VcI18n.t(key);
-        if (v && v !== key) return v;
-      }
-    } catch (e) {}
-    return fallback != null ? fallback : key;
+    var wanted = activeItemByCat[activeCategory];
+    if (!wanted || !rules.some(function (r) { return String(r.id) === String(wanted); })) {
+      wanted = String(rules[0].id);
+    }
+    paintRule(rules, wanted);
   }
 
   function applyDisclaimer() {

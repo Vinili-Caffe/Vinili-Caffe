@@ -25,6 +25,7 @@ async function editTicketRoleOverwrite(channel, roleId, options, extras = {}) {
     .catch(() => null);
 }
 
+/* ticketSlashPerm1: senza UseApplicationCommands Discord nasconde i / dopo cancel nel ticket */
 const TICKET_STAFF_SPECTATE_OVERWRITES = Object.freeze({
   ViewChannel: true,
   SendMessages: false,
@@ -32,6 +33,7 @@ const TICKET_STAFF_SPECTATE_OVERWRITES = Object.freeze({
   EmbedLinks: true,
   AttachFiles: true,
   AddReactions: true,
+  UseApplicationCommands: true,
 });
 
 const HIGHSTAFF_TICKET_WRITE_OVERWRITES = Object.freeze({
@@ -41,6 +43,7 @@ const HIGHSTAFF_TICKET_WRITE_OVERWRITES = Object.freeze({
   EmbedLinks: true,
   AttachFiles: true,
   AddReactions: true,
+  UseApplicationCommands: true,
 });
 
 const TICKET_STAFF_SPECTATE_CREATE_ALLOW = [
@@ -49,6 +52,7 @@ const TICKET_STAFF_SPECTATE_CREATE_ALLOW = [
   PermissionFlagsBits.AttachFiles,
   PermissionFlagsBits.ReadMessageHistory,
   PermissionFlagsBits.AddReactions,
+  PermissionFlagsBits.UseApplicationCommands,
 ];
 
 const HIGHSTAFF_TICKET_WRITE_CREATE_ALLOW = [
@@ -58,6 +62,7 @@ const HIGHSTAFF_TICKET_WRITE_CREATE_ALLOW = [
   PermissionFlagsBits.AttachFiles,
   PermissionFlagsBits.ReadMessageHistory,
   PermissionFlagsBits.AddReactions,
+  PermissionFlagsBits.UseApplicationCommands,
 ];
 
 function isHighStaffTicketRoleId(roleId, highStaffRoleId = HIGHSTAFF_ROLE_ID) {

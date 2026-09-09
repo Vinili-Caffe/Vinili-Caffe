@@ -13,6 +13,7 @@ const {
   applyLiveAvatarToSuggestionLike,
   collectUserIdsFromSuggestionLikeDocs,
   prefetchGuildMembersForIds,
+  prefetchUsersForIds,
   resolveSiteAvatarUrl,
 } = require("./siteLiveAvatars");
 
@@ -296,12 +297,19 @@ async function getBotFeedbackList(client, payload = {}) {
     .lean()
     .catch(() => []);
 
-  await prefetchGuildMembersForIds(guild, collectUserIdsFromSuggestionLikeDocs(docs));
+  const authorIds = collectUserIdsFromSuggestionLikeDocs(docs);
+  await prefetchGuildMembersForIds(guild, authorIds);
+  const missingMembers = authorIds
+    .map((id) => String(id || "").trim())
+    .filter((id) => id && !guild.members?.cache?.has?.(id));
+  await prefetchUsersForIds(client, missingMembers);
 
   return {
     ok: true,
     status: 200,
-    items: docs.map((d) => applyLiveAvatarToSuggestionLike(serializeFeedback(d, viewerId), guild, { size: 128 })),
+    items: docs.map((d) =>
+      applyLiveAvatarToSuggestionLike(serializeFeedback(d, viewerId), guild, { size: 128, client }),
+    ),
     viewer,
   };
 }
@@ -373,6 +381,7 @@ async function createBotFeedback(client, payload = {}) {
             title: kind === "bug" ? "Nuovo bug bot" : "Nuovo suggerimento bot",
             body: `${displayNameForMember(resolved.member)} ha inviato un ${label}: ${preview}`,
             kind: "suggestion",
+            channel: "inbox",
             openUrl: feedbackNotifOpenUrl(doc._id),
             dedupeKey: `bot_feedback_new:${doc._id}:${userId}`,
           }).catch(() => null),
@@ -682,6 +691,7 @@ async function staffSetBotFeedbackDecision(client, payload = {}) {
         title: "Feedback bot accettato",
         body: `Lo staff ha accettato il tuo feedback. Motivo: ${reason.slice(0, 380)}`,
         kind: "success",
+        channel: "personal",
         openUrl: feedbackNotifOpenUrl(feedbackId),
       }).catch(() => null);
     } else if (nextStatus === "rejected") {
@@ -691,6 +701,7 @@ async function staffSetBotFeedbackDecision(client, payload = {}) {
         title: "Feedback bot rifiutato",
         body: `Lo staff ha rifiutato il tuo feedback. Motivo: ${reason.slice(0, 380)}`,
         kind: "suggestion",
+        channel: "personal",
         openUrl: feedbackNotifOpenUrl(feedbackId),
       }).catch(() => null);
     }

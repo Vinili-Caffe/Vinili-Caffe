@@ -42,6 +42,21 @@ function fireResocontoPexDepexNotif(guild, actor, targetUser, kind, oldRoleId, n
   } catch (_) {}
 }
 
+function fireResocontoOutcomeNotif(guild, actor, targetUserId, actionKey, reason, messageId) {
+  try {
+    const { notifyResocontoOutcome, memberDisplayName } = require("../../Utils/Web/siteStaffEventNotifications");
+    const actorUser = actor?.user || actor;
+    void notifyResocontoOutcome({
+      guild,
+      staffUserId: String(targetUserId || ""),
+      actionKey,
+      reason,
+      actorName: memberDisplayName(actor?.member || actor, actorUser, actorUser?.id),
+      messageId,
+    }).catch(() => 0);
+  } catch (_) {}
+}
+
 const ROLE_UP = {
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
   [String(IDs.roles.Mod)]: String(IDs.roles.SeniorModerator),
@@ -535,7 +550,10 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
   const member = await getGuildMemberCached(guild, payload.userId);
   if (!member) return "<a:VC_Alert:1482706673176150077> Utente non trovato nel server.";
 
-  if (payload.actionKey === "nl") return "<a:VC_Alert:1482706673176150077> Nessuna azione applicata.";
+  if (payload.actionKey === "nl") {
+    fireResocontoOutcomeNotif(guild, actor, payload.userId, "nl", "Nessuna azione applicata.", payload.messageId);
+    return "<a:VC_Alert:1482706673176150077> Nessuna azione applicata.";
+  }
 
   const targetUser = member.user;
   if (payload.actionKey === "vp") {
@@ -660,12 +678,19 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
   return "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
 }
 
-async function applyPmAction(guild, payload, reasonOverride = null) {
+async function applyPmAction(guild, payload, reasonOverride = null, actor = null) {
   const member = await getGuildMemberCached(guild, payload.userId);
   if (!member) return "<a:VC_Alert:1482706673176150077> Utente non trovato nel server.";
 
-  if (payload.actionKey === "nl") return "<a:VC_Alert:1482706673176150077> Nessuna azione applicata.";
-  if (payload.actionKey === "rc") return "<a:VC_Alert:1482706673176150077> Richiamo non applica modifiche automatiche.";
+  if (payload.actionKey === "nl") {
+    fireResocontoOutcomeNotif(guild, actor, payload.userId, "nl", "Nessuna azione applicata.", payload.messageId);
+    return "<a:VC_Alert:1482706673176150077> Nessuna azione applicata.";
+  }
+  if (payload.actionKey === "rc") {
+    const reason = String(reasonOverride || "").trim() || "Richiamo resoconto PM";
+    fireResocontoOutcomeNotif(guild, actor, payload.userId, "rc", reason, payload.messageId);
+    return "<a:VC_Alert:1482706673176150077> Richiamo non applica modifiche automatiche.";
+  }
   if (payload.actionKey !== "dp") return "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
 
   const partnerRoleRemoved = await ensureRoleRemoved(guild, member, ROLE_PARTNER_MANAGER);
@@ -682,13 +707,24 @@ async function applyPmAction(guild, payload, reasonOverride = null) {
   }
   const memberAfterPmDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
   await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterPmDepex);
+  const depexReason = String(reasonOverride || "").trim() || "Limiti settimanali non raggiunti";
   await sendPexDepexLog(
     guild,
     "depex",
     member.user,
     ROLE_PARTNER_MANAGER,
     ROLE_MEMBER || "",
-    String(reasonOverride || "").trim() || "Limiti settimanali non raggiunti",
+    depexReason,
+  );
+  fireResocontoPexDepexNotif(
+    guild,
+    actor,
+    member.user,
+    "depex",
+    ROLE_PARTNER_MANAGER,
+    ROLE_MEMBER || "",
+    depexReason,
+    `resoconto-pm-depex:${payload.userId}`,
   );
   await bumpCandidatureCooldownAfterStaffRemoval(payload.userId);
   return "<:success:1461731530333229226> Depex PM applicato e dati partner rimossi.";
@@ -1047,7 +1083,7 @@ async function handleResocontoButton(interaction) {
       autoReason || execution.autoReason || null,
     );
   } else {
-    statusText = await applyPmAction(interaction.guild, payload, autoReason || null);
+    statusText = await applyPmAction(interaction.guild, payload, autoReason || null, interaction.member || interaction.user);
   }
 
   await appendOutcomeToMessage(
@@ -1483,6 +1519,7 @@ async function decideResocontoFromWeb(guild, actorMember, opts = {}) {
       guild,
       payload,
       reason || resolveAutoReasonForResocontoAction(payload) || null,
+      actorMember,
     );
   }
 

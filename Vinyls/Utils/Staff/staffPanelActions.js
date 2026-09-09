@@ -891,6 +891,17 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
     await warnChannel.send({ content: `${targetUser}`, embeds: [embed] }).catch(() => null);
   }
   try {
+    const { notifyStaffWarnRemoved, memberDisplayName } = require("../Web/siteStaffEventNotifications");
+    void notifyStaffWarnRemoved({
+      guild,
+      staffUserId: targetUser.id,
+      removeId,
+      reason: reason || `Rimozione warn #${removeId}`,
+      actorName: memberDisplayName(null, actorUser, actorUser?.id),
+      warnCountAfter: Math.max(0, Number(s.warnCount || 0)),
+    }).catch(() => 0);
+  } catch (_) {}
+  try {
     require("../Web/siteStaffProfileApi").clearStaffProfileCacheForUser(targetUser.id);
   } catch (_) {}
   return {

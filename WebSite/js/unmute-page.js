@@ -16,9 +16,14 @@
       "unmute.welcomeBack": "Benvenuto {name}.",
       "unmute.welcomeDefault": "Accedi con Discord per inviare la richiesta.",
       "unmute.notMuted": "Non sei mutato",
+      "unmute.notMutedLead": "Il tuo account è in regola: non serve una richiesta unmute.",
       "unmute.canSubmit": "Puoi inviare la richiesta unmute.",
+      "unmute.canSubmitLead": "Compila il modulo qui sotto con calma e trasparenza.",
       "unmute.alreadySubmitted": "Richiesta già inviata. Prossimo invio disponibile: {date}",
+      "unmute.alreadySubmittedLead": "Attendi la fine del cooldown prima di riprovare.",
       "unmute.checkError": "Impossibile verificare lo stato unmute. Riprova più tardi.",
+      "unmute.checkErrorLead": "Controlla la connessione e riprova tra poco.",
+      "unmute.statusKicker": "Stato account",
       "unmute.submitting": "Invio in corso...",
       "unmute.userFallback": "utente",
       "unmute.statusLoading": "Caricamento stato...",
@@ -140,8 +145,10 @@
   function resolvedSubmitApiUrl() {
     var c = cfgUnmute();
     var local = String(c.submitApiUrlLocal || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
-    return String(c.submitApiUrl || "").trim();
+    if (isLocalFrontendOrigin() && local && local !== "#") return local;
+    var remote = String(c.submitApiUrl || "").trim();
+    if (remote && remote !== "#") return remote;
+    return "/webhooks/site-unmute";
   }
 
   function eligibilityApiUrl() {
@@ -175,11 +182,47 @@
     }
   }
 
+  function statusMeta(text, ok) {
+    var title = String(text || "");
+    if (ok && title === t("unmute.notMuted")) {
+      return { tone: "ok", icon: "fa-check", lead: t("unmute.notMutedLead") };
+    }
+    if (ok && title === t("unmute.canSubmit")) {
+      return { tone: "ok", icon: "fa-paper-plane", lead: t("unmute.canSubmitLead") };
+    }
+    if (title.indexOf(t("unmute.alreadySubmitted").split("{")[0]) === 0) {
+      return { tone: "warn", icon: "fa-clock-o", lead: t("unmute.alreadySubmittedLead") };
+    }
+    if (title === t("unmute.checkError") || !ok) {
+      return { tone: "warn", icon: "fa-exclamation", lead: t("unmute.checkErrorLead") };
+    }
+    return { tone: ok ? "ok" : "warn", icon: ok ? "fa-check" : "fa-exclamation", lead: "" };
+  }
+
   function setStatus(text, ok) {
     var box = byId("unmute-status-box");
+    var wrap = byId("unmute-status-wrap");
     if (!box) return;
-    box.className = ok ? "vc-unmute-status vc-unmute-status--ok" : "vc-unmute-status";
-    setShuffleText(box, text);
+    var meta = statusMeta(text, ok);
+    box.className =
+      "vc-unmute-status vc-appelli-status vc-appelli-status--" +
+      meta.tone +
+      (meta.tone === "ok" ? " vc-unmute-status--ok" : "");
+    if (wrap) {
+      wrap.classList.toggle("vc-appelli-status-wrap--ok", meta.tone === "ok");
+      wrap.classList.toggle("vc-appelli-status-wrap--warn", meta.tone === "warn");
+    }
+    box.innerHTML =
+      '<div class="vc-appelli-status__badge" aria-hidden="true"><i class="fa ' +
+      meta.icon +
+      '"></i></div>' +
+      '<p class="vc-appelli-status__kicker">' +
+      t("unmute.statusKicker") +
+      "</p>" +
+      '<p class="vc-appelli-status__title"></p>' +
+      (meta.lead ? '<p class="vc-appelli-status__lead">' + meta.lead + "</p>" : "");
+    var titleEl = box.querySelector(".vc-appelli-status__title");
+    setShuffleText(titleEl || box, text);
   }
 
   function setSubmitLoading(loading) {
@@ -293,21 +336,24 @@
   function notify(message, opts) {
     var text = String(message || "").trim();
     if (!text) return Promise.resolve();
+    var payload = Object.assign(
+      {
+        title: (opts && opts.title) || t("unmute.alertTitle", "Avviso"),
+        message: text,
+        okLabel: (opts && opts.okLabel) || "OK",
+        danger: Boolean(opts && opts.danger),
+        icon: (opts && opts.icon) || "fa-info-circle",
+      },
+      opts || {},
+    );
     if (window.VcDialog && typeof window.VcDialog.alert === "function") {
-      return window.VcDialog.alert(
-        Object.assign(
-          {
-            title: (opts && opts.title) || t("unmute.alertTitle", "Avviso"),
-            message: text,
-            okLabel: (opts && opts.okLabel) || "OK",
-            danger: Boolean(opts && opts.danger),
-            icon: (opts && opts.icon) || "fa-info-circle",
-          },
-          opts || {},
-        ),
-      );
+      return window.VcDialog.alert(payload);
     }
-    window.alert(text);
+    if (typeof window.__vcEnsureDialog === "function") {
+      return window.__vcEnsureDialog().then(function (D) {
+        if (D && typeof D.alert === "function") return D.alert(payload);
+      });
+    }
     return Promise.resolve();
   }
 
@@ -399,7 +445,10 @@
       welcome.classList.add("vc-hero-about", "vc-home-rise", "is-in");
     }
     replayShuffle(welcome);
-    replayShuffle(byId("unmute-status-box"));
+    var statusBox = byId("unmute-status-box");
+    var statusTitle = statusBox && statusBox.querySelector(".vc-appelli-status__title");
+    /* appelliStatusCard3: non shuffleare il box intero (appiattisce badge/kicker/lead) */
+    replayShuffle(statusTitle || null);
   }
 
   function init() {

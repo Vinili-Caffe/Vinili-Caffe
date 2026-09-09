@@ -3,7 +3,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { voteCountMonthKeyRome, romeMonthStartMs } = require("../romeVoteMonthKey");
 
-const CACHE_TTL_MS = 30_000;
+const CACHE_TTL_MS = 90_000;
 const cache = new Map();
 
 function cacheGet(key) {
@@ -91,7 +91,8 @@ function platformVoteState(client, leaf, platform) {
   };
 }
 
-async function fetchUserIdentity(client, guild, userId) {
+/* voteMobileFast1: never Discord-fetch per voter — that timed out phones (toast spam). Cache only. */
+function fetchUserIdentity(client, guild, userId) {
   const out = {
     userId: String(userId || ""),
     username: "",
@@ -99,33 +100,20 @@ async function fetchUserIdentity(client, guild, userId) {
     avatarUrl: "",
   };
   if (!out.userId) return out;
-  let member = guild?.members?.cache?.get?.(out.userId) || null;
-  if (!member && guild?.members?.fetch) {
-    member = await guild.members.fetch({ user: out.userId, force: true }).catch(() => null);
-  }
+  const member = guild?.members?.cache?.get?.(out.userId) || null;
   let user = member?.user || null;
-  if (!user && client?.users?.fetch) {
-    user = await client.users.fetch(out.userId, { force: true }).catch(() => null);
+  if (!user && client?.users?.cache?.get) {
+    user = client.users.cache.get(out.userId) || null;
   }
   out.username = String(user?.username || "").trim();
   out.displayName = String(
     member?.displayName || user?.globalName || user?.username || "Utente"
   ).trim() || "Utente";
   out.avatarUrl =
-    (member && (userAvatarUrlDynamic(member, { size: 256 }) || "")) ||
-    userAvatarUrlDynamic(user, { size: 256 }) ||
+    (member && (userAvatarUrlDynamic(member, { size: 256, allowDefault: false }) || "")) ||
+    userAvatarUrlDynamic(user, { size: 256, allowDefault: false }) ||
     "";
   return out;
-}
-
-async function isCurrentGuildMember(guild, userId) {
-  const id = String(userId || "").trim();
-  if (!id || !guild) return false;
-  const cached = guild.members?.cache?.get?.(id) || null;
-  if (cached) return true;
-  if (!guild.members?.fetch) return false;
-  const member = await guild.members.fetch({ user: id, force: true }).catch(() => null);
-  return Boolean(member);
 }
 
 async function handleSiteVoteGet(client, req, res) {
@@ -137,10 +125,10 @@ async function handleSiteVoteGet(client, req, res) {
 
     const q = req.query || {};
     const searchUserId = parseSearchUserId(q.userId ?? q.id ?? q.uid);
-    const cacheKey = `vote:v1:${guildId}:${searchUserId || "-"}`;
+    const cacheKey = `vote:v2:${guildId}:${searchUserId || "-"}`;
     const cached = cacheGet(cacheKey);
     if (cached) {
-      res.setHeader("Cache-Control", "public, max-age=20");
+      res.setHeader("Cache-Control", "public, max-age=30");
       return res.json(cached);
     }
 
@@ -167,10 +155,9 @@ async function handleSiteVoteGet(client, req, res) {
       .catch(() => []);
 
     const now = new Date();
-    const voteCd = { topggCdMs: voteCooldownMs(client, "topgg"), discadiaCdMs: voteCooldownMs(client, "discadia") };
     const rowsBase = docs
       .map((doc) => {
-        const counts = combinedVotesFromLeaf(voteLeaf(doc), now, voteCd);
+        const counts = combinedVotesFromLeaf(voteLeaf(doc), now);
         return {
           userId: String(doc?.userId || ""),
           votes: counts.total,
@@ -181,24 +168,16 @@ async function handleSiteVoteGet(client, req, res) {
       .filter((row) => row.userId && row.votes > 0)
       .sort((a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId));
 
-    const activeMembership = await Promise.all(
-      rowsBase.map(async (row) => ({
-        row,
-        isMember: await isCurrentGuildMember(guild, row.userId),
-      })),
+    // Do not filter by partial guild.members.cache — incomplete cache hid voters / empty board on phones.
+    const activeRowsBase = rowsBase.sort(
+      (a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId),
     );
-    const activeRowsBase = activeMembership
-      .filter((entry) => entry.isMember)
-      .map((entry) => entry.row)
-      .sort((a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId));
 
     const totalVotes = activeRowsBase.reduce((sum, row) => sum + row.votes, 0);
     const topRowsBase = activeRowsBase.slice(0, 50);
-    const rows = [];
-    for (let i = 0; i < topRowsBase.length; i += 1) {
-      const base = topRowsBase[i];
-      const identity = await fetchUserIdentity(client, guild, base.userId);
-      rows.push({
+    const rows = topRowsBase.map((base, i) => {
+      const identity = fetchUserIdentity(client, guild, base.userId);
+      return {
         rank: i + 1,
         userId: base.userId,
         username: identity.username,
@@ -207,8 +186,8 @@ async function handleSiteVoteGet(client, req, res) {
         votes: base.votes,
         topggVotes: base.topggVotes,
         discadiaVotes: base.discadiaVotes,
-      });
-    }
+      };
+    });
 
     let personal = {
       userId: searchUserId,
@@ -237,7 +216,7 @@ async function handleSiteVoteGet(client, req, res) {
           discadia: platformVoteState(client, personalLeaf, "discadia"),
         };
       } else {
-        const c = combinedVotesFromLeaf(personalLeaf, now, voteCd);
+        const c = combinedVotesFromLeaf(personalLeaf, now);
         personal.votes = c.total;
         personal.topggVotes = c.topgg;
         personal.discadiaVotes = c.discadia;
@@ -257,7 +236,7 @@ async function handleSiteVoteGet(client, req, res) {
       rows,
     };
     cacheSet(cacheKey, payload);
-    res.setHeader("Cache-Control", "public, max-age=20");
+    res.setHeader("Cache-Control", "public, max-age=30");
     return res.json(payload);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-vote:", err);

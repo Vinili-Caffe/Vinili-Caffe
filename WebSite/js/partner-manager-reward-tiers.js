@@ -26,18 +26,22 @@
     var html = "";
     if (active) {
       html +=
-        '<p class="mt-2 mb-0 rounded-lg border border-emerald-400/25 bg-emerald-950/35 px-3 py-2 text-emerald-100">' +
+        '<p class="vc-candidature-role-card__tier vc-candidature-role-card__tier--promo rounded-lg border border-emerald-400/25 bg-emerald-950/35 px-3 py-2 text-emerald-100">' +
         "<strong>Sconto estate</strong> (1 luglio – 31 agosto): le ricompense costano <strong>metà punti</strong>.</p>";
     }
     for (var i = 0; i < CANONICAL_TIERS.length; i += 1) {
       var tier = CANONICAL_TIERS[i];
       var cost = pointCost(tier, now);
-      var cls = i === 0 ? "mt-2 mb-0" : "mt-1 mb-0";
       var costHtml =
         active && cost < tier
           ? cost + ' partner <span class="text-slate-500 line-through">' + tier + "</span>"
           : String(cost) + " partner";
-      html += '<p class="' + cls + '">' + costHtml + " → " + (LABELS[tier] || "") + "</p>";
+      html +=
+        '<p class="vc-candidature-role-card__tier">' +
+        costHtml +
+        " → " +
+        (LABELS[tier] || "") +
+        "</p>";
     }
     return html;
   }

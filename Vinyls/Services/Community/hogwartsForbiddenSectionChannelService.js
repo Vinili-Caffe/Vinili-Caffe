@@ -904,6 +904,8 @@ async function syncForbiddenSectionPresence(client) {
 }
 
 function startForbiddenSectionPresenceLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (!client || client._forbiddenSectionPresenceLoop) return;
   client._forbiddenSectionPresenceLoop = true;
   const tick = () => {
@@ -918,6 +920,8 @@ function startForbiddenSectionPresenceLoop(client) {
 }
 
 function startForbiddenSectionChannelDecorLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (!client || loopState.has(client)) return;
   loopState.add(client);
   const tick = () => {

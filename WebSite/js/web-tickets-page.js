@@ -14,6 +14,7 @@
   var state = {
     tickets: [],
     selectedId: "",
+    openTicketSeq: 0,
     urlListenersWired: false,
     detail: null,
     messages: [],
@@ -34,6 +35,7 @@
     presenceTimer: null,
     presenceLastSent: "",
     presenceResumeTimer: null,
+    typingRoom: null,
     staffAccess: false,
     staffCategories: [],
     composeOpen: false,
@@ -57,7 +59,7 @@
     guildId: "",
     staffRoles: {},
     mentionNames: {},
-    mentionMenu: { open: false, q: "", items: [], index: 0, elId: "", mode: "user" },
+    mentionMenu: { open: false, q: "", items: [], index: 0, elId: "", mode: "user", filter: "all" },
     mentionTimer: null,
     commandMenu: { open: false, q: "", items: [], index: 0, prefix: "+", elId: "" },
     commandTimer: null,
@@ -74,6 +76,10 @@
     slashCatalog: [],
     commandCatalogLoaded: false,
     commandCatalogTicketId: "",
+    commandCatalogLoading: null,
+    commandCatalogLoadTicketId: "",
+    partnershipFlowOpen: false,
+    commandCatalogTicketId: "",
     commandPrefix: "+",
     commandCatalogLoading: null,
     commandCatalogLoadTicketId: "",
@@ -82,6 +88,10 @@
     emojiPickerToken: 0,
     emojiPickerOpening: false,
     statusToastTimer: null,
+    bootWired: false,
+    tokenWaitTimer: null,
+    authBootTimer: null,
+    listLoadGen: 0,
   };
 
   function byId(id) {
@@ -114,13 +124,22 @@
     return h;
   }
 
+  function isUsableApiUrl(u) {
+    var s = String(u || "").trim();
+    if (!s || s === "#" || s === "/") return false;
+    if (s.indexOf("{{") >= 0) return false;
+    return true;
+  }
+
   function apiBase() {
     var remote = String(cfg.apiUrl || "").trim();
     var local = String(cfg.apiUrlLocal || "").trim();
     if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-      return local || remote || "/webhooks/site-web-tickets";
+      if (isUsableApiUrl(local)) return local;
+      if (isUsableApiUrl(remote)) return remote;
+      return "/webhooks/site-web-tickets";
     }
-    if (remote && remote.indexOf("{{") < 0) return remote;
+    if (isUsableApiUrl(remote)) return remote;
     return "/webhooks/site-web-tickets";
   }
 
@@ -133,7 +152,10 @@
   }
 
   function ticketPollIntervalMs() {
-    return isCoarseMobile() ? 20000 : 8000;
+    // Con WS aperto resta un backup più lento; senza WS poll più aggressivo.
+    var wsOpen = state.ws && state.ws.readyState === 1;
+    if (isCoarseMobile()) return wsOpen ? 14000 : 9000;
+    return wsOpen ? 10000 : 4500;
   }
 
   function ticketPresenceIntervalMs() {
@@ -173,7 +195,12 @@
       el.textContent = "";
       el.hidden = true;
     }
-    var text = String(msg || "").trim();
+    /* ticketActionFail1: message API a volte è oggetto (system msg) — non toastarlo */
+    var text = "";
+    if (typeof msg === "string") text = msg.trim();
+    else if (msg && typeof msg === "object" && typeof msg.content === "string") text = "";
+    else if (msg != null) text = String(msg).trim();
+    if (text === "[object Object]") text = "";
     if (window.VcSiteToast) {
       if (!text) window.VcSiteToast.hide();
       else window.VcSiteToast.show(text, Boolean(isError));
@@ -361,14 +388,95 @@
     return "";
   }
 
-  function setHashTicket(id) {
+  /* ticketClickScrollStay1: click ticket/hash non deve riportare la pagina in alto */
+  /* notifTicketScrollStay1: openTicket + hash + focus senza jump pagina */
+  /* ticketModalScrollStay2: dopo confirm modal non saltare in alto */
+  function pageScrollY() {
     try {
-      if (!id) {
-        history.replaceState(null, "", location.pathname + location.search);
-        return;
+      if (typeof window.__vcGetPinnedPageScrollY === "function") {
+        var pinned = Number(window.__vcGetPinnedPageScrollY()) || 0;
+        if (pinned > 0) return pinned;
       }
-      history.replaceState(null, "", location.pathname + location.search + "#" + id);
-    } catch (e) {}
+    } catch (ePin) {}
+    try {
+      return (
+        window.pageYOffset ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        (document.body && document.body.scrollTop) ||
+        0
+      );
+    } catch (eY) {
+      return 0;
+    }
+  }
+
+  function capturePageScrollY() {
+    var y = pageScrollY();
+    try {
+      if (typeof window.__vcGetPinnedPageScrollY === "function") {
+        var pinned = Number(window.__vcGetPinnedPageScrollY()) || 0;
+        if (pinned > y) y = pinned;
+      }
+    } catch (eCap) {}
+    return Math.max(0, Number(y) || 0);
+  }
+
+  function restorePageScroll(y) {
+    /* ticketDialogScrollFight1: mai scrollare mentre dialog/sheet tiene il pin (salta su/giù col modal) */
+    try {
+      var root = document.documentElement;
+      if (root && root.classList.contains("vc-dialog-open")) return;
+      if (root && root.classList.contains("vc-dash-confirm-open")) return;
+      if (typeof window.__vcIsPageScrollFrozen === "function" && window.__vcIsPageScrollFrozen()) return;
+      if (document.querySelector(".vc-dialog.is-open, #vc-site-dialog.is-open:not([hidden])")) return;
+    } catch (eFreeze) {}
+    var n = Math.max(0, Number(y) || 0);
+    try {
+      window.scrollTo(0, n);
+      if (document.documentElement) document.documentElement.scrollTop = n;
+      if (document.body) document.body.scrollTop = n;
+    } catch (eScr) {}
+  }
+  try {
+    window.__vcWtRestorePageScroll = restorePageScroll;
+  } catch (eExp) {}
+
+  function withPageScrollPreserved(fn) {
+    var y = pageScrollY();
+    var list = byId("vc-wt-list");
+    var listY = list ? Number(list.scrollTop) || 0 : 0;
+    var out;
+    try {
+      out = typeof fn === "function" ? fn() : undefined;
+    } finally {
+      restorePageScroll(y);
+      try {
+        var listNow = byId("vc-wt-list");
+        if (listNow) listNow.scrollTop = listY;
+      } catch (eList) {}
+      try {
+        requestAnimationFrame(function () {
+          restorePageScroll(y);
+          var list2 = byId("vc-wt-list");
+          if (list2) list2.scrollTop = listY;
+        });
+      } catch (eRaf) {
+        restorePageScroll(y);
+      }
+    }
+    return out;
+  }
+
+  function setHashTicket(id) {
+    withPageScrollPreserved(function () {
+      try {
+        if (!id) {
+          history.replaceState(null, "", location.pathname + location.search);
+          return;
+        }
+        history.replaceState(null, "", location.pathname + location.search + "#" + id);
+      } catch (e) {}
+    });
   }
 
   function hasStaffViewQuery() {
@@ -565,9 +673,12 @@
     if (!app) return;
     app.hidden = false;
     app.innerHTML =
+      '<div class="vc-wt-chrome">' +
+      scopeSwitcherHtml() +
+      '<div class="vc-wt-filter-menu vc-wt-filter-menu--loading" aria-hidden="true"></div>' +
       '<div class="vc-wt-layout"><aside class="vc-wt-sidebar">' +
       '<div class="vc-wt-sidebar__top"><h2>' +
-      (wantsStaffInbox() ? "Inbox" : "Elenco") +
+      (wantsStaffInbox() ? "Staff" : "Personali") +
       "</h2></div>" +
       '<div class="vc-wt-empty vc-wt-empty--loading"><span class="vc-ui-spinner vc-ui-spinner--on-dark" aria-hidden="true"></span>' +
       "<p>" +
@@ -575,7 +686,7 @@
       "</p></div></aside>" +
       '<section class="vc-wt-main"><div class="vc-wt-chat vc-wt-chat--empty">' +
       '<div class="vc-wt-chat-empty"><span class="vc-wt-chat-empty__icon" aria-hidden="true"><i class="fa fa-comments-o"></i></span>' +
-      "<strong>Caricamento…</strong></div></div></section></div>";
+      "<strong>Caricamento…</strong></div></div></section></div></div>";
   }
 
   function ticketActivityMs(t) {
@@ -638,31 +749,61 @@
     opts = opts || {};
     if (!getToken()) {
       if (!isStaffMode && !wantsStaffInbox()) showGate();
-      setStatus("Sessione Discord assente.", true);
-      return Promise.resolve();
+      if (!opts.silentNoToken) setStatus("Sessione Discord assente.", true);
+      return Promise.resolve(false);
     }
     if (!isStaffMode) hideGate();
     var loadGen = (state.listLoadGen = (Number(state.listLoadGen) || 0) + 1);
     var soft = opts.soft === true && Array.isArray(state.tickets) && state.tickets.length > 0;
+    var attempt = Math.max(0, Number(opts.attempt) || 0);
     if (!soft) showTicketsLoadingShell("Caricamento ticket…");
     return fetchJson(apiBase() + listQuery(), {
       method: "GET",
       headers: authHeaders(),
       cache: "no-store",
-      timeoutMs: 18000,
+      timeoutMs: isCoarseMobile() ? 28000 : 24000,
     })
       .then(function (out) {
-        if (loadGen !== state.listLoadGen) return null;
+        if (loadGen !== state.listLoadGen) return false;
         if (!out.res.ok || !out.data || !out.data.ok) {
-          if (out.res.status === 401 || out.res.status === 403) {
+          var authFail = out.res.status === 401 || out.res.status === 403;
+          if (authFail) {
             if (!wantsStaffInbox()) showGate();
+          }
+          var transient =
+            !authFail &&
+            (out.res.status === 0 ||
+              out.res.status === 408 ||
+              out.res.status === 429 ||
+              out.res.status === 502 ||
+              out.res.status === 503 ||
+              out.res.status === 504 ||
+              String((out.data && out.data.error) || "") === "member_unavailable" ||
+              String((out.data && out.data.error) || "") === "discord_unreachable" ||
+              String((out.data && out.data.error) || "") === "guild_unavailable");
+          /* ticketsListHang1: first-stamp Discord member resolve often 503 — retry more before emptying UI */
+          if (!soft && attempt < (transient ? 3 : 1) && !authFail) {
+            return new Promise(function (resolve) {
+              window.setTimeout(resolve, isCoarseMobile() ? 700 + attempt * 400 : 350 + attempt * 250);
+            }).then(function () {
+              if (loadGen !== state.listLoadGen) return false;
+              return loadList({ soft: false, attempt: attempt + 1 });
+            });
+          }
+          if (!soft && attempt < 2 && authFail && getToken()) {
+            return new Promise(function (resolve) {
+              window.setTimeout(resolve, isCoarseMobile() ? 900 : 450);
+            }).then(function () {
+              if (loadGen !== state.listLoadGen) return false;
+              return loadList({ soft: false, attempt: attempt + 1 });
+            });
           }
           setStatus((out.data && out.data.message) || "Impossibile caricare i ticket.", true);
           if (!soft) {
             state.tickets = [];
             renderShell();
           }
-          return null;
+          return false;
         }
         applyListPayload(out.data);
         setStatus("");
@@ -671,27 +812,47 @@
         restoreTicketUiSelection();
         queueMissingAvatarsFromMessages([]);
         var hashId = resolveHashTicketId();
+        if (hashId && !state.selectedId) state.selectedId = hashId;
         if (
           state.selectedId &&
           !state.tickets.some(function (t) {
             return t.id === state.selectedId;
           })
         ) {
-          if (hashId !== state.selectedId) {
+          // Keep deeplink selection even if the ticket is not on the first list page.
+          if (hashId && hashId === state.selectedId) {
+            /* keep */
+          } else if (hashId !== state.selectedId) {
             clearTicketSelection({ keepHash: true });
           }
         }
         renderShell();
-        if (state.selectedId) return openTicket(state.selectedId, true);
-        return null;
+        if (state.selectedId) return openTicket(state.selectedId, true).then(function () {
+          return true;
+        });
+        return true;
       })
       .catch(function (err) {
-        if (loadGen !== state.listLoadGen) return null;
+        if (loadGen !== state.listLoadGen) return false;
         var aborted = err && (err.name === "AbortError" || err.code === 20);
-        setStatus(aborted ? "Timeout: riprova a ricaricare i ticket." : "Errore di rete.", true);
+        if (!soft && attempt < 2) {
+          return new Promise(function (resolve) {
+            window.setTimeout(resolve, isCoarseMobile() ? 800 + attempt * 400 : 400 + attempt * 250);
+          }).then(function () {
+            if (loadGen !== state.listLoadGen) return false;
+            return loadList({ soft: false, attempt: attempt + 1 });
+          });
+        }
+        /* notifApiErr1: abort/superseded → no error toast */
+        if (aborted) {
+          state.tickets = state.tickets || [];
+          if (!soft) renderShell();
+          return false;
+        }
+        setStatus("Errore di rete.", true);
         state.tickets = state.tickets || [];
         if (!soft) renderShell();
-        return null;
+        return false;
       });
   }
 
@@ -711,15 +872,30 @@
     window.setTimeout(run, 400);
   }
 
-  function openTicket(id, quiet) {
-    if (!id || !getToken()) return Promise.resolve();
+  function openTicket(id, quiet, opts) {
+    opts = opts || {};
+    var attempt = Math.max(0, Number(opts.attempt) || 0);
+    id = String(id || "").trim();
+    if (!id) return Promise.resolve();
+    /* notifTicketScrollStay1: aprire ticket non deve riportare la pagina in alto */
+    var yHold = pageScrollY();
+    if (!getToken()) {
+      if (attempt >= 10) return Promise.resolve();
+      return new Promise(function (resolve) {
+        window.setTimeout(resolve, attempt < 3 ? 200 : 400);
+      }).then(function () {
+        return openTicket(id, quiet, { attempt: attempt + 1 });
+      });
+    }
     if (state.selectedId === id && state.detail && state.messages && state.messages.length) {
       refreshListActiveState();
+      restorePageScroll(yHold);
       return Promise.resolve();
     }
     if (state.selectedId && state.selectedId !== id) {
       flushComposerTextFromDom();
       saveTicketComposerDraft();
+      stopTicketTypingRoom();
     }
     state.selectedId = id;
     state.composerText = loadTicketComposerDraft(id);
@@ -731,16 +907,41 @@
     saveTicketComposerDraft();
     markOpenTicketNotificationsRead(id);
     refreshListActiveState();
-    if (!quiet) setStatus("Apertura chat…", false);
+    restorePageScroll(yHold);
+    var seq = (state.openTicketSeq = (Number(state.openTicketSeq) || 0) + 1);
+    if (!quiet && attempt === 0) setStatus("Apertura chat…", false);
     return fetchJson(apiBase() + "/" + encodeURIComponent(id), {
       method: "GET",
       headers: authHeaders(),
       cache: "no-store",
-      timeoutMs: 18000,
+      timeoutMs: attempt === 0 ? 18000 : 22000,
     })
       .then(function (out) {
+        if (seq !== state.openTicketSeq || state.selectedId !== id) return;
         if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus((out.data && out.data.message) || "Ticket non disponibile.", true);
+          var status = Number((out.res && out.res.status) || 0);
+          var errCode = String((out.data && out.data.error) || "");
+          var retryable =
+            !out.data ||
+            status === 0 ||
+            status === 401 ||
+            status === 408 ||
+            status === 429 ||
+            status >= 500 ||
+            errCode === "missing_token" ||
+            errCode === "invalid_token" ||
+            errCode === "unauthorized";
+          if (retryable && attempt < 5) {
+            return new Promise(function (resolve) {
+              window.setTimeout(resolve, 350 * (attempt + 1));
+            }).then(function () {
+              return openTicket(id, quiet, { attempt: attempt + 1 });
+            });
+          }
+          if (!quiet || attempt > 0) {
+            setStatus((out.data && out.data.message) || "Ticket non disponibile.", true);
+          }
+          restorePageScroll(yHold);
           return;
         }
         state.detail = out.data.ticket;
@@ -765,15 +966,22 @@
         });
         state.composeOpen = false;
         setStatus("");
-        refreshChatPane();
+        withPageScrollPreserved(function () {
+          refreshChatPane();
+        });
+        restorePageScroll(yHold);
         applyPendingReplyAfterOpen();
         settleRateDockSoon();
         sendTicketPresence({ force: true });
         requestAnimationFrame(function () {
+          restorePageScroll(yHold);
           scrollChatBottom(true);
           hydrateContentRefs(state.messages);
           queueMissingAvatarsFromMessages(state.messages);
         });
+        window.setTimeout(function () {
+          restorePageScroll(yHold);
+        }, 80);
         if (state.detail && state.detail.userId) {
           queueContentResolve({ userIds: [String(state.detail.userId)] });
         }
@@ -798,8 +1006,22 @@
         }
       })
       .catch(function (err) {
+        if (seq !== state.openTicketSeq || state.selectedId !== id) return;
         var aborted = err && (err.name === "AbortError" || err.code === 20);
-        setStatus(aborted ? "Timeout: riprova ad aprire il ticket." : "Errore di rete.", true);
+        if (attempt < 5) {
+          return new Promise(function (resolve) {
+            window.setTimeout(resolve, 400 * (attempt + 1));
+          }).then(function () {
+            return openTicket(id, quiet, { attempt: attempt + 1 });
+          });
+        }
+        /* notifApiErr1: abort dopo retry → silenzioso se quiet (open da notifica) */
+        if (aborted || quiet) {
+          restorePageScroll(yHold);
+          return;
+        }
+        setStatus("Errore di rete.", true);
+        restorePageScroll(yHold);
       });
   }
 
@@ -818,6 +1040,33 @@
     if (!msg || !msg.id) return;
     if (state.deletedMessageIds[msg.id]) return;
     if (state.seenMessageIds[msg.id]) return;
+    if (!msg.pending) {
+      try {
+        var content = String(msg.content || "").trim();
+        var authorId = String(msg.authorId || "").trim();
+        if (content) {
+          var pendingHit = (state.messages || []).find(function (m) {
+            if (!m || !m.pending) return false;
+            if (authorId && String(m.authorId || "") && String(m.authorId || "") !== authorId) {
+              return false;
+            }
+            return String(m.content || "").trim() === content;
+          });
+          if (pendingHit && pendingHit.id) removePendingMessage(pendingHit.id);
+        }
+        var created = Date.parse(String(msg.createdAt || "")) || Date.now();
+        if (content && authorId) {
+          var nearDup = (state.messages || []).some(function (m) {
+            if (!m || m.pending || String(m.id) === String(msg.id)) return false;
+            if (String(m.authorId || "") !== authorId) return false;
+            if (String(m.content || "").trim() !== content) return false;
+            var t = Date.parse(String(m.createdAt || "")) || 0;
+            return Math.abs(created - t) < 15000;
+          });
+          if (nearDup) return;
+        }
+      } catch (ePend) {}
+    }
     state.seenMessageIds[msg.id] = true;
     state.messages.push(msg);
     if (msg.authorId && msg.authorRoleName) {
@@ -940,9 +1189,10 @@
       raw = String(el.value || "").slice(0, start);
     }
     var line = activeInputLine(raw);
-    var channel = line.match(/#([^\s#]*)$/);
+    /* Channel solo con # singolo (non ## heading / markdown). */
+    var channel = line.match(/(^|[^#])#([^\s#]*)$/);
     if (channel) {
-      return { kind: "channel", q: channel[1] || "", line: line };
+      return { kind: "channel", q: channel[2] || "", line: line };
     }
     var mention = line.match(/@([^\s@]*)$/);
     if (mention) {
@@ -1172,6 +1422,26 @@
     loadList({ soft: true });
   }
 
+  function scopeSwitcherHtml() {
+    if (!hasStaffInboxAccess()) return "";
+    var userOn = state.viewMode !== "staff";
+    return (
+      '<div class="vc-wt-scope-dock">' +
+      '<div class="vc-wt-scope-bar vc-notif-scope-bar" role="tablist" aria-label="Vista ticket">' +
+      '<button type="button" role="tab" class="vc-notif-scope-bar__btn' +
+      (userOn ? " is-active" : "") +
+      '" data-view-mode="user" aria-selected="' +
+      (userOn ? "true" : "false") +
+      '"><i class="fa fa-user" aria-hidden="true"></i><span>Personali</span></button>' +
+      '<button type="button" role="tab" class="vc-notif-scope-bar__btn' +
+      (!userOn ? " is-active" : "") +
+      '" data-view-mode="staff" aria-selected="' +
+      (!userOn ? "true" : "false") +
+      '"><i class="fa fa-inbox" aria-hidden="true"></i><span>Staff</span></button>' +
+      "</div></div>"
+    );
+  }
+
   function filtersHtml() {
     var filters = isStaffMode
       ? [
@@ -1187,37 +1457,10 @@
           { id: "closed", label: "Chiusi" },
         ];
     var catLabels = { supporto: "Supporto", partnership: "Partnership", high: "High Staff", perks: "Perks" };
-    var catSelect = "";
-    if (isStaffMode && state.staffCategories.length) {
-      var catLabel = catLabels[state.categoryFilter] || "Tutte le categorie";
-      catSelect =
-        '<div class="vc-wt-dd" data-cat-dd>' +
-        '<button type="button" class="vc-wt-dd__btn" data-cat-dd-toggle aria-haspopup="listbox" aria-expanded="false">' +
-        "<span>" +
-        esc(catLabel) +
-        '</span><i class="fa fa-chevron-down" aria-hidden="true"></i></button>' +
-        '<div class="vc-wt-dd__menu" data-cat-dd-menu hidden role="listbox">' +
-        '<button type="button" class="vc-wt-dd__opt' +
-        (state.categoryFilter ? "" : " is-active") +
-        '" data-cat-filter="" role="option">Tutte le categorie</button>' +
-        state.staffCategories
-          .map(function (id) {
-            return (
-              '<button type="button" class="vc-wt-dd__opt' +
-              (state.categoryFilter === id ? " is-active" : "") +
-              '" data-cat-filter="' +
-              esc(id) +
-              '" role="option">' +
-              esc(catLabels[id] || id) +
-              "</button>"
-            );
-          })
-          .join("") +
-        "</div></div>";
-    }
-    return (
-      '<div class="vc-wt-toolbar">' +
-      '<div class="vc-wt-chiprow">' +
+    var statusRow =
+      '<div class="vc-wt-filter-group">' +
+      '<span class="vc-wt-filter-group__label">Stato</span>' +
+      '<div class="vc-wt-filter-group__seg" role="group" aria-label="Filtro stato">' +
       filters
         .map(function (f) {
           return (
@@ -1231,9 +1474,48 @@
           );
         })
         .join("") +
+      "</div></div>";
+    var catRow = "";
+    if (isStaffMode && state.staffCategories.length) {
+      catRow =
+        '<div class="vc-wt-filter-group">' +
+        '<span class="vc-wt-filter-group__label">Categorie</span>' +
+        '<div class="vc-wt-filter-group__seg" role="group" aria-label="Filtro categorie">' +
+        '<button type="button" class="vc-wt-chip' +
+        (state.categoryFilter ? "" : " is-active") +
+        '" data-cat-filter="">Tutte</button>' +
+        state.staffCategories
+          .map(function (id) {
+            return (
+              '<button type="button" class="vc-wt-chip' +
+              (state.categoryFilter === id ? " is-active" : "") +
+              '" data-cat-filter="' +
+              esc(id) +
+              '">' +
+              esc(catLabels[id] || id) +
+              "</button>"
+            );
+          })
+          .join("") +
+        "</div></div>";
+    }
+    var cta = "";
+    if (!isStaffMode) {
+      cta =
+        '<div class="vc-wt-filter-menu__toolbar">' +
+        '<button type="button" class="vc-wt-new-btn vc-wt-new-btn--cta" data-act="compose" title="Nuovo ticket">' +
+        '<i class="fa fa-plus" aria-hidden="true"></i><span>Nuovo ticket</span></button>' +
+        "</div>";
+    }
+    return (
+      '<div class="vc-wt-filter-menu" aria-label="Filtri ticket">' +
+      '<div class="vc-wt-filter-menu__main">' +
+      '<div class="vc-wt-filter-menu__rows">' +
+      statusRow +
+      catRow +
       "</div>" +
-      catSelect +
-      "</div>"
+      cta +
+      "</div></div>"
     );
   }
 
@@ -2273,9 +2555,38 @@
     if (!live) return;
     var text = serializeRichInput(el);
     live.innerHTML = buildComposerLiveHtml(text);
+    syncComposerAutosize(el);
     live.scrollTop = el.scrollTop;
     live.scrollLeft = el.scrollLeft;
     el.classList.toggle("has-md-live", Boolean(String(text || "").trim() || richInputHasVisualTokens(el)));
+  }
+
+  /* composerAutoGrow1: altezza tipo Discord (sale col testo, poi scroll). */
+  function syncComposerAutosize(el) {
+    if (!el || !isRichInput(el)) return;
+    var host = el.parentElement;
+    var live = host && host.classList.contains("vc-wt-composer__editor") ? host.querySelector(".vc-wt-composer__md-live") : null;
+    var minH = 44;
+    var maxH = Math.max(140, Math.min(Math.floor((window.innerHeight || 800) * 0.42), 360));
+    el.style.height = "auto";
+    if (live) {
+      live.style.height = "auto";
+      live.style.bottom = "auto";
+    }
+    void el.offsetHeight;
+    var contentH = Math.max(el.scrollHeight || 0, live ? live.scrollHeight || 0 : 0, minH);
+    var next = Math.min(Math.max(contentH, minH), maxH);
+    el.style.height = next + "px";
+    el.style.maxHeight = maxH + "px";
+    el.style.overflowY = contentH > maxH ? "auto" : "hidden";
+    if (live) {
+      live.style.height = next + "px";
+      live.style.maxHeight = maxH + "px";
+      live.style.overflowY = contentH > maxH ? "auto" : "hidden";
+    }
+    if (host && host.classList.contains("vc-wt-composer__editor")) {
+      host.style.minHeight = next + "px";
+    }
   }
 
   function scheduleComposerLivePreview(el) {
@@ -3302,7 +3613,19 @@
     var log = byId("vc-wt-chat-log");
     var node = log && log.querySelector('[data-msg-id="' + targetId + '"]');
     if (!node) return;
-    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    try {
+      var logRect = log.getBoundingClientRect();
+      var nodeRect = node.getBoundingClientRect();
+      var nextTop =
+        Number(log.scrollTop || 0) +
+        (nodeRect.top - logRect.top) -
+        Math.max(0, (log.clientHeight - nodeRect.height) / 2);
+      log.scrollTop = Math.max(0, nextTop);
+    } catch (eJump) {
+      try {
+        node.scrollIntoView({ block: "nearest", inline: "nearest" });
+      } catch (e2) {}
+    }
     node.classList.remove("vc-wt-msg--flash");
     void node.offsetWidth;
     node.classList.add("vc-wt-msg--flash");
@@ -3699,6 +4022,7 @@
       '" spellcheck="true"></div></div>' +
       '<button type="submit" class="vc-wt-composer__send" aria-label="Invia"><i class="fa fa-paper-plane" aria-hidden="true"></i></button>' +
       "</div>" +
+      '<div id="vc-wt-typing" class="vc-chat-typing" hidden aria-live="polite"></div>' +
       "</form>"
     );
   }
@@ -3984,65 +4308,52 @@
   }
 
   function refreshChatPane() {
-    dismissFloatingUi();
-    hideStatusToast();
-    var main = document.querySelector(".vc-wt-main");
-    if (!main) {
-      renderShell();
-      return;
-    }
-    main.classList.toggle("vc-wt-main--active", Boolean(state.selectedId));
-    main.innerHTML = chatPaneHtml();
-    wireChatPaneOnly();
-    refreshListActiveState();
+    withPageScrollPreserved(function () {
+      dismissFloatingUi();
+      hideStatusToast();
+      var main = document.querySelector(".vc-wt-main");
+      if (!main) {
+        renderShell();
+        return;
+      }
+      main.classList.toggle("vc-wt-main--active", Boolean(state.selectedId));
+      main.innerHTML = chatPaneHtml();
+      wireChatPaneOnly();
+      refreshListActiveState();
+    });
   }
 
   function renderShell() {
-    dismissFloatingUi();
-    hideStatusToast();
-    var app = byId("vc-wt-app");
-    if (!app) return;
-    app.hidden = false;
-    var topActions = "";
-    if (hasStaffInboxAccess()) {
-      topActions +=
-        '<div class="vc-wt-seg vc-wt-seg--header" role="tablist" aria-label="Vista ticket">' +
-        '<button type="button" class="vc-wt-seg__btn' +
-        (state.viewMode === "user" ? " is-active" : "") +
-        '" data-view-mode="user">I miei</button>' +
-        '<button type="button" class="vc-wt-seg__btn' +
-        (state.viewMode === "staff" ? " is-active" : "") +
-        '" data-view-mode="staff">Inbox</button>' +
-        "</div>";
-    }
-    if (!isStaffMode) {
-      topActions +=
-        '<button type="button" class="vc-wt-new-btn" data-act="compose" title="Nuovo ticket"><i class="fa fa-plus" aria-hidden="true"></i></button>';
-    }
-    app.innerHTML =
-      '<div class="vc-wt-layout">' +
-      '<aside class="vc-wt-sidebar">' +
-      '<div class="vc-wt-sidebar__top' +
-      (hasStaffInboxAccess() ? " vc-wt-sidebar__top--staff" : "") +
-      '">' +
-      "<h2>" +
-      (isStaffMode ? "Inbox" : "Elenco") +
-      "</h2>" +
-      (topActions ? '<div class="vc-wt-sidebar__actions">' + topActions + "</div>" : "") +
-      "</div>" +
-      filtersHtml() +
-      '<div id="vc-wt-list" class="vc-wt-list">' +
-      ticketListHtml() +
-      "</div>" +
-      '<div id="vc-wt-pager-wrap">' +
-      ticketListPagerHtml() +
-      "</div></aside>" +
-      '<section class="vc-wt-main' +
-      (state.selectedId ? " vc-wt-main--active" : "") +
-      '">' +
-      chatPaneHtml() +
-      "</section></div>";
-    wireAll();
+    withPageScrollPreserved(function () {
+      dismissFloatingUi();
+      hideStatusToast();
+      var app = byId("vc-wt-app");
+      if (!app) return;
+      app.hidden = false;
+      app.innerHTML =
+        '<div class="vc-wt-chrome">' +
+        scopeSwitcherHtml() +
+        filtersHtml() +
+        '<div class="vc-wt-layout">' +
+        '<aside class="vc-wt-sidebar">' +
+        '<div class="vc-wt-sidebar__top">' +
+        "<h2>" +
+        (isStaffMode ? "Staff" : "Personali") +
+        "</h2>" +
+        "</div>" +
+        '<div id="vc-wt-list" class="vc-wt-list">' +
+        ticketListHtml() +
+        "</div>" +
+        '<div id="vc-wt-pager-wrap">' +
+        ticketListPagerHtml() +
+        "</div></aside>" +
+        '<section class="vc-wt-main' +
+        (state.selectedId ? " vc-wt-main--active" : "") +
+        '">' +
+        chatPaneHtml() +
+        "</section></div></div>";
+      wireAll();
+    });
   }
 
   var COMPOSER_MEDIA_MAX = 3;
@@ -4161,8 +4472,22 @@
     var list = byId("vc-wt-list");
     if (!list) return;
     list.querySelectorAll("[data-ticket-id]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+      btn.addEventListener("click", function (ev) {
+        if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+        var y = pageScrollY();
+        var listY = Number(list.scrollTop) || 0;
         openTicket(btn.getAttribute("data-ticket-id"));
+        restorePageScroll(y);
+        try {
+          list.scrollTop = listY;
+        } catch (eListClick) {}
+        requestAnimationFrame(function () {
+          restorePageScroll(y);
+          try {
+            var list2 = byId("vc-wt-list");
+            if (list2) list2.scrollTop = listY;
+          } catch (eList2) {}
+        });
       });
     });
   }
@@ -4205,11 +4530,25 @@
   }
 
   function wireChatActions() {
+    /* ticketActionFail1 */
     document.querySelectorAll("[data-act]").forEach(function (btn) {
       if (btn._vcWired) return;
       btn._vcWired = true;
-      btn.addEventListener("click", function () {
+      btn.addEventListener("click", function (ev) {
+        if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+        if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
         var act = btn.getAttribute("data-act");
+        var y = capturePageScrollY();
+        var opensOverlay =
+          act === "close" ||
+          act === "close-request" ||
+          act === "add-user" ||
+          act === "remove-user" ||
+          act === "switch-cat" ||
+          act === "rename" ||
+          act === "transfer" ||
+          act === "rate-ticket";
+        var run = function () {
         if (act === "compose") {
           state.composeOpen = true;
           clearTicketSelection();
@@ -4222,20 +4561,23 @@
           renderShell();
           return;
         }
-        if (act === "claim") return postAction("/claim");
-        if (act === "unclaim") return postAction("/unclaim");
+        if (act === "claim") return postAction("/claim", null, y);
+        if (act === "unclaim") return postAction("/unclaim", null, y);
         if (act === "rate-ticket") return submitTicketRating();
         if (act === "close") {
           var closePerms = (state.detail && state.detail.permissions) || {};
           if (closePerms.canClose && isStaffMode && String(state.detail.userId) !== String(state.viewerId)) {
             askCloseReason().then(function (reason) {
+              /* ticketModalScrollStay2: ripristina Y salvato prima del modal */
+              restorePageScroll(y);
               if (reason === null) return;
-              return postAction("/close", { reason: reason });
+              return postAction("/close", { reason: reason }, y);
             });
             return;
           }
           askCloseConfirm().then(function (ok) {
-            if (ok) return postAction("/close");
+            restorePageScroll(y);
+            if (ok) return postAction("/close", null, y);
           });
           return;
         }
@@ -4244,32 +4586,37 @@
             title: "Aggiungi utente",
             message: "Cerca e scegli chi aggiungere a questo ticket.",
           }).then(function (userId) {
-            if (userId) postAction("/members", { userId: userId });
+            restorePageScroll(y);
+            if (userId) postAction("/members", { userId: userId }, y);
           });
           return;
         }
         if (act === "remove-user") {
           pickAddedUser().then(function (userId) {
-            if (userId) postAction("/members/remove", { userId: userId });
+            restorePageScroll(y);
+            if (userId) postAction("/members/remove", { userId: userId }, y);
           });
           return;
         }
         if (act === "switch-cat") {
           pickTicketCategory().then(function (category) {
-            if (category) postAction("/category", { category: category });
+            restorePageScroll(y);
+            if (category) postAction("/category", { category: category }, y);
           });
           return;
         }
         if (act === "rename") {
           askRenameSubject().then(function (subject) {
-            if (subject) postAction("/rename", { subject: subject });
+            restorePageScroll(y);
+            if (subject) postAction("/rename", { subject: subject }, y);
           });
           return;
         }
         if (act === "close-request") {
           askCloseRequestReason().then(function (reason) {
+            restorePageScroll(y);
             if (reason === null) return;
-            return postAction("/close-request", { reason: reason });
+            return postAction("/close-request", { reason: reason }, y);
           });
           return;
         }
@@ -4279,19 +4626,32 @@
             message: "Scegli uno staffer che può gestire questa categoria.",
             claimEligible: true,
           }).then(function (userId) {
-            if (userId) postAction("/transfer", { userId: userId });
+            restorePageScroll(y);
+            if (userId) postAction("/transfer", { userId: userId }, y);
           });
           return;
         }
-        if (act === "close-accept") return postAction("/close-request/accept");
-        if (act === "close-reject") return postAction("/close-request/reject");
+        if (act === "close-accept") return postAction("/close-request/accept", null, y);
+        if (act === "close-reject") return postAction("/close-request/reject", null, y);
+        };
+        /* ticketDialogScrollFight1: overlay/dialog → no restore immediato (combatte col pin) */
+        if (opensOverlay) {
+          run();
+        } else {
+          withPageScrollPreserved(run);
+          restorePageScroll(y);
+        }
       });
     });
   }
 
   function askCloseConfirm() {
-    if (window.VcDialog && typeof window.VcDialog.confirm === "function") {
-      return window.VcDialog.confirm({
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return false;
+      return D.confirm({
         title: "Chiudi ticket",
         message: "Vuoi chiudere questo ticket?",
         confirmLabel: "Chiudi",
@@ -4299,13 +4659,16 @@
         danger: true,
         icon: "fa-times-circle",
       });
-    }
-    return Promise.resolve(window.confirm("Chiudere questo ticket?"));
+    });
   }
 
   function askCloseReason() {
-    if (window.VcDialog && typeof window.VcDialog.prompt === "function") {
-      return window.VcDialog.prompt({
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.prompt !== "function") return null;
+      return D.prompt({
         title: "Chiudi ticket",
         message: "Puoi lasciare un motivo opzionale per l’utente.",
         label: "Motivo chiusura (opzionale)",
@@ -4319,17 +4682,18 @@
         if (value === null) return null;
         return String(value || "").trim();
       });
-    }
-    var fallback = window.prompt("Motivo chiusura (opzionale):");
-    if (fallback === null) return Promise.resolve(null);
-    return Promise.resolve(String(fallback || "").trim());
+    });
   }
 
   function askRenameSubject() {
     var current =
       (state.detail && (state.detail.renameTail || state.detail.authorName)) || "";
-    if (window.VcDialog && typeof window.VcDialog.prompt === "function") {
-      return window.VcDialog.prompt({
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.prompt !== "function") return null;
+      return D.prompt({
         title: "Rinomina ticket",
         message: "Come su Discord: resta la categoria, cambia solo lo username.",
         label: "Username",
@@ -4344,16 +4708,16 @@
         var s = String(value || "").trim();
         return s || null;
       });
-    }
-    var fallback = window.prompt("Nuovo username del ticket:", current);
-    if (fallback === null) return Promise.resolve(null);
-    var s = String(fallback || "").trim();
-    return Promise.resolve(s || null);
+    });
   }
 
   function askCloseRequestReason() {
-    if (window.VcDialog && typeof window.VcDialog.prompt === "function") {
-      return window.VcDialog.prompt({
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.prompt !== "function") return null;
+      return D.prompt({
         title: "Richiedi chiusura",
         message: "L’utente potrà accettare o rifiutare. Il motivo è opzionale.",
         label: "Motivo (opzionale)",
@@ -4366,15 +4730,16 @@
         if (value === null) return null;
         return String(value || "").trim();
       });
-    }
-    var fallback = window.prompt("Motivo richiesta chiusura (opzionale):");
-    if (fallback === null) return Promise.resolve(null);
-    return Promise.resolve(String(fallback || "").trim());
+    });
   }
 
   function askPartnershipDescription(defaultValue) {
-    if (window.VcDialog && typeof window.VcDialog.prompt === "function") {
-      return window.VcDialog.prompt({
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.prompt !== "function") return null;
+      return D.prompt({
         title: "Invia partnership",
         message: "Come sul modulo Discord: incolla la descrizione del server con un invite valido.",
         label: "Descrizione del server",
@@ -4390,11 +4755,7 @@
         var s = String(value || "").trim();
         return s || null;
       });
-    }
-    var fallback = window.prompt("Descrizione server (con invite Discord):", defaultValue || "");
-    if (fallback === null) return Promise.resolve(null);
-    var s = String(fallback || "").trim();
-    return Promise.resolve(s || null);
+    });
   }
 
   function parsePartnershipComposerInput(text) {
@@ -4423,8 +4784,18 @@
         return !String(parsed.description || "").trim();
   }
 
+  function invalidateCommandCatalog() {
+    state.commandCatalogLoaded = false;
+    state.commandCatalogTicketId = "";
+    state.commandCatalogLoading = null;
+    state.commandCatalogLoadTicketId = "";
+  }
+
   function runPartnershipCommandFlow(seedText) {
-    if (state.busy) return;
+    if (state.partnershipFlowOpen) return Promise.resolve(null);
+    // Non restare bloccati da un busy stale dopo un comando precedente.
+    state.busy = false;
+    state.partnershipFlowOpen = true;
     var parsed = parsePartnershipComposerInput(seedText || "/partnership");
     var managerPromise = parsed.managerId
       ? Promise.resolve(parsed.managerId)
@@ -4432,20 +4803,29 @@
           title: "Manager partnership",
           message: "Come su Discord: scegli l’utente manager della partnership.",
         });
-    return managerPromise.then(function (managerId) {
-      if (!managerId) {
-        setStatus("Partnership annullata.", true);
-        return null;
-      }
-      return askPartnershipDescription(parsed.description || "").then(function (description) {
-        if (!description) {
+    return managerPromise
+      .then(function (managerId) {
+        if (!managerId) {
           setStatus("Partnership annullata.", true);
           return null;
         }
-        runTicketCommand("/partnership <@" + managerId + ">\n" + description);
-        return true;
+        return askPartnershipDescription(parsed.description || "").then(function (description) {
+          if (!description) {
+            setStatus("Partnership annullata.", true);
+            return null;
+          }
+          runTicketCommand("/partnership <@" + managerId + ">\n" + description);
+          return true;
+        });
+      })
+      .catch(function () {
+        setStatus("Partnership annullata.", true);
+        return null;
+      })
+      .then(function (result) {
+        state.partnershipFlowOpen = false;
+        return result;
       });
-    });
   }
 
   function pickTicketCategory() {
@@ -4458,8 +4838,12 @@
     ].filter(function (c) {
       return c.id !== current;
     });
-    if (window.VcDialog && typeof window.VcDialog.choose === "function") {
-      return window.VcDialog.choose({
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.choose !== "function") return null;
+      return D.choose({
         title: "Cambia categoria",
         message: "Scegli la nuova categoria del ticket.",
         icon: "fa-exchange",
@@ -4468,28 +4852,35 @@
           return { id: c.id, label: c.label };
         }),
       });
-    }
-    var picked = window.prompt("Categoria (supporto, partnership, high, perks):", cats[0] && cats[0].id);
-    if (picked === null) return Promise.resolve(null);
-    return Promise.resolve(String(picked || "").trim().toLowerCase() || null);
+    });
   }
 
   function pickAddedUser() {
     var added = (state.detail && Array.isArray(state.detail.addedUsers) && state.detail.addedUsers) || [];
     if (!added.length) {
-      if (window.VcDialog && typeof window.VcDialog.alert === "function") {
-        window.VcDialog.alert({
-          title: "Rimuovi utenti",
-          message: "Non ci sono utenti extra in questo ticket. Prima aggiungine uno.",
-          icon: "fa-user-times",
-        });
-      } else {
+      return (typeof window.__vcEnsureDialog === "function"
+        ? window.__vcEnsureDialog()
+        : Promise.resolve(window.VcDialog)
+      ).then(function (D) {
+        if (D && typeof D.alert === "function") {
+          return D.alert({
+            title: "Rimuovi utenti",
+            message: "Non ci sono utenti extra in questo ticket. Prima aggiungine uno.",
+            icon: "fa-user-times",
+          }).then(function () {
+            return null;
+          });
+        }
         setStatus("Nessun utente extra da rimuovere.", true);
-      }
-      return Promise.resolve(null);
+        return null;
+      });
     }
-    if (window.VcDialog && typeof window.VcDialog.choose === "function") {
-      return window.VcDialog.choose({
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.choose !== "function") return null;
+      return D.choose({
         title: "Rimuovi utente",
         message: "Chi vuoi togliere da questo ticket?",
         icon: "fa-user-times",
@@ -4498,10 +4889,7 @@
           return { id: String(u.id), label: String(u.name || u.id), danger: true };
         }),
       });
-    }
-    var picked = window.prompt("ID utente da rimuovere:");
-    if (picked === null) return Promise.resolve(null);
-    return Promise.resolve(String(picked || "").trim() || null);
+    });
   }
 
   function ensureUserPickOverlay() {
@@ -4536,7 +4924,17 @@
     if (input) input.value = "";
     if (list) list.innerHTML = "<p class=\"vc-wt-user-pick__empty\">Scrivi per cercare…</p>";
     overlay.hidden = false;
-    if (input) setTimeout(function () { input.focus(); }, 30);
+    if (input) {
+      setTimeout(function () {
+        try {
+          input.focus({ preventScroll: true });
+        } catch (eFs) {
+          try {
+            input.focus();
+          } catch (eFs2) {}
+        }
+      }, 30);
+    }
     var timer = null;
     var settled = false;
     return new Promise(function (resolve) {
@@ -4816,7 +5214,11 @@
   function placeCaretInRichInput(el) {
     if (!el) return;
     try {
-      el.focus();
+      try {
+        el.focus({ preventScroll: true });
+      } catch (eF) {
+        el.focus();
+      }
       var range = document.createRange();
       range.setStart(el, 0);
       range.collapse(true);
@@ -4830,7 +5232,11 @@
   function placeCaretAtEnd(el) {
     if (!el) return;
     try {
-      el.focus();
+      try {
+        el.focus({ preventScroll: true });
+      } catch (eF) {
+        el.focus();
+      }
       var range = document.createRange();
       if (!el.childNodes.length) {
         range.setStart(el, 0);
@@ -4988,43 +5394,99 @@
     return el;
   }
 
-  function positionFloatingMenu(menu, el, maxHeight) {
-    if (!menu || !el) return;
-    var anchor = composerMenuAnchor(el) || el;
-    function place() {
-      if (menu.hidden) return;
-      var rect = anchor.getBoundingClientRect();
-      var maxH = Math.min(maxHeight || 280, window.innerHeight - 24);
-      menu.style.position = "fixed";
-      menu.style.zIndex = "200000";
-      menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 360)) + "px";
-      menu.style.width = Math.min(360, Math.max(240, rect.width)) + "px";
-      menu.style.maxHeight = maxH + "px";
-      menu.style.bottom = "auto";
-      menu.style.visibility = "visible";
-      menu.style.opacity = "1";
-      var h = menu.offsetHeight || 160;
-      if (rect.top - h - 8 >= 8) {
-        menu.style.top = Math.max(8, rect.top - h - 8) + "px";
-      } else if (rect.bottom + h + 8 <= window.innerHeight - 8) {
-        menu.style.top = Math.min(window.innerHeight - h - 8, rect.bottom + 8) + "px";
-      } else {
-        menu.style.top = Math.max(8, window.innerHeight - h - 8) + "px";
+  function floatingMenuViewport() {
+    try {
+      var vv = window.visualViewport;
+      if (vv && typeof vv.height === "number" && vv.height > 0) {
+        return {
+          top: Number(vv.offsetTop) || 0,
+          left: Number(vv.offsetLeft) || 0,
+          width: Number(vv.width) || window.innerWidth || 0,
+          height: Number(vv.height) || window.innerHeight || 0,
+        };
       }
-    }
-    place();
-    requestAnimationFrame(function () {
-      requestAnimationFrame(place);
-    });
+    } catch (eVv) {}
+    return {
+      top: 0,
+      left: 0,
+      width: window.innerWidth || 0,
+      height: window.innerHeight || 0,
+    };
   }
 
+  function floatingMenuLayoutHeight() {
+    try {
+      var docH = document.documentElement && document.documentElement.clientHeight;
+      if (docH && docH > 0) return docH;
+    } catch (eDoc) {}
+    return window.innerHeight || 0;
+  }
+
+  /* ticketMentionPos2: room solo sul lato scelto; sopra = bottom-anchor (no clamp/flicker) */
+  function positionFloatingMenu(menu, el, maxHeight) {
+    if (!menu || !el || menu.hidden) return;
+    var inputRect = el.getBoundingClientRect();
+    var widthAnchor = composerMenuAnchor(el) || el;
+    var widthRect = widthAnchor.getBoundingClientRect();
+    var vp = floatingMenuViewport();
+    var layoutH = floatingMenuLayoutHeight();
+    var gap = 8;
+    var visibleTop = vp.top + gap;
+    var visibleBottom = vp.top + vp.height - gap;
+    var spaceAbove = Math.max(0, inputRect.top - visibleTop);
+    var spaceBelow = Math.max(0, visibleBottom - inputRect.bottom);
+    var wantMax = maxHeight || 280;
+    var keyboardOpen = layoutH > 0 && vp.height > 0 && vp.height < layoutH * 0.85;
+    var preferAbove =
+      keyboardOpen || spaceAbove >= Math.min(120, wantMax) || spaceAbove >= spaceBelow;
+    if (preferAbove && spaceAbove < 72 && spaceBelow > spaceAbove + 24) {
+      preferAbove = false;
+    }
+    var room = Math.max(0, (preferAbove ? spaceAbove : spaceBelow) - gap);
+    var maxH = Math.min(wantMax, Math.max(72, room || 72));
+    var left = Math.max(vp.left + gap, Math.min(widthRect.left, vp.left + vp.width - 280));
+    var width = Math.min(
+      360,
+      Math.max(220, Math.min(widthRect.width || inputRect.width || 240, vp.width - gap * 2)),
+    );
+    menu.style.position = "fixed";
+    menu.style.zIndex = "200000";
+    menu.style.left = Math.round(left) + "px";
+    menu.style.width = Math.round(width) + "px";
+    menu.style.maxHeight = Math.round(maxH) + "px";
+    menu.style.visibility = "visible";
+    menu.style.opacity = "1";
+    var placeKey;
+    if (preferAbove) {
+      var bottom = Math.max(gap, layoutH - inputRect.top + gap);
+      menu.style.top = "auto";
+      menu.style.bottom = Math.round(bottom) + "px";
+      placeKey = "b:" + Math.round(bottom) + ":" + Math.round(maxH) + ":" + Math.round(left);
+    } else {
+      var top = inputRect.bottom + gap;
+      if (top + Math.min(96, maxH) > visibleBottom) {
+        top = Math.max(visibleTop, visibleBottom - maxH);
+      }
+      menu.style.bottom = "auto";
+      menu.style.top = Math.round(top) + "px";
+      placeKey = "t:" + Math.round(top) + ":" + Math.round(maxH) + ":" + Math.round(left);
+    }
+    if (menu.getAttribute("data-vc-float-place") === placeKey) return;
+    menu.setAttribute("data-vc-float-place", placeKey);
+  }
+
+  var floatMenuSyncTimer = 0;
   function syncFloatingMenus() {
-    if (state.commandMenu.open) {
-      positionCommandMenu(byId(state.commandMenu.elId || "vc-wt-composer-text"));
-    }
-    if (state.mentionMenu.open) {
-      positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
-    }
+    if (floatMenuSyncTimer) return;
+    floatMenuSyncTimer = window.setTimeout(function () {
+      floatMenuSyncTimer = 0;
+      if (state.commandMenu.open) {
+        positionCommandMenu(byId(state.commandMenu.elId || "vc-wt-composer-text"));
+      }
+      if (state.mentionMenu.open) {
+        positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
+      }
+    }, 48);
   }
 
   function positionMentionMenu(el) {
@@ -5033,23 +5495,55 @@
   }
 
   function hideMentionMenu() {
-    state.mentionMenu = { open: false, q: "", items: [], index: 0, elId: "", mode: "user" };
+    state.mentionMenu = { open: false, q: "", items: [], index: 0, elId: "", mode: "user", filter: "all" };
     var menu = byId("vc-wt-mention-menu");
     if (menu) {
       menu.hidden = true;
       menu.innerHTML = "";
+      try {
+        menu.removeAttribute("data-vc-float-place");
+        menu.style.top = "";
+        menu.style.bottom = "";
+      } catch (eHideMm) {}
     }
   }
 
   function renderMentionMenu() {
     var menu = ensureMentionMenu();
     var mode = state.mentionMenu.mode || "user";
+    var filter = state.mentionMenu.filter || "all";
+    var showFilters = mode !== "channel" && effectivePermissions().isStaffViewer;
+    var filtersHtml = showFilters
+      ? '<div class="vc-wt-mention-menu__filters" role="tablist">' +
+        [
+          { id: "all", label: "Tutti" },
+          { id: "users", label: "Utenti" },
+          { id: "roles", label: "Ruoli" },
+        ]
+          .map(function (f) {
+            return (
+              '<button type="button" class="vc-wt-mention-menu__filter' +
+              (filter === f.id ? " is-on" : "") +
+              '" data-mention-filter="' +
+              f.id +
+              '" role="tab" aria-selected="' +
+              (filter === f.id ? "true" : "false") +
+              '">' +
+              f.label +
+              "</button>"
+            );
+          })
+          .join("") +
+        "</div>"
+      : "";
     if (state.mentionMenu.loading) {
       menu.hidden = false;
       menu.innerHTML =
+        filtersHtml +
         '<p class="vc-wt-mention-menu__hint">' +
         (mode === "channel" ? "Caricamento canali…" : "Caricamento menzioni…") +
         "</p>";
+      wireMentionMenuFilters(menu);
       positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
       return;
     }
@@ -5062,62 +5556,67 @@
     if (!items.length) {
       menu.hidden = false;
       menu.innerHTML =
+        filtersHtml +
         '<p class="vc-wt-mention-menu__hint">' +
         (mode === "channel" ? "Nessun canale trovato" : "Nessuna menzione trovata") +
         "</p>";
+      wireMentionMenuFilters(menu);
       positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
       return;
     }
     menu.hidden = false;
-    menu.innerHTML = items
-      .map(function (it, idx) {
-        var type = String(it.type || "user");
-        var icon = String(it.channelIcon || "");
-        var cls =
-          "vc-wt-mention-menu__item" +
-          (idx === state.mentionMenu.index ? " is-active" : "") +
-          (type === "role" ? " is-role" : type === "channel" ? " is-channel is-channel--" + (icon || "text") : " is-user");
-        var avMark = "#";
-        if (type === "role") avMark = "R";
-        else if (type === "channel") {
-          if (icon === "voice" || icon === "stage") avMark = "♫";
-          else if (icon === "thread") avMark = "⎘";
-          else if (icon === "forum" || icon === "media") avMark = "☰";
-          else if (icon === "news") avMark = "!";
-          else avMark = "#";
-        } else avMark = "@";
-        var av =
-          type === "user" && it.avatarUrl
-            ? '<img class="vc-wt-mention-menu__av" src="' + esc(it.avatarUrl) + '" alt="" />'
-            : '<span class="vc-wt-mention-menu__av vc-wt-mention-menu__av--fallback">' +
-              avMark +
-              "</span>";
-        var prefix = type === "channel" ? "#" : "@";
-        var sub = "Utente";
-        if (type === "role") sub = "Ruolo";
-        else if (type === "channel") {
-          sub = it.channelKind || "Canale";
-          if (it.parentName) sub += " · " + it.parentName;
-        } else if (it.roleName) {
-          sub = String(it.roleName);
-          if (it.username) sub += " · @" + it.username;
-        } else if (it.username) sub = it.username;
-        return (
-          '<button type="button" class="' +
-          cls +
-          '" data-mention-idx="' +
-          idx +
-          '">' +
-          av +
-          '<span class="vc-wt-mention-menu__meta"><strong>' +
-          prefix +
-          esc(it.name) +
-          "</strong><small>" +
-          esc(sub) +
-          "</small></span></button>"
-        );
-      })
-      .join("");
+    menu.innerHTML =
+      filtersHtml +
+      items
+        .map(function (it, idx) {
+          var type = String(it.type || "user");
+          var icon = String(it.channelIcon || "");
+          var cls =
+            "vc-wt-mention-menu__item" +
+            (idx === state.mentionMenu.index ? " is-active" : "") +
+            (type === "role" ? " is-role" : type === "channel" ? " is-channel is-channel--" + (icon || "text") : " is-user");
+          var avMark = "#";
+          if (type === "role") avMark = "R";
+          else if (type === "channel") {
+            if (icon === "voice" || icon === "stage") avMark = "♫";
+            else if (icon === "thread") avMark = "⎘";
+            else if (icon === "forum" || icon === "media") avMark = "☰";
+            else if (icon === "news") avMark = "!";
+            else avMark = "#";
+          } else avMark = "@";
+          var av =
+            type === "user" && it.avatarUrl
+              ? '<img class="vc-wt-mention-menu__av" src="' + esc(it.avatarUrl) + '" alt="" />'
+              : '<span class="vc-wt-mention-menu__av vc-wt-mention-menu__av--fallback">' +
+                avMark +
+                "</span>";
+          var prefix = type === "channel" ? "#" : "@";
+          var sub = "Utente";
+          if (type === "role") sub = "Ruolo";
+          else if (type === "channel") {
+            sub = it.channelKind || "Canale";
+            if (it.parentName) sub += " · " + it.parentName;
+          } else if (it.roleName) {
+            sub = String(it.roleName);
+            if (it.username) sub += " · @" + it.username;
+          } else if (it.username) sub = it.username;
+          return (
+            '<button type="button" class="' +
+            cls +
+            '" data-mention-idx="' +
+            idx +
+            '">' +
+            av +
+            '<span class="vc-wt-mention-menu__meta"><strong>' +
+            prefix +
+            esc(it.name) +
+            "</strong><small>" +
+            esc(sub) +
+            "</small></span></button>"
+          );
+        })
+        .join("");
+    wireMentionMenuFilters(menu);
     menu.querySelectorAll("[data-mention-idx]").forEach(function (btn) {
       if (btn._vcMentionPickWired) return;
       btn._vcMentionPickWired = true;
@@ -5134,6 +5633,22 @@
       btn.addEventListener("click", pick);
     });
     positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
+  }
+
+  function wireMentionMenuFilters(menu) {
+    if (!menu) return;
+    menu.querySelectorAll("[data-mention-filter]").forEach(function (btn) {
+      if (btn._vcMentionFilterWired) return;
+      btn._vcMentionFilterWired = true;
+      btn.addEventListener("mousedown", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var next = String(btn.getAttribute("data-mention-filter") || "all");
+        if (next === String(state.mentionMenu.filter || "all")) return;
+        state.mentionMenu.filter = next;
+        fetchMentions(state.mentionMenu.q || "", state.mentionMenu.elId, state.mentionMenu.mode || "user");
+      });
+    });
   }
 
   function escapeRegExp(s) {
@@ -5202,11 +5717,13 @@
 
   function fetchMentions(q, elId, mode) {
     mode = mode || "user";
+    var filter = mode === "channel" ? "all" : String(state.mentionMenu.filter || "all");
     var sameOpen =
       state.mentionMenu &&
       state.mentionMenu.open &&
       String(state.mentionMenu.q || "") === String(q || "") &&
-      String(state.mentionMenu.mode || "") === mode;
+      String(state.mentionMenu.mode || "") === mode &&
+      String(state.mentionMenu.filter || "all") === filter;
     var keepIndex = sameOpen ? Math.max(0, Number(state.mentionMenu.index) || 0) : 0;
     state.mentionMenu = {
       open: true,
@@ -5216,6 +5733,7 @@
       elId: elId || "vc-wt-composer-text",
       loading: !sameOpen || !(state.mentionMenu.items && state.mentionMenu.items.length),
       mode: mode,
+      filter: filter,
     };
     renderMentionMenu();
     var url =
@@ -5223,6 +5741,7 @@
       "/mentions?q=" +
       encodeURIComponent(q || "") +
       (mode === "channel" ? "&kind=channels" : "") +
+      (mode !== "channel" && filter !== "all" ? "&filter=" + encodeURIComponent(filter) : "") +
       (state.selectedId ? "&ticketId=" + encodeURIComponent(state.selectedId) : "");
     return fetchJson(url, { method: "GET", headers: authHeaders(), cache: "no-store" }).then(function (out) {
       if (!out.res.ok || !out.data || !out.data.ok) {
@@ -5234,6 +5753,7 @@
           elId: elId || "vc-wt-composer-text",
           loading: false,
           mode: mode,
+          filter: filter,
         };
         renderMentionMenu();
         return;
@@ -5270,6 +5790,7 @@
         elId: elId || "vc-wt-composer-text",
         loading: false,
         mode: mode,
+        filter: filter,
       };
       renderMentionMenu();
     }).catch(function () {
@@ -5281,6 +5802,7 @@
         elId: elId || "vc-wt-composer-text",
         loading: false,
         mode: mode,
+        filter: filter,
       };
       renderMentionMenu();
     });
@@ -5292,6 +5814,11 @@
     if (menu) {
       menu.hidden = true;
       menu.innerHTML = "";
+      try {
+        menu.removeAttribute("data-vc-float-place");
+        menu.style.top = "";
+        menu.style.bottom = "";
+      } catch (eHideCm) {}
     }
   }
 
@@ -5486,6 +6013,8 @@
         state.composerText = "";
         saveTicketComposerDraft();
       }
+      // Sempre riapribile: non dipendere da busy di un comando precedente.
+      state.busy = false;
       runPartnershipCommandFlow("/partnership");
       return;
     }
@@ -5900,6 +6429,7 @@
   function deleteMessage(messageId, opts) {
     if (!state.selectedId || !messageId || state.busy) return;
     opts = opts || {};
+    var scrollY = capturePageScrollY();
     var run = function () {
             removeMessageFromUi(messageId);
       state.busy = true;
@@ -5932,14 +6462,21 @@
         .catch(function () {
           state.busy = false;
           setStatus("Errore di rete.", true);
+        })
+        .finally(function () {
+          restorePageScroll(scrollY);
         });
     };
     var confirmTitle = opts.fromEmptyEdit ? "Elimina messaggio" : "Elimina messaggio";
     var confirmMsg = opts.fromEmptyEdit
       ? "Hai lasciato il messaggio vuoto. Vuoi eliminarlo?"
       : "Vuoi eliminare questo messaggio? L’azione non si può annullare.";
-    if (window.VcDialog && typeof window.VcDialog.confirm === "function") {
-      window.VcDialog.confirm({
+    (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return;
+      return D.confirm({
         title: confirmTitle,
         message: confirmMsg,
         confirmLabel: "Elimina",
@@ -5947,11 +6484,10 @@
         danger: true,
         icon: "fa-trash-o",
       }).then(function (ok) {
+        restorePageScroll(scrollY);
         if (ok) run();
       });
-      return;
-    }
-    if (window.confirm(opts.fromEmptyEdit ? "Messaggio vuoto: eliminarlo?" : "Eliminare questo messaggio?")) run();
+    });
   }
 
   function copyMessageText(messageId) {
@@ -6162,33 +6698,88 @@
       });
   }
 
-  function postAction(suffix, body) {
-    if (!state.selectedId || state.busy) return;
+  function postAction(suffix, body, preservedScrollY) {
+    if (!state.selectedId) {
+      setStatus("Apri un ticket prima.", true);
+      return;
+    }
+    if (state.busy) {
+      setStatus("Operazione già in corso…", false);
+      return;
+    }
+    if (!getToken()) {
+      setStatus("Sessione Discord assente. Ricarica o accedi di nuovo.", true);
+      return;
+    }
+    var scrollY = Math.max(0, Number(preservedScrollY) || 0);
+    if (!scrollY) scrollY = capturePageScrollY();
     state.busy = true;
+    setChatActionsBusy(true);
     fetchJson(apiBase() + "/" + encodeURIComponent(state.selectedId) + suffix, {
       method: "POST",
       headers: authHeaders(true),
       body: JSON.stringify(body || {}),
+      timeoutMs: 18000,
     })
       .then(function (out) {
-        state.busy = false;
         if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus((out.data && out.data.message) || "Operazione fallita.", true);
+          var apiMsg = out.data && typeof out.data.message === "string" ? out.data.message : "";
+          var code = String((out.data && out.data.error) || "");
+          var status = Number((out.res && out.res.status) || 0);
+          var fallback =
+            status === 401 || code === "unauthorized" || code === "missing_token" || code === "invalid_token"
+              ? "Sessione Discord scaduta. Ricarica o accedi di nuovo."
+              : status === 403 || code === "forbidden"
+                ? "Non hai i permessi per questa azione."
+                : status >= 500 || code === "internal"
+                  ? "Errore server. Riprova tra poco."
+                  : "Operazione fallita.";
+          setStatus(apiMsg || fallback, true);
           return;
         }
-        if (out.data.ticket) {
-          state.detail = mergeTicketDetail(out.data.ticket, { trustPermissions: true });
-          refreshTicketInList(state.detail);
-          refreshChatChrome();
-        }
-        if (out.data.message) appendMessage(out.data.message, out.data.ticket);
-        patchComposerHtml();
-        scrollChatBottom(true);
+        withPageScrollPreserved(function () {
+          if (out.data.ticket) {
+            state.detail = mergeTicketDetail(out.data.ticket, { trustPermissions: true });
+            refreshTicketInList(state.detail);
+            refreshChatChrome();
+          }
+          if (out.data.message && typeof out.data.message === "object") {
+            appendMessage(out.data.message, out.data.ticket);
+          }
+          patchComposerHtml();
+          scrollChatBottom(true);
+        });
+        if (suffix === "/claim") setStatus("Ticket claimato.", false);
+        else if (suffix === "/unclaim") setStatus("Ticket rilasciato.", false);
+        else if (suffix === "/close" || suffix.indexOf("/close-request") === 0) setStatus("Operazione completata.", false);
       })
-      .catch(function () {
+      .catch(function (err) {
+        var aborted = err && (err.name === "AbortError" || err.code === 20);
+        setStatus(aborted ? "Timeout: riprova." : "Errore di rete.", true);
+      })
+      .finally(function () {
         state.busy = false;
-        setStatus("Errore di rete.", true);
+        setChatActionsBusy(false);
+        restorePageScroll(scrollY);
+        try {
+          requestAnimationFrame(function () {
+            restorePageScroll(scrollY);
+          });
+        } catch (eRaf) {}
+        try {
+          if (typeof window.__vcHoldPageScroll === "function") window.__vcHoldPageScroll(220);
+        } catch (eHold) {}
       });
+  }
+
+  function setChatActionsBusy(on) {
+    try {
+      document.querySelectorAll(".vc-wt-action[data-act]").forEach(function (btn) {
+        if (on) btn.setAttribute("aria-busy", "true");
+        else btn.removeAttribute("aria-busy");
+        btn.disabled = Boolean(on);
+      });
+    } catch (eBusyUi) {}
   }
 
   function refreshChatChrome() {
@@ -6223,16 +6814,22 @@
     if (ta && !ta._vcWired) {
       ta._vcWired = true;
       fillRichInput(ta, state.composerText || "");
+      syncComposerAutosize(ta);
       ta.addEventListener("input", function () {
         syncRichInputEmptyState(ta);
         state.composerText = serializeRichInput(ta);
         saveTicketComposerDraft();
         scheduleComposerLivePreview(ta);
         scheduleComposerSuggest(ta, false);
+        syncComposerAutosize(ta);
+        pulseTicketTyping(Boolean(String(state.composerText || "").trim()));
       });
       ta.addEventListener("scroll", function () {
         syncComposerLivePreview(ta);
       }, { passive: true });
+      window.addEventListener("resize", function () {
+        syncComposerAutosize(ta);
+      });
       ta.addEventListener("keyup", function (ev) {
         var key = String(ev.key || "");
         if (
@@ -6287,7 +6884,7 @@
             return;
           }
         }
-        if (state.mentionMenu.open && (state.mentionMenu.items.length || state.mentionMenu.loading)) {
+        if (state.mentionMenu.open) {
           if (ev.key === "ArrowDown" && state.mentionMenu.items.length) {
             ev.preventDefault();
             ev.stopPropagation();
@@ -6448,7 +7045,11 @@
   }
 
   function runTicketCommand(input) {
-    if (!state.selectedId || state.busy || !input) return;
+    if (!state.selectedId || !input) return;
+    if (state.busy) {
+      setStatus("Aspetta: c’è già un comando in corso…", true);
+      return;
+    }
     if (needsPartnershipForm(input)) {
       runPartnershipCommandFlow(input);
       return;
@@ -6461,8 +7062,8 @@
       body: JSON.stringify({ input: input }),
     })
       .then(function (out) {
-        state.busy = false;
         if (out.data && out.data.needPartnershipForm) {
+          state.busy = false;
           runPartnershipCommandFlow(input);
           return;
         }
@@ -6492,12 +7093,17 @@
         }
         if (out.data.message) appendMessage(out.data.message, out.data.ticket);
         else if (out.data.ticket) refreshTicketInList(out.data.ticket);
+        resetComposerUi();
+        invalidateCommandCatalog();
         setStatus("Comando eseguito.", false);
         scrollChatBottom(true);
+        focusComposerSoon();
       })
       .catch(function () {
-        state.busy = false;
         setStatus("Errore di rete.", true);
+      })
+      .then(function () {
+        state.busy = false;
       });
   }
 
@@ -6505,13 +7111,19 @@
     function run() {
       var ta = byId("vc-wt-composer-text");
       if (!ta) return;
+      var y = pageScrollY();
       try {
         ta.focus({ preventScroll: true });
       } catch (e1) {
         try {
-          ta.focus();
-        } catch (e2) {}
+          ta.focus({ preventScroll: true });
+        } catch (e2) {
+          try {
+            ta.focus();
+          } catch (e3) {}
+        }
       }
+      restorePageScroll(y);
     }
     run();
     setTimeout(run, 0);
@@ -6528,9 +7140,20 @@
     hideCommandMenu();
     hideMentionMenu();
     syncComposerReplyBar();
+    stopTicketTypingRoom();
   }
 
   function restoreComposerIfEmpty(text, images) {
+    var want = String(text || "").trim();
+    if (want) {
+      try {
+        var already = (state.messages || []).some(function (m) {
+          if (!m || m.pending) return false;
+          return String(m.content || "").trim() === want;
+        });
+        if (already) return;
+      } catch (eAlready) {}
+    }
     var ta = byId("vc-wt-composer-text");
     var current = serializeRichInput(ta).trim();
     if (current || (state.composerImages && state.composerImages.length)) return;
@@ -6743,8 +7366,32 @@
     }
     if (!state.floatMenuScrollWired) {
       state.floatMenuScrollWired = true;
+      function onFloatMenuViewportChange(ev) {
+        if (!(state.mentionMenu.open || state.commandMenu.open)) return;
+        try {
+          var t = ev && ev.target;
+          if (
+            t &&
+            t.closest &&
+            (t.closest("#vc-wt-mention-menu") ||
+              t.closest("#vc-wt-command-menu") ||
+              t.closest("#vc-wt-composer-text") ||
+              t.closest(".vc-wt-chat-log") ||
+              t.closest(".vc-wt-list"))
+          ) {
+            return;
+          }
+        } catch (eSkip) {}
+        syncFloatingMenus();
+      }
       window.addEventListener("resize", syncFloatingMenus, { passive: true });
-      window.addEventListener("scroll", syncFloatingMenus, { passive: true, capture: true });
+      window.addEventListener("scroll", onFloatMenuViewportChange, { passive: true, capture: true });
+      try {
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", syncFloatingMenus, { passive: true });
+          window.visualViewport.addEventListener("scroll", syncFloatingMenus, { passive: true });
+        }
+      } catch (eVvWire) {}
     }
     document.querySelectorAll("[data-view-mode]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -6844,13 +7491,19 @@
     try {
       var ws = new WebSocket(url);
       state.ws = ws;
+      state.lastWsEventAt = 0;
       ws.onopen = function () {
-        stopPoll();
+        state.lastWsEventAt = Date.now();
+        // Non spegnere del tutto il poll: se il WS resta “aperto” ma muto, i messaggi non arrivano.
+        startPoll();
+        if (state.selectedId) void refreshDetailQuiet();
       };
       ws.onmessage = function (ev) {
         try {
+          state.lastWsEventAt = Date.now();
           var data = JSON.parse(String(ev.data || "{}"));
           var type = String(data.type || "");
+          if (type === "realtime_hello" || type === "suggestions_hello") return;
           if (type === "web_ticket_message") {
             if (data.ticketId && data.ticketId === state.selectedId && data.message) {
               appendMessage(data.message, data.ticket);
@@ -6897,6 +7550,19 @@
           }
           if (type === "web_tickets_list_changed") {
             void scheduleLoadListQuiet();
+            if (state.selectedId) void refreshDetailQuiet();
+            return;
+          }
+          if (type === "web_ticket_typing") {
+            if (data.ticketId && data.ticketId === state.selectedId) {
+              if (data.stop) {
+                var roomStop = ensureTicketTypingRoom();
+                if (roomStop) roomStop.clearUser(data.userId);
+              } else {
+                noteTicketTyping(data.userId, data.userName);
+              }
+            }
+            return;
           }
                   } catch (e3) {}
       };
@@ -6906,7 +7572,7 @@
         state.wsReconnectTimer = setTimeout(function () {
           state.wsReconnectTimer = null;
           connectWs();
-        }, 8000);
+        }, 4000);
       };
       ws.onerror = function () {
         try {
@@ -6915,6 +7581,7 @@
       };
     } catch (e5) {
       state.ws = null;
+      startPoll();
     }
   }
 
@@ -6931,6 +7598,16 @@
       if (document.visibilityState === "hidden") return;
       if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
         if (window.VcApiCache.isWebhookBlocked()) return;
+      }
+      // WS zombie: connesso ma senza eventi da troppo → forza sync chat aperta.
+      var wsOpen = state.ws && state.ws.readyState === 1;
+      if (wsOpen && state.selectedId && state.lastWsEventAt) {
+        var silentFor = Date.now() - Number(state.lastWsEventAt || 0);
+        if (silentFor > 45000) {
+          try {
+            state.ws.close();
+          } catch (eZ) {}
+        }
       }
       void loadListQuiet();
       if (state.selectedId) void refreshDetailQuiet();
@@ -6961,6 +7638,52 @@
       state.listQuietTimer = null;
       void loadListQuiet();
     }, 250);
+  }
+
+  function ensureTicketTypingRoom() {
+    if (state.typingRoom) {
+      state.typingRoom.selfId = String(state.viewerId || "").trim();
+      return state.typingRoom;
+    }
+    if (!window.VcChatTyping || !window.VcChatTyping.TypingRoom) return null;
+    state.typingRoom = new window.VcChatTyping.TypingRoom({
+      selfId: String(state.viewerId || "").trim(),
+      minInterval: 2000,
+      onChange: function () {
+        var el = byId("vc-wt-typing");
+        if (state.typingRoom) state.typingRoom.renderInto(el);
+      },
+      sendFn: function (opts) {
+        var tid = String(state.selectedId || "").trim();
+        if (!tid || !getToken()) return;
+        void fetchJson(apiBase() + "/" + encodeURIComponent(tid) + "/typing", {
+          method: "POST",
+          headers: authHeaders(true),
+          body: JSON.stringify(opts && opts.stop ? { stop: true } : {}),
+          timeoutMs: 6000,
+        }).catch(function () {});
+      },
+    });
+    return state.typingRoom;
+  }
+
+  function pulseTicketTyping(hasText) {
+    var room = ensureTicketTypingRoom();
+    if (room) room.pulse(Boolean(hasText));
+  }
+
+  function noteTicketTyping(userId, userName) {
+    var room = ensureTicketTypingRoom();
+    if (room) room.note(userId, userName);
+  }
+
+  function stopTicketTypingRoom() {
+    if (state.typingRoom) {
+      try {
+        state.typingRoom.pulse(false);
+      } catch (e0) {}
+      state.typingRoom.reset();
+    }
   }
 
   function sendTicketPresence(opts) {
@@ -7033,20 +7756,22 @@
       state.messages.forEach(function (m) {
         if (m && m.id) byIdMap[m.id] = m;
       });
+      var added = 0;
       incoming.forEach(function (m) {
         if (!m || !m.id) return;
         if (state.deletedMessageIds[m.id]) return;
         if (!state.seenMessageIds[m.id]) {
           state.seenMessageIds[m.id] = true;
           state.messages.push(m);
+          added += 1;
           var log = byId("vc-wt-chat-log");
           if (log) {
             log.insertAdjacentHTML("beforeend", messageHtml(m));
             var node = log.querySelector('[data-msg-id="' + m.id + '"]');
             if (node) {
-        wireMessageReactions(node);
-        wireMessageTools(node);
-      }
+              wireMessageReactions(node);
+              wireMessageTools(node);
+            }
           }
           return;
         }
@@ -7055,7 +7780,12 @@
         var nextJson = JSON.stringify(m.reactions || []);
         if (prevJson !== nextJson) patchMessageInState(m);
       });
+      if (added > 0) {
+        scrollChatBottom(false);
+        hydrateContentRefs(incoming);
+      }
       refreshTicketInList(out.data.ticket);
+      refreshChatChrome();
     }).catch(function () {});
   }
 
@@ -7131,17 +7861,80 @@
     });
   }
 
+  function scheduleTokenWaitBoot() {
+    if (state.tokenWaitTimer) return;
+    var tries = 0;
+    function tick() {
+      state.tokenWaitTimer = null;
+      tries += 1;
+      if (getToken()) {
+        boot();
+        return;
+      }
+      if (tries >= 24) return;
+      state.tokenWaitTimer = window.setTimeout(tick, tries < 6 ? 250 : 500);
+    }
+    state.tokenWaitTimer = window.setTimeout(tick, 200);
+  }
+
+  function teardownTicketsAfterLogout() {
+    try {
+      state.viewMode = "user";
+      state.staffAccess = false;
+      isStaffMode = false;
+      stopTicketPresence(true);
+      disconnectWs();
+      stopPoll();
+      state.tickets = [];
+      state.selectedId = "";
+      state.detail = null;
+      state.messages = [];
+      try {
+        var u = new URL(location.href);
+        if (u.searchParams.get("view") === "staff") {
+          u.searchParams.delete("view");
+          history.replaceState(null, "", u.pathname + u.search + u.hash);
+        }
+      } catch (eUrl) {}
+      syncStaffMode();
+      showGate();
+      setStatus("");
+    } catch (eTd) {
+      try {
+        showGate();
+      } catch (eGate) {}
+    }
+  }
+
+  function onDiscordAuthReady() {
+    if (state.tokenWaitTimer) {
+      clearTimeout(state.tokenWaitTimer);
+      state.tokenWaitTimer = null;
+    }
+    if (state.authBootTimer) clearTimeout(state.authBootTimer);
+    state.authBootTimer = window.setTimeout(function () {
+      state.authBootTimer = null;
+      if (!getToken()) {
+        teardownTicketsAfterLogout();
+        return;
+      }
+      boot();
+    }, 80);
+  }
+
   function boot() {
     if (state.bootWired) {
       if (!getToken()) {
-        showGate();
-        setStatus("");
+        teardownTicketsAfterLogout();
+        scheduleTokenWaitBoot();
         return;
       }
       hideGate();
       var rebootReply = consumeReplyToFromUrl();
       if (rebootReply) pendingReplyToId = rebootReply;
-      loadList().then(function () {
+      // Soft refresh on late auth events so deeplink openTicket isn't wiped mid-flight.
+      var softReboot = Array.isArray(state.tickets) && state.tickets.length > 0;
+      loadList({ soft: softReboot }).then(function () {
         connectWs();
         startPoll();
         startTicketPresence();
@@ -7151,6 +7944,46 @@
     state.bootWired = true;
     wireGate();
     wireTicketsUrlListeners();
+    /* ticketsBootAuth1: always wire auth listeners BEFORE token gate — previously
+       early return skipped them, so first phone stamp never loaded after login. */
+    window.addEventListener("vc-discord-profile", onDiscordAuthReady);
+    window.addEventListener("vc:discord-auth", onDiscordAuthReady);
+    window.addEventListener("vc:auth-logout", function () {
+      teardownTicketsAfterLogout();
+    });
+    window.addEventListener("storage", function (ev) {
+      try {
+        if (!ev || ev.key !== ACCESS_TOKEN_KEY) return;
+        onDiscordAuthReady();
+      } catch (eSt) {}
+    });
+    window.addEventListener("beforeunload", function () {
+      flushComposerTextFromDom();
+      saveTicketComposerDraft();
+      stopTicketPresence(true);
+      disconnectWs();
+      stopPoll();
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") {
+        if (state.presenceResumeTimer) {
+          clearTimeout(state.presenceResumeTimer);
+          state.presenceResumeTimer = null;
+        }
+        stopTicketPresence(true);
+        return;
+      }
+      if (state.presenceResumeTimer) clearTimeout(state.presenceResumeTimer);
+      state.presenceResumeTimer = setTimeout(function () {
+        state.presenceResumeTimer = null;
+        startTicketPresence();
+        // ticketChatSync1: al ritorno sul tab risincronizza chat + WS.
+        void loadListQuiet();
+        if (state.selectedId) void refreshDetailQuiet();
+        if (!state.ws || state.ws.readyState > 1) connectWs();
+        else startPoll();
+      }, isCoarseMobile() ? 900 : 350);
+    });
     try {
       var params = new URLSearchParams(location.search || "");
       if (params.get("view") === "staff") {
@@ -7159,8 +7992,8 @@
       }
     } catch (eView) {}
     if (!getToken()) {
-      showGate();
-      setStatus("");
+      teardownTicketsAfterLogout();
+      scheduleTokenWaitBoot();
       return;
     }
     hideGate();
@@ -7172,31 +8005,6 @@
       startPoll();
       startTicketPresence();
     });
-    window.addEventListener("vc:discord-auth", function () {
-      boot();
-    });
-    window.addEventListener("beforeunload", function () {
-      flushComposerTextFromDom();
-      saveTicketComposerDraft();
-      stopTicketPresence(true);
-      disconnectWs();
-      stopPoll();
-    });
-    document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "hidden") {
-                        if (state.presenceResumeTimer) {
-          clearTimeout(state.presenceResumeTimer);
-          state.presenceResumeTimer = null;
-        }
-        stopTicketPresence(true);
-        return;
-      }
-      if (state.presenceResumeTimer) clearTimeout(state.presenceResumeTimer);
-      state.presenceResumeTimer = setTimeout(function () {
-        state.presenceResumeTimer = null;
-        startTicketPresence();
-      }, isCoarseMobile() ? 900 : 350);
-    });
   }
 
   if (document.readyState === "loading") {
@@ -7205,11 +8013,5 @@
     boot();
   }
 
-  try {
-    if (!window.__VC_CURSOR_TRAIL_INIT && !document.querySelector("script[src*='vc-cursor-trail.js']")) {
-      var trail = document.createElement("script");
-      trail.src = "/js/vc-cursor-trail.js?t=" + Date.now();
-      document.head.appendChild(trail);
-    }
-  } catch (eTrail) {}
+  /* cursorTrailOff1: scia rimossa */
 })();

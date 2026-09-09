@@ -698,7 +698,18 @@
       return T.avatarImgHtml(url, userId, { size: 28 });
     }
     var src = String(url || "").trim();
-    if (!src) src = "https://cdn.discordapp.com/embed/avatars/0.png";
+    if (!src || /cdn\.discordapp\.com\/embed\/avatars\//i.test(src)) {
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+          src = window.VcDiscordAvatar.siteFallbackAvatarUrl();
+        }
+      } catch (eFb) {}
+      if (!src || /cdn\.discordapp\.com\/embed\/avatars\//i.test(src)) {
+        var svg =
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+        src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      }
+    }
     return '<img src="' + escHtml(src) + '" alt="" width="28" height="28" loading="lazy" decoding="async" />';
   }
 

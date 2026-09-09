@@ -95,6 +95,15 @@ function expandCorsOriginAllowlist(origins) {
         const alt = new URL(o);
         alt.hostname = "localhost";
         set.add(alt.origin);
+      } else if (u.hostname.startsWith("www.")) {
+        // appelliApi1: site lives on www; env often has apex-only CORS origins
+        const alt = new URL(o);
+        alt.hostname = u.hostname.slice(4);
+        set.add(alt.origin);
+      } else if (u.hostname && !u.hostname.startsWith("www.")) {
+        const alt = new URL(o);
+        alt.hostname = `www.${u.hostname}`;
+        set.add(alt.origin);
       }
     } catch {
       continue;
@@ -486,6 +495,7 @@ async function startWebhookServer(client) {
     const isSiteKickSub = pathStr.startsWith("/webhooks/site-kick-sub");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
+    const isSiteWikiHelp = pathStr.startsWith("/webhooks/site-wiki-help");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteBotFeedback = pathStr.startsWith("/webhooks/site-bot-feedback");
@@ -512,26 +522,63 @@ async function startWebhookServer(client) {
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
     const isSiteCustomProfile = pathStr.startsWith("/webhooks/site-custom-profile");
     const isSiteProfileExtras = pathStr.startsWith("/webhooks/site-profile-extras");
-    if (!isStatus && !isCandidature && !isUnban && !isUnmute && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteKickLive && !isSiteKickSub && !isSiteRoles && !isSiteRankCard && !isSiteReviews && !isSiteSuggestions && !isSiteBotFeedback && !isSiteWebTickets && !isSiteNotifications && !isSiteVerify && !isSitePayments && !isSiteSeratafilmAccess && !isSiteStaffAccess && !isSiteHogwartsSorting && !isSiteCustomProfile && !isSiteProfileExtras) return next();
+    // appelliApi1: subject live chat on /appelli uses these user workflow endpoints
+    const isSiteUserWorkflow =
+      pathStr.startsWith("/webhooks/site-user-workflows") ||
+      pathStr.startsWith("/webhooks/site-user-workflow-chat");
+    const isSiteStaffWorkflow =
+      pathStr.startsWith("/webhooks/site-staff-workflows") ||
+      pathStr.startsWith("/webhooks/site-staff-workflow-chat");
+    if (
+      !isStatus &&
+      !isCandidature &&
+      !isUnban &&
+      !isUnmute &&
+      !isSiteRules &&
+      !isSiteUsers &&
+      !isSiteVote &&
+      !isSiteLiveEvent &&
+      !isSiteKickLive &&
+      !isSiteKickSub &&
+      !isSiteRoles &&
+      !isSiteRankCard &&
+      !isSiteWikiHelp &&
+      !isSiteReviews &&
+      !isSiteSuggestions &&
+      !isSiteBotFeedback &&
+      !isSiteWebTickets &&
+      !isSiteNotifications &&
+      !isSiteVerify &&
+      !isSitePayments &&
+      !isSiteSeratafilmAccess &&
+      !isSiteStaffAccess &&
+      !isSiteHogwartsSorting &&
+      !isSiteCustomProfile &&
+      !isSiteProfileExtras &&
+      !isSiteUserWorkflow &&
+      !isSiteStaffWorkflow
+    ) {
+      return next();
+    }
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
     if (originNorm && candidatureCorsAllowlist.includes(originNorm)) {
-      allowOrigin = originRaw;
+      allowOrigin = originNorm;
     } else if (
       originNorm &&
       candidatureCorsAllowlist.length > 0 &&
       corsAllowlistPermitsAnyLoopbackDevOrigin(candidatureCorsAllowlist) &&
       isLoopbackBrowserOriginUrl(originNorm)
     ) {
-      allowOrigin = originRaw;
+      allowOrigin = originNorm;
     } else if (originNorm && candidatureCorsAllowlist.length === 0) {
-      if (isLoopbackBrowserOriginUrl(originNorm)) allowOrigin = originRaw;
+      if (isLoopbackBrowserOriginUrl(originNorm)) allowOrigin = originNorm;
     }
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteKickLive || isSiteKickSub || isSiteRoles || isSiteRankCard || isSiteReviews || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteKickLive || isSiteKickSub || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");

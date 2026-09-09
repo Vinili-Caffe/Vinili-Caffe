@@ -418,11 +418,9 @@ function buildHeaderPromoBootHtml(clientConfig, scriptPrefix = "") {
 }
 
 function resolveEventHeaderIconSrc(guildIconUrl) {
-  const raw = String(guildIconUrl || "").trim();
-  if (!raw) return "/images/vc-header-logo.png";
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (raw.startsWith("/")) return raw;
-  return `/${raw.replace(/^\/+/, "")}`;
+  // Canonical public/staff navbar logo (unify with homepage).
+  void guildIconUrl;
+  return "https://www.viniliecaffe.it/images/og-server-icon.gif?v=20260904brandGif1";
 }
 
 const EVENT_LANG_SWITCHER_HTML =

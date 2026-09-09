@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var VER = "20260902mobileNavUnify1";
+  var VER = "20260907recensioniNav1";
 
   function t(key, fallback) {
     try {
@@ -31,11 +31,37 @@
     return normPath(window.location.pathname || "/");
   }
 
+  /** Profilo utente (non leaderboard Users): /user/?id=… o /user/ID/ */
+  function profileDetailUserId() {
+    try {
+      var here = currentPath();
+      var m = String(here || "").match(/^\/users?\/(\d{17,22})$/);
+      if (m) return m[1];
+      if (here === "/user" || here === "/users") {
+        var q = new URLSearchParams(window.location.search || "");
+        var id = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+        if (/^\d{17,22}$/.test(id)) return id;
+      }
+    } catch (e) {}
+    return "";
+  }
+
+  function isUserProfileDetailPage() {
+    return Boolean(profileDetailUserId());
+  }
+
   function hrefMatches(href) {
     var target = normPath(href);
     var here = currentPath();
+    if (!target) return false;
+    // Home tile only — never treat "/" as a prefix match for other pages.
+    if (target === "/") return here === "/";
+    /* mobileNavProfileActive1: sul profilo non evidenziare Users. */
+    if (target === "/user" || target === "/users") {
+      if (isUserProfileDetailPage()) return false;
+      return here === "/user" || here === "/users";
+    }
     if (target === here) return true;
-    if (target === "/user" && (here === "/user" || here.indexOf("/user/") === 0)) return true;
     if (target === "/personalizza" && here.indexOf("/personalizza") === 0) return true;
     if (target === "/appelli" && here.indexOf("/appelli") === 0) return true;
     if (target === "/candidature" && here.indexOf("/candidature") === 0) return true;
@@ -87,7 +113,7 @@
         tiles: [
           { href: "/appelli/", icon: "fa-balance-scale", label: t("nav.appeals", "Appelli") },
           { href: "/candidature/", icon: "fa-file-text-o", label: t("nav.applications", "Candidature") },
-          { href: "/suggerimenti/", icon: "fa-lightbulb-o", label: t("nav.suggestions", "Suggerimenti") },
+          { href: "/feedback/", icon: "fa-commenting-o", label: t("nav.suggestions", "Feedback") },
           { href: "/tickets/", icon: "fa-ticket", label: t("nav.tickets", "Tickets") },
         ],
       },
@@ -116,9 +142,11 @@
   function createTile(spec) {
     var a = document.createElement("a");
     a.className = "vc-mobile-nav-tile";
-    a.href = spec.href;
+    var href = String((spec && spec.href) || "").trim() || "#";
+    a.setAttribute("href", href);
+    a.href = href;
     if (spec.loading) a.setAttribute("data-vc-loading", spec.loading);
-    if (hrefMatches(spec.href)) {
+    if (hrefMatches(href)) {
       a.classList.add("is-active");
       a.setAttribute("aria-current", "page");
     }
@@ -176,6 +204,8 @@
   window.__VC_MOBILE_NAV_CANONICAL = {
     ver: VER,
     build: build,
+    hrefMatches: hrefMatches,
+    normPath: normPath,
     shouldUse: isPublicSitePage,
     isPublicSitePage: isPublicSitePage,
   };

@@ -2,17 +2,17 @@ const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { fetchGuildNowPlayingDetails } = require("../../Services/Music/lavalinkMusicService");
+const { memberDisplayName, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 async function buildRequesterFooter(guild, data) {
   const id = data.requesterUserId ? String(data.requesterUserId) : "";
   if (id && guild?.members?.fetch) {
     const mem = await guild.members.fetch({ user: id, force: false }).catch(() => null);
     if (mem?.user) {
-      const name =
-        String(mem.displayName || mem.user.globalName || mem.user.username || "").trim() || "Utente";
+      const name = memberDisplayName(mem) || "Utente";
       return {
         text: `Richiesto da ${name}`.slice(0, 2048),
-        iconURL: mem.user.displayAvatarURL({ size: 64 }),
+        iconURL: userAvatarUrlDynamic(mem, { size: 64 }),
       };
     }
   }

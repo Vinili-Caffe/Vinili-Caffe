@@ -178,6 +178,32 @@
     fadeWindowMs = fadeSec * 1000;
     ensureHint();
     armFirstPointer();
+    /* sfBgmAuto1: try autoplay like Hogwarts; browsers may still require a tap */
+    try {
+      if (!audio) {
+        audio = new Audio();
+        audio.preload = "auto";
+        audio.addEventListener("ended", onEnded);
+      }
+      audio.muted = false;
+      audio.volume = baseVol;
+      var urls = trackUrls();
+      if (urls.length) {
+        applyCrossOriginForUrl(urls[0]);
+        audio.src = urls[0];
+        var p0 = audio.play();
+        if (p0 && typeof p0.then === "function") {
+          p0.then(function () {
+            started = true;
+            hideHint();
+            if (typeof detachFirst === "function") {
+              detachFirst();
+              detachFirst = null;
+            }
+          }).catch(function () {});
+        }
+      }
+    } catch (eAuto) {}
   };
 
   window.__vcSeratafilmBgmOnTick = function (remainingMs) {

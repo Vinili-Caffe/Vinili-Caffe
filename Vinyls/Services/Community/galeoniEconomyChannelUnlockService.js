@@ -102,6 +102,8 @@ async function unlockGaleoniEconomyChannel(client, { force = false } = {}) {
 }
 
 function startGaleoniEconomyChannelUnlockLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (!client || startedClients.has(client)) return;
   const cfg = economyConfig(client);
   if (cfg?.enabled !== true) return;

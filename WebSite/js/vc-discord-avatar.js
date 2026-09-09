@@ -39,6 +39,10 @@
     return match ? match[1] : "";
   }
 
+  function isGuildMemberAvatarPath(pathnameOrUrl) {
+    return /\/guilds\/\d+\/users\/\d+\/avatars\//i.test(String(pathnameOrUrl || ""));
+  }
+
   function buildFromParts(userId, avatarHash, size) {
     var id = String(userId || "").trim();
     var hash = String(avatarHash || "").trim();
@@ -48,27 +52,221 @@
     return "https://cdn.discordapp.com/avatars/" + id + "/" + hash + "." + ext + "?size=" + n;
   }
 
+  function buildGuildFromParts(guildId, userId, avatarHash, size) {
+    var gid = String(guildId || "").trim();
+    var id = String(userId || "").trim();
+    var hash = String(avatarHash || "").trim();
+    if (!gid || !id || !hash) return "";
+    var ext = /^a_/i.test(hash) ? "gif" : "png";
+    var n = Number(size) || 128;
+    return (
+      "https://cdn.discordapp.com/guilds/" +
+      gid +
+      "/users/" +
+      id +
+      "/avatars/" +
+      hash +
+      "." +
+      ext +
+      "?size=" +
+      n
+    );
+  }
+
+  function defaultEmbedIndex(userId) {
+    var id = String(userId || "").trim();
+    if (/^\d{5,24}$/.test(id)) {
+      try {
+        if (typeof BigInt !== "undefined") return Number((BigInt(id) >> 22n) % 6n);
+      } catch (eIdx) {}
+    }
+    var n = 0;
+    for (var i = 0; i < id.length; i += 1) n = (n + id.charCodeAt(i)) % 6;
+    return n;
+  }
+
+  /** @deprecated Prefer siteFallbackAvatarUrl — Discord embed defaults are banned on the site. */
+  function defaultEmbedAvatarUrl(userId, size) {
+    return siteFallbackAvatarUrl();
+  }
+
+  function isDiscordEmbedDefaultUrl(url) {
+    return /cdn\.discordapp\.com\/embed\/avatars\//i.test(String(url || ""));
+  }
+
+  /** Site-themed silhouette (coffee gradient) — unique fallback for missing/broken avatars. */
+  function siteFallbackAvatarUrl() {
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
   function buildFromUser(user, size) {
-    if (!user || !user.id) return "";
+    if (!user || !user.id) return siteFallbackAvatarUrl();
     if (user.avatar) return buildFromParts(user.id, user.avatar, size);
+    return siteFallbackAvatarUrl();
+  }
+
+  function escAttr(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  /**
+   * Central img markup for users/bots (site-wide).
+   * Always emits a valid Discord CDN src (never empty) + circle class + anti-flash pending.
+   * opts: { url, userId, avatarHash, guildId, memberAvatar, size, className, loading, fetchPriority, staticAvatar, alt }
+   */
+  function imgHtml(opts) {
+    var a = opts && typeof opts === "object" ? opts : {};
+    var uid = String(a.userId || a.id || "").trim();
+    var size = Math.max(16, Number(a.size || a.width || a.height || 40) || 40);
+    var cls = String(a.className || a.class || "vc-avatar").trim() || "vc-avatar";
+    if (!/\bvc-avatar\b/.test(cls)) cls += " vc-avatar";
+    if (!/\bvc-avatar--pending\b/.test(cls)) cls += " vc-avatar--pending";
+    var loading = a.loading != null ? String(a.loading) : "lazy";
+    var fetchPriority = a.fetchPriority ? String(a.fetchPriority) : "";
+    var alt = a.alt != null ? String(a.alt) : "";
+    var src = pickAvatarUrl(
+      {
+        id: uid,
+        userId: uid,
+        avatar: a.avatarHash || a.avatar || a.hash || "",
+        memberAvatar: a.memberAvatar || a.guildAvatar || "",
+        guildId: a.guildId || "",
+        avatarUrl: a.url || a.avatarUrl || "",
+        guildAvatarUrl: a.guildAvatarUrl || a.memberAvatarUrl || "",
+      },
+      size,
+    );
+    if (!src || isDiscordEmbedDefaultUrl(src)) src = siteFallbackAvatarUrl();
+    var isGuild = isGuildMemberAvatarPath(src);
+    var hashHint = String(a.avatarHash || a.avatar || a.hash || "").trim();
+    if (!hashHint && !isGuild) {
+      try {
+        var m = src.match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)/i);
+        if (m) hashHint = String(m[1] || "").trim();
+      } catch (eHash) {}
+    }
+    var preferStatic = Boolean(a.staticAvatar);
     try {
-      if (typeof BigInt !== "undefined") {
-        var idx = Number((BigInt(String(user.id)) >> 22n) % 6n);
-        return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
-      }
-    } catch (eDef) {}
-    return "";
+      if (preferStatic) src = preferStaticUrl(src, size) || src;
+      else src = resolveUrl(src, size, isGuild ? "" : hashHint, uid) || src;
+    } catch (eRes) {}
+    return (
+      '<img class="' +
+      escAttr(cls) +
+      '" src="' +
+      escAttr(src) +
+      '" alt="' +
+      escAttr(alt) +
+      '" width="' +
+      size +
+      '" height="' +
+      size +
+      '" loading="' +
+      escAttr(loading) +
+      '" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1"' +
+      (fetchPriority ? ' fetchpriority="' + escAttr(fetchPriority) + '"' : "") +
+      (uid ? ' data-user-id="' + escAttr(uid) + '"' : "") +
+      (!isGuild && hashHint ? ' data-avatar-hash="' + escAttr(hashHint) + '"' : "") +
+      (isGuild ? ' data-vc-guild-avatar="1"' : "") +
+      (preferStatic ? ' data-vc-avatar-static="1"' : "") +
+      " />"
+    );
+  }
+
+  function pickDisplayName(src, fallback) {
+    var o = src && typeof src === "object" ? src : null;
+    var candidates = o
+      ? [
+          o.displayName,
+          o.nick,
+          o.nickname,
+          o.global_name,
+          o.globalName,
+          o.username,
+          o.name,
+        ]
+      : [];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var s = String(candidates[i] || "")
+        .replace(/^\u0F04/u, "")
+        .replace(/^༄/u, "")
+        .trim();
+      if (s) return s;
+    }
+    var fb = String(fallback || "").trim();
+    return fb || "Utente";
+  }
+
+  function pickAvatarUrl(src, size) {
+    var o = src && typeof src === "object" ? src : null;
+    if (!o) return "";
+    var n = Number(size) || 128;
+    var guildUrl = String(o.guildAvatarUrl || o.memberAvatarUrl || "").trim();
+    var apiUrl = String(o.avatarUrl || o.ownerAvatarUrl || "").trim();
+    var prefer = "";
+    if (isGuildMemberAvatarPath(guildUrl)) prefer = guildUrl;
+    else if (isGuildMemberAvatarPath(apiUrl)) prefer = apiUrl;
+    else if (/^https?:\/\//i.test(guildUrl) && !isDiscordEmbedDefaultUrl(guildUrl)) prefer = guildUrl;
+    else if (/^https?:\/\//i.test(apiUrl) && !isDiscordEmbedDefaultUrl(apiUrl)) prefer = apiUrl;
+    var memberHash = String(o.memberAvatar || o.guildAvatar || o.memberAvatarHash || "").trim();
+    var userHash = String(o.avatar || o.ownerAvatar || "").trim();
+    var uid = String(o.userId || o.id || o.ownerId || "").trim();
+    var gid = String(o.guildId || "").trim();
+    if (!prefer && gid && uid && memberHash) prefer = buildGuildFromParts(gid, uid, memberHash, n);
+    if (prefer) {
+      var hashForUrl = isGuildMemberAvatarPath(prefer) ? memberHash || hashFromDiscordAvatarPath(prefer) : userHash;
+      return resolveUrl(prefer, n, hashForUrl, uid) || prefer;
+    }
+    if (uid && userHash) return buildFromParts(uid, userHash, n);
+    return buildFromUser(o, n);
+  }
+
+  function prefersStaticAvatars() {
+    try {
+      // avatarKeepAnim1: GIF sempre (anche mobile). Solo reduced-motion / save-data → static.
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+      if (navigator.connection && navigator.connection.saveData) return true;
+    } catch (eStatic) {}
+    return false;
   }
 
   function preferAnimatedUrl(url, size, avatarHash) {
     var raw = String(url || "").trim();
     if (!raw || !wantsMotion()) return raw;
+    if (prefersStaticAvatars()) {
+      return preferStaticUrl(raw, size) || raw;
+    }
+    // Default Discord embed avatars are not animatable — never rewrite to .gif.
+    if (/\/embed\/avatars\//i.test(raw)) return raw;
     var hashHint = String(avatarHash || "").trim();
     try {
       var parsed = new URL(raw);
       if (!isDiscordCdnHost(parsed.hostname)) return raw;
       var path = String(parsed.pathname || "");
+      if (/\/embed\/avatars\//i.test(path)) return raw;
       var pathHash = hashFromDiscordAvatarPath(path);
+      var guildPath = isGuildMemberAvatarPath(path);
+      // guildFirstIdentity1: mai ricostruire URL utente da hash profilo su avatar server
+      if (guildPath) {
+        if (!/^a_/i.test(pathHash)) return raw;
+        parsed.pathname = path.replace(/\.(png|webp|jpg|jpeg)(\?|$)/i, ".gif$2");
+        if (size > 0) {
+          if (/[?&]size=\d+/i.test(parsed.search)) {
+            parsed.search = parsed.search.replace(/([?&]size=)\d+/i, "$1" + size);
+          } else {
+            parsed.search += (parsed.search ? "&" : "?") + "size=" + size;
+          }
+        }
+        return parsed.toString();
+      }
+      // Only upgrade real user/guild avatar paths — never rebuild from embed using hashHint.
+      if (!/\/avatars\/\d{5,24}\//i.test(path) && !guildPath) return raw;
       var animated = /^a_/i.test(pathHash) || /^a_/i.test(hashHint);
       if (!animated) return raw;
       if (!/^a_/i.test(pathHash) && hashHint && /^a_/i.test(hashHint)) {
@@ -85,7 +283,17 @@
       }
       return parsed.toString();
     } catch (e2) {
+      if (/\/embed\/avatars\//i.test(raw)) return raw;
+      if (isGuildMemberAvatarPath(raw)) {
+        if (!/\/a_[^/?#]+\./i.test(raw)) return raw;
+        var outG = raw.replace(/\.(png|webp|jpg|jpeg)(\?|#|$)/i, ".gif$2");
+        if (size > 0 && !/[?&]size=\d+/i.test(outG)) {
+          outG += (outG.indexOf("?") >= 0 ? "&" : "?") + "size=" + size;
+        }
+        return outG;
+      }
       if (!/\/a_[^/?#]+\./i.test(raw) && !/^a_/i.test(hashHint)) return raw;
+      if (!/\/avatars\/\d{5,24}\//i.test(raw)) return raw;
       if (!/\/a_[^/?#]+\./i.test(raw) && hashHint && /^a_/i.test(hashHint)) {
         var uid2 = userIdFromDiscordAvatarUrl(raw);
         if (uid2) return buildFromParts(uid2, hashHint, size);
@@ -104,6 +312,9 @@
     var uid = String(userId || userIdFromDiscordAvatarUrl(raw) || "").trim();
     if (!raw && hash && uid) return buildFromParts(uid, hash, size);
     if (!raw) return "";
+    if (isGuildMemberAvatarPath(raw)) {
+      return preferAnimatedUrl(raw, size, "") || raw;
+    }
     var next = preferAnimatedUrl(raw, size, hash);
     return next || raw;
   }
@@ -130,6 +341,9 @@
 
   function isAvatarImage(img) {
     if (!img || img.tagName !== "IMG") return false;
+    try {
+      if (img.classList && img.classList.contains("vc-header-logo-img")) return false;
+    } catch (eLogo) {}
     if (img.hasAttribute("data-vc-avatar")) return true;
     if (img.hasAttribute("data-vc-avatar-fallback")) return true;
     var cls = String(img.className || "");
@@ -147,71 +361,168 @@
     return data > 0 ? data : 128;
   }
 
-  function isCoarseMobile() {
-    try {
-      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
-    } catch (e) {}
-    return Number(navigator.maxTouchPoints || 0) > 0;
-  }
-
-  function isProfileHeroAvatar(img) {
-    return /\bvc-user-profile-avatar\b/.test(String(img && img.className || ""));
+  function isMarkedStatic(img) {
+    if (!img) return false;
+    if (img.getAttribute(STATIC_OPT) === "1") return true;
+    if (img.getAttribute("data-vc-avatar-static") === "1") return true;
+    if (img.dataset && img.dataset.vcAvatarStatic === "1") return true;
+    return false;
   }
 
   function applyToImage(img, opts) {
     if (!isAvatarImage(img)) return false;
-    if (img.getAttribute(STATIC_OPT) === "1") return false;
-    var force = opts && opts.force;
-    if (!force && img.dataset[APPLIED] === "1") return false;
 
-    var src = String(img.getAttribute("src") || "").trim();
-    if (!src || src.indexOf("data:") === 0) return false;
+    // avatarSiteFb1: demote Discord embed defaults → site silhouette (no mixed fallbacks).
+    try {
+      var curEmbed = String(img.getAttribute("src") || img.src || "").trim();
+      if (isDiscordEmbedDefaultUrl(curEmbed)) {
+        var siteSrc = siteFallbackAvatarUrl();
+        if (curEmbed !== siteSrc) {
+          img.removeAttribute("srcset");
+          img.src = siteSrc;
+          img.setAttribute("src", siteSrc);
+          try {
+            img.classList.add("vc-avatar", "vc-avatar--ready", "vc-avatar-fallback-img");
+            img.classList.remove("vc-avatar--pending");
+            img.dataset.vcAvatarOk = "1";
+            img.dataset.vcAvatarFallbackFinal = "1";
+          } catch (eEmbCls) {}
+        }
+      }
+    } catch (eEmb) {}
 
-    var size = readSize(img);
-        if (isCoarseMobile() && size <= 96) {
-      img.dataset[APPLIED] = "1";
+    function settleReadyOrFallback() {
+      try {
+        img.classList.add("vc-avatar");
+        if (img.complete && img.naturalWidth > 0) {
+          img.classList.add("vc-avatar--ready");
+          img.classList.remove("vc-avatar--pending");
+          if (window.VcAvatarFallback && typeof window.VcAvatarFallback.markReady === "function") {
+            window.VcAvatarFallback.markReady(img);
+          }
+          return;
+        }
+        if (img.complete && img.naturalWidth === 0 && String(img.getAttribute("src") || "").trim()) {
+          if (window.VcAvatarFallback && typeof window.VcAvatarFallback.applyFallback === "function") {
+            window.VcAvatarFallback.applyFallback(img);
+          }
+          return;
+        }
+        // inboxAvatarPending1: se non ancora complete, non lasciare opacity:0 forever
+        if (!img.dataset.vcAvatarReadyBound) {
+          img.dataset.vcAvatarReadyBound = "1";
+          var onLoad = function () {
+            try {
+              img.removeEventListener("load", onLoad);
+              img.removeEventListener("error", onErr);
+            } catch (eRm) {}
+            settleReadyOrFallback();
+          };
+          var onErr = function () {
+            try {
+              img.removeEventListener("load", onLoad);
+              img.removeEventListener("error", onErr);
+            } catch (eRm2) {}
+            if (window.VcAvatarFallback && typeof window.VcAvatarFallback.applyFallback === "function") {
+              window.VcAvatarFallback.applyFallback(img);
+            } else {
+              img.classList.remove("vc-avatar--pending");
+              img.classList.add("vc-avatar--ready");
+            }
+          };
+          img.addEventListener("load", onLoad);
+          img.addEventListener("error", onErr);
+        }
+      } catch (eSettle) {}
+    }
+
+    // phoneAvatarFix1: su telefono resta PNG (niente GIF forzate).
+    if (isMarkedStatic(img)) {
+      settleReadyOrFallback();
       return false;
     }
-        if (isProfileHeroAvatar(img)) {
-      var heroNext = preferAnimatedUrl(src, size, hashHint);
-      if (heroNext && heroNext !== src) {
-        img.removeAttribute("srcset");
-        img.src = heroNext;
-        img.dataset[APPLIED] = "1";
-        return true;
+    // Never fight the fallback chain (PNG → embed → svg) or re-animate demoted avatars.
+    try {
+      if (
+        img.dataset.vcAvatarFallbackFinal === "1" ||
+        img.dataset.vcAvatarFallbackApplied === "1" ||
+        img.dataset.vcAvatarFallbackApplied === "2" ||
+        img.dataset.vcAvatarFallbackApplied === "3" ||
+        img.getAttribute("data-vc-avatar-fallback") === "1"
+      ) {
+        settleReadyOrFallback();
+        return false;
       }
-      img.dataset[APPLIED] = "1";
+    } catch (eFb) {}
+
+    // avatarKeepAnim1: se già paintato OK (GIF/PNG), non riscrivere src (evita flash→demote embed).
+    // forceAnimRestart resta consentito per ripartire la GIF.
+    try {
+      var paintedOk =
+        img.naturalWidth > 0 &&
+        (img.dataset.vcAvatarOk === "1" ||
+          (img.classList && img.classList.contains("vc-avatar--ready")));
+      if (paintedOk && !(opts && opts.forceAnimRestart)) {
+        settleReadyOrFallback();
+        return false;
+      }
+    } catch (ePaint) {}
+
+    var force = opts && opts.force;
+    if (!force && img.dataset[APPLIED] === "1") {
+      settleReadyOrFallback();
+      return false;
+    }
+
+    var src = String(img.getAttribute("src") || "").trim();
+    if (!src || src.indexOf("data:") === 0) {
+      settleReadyOrFallback();
+      return false;
+    }
+
+    // avatarReadyWatch1: embed / skip path must still clear pending
+    if (/\/embed\/avatars\//i.test(src)) {
+      settleReadyOrFallback();
       return false;
     }
 
     var hashHint = String(img.getAttribute("data-avatar-hash") || "").trim();
+    if (isGuildMemberAvatarPath(src) || img.getAttribute("data-vc-guild-avatar") === "1") {
+      hashHint = "";
+    }
     var next = preferAnimatedUrl(src, readSize(img), hashHint);
     if (!next || next === src) {
       if (isAnimatedDiscordAvatarUrl(src)) img.dataset[APPLIED] = "1";
+      settleReadyOrFallback();
       return false;
     }
 
     img.dataset[APPLIED] = "1";
     img.removeAttribute("srcset");
+    try {
+      img.classList.add("vc-avatar");
+      img.classList.add("vc-avatar--pending");
+      img.classList.remove("vc-avatar--ready");
+    } catch (ePend) {}
     img.src = next;
+    // Se il browser ha già la GIF in cache, load potrebbe non rifire
+    settleReadyOrFallback();
     return true;
   }
 
   function restartAnimation(img) {
     if (!img || img.tagName !== "IMG") return false;
-    if (isProfileHeroAvatar(img)) return false;
-    if (isCoarseMobile() && readSize(img) <= 96) return false;
     var src = String(img.currentSrc || img.getAttribute("src") || img.src || "").trim();
     if (!src) return false;
-    applyToImage(img, { force: true });
+    applyToImage(img, { force: true, forceAnimRestart: true });
     src = String(img.currentSrc || img.getAttribute("src") || img.src || "").trim();
     if (!/\.gif(?:$|[?#])/i.test(src)) return false;
-    img.dataset[APPLIED] = "0";
-    img.removeAttribute("srcset");
-    img.src = "";
-    void img.offsetWidth;
-    img.src = src;
+    // Evita src="" (su mobile triggera fallback/error e fa sparire l'avatar).
+    var bust = src.replace(/([?&])_vcgif=\d+/i, "$1").replace(/[?&]$/, "");
+    bust += (bust.indexOf("?") >= 0 ? "&" : "?") + "_vcgif=" + String(Date.now());
     img.dataset[APPLIED] = "1";
+    img.removeAttribute("srcset");
+    img.src = bust;
     return true;
   }
 
@@ -228,17 +539,33 @@
   var api = {
     wantsMotion: wantsMotion,
     isAnimatedUrl: isAnimatedDiscordAvatarUrl,
+    isGuildMemberAvatarPath: isGuildMemberAvatarPath,
+    defaultEmbedIndex: defaultEmbedIndex,
+    defaultEmbedAvatarUrl: defaultEmbedAvatarUrl,
+    isDiscordEmbedDefaultUrl: isDiscordEmbedDefaultUrl,
+    siteFallbackAvatarUrl: siteFallbackAvatarUrl,
+    defaultUrl: siteFallbackAvatarUrl,
     buildFromParts: buildFromParts,
+    buildGuildFromParts: buildGuildFromParts,
     buildFromUser: buildFromUser,
+    pickDisplayName: pickDisplayName,
+    pickAvatarUrl: pickAvatarUrl,
     resolveUrl: resolveUrl,
     preferAnimatedUrl: preferAnimatedUrl,
     preferStaticUrl: preferStaticUrl,
+    escAttr: escAttr,
+    imgHtml: imgHtml,
     applyToImage: applyToImage,
     restartAnimation: restartAnimation,
     scan: scan,
   };
 
   window.VcDiscordAvatar = api;
+  window.VcDiscordIdentity = {
+    pickDisplayName: pickDisplayName,
+    pickAvatarUrl: pickAvatarUrl,
+    isGuildMemberAvatarPath: isGuildMemberAvatarPath,
+  };
 
   function boot() {
     scan(document);

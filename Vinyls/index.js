@@ -62,6 +62,9 @@ try {
     applyDefaultFooterToEmbeds(payload, source?.guild || source?.channel?.guild || null),
   );
   const vinylsConfig = require("./config.json");
+  try {
+    require("./Utils/Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(vinylsConfig);
+  } catch (_) {}
   const baseIntents = [
     ...new Set(
       Object.values(GatewayIntentBits).filter(

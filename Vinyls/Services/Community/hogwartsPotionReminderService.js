@@ -338,6 +338,8 @@ async function runPotionReminderSweep(client) {
 }
 
 function startPotionReminderLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (!client || loopState.has(client)) return;
   loopState.add(client);
   const c = cfg(client);

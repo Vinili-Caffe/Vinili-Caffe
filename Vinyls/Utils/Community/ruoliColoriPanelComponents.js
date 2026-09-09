@@ -25,10 +25,10 @@ function buildPronounsRow() {
       .setMaxValues(1)
       .addOptions(
         { label: "Rimuovi i ruoli di sesso", description: "Rimuovi ruoli dal tuo profilo", value: "remove", emoji: "<:vegax:1443934876440068179>" },
-        { label: "༄ he/him", value: "1442568997848743997", emoji: "<:hehim:1470534612198494258>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ she/her", value: "1442568999043989565", emoji: "<:sheher:1470534614023143485>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ they/them", value: "1442569000063074498", emoji: "<:theythem:1470534615818178782>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ ask me", value: "1442569001367769210", emoji: "<:askme:1470534617458151424>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ he/him", value: "1544830743296081960", emoji: "<:hehim:1470534612198494258>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ she/her", value: "1544830740624183336", emoji: "<:sheher:1470534614023143485>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ they/them", value: "1544830738556256256", emoji: "<:theythem:1470534615818178782>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ ask me", value: "1544830736434069559", emoji: "<:askme:1470534617458151424>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }
@@ -42,10 +42,10 @@ function buildAgeRow() {
       .setMaxValues(1)
       .addOptions(
         { label: "Rimuovi i ruoli di età", value: "remove", description: "Rimuovi ruoli dal tuo profilo", emoji: "<:vegax:1443934876440068179>" },
-        { label: "༄ 14", value: "1442568993197265021", emoji: "<:ageadultids:1470541163219128444>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ 15-16", value: "1442568994581381170", emoji: "<:ageadultids:1470541163219128444>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ 17-18", value: "1442568995348807691", emoji: "<:ageids:1470541159351976066>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ 19+", value: "1442568996774871194", emoji: "<:ageids:1470541159351976066>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ 14", value: "1544830751931899965", emoji: "<:ageadultids:1470541163219128444>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ 15-16", value: "1544830749268639744", emoji: "<:ageadultids:1470541163219128444>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ 17-18", value: "1544830746533957717", emoji: "<:ageids:1470541159351976066>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ 19+", value: "1544830744914821181", emoji: "<:ageids:1470541159351976066>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }
@@ -59,10 +59,10 @@ function buildRegionRow() {
       .setMaxValues(1)
       .addOptions(
         { label: "Rimuovi i ruoli di provenienza", value: "remove", description: "Rimuovi ruoli dal tuo profilo", emoji: "<:vegax:1443934876440068179>" },
-        { label: "༄ Nord", value: "1442569021861007443", emoji: "<a:peepoitaly:1470537719225520341>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Centro", value: "1442569023303974922", emoji: "<a:peepoitaly:1470537719225520341>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Sud", value: "1442569024486506498", emoji: "<a:peepoitaly:1470537719225520341>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Estero", value: "1442569025790939167", emoji: "<:wplace:1470537717426294886>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Nord", value: "1544830651033976872", emoji: "<a:peepoitaly:1470537719225520341>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Centro", value: "1544830648131395604", emoji: "<a:peepoitaly:1470537719225520341>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Sud", value: "1544830644516036611", emoji: "<a:peepoitaly:1470537719225520341>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Estero", value: "1544830642616012813", emoji: "<:wplace:1470537717426294886>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }
@@ -101,9 +101,9 @@ function buildDmRow() {
       .setMaxValues(1)
       .addOptions(
         { label: "Rimuovi i ruoli DM", value: "remove", description: "Rimuovi ruoli dal tuo profilo", emoji: "<:vegax:1443934876440068179>" },
-        { label: "༄ DMs Opened", value: "1442569004215697438", emoji: "<:opendm:1470536793504878664>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ DMs Closed", value: "1442569005071077417", emoji: "<:nodm:1470536791764373608>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Ask to DM", value: "1442569006543274126", emoji: "<:ask2dm:1470536789637726345>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ DMs Opened", value: "1544830708340756621", emoji: "<:opendm:1470536793504878664>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ DMs Closed", value: "1544830706482413589", emoji: "<:nodm:1470536791764373608>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Ask to DM", value: "1544830704477540393", emoji: "<:ask2dm:1470536789637726345>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }
@@ -117,8 +117,8 @@ function buildRelationshipRow() {
       .setMaxValues(1)
       .addOptions(
         { label: "Rimuovi i ruoli sentimentali", value: "remove", description: "Rimuovi ruoli dal tuo profilo", emoji: "<:vegax:1443934876440068179>" },
-        { label: "༄ Fidanzato/a", value: "1442569028173299732", emoji: "<:stitchinlove:1470538823103414373>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Single", value: "1442569029263818906", emoji: "<:stitchlove:1470538821656641761>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Fidanzato/a", value: "1544830640971579462", emoji: "<:stitchinlove:1470538823103414373>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Single", value: "1544830638983614524", emoji: "<:stitchlove:1470538821656641761>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }
@@ -180,17 +180,17 @@ function buildColors1Row() {
       .setMaxValues(1)
       .addOptions(
         { label: "Rimuovi colore", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi i colori normali dal profilo" },
-        { label: "༄ Red", value: "1442568956832645212", emoji: "<:67241redmidnightheart:1470543833325633638>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Orange", value: "1442568967045648412", emoji: "<:76708orangemidnightheart:1470543838392352940>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Yellow", value: "1442568969528541225", emoji: "<:59095yellowmidnightheart:1470543825704321107>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Green", value: "1442568976944201828", emoji: "<:56389greenmidnightheart:1470543822491619562>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Aqua", value: "1442568977896439960", emoji: "<:16576lightbluemidnightheart:1470543819958386862>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Blue", value: "1442568980626673685", emoji: "<:69616midnightheart:1470543834856554722>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Purple", value: "1442568983898357954", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Pink", value: "1442568985278156971", emoji: "<:66893pinkmidnightheart:1495723265467875388>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Black", value: "1442568987887276133", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ Grey", value: "1442568989866725468", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "༄ White", value: "1442568991150309578", emoji: "<:70505whitemidnightheart:1470543836836135067>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Red", value: "1544842977384341694", emoji: "<:67241redmidnightheart:1470543833325633638>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Orange", value: "1544842979716374588", emoji: "<:76708orangemidnightheart:1470543838392352940>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Yellow", value: "1544842981536956502", emoji: "<:59095yellowmidnightheart:1470543825704321107>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Green", value: "1544831002076254238", emoji: "<:56389greenmidnightheart:1470543822491619562>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Aqua", value: "1544831000268509246", emoji: "<:16576lightbluemidnightheart:1470543819958386862>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Blue", value: "1544830998087475374", emoji: "<:69616midnightheart:1470543834856554722>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Purple", value: "1544830995990061076", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Pink", value: "1544830992928219340", emoji: "<:66893pinkmidnightheart:1495723265467875388>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Black", value: "1544830990806163542", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Grey", value: "1544830982702628946", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ White", value: "1544830980265873448", emoji: "<:70505whitemidnightheart:1470543836836135067>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 }

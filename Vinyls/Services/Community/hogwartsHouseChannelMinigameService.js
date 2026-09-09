@@ -600,6 +600,8 @@ function scheduleHouseChannelJob(client, houseId, mode, state) {
 }
 
 async function bootstrapHogwartsHouseChannelMinigameScheduler(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return { ok: false, reason: "hogwarts_runtime_disabled" };
   const cfg = readHouseChannelMinigameCfg(client);
   if (!cfg || schedulersByClient.has(client)) return { ok: false, reason: "disabled_or_running" };
   const restored = await restoreHouseChannelSchedulerFromDb(client);

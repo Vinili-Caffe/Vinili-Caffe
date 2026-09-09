@@ -121,7 +121,12 @@ function normalizePings(raw) {
       configured: false,
     };
   }
-  const customRoleId = normalizeRoleId(raw.customRoleId ?? raw.cr);
+  const customRoleIdRaw = normalizeRoleId(raw.customRoleId ?? raw.cr);
+  let customRoleId = customRoleIdRaw;
+  try {
+    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap");
+    customRoleId = remapRoleIdForward(customRoleIdRaw) || customRoleIdRaw;
+  } catch (_) {}
   const customRoleMembers = normalizePositiveInt(raw.customRoleMembers ?? raw.crm);
   const hereMembers = normalizePositiveInt(raw.hereMembers ?? raw.h);
   const everyoneMembers = normalizePositiveInt(raw.everyoneMembers ?? raw.e);
@@ -438,8 +443,12 @@ async function setPmCommandsCategories(guildId, categoryIds) {
 }
 
 async function setPartnerManagerRole(guildId, roleId) {
-  const id = roleId ? normalizeRoleId(roleId) : null;
+  let id = roleId ? normalizeRoleId(roleId) : null;
   if (roleId && !id) return { ok: false, reason: "invalid_role" };
+  try {
+    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap");
+    if (id) id = remapRoleIdForward(id) || id;
+  } catch (_) {}
   const prev = getPartnershipConfigSync(guildId);
   if (id && prev?.managerBadgeRoleId && prev.managerBadgeRoleId === id) {
     return { ok: false, reason: "same_as_badge_role" };
@@ -532,8 +541,12 @@ async function setPartnershipSkipManager(guildId, skipManager) {
 }
 
 async function setManagerBadgeRole(guildId, roleId) {
-  const id = roleId ? normalizeRoleId(roleId) : null;
+  let id = roleId ? normalizeRoleId(roleId) : null;
   if (roleId && !id) return { ok: false, reason: "invalid_role" };
+  try {
+    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap");
+    if (id) id = remapRoleIdForward(id) || id;
+  } catch (_) {}
   const prev = getPartnershipConfigSync(guildId);
   if (id && prev?.partnerManagerRoleId && prev.partnerManagerRoleId === id) {
     return { ok: false, reason: "same_as_manager_role" };

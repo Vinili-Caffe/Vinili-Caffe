@@ -7,6 +7,14 @@
 
   function isStaffNavContext() {
     if (!document.body) return false;
+    /* authLogoutFix1: senza sessione non montare/ripristinare chrome staff */
+    try {
+      var t = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (!t || (exp && Date.now() >= exp)) return false;
+    } catch (eTok) {
+      return false;
+    }
     if (document.body.classList.contains("vc-staff-area")) return true;
     return window.__VC_STAFF_MENU_ALLOWED === true;
   }
@@ -95,6 +103,7 @@
     var h = String(href || "").replace(/\/+$/, "") || "/";
     if (h === "/staff") return p === "/staff";
     if (h === "/seratafilm") return p === "/seratafilm" || p.indexOf("/seratafilm/") === 0;
+    if (h === "/confessionale") return p === "/confessionale" || p.indexOf("/confessionale/") === 0;
     return p === h || p.indexOf(h + "/") === 0;
   }
 
@@ -146,6 +155,29 @@
     return t === "guida" || t === "guida staff" || t === "staff guide";
   }
 
+  function isConfessionaleNavHref(href) {
+    return String(href || "")
+      .toLowerCase()
+      .indexOf("/confessionale") >= 0;
+  }
+
+  function isConfessionaleNavLabel(label) {
+    var t = String(label || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    return t === "confessionale" || t === "il confessionale";
+  }
+
+  function isAllowedStaffMenuLink(href, label) {
+    return (
+      isStaffGuideNavHref(href) ||
+      isStaffGuideNavLabel(label) ||
+      isConfessionaleNavHref(href) ||
+      isConfessionaleNavLabel(label)
+    );
+  }
+
     function enforceStaffMenuGuidaOnly(root) {
     try {
       var scope = root || document;
@@ -163,6 +195,7 @@
         var panel = menu.querySelector(".vc-snav-panel") || menu;
         var links = panel.querySelectorAll("a.vc-snav-row, a.vc-snav-item, a");
         var keptGuide = false;
+        var keptConf = false;
         for (var i = 0; i < links.length; i++) {
           var a = links[i];
           var href = String(a.getAttribute("href") || "");
@@ -184,10 +217,22 @@
             }
             continue;
           }
+          if (isConfessionaleNavHref(href) || isConfessionaleNavLabel(lab)) {
+            if (keptConf) {
+              if (a.parentNode) a.parentNode.removeChild(a);
+            } else {
+              keptConf = true;
+            }
+            continue;
+          }
           if (a.parentNode) a.parentNode.removeChild(a);
         }
         if (!keptGuide && panel) {
-          panel.innerHTML = row("/staff/guida/", "book", "Guida", true);
+          panel.insertAdjacentHTML("afterbegin", row("/staff/guida/", "book", "Guida", true));
+          keptGuide = true;
+        }
+        if (!keptConf && panel) {
+          panel.insertAdjacentHTML("beforeend", row("/confessionale/", "comments", "Confessionale", true));
         }
       }
     } catch (eEnforce) {}
@@ -282,6 +327,7 @@
       '<summary class="vc-snav-summary"><span>Area staff</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>' +
       '<div class="vc-snav-panel">' +
       row("/staff/guida/", "book", "Guida", true) +
+      row("/confessionale/", "comments", "Confessionale", true) +
       "</div></details>";
 
     var existing = header.querySelector("[data-vc-staff-tools-nav]");
@@ -464,7 +510,7 @@
 
     if (!document.querySelector('script[src*="vc-header-promo.js"]')) {
       var s = document.createElement("script");
-      s.src = "/js/vc-header-promo.js?v=20260902mobilePromoAvatarFix1";
+      s.src = "/js/vc-header-promo.js?v=20260904candPillUnify2";
       s.async = false;
       (document.head || document.body || document.documentElement).appendChild(s);
     } else {
@@ -646,11 +692,14 @@
               if (
                 String(ghref).toLowerCase().indexOf("/staff/guida") >= 0 ||
                 glabNorm === "guida" ||
-                glabNorm === "guida staff"
+                glabNorm === "guida staff" ||
+                String(ghref).toLowerCase().indexOf("/confessionale") >= 0 ||
+                glabNorm === "confessionale" ||
+                glabNorm === "il confessionale"
               ) {
                 guideItems.push({
                   href: ghref,
-                  label: glab || "Guida",
+                  label: glab || (String(ghref).toLowerCase().indexOf("/confessionale") >= 0 ? "Confessionale" : "Guida"),
                   icon: iconFromEl(grow),
                   active:
                     grow.classList.contains("is-active") ||
@@ -666,6 +715,21 @@
                 label: "Guida",
                 icon: "fa-book",
                 active: isActive("/staff/guida/"),
+              });
+            }
+            var hasConf = false;
+            for (var ci = 0; ci < guideItems.length; ci += 1) {
+              if (String(guideItems[ci].href || "").toLowerCase().indexOf("/confessionale") >= 0) {
+                hasConf = true;
+                break;
+              }
+            }
+            if (!hasConf) {
+              guideItems.push({
+                href: "/confessionale/",
+                label: "Confessionale",
+                icon: "fa-comments",
+                active: isActive("/confessionale/"),
               });
             }
             addSection("Staff", guideItems);
@@ -733,6 +797,12 @@
               icon: "fa-book",
               active: isActive("/staff/guida/"),
             },
+            {
+              href: "/confessionale/",
+              label: "Confessionale",
+              icon: "fa-comments",
+              active: isActive("/confessionale/"),
+            },
           ]);
         }
       }
@@ -753,6 +823,18 @@
   }
 
   function staffAvatarUrl(u) {
+    try {
+      var server = window.__VC_SERVER_IDENTITY;
+      if (server && server.avatarUrl && (!u || !u.id || String(server.userId || "") === String(u.id || "") || !server.userId)) {
+        var serverUrl = String(server.avatarUrl || "").trim();
+        if (/^https?:\/\//i.test(serverUrl)) {
+          if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
+            return window.VcDiscordAvatar.resolveUrl(serverUrl, 64, server.memberAvatar || "", u && u.id) || serverUrl;
+          }
+          return serverUrl;
+        }
+      }
+    } catch (eServer) {}
     if (!u || !u.id) return "";
     try {
       if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromUser === "function") {
@@ -765,13 +847,64 @@
       return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
     }
     try {
-      if (typeof BigInt === "undefined") return "";
-      var bi = BigInt(String(u.id));
-      var idx = Number((bi >> 22n) % 6n);
-      return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
-    } catch (eAv) {
-      return "";
-    }
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
+      }
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function staffAccountDisplayName(profile) {
+    try {
+      var server = window.__VC_SERVER_IDENTITY;
+      if (server && String(server.displayName || "").trim()) {
+        if (!profile || !profile.id || String(server.userId || "") === String(profile.id || "") || !server.userId) {
+          return String(server.displayName).trim();
+        }
+      }
+    } catch (eN) {}
+    try {
+      if (window.VcDiscordIdentity && typeof window.VcDiscordIdentity.pickDisplayName === "function") {
+        return window.VcDiscordIdentity.pickDisplayName(profile, "Utente");
+      }
+    } catch (eP) {}
+    return String((profile && (profile.global_name || profile.username)) || "Utente").trim() || "Utente";
+  }
+
+  function readCachedProfileForStaffNav() {
+    try {
+      var token = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+      if (!token) return null;
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (exp && Date.now() >= exp) return null;
+      var fp = String(exp) + "|" + token.slice(0, 32);
+      var now = Date.now();
+      var keys = [
+        ["sessionStorage", "vc_discord_me_cache_v1", 180000],
+        ["localStorage", "vc_discord_me_cache_local_v1", 7 * 24 * 60 * 60 * 1000],
+      ];
+      for (var i = 0; i < keys.length; i += 1) {
+        var store = keys[i][0] === "sessionStorage" ? sessionStorage : localStorage;
+        var raw = store.getItem(keys[i][1]);
+        if (!raw) continue;
+        var o = JSON.parse(raw);
+        var age = now - Number((o && o.at) || 0);
+        if (
+          o &&
+          o.v === 1 &&
+          o.user &&
+          String(o.fp || "") === fp &&
+          isFinite(age) &&
+          age >= 0 &&
+          age <= keys[i][2]
+        ) {
+          return o.user;
+        }
+      }
+    } catch (eCache) {}
+    return null;
   }
 
   function syncStaffDrawerFooter() {
@@ -789,7 +922,7 @@
 
     var profile = null;
     try {
-      profile = window.__VC_DISCORD_PROFILE || null;
+      profile = window.__VC_DISCORD_PROFILE || readCachedProfileForStaffNav();
     } catch (eP) {}
     var hasToken = false;
     try {
@@ -839,8 +972,7 @@
       meta.className = "vc-mobile-nav-footer__meta";
       var nm = document.createElement("span");
       nm.className = "vc-mobile-nav-footer__name";
-      nm.textContent =
-        String(profile.global_name || profile.username || "Utente").trim() || "Utente";
+      nm.textContent = staffAccountDisplayName(profile);
       meta.appendChild(nm);
       var hint = document.createElement("span");
       hint.className = "vc-mobile-nav-footer__hint";
@@ -865,7 +997,11 @@
       lo.addEventListener("click", function () {
         var logoutBtn = document.getElementById("discord-logout-btn");
         if (logoutBtn) logoutBtn.click();
-        else if (typeof window.__vcDiscordClearToken === "function") {
+        else if (typeof window.__vcDiscordCompleteLogout === "function") {
+          try {
+            window.__vcDiscordCompleteLogout({ reason: "user" });
+          } catch (eOut) {}
+        } else if (typeof window.__vcDiscordClearToken === "function") {
           try {
             window.__vcDiscordClearToken();
           } catch (eClear) {}
@@ -1025,6 +1161,11 @@
           syncStaffDrawerFooter();
         } catch (eProf) {}
       });
+      window.addEventListener("vc-server-identity", function () {
+        try {
+          syncStaffDrawerFooter();
+        } catch (eSid) {}
+      });
     }
   }
 
@@ -1060,6 +1201,58 @@
     upgrade();
   }
 
+  function teardownStaffSiteNav() {
+    try {
+      window.__VC_STAFF_MENU_ALLOWED = false;
+    } catch (e0) {}
+    try {
+      document.body && document.body.classList.remove("vc-staff-site-nav");
+    } catch (e1) {}
+    try {
+      var header = document.querySelector("body > .vc-staff-app > header, body > header, .vc-staff-app header");
+      if (header) {
+        stripStaffMenuFromSnav(header.querySelector("nav.vc-header-snav"));
+        stripLegacyStaffNavRows(header);
+        var stray = header.querySelectorAll("[data-vc-staff-tools-nav], .vc-snav-details--staff");
+        for (var i = 0; i < stray.length; i++) {
+          if (stray[i] && stray[i].parentNode) stray[i].parentNode.removeChild(stray[i]);
+        }
+      }
+      stripStaffMenuFromSnav(document.querySelector("nav.vc-header-snav"));
+      stripLegacyStaffNavRows(document);
+    } catch (e2) {}
+    try {
+      var drawer = document.getElementById("vc-mobile-nav-drawer");
+      if (drawer) {
+        var staffTiles = drawer.querySelectorAll(
+          "[data-vc-mobile-staff], a[href*='/staff/'], a[href*='/staff'], .vc-mobile-nav-section[data-vc-staff-section]",
+        );
+        for (var t = 0; t < staffTiles.length; t++) {
+          var el = staffTiles[t];
+          if (!el || !el.parentNode) continue;
+          /* keep public tiles; only remove dedicated staff section wrappers */
+          if (
+            el.getAttribute("data-vc-mobile-staff") != null ||
+            el.getAttribute("data-vc-staff-section") != null ||
+            (el.classList && el.classList.contains("vc-mobile-nav-section") && el.querySelector("a[href*='/staff/guida']"))
+          ) {
+            el.parentNode.removeChild(el);
+          }
+        }
+      }
+    } catch (e3) {}
+    try {
+      var promo = document.getElementById("vc-header-promo-btn");
+      if (promo) promo.classList.remove("vc-header-promo-btn--staff-hidden");
+    } catch (e4) {}
+    try {
+      if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
+    } catch (e5) {}
+  }
+
+  /* authLogoutRoleGate1: footer mobile usa completeLogout */
+  window.__vcTeardownStaffSiteNav = teardownStaffSiteNav;
+
   function scheduleStaffNavBoot() {
     function run() {
       if (!isStaffNavContext()) return false;
@@ -1077,7 +1270,15 @@
   window.addEventListener("vc:staff-access-ok", function () {
     boot();
   });
-  window.addEventListener("vc-discord-profile", function () {
+  window.addEventListener("vc:auth-logout", function () {
+    teardownStaffSiteNav();
+  });
+  window.addEventListener("vc-discord-profile", function (ev) {
+    var user = ev && ev.detail ? ev.detail.user : null;
+    if (!user) {
+      teardownStaffSiteNav();
+      return;
+    }
     if (window.__VC_STAFF_MENU_ALLOWED) boot();
   });
   if (document.readyState === "loading") {

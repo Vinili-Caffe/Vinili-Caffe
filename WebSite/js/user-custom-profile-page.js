@@ -68,6 +68,20 @@
     return "#" + s.toLowerCase();
   }
 
+  // Discord: color 0 / #000000 = nessun colore → grigio default client (#99AAB5).
+  var DISCORD_DEFAULT_ROLE_HEX = "#99aab5";
+
+  function isDiscordUnsetRoleHex(hex) {
+    var h = normalizeHexClient(hex);
+    return h === "#000000";
+  }
+
+  function discordRoleDisplayHex(hex) {
+    var h = normalizeHexClient(hex);
+    if (!h || isDiscordUnsetRoleHex(h)) return DISCORD_DEFAULT_ROLE_HEX;
+    return h;
+  }
+
   function parseTarget() {
     try {
       var q = new URLSearchParams(window.location.search || "");
@@ -590,7 +604,9 @@
             (av
               ? '<img class="vc-cpf-members__av" src="' +
                 esc(av) +
-                '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+                '" alt="" width="36" height="36" loading="eager" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1" data-user-id="' +
+                esc(id) +
+                '" />'
               : '<span class="vc-cpf-members__av is-fallback"><i class="fa fa-user" aria-hidden="true"></i></span>') +
             '<span class="vc-cpf-members__meta">' +
             '<span class="vc-cpf-members__name">' +
@@ -775,14 +791,22 @@
     var hex = target === "voice" ? "" : normalizeHexClient(entity.color || "");
     var hex2 = target === "voice" ? "" : normalizeHexClient(entity.color2 || "");
     var mode = target === "voice" ? "solid" : inferColorMode(entity);
+    var isUnsetColor = target !== "voice" && (!hex || isDiscordUnsetRoleHex(hex));
+    var accent = target === "voice" ? "" : isUnsetColor ? DISCORD_DEFAULT_ROLE_HEX : discordRoleDisplayHex(hex);
+    var accent2 =
+      target === "voice"
+        ? ""
+        : hex2
+          ? discordRoleDisplayHex(hex2)
+          : accent;
     var meta =
       target === "voice"
         ? "ID " + String(entity.id || "—")
-        : hex
-          ? mode === "solid"
+        : isUnsetColor
+          ? "Default Discord"
+          : mode === "solid"
             ? hex.toUpperCase()
-            : hex.toUpperCase() + (hex2 ? " → " + hex2.toUpperCase() : "")
-          : "Senza colore";
+            : hex.toUpperCase() + (hex2 ? " → " + hex2.toUpperCase() : "");
     var icon =
       target === "voice"
         ? '<i class="fa fa-microphone" aria-hidden="true"></i>'
@@ -794,16 +818,16 @@
             ? "<span>" + esc(entity.emoji) + "</span>"
             : '<i class="fa fa-star" aria-hidden="true"></i>';
     var styleBits = [];
-    if (hex) styleBits.push("--vc-cpf-accent:" + hex);
-    if (hex2) styleBits.push("--vc-cpf-accent2:" + hex2);
-    else if (hex) styleBits.push("--vc-cpf-accent2:" + hex);
+    if (accent) styleBits.push("--vc-cpf-accent:" + accent);
+    if (accent2) styleBits.push("--vc-cpf-accent2:" + accent2);
+    else if (accent) styleBits.push("--vc-cpf-accent2:" + accent);
     var swatch =
-      target === "voice" || !hex
+      target === "voice" || !accent
         ? ""
         : '<div class="vc-cpf-stage__swatch" data-cpf-swatch aria-hidden="true"></div>';
     return (
       '<div class="vc-cpf-stage__card' +
-      (hex ? " has-color" : "") +
+      (accent ? " has-color" : "") +
       (mode !== "solid" ? " is-" + mode : "") +
       '" data-cpf-stage data-cpf-mode="' +
       esc(mode) +
@@ -856,10 +880,14 @@
     );
   }
 
-  function colorFieldHtml(label, hexId, pickId, value, placeholder) {
+  function colorFieldHtml(label, hexId, pickId, value, placeholder, fieldKey) {
     var hex = normalizeHexClient(value) || normalizeHexClient(placeholder) || "#d4a888";
+    var chipHex = discordRoleDisplayHex(hex);
+    var key = fieldKey ? ' data-cpf-color-field="' + esc(fieldKey) + '"' : "";
     return (
-      '<label class="vc-cpf-field">' +
+      '<label class="vc-cpf-field"' +
+      key +
+      ">" +
       "<span>" +
       esc(label) +
       "</span>" +
@@ -874,7 +902,7 @@
       '<span class="vc-cpf-colorpick__chip" data-cpf-chip="' +
       esc(hexId) +
       '" style="background:' +
-      esc(hex) +
+      esc(chipHex) +
       '" aria-hidden="true"></span>' +
       '<input type="text" id="' +
       esc(hexId) +
@@ -895,54 +923,85 @@
     if (!hexEl) return;
     var hex = normalizeHexClient(hexEl.value);
     var hex2 = hex2El ? normalizeHexClient(hex2El.value) : "";
+    var displayHex = hex ? discordRoleDisplayHex(hex) : "";
+    var displayHex2 = hex2 ? discordRoleDisplayHex(hex2) : "";
     var modeBtn = document.querySelector(".vc-cpf-modebtn.is-active");
     var mode = modeBtn ? String(modeBtn.getAttribute("data-mode") || "solid") : String(stage.getAttribute("data-cpf-mode") || "solid");
     var chip1 = document.querySelector('[data-cpf-chip="vc-cpf-hex"]');
     var chip2 = document.querySelector('[data-cpf-chip="vc-cpf-hex2"]');
     var pick1 = byId("vc-cpf-hex-pick");
     var pick2 = byId("vc-cpf-hex2-pick");
-    if (hex) {
+    if (hex && displayHex) {
       stage.classList.add("has-color");
       stage.classList.toggle("is-gradient", mode === "gradient");
       stage.classList.toggle("is-holo", mode === "holo");
       stage.setAttribute("data-cpf-mode", mode);
-      stage.style.setProperty("--vc-cpf-accent", hex);
-      var accent2 = mode === "solid" ? hex : hex2 || hex;
+      stage.style.setProperty("--vc-cpf-accent", displayHex);
+      var accent2 = mode === "solid" ? displayHex : displayHex2 || displayHex;
       stage.style.setProperty("--vc-cpf-accent2", accent2);
-      if (chip1) chip1.style.background = hex;
+      if (chip1) chip1.style.background = displayHex;
       if (pick1 && pick1.value.toLowerCase() !== hex) pick1.value = hex;
       var meta = stage.querySelector("[data-cpf-meta]");
       if (meta) {
-        meta.textContent =
-          mode === "solid" || !hex2 ? hex.toUpperCase() : hex.toUpperCase() + " → " + hex2.toUpperCase();
+        if (isDiscordUnsetRoleHex(hex) && (mode === "solid" || !hex2 || isDiscordUnsetRoleHex(hex2))) {
+          meta.textContent = "Default Discord";
+        } else {
+          meta.textContent =
+            mode === "solid" || !hex2 ? hex.toUpperCase() : hex.toUpperCase() + " → " + hex2.toUpperCase();
+        }
       }
       var title = stage.querySelector("[data-cpf-title]");
       if (title) {
         if (mode === "solid" || !hex2) {
-          title.style.color = hex;
+          title.style.color = displayHex;
           title.style.backgroundImage = "";
           title.classList.remove("is-gradient-text");
         } else {
           title.style.color = "transparent";
-          title.style.backgroundImage = "linear-gradient(90deg," + hex + "," + hex2 + ")";
+          title.style.backgroundImage =
+            "linear-gradient(90deg," + displayHex + "," + (displayHex2 || displayHex) + ")";
           title.classList.add("is-gradient-text");
         }
       }
     }
     if (hex2) {
-      if (chip2) chip2.style.background = hex2;
+      if (chip2) chip2.style.background = displayHex2 || discordRoleDisplayHex(hex2);
       if (pick2 && pick2.value.toLowerCase() !== hex2) pick2.value = hex2;
     }
   }
 
   function setActiveColorMode(mode) {
+    var next = String(mode || "solid").toLowerCase();
     var buttons = document.querySelectorAll(".vc-cpf-modebtn");
     for (var i = 0; i < buttons.length; i++) {
-      buttons[i].classList.toggle("is-active", String(buttons[i].getAttribute("data-mode") || "") === mode);
+      buttons[i].classList.toggle("is-active", String(buttons[i].getAttribute("data-mode") || "") === next);
     }
     var stage = document.querySelector("[data-cpf-stage]");
-    if (stage) stage.setAttribute("data-cpf-mode", mode);
+    if (stage) stage.setAttribute("data-cpf-mode", next);
+    syncColorFieldVisibility(next);
     applyLiveColorPreview();
+  }
+
+  function syncColorFieldVisibility(mode) {
+    var m = String(mode || activeColorMode() || "solid").toLowerCase();
+    var secondaryWrap = document.querySelector('[data-cpf-color-field="secondary"]');
+    var primaryWrap = document.querySelector('[data-cpf-color-field="primary"]');
+    var hexEl = byId("vc-cpf-hex");
+    var hex2El = byId("vc-cpf-hex2");
+    var pick1 = byId("vc-cpf-hex-pick");
+    var pick2 = byId("vc-cpf-hex2-pick");
+    if (secondaryWrap) {
+      secondaryWrap.hidden = m === "solid";
+      secondaryWrap.style.display = m === "solid" ? "none" : "";
+    }
+    var lock = m === "holo";
+    [hexEl, hex2El, pick1, pick2].forEach(function (el) {
+      if (!el) return;
+      el.disabled = lock;
+      el.readOnly = lock;
+    });
+    if (primaryWrap) primaryWrap.classList.toggle("is-locked", lock);
+    if (secondaryWrap) secondaryWrap.classList.toggle("is-locked", lock);
   }
 
   function wireLiveColorPreview() {
@@ -1313,9 +1372,9 @@
         ) +
         block(
           "Colore",
-          "Cambia lo swatch o scrivi l’HEX — l’anteprima si aggiorna subito",
+          "Anteprima subito — su Discord solo dopo «Salva colore»",
           '<div class="vc-cpf-grid">' +
-            colorFieldHtml("Primario", "vc-cpf-hex", "vc-cpf-hex-pick", entity.color || "#f4b6d7", "#ff66cc") +
+            colorFieldHtml("Primario", "vc-cpf-hex", "vc-cpf-hex-pick", entity.color || "#f4b6d7", "#ff66cc", "primary") +
             (gradientOk
               ? colorFieldHtml(
                   "Secondario",
@@ -1323,20 +1382,21 @@
                   "vc-cpf-hex2-pick",
                   entity.color2 || "#6f4e37",
                   "#6f4e37",
+                  "secondary",
                 )
               : "") +
             "</div>" +
             '<div class="vc-cpf-actions vc-cpf-actions--modes" role="group" aria-label="Tipo colore">' +
             '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
             (inferColorMode(entity) === "solid" ? " is-active" : "") +
-            '" data-action="color" data-mode="solid">Solido</button>' +
+            '" data-mode="solid">Solido</button>' +
             (gradientOk
               ? '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
                 (inferColorMode(entity) === "gradient" ? " is-active" : "") +
-                '" data-action="color" data-mode="gradient">Gradiente</button>' +
+                '" data-mode="gradient">Gradiente</button>' +
                 '<button type="button" class="vc-cpf-btn vc-cpf-modebtn' +
                 (inferColorMode(entity) === "holo" ? " is-active" : "") +
-                '" data-action="color" data-mode="holo">Olografico</button>'
+                '" data-mode="holo">Olografico</button>'
               : "") +
             "</div>" +
             '<div class="vc-cpf-actions"><button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="color" data-mode-from-ui="1">Salva colore</button></div>',
@@ -1367,6 +1427,7 @@
     wireActions(target);
     wireLiveColorPreview();
     wireEmojiPickers(target);
+    setActiveColorMode(inferColorMode(entity));
     if (busy) setBusyUi(true);
     clearPendingChrome();
   }
@@ -1409,8 +1470,23 @@
       var action = String(btn.getAttribute("data-action") || "");
       if (action === "create") return runAction(target, "create");
       if (action === "delete") {
-        if (!window.confirm("Confermi l'eliminazione?")) return;
-        return runAction(target, "delete");
+        (typeof window.__vcEnsureDialog === "function"
+          ? window.__vcEnsureDialog()
+          : Promise.resolve(window.VcDialog)
+        ).then(function (D) {
+          if (!D || typeof D.confirm !== "function") return;
+          return D.confirm({
+            title: "Eliminare?",
+            message: "Confermi l'eliminazione?",
+            confirmLabel: "Elimina",
+            cancelLabel: "Annulla",
+            danger: true,
+            icon: "fa-trash-o",
+          }).then(function (ok) {
+            if (ok) runAction(target, "delete");
+          });
+        });
+        return;
       }
       if (action === "rename") {
         var nameEl = byId("vc-cpf-name");
@@ -1440,11 +1516,15 @@
         if (mode === "gradient" && (!hex || !hex2)) {
           showToast(
             !hex2
-              ? "Per il gradiente scrivi anche il secondario (il testo grigio è solo esempio, non conta)."
+              ? "Per il gradiente seleziona Gradiente e scrivi anche il secondario."
               : "Per il gradiente servono primario e secondario HEX validi.",
             true,
           );
           return;
+        }
+        if (mode === "holo") {
+          hex = HOLO_PRIMARY;
+          hex2 = HOLO_SECONDARY;
         }
         if (hexEl && hex) hexEl.value = hex;
         if (hex2El && hex2) hex2El.value = hex2;

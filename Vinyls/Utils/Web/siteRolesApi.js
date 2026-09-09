@@ -7,7 +7,7 @@ const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Co
 const CACHE_TTL_MS = 90_000;
 const STALE_KEEP_MS = 10 * 60 * 1000;
 const MEMBERS_FETCH_TIMEOUT_MS = 7_000;
-const IDENTITY_FETCH_TIMEOUT_MS = 2_500;
+const IDENTITY_FETCH_TIMEOUT_MS = 4_500;
 const IDENTITY_BATCH_CONCURRENCY = 8;
 let cache = { at: 0, payload: null, refreshing: false };
 const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
@@ -42,14 +42,28 @@ function snowflakeDateIso(id) {
   }
 }
 
+function defaultEmbedAvatarUrl(userId) {
+  const id = String(userId || "").trim();
+  let idx = 0;
+  if (/^\d{5,24}$/.test(id)) {
+    try {
+      idx = Number((BigInt(id) >> 22n) % 6n);
+    } catch {
+      idx = 0;
+    }
+  }
+  return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+}
+
 function emptyIdentity(userId) {
   const id = String(userId || "").trim();
   return {
     ownerId: id,
     ownerUsername: "",
-    ownerDisplayName: "",
+    ownerDisplayName: "Utente",
     ownerAvatar: "",
-    ownerAvatarUrl: "",
+    ownerAvatarUrl: defaultEmbedAvatarUrl(id),
+    inGuild: false,
   };
 }
 
@@ -88,13 +102,16 @@ async function fetchUserIdentity(client, guild, userId) {
     );
   }
   const user = member?.user || (await fetchDiscordUser(client, guild, userId));
+  out.inGuild = Boolean(member);
   if (!user) return out;
   out.ownerUsername = String(user.username || "").trim();
-  out.ownerDisplayName = String(
-    member?.displayName || user.globalName || user.username || ""
-  ).trim() || out.ownerUsername;
+  out.ownerDisplayName =
+    String(member?.displayName || user.globalName || user.username || "").trim() ||
+    out.ownerUsername ||
+    "Utente";
   out.ownerAvatar = user.avatar ? String(user.avatar) : "";
-  out.ownerAvatarUrl = userAvatarUrlDynamic(member || user, { size: 256 }) || "";
+  out.ownerAvatarUrl =
+    userAvatarUrlDynamic(member || user, { size: 256 }) || defaultEmbedAvatarUrl(id);
   return out;
 }
 
@@ -234,6 +251,18 @@ async function buildSiteRolesPayload(client) {
   const rows = [];
 
   for (const doc of filtered) {
+    const ownerId = String(doc.userId || "").trim();
+    if (!ownerId) continue;
+    let ownerMember = guild.members.cache.get(ownerId) || null;
+    if (!ownerMember && guild.members?.fetch) {
+      ownerMember = await withTimeout(
+        guild.members.fetch({ user: ownerId, force: false }).catch(() => null),
+        IDENTITY_FETCH_TIMEOUT_MS,
+      );
+    }
+    const cachedUser = client?.users?.cache?.get?.(ownerId) || null;
+    if (ownerMember?.user?.bot || cachedUser?.bot) continue;
+
     const roleEntries = [
       { roleId: String(doc.roleId || "").trim(), slot: "primary" },
       { roleId: String(doc.secondaryRoleId || "").trim(), slot: "secondary" },
@@ -244,7 +273,14 @@ async function buildSiteRolesPayload(client) {
       if (!role) continue;
       if (!isListableUserCustomRole(role, { blockedRoleIds: BLOCKED_ROLE_IDS })) continue;
 
-      const identity = identityByOwner.get(String(doc.userId || "").trim()) || emptyIdentity(doc.userId);
+      const identity = {
+        ...(identityByOwner.get(String(doc.userId || "").trim()) || emptyIdentity(doc.userId)),
+        inGuild: Boolean(ownerMember),
+      };
+      if (!String(identity.ownerDisplayName || "").trim()) identity.ownerDisplayName = "Utente";
+      if (!String(identity.ownerAvatarUrl || "").trim()) {
+        identity.ownerAvatarUrl = defaultEmbedAvatarUrl(ownerId);
+      }
       const createdAt =
         (role.createdAt instanceof Date && Number.isFinite(role.createdAt.getTime()) ? role.createdAt.toISOString() : null) ||
         snowflakeDateIso(role.id) ||

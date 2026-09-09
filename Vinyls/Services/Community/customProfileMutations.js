@@ -16,6 +16,20 @@ const { getLastSunday21BoundaryMsAtOrBefore } = require("../../Utils/Community/c
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const IDs = require("../../Utils/Config/ids");
 
+function scheduleFullStatePersist(guild, ownerId, reason) {
+  try {
+    const { schedulePersistUserFullState } = require("./userFullStatePersistenceService");
+    schedulePersistUserFullState(guild?.id, ownerId, { guild, reason: reason || "custom_profile_mutation" });
+  } catch {
+    /* ignore */
+  }
+}
+
+function okPersist(guild, ownerId, reason, payload) {
+  scheduleFullStatePersist(guild, ownerId, reason);
+  return payload;
+}
+
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
 const CUSTOM_VOC_CREATE_ROLE_IDS = [IDs?.roles?.VIP, IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus, IDs?.roles?.["VIP+"], IDs?.roles?.Level50].filter(Boolean);
 const CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS = [IDs?.roles?.VIP, IDs?.roles?.ServerBooster, IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus].filter(Boolean);
@@ -131,7 +145,7 @@ async function createCustomRole({ client, guild, member, ownerId, slot = "primar
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
 
-  return { ok: true, role: createdRole, doc };
+  return okPersist(guild, ownerId, "create_custom_role", { ok: true, role: createdRole, doc });
 }
 
 async function deleteCustomRole({ client, guild, member, ownerId, slot = "primary" }) {
@@ -163,7 +177,7 @@ async function deleteCustomRole({ client, guild, member, ownerId, slot = "primar
       : { $set: { roleId: null } };
   await CustomRole.updateOne({ guildId: guild.id, userId: ownerId }, updatePayload).catch(() => {});
 
-  return { ok: true };
+  return okPersist(guild, ownerId, "delete_custom_role", { ok: true });
 }
 
 async function renameCustomRole({ guild, member, ownerId, roleId, name }) {
@@ -173,19 +187,39 @@ async function renameCustomRole({ guild, member, ownerId, roleId, name }) {
 
   const newName = trimRoleName(String(name || "").trim() || accountUsername(member) || "Custom Role");
   const edited = await role.edit({ name: newName }, `Custom role rename via sito da ${ownerId}`).then(() => true).catch(() => false);
-  return edited ? { ok: true, name: newName } : { ok: false, reason: "edit_failed" };
+  return edited
+    ? okPersist(guild, ownerId, "rename_custom_role", { ok: true, name: newName })
+    : { ok: false, reason: "edit_failed" };
 }
 
 async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, hex2 }) {
   if (!guild || !roleId) return { ok: false, reason: "invalid_params" };
-  let role = guild.roles.cache.get(roleId) || (await guild.roles.fetch(roleId).catch(() => null));
+
+  let resolvedRoleId = String(roleId || "").trim();
+  try {
+    const { remapRoleIdForward } = require("../../Utils/Config/emergencyRoleIdRemap");
+    const remapped = remapRoleIdForward(resolvedRoleId);
+    if (remapped && remapped !== resolvedRoleId) resolvedRoleId = remapped;
+  } catch {
+    /* ignore */
+  }
+
+  let role = guild.roles.cache.get(resolvedRoleId) || (await guild.roles.fetch(resolvedRoleId).catch(() => null));
   if (!role || typeof role.edit !== "function") {
-        role = await guild.roles.fetch(roleId, { force: true }).catch(() => null);
+    role = await guild.roles.fetch(resolvedRoleId, { force: true }).catch(() => null);
   }
   if (!role || typeof role.edit !== "function") return { ok: false, reason: "role_not_found" };
 
+  const me = guild.members?.me || guild.members?.cache?.get?.(guild.client?.user?.id);
+  if (me?.permissions?.has && !me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+    return { ok: false, reason: "edit_failed" };
+  }
+  if (me?.roles?.highest?.position != null && Number(role.position) >= Number(me.roles.highest.position)) {
+    return { ok: false, reason: "edit_failed" };
+  }
+
   const colorMode = String(mode || "solid").toLowerCase();
-    const norm = (raw) => {
+  const norm = (raw) => {
     let s = String(raw || "")
       .trim()
       .replace(/[\s\u200b\u200c\u200d\ufeff]/g, "");
@@ -201,13 +235,66 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
     if (s.length !== 6) return "";
     return `#${s.toLowerCase()}`;
   };
+  const hexToInt = (h) => {
+    const n = norm(h);
+    if (!n) return null;
+    return parseInt(n.slice(1), 16);
+  };
+
+  const readLiveColors = async () => {
+    const live = await guild.roles.fetch(resolvedRoleId, { force: true }).catch(() => null);
+    if (!live) return null;
+    const toInt = (raw) => {
+      if (raw === 0 || raw === "0") return 0;
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+      return null;
+    };
+    let primary = toInt(live.colors?.primaryColor ?? live.color);
+    if (primary == null) {
+      const hex = String(live.hexColor || "").replace(/^#/, "").trim();
+      if (/^[0-9a-fA-F]{6}$/.test(hex)) primary = parseInt(hex, 16);
+    }
+    const secondary = toInt(live.colors?.secondaryColor);
+    const tertiary = toInt(live.colors?.tertiaryColor);
+    return {
+      primary: primary == null || !Number.isFinite(primary) ? null : primary,
+      secondary: secondary == null || !Number.isFinite(secondary) ? null : secondary,
+      tertiary: tertiary == null || !Number.isFinite(tertiary) ? null : tertiary,
+    };
+  };
+
+  const sameColor = (a, b) => {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return Number(a) === Number(b);
+  };
+
+  const confirmColors = async (want) => {
+    const live = await readLiveColors();
+    if (!live || live.primary == null) return false;
+    if (!sameColor(live.primary, want.primary)) return false;
+    if (!sameColor(live.secondary, want.secondary ?? null)) return false;
+    if (!sameColor(live.tertiary, want.tertiary ?? null)) return false;
+    return true;
+  };
 
   const editRole = async (payload, reason) => {
-    if (typeof role.edit === "function") {
-      return role.edit(payload, reason).then(() => true).catch(() => false);
-    }
-    if (typeof guild.roles?.edit === "function") {
-      return guild.roles.edit(roleId, payload, reason).then(() => true).catch(() => false);
+    try {
+      if (typeof role.edit === "function") {
+        await role.edit(payload, reason);
+        return true;
+      }
+      if (typeof guild.roles?.edit === "function") {
+        await guild.roles.edit(resolvedRoleId, payload, reason);
+        return true;
+      }
+    } catch (err) {
+      global.logger?.warn?.(
+        "[customProfile] role color edit failed:",
+        err?.message || err?.code || err,
+      );
+      return false;
     }
     return false;
   };
@@ -220,7 +307,20 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
 
   if (colorMode === "holo") {
     const edited = await editRole({ colors: HOLO }, `Custom role holographic via sito da ${ownerId}`);
-    return edited ? { ok: true, message: "Colore olografico applicato." } : { ok: false, reason: "edit_failed" };
+    const applied = await confirmColors({
+      primary: HOLO.primaryColor,
+      secondary: HOLO.secondaryColor,
+      tertiary: HOLO.tertiaryColor,
+    });
+    if (!edited || !applied) {
+      return {
+        ok: false,
+        reason: "edit_failed",
+        message:
+          "Discord non ha applicato lo stile olografico. Riprova tra poco (serve Enhanced Role Styles sul server).",
+      };
+    }
+    return okPersist(guild, ownerId, "custom_role_color_holo", { ok: true, message: "Colore olografico applicato." });
   }
 
   if (colorMode === "gradient") {
@@ -229,19 +329,45 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
     if (!/^#[0-9a-fA-F]{6}$/.test(h1) || !/^#[0-9a-fA-F]{6}$/.test(h2)) {
       return { ok: false, reason: "invalid_hex" };
     }
+    const p = hexToInt(h1);
+    const s = hexToInt(h2);
+    if (p == null || s == null) return { ok: false, reason: "invalid_hex" };
     const edited = await editRole(
-      { colors: { primaryColor: h1, secondaryColor: h2 } },
+      { colors: { primaryColor: p, secondaryColor: s, tertiaryColor: null } },
       `Custom role gradient via sito da ${ownerId}`,
     );
-    return edited ? { ok: true, message: "Gradiente aggiornato." } : { ok: false, reason: "edit_failed" };
+    const applied = await confirmColors({ primary: p, secondary: s, tertiary: null });
+    if (!edited || !applied) {
+      return {
+        ok: false,
+        reason: "edit_failed",
+        message:
+          "Discord non ha applicato il gradiente. Seleziona Gradiente (non Solido) e riprova.",
+      };
+    }
+    return okPersist(guild, ownerId, "custom_role_color_gradient", { ok: true, message: "Gradiente aggiornato." });
   }
 
-    const h = norm(hex);
+  const h = norm(hex);
   if (!/^#[0-9a-fA-F]{6}$/.test(h)) {
     return { ok: false, reason: "invalid_hex" };
   }
-  const edited = await editRole({ colors: { primaryColor: h } }, `Custom role color via sito da ${ownerId}`);
-  return edited ? { ok: true, message: "Colore aggiornato." } : { ok: false, reason: "edit_failed" };
+  const p = hexToInt(h);
+  if (p == null) return { ok: false, reason: "invalid_hex" };
+  // Solid: clear secondary/tertiary so Discord doesn't keep old gradient/holo.
+  const edited = await editRole(
+    { colors: { primaryColor: p, secondaryColor: null, tertiaryColor: null } },
+    `Custom role color via sito da ${ownerId}`,
+  );
+  const applied = await confirmColors({ primary: p, secondary: null, tertiary: null });
+  if (!edited || !applied) {
+    return {
+      ok: false,
+      reason: "edit_failed",
+      message: "Non sono riuscito ad aggiornare il colore solido su Discord.",
+    };
+  }
+  return okPersist(guild, ownerId, "custom_role_color", { ok: true, message: "Colore aggiornato su Discord." });
 }
 
 async function setCustomRoleIcon({ guild, member, ownerId, roleId, value }) {
@@ -253,7 +379,7 @@ async function setCustomRoleIcon({ guild, member, ownerId, roleId, value }) {
 
   if (!raw || /^nessuno$/i.test(raw) || /^rimuovi$/i.test(raw)) {
     const edited = await role.edit({ unicodeEmoji: null, icon: null }, `Custom role icon cleared via sito da ${ownerId}`).then(() => true).catch(() => false);
-    return edited ? { ok: true } : { ok: false, reason: "edit_failed" };
+    return edited ? okPersist(guild, ownerId, "custom_role_icon_clear", { ok: true }) : { ok: false, reason: "edit_failed" };
   }
 
   const isUrl = /^https?:\/\/\S+$/i.test(raw);
@@ -262,7 +388,7 @@ async function setCustomRoleIcon({ guild, member, ownerId, roleId, value }) {
     const iconBuffer = await axios.get(raw, { responseType: "arraybuffer", timeout: 15000, maxContentLength: MAX_ROLE_ICON_BYTES, maxBodyLength: MAX_ROLE_ICON_BYTES, validateStatus: (s) => s >= 200 && s < 300 }).then((r) => Buffer.from(r.data)).catch(() => null);
     if (!iconBuffer) return { ok: false, reason: "url_unreachable" };
     const edited = await role.edit({ icon: iconBuffer, unicodeEmoji: null }, `Custom role icon via sito da ${ownerId}`).then(() => true).catch(() => false);
-    return edited ? { ok: true } : { ok: false, reason: "edit_failed" };
+    return edited ? okPersist(guild, ownerId, "custom_role_icon", { ok: true }) : { ok: false, reason: "edit_failed" };
   }
 
   const resolvedEmoji = resolveCustomEmojiFromValue(raw);
@@ -272,12 +398,12 @@ async function setCustomRoleIcon({ guild, member, ownerId, roleId, value }) {
     const iconBuffer = await axios.get(emojiUrl, { responseType: "arraybuffer", timeout: 15000, maxContentLength: MAX_ROLE_ICON_BYTES, maxBodyLength: MAX_ROLE_ICON_BYTES }).then((r) => r?.status >= 200 && r?.status < 300 ? Buffer.from(r.data) : null).catch(() => null);
     if (!iconBuffer) return { ok: false, reason: "emoji_load_failed" };
     const edited = await role.edit({ icon: iconBuffer, unicodeEmoji: null }, `Custom role icon via sito da ${ownerId}`).then(() => true).catch(() => false);
-    return edited ? { ok: true } : { ok: false, reason: "edit_failed" };
+    return edited ? okPersist(guild, ownerId, "custom_role_icon", { ok: true }) : { ok: false, reason: "edit_failed" };
   }
 
   if (/[\p{Extended_Pictographic}\u200D\uFE0F]/u.test(raw)) {
     const edited = await role.edit({ unicodeEmoji: raw, icon: null }, `Custom role emoji via sito da ${ownerId}`).then(() => true).catch(() => false);
-    return edited ? { ok: true } : { ok: false, reason: "edit_failed" };
+    return edited ? okPersist(guild, ownerId, "custom_role_icon", { ok: true }) : { ok: false, reason: "edit_failed" };
   }
 
   return { ok: false, reason: "invalid_icon_value" };
@@ -321,7 +447,6 @@ async function addCustomRoleMember({ client, guild, ownerId, roleId, memberId })
     requesterId: ownerId,
     targetId: memberId,
     roleId,
-    timeoutMs: 3 * 24 * 60 * 60 * 1000,
   });
 
   if (!started?.ok) {
@@ -413,7 +538,7 @@ async function createCustomVoc({ client, guild, member, ownerId }) {
     { new: true, lean: true, upsert: true, setDefaultsOnInsert: true },
   ).catch(() => null);
 
-  return { ok: true, channel, doc };
+  return okPersist(guild, ownerId, "create_custom_voc", { ok: true, channel, doc });
 }
 
 async function deleteCustomVoc({ client, guild, ownerId }) {
@@ -431,7 +556,7 @@ async function deleteCustomVoc({ client, guild, ownerId }) {
     { $set: { customVocChannelId: null, customVocEligibilityLostAt: null, customVocFailedWeekStreak: 0 } },
   ).catch(() => {});
 
-  return { ok: true };
+  return okPersist(guild, ownerId, "delete_custom_voc", { ok: true });
 }
 
 async function renameCustomVoc({ guild, ownerId, baseName }) {
@@ -456,7 +581,7 @@ async function renameCustomVoc({ guild, ownerId, baseName }) {
 
   try {
     await channel.edit({ name: nextName }, `Custom voc rename via sito da ${ownerId}`);
-    return { ok: true, message: "Nome vocale aggiornato.", name: nextName };
+    return okPersist(guild, ownerId, "rename_custom_voc", { ok: true, message: "Nome vocale aggiornato.", name: nextName });
   } catch (err) {
     const code = Number(err?.code || err?.status || 0);
     if (code === 429 || /rate.?limit/i.test(String(err?.message || ""))) {
@@ -483,19 +608,19 @@ async function setCustomVocEmoji({ guild, ownerId, emoji }) {
 
   const channel = guild.channels?.cache?.get?.(channelId) || (await guild.channels?.fetch?.(channelId).catch(() => null));
   if (!channel || channel.type !== ChannelType.GuildVoice) {
-    return { ok: true, message: "Emoji salvata (canale non trovato per rinominare).", emoji: normalized };
+    return okPersist(guild, ownerId, "custom_voc_emoji", { ok: true, message: "Emoji salvata (canale non trovato per rinominare).", emoji: normalized });
   }
 
   const parsedCurrent = parseCustomVocName(channel.name || "");
   const currentBase = parsedCurrent.baseName || "privata";
   const nextName = buildCustomVocName(normalized, currentBase);
   if (String(channel.name || "") === nextName) {
-    return { ok: true, message: "Emoji aggiornata.", emoji: normalized };
+    return okPersist(guild, ownerId, "custom_voc_emoji", { ok: true, message: "Emoji aggiornata.", emoji: normalized });
   }
 
   try {
     await channel.edit({ name: nextName }, `Custom voc emoji via sito da ${ownerId}`);
-    return { ok: true, message: "Emoji vocale aggiornata.", emoji: normalized };
+    return okPersist(guild, ownerId, "custom_voc_emoji", { ok: true, message: "Emoji vocale aggiornata.", emoji: normalized });
   } catch (err) {
     const code = Number(err?.code || err?.status || 0);
         if (code === 429 || /rate.?limit/i.test(String(err?.message || ""))) {
@@ -538,10 +663,10 @@ async function addCustomVocMember({ guild, ownerId, memberId }) {
   );
   if (!ok) {
         const existing = channel.permissionOverwrites?.cache?.get?.(String(memberId));
-    if (existing) return { ok: true, message: "Accesso già presente." };
+    if (existing) return okPersist(guild, ownerId, "custom_voc_member_add", { ok: true, message: "Accesso già presente." });
     return { ok: false, reason: "edit_failed" };
   }
-  return { ok: true, message: "Accesso aggiunto." };
+  return okPersist(guild, ownerId, "custom_voc_member_add", { ok: true, message: "Accesso aggiunto." });
 }
 
 async function removeCustomVocMember({ guild, ownerId, memberId }) {
@@ -570,7 +695,7 @@ async function removeCustomVocMember({ guild, ownerId, memberId }) {
       return false;
     });
   if (!deleted) return { ok: false, reason: "edit_failed" };
-  return { ok: true, message: "Accesso rimosso." };
+  return okPersist(guild, ownerId, "custom_voc_member_remove", { ok: true, message: "Accesso rimosso." });
 }
 
 module.exports = {

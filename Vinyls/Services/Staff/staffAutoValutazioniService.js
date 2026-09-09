@@ -15,13 +15,16 @@ const {
   loadSerataFilmStaffAttendanceByUserId,
 } = require("../../Utils/Staff/serataFilmAttendanceUtils");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
-const SERATA_FILM_CHANNEL_ID = "1497535199813042306";
+const SERATA_FILM_CHANNEL_ID = String(IDs.channels?.serataFilm || "1497535199813042306").trim();
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
 const AUTO_SYNC_CRON = "*/5 * * * *";
 const STABLE_NO_INVITE_MS = 75 * 1000;
 const SUPPORT_AUTO_REMOVE_STABLE_MS = 5 * 60 * 1000;
 const STAFF_BOOST_AUTO_KEY = "staff_boost_server";
 const BOOST_NATURAL_EXPIRY_MIN_AGE_MS = 27 * 24 * 60 * 60 * 1000;
+const path = require("path");
+const fs = require("fs");
+const SERATA_SESSION_FILE = path.join(__dirname, "../../Data/serataFilmSessions.json");
 const autoWeeklyLoops = new WeakSet();
 const serataFilmSessions = new Map();
 let autoValutazioniCleanupStarted = false;
@@ -30,6 +33,7 @@ let autoValutazioniSuspended = false;
 const autoValutazioniLocksByKey = new Map();
 const supportVanityDebounceByKey = new Map();
 const supportAutoRemoveMissByKey = new Map();
+let serataPersistTimer = null;
 
 function isMongoUnavailableError(err) {
   if (!err) return false;
@@ -319,13 +323,21 @@ async function ensureAutoValutazione(guild, member, key, type, reason, options =
       return { ok: true, skipped: "create_disabled" };
     }
 
-    const channel = await resolveValutazioniChannel(guild);
-    if (!channel?.isTextBased?.()) return { ok: false, skipped: "no_channel" };
+    // Site-first: Mongo + notifica sito. Discord channel solo se DISCORD_STAFF_CHANNEL_POSTS=1.
+    let channel = null;
+    try {
+      const { isDiscordStaffChannelPostsEnabled } = require("../../Utils/Web/discordWorkflowUiGate");
+      if (isDiscordStaffChannelPostsEnabled()) {
+        channel = await resolveValutazioniChannel(guild);
+      }
+    } catch (_) {
+      channel = null;
+    }
 
     const result = type === "negative"
       ? await valutazioneNegativeAddCore(guild, profileDoc, member.user, reason, autoActor(guild), channel)
       : await valutazionePositiveAddCore(profileDoc, member.user, reason, autoActor(guild), channel);
-    if (!result?.message) return { ok: false, skipped: "log_failed" };
+    if (result?.ok !== true) return { ok: false, skipped: "write_failed" };
 
     profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
     staff = ensureStaff(profileDoc);
@@ -333,14 +345,14 @@ async function ensureAutoValutazione(guild, member, key, type, reason, options =
       key: String(key),
       type,
       reason: String(reason || ""),
-      channelId: String(channel.id || ""),
+      channelId: channel?.id ? String(channel.id) : "",
       messageId: result?.message?.id ? String(result.message.id) : null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
     profileDoc.markModified("staff");
     await profileDoc.save();
-    return { ok: true };
+    return { ok: true, siteOnly: !result?.message };
   });
 }
 
@@ -683,12 +695,83 @@ function serataSessionKey(event) {
   return `${String(event?.guildId || event?.guild?.id || "")}:${String(event?.id || "")}`;
 }
 
+function serializeSerataSessions() {
+  const out = [];
+  for (const [key, session] of serataFilmSessions.entries()) {
+    out.push({
+      key,
+      eventId: String(session.eventId || ""),
+      guildId: String(session.guildId || ""),
+      startedAt: Number(session.startedAt || 0),
+      presentSince: [...(session.presentSince || new Map()).entries()],
+      attendanceMs: [...(session.attendanceMs || new Map()).entries()],
+    });
+  }
+  return out;
+}
+
+function persistSerataFilmSessionsSoon() {
+  if (serataPersistTimer) return;
+  serataPersistTimer = setTimeout(() => {
+    serataPersistTimer = null;
+    try {
+      const dir = path.dirname(SERATA_SESSION_FILE);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(SERATA_SESSION_FILE, JSON.stringify({ ts: Date.now(), sessions: serializeSerataSessions() }), "utf8");
+    } catch (err) {
+      global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata session persist failed:", err?.message || err);
+    }
+  }, 400);
+  serataPersistTimer.unref?.();
+}
+
+function hydrateSerataFilmSessionsFromDisk() {
+  try {
+    if (!fs.existsSync(SERATA_SESSION_FILE)) return;
+    const raw = JSON.parse(fs.readFileSync(SERATA_SESSION_FILE, "utf8"));
+    const list = Array.isArray(raw?.sessions) ? raw.sessions : [];
+    for (const row of list) {
+      const key = String(row?.key || "");
+      const eventId = String(row?.eventId || "");
+      const guildId = String(row?.guildId || "");
+      if (!key || !eventId || !guildId) continue;
+      if (serataFilmSessions.has(key)) continue;
+      const session = {
+        eventId,
+        guildId,
+        startedAt: Number(row.startedAt || Date.now()),
+        presentSince: new Map(),
+        attendanceMs: new Map(),
+      };
+      for (const [uid, ms] of Array.isArray(row.attendanceMs) ? row.attendanceMs : []) {
+        if (uid) session.attendanceMs.set(String(uid), Math.max(0, Number(ms) || 0));
+      }
+      for (const [uid, since] of Array.isArray(row.presentSince) ? row.presentSince : []) {
+        if (uid) session.presentSince.set(String(uid), Math.max(0, Number(since) || Date.now()));
+      }
+      serataFilmSessions.set(key, session);
+    }
+    if (list.length) {
+      global.logger?.info?.("[STAFF AUTO VALUTAZIONI] restored serata sessions from disk:", list.length);
+    }
+  } catch (err) {
+    global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata session hydrate failed:", err?.message || err);
+  }
+}
+
+function clearPersistedSerataFilmSessions() {
+  try {
+    if (fs.existsSync(SERATA_SESSION_FILE)) fs.unlinkSync(SERATA_SESSION_FILE);
+  } catch (_) {}
+}
+
 function closeAttendance(session, userId, now = Date.now()) {
   const uid = String(userId || "");
   const started = Number(session.presentSince.get(uid) || 0);
   if (!started) return;
   session.presentSince.delete(uid);
   session.attendanceMs.set(uid, Number(session.attendanceMs.get(uid) || 0) + Math.max(0, now - started));
+  persistSerataFilmSessionsSoon();
 }
 
 async function startSerataFilmSession(event) {
@@ -706,6 +789,8 @@ async function startSerataFilmSession(event) {
       if (isSerataFilmTrackableStaff(member)) session.presentSince.set(String(member.id), Date.now());
     }
   }
+  persistSerataFilmSessionsSoon();
+  global.logger?.info?.("[STAFF AUTO VALUTAZIONI] serata film session started:", event.id);
 }
 
 function serataFilmEvalDateUtc(session) {
@@ -732,65 +817,203 @@ async function loadStaffPausesByUserId(guildId, userIds) {
   return map;
 }
 
-async function finishSerataFilmSession(event) {
-  if (!isSerataFilmEvent(event)) return;
+function attendanceMapFromSnapshot(snapshot) {
+  const map = new Map();
+  if (!(snapshot instanceof Map)) return map;
+  for (const [uid, ms] of snapshot.entries()) {
+    const id = String(uid || "");
+    if (!id) continue;
+    map.set(id, Math.max(0, Number(ms) || 0));
+  }
+  return map;
+}
+
+async function finishSerataFilmSession(event, opts = {}) {
+  if (!isSerataFilmEvent(event) && !(event?.__vcForceSerataFinish && String(event?.channelId || "") === SERATA_FILM_CHANNEL_ID)) {
+    return { ok: false, skipped: true, reason: "not_serata_event" };
+  }
   const key = serataSessionKey(event);
-  const session = serataFilmSessions.get(key);
-  if (!session) return;
+  let session = serataFilmSessions.get(key);
+  const seededAttendance = attendanceMapFromSnapshot(opts.attendanceSnapshot);
+  if (!session && event?.__vcForceSerataFinish) {
+    // serataFilmFinishFromClose1: synthetic session only when we have attendance evidence
+    // (snapshot / hourly) OR explicit recovery allow — never mass-punish on empty guess.
+    if (!seededAttendance.size && !opts.allowEmptyAttendance) {
+      return { ok: false, skipped: true, reason: "no_session_no_attendance" };
+    }
+    session = {
+      eventId: String(event.id || opts.eventId || `stage-${Date.now()}`),
+      guildId: String(event.guildId || event.guild?.id || ""),
+      startedAt: Number(opts.startedAt || Date.now()),
+      presentSince: new Map(),
+      attendanceMs: new Map(seededAttendance),
+    };
+  }
+  if (!session) return { ok: false, skipped: true, reason: "no_session" };
+  if (seededAttendance.size) {
+    for (const [uid, ms] of seededAttendance.entries()) {
+      session.attendanceMs.set(uid, Math.max(Number(session.attendanceMs.get(uid) || 0), ms));
+    }
+  }
   serataFilmSessions.delete(key);
+  persistSerataFilmSessionsSoon();
   const guild = event.guild || (await event.client?.guilds?.fetch?.(event.guildId).catch(() => null));
-  if (!guild) return;
+  if (!guild) return { ok: false, skipped: true, reason: "guild_unavailable" };
   const now = Date.now();
   for (const uid of [...session.presentSince.keys()]) closeAttendance(session, uid, now);
   const evalDateUtc = serataFilmEvalDateUtc(session);
   const saturdayKey = getSerataFilmSaturdayKeyForSession(session);
-  const staffMembers = await fetchMainGuildStaffMembers(guild.client, { preferCache: true });
+  // preferCache:false — absentees must be evaluated even if not in member cache
+  const staffMembers = await fetchMainGuildStaffMembers(guild.client, { preferCache: false });
   const memberIds = staffMembers.map((member) => member.id);
   const [pausesByUserId, attendanceByUserId] = await Promise.all([
     loadStaffPausesByUserId(guild.id, memberIds),
     loadSerataFilmStaffAttendanceByUserId(guild.id, memberIds),
   ]);
+  let applied = 0;
+  let skippedPresent = 0;
+  let skippedExcused = 0;
+  let skippedPause = 0;
+  const appliedUserIds = [];
   for (const member of staffMembers) {
     if (isExemptFromSerataFilmAutoValutazione(member)) continue;
     const uid = String(member.id);
     const pauses = pausesByUserId.get(uid) || [];
-    if (hasActiveAcceptedStaffPause(pauses, evalDateUtc)) continue;
+    if (hasActiveAcceptedStaffPause(pauses, evalDateUtc)) {
+      skippedPause += 1;
+      continue;
+    }
     const ms = Number(session.attendanceMs.get(uid) || 0);
     const staffAttendance = attendanceByUserId.get(uid);
-    if (ms >= SERATA_FILM_MIN_MS) continue;
-    if (isSerataFilmAbsentExcused(staffAttendance, saturdayKey)) continue;
-    await ensureAutoValutazione(guild, member, `serata_film:${session.eventId}`, "negative", "Non si presenta durante la serata film o rimane per meno di 30 minuti.").catch((err) => {
+    if (ms >= SERATA_FILM_MIN_MS) {
+      skippedPresent += 1;
+      continue;
+    }
+    if (isSerataFilmAbsentExcused(staffAttendance, saturdayKey)) {
+      skippedExcused += 1;
+      continue;
+    }
+    const result = await ensureAutoValutazione(guild, member, `serata_film:${session.eventId}`, "negative", "Non si presenta durante la serata film o rimane per meno di 30 minuti.").catch((err) => {
       global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata film negative failed:", member.id, err?.message || err);
+      return null;
     });
+    if (result?.ok && !result.skipped) {
+      applied += 1;
+      appliedUserIds.push(uid);
+    }
   }
+  global.logger?.info?.(
+    "[STAFF AUTO VALUTAZIONI] serata film finish:",
+    session.eventId,
+    "negatives=",
+    applied,
+    "present=",
+    skippedPresent,
+    "excused=",
+    skippedExcused,
+    "pause=",
+    skippedPause,
+  );
+  if (!serataFilmSessions.size) clearPersistedSerataFilmSessions();
+  return {
+    ok: true,
+    eventId: session.eventId,
+    applied,
+    skippedPresent,
+    skippedExcused,
+    skippedPause,
+    appliedUserIds,
+    staffCount: staffMembers.length,
+  };
 }
 
-async function finishSerataFilmSessionsForChannel(guild, channelId) {
-  if (!guild || String(channelId || "") !== SERATA_FILM_CHANNEL_ID) return;
-  const sessions = [...serataFilmSessions.values()]
-    .filter((session) => String(session.guildId || "") === String(guild.id || ""));
-  for (const session of sessions) {
-    await finishSerataFilmSession({
-      id: session.eventId,
-      guildId: session.guildId,
-      guild,
-      client: guild.client,
-      name: "SERATA FILM",
-      channelId: SERATA_FILM_CHANNEL_ID,
-    });
+async function finishSerataFilmSessionsForChannel(guild, channelId, opts = {}) {
+  if (!guild || String(channelId || "") !== SERATA_FILM_CHANNEL_ID) {
+    return { ok: false, skipped: true, reason: "wrong_channel" };
   }
+  hydrateSerataFilmSessionsFromDisk();
+  let sessions = [...serataFilmSessions.values()]
+    .filter((session) => String(session.guildId || "") === String(guild.id || ""));
+  const seededAttendance = attendanceMapFromSnapshot(opts.attendanceSnapshot);
+  if (!sessions.length && (seededAttendance.size || opts.allowEmptyAttendance || opts.eventId)) {
+    // serataFilmFinishFromClose1: recover path when stage closed via cron without in-memory session
+    const eventId = String(opts.eventId || `stage-${Date.now()}`);
+    const session = {
+      eventId,
+      guildId: String(guild.id || ""),
+      startedAt: Number(opts.startedAt || Date.now()),
+      presentSince: new Map(),
+      attendanceMs: new Map(seededAttendance),
+    };
+    sessions = [session];
+    serataFilmSessions.set(`${session.guildId}:${session.eventId}`, session);
+    global.logger?.warn?.(
+      "[STAFF AUTO VALUTAZIONI] serata stage closed with no live session — using synthetic session from attendance/opts",
+      "eventId=",
+      eventId,
+      "attendance=",
+      seededAttendance.size,
+    );
+  }
+  if (!sessions.length) {
+    global.logger?.warn?.(
+      "[STAFF AUTO VALUTAZIONI] serata stage closed but no session in memory/disk — skip auto negatives (avoid mass false positives)",
+    );
+    return { ok: false, skipped: true, reason: "no_session" };
+  }
+  const results = [];
+  for (const session of sessions) {
+    serataFilmSessions.set(`${session.guildId}:${session.eventId}`, session);
+    results.push(
+      await finishSerataFilmSession(
+        {
+          id: session.eventId,
+          guildId: session.guildId,
+          guild,
+          client: guild.client,
+          name: "SERATA FILM",
+          channelId: SERATA_FILM_CHANNEL_ID,
+          __vcForceSerataFinish: true,
+        },
+        {
+          attendanceSnapshot: opts.attendanceSnapshot,
+          startedAt: opts.startedAt || session.startedAt,
+          allowEmptyAttendance: Boolean(opts.allowEmptyAttendance),
+          eventId: session.eventId,
+        },
+      ),
+    );
+  }
+  return { ok: true, results };
 }
 
 async function handleSerataFilmScheduledEventUpdate(oldEvent, newEvent) {
   const oldStatus = Number(oldEvent?.status || 0);
   const newStatus = Number(newEvent?.status || 0);
+  // 2 = ACTIVE, 3 = COMPLETED, 4 = CANCELED
   if (newStatus === 2 && oldStatus !== 2) await startSerataFilmSession(newEvent);
+  if ((newStatus === 3 || newStatus === 4) && oldStatus !== newStatus) {
+    hydrateSerataFilmSessionsFromDisk();
+    await finishSerataFilmSession({
+      id: newEvent?.id,
+      guildId: newEvent?.guildId || newEvent?.guild?.id,
+      guild: newEvent?.guild,
+      client: newEvent?.client || newEvent?.guild?.client,
+      name: newEvent?.name || "SERATA FILM",
+      channelId: newEvent?.channelId || SERATA_FILM_CHANNEL_ID,
+      __vcForceSerataFinish: true,
+    }).catch((err) => {
+      global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata finish on event end failed:", err?.message || err);
+    });
+  }
 }
 
 async function handleSerataFilmVoiceState(oldState, newState) {
   const guildId = String(newState?.guild?.id || oldState?.guild?.id || "");
   const userId = String(newState?.id || oldState?.id || "");
-  if (!guildId || !userId || !serataFilmSessions.size) return;
+  if (!guildId || !userId) return;
+  if (!serataFilmSessions.size) hydrateSerataFilmSessionsFromDisk();
+  if (!serataFilmSessions.size) return;
   const member = newState?.member || oldState?.member || null;
   if (member && isExemptFromSerataFilmAutoValutazione(member)) return;
   const now = Date.now();
@@ -798,14 +1021,23 @@ async function handleSerataFilmVoiceState(oldState, newState) {
   const newInChannel = String(newState?.channelId || "") === SERATA_FILM_CHANNEL_ID;
   const joined = !oldInChannel && newInChannel;
   const left = oldInChannel && !newInChannel;
+  let touched = false;
   for (const session of serataFilmSessions.values()) {
     if (String(session.guildId) !== guildId) continue;
-    if (joined && (!member || isSerataFilmTrackableStaff(member))) session.presentSince.set(userId, now);
-    if (left) closeAttendance(session, userId, now);
+    if (joined && (!member || isSerataFilmTrackableStaff(member))) {
+      session.presentSince.set(userId, now);
+      touched = true;
+    }
+    if (left) {
+      closeAttendance(session, userId, now);
+      touched = true;
+    }
   }
+  if (touched) persistSerataFilmSessionsSoon();
 }
 
 async function restoreActiveSerataFilmSessions(client) {
+  hydrateSerataFilmSessionsFromDisk();
   const guild = client?.guilds?.cache?.get(MAIN_GUILD_ID) || (await client?.guilds?.fetch?.(MAIN_GUILD_ID).catch(() => null));
   if (!guild?.scheduledEvents?.fetch) return;
   const events = await guild.scheduledEvents.fetch().catch(() => null);
@@ -833,4 +1065,6 @@ module.exports = {
   handleSerataFilmScheduledEventUpdate,
   handleSerataFilmVoiceState,
   restoreActiveSerataFilmSessions,
+  SERATA_FILM_CHANNEL_ID,
+  SERATA_FILM_MIN_MS,
 };

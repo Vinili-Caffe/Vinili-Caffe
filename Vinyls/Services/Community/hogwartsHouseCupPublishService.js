@@ -267,6 +267,8 @@ _ _`,
 
 let hogwartsHouseCupLoopStarted = false;
 function startHogwartsHouseCupLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (hogwartsHouseCupLoopStarted) return;
   hogwartsHouseCupLoopStarted = true;
   cron.schedule(

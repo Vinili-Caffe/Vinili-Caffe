@@ -600,6 +600,8 @@
             ? "review"
             : kindRaw === "mod"
               ? "mod"
+              : kindRaw === "staff"
+                ? "staff"
               : kindRaw === "suggestion"
                 ? "suggestion"
                 : "info";
@@ -717,11 +719,278 @@
     addNotif(data);
   }
 
+
+  /* notifCats3 */
+  /* notifUseful1 */
+  var DEDICATED_INBOX_QUEUES_PAGE = {
+    pause: 1,
+    candidature: 1,
+    appelli: 1,
+    resoconti: 1,
+    "punti-tolti": 1,
+  };
+  function inboxQueueIdFromPageUrl(raw) {
+    var s = String(raw || "").trim();
+    if (!s) return "";
+    try {
+      var u = new URL(s, window.location.origin);
+      var inbox = String(u.searchParams.get("inbox") || "")
+        .trim()
+        .toLowerCase();
+      return DEDICATED_INBOX_QUEUES_PAGE[inbox] ? inbox : "";
+    } catch (e) {
+      var m = s.toLowerCase().match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti)\b/);
+      return m ? m[1] : "";
+    }
+  }
+  function isVoteRegisteredNotifPage(n) {
+    if (!n) return false;
+    var kind = String(n.kind || "").toLowerCase();
+    var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
+    if (kind === "vote_reminder") return false;
+    if (/promemoria|puoi votare di nuovo|reminder/.test(hay)) return false;
+    if (kind === "vote") return true;
+    if (/voto\s+(su\s+)?(top\.?gg|discadia)\s+registrato/.test(hay)) return true;
+    if (/voto registrato/.test(hay) && /(top\.?gg|discadia)/.test(hay)) return true;
+    return false;
+  }
+  function pageNotifKey(n) {
+    return String((n && (n.dedupeKey || n.id)) || "").toLowerCase();
+  }
+  function isPuntiToltiSubjectNotifPage(n) {
+    if (!n) return false;
+    var key = pageNotifKey(n);
+    if (/^pt-removed:/.test(key) || /^pt-review:/.test(key)) return true;
+    var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
+    return /punto partnership rimosso|punti tolti\s*[—\-–]?\s*(rimozione confermata|segnalazione negata)/.test(
+      hay,
+    );
+  }
+  function isPersonalTicketOpenerNotifPage(n) {
+    if (!n) return false;
+    var ch = String(n.channel || "").toLowerCase();
+    var url = String(n.openUrl || "").toLowerCase();
+    if (ch === "inbox" || /(?:\?|&)view=staff\b/.test(url)) return false;
+    var key = pageNotifKey(n);
+    if (
+      /^web_ticket:(staff_reply|needs_reply|closed|claimed|close-request|close-rejected|event):/.test(key)
+    ) {
+      return true;
+    }
+    if (ch === "personal") {
+      var k0 = String(n.kind || "").toLowerCase();
+      if (k0 === "web_ticket" || k0 === "web_ticket_mention") return true;
+    }
+    var k = String(n.kind || "").toLowerCase();
+    if (k !== "web_ticket" && k !== "web_ticket_mention") return false;
+    return /\/tickets\//.test(url) && !/(?:\?|&)view=staff\b/.test(url);
+  }
+  function isStaffTicketSlaNotifPage(n) {
+    if (!n) return false;
+    if (String(n.kind || "").toLowerCase() === "web_ticket_sla") return true;
+    return /^web_ticket:sla:/.test(pageNotifKey(n));
+  }
+  function isMentionNotifPage(n) {
+    if (!n) return false;
+    var k = String(n.kind || "").toLowerCase();
+    if (k === "web_ticket_mention" || k === "workflow_mention") return true;
+    var key = pageNotifKey(n);
+    return /^web_ticket:mention:/.test(key) || /^wfc:mention:/.test(key);
+  }
+  function isWorkflowDecisionNotifPage(n) {
+    if (!n) return false;
+    if (String(n.kind || "").toLowerCase() === "workflow_decision") return true;
+    return /^(cand-|unban-|unmute-|cand-pex-|cand-rej-|wfc:decision:|appeal-auto-close:)/.test(pageNotifKey(n));
+  }
+  function isStaffTicketNotifPage(n) {
+    if (!n) return false;
+    if (isPersonalTicketOpenerNotifPage(n)) return false;
+    if (isStaffTicketSlaNotifPage(n)) return true;
+    var key = pageNotifKey(n);
+    if (/^web_ticket:queue:/.test(key) || /^web_ticket:chat:/.test(key) || /^web_ticket:sla:/.test(key)) {
+      return true;
+    }
+    var kind = String(n.kind || "").toLowerCase();
+    if (kind === "web_ticket_sla") return true;
+    if (kind === "web_ticket_mention" || kind === "workflow_mention") {
+      var urlM = String(n.openUrl || "").toLowerCase();
+      if (/\/tickets\//.test(urlM) && /(?:\?|&)view=staff\b/.test(urlM)) return true;
+      if (String(n.channel || "").toLowerCase() === "inbox") return true;
+      return false;
+    }
+    if (kind !== "web_ticket" && kind !== "web_ticket_mention") return false;
+    var url = String(n.openUrl || "").toLowerCase();
+    return /\/tickets\//.test(url) && /(?:\?|&)view=staff\b/.test(url);
+  }
+  function isStaffReviewNotifPage(n) {
+    if (!n) return false;
+    var key = pageNotifKey(n);
+    if (/^rev-new:/.test(key)) return true;
+    if (String(n.kind || "").toLowerCase() !== "review") return false;
+    return /^nuova recensione\b/i.test(String(n.title || "").trim());
+  }
+  function isStaffFeedbackNotifPage(n) {
+    if (!n) return false;
+    var key = pageNotifKey(n);
+    if (/^suggestion:new:/.test(key) || /^bot_feedback_new:/.test(key)) return true;
+    if (String(n.kind || "").toLowerCase() !== "suggestion") return false;
+    return /^(nuovo|nuova)\s+(suggerimento|segnalazione|bug)\b/i.test(String(n.title || "").trim());
+  }
+  function isDedicatedInboxQueueAlertPage(n) {
+    if (!n) return false;
+    var ch = String(n.channel || "").toLowerCase();
+    if (ch === "personal") return false;
+    var key = pageNotifKey(n);
+    if (
+      /^pt-removed:/.test(key) ||
+      /^pt-review:/.test(key) ||
+      /^pause:decision:/.test(key) ||
+      /^val-/.test(key) ||
+      /^wfc:(invite|remove|msg):subj:/.test(key) ||
+      /^wfc:decision:/.test(key)
+    ) {
+      return false;
+    }
+    if (isPuntiToltiSubjectNotifPage(n)) return false;
+    if (isWorkflowDecisionNotifPage(n)) return false;
+    if (/^inbox:(pause|candidature|appelli|resoconti)(?::|$)/.test(key)) return true;
+    if (/^pt-pending:/.test(key)) return true;
+    if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
+    if (!inboxQueueIdFromPageUrl(n.openUrl)) return false;
+    var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
+    return /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
+      hay,
+    );
+  }
+  function isInboxLinkedNotifPage(n) {
+    if (!n) return false;
+    if (isWorkflowDecisionNotifPage(n) || isPersonalTicketOpenerNotifPage(n)) return false;
+    if (isPuntiToltiSubjectNotifPage(n)) return true;
+    if (isStaffTicketSlaNotifPage(n)) return true;
+    if (isStaffTicketNotifPage(n)) return true;
+    if (isStaffReviewNotifPage(n)) return true;
+    if (isStaffFeedbackNotifPage(n)) return true;
+    if (isMentionNotifPage(n) && String(n.channel || "").toLowerCase() !== "personal") return true;
+    var ch = String(n.channel || "").toLowerCase();
+    if (ch === "personal") return false;
+    if (ch === "inbox") return true;
+    if (isDedicatedInboxQueueAlertPage(n)) return true;
+    var key = String(n.dedupeKey || "").toLowerCase();
+    if (
+      /^inbox:/.test(key) ||
+      /^wfc:(invite|remove|msg):staff:/.test(key) ||
+      /^wfc:mention:/.test(key) ||
+      /^pt-pending:/.test(key) ||
+      /^web_ticket:sla:/.test(key)
+    ) {
+      return true;
+    }
+    return false;
+  }
+  function personalPageCategory(n) {
+    var kind = String((n && n.kind) || "info").toLowerCase();
+    var key = pageNotifKey(n);
+    if (kind === "vote" || kind === "vote_reminder") return "votes";
+    if (kind === "web_ticket" || kind === "web_ticket_mention") return "tickets";
+    if (isMentionNotifPage(n)) return "tickets";
+    if (isWorkflowDecisionNotifPage(n)) {
+      if (/appelli|unban|unmute|appeal/.test(key + " " + String(n.openUrl || "").toLowerCase())) {
+        return "appelli";
+      }
+      return "candidature";
+    }
+    if (kind === "review") return "reviews";
+    if (kind === "suggestion") return "feedback";
+    if (kind === "staff") return "staff";
+    if (kind === "mod" || kind === "success") return "community";
+    return "system";
+  }
+  var PAGE_PERSONAL_CATS = [
+    { id: "votes", label: "Voti", ico: "fa-clock-o" },
+    { id: "tickets", label: "Ticket", ico: "fa-ticket" },
+    { id: "candidature", label: "Candidature", ico: "fa-file-text-o" },
+    { id: "appelli", label: "Appelli", ico: "fa-gavel" },
+    { id: "reviews", label: "Recensioni", ico: "fa-star" },
+    { id: "feedback", label: "Feedback", ico: "fa-magic" },
+    { id: "staff", label: "Eventi staff", ico: "fa-id-badge" },
+    { id: "community", label: "Community", ico: "fa-users" },
+    { id: "system", label: "Sistema", ico: "fa-bell-o" },
+  ];
+  /* notifTrash1: trash inside unified category header row (right of count, before chev). */
+  function buildNotifCategoryBarPage(opts) {
+    var bar = document.createElement("div");
+    bar.className = "vc-notif-cat-bar vc-notif-bell-inbox__link";
+    var head = document.createElement("button");
+    head.type = "button";
+    head.className =
+      (opts.headClass || "vc-notify-cat-head vc-notif-bell-inbox__toggle") +
+      " vc-notif-cat-toggle-inner";
+    head.setAttribute("aria-expanded", opts.expanded ? "true" : "false");
+    head.innerHTML = opts.headHtml;
+    var actions = document.createElement("span");
+    actions.className = "vc-notif-cat-head__actions";
+    var clearBtn = null;
+    if (typeof opts.onClear === "function") {
+      clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "vc-notif-cat-clear";
+      clearBtn.title = opts.clearTitle || "Elimina categoria";
+      clearBtn.setAttribute("aria-label", opts.clearAriaLabel || clearBtn.title);
+      clearBtn.innerHTML = '<i class="fa fa-trash-o" aria-hidden="true"></i>';
+      clearBtn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        opts.onClear(ev);
+      });
+      actions.appendChild(clearBtn);
+    }
+    var chev = document.createElement("i");
+    chev.className = "fa fa-chevron-down vc-notify-cat-head__chev vc-notif-bell-inbox__chev";
+    chev.setAttribute("aria-hidden", "true");
+    actions.appendChild(chev);
+    bar.appendChild(head);
+    bar.appendChild(actions);
+    if (typeof opts.onToggleClick === "function") {
+      head.addEventListener("click", opts.onToggleClick);
+    }
+    return { bar: bar, head: head, clearBtn: clearBtn, actions: actions, chev: chev };
+  }
+  function clearPageCategory(catId) {
+    var uid = normalizeUserId(currentUserId);
+    var items = loadStored();
+    var dismissed = loadDismissedSet(uid);
+    var next = [];
+    items.forEach(function (n) {
+      if (!n || isInboxLinkedNotifPage(n) || isVoteRegisteredNotifPage(n)) {
+        next.push(n);
+        return;
+      }
+      if (personalPageCategory(n) !== catId) {
+        next.push(n);
+        return;
+      }
+      var nid = String(n.id || "").trim();
+      if (nid) dismissed.add(nid);
+      var fpId = buildNotifFingerprintId(n, uid, String(n.kind || "info"), String(n.openUrl || ""));
+      if (fpId) dismissed.add(fpId);
+      if (nid) {
+        try {
+          deleteSiteNotificationOnServer(nid);
+        } catch (e2) {}
+      }
+    });
+    saveDismissedSet(dismissed, uid);
+    saveStored(next);
+    lastNotifyListRenderSig = "";
+    renderList();
+    refreshNotifBell();
+  }
   function iconClass(kind) {
     if (kind === "vote" || kind === "vote_reminder") return "fa-check";
     if (kind === "success") return "fa-check-circle";
     if (kind === "review") return "fa-star";
     if (kind === "mod") return "fa-shield";
+    if (kind === "staff") return "fa-id-badge";
     if (kind === "suggestion") return "fa-magic";
     return "fa-bell-o";
   }
@@ -732,6 +1001,7 @@
     if (kind === "success") return t("notifPage.kind.success");
     if (kind === "review") return t("notifPage.kind.review");
     if (kind === "mod") return t("notifPage.kind.mod");
+    if (kind === "staff") return t("notifPage.kind.staff");
     if (kind === "suggestion") return t("notifPage.kind.suggestion");
     return t("notifPage.kind.info");
   }
@@ -951,6 +1221,8 @@
               ? "review"
               : kindRaw === "mod"
                 ? "mod"
+                : kindRaw === "staff"
+                  ? "staff"
                 : kindRaw === "suggestion"
                   ? "suggestion"
                   : kindRaw === "web_ticket" || kindRaw === "web_ticket_mention"
@@ -977,6 +1249,8 @@
       kind: kind,
       openUrl: openUrl,
       filtered: Boolean(row && row.filtered),
+      channel: String((row && row.channel) || "").toLowerCase() || undefined,
+      dedupeKey: String((row && row.dedupeKey) || "").trim(),
     };
   }
   function buildNotifyPageSignature(items, shownCount) {
@@ -1262,7 +1536,9 @@
     var list = byId("vc-notify-list");
     var empty = byId("vc-notify-empty");
     if (!list || !empty) return;
-    var all = loadStored();
+    var all = loadStored().filter(function (n) {
+      return !isVoteRegisteredNotifPage(n) && !isInboxLinkedNotifPage(n);
+    });
     var shown = filteredRows(all);
     setFilterButtons();
     renderStats(all);
@@ -1278,13 +1554,16 @@
     empty.hidden = true;
 
     var scrollToId = "";
-    shown.forEach(function (n) {
+
+    function appendNotifyPageRow(n, host) {
+      var target = host || list;
       var li = document.createElement("li");
       li.className = "vc-notify-row vc-staff-inbox-item";
       li.classList.add("vc-notify-row--kind-" + String(n.kind || "info"));
       if (n.kind === "success") li.classList.add("vc-notify-row--success");
       if (n.read) li.classList.add("vc-notify-row--read");
       if (n.filtered) li.classList.add("vc-notify-row--filtered");
+      if (!n.read) li.classList.add("is-unread");
       if (justArrivedNotifIds.has(String(n.id || ""))) {
         li.classList.add("vc-notify-row--just-arrived");
         if (!scrollToId) scrollToId = String(n.id || "");
@@ -1326,6 +1605,12 @@
       when.className = "vc-notify-row-time";
       when.textContent = timeAgoIt(n.at || Date.now());
       meta.appendChild(when);
+      if (!n.read) {
+        var unreadMark = document.createElement("span");
+        unreadMark.className = "vc-notify-row-unread";
+        unreadMark.textContent = "Non letta";
+        meta.appendChild(unreadMark);
+      }
 
       main.appendChild(title);
       main.appendChild(desc);
@@ -1352,14 +1637,66 @@
         ev.preventDefault();
         ev.stopPropagation();
         removeOne(n.id);
-        renderList();
       });
 
       li.appendChild(iconWrap);
       li.appendChild(main);
       li.appendChild(badge);
       li.appendChild(closeBtn);
-      list.appendChild(li);
+      target.appendChild(li);
+    }
+    var catBuckets = Object.create(null);
+    PAGE_PERSONAL_CATS.forEach(function (c) { catBuckets[c.id] = []; });
+    shown.forEach(function (n) {
+      var cid = personalPageCategory(n);
+      if (!catBuckets[cid]) catBuckets[cid] = [];
+      catBuckets[cid].push(n);
+    });
+    PAGE_PERSONAL_CATS.forEach(function (cat) {
+      var items = catBuckets[cat.id] || [];
+      if (!items.length) return;
+      var section = document.createElement("li");
+      section.className = "vc-notify-cat-section vc-notif-bell-inbox__row";
+      section.setAttribute("data-notif-cat", cat.id);
+      var itemsHost = document.createElement("ul");
+      itemsHost.className = "vc-notify-cat-items vc-notif-bell-inbox__items";
+      itemsHost.setAttribute("role", "list");
+      itemsHost.hidden = true;
+      itemsHost.setAttribute("hidden", "");
+      var catBar = buildNotifCategoryBarPage({
+        headClass: "vc-notify-cat-head vc-notif-bell-inbox__toggle",
+        headHtml:
+          '<span class="vc-notify-cat-head__ico vc-notif-bell-inbox__ico" aria-hidden="true"><i class="fa ' +
+          cat.ico +
+          '"></i></span><span class="vc-notify-cat-head__label vc-notif-bell-inbox__label">' +
+          cat.label +
+          '</span><span class="vc-notify-cat-head__count vc-notif-bell-inbox__count">' +
+          String(items.length) +
+          "</span>",
+        clearAriaLabel: "Elimina tutte in " + cat.label,
+        onClear: function () {
+          clearPageCategory(cat.id);
+        },
+        onToggleClick: function (ev) {
+          ev.preventDefault();
+          var open = !section.classList.contains("is-open");
+          section.classList.toggle("is-open", open);
+          catBar.bar.classList.toggle("is-open", open);
+          catBar.head.classList.toggle("is-open", open);
+          catBar.head.setAttribute("aria-expanded", open ? "true" : "false");
+          itemsHost.hidden = !open;
+          if (open) itemsHost.removeAttribute("hidden");
+          else itemsHost.setAttribute("hidden", "");
+        },
+      });
+      var bar = catBar.bar;
+      var head = catBar.head;
+      items.forEach(function (n) {
+        appendNotifyPageRow(n, itemsHost);
+      });
+      section.appendChild(bar);
+      section.appendChild(itemsHost);
+      list.appendChild(section);
     });
     if (scrollToId) {
       window.requestAnimationFrame(function () {
@@ -1436,8 +1773,27 @@
     perks: "Livelli e perk",
   };
   var notifPrefsState = { dm: null, siteNotif: null };
-  var notifPrefsOpenSections = { vote: true, discord: false, site: false };
+  // site open by default so site toggles are visible under Filtri
+  var notifPrefsOpenSections = { vote: true, discord: false, site: true };
   var notifPrefsWired = false;
+
+  function canSeeStaffNotifPrefs() {
+    try {
+      if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
+      var api = window.VcNotifStaffTab;
+      if (api && typeof api.canStaff === "function" && api.canStaff()) return true;
+      var p = window.__VC_STAFF_PERMS;
+      if (p && typeof p === "object" && p.ok) return true;
+      if (
+        document.querySelector(
+          ".vc-header-snav [data-vc-staff-nav], .vc-snav-details[data-vc-staff-nav], #vc-staff-snav-details",
+        )
+      ) {
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
 
   function prefsApiUrl() {
     var c = window.__VC_PROFILE_EXTRAS || {};
@@ -1550,6 +1906,7 @@
     if (!body) return;
     var dmCats = (notifPrefsState.dm && notifPrefsState.dm.categories) || [];
     var siteGroups = (notifPrefsState.siteNotif && notifPrefsState.siteNotif.groups) || [];
+    var siteDigests = (notifPrefsState.siteNotif && notifPrefsState.siteNotif.digests) || [];
     if (!dmCats.length && !siteGroups.length) {
       body.innerHTML = '<p class="vc-notif-prefs__empty">Nessuna preferenza disponibile.</p>';
       return;
@@ -1583,7 +1940,13 @@
       })
       .join("");
 
+    var STAFF_ONLY_SITE_KEYS = { staff: 1, ticket_sla: 1 };
     var siteRows = siteGroups
+      .filter(function (g) {
+        // Eventi staff / SLA: only staff (same gate as Inbox); API also filters
+        if (STAFF_ONLY_SITE_KEYS[String((g && g.key) || "")]) return canSeeStaffNotifPrefs();
+        return true;
+      })
       .map(function (g) {
         return toggleSwitchHtml({
           section: "site_notif",
@@ -1593,6 +1956,20 @@
         });
       })
       .join("");
+
+    /* notifUseful1: digest toggles */
+    if (canSeeStaffNotifPrefs() && siteDigests.length) {
+      siteRows += siteDigests
+        .map(function (g) {
+          return toggleSwitchHtml({
+            section: "site_notif_digest",
+            key: g.key,
+            label: g.label || g.key,
+            enabled: g.enabled,
+          });
+        })
+        .join("");
+    }
 
     body.innerHTML =
       accordionSectionHtml(
@@ -1729,7 +2106,9 @@
         }
         var sw = t && t.closest ? t.closest("[data-prefs-section][data-prefs-key]") : null;
         if (!sw) return;
-        mutatePrefs(sw.getAttribute("data-prefs-section"), "toggle", sw.getAttribute("data-prefs-key"));
+        var section = sw.getAttribute("data-prefs-section");
+        var action = section === "site_notif_digest" ? "toggle_digest" : "toggle";
+        mutatePrefs(section === "site_notif_digest" ? "site_notif" : section, action, sw.getAttribute("data-prefs-key"));
       });
       if (allOn) {
         allOn.addEventListener("click", function () {

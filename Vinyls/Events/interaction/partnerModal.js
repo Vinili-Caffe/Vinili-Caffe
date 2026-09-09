@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { partnersChatPartnerCommandDeniedReplyContent } = require("../../Utils/Partner/partnersChatChannelUtils");
 const {
   isPartnershipOperational,
-  memberHasPartnerManagerRole,
+  memberCanExecutePartnership,
 } = require("../../Utils/Partner/partnershipConfigResolver");
 const {
   executeTenantPartnership,
@@ -43,12 +43,12 @@ async function handlePartnerModal(interaction) {
     await replyInteractionSetupRequired(interaction);
     return true;
   }
-  if (!memberHasPartnerManagerRole(interaction.member, guildId)) {
+  if (!memberCanExecutePartnership(interaction.member, guildId)) {
     await interaction.reply({
       embeds: [
         new EmbedBuilder()
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> Non hai i permessi per fare partnership.",
+            "<:vegax:1443934876440068179> Ti serve il **ruolo Partner Manager** (o **Gestisci server**) per usare **Partnership**.",
           )
           .setColor("Red"),
       ],

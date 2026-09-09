@@ -16,9 +16,14 @@
       "unban.welcomeBack": "Benvenuto {name}.",
       "unban.welcomeDefault": "Accedi con Discord per inviare la richiesta.",
       "unban.notBanned": "Non sei bannato",
+      "unban.notBannedLead": "Il tuo account è in regola: non serve una richiesta unban.",
       "unban.canSubmit": "Puoi inviare la richiesta unban.",
+      "unban.canSubmitLead": "Compila il modulo qui sotto con calma e trasparenza.",
       "unban.alreadySubmitted": "Richiesta già inviata. Prossimo invio disponibile: {date}",
+      "unban.alreadySubmittedLead": "Attendi la fine del cooldown prima di riprovare.",
       "unban.checkError": "Impossibile verificare lo stato unban. Riprova più tardi.",
+      "unban.checkErrorLead": "Controlla la connessione e riprova tra poco.",
+      "unban.statusKicker": "Stato account",
       "unban.submitting": "Invio in corso...",
       "unban.userFallback": "utente",
       "unban.statusLoading": "Caricamento stato...",
@@ -140,8 +145,10 @@
   function resolvedSubmitApiUrl() {
     var c = cfgUnban();
     var local = String(c.submitApiUrlLocal || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
-    return String(c.submitApiUrl || "").trim();
+    if (isLocalFrontendOrigin() && local && local !== "#") return local;
+    var remote = String(c.submitApiUrl || "").trim();
+    if (remote && remote !== "#") return remote;
+    return "/webhooks/site-unban";
   }
 
   function eligibilityApiUrl() {
@@ -175,11 +182,47 @@
     }
   }
 
+  function statusMeta(text, ok) {
+    var title = String(text || "");
+    if (ok && title === t("unban.notBanned")) {
+      return { tone: "ok", icon: "fa-check", lead: t("unban.notBannedLead") };
+    }
+    if (ok && title === t("unban.canSubmit")) {
+      return { tone: "ok", icon: "fa-paper-plane", lead: t("unban.canSubmitLead") };
+    }
+    if (title.indexOf(t("unban.alreadySubmitted").split("{")[0]) === 0) {
+      return { tone: "warn", icon: "fa-clock-o", lead: t("unban.alreadySubmittedLead") };
+    }
+    if (title === t("unban.checkError") || !ok) {
+      return { tone: "warn", icon: "fa-exclamation", lead: t("unban.checkErrorLead") };
+    }
+    return { tone: ok ? "ok" : "warn", icon: ok ? "fa-check" : "fa-exclamation", lead: "" };
+  }
+
   function setStatus(text, ok) {
     var box = byId("unban-status-box");
+    var wrap = byId("unban-status-wrap");
     if (!box) return;
-    box.className = ok ? "vc-unban-status vc-unban-status--ok" : "vc-unban-status";
-    setShuffleText(box, text);
+    var meta = statusMeta(text, ok);
+    box.className =
+      "vc-unban-status vc-appelli-status vc-appelli-status--" +
+      meta.tone +
+      (meta.tone === "ok" ? " vc-unban-status--ok" : "");
+    if (wrap) {
+      wrap.classList.toggle("vc-appelli-status-wrap--ok", meta.tone === "ok");
+      wrap.classList.toggle("vc-appelli-status-wrap--warn", meta.tone === "warn");
+    }
+    box.innerHTML =
+      '<div class="vc-appelli-status__badge" aria-hidden="true"><i class="fa ' +
+      meta.icon +
+      '"></i></div>' +
+      '<p class="vc-appelli-status__kicker">' +
+      t("unban.statusKicker") +
+      "</p>" +
+      '<p class="vc-appelli-status__title"></p>' +
+      (meta.lead ? '<p class="vc-appelli-status__lead">' + meta.lead + "</p>" : "");
+    var titleEl = box.querySelector(".vc-appelli-status__title");
+    setShuffleText(titleEl || box, text);
   }
 
   function setSubmitLoading(loading) {
@@ -293,21 +336,24 @@
   function notify(message, opts) {
     var text = String(message || "").trim();
     if (!text) return Promise.resolve();
+    var payload = Object.assign(
+      {
+        title: (opts && opts.title) || t("unban.alertTitle", "Avviso"),
+        message: text,
+        okLabel: (opts && opts.okLabel) || "OK",
+        danger: Boolean(opts && opts.danger),
+        icon: (opts && opts.icon) || "fa-info-circle",
+      },
+      opts || {},
+    );
     if (window.VcDialog && typeof window.VcDialog.alert === "function") {
-      return window.VcDialog.alert(
-        Object.assign(
-          {
-            title: (opts && opts.title) || t("unban.alertTitle", "Avviso"),
-            message: text,
-            okLabel: (opts && opts.okLabel) || "OK",
-            danger: Boolean(opts && opts.danger),
-            icon: (opts && opts.icon) || "fa-info-circle",
-          },
-          opts || {},
-        ),
-      );
+      return window.VcDialog.alert(payload);
     }
-    window.alert(text);
+    if (typeof window.__vcEnsureDialog === "function") {
+      return window.__vcEnsureDialog().then(function (D) {
+        if (D && typeof D.alert === "function") return D.alert(payload);
+      });
+    }
     return Promise.resolve();
   }
 
@@ -399,7 +445,10 @@
       welcome.classList.add("vc-hero-about", "vc-home-rise", "is-in");
     }
     replayShuffle(welcome);
-    replayShuffle(byId("unban-status-box"));
+    var statusBox = byId("unban-status-box");
+    var statusTitle = statusBox && statusBox.querySelector(".vc-appelli-status__title");
+    /* appelliStatusCard3: non shuffleare il box intero (appiattisce badge/kicker/lead) */
+    replayShuffle(statusTitle || null);
   }
 
   function init() {

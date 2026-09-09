@@ -6,11 +6,11 @@ const colorUnlocks = require("./personalityColorUnlocks");
 const { PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL } = colorUnlocks;
 
 const PERSONALITY_CATEGORY_ROLE_IDS = {
-  pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210"],
-  age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194"],
-  region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167"],
-  dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126"],
-  relationship: ["1442569028173299732", "1442569029263818906"],
+  pronouns: ["1544830743296081960", "1544830740624183336", "1544830738556256256", "1544830736434069559"],
+  age: ["1544830751931899965", "1544830749268639744", "1544830746533957717", "1544830744914821181"],
+  region: ["1544830651033976872", "1544830648131395604", "1544830644516036611", "1544830642616012813"],
+  dm: ["1544830708340756621", "1544830706482413589", "1544830704477540393"],
+  relationship: ["1544830640971579462", "1544830638983614524"],
   zodiac: ZODIAC_ROLE_IDS,
   mentions: [IDs.roles.ReviveChat, IDs.roles.ReviveVoc, IDs.roles.SerataFilm, IDs.roles.Partnership, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Notturno, IDs.roles.Live, IDs.roles.Updates].filter(Boolean),
   hobby: [IDs.roles.HobbyAnimeManga, IDs.roles.HobbyLettura, IDs.roles.HobbyScrittura, IDs.roles.HobbyFilmSerieTV, IDs.roles.HobbySport, IDs.roles.HobbyMusica, IDs.roles.HobbyGaming, IDs.roles.HobbyDisegno, IDs.roles.HobbyCucina, IDs.roles.HobbyFotografia].filter(Boolean),
@@ -66,6 +66,7 @@ async function persistPersonalityRoleDelta(guildId, userId, { added = [], remove
     { $set: { "profile.personalityRoleIds": next } },
     { upsert: true },
   ).catch(() => null);
+  scheduleFullStateAfterPersonality(gid, uid);
 }
 
 async function persistMuteRoleSnapshotToProfile(guildId, userId, roleIds) {
@@ -80,6 +81,7 @@ async function persistMuteRoleSnapshotToProfile(guildId, userId, roleIds) {
   };
   if (personality.length) update["profile.personalityRoleIds"] = personality;
   await ActivityUserProfile.updateOne({ guildId: gid, userId: uid }, { $set: update }, { upsert: true }).catch(() => null);
+  scheduleFullStateAfterPersonality(gid, uid);
 }
 
 async function filterRestorablePersonalityRoleIds(member, roleIds) {
@@ -122,6 +124,15 @@ async function restorePersistedPersonalityRoles(member, options = {}) {
     throw err;
   });
   return { added: missing, skipped: stored.length - allowed.length };
+}
+
+function scheduleFullStateAfterPersonality(guildId, userId) {
+  try {
+    const { schedulePersistUserFullState } = require("../../Services/Community/userFullStatePersistenceService");
+    schedulePersistUserFullState(guildId, userId, { reason: "personality_roles" });
+  } catch {
+    /* ignore */
+  }
 }
 
 module.exports = {

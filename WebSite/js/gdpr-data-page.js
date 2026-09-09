@@ -52,15 +52,27 @@
 
   function setStatus(msg, isError, opts) {
     var el = byId("vc-gdpr-status");
-    if (!el) return;
-    if (!msg) {
+    if (el) {
       el.hidden = true;
       el.textContent = "";
       el.classList.remove("is-error", "is-ok");
+    }
+    var text = String(msg || "").trim();
+    // toastOnlyAlerts1: status → toast (niente banner sotto il titolo).
+    if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+      if (!text) {
+        window.VcSiteToast.hide();
+        return;
+      }
+      window.VcSiteToast.show(text, Boolean(isError), {
+        pending: !isError && /[…]$|\.\.\.$|preparazione|calcolo|cancellazione/i.test(text),
+        ms: isError ? 4200 : opts && opts.ok ? 2800 : 2200,
+      });
       return;
     }
+    if (!el || !text) return;
     el.hidden = false;
-    el.textContent = msg;
+    el.textContent = text;
     el.classList.toggle("is-error", Boolean(isError));
     el.classList.toggle("is-ok", Boolean(opts && opts.ok) && !isError);
   }
@@ -77,7 +89,7 @@
     countingRestoreTokens: "Token ripristino counting",
     legacyCollections: "Dati legacy",
     guildFeatureBucket: "Dati community",
-    suggestionsRemoved: "Suggerimenti",
+    suggestionsRemoved: "Feedback",
     ticketsRedacted: "Ticket (resi anonimi)",
     giveawayParticipationsRemoved: "Partecipazioni giveaway",
     moderationProfiles: "Profili moderazione",
@@ -384,14 +396,24 @@
       setStatus(i18n("dashGdpr.needConfirm", "Digita username o ID Discord per confermare."), true);
       return;
     }
-    if (
-      !window.confirm(
-        i18n(
+    var confirmed = await (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return false;
+      return D.confirm({
+        title: i18n("dashGdpr.eraseConfirmTitle", "Cancellare i dati?"),
+        message: i18n(
           "dashGdpr.eraseConfirmDialog",
           "Confermi la cancellazione dei tuoi dati eliminabili? L’operazione non si può annullare.",
         ),
-      )
-    ) {
+        confirmLabel: i18n("dashGdpr.eraseConfirmOk", "Cancella"),
+        cancelLabel: i18n("dashGdpr.cancel", "Annulla"),
+        danger: true,
+        icon: "fa-trash-o",
+      });
+    });
+    if (!confirmed) {
       return;
     }
     state.busy = true;

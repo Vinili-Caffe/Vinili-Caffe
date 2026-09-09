@@ -21,7 +21,21 @@ def grab(text: str, pattern: str, default: str = "") -> str:
     m = re.search(pattern, text, flags=re.S)
     if not m:
         return default
-    val = m.group(1).strip()
+    val = ""
+    try:
+        # Support multi-group alternation patterns (first non-empty group).
+        for i in range(1, (m.lastindex or 0) + 1):
+            g = m.group(i)
+            if g:
+                val = str(g).strip()
+                break
+    except IndexError:
+        val = ""
+    if not val:
+        try:
+            val = (m.group(1) or "").strip()
+        except IndexError:
+            val = ""
     if "{{" in val or "}}" in val:
         return default
     return val or default

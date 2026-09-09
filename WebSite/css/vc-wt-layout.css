@@ -1,3 +1,11 @@
+/* ticketClickScrollStay1: evita jump scroll quando cambia il pane chat */
+body.vc-web-tickets-page,
+body.vc-web-tickets-page .vc-wt-layout,
+body.vc-web-tickets-page .vc-wt-main,
+body.vc-web-tickets-page .vc-wt-list {
+  overflow-anchor: none;
+}
+
 body.vc-web-tickets-page:not(.vc-page-cine-layout) main.vc-reviews-page {
   width: min(100%, 86rem) !important;
   max-width: 86rem !important;
@@ -50,15 +58,18 @@ html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-board.is-tilting {
   isolation: auto !important;
 }
 
+/* ticketsSolid1: inbox/chat board solid palette (no frosted glass) */
 body.vc-web-tickets-page .vc-wt-layout {
-  background: rgba(15, 23, 42, 0.34) !important;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.1), transparent 52%),
+    linear-gradient(165deg, #1c1410 0%, #120e0b 52%, #0c0907 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 1.6rem !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 16px 36px rgba(0, 0, 0, 0.22) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   gap: 0 !important;
   overflow: hidden !important;
   isolation: isolate !important;
@@ -87,6 +98,160 @@ body.vc-web-tickets-page .vc-wt-compose-panel {
   }
 }
 
+/* ticketsLayout1: Personali|Staff switcher + filter menu above board */
+body.vc-web-tickets-page .vc-wt-chrome {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.75rem !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-scope-dock {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
+}
+body.vc-web-tickets-page .vc-wt-scope-dock[hidden] {
+  display: none !important;
+}
+body.vc-web-tickets-page .vc-wt-scope-bar.vc-notif-scope-bar {
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
+  background: #140f0c !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.vc-web-tickets-page .vc-wt-scope-bar .vc-notif-scope-bar__btn {
+  flex: 0 0 auto !important;
+  min-width: 8.5rem !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu {
+  display: grid !important;
+  gap: 0.55rem !important;
+  margin: 0 !important;
+  padding: 0.75rem 0.9rem !important;
+  border-radius: 1.15rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.08), transparent 52%),
+    linear-gradient(165deg, #1c1410 0%, #120e0b 55%, #0c0907 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 28px rgba(0, 0, 0, 0.18) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu--loading {
+  min-height: 3.25rem !important;
+  opacity: 0.55 !important;
+  pointer-events: none !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu__main {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.85rem 1.1rem !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu__rows {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 0.55rem !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu__toolbar {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  align-self: center !important;
+  flex: 0 0 auto !important;
+  gap: 0.5rem !important;
+  margin: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-group {
+  display: grid !important;
+  gap: 0.35rem !important;
+  min-width: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-group__label {
+  font-size: 0.62rem !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: rgba(212, 168, 136, 0.78) !important;
+  padding-left: 0.15rem !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-group__seg {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  min-width: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip {
+  appearance: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(245, 235, 224, 0.72) !important;
+  border-radius: 0.65rem !important;
+  padding: 0.4rem 0.85rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 650 !important;
+  white-space: nowrap !important;
+  cursor: var(--vc-cursor-pointer, pointer) !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip.is-active {
+  border-color: rgba(212, 168, 136, 0.42) !important;
+  color: #fff8f1 !important;
+  background: rgba(212, 168, 136, 0.16) !important;
+  box-shadow: inset 0 0 0 1px rgba(212, 168, 136, 0.08) !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip:hover:not(.is-active) {
+  color: #fff8f1 !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+body.vc-web-tickets-page .vc-wt-new-btn--cta {
+  width: auto !important;
+  min-height: 2.35rem !important;
+  height: auto !important;
+  padding: 0 0.95rem !important;
+  gap: 0.45rem !important;
+  border-radius: 999px !important;
+  font-size: 0.86rem !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  box-shadow: 0 8px 20px rgba(232, 201, 168, 0.16) !important;
+}
+body.vc-web-tickets-page .vc-wt-new-btn--cta span {
+  display: inline !important;
+}
+@media (max-width: 719.98px) {
+  body.vc-web-tickets-page .vc-wt-filter-menu__main {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  body.vc-web-tickets-page .vc-wt-filter-menu__toolbar {
+    justify-content: stretch !important;
+    width: 100% !important;
+  }
+  body.vc-web-tickets-page .vc-wt-new-btn--cta {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  body.vc-web-tickets-page .vc-wt-scope-bar .vc-notif-scope-bar__btn {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    padding-left: 0.85rem !important;
+    padding-right: 0.85rem !important;
+  }
+}
 body.vc-web-tickets-page .vc-wt-sidebar__top--staff {
   flex-wrap: wrap !important;
   gap: 0.55rem 0.75rem !important;
@@ -288,7 +453,8 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
     border-radius: 0 !important;
   }
 
-  body.vc-web-tickets-page .vc-wt-toolbar,
+  body.vc-web-tickets-page .vc-wt-filter-menu,
+  body.vc-web-tickets-page .vc-wt-scope-dock,
   body.vc-web-tickets-page .vc-wt-sidebar__top,
   body.vc-web-tickets-page #vc-wt-pager-wrap {
     flex: 0 0 auto !important;
@@ -377,14 +543,16 @@ html.vc-site-polish body.vc-web-tickets-page .vc-wt-app {
 }
 
 html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout {
-  background: rgba(15, 23, 42, 0.34) !important;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.1), transparent 52%),
+    linear-gradient(165deg, #1c1410 0%, #120e0b 52%, #0c0907 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 1.6rem !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 16px 36px rgba(0, 0, 0, 0.22) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   gap: 0 !important;
   overflow: hidden !important;
   isolation: isolate !important;

@@ -162,7 +162,7 @@ function shouldApplyTenantEmbedColor(guildId, color, context = {}) {
       : shouldUseViniliBrandEmbedColor(guildId);
   if (!useBrandColor) return false;
   if (color == null || color === "") return true;
-    return isLegacyDefaultEmbedColor(color);
+  return isLegacyDefaultEmbedColor(color);
 }
 
 function createStandardGifAttachment() {

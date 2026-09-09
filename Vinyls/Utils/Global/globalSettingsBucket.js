@@ -158,6 +158,7 @@ async function setStaffChatThreadId(key, threadId) {
   await coll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
     id ? { $set: { [field]: id } } : { $unset: { [field]: "" } },
+    { upsert: true },
   );
 }
 
@@ -212,6 +213,7 @@ async function setStaffCmdsThreadId(key, threadId) {
   await coll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
     id ? { $set: { [field]: id } } : { $unset: { [field]: "" } },
+    { upsert: true },
   );
 }
 

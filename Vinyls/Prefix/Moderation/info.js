@@ -3,7 +3,7 @@ const IDs = require("../../Utils/Config/ids");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getAutoModMemberSnapshot, isAutoModRoleExemptMember, } = require("../../Services/Moderation/automodService");
 const{isWhitelistedExecutor,}=require("../../Services/Moderation/antiNukeService");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { memberDisplayName, memberLabelWithUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 function boolIcon(value) {
   return value ? "<:success:1461731530333229226>" : "<:cancel:1461730653677551691>";
@@ -91,7 +91,7 @@ function buildStrikesEmbed(member, strikes, page, totalPages) {
 
   return new EmbedBuilder()
     .setColor("#8b5cf6")
-    .setTitle(`${accountUsername(member)}'s Strikes:`)
+    .setTitle(`${memberDisplayName(member)}'s Strikes:`)
     .setDescription([...rows, "", `Page: ${safePage + 1}/${totalPages}`].join("\n"));
 }
 
@@ -132,12 +132,12 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor(member.displayHexColor && member.displayHexColor !== "#000000" ? member.displayHexColor : "#6f4e37")
-      .setTitle(`Who is ${accountUsername(member)}?`)
+      .setTitle(`Who is ${memberDisplayName(member)}?`)
       .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null)
       .setDescription(
         [
           "**General Informations:**",
-          `<:profile:1461732907508039834> **Name:** ${accountUsername(member)}`,
+          `<:profile:1461732907508039834> **Name:** ${memberLabelWithUsername(member)}`,
           `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> ID: \`${member.id}\``,
           `<:creation:1461732905016492220> **Creation:** <t:${createdTs}:R>`,
           `📅 **Join:** <t:${joinedTs}:R>`,

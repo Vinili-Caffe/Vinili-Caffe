@@ -14,8 +14,248 @@ function normalizeUserId(userId) {
 
 function normalizeKind(kind) {
   const k = String(kind || "info").trim().toLowerCase();
-  if (["vote", "vote_reminder", "success", "info", "review", "mod", "suggestion", "web_ticket", "web_ticket_mention"].includes(k)) return k;
+  // staffKindGroup1: dedicated kind for staff/bot events (prefs group "Eventi staff")
+  // notifUseful1: mentions / SLA / workflow decisions
+  if (
+    [
+      "vote",
+      "vote_reminder",
+      "success",
+      "info",
+      "review",
+      "mod",
+      "staff",
+      "suggestion",
+      "web_ticket",
+      "web_ticket_mention",
+      "web_ticket_sla",
+      "workflow_mention",
+      "workflow_decision",
+    ].includes(k)
+  ) {
+    return k;
+  }
   return "info";
+}
+
+/** notifCats1: successful Top.gg/Discadia vote registration (not reminders). */
+function isVoteRegisteredNotification({ kind, title, body, dedupeKey } = {}) {
+  const k = normalizeKind(kind);
+  const t = String(title || "");
+  const b = String(body || "");
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  const hay = `${t} ${b}`.toLowerCase();
+  if (k === "vote_reminder") return false;
+  if (/promemoria|puoi votare di nuovo|reminder/.test(hay)) return false;
+  if (/^vote_done:/.test(key) || /^vote_registered:/.test(key)) return true;
+  if (k === "vote") return true;
+  if (/voto\s+(su\s+)?(top\.?gg|discadia)\s+registrato/.test(hay)) return true;
+  if (/voto registrato/.test(hay) && /(top\.?gg|discadia)/.test(hay)) return true;
+  return false;
+}
+
+/** Dedicated Inbox queue tabs (Pause / Candidature / Appelli / Resoconti / Punti tolti). */
+const DEDICATED_INBOX_QUEUES = new Set([
+  "pause",
+  "candidature",
+  "appelli",
+  "resoconti",
+  "punti-tolti",
+]);
+
+function inboxQueueIdFromOpenUrl(openUrl) {
+  const raw = String(openUrl || "").trim();
+  if (!raw) return "";
+  try {
+    const u = new URL(raw, "https://www.viniliecaffe.it");
+    const inbox = String(u.searchParams.get("inbox") || "")
+      .trim()
+      .toLowerCase();
+    return DEDICATED_INBOX_QUEUES.has(inbox) ? inbox : "";
+  } catch (_) {
+    const m = String(raw)
+      .toLowerCase()
+      .match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti)\b/);
+    return m ? m[1] : "";
+  }
+}
+
+/**
+ * notifCats2: staff alerts that already live in a dedicated Inbox queue section.
+ * These must not appear as flat Avvisi (or Personali) — only as queue threads.
+ */
+function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body } = {}) {
+  const ch = String(channel || "").trim().toLowerCase();
+  if (ch === "personal") return false;
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  // Subject / personal outcomes — never treat as Discord-queue-only (still inbox-linked).
+  if (
+    /^pt-removed:/.test(key) ||
+    /^pt-review:/.test(key) ||
+    /^pause:decision:/.test(key) ||
+    /^val-/.test(key) ||
+    /^wfc:(invite|remove|msg):subj:/.test(key)
+  ) {
+    return false;
+  }
+  if (/^inbox:(pause|candidature|appelli|resoconti)(?::|$)/.test(key)) return true;
+  if (/^pt-pending:/.test(key)) return true;
+  if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
+  const queue = inboxQueueIdFromOpenUrl(openUrl);
+  if (!queue) return false;
+  const hay = `${String(title || "")} ${String(body || "")}`.toLowerCase();
+  if (
+    /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
+      hay,
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** notifCats3: PM subject of a point removal / review outcome → Inbox → Punti tolti. */
+function isPuntiToltiSubjectNotif({ dedupeKey, title, body } = {}) {
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  if (/^pt-removed:/.test(key) || /^pt-review:/.test(key)) return true;
+  const hay = `${String(title || "")} ${String(body || "")}`.toLowerCase();
+  return /punto partnership rimosso|punti tolti\s*[—\-–]?\s*(rimozione confermata|segnalazione negata)/.test(
+    hay,
+  );
+}
+
+/** notifUseful1: SLA alerts for staff Inbox. */
+function isStaffTicketSlaNotif({ dedupeKey, kind } = {}) {
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  if (/^web_ticket:sla:/.test(key)) return true;
+  return String(kind || "").trim().toLowerCase() === "web_ticket_sla";
+}
+
+/** notifUseful1: @mentions in ticket / workflow → Inbox Mentions (staff) or Personali. */
+function isMentionNotif({ dedupeKey, kind } = {}) {
+  const k = String(kind || "").trim().toLowerCase();
+  if (k === "web_ticket_mention" || k === "workflow_mention") return true;
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  return /^web_ticket:mention:/.test(key) || /^wfc:mention:/.test(key);
+}
+
+/** notifUseful1: opener-side ticket events stay Personali (never Inbox). */
+function isPersonalTicketOpenerNotif({ dedupeKey, channel, openUrl, kind } = {}) {
+  const ch = String(channel || "").trim().toLowerCase();
+  const url = String(openUrl || "").toLowerCase();
+  if (ch === "inbox" || /(?:\?|&)view=staff\b/.test(url)) return false;
+  if (ch === "personal") {
+    const k = String(kind || "").trim().toLowerCase();
+    if (k === "web_ticket" || k === "web_ticket_mention") return true;
+  }
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  if (
+    /^web_ticket:(staff_reply|needs_reply|closed|claimed|close-request|close-rejected|event):/.test(key)
+  ) {
+    return true;
+  }
+  const k = String(kind || "").trim().toLowerCase();
+  if (k !== "web_ticket" && k !== "web_ticket_mention") return false;
+  return /\/tickets\//.test(url) && !/(?:\?|&)view=staff\b/.test(url);
+}
+
+/** notifCats3: staff-side ticket queue / staff view tickets → Inbox. */
+function isStaffTicketNotif({ dedupeKey, openUrl, kind, channel } = {}) {
+  if (isPersonalTicketOpenerNotif({ dedupeKey, openUrl, kind, channel })) return false;
+  if (isStaffTicketSlaNotif({ dedupeKey, kind })) return true;
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  if (/^web_ticket:queue:/.test(key) || /^web_ticket:chat:/.test(key) || /^web_ticket:sla:/.test(key)) {
+    return true;
+  }
+  const k = String(kind || "").trim().toLowerCase();
+  if (k === "web_ticket_sla") return true;
+  if (k === "web_ticket_mention" || k === "workflow_mention") {
+    const url = String(openUrl || "").toLowerCase();
+    if (/\/tickets\//.test(url) && /(?:\?|&)view=staff\b/.test(url)) return true;
+    if (/[?&]inbox=/.test(url) || /\/notifications\//.test(url)) return true;
+    if (String(channel || "").trim().toLowerCase() === "inbox") return true;
+    return false;
+  }
+  if (k !== "web_ticket" && k !== "web_ticket_mention") return false;
+  const url = String(openUrl || "").toLowerCase();
+  return /\/tickets\//.test(url) && /(?:\?|&)view=staff\b/.test(url);
+}
+
+/** notifCats3: High Staff “new review” alerts → Inbox (author likes/replies stay personal). */
+function isStaffReviewNotif({ dedupeKey, title, kind } = {}) {
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  if (/^rev-new:/.test(key)) return true;
+  const k = String(kind || "").trim().toLowerCase();
+  if (k !== "review") return false;
+  return /^nuova recensione\b/i.test(String(title || "").trim());
+}
+
+/** notifCats3: High Staff new suggestion/bug → Inbox (suggester outcomes stay personal). */
+function isStaffFeedbackNotif({ dedupeKey, title, kind } = {}) {
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  if (/^suggestion:new:/.test(key) || /^bot_feedback_new:/.test(key)) return true;
+  const k = String(kind || "").trim().toLowerCase();
+  if (k !== "suggestion") return false;
+  return /^(nuovo|nuova)\s+(suggerimento|segnalazione|bug)\b/i.test(String(title || "").trim());
+}
+
+/** notifUseful1: workflow decision for requester stays Personali. */
+function isWorkflowDecisionPersonalNotif({ dedupeKey, kind, channel } = {}) {
+  const ch = String(channel || "").trim().toLowerCase();
+  if (ch === "personal") {
+    const k = String(kind || "").trim().toLowerCase();
+    if (k === "workflow_decision") return true;
+  }
+  const key = String(dedupeKey || "").trim().toLowerCase();
+  if (/^(cand-|unban-|unmute-|cand-pex-|cand-rej-|wfc:decision:)/.test(key)) return true;
+  return String(kind || "").trim().toLowerCase() === "workflow_decision";
+}
+
+/** notifCats3: inbox-linked = dedicated queues + staff ticket/review/feedback + punti tolti subject. */
+function isInboxLinkedNotification(meta = {}) {
+  /* Subject/staff splits win over a stale stored channel=personal. */
+  if (isWorkflowDecisionPersonalNotif(meta)) return false;
+  if (isPersonalTicketOpenerNotif(meta)) return false;
+  if (isPuntiToltiSubjectNotif(meta)) return true;
+  if (isStaffTicketSlaNotif(meta)) return true;
+  if (isStaffTicketNotif(meta)) return true;
+  if (isStaffReviewNotif(meta)) return true;
+  if (isStaffFeedbackNotif(meta)) return true;
+  const ch = String(meta.channel || "").trim().toLowerCase();
+  if (ch === "personal") return false;
+  if (ch === "inbox") return true;
+  if (isDedicatedInboxQueueAlert(meta)) return true;
+  const key = String(meta.dedupeKey || "").trim().toLowerCase();
+  if (
+    /^inbox:/.test(key) ||
+    /^wfc:(invite|remove|msg):staff:/.test(key) ||
+    /^wfc:mention:/.test(key) ||
+    /^pt-pending:/.test(key) ||
+    /^web_ticket:sla:/.test(key)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function resolveNotifChannel(meta = {}) {
+  /* notifUseful1: opener / decision personal always wins */
+  if (isWorkflowDecisionPersonalNotif(meta) || isPersonalTicketOpenerNotif(meta)) {
+    return "personal";
+  }
+  if (
+    isPuntiToltiSubjectNotif(meta) ||
+    isStaffTicketSlaNotif(meta) ||
+    isStaffTicketNotif(meta) ||
+    isStaffReviewNotif(meta) ||
+    isStaffFeedbackNotif(meta) ||
+    isDedicatedInboxQueueAlert(meta)
+  ) {
+    return "inbox";
+  }
+  const ch = String(meta.channel || "").trim().toLowerCase();
+  if (ch === "inbox" || ch === "personal") return ch;
+  return isInboxLinkedNotification(meta) ? "inbox" : "personal";
 }
 
 const TICKET_ID_RE = /^[a-f0-9]{24}$/i;
@@ -246,7 +486,8 @@ function itemMatchesDedupeWindow(item, dedupeKeyRaw, since) {
 
 function isReminderNotificationKind(kind, title, body) {
   const k = normalizeKind(kind);
-  if (k === "vote_reminder" || k === "vote") return true;
+  if (k === "vote_reminder") return true;
+  if (isVoteRegisteredNotification({ kind, title, body })) return false;
   const hay = `${String(title || "")} ${String(body || "")}`.toLowerCase();
   return /promemoria|reminder|puoi votare|pozioni disponibili|puoi tornare in aula/.test(hay);
 }
@@ -339,6 +580,39 @@ function fireNotificationPush(userId, { title, body, openUrl, kind, id, ticketId
   } catch (_) {}
 }
 
+function buildCollapsedDigestCopy({ count, queueLabel, fallbackTitle, fallbackBody }) {
+  const n = Math.min(99, Math.max(1, Number(count) || 1));
+  const label = String(queueLabel || "avvisi").trim() || "avvisi";
+  if (n <= 1) {
+    return {
+      title: String(fallbackTitle || `Nuovo ${label}`).slice(0, 120),
+      body: String(fallbackBody || "").slice(0, 500),
+    };
+  }
+  return {
+    title: `${n} nuovi ${label}`.slice(0, 120),
+    body: String(fallbackBody || `Hai ${n} nuovi ${label} in attesa.`).slice(0, 500),
+  };
+}
+
+const lastDigestPushAt = new Map();
+
+function shouldFireDigestPush(userId, dedupeKey, windowMs = 180_000) {
+  const uid = normalizeUserId(userId);
+  const key = `${uid}:${String(dedupeKey || "").trim()}`;
+  if (!uid || !String(dedupeKey || "").trim()) return true;
+  const now = Date.now();
+  const prev = Number(lastDigestPushAt.get(key) || 0);
+  if (now - prev < windowMs) return false;
+  lastDigestPushAt.set(key, now);
+  if (lastDigestPushAt.size > 500) {
+    for (const [k, at] of lastDigestPushAt) {
+      if (now - Number(at || 0) > 600_000) lastDigestPushAt.delete(k);
+    }
+  }
+  return true;
+}
+
 async function replaceInboxItemByDedupeKey(userId, dedupeKey, patch) {
   const uid = normalizeUserId(userId);
   const key = String(dedupeKey || "").trim();
@@ -371,12 +645,34 @@ async function replaceInboxItemByDedupeKey(userId, dedupeKey, patch) {
     });
     title = copy.title;
     body = copy.body;
+  } else if (patch.collapseDigest === true) {
+    const wasUnread = Boolean(existing && !existing.readAt);
+    if (wasUnread) {
+      msgCount = Math.min(99, Math.max(1, Number(existing.notifMsgCount) || 1) + 1);
+    }
+    const copy = buildCollapsedDigestCopy({
+      count: msgCount,
+      queueLabel: patch.digestLabel,
+      fallbackTitle: patch.title,
+      fallbackBody: patch.body,
+    });
+    title = copy.title;
+    body = copy.body;
   }
+  const resolvedChannel = resolveNotifChannel({
+    openUrl: patch.openUrl,
+    dedupeKey: key,
+    channel: patch.channel,
+    title,
+    body,
+    kind: patch.notifKind,
+  });
   const $set = {
     "inAppNotifItems.$.title": title,
     "inAppNotifItems.$.body": body,
     "inAppNotifItems.$.openUrl": patch.openUrl,
     "inAppNotifItems.$.notifKind": patch.notifKind,
+    "inAppNotifItems.$.notifChannel": resolvedChannel,
     "inAppNotifItems.$.guildId": patch.guildId,
     "inAppNotifItems.$.updatedAt": now,
     "inAppNotifItems.$.notifMsgCount": msgCount,
@@ -403,8 +699,10 @@ async function replaceInboxItemByDedupeKey(userId, dedupeKey, patch) {
         title: String(item.title || title || ""),
         body: String(item.body || body || ""),
         ticketId: String(item.ticketId || patchTicketId || ""),
+        msgCount,
+        existed: Boolean(existing),
       }
-    : { id: "", title, body };
+    : { id: "", title, body, msgCount, existed: Boolean(existing) };
 }
 
 async function removeInboxItemByDedupeKey(userId, dedupeKey) {
@@ -427,6 +725,18 @@ async function enqueueSiteInAppNotification(opts = {}) {
   const title = String(opts.title || "").trim().slice(0, 120);
   const body = String(opts.body || "").trim().slice(0, 500);
   if (!title || !body) return false;
+  const kindEarly = normalizeKind(opts.kind);
+  const dedupeEarly = opts.dedupeKey != null ? String(opts.dedupeKey).trim() : "";
+  if (
+    isVoteRegisteredNotification({
+      kind: kindEarly,
+      title,
+      body,
+      dedupeKey: dedupeEarly,
+    })
+  ) {
+    return false;
+  }
   const kind = normalizeKind(opts.kind);
   const openUrl = String(opts.openUrl || "").trim().slice(0, 400);
   const ticketId = normalizeTicketId(opts.ticketId) || ticketIdFromOpenUrl(openUrl);
@@ -456,26 +766,33 @@ async function enqueueSiteInAppNotification(opts = {}) {
       notifKind: kind,
       guildId,
       ticketId,
+      channel: opts.channel,
       resetRead: sendPush,
       collapseChat: opts.collapseChat === true,
+      collapseDigest: opts.collapseDigest === true,
+      digestLabel: opts.digestLabel,
       fromName: opts.fromName,
       ticketLabel: opts.ticketLabel,
       preview: opts.preview,
       messageId,
     });
     if (replaced) {
+      let doPush = sendPush;
+      if (opts.collapseDigest === true && replaced.existed) {
+        doPush = sendPush && shouldFireDigestPush(userId, dedupeKeyRaw, Number(opts.digestPushWindowMs) || 180_000);
+      }
       fireNotificationPush(
         userId,
         {
-          title,
-          body,
+          title: replaced.title || title,
+          body: replaced.body || body,
           openUrl,
           kind,
           id: replaced.id,
           ticketId,
           messageId,
         },
-        pushOpts,
+        { push: doPush },
       );
       return true;
     }
@@ -532,6 +849,15 @@ async function enqueueSiteInAppNotification(opts = {}) {
     });
     itemTitle = copy.title;
     itemBody = copy.body;
+  } else if (opts.collapseDigest === true) {
+    const copy = buildCollapsedDigestCopy({
+      count: 1,
+      queueLabel: opts.digestLabel,
+      fallbackTitle: title,
+      fallbackBody: body,
+    });
+    itemTitle = copy.title;
+    itemBody = copy.body;
   }
   const newItem = {
     _id: new mongoose.Types.ObjectId(),
@@ -539,6 +865,14 @@ async function enqueueSiteInAppNotification(opts = {}) {
     title: itemTitle,
     body: itemBody,
     notifKind: kind,
+    notifChannel: resolveNotifChannel({
+      openUrl,
+      dedupeKey: dedupeKeyRaw,
+      channel: opts.channel,
+      title,
+      body,
+      kind,
+    }),
     openUrl: openUrl || "",
     ticketId: ticketId || "",
     notifMsgCount: 1,
@@ -767,6 +1101,27 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
     }
     const openUrl = String(doc.openUrl || "").trim();
     const dedupeKey = String(doc.dedupeKey || "").trim();
+    if (isVoteRegisteredNotification({ kind, title, body, dedupeKey })) continue;
+    /* notifCats2/3: never list Discord-queue-only staff alerts as flat notifs. */
+    if (
+      isDedicatedInboxQueueAlert({
+        openUrl,
+        dedupeKey,
+        channel: doc.notifChannel || doc.channel,
+        title,
+        body,
+      })
+    ) {
+      continue;
+    }
+    const channel = resolveNotifChannel({
+      openUrl,
+      dedupeKey,
+      channel: doc.notifChannel || doc.channel,
+      title,
+      body,
+      kind,
+    });
     const filtered = await shouldSkipSiteInAppNotif(prefsGuildId || doc.guildId, uid, {
       kind,
       title,
@@ -781,6 +1136,8 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
       title,
       body,
       kind,
+      channel,
+      dedupeKey: dedupeKey || "",
       at: doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now(),
       openUrl,
       ticketId: normalizeTicketId(doc.ticketId) || ticketIdFromOpenUrl(doc.openUrl),
@@ -841,6 +1198,18 @@ async function deleteAllSiteInAppNotificationsForUser(userId) {
 }
 
 module.exports = {
+  isVoteRegisteredNotification,
+  isDedicatedInboxQueueAlert,
+  isPuntiToltiSubjectNotif,
+  isStaffTicketNotif,
+  isStaffTicketSlaNotif,
+  isMentionNotif,
+  isPersonalTicketOpenerNotif,
+  isWorkflowDecisionPersonalNotif,
+  isStaffReviewNotif,
+  isStaffFeedbackNotif,
+  isInboxLinkedNotification,
+  resolveNotifChannel,
   enqueueSiteInAppNotification,
   removeInboxItemByDedupeKey,
   listSiteInAppNotificationsForUser,
@@ -854,3 +1223,4 @@ module.exports = {
   markSiteInAppNotificationsReadForTicket,
   migrateLegacyInAppNotificationsForUser,
 };
+/* notifUseful1 marker */

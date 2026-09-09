@@ -142,6 +142,9 @@
     host.className = "vc-dash-save-toast-host vc-staff-toast-host";
     host.setAttribute("aria-live", "polite");
     host.setAttribute("aria-atomic", "true");
+    try {
+      host.style.setProperty("z-index", "300000", "important");
+    } catch (eZ) {}
     document.body.appendChild(host);
     return host;
   }
@@ -543,18 +546,14 @@
   }
 
     function defaultAvatarUrl(userId) {
-    var id = String(userId || "").trim();
-    var idx = 0;
-    if (/^\d{5,24}$/.test(id)) {
-      try {
-        idx = Number((BigInt(id) >> 22n) % 6n);
-      } catch (e) {
-        var n = 0;
-        for (var i = 0; i < id.length; i += 1) n = (n + id.charCodeAt(i)) % 6;
-        idx = n;
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
       }
-    }
-    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+    } catch (eSite) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
   function isSnowflakeLabel(value) {
@@ -570,36 +569,53 @@
 
     function avatarImgHtml(avatarUrl, userId, attrs) {
     var a = attrs || {};
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.imgHtml === "function") {
+        return window.VcDiscordAvatar.imgHtml({
+          url: avatarUrl,
+          userId: userId,
+          size: a.width != null ? a.width : a.height != null ? a.height : 40,
+          className: a.className || "vc-staff-avatar",
+          loading: a.loading,
+          fetchPriority: a.fetchPriority,
+          avatarHash: a.avatarHash || a.hash,
+          staticAvatar: a.staticAvatar,
+          guildId: a.guildId,
+          memberAvatar: a.memberAvatar || a.guildAvatar,
+          guildAvatarUrl: a.guildAvatarUrl || a.memberAvatarUrl,
+          alt: a.alt || "",
+        });
+      }
+    } catch (eHub) {}
     var w = a.width != null ? a.width : 40;
     var h = a.height != null ? a.height : 40;
     var cls = a.className ? String(a.className) : "vc-staff-avatar";
+    if (!/\bvc-avatar\b/.test(cls)) cls += " vc-avatar vc-avatar--pending";
     var uid = String(userId || "").trim();
     var loading = a.loading != null ? String(a.loading) : "lazy";
     var fetchPriority = a.fetchPriority ? String(a.fetchPriority) : "";
-    var src = String(avatarUrl || "").trim() || defaultAvatarUrl(uid);
+    var src = String(avatarUrl || "").trim();
+    if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(src)) src = "";
+    src = src || defaultAvatarUrl(uid);
+    var hashHint = String(a.avatarHash || a.hash || "").trim();
+    var isGuild = /\/guilds\/\d+\/users\//i.test(src);
+    if (!hashHint && !isGuild) {
+      try {
+        var m = src.match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)/i);
+        if (m) hashHint = String(m[1] || "").trim();
+      } catch (eHash) {}
+    }
+    var preferStatic = Boolean(a.staticAvatar);
     try {
-      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferStaticUrl === "function") {
+      // avatarAnimRestore1: GIF se hash a_; static solo se attrs.staticAvatar.
+      if (preferStatic && window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferStaticUrl === "function") {
         src = window.VcDiscordAvatar.preferStaticUrl(src, Math.max(w, h)) || src;
       } else if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
-        src = window.VcDiscordAvatar.resolveUrl(src, Math.max(w, h), "", uid) || src;
+        src = window.VcDiscordAvatar.resolveUrl(src, Math.max(w, h), isGuild ? "" : hashHint, uid) || src;
       } else if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferAnimatedUrl === "function") {
-        src = window.VcDiscordAvatar.preferAnimatedUrl(src, Math.max(w, h)) || src;
-      } else {
-        src = src.replace(/\.(gif|webp|jpe?g)(\?|#|$)/i, ".png$2");
+        src = window.VcDiscordAvatar.preferAnimatedUrl(src, Math.max(w, h), isGuild ? "" : hashHint) || src;
       }
     } catch (eAnim) {}
-    var fb = defaultAvatarUrl(uid);
-    var svg =
-      "data:image/svg+xml;charset=utf-8," +
-      encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(%23g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>',
-      );
-    var onerr =
-      "this.onerror=function(){this.onerror=null;this.src='" +
-      svg.replace(/'/g, "%27") +
-      "';};this.src='" +
-      fb.replace(/'/g, "\\'") +
-      "';";
     return (
       '<img class="' +
       esc(cls) +
@@ -614,10 +630,10 @@
       '" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1"' +
       (fetchPriority ? ' fetchpriority="' + esc(fetchPriority) + '"' : "") +
       (uid ? ' data-user-id="' + esc(uid) + '"' : "") +
-      (a.staticAvatar ? ' data-vc-avatar-static="1"' : "") +
-      ' onerror="' +
-      onerr +
-      '" />'
+      (!isGuild && hashHint ? ' data-avatar-hash="' + esc(hashHint) + '"' : "") +
+      (isGuild ? ' data-vc-guild-avatar="1"' : "") +
+      (preferStatic ? ' vcAvatarStatic="1" data-vc-avatar-static="1"' : "") +
+      " />"
     );
   }
 
@@ -628,33 +644,68 @@
     return o;
   }
 
+  function ensureVcDialogApi() {
+    if (global.VcDialog && typeof global.VcDialog.confirm === "function") {
+      return Promise.resolve(global.VcDialog);
+    }
+    if (typeof global.__vcEnsureDialog === "function") {
+      return global.__vcEnsureDialog();
+    }
+    if (global.__vcDialogLoading) return global.__vcDialogLoading;
+    global.__vcDialogLoading = new Promise(function (resolve, reject) {
+      var existing = global.document.querySelector('script[src*="vc-dialog.js"],script[data-vc-dialog="1"]');
+      function done() {
+        if (global.VcDialog && typeof global.VcDialog.confirm === "function") resolve(global.VcDialog);
+        else reject(new Error("VcDialog unavailable"));
+      }
+      if (existing) {
+        var n = 0;
+        (function poll() {
+          if (global.VcDialog) return done();
+          if (n++ > 120) return reject(new Error("VcDialog timeout"));
+          setTimeout(poll, 40);
+        })();
+        return;
+      }
+      var s = global.document.createElement("script");
+      s.src = "/js/vc-dialog.js?v=20260907customModal1";
+      s.setAttribute("data-vc-dialog", "1");
+      s.onload = done;
+      s.onerror = function () {
+        reject(new Error("vc-dialog load failed"));
+      };
+      (global.document.head || global.document.documentElement).appendChild(s);
+    }).then(
+      function (D) {
+        return D;
+      },
+      function (err) {
+        global.__vcDialogLoading = null;
+        throw err;
+      },
+    );
+    return global.__vcDialogLoading;
+  }
+
   function confirmDialog(opts) {
     var o = normalizeDialogOpts(opts, "Confermi?");
-    if (global.VcDialog && typeof global.VcDialog.confirm === "function") {
-      return global.VcDialog.confirm(o);
-    }
-    return Promise.resolve(window.confirm(String(o.message || o.title || "Confermi?")));
+    return ensureVcDialogApi().then(function (D) {
+      return D.confirm(o);
+    });
   }
 
   function promptDialog(opts) {
     var o = normalizeDialogOpts(opts, "");
-    if (global.VcDialog && typeof global.VcDialog.prompt === "function") {
-      return global.VcDialog.prompt(o);
-    }
-    var raw = window.prompt(
-      String(o.message || o.label || o.title || "Inserisci"),
-      o.defaultValue != null ? String(o.defaultValue) : o.value != null ? String(o.value) : "",
-    );
-    return Promise.resolve(raw == null ? null : String(raw));
+    return ensureVcDialogApi().then(function (D) {
+      return D.prompt(o);
+    });
   }
 
   function alertDialog(opts) {
     var o = normalizeDialogOpts(opts, "");
-    if (global.VcDialog && typeof global.VcDialog.alert === "function") {
-      return global.VcDialog.alert(o);
-    }
-    window.alert(String(o.message || o.title || ""));
-    return Promise.resolve();
+    return ensureVcDialogApi().then(function (D) {
+      return D.alert(o);
+    });
   }
 
   global.VCStaffTools = {

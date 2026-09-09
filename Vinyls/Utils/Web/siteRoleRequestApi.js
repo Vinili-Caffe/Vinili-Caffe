@@ -5,6 +5,7 @@ const COOLDOWN = SITE_DOCUMENT_TYPE.ROLE_REQUEST_COOLDOWN;
 const { createSiteRoleJoinRequest } = require("../../Events/interaction/customRoleHandlers");
 const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter");
+const { fetchWebsiteGuildMember, isOnNegativeCache, readCachedWebsiteMember, writeCachedWebsiteMember, ensureWebsiteGuild } = require("./websiteGuildMemberFetch");
 
 const ROLE_REQUEST_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
@@ -18,6 +19,91 @@ function resolveGuildId(client) {
 
 function resolveMemberCacheKey(token) {
   return `${String(token || "").length}:${String(token || "").slice(-20)}`;
+}
+
+async function fetchDiscordMeFast(accessToken, timeoutMs = 2500) {
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = setTimeout(() => {
+    try {
+      ctrl?.abort?.();
+    } catch (_) {}
+  }, Math.max(600, Number(timeoutMs) || 2500));
+  try {
+    return await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: ctrl ? ctrl.signal : undefined,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchOAuthGuildMemberFast(accessToken, guildId, timeoutMs = 2200) {
+  const token = String(accessToken || "").trim();
+  const gid = String(guildId || "").trim();
+  if (!token || !gid) {
+    return { json: null, notInGuild: false, unreachable: true };
+  }
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = setTimeout(() => {
+    try {
+      ctrl?.abort?.();
+    } catch (_) {}
+  }, Math.max(600, Number(timeoutMs) || 2200));
+  try {
+    const res = await fetch(`https://discord.com/api/v10/users/@me/guilds/${gid}/member`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      signal: ctrl ? ctrl.signal : undefined,
+    });
+    if (res.status === 404) return { json: null, notInGuild: true, unreachable: false };
+    if (!res.ok) return { json: null, notInGuild: false, unreachable: res.status >= 500 };
+    const json = await res.json().catch(() => null);
+    return { json: json || null, notInGuild: false, unreachable: !json };
+  } catch (_) {
+    return { json: null, notInGuild: false, unreachable: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function synthMemberFromOAuth(guild, meJson, oauthMember) {
+  const userId = String(meJson?.id || oauthMember?.user?.id || "").trim();
+  if (!userId) return null;
+  const roleIds = Array.isArray(oauthMember?.roles)
+    ? oauthMember.roles.map(String).filter(Boolean)
+    : [];
+  const mapLike = {
+    has: (id) => roleIds.includes(String(id)),
+    get: (id) => (roleIds.includes(String(id)) ? { id: String(id) } : undefined),
+    keys: () => roleIds[Symbol.iterator](),
+    values: () => roleIds.map((id) => ({ id }))[Symbol.iterator](),
+    entries: () => roleIds.map((id) => [id, { id }])[Symbol.iterator](),
+    forEach: (fn) => {
+      for (const id of roleIds) fn({ id }, id, mapLike);
+    },
+    get size() {
+      return roleIds.length;
+    },
+    [Symbol.iterator]: () => roleIds.map((id) => [id, { id }])[Symbol.iterator](),
+  };
+  const displayName =
+    String(oauthMember?.nick || meJson?.global_name || meJson?.username || "Utente").trim() || "Utente";
+  return {
+    id: userId,
+    user: {
+      id: userId,
+      username: String(meJson?.username || "").trim(),
+      globalName: String(meJson?.global_name || "").trim(),
+      avatar: meJson?.avatar || null,
+      bot: false,
+    },
+    guild: guild || null,
+    displayName,
+    nickname: oauthMember?.nick || null,
+    roles: { cache: mapLike },
+    permissions: { has: () => false },
+    _vcFromOAuth: true,
+  };
 }
 
 function isExpired(doc) {
@@ -62,11 +148,16 @@ async function resolveWebsiteGuildMember(client, accessToken) {
   }
 
   const work = (async () => {
+    // mobileApisFast2: OAuth-first (short), never 8s+18s Discord bot retry — that killed tickets/candidature on phones.
+    const guildId = resolveGuildId(client);
+    if (!guildId) {
+      return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
+    }
+
+    const oauthPromise = fetchOAuthGuildMemberFast(token, guildId, 2200);
     let meJson;
     try {
-      const meRes = await fetch("https://discord.com/api/v10/users/@me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const meRes = await fetchDiscordMeFast(token, 2500);
       if (!meRes.ok) {
         return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
       }
@@ -80,26 +171,58 @@ async function resolveWebsiteGuildMember(client, accessToken) {
       return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
     }
 
-    const guildId = resolveGuildId(client);
-    if (!guildId) {
-      return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
-    }
-    const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    const guild =
+      (await ensureWebsiteGuild(client, guildId, 3000).catch(() => null)) ||
+      client.guilds.cache.get(guildId) ||
+      null;
     if (!guild) {
       return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
     }
 
-    const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
+    let member =
+      guild.members.cache.get(userId) ||
+      readCachedWebsiteMember(userId) ||
+      null;
+
+    const oauth = await oauthPromise;
+    if (!member && oauth.json) {
+      member = synthMemberFromOAuth(guild, meJson, oauth.json);
+    }
+
+    if (!member && !oauth.notInGuild) {
+      member = await fetchWebsiteGuildMember(guild, userId, {
+        timeoutMs: 2000,
+        retry: false,
+        soft: true,
+      }).catch(() => null);
+    }
+
+    if (!member && oauth.json) {
+      member = synthMemberFromOAuth(guild, meJson, oauth.json);
+    }
+
     if (!member) {
+      if (oauth.notInGuild || isOnNegativeCache(userId)) {
+        return {
+          ok: false,
+          status: 403,
+          error: "not_in_guild",
+          message: "Per richiedere un ruolo / usare i ticket devi essere presente nel server Discord.",
+        };
+      }
       return {
         ok: false,
-        status: 403,
-        error: "not_in_guild",
-        message: "Per richiedere un ruolo devi essere presente nel server Discord.",
+        status: 503,
+        error: "member_unavailable",
+        message: "Discord non risponde: riprova tra pochi secondi.",
       };
     }
 
-    const okPayload = { ok: true, status: 200, guild, member, userId };
+    if (!member._vcFromOAuth) {
+      writeCachedWebsiteMember(userId, member);
+    }
+
+    const okPayload = { ok: true, status: 200, guild, member, userId, discordUser: meJson || null };
     resolveMemberCache.set(cacheKey, { exp: Date.now() + RESOLVE_MEMBER_TTL_MS, value: okPayload });
     if (resolveMemberCache.size > 400) {
       const first = resolveMemberCache.keys().next().value;
@@ -396,8 +519,71 @@ async function leaveSiteRole(client, payload) {
   };
 }
 
+async function getSiteRoleRequestStates(client, payload) {
+  const accessToken = String(payload?.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const now = Date.now();
+  const byRoleId = {};
+
+  const pendingDocs = await SiteDocument.find({
+    docType: SITE_DOCUMENT_TYPE.ROLE_REQUEST_PENDING,
+    guildId: resolved.guild.id,
+    requesterId: resolved.userId,
+    expiresAt: { $gt: new Date(now) },
+  })
+    .select("roleId expiresAt")
+    .lean()
+    .catch(() => []);
+
+  for (const doc of pendingDocs || []) {
+    const roleId = String(doc?.roleId || "").trim();
+    if (!/^\d{17,22}$/.test(roleId)) continue;
+    const exp = doc?.expiresAt ? new Date(doc.expiresAt) : null;
+    byRoleId[roleId] = {
+      status: "pending",
+      pendingExpiresAt: exp && Number.isFinite(exp.getTime()) ? exp.toISOString() : null,
+    };
+  }
+
+  const cooldownDocs = await SiteDocument.find({
+    docType: COOLDOWN,
+    guildId: resolved.guild.id,
+    requesterId: resolved.userId,
+    cooldownUntil: { $gt: new Date(now) },
+  })
+    .select("roleId cooldownUntil")
+    .lean()
+    .catch(() => []);
+
+  for (const doc of cooldownDocs || []) {
+    const roleId = String(doc?.roleId || "").trim();
+    if (!/^\d{17,22}$/.test(roleId)) continue;
+    const until = doc?.cooldownUntil ? new Date(doc.cooldownUntil) : null;
+    if (!until || !Number.isFinite(until.getTime()) || until.getTime() <= now) continue;
+    // Pending wins over cooldown for the same role
+    if (byRoleId[roleId]?.status === "pending") {
+      byRoleId[roleId].cooldownUntil = until.toISOString();
+      continue;
+    }
+    byRoleId[roleId] = {
+      status: "cooldown",
+      cooldownUntil: until.toISOString(),
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    byRoleId,
+    serverNow: new Date(now).toISOString(),
+  };
+}
+
 module.exports = {
   resolveWebsiteGuildMember,
   submitSiteRoleRequest,
   leaveSiteRole,
+  getSiteRoleRequestStates,
 };

@@ -6,7 +6,7 @@ const { resolveQuotePostChannel } = require("../../Utils/Quote/quotePostChannel"
 const { normalizeQuoteMessageText } = require("../../Utils/Quote/normalizeQuoteMessageText");
 const { registerQuoteBoardPost, buildQuoteBoardComponents } = require("../../Utils/Quote/quoteBoardService");
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, memberDisplayName, memberLabelWithUsername, guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { isRepostDisabledInGuild } = require("../../Services/Community/repostService");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 const {
@@ -86,7 +86,8 @@ module.exports = {
 
     const text = normalizeQuoteMessageText(targetMessage);
     const author = targetMessage.author;
-    const displayName = targetMessage.member?.displayName || author?.username;
+    const displayName =
+      memberDisplayName(targetMessage.member, author) || accountUsername(author);
     if (!author || !text) {
       return safeMessageReply(message, {
         embeds: [
@@ -100,7 +101,7 @@ module.exports = {
       });
     }
 
-    const quoteUserLabel = accountUsername(author) || displayName;
+    const quoteUserLabel = memberLabelWithUsername(targetMessage.member, author) || displayName;
 
     try {
       const privacy=await QuotePrivacy.findOne({guildId:message.guild.id,userId:author.id,});

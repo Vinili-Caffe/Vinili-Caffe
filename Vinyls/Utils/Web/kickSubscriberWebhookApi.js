@@ -197,7 +197,7 @@ async function handleKickSubStatusGet(client, req, res) {
       return res.status(Number(resolved.status) || 401).json(resolved);
     }
     const st = await getLinkStatus(client, resolved.userId);
-    const slug = String(cfg.streamerSlug || "d1uk").trim() || "d1uk";
+    const slug = String(cfg.streamerSlug || "diunk17").trim() || "diunk17";
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,

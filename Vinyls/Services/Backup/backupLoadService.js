@@ -831,6 +831,8 @@ async function applyBackupToGuild(guild, backupId, selectedActions, sourceGuildI
 
   const channelMap = new Map();
   const threadMap = new Map();
+  const emojiMap = new Map();
+  const stickerMap = new Map();
 
   if (actions.has("delete_channels")) {
     markPhase("delete_channels");
@@ -1083,9 +1085,13 @@ async function applyBackupToGuild(guild, backupId, selectedActions, sourceGuildI
     const emojis = Array.isArray(payload?.emojis) ? payload.emojis : [];
     for (const emoji of emojis) {
       throwIfCancelled(guildKey);
-      if (!emoji?.name || !emoji?.url) continue;
-      if (guild.emojis.cache.some((e) => String(e.name) === String(emoji.name))) continue;
-      const attachment = await resolveAssetInput(emoji.url);
+      if (!emoji?.name) continue;
+      if (guild.emojis.cache.some((e) => String(e.name) === String(emoji.name))) {
+        const existing = guild.emojis.cache.find((e) => String(e.name) === String(emoji.name));
+        if (existing && emoji.id) emojiMap.set(String(emoji.id), String(existing.id));
+        continue;
+      }
+      const attachment = await resolveAssetInput(emoji.imageData || emoji.url);
       if (!attachment) continue;
       const mappedRoles = (Array.isArray(emoji.roles) ? emoji.roles : []).map((oldId) => roleMap.get(String(oldId))).filter(Boolean);
       const created = await guild.emojis.create({
@@ -1093,6 +1099,7 @@ async function applyBackupToGuild(guild, backupId, selectedActions, sourceGuildI
       })
         .catch(() => null);
       if (!created) continue;
+      if (emoji.id) emojiMap.set(String(emoji.id), String(created.id));
       stats.loadedEmojis += 1;
       bumpProcessed();
       await sleep(350);
@@ -1104,15 +1111,20 @@ async function applyBackupToGuild(guild, backupId, selectedActions, sourceGuildI
     const stickers = Array.isArray(payload?.stickers) ? payload.stickers : [];
     for (const sticker of stickers) {
       throwIfCancelled(guildKey);
-      if (!sticker?.name || !sticker?.url) continue;
-      if (guild.stickers.cache.some((s) => String(s.name) === String(sticker.name))) continue;
-      const file = await resolveAssetInput(sticker.url);
+      if (!sticker?.name) continue;
+      if (guild.stickers.cache.some((s) => String(s.name) === String(sticker.name))) {
+        const existing = guild.stickers.cache.find((s) => String(s.name) === String(sticker.name));
+        if (existing && sticker.id) stickerMap.set(String(sticker.id), String(existing.id));
+        continue;
+      }
+      const file = await resolveAssetInput(sticker.imageData || sticker.url);
       if (!file) continue;
       const created = await guild.stickers.create({
         file, name: String(sticker.name || "sticker"), description: sticker.description || undefined, tags: String(sticker.tags || "backup"), reason: `Backup load ${backupId}`,
       })
         .catch(() => null);
       if (!created) continue;
+      if (sticker.id) stickerMap.set(String(sticker.id), String(created.id));
       stats.loadedStickers += 1;
       bumpProcessed();
       await sleep(350);
@@ -1193,6 +1205,25 @@ async function applyBackupToGuild(guild, backupId, selectedActions, sourceGuildI
       bumpProcessed();
       await sleep(250);
     }
+  }
+
+  markPhase("post_restore_id_sync");
+  try {
+    const { runPostRestoreIdSync } = require("./postRestoreIdSyncService");
+    const sync = await runPostRestoreIdSync({
+      guildId: guild.id,
+      backupId,
+      roleMap,
+      channelMap,
+      emojiMap,
+      stickerMap,
+      syncMongo: true,
+    });
+    stats.idRemap = sync?.persisted || null;
+    stats.mongoRemap = sync?.mongo || null;
+  } catch (err) {
+    global.logger?.warn?.("[backup.load] postRestoreIdSync failed:", err?.message || err);
+    stats.idRemapError = String(err?.message || err);
   }
 
   markPhase("completed");

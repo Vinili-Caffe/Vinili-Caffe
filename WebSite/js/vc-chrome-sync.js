@@ -160,7 +160,7 @@
           hydratedServer = false;
           try {
             if (global.VcApiCache && typeof global.VcApiCache.noteWebhook429 === "function") {
-              global.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"));
+              global.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), API);
             }
           } catch (e429) {}
           return null;

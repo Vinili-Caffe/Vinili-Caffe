@@ -1,4 +1,7 @@
 (function () {
+  /* sfGrazieCountdown1: next-film countdown; strip data-i18n so i18n cannot wipe #timer */
+  var tickTimer = 0;
+
   function utils() {
     return window.__vcSeratafilmEventUtils || null;
   }
@@ -21,6 +24,79 @@
     } catch (eWk) {}
   }
 
+  function claimTimerEl() {
+    var te = document.getElementById("timer");
+    if (!te) return null;
+    try {
+      te.removeAttribute("data-i18n");
+      te.removeAttribute("data-i18n-src");
+      te.removeAttribute("data-i18n-html");
+    } catch (eRm) {}
+    return te;
+  }
+
+  function pad2(n) {
+    return String(Math.max(0, Math.floor(Number(n) || 0)));
+  }
+
+  function renderCountdown(te, next, nowMs) {
+    var atMs = Number(next && next.atMs) || 0;
+    var dist = Math.max(0, atMs - nowMs);
+    var giorni = Math.floor(dist / (1000 * 60 * 60 * 24));
+    var ore = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    var minuti = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60));
+    var secondi = Math.floor((dist % (1000 * 60)) / 1000);
+    var u = utils();
+    var dateLabel = u ? u.formatScreeningDateLabel(next.dateKey, next.hour, next.minute) : "presto";
+    var title = String((next && next.title) || "il prossimo film").trim() || "il prossimo film";
+    var existing = te.querySelectorAll(".tile .num");
+    if (existing && existing.length === 4 && te.querySelector(".vc-seratafilm-thanks-next")) {
+      existing[0].textContent = pad2(giorni);
+      existing[1].textContent = pad2(ore);
+      existing[2].textContent = pad2(minuti);
+      existing[3].textContent = pad2(secondi);
+      return;
+    }
+    te.innerHTML =
+      '<div class="tile" data-unit="days"><span class="num">' +
+      pad2(giorni) +
+      '</span><span class="lbl">Giorni</span></div>' +
+      '<div class="tile" data-unit="hours"><span class="num">' +
+      pad2(ore) +
+      '</span><span class="lbl">Ore</span></div>' +
+      '<div class="tile" data-unit="minutes"><span class="num">' +
+      pad2(minuti) +
+      '</span><span class="lbl">Minuti</span></div>' +
+      '<div class="tile" data-unit="seconds"><span class="num">' +
+      pad2(secondi) +
+      '</span><span class="lbl">Secondi</span></div>' +
+      '<div class="tile vc-seratafilm-thanks-next" style="grid-column: 1 / -1; padding: 14px 12px;">' +
+      '<span class="lbl">Prossima serata: <strong>' +
+      (u ? u.escapeHtml(dateLabel) : dateLabel) +
+      "</strong> · <strong>" +
+      (u ? u.escapeHtml(title) : title) +
+      "</strong></span></div>";
+  }
+
+  function startThanksCountdown() {
+    var u = utils();
+    var te = claimTimerEl();
+    if (!u || !te || typeof u.resolveNextScreening !== "function") return false;
+    if (tickTimer) {
+      try {
+        clearInterval(tickTimer);
+      } catch (eCl) {}
+      tickTimer = 0;
+    }
+    function tick() {
+      var next = u.resolveNextScreening(Date.now());
+      renderCountdown(claimTimerEl() || te, next, Date.now());
+    }
+    tick();
+    tickTimer = setInterval(tick, 1000);
+    return true;
+  }
+
   exitPresentationMode();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", exitPresentationMode);
@@ -28,21 +104,12 @@
 
   window.__vcSeratafilmRenderThanks = function () {
     exitPresentationMode();
-    var u = utils();
-    if (!u) return;
-    var next = u.resolveNextScreening(Date.now());
-    var dateLabel = u.escapeHtml(u.formatScreeningDateLabel(next.dateKey, next.hour, next.minute));
-    var title = u.escapeHtml(next.title);
-    var te = document.getElementById("timer");
-    if (!te) return;
-    te.innerHTML =
-      '<div class="tile" style="grid-column: 1 / -1; padding: 18px 14px;">' +
-      '<span class="num vc-seratafilm-thanks-kicker">Grazie per la visione!</span>' +
-      '<span class="lbl">Ci vediamo <strong>' +
-      dateLabel +
-      "</strong> con <strong>" +
-      title +
-      "</strong></span>" +
-      "</div>";
+    var tries = 0;
+    function attempt() {
+      tries += 1;
+      if (startThanksCountdown()) return;
+      if (tries < 20) setTimeout(attempt, 150);
+    }
+    attempt();
   };
 })();

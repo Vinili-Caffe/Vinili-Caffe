@@ -4,7 +4,6 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const {
   accountUsername,
   userAvatarUrlDynamic,
-  discordDefaultAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
 const {
   STAFF_LIST_SECTION_ROLE_IDS,
@@ -57,9 +56,9 @@ function identityFromMember(member) {
   const user = member?.user || member;
   const userId = String(member?.id || user?.id || "");
   const resolved =
-    userAvatarUrlDynamic(member, { size: 128 }) ||
-    userAvatarUrlDynamic(user, { size: 128 }) ||
-    discordDefaultAvatarUrl(user || { id: userId }, { size: 128 });
+    userAvatarUrlDynamic(member, { size: 128, allowDefault: false }) ||
+    userAvatarUrlDynamic(user, { size: 128, allowDefault: false }) ||
+    "";
   return {
     userId,
     displayName: String(member?.displayName || user?.globalName || user?.username || "Staff").trim() || "Staff",

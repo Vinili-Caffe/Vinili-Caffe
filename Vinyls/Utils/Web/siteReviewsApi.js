@@ -17,12 +17,7 @@ const {
 } = require("../Discord/guildDiscordIdentity");
 const {
   applyLiveAvatarToSuggestionLike,
-  applyLiveAvatarToSuggestionLikeAsync,
-  collectUserIdsFromSuggestionLikeDocs,
-  prefetchGuildMembersForIds,
-  prefetchUsersForIds,
   resolveSiteAvatarUrl,
-  stabilizeDiscordCdnAvatarUrl,
 } = require("./siteLiveAvatars");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
 
@@ -32,6 +27,12 @@ const HIGH_STAFF_ROLE_ID = String(IDs?.roles?.HighStaff || "").trim();
 const FALLBACK_REVIEW_CHANNEL_ID = String(IDs?.channels?.supporters || "").trim();
 const STAFF_CACHE_TTL_MS = 2 * 60 * 1000;
 const REVIEW_REWARD_LEVELS = 5;
+/** Public review list (avatars/names) — short TTL; viewer likes applied per request. */
+const PUBLIC_REVIEWS_CACHE_TTL_MS = Math.max(
+  8_000,
+  Number(process.env.VC_SITE_REVIEWS_LIST_CACHE_MS || 20_000) || 20_000,
+);
+const publicReviewsListCache = new Map();
 
 let staffCache = {
   guildId: "",
@@ -39,6 +40,51 @@ let staffCache = {
   list: [],
   ids: new Set(),
 };
+
+function publicReviewsCacheKey(guildId, reviewKind) {
+  return `${String(guildId || "").trim()}:${String(reviewKind || "server").trim()}`;
+}
+
+function invalidatePublicReviewsListCache(guildId = "") {
+  const gid = String(guildId || "").trim();
+  if (!gid) {
+    publicReviewsListCache.clear();
+    return;
+  }
+  for (const key of [...publicReviewsListCache.keys()]) {
+    if (key.startsWith(`${gid}:`)) publicReviewsListCache.delete(key);
+  }
+}
+
+function readPublicReviewsListCache(guildId, reviewKind) {
+  const key = publicReviewsCacheKey(guildId, reviewKind);
+  const hit = publicReviewsListCache.get(key);
+  if (!hit || Number(hit.expiresAt || 0) <= Date.now()) {
+    if (hit) publicReviewsListCache.delete(key);
+    return null;
+  }
+  return Array.isArray(hit.items) ? hit.items : null;
+}
+
+function writePublicReviewsListCache(guildId, reviewKind, items) {
+  publicReviewsListCache.set(publicReviewsCacheKey(guildId, reviewKind), {
+    expiresAt: Date.now() + PUBLIC_REVIEWS_CACHE_TTL_MS,
+    items: Array.isArray(items) ? items : [],
+  });
+}
+
+function applyViewerLikesToReviews(list, viewerUserId) {
+  const uid = String(viewerUserId || "").trim();
+  return (Array.isArray(list) ? list : []).map((entry) => {
+    if (!entry || typeof entry !== "object") return entry;
+    const likes = Array.isArray(entry._likedUserIds) ? entry._likedUserIds.map(String) : [];
+    const next = { ...entry };
+    delete next._likedUserIds;
+    next.likeCount = likes.length;
+    next.likedByViewer = Boolean(uid && likes.includes(uid));
+    return next;
+  });
+}
 let highStaffCache = {
   guildId: "",
   expiresAt: 0,
@@ -192,6 +238,7 @@ async function notifyHighStaffNewReview(guild, review, authorName) {
         title,
         body,
         kind: "review",
+        channel: "inbox",
         openUrl: reviewNotifOpenUrl(rid, kind),
         dedupeKey: `rev-new:${rid}:${userId}`,
         dedupeWindowMs: 86_400_000,
@@ -400,32 +447,68 @@ async function getSiteReviews(client, payload = {}) {
   const accessToken = String(payload.accessToken || "").trim();
   const staffMap = new Map();
 
-  const docsP = SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind })
-    .sort({ createdAt: -1, _id: -1 })
-    .limit(reviewKind === "bot" ? 120 : 80)
-    .lean()
-    .catch(() => []);
+  let cachedBase = readPublicReviewsListCache(guild.id, reviewKind);
+  const docsP = cachedBase
+    ? Promise.resolve(null)
+    : SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(reviewKind === "bot" ? 120 : 80)
+        .lean()
+        .catch(() => []);
   const viewerP = accessToken
     ? resolveWebsiteGuildMember(client, accessToken).catch(() => null)
     : Promise.resolve(null);
   const [kindDocs, resolved] = await Promise.all([docsP, viewerP]);
 
-  const reviewUserIds = collectUserIdsFromSuggestionLikeDocs(kindDocs);
-  await prefetchGuildMembersForIds(guild, reviewUserIds);
-  await prefetchUsersForIds(client, reviewUserIds);
-
   let viewer = null;
   let viewerUserId = "";
+  let viewerDocs = [];
+  const afterResolveTasks = [];
   if (resolved && resolved.ok) {
     viewerUserId = String(resolved.userId || "");
-    const viewerDocs = await SiteDocument.find({
-      docType: RV,
-      guildId: guild.id,
-      userId: resolved.userId,
-      reviewKind,
-    })
-      .lean()
-      .catch(() => []);
+    afterResolveTasks.push(
+      SiteDocument.find({
+        docType: RV,
+        guildId: guild.id,
+        userId: resolved.userId,
+        reviewKind,
+      })
+        .lean()
+        .catch(() => [])
+        .then((rows) => {
+          viewerDocs = Array.isArray(rows) ? rows : [];
+        }),
+    );
+  }
+
+  if (!cachedBase) {
+    // Sync avatar resolve (cache only) — no Discord REST fan-out on list load
+    // (prefetchUsers/Members caused multi-second cold hits → FE "Impossibile caricare le recensioni").
+    afterResolveTasks.push(
+      Promise.resolve().then(() => {
+        cachedBase = sortSerializedReviewsNewestFirst(
+          (Array.isArray(kindDocs) ? kindDocs : []).map((doc) => {
+            const entry = applyLiveAvatarToSuggestionLike(
+              enrichPublicReviewDoc(doc, staffMap, ""),
+              guild,
+              { size: 128, preferAnimated: false, client },
+            );
+            entry._likedUserIds = Array.isArray(doc?.likedUserIds)
+              ? doc.likedUserIds.map((x) => String(x))
+              : [];
+            entry.likeCount = entry._likedUserIds.length;
+            entry.likedByViewer = false;
+            return entry;
+          }),
+        );
+        writePublicReviewsListCache(guild.id, reviewKind, cachedBase);
+      }),
+    );
+  }
+
+  if (afterResolveTasks.length) await Promise.all(afterResolveTasks);
+
+  if (resolved && resolved.ok) {
     viewer = {
       id: resolved.userId,
       name: displayNameForMember(resolved.member),
@@ -435,10 +518,9 @@ async function getSiteReviews(client, payload = {}) {
       staffReviews: [],
     };
     for (const doc of viewerDocs) {
-      const entry = await applyLiveAvatarToSuggestionLikeAsync(
+      const entry = applyLiveAvatarToSuggestionLike(
         enrichPublicReviewDoc(doc, staffMap, viewerUserId),
         guild,
-        client,
         { size: 128 },
       );
       if (entry.kind === "server") viewer.serverReview = entry;
@@ -446,18 +528,7 @@ async function getSiteReviews(client, payload = {}) {
     }
   }
 
-  async function enrichPublicReview(doc) {
-    return applyLiveAvatarToSuggestionLikeAsync(
-      enrichPublicReviewDoc(doc, staffMap, viewerUserId),
-      guild,
-      client,
-      { size: 128 },
-    );
-  }
-
-  const serialized = sortSerializedReviewsNewestFirst(
-    await Promise.all((Array.isArray(kindDocs) ? kindDocs : []).map((doc) => enrichPublicReview(doc))),
-  );
+  const serialized = applyViewerLikesToReviews(cachedBase, viewerUserId);
   return {
     ok: true,
     status: 200,
@@ -577,6 +648,7 @@ async function submitSiteReview(client, payload = {}) {
   }
 
   try {
+    invalidatePublicReviewsListCache(resolved.guild.id);
     broadcastSiteReviewsChanged();
   } catch (_) {}
 
@@ -614,6 +686,7 @@ async function deleteSiteReview(client, payload = {}) {
   }
 
   try {
+    invalidatePublicReviewsListCache(resolved.guild.id);
     broadcastSiteReviewsChanged();
   } catch (_) {}
 
@@ -697,6 +770,7 @@ async function toggleSiteReviewLike(client, payload = {}) {
               ? `${likerName} ha messo mi piace alla tua recensione del bot.`
               : `${likerName} ha messo mi piace alla tua recensione della community.`,
           kind: "review",
+          channel: "personal",
           openUrl: reviewNotifOpenUrl(reviewId, kind),
           dedupeKey: `rev-like:${reviewId}:${uid}`,
           dedupeWindowMs: 300_000,
@@ -705,6 +779,7 @@ async function toggleSiteReviewLike(client, payload = {}) {
     }
   }
   try {
+    invalidatePublicReviewsListCache(resolved.guild.id);
     broadcastSiteReviewsChanged();
   } catch (_) {}
   return {
@@ -777,6 +852,7 @@ async function upsertServerReviewReply(client, payload = {}) {
             ? "Lo staff ha pubblicato una risposta ufficiale alla tua recensione del bot."
             : "Lo staff ha pubblicato una risposta ufficiale alla tua recensione della community.",
         kind: "review",
+        channel: "personal",
         openUrl: reviewNotifOpenUrl(reviewId, replyKind),
         dedupeKey: `rev-reply:${reviewId}:${String(nextDoc.serverReplyAt || "")}`,
         dedupeWindowMs: 86_400_000,
@@ -785,6 +861,7 @@ async function upsertServerReviewReply(client, payload = {}) {
   }
 
   try {
+    invalidatePublicReviewsListCache(resolved.guild.id);
     broadcastSiteReviewsChanged();
   } catch (_) {}
 

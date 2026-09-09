@@ -12,18 +12,11 @@
   if (shouldSkipTypeSfx()) return;
 
   var STORAGE_KEY = "vc_type_sfx";
-  var CRITICAL_CSS_ID = "vc-bgm-player-critical";
-  var ICO =
-    '<svg class="vc-bgm-player__ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false" width="20" height="20">';
-  var ICON_KEYBOARD =
-    ICO +
-    '<path fill="currentColor" d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>';
-  var ICON_VOL_LO =
-    ICO +
-    '<path fill="currentColor" d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>';
-  var ICON_VOL_HI =
-    ICO +
-    '<path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
+  var CRITICAL_CSS_ID = "vc-type-sfx-critical-box1";
+  /* typeSfxMatchMusic1: stesso chrome del player musica (FA + slider oro) */
+  var ICON_KEYBOARD = '<i class="fa fa-keyboard-o" aria-hidden="true"></i>';
+  var ICON_VOL_LO = '<i class="fa fa-volume-down" aria-hidden="true"></i>';
+  var ICON_VOL_HI = '<i class="fa fa-volume-up" aria-hidden="true"></i>';
   var VOL_KEY = "vc_type_sfx_vol";
   var MAX_RATE_MS = 22;
   var BASE_PEAK = 0.85;
@@ -338,17 +331,34 @@
   }
 
   function injectCriticalShellCss() {
+    try {
+      var stale = document.getElementById("vc-type-sfx-critical");
+      if (stale) stale.remove();
+    } catch (eSt) {}
+    try {
+      var staleMusic = document.getElementById("vc-type-sfx-critical-music1");
+      if (staleMusic) staleMusic.remove();
+    } catch (eSt2) {}
     if (document.getElementById(CRITICAL_CSS_ID)) return;
+    /* typeSfxMatchMusic1: identico al chip musica — niente grid/vertical custom. */
     var style = document.createElement("style");
     style.id = CRITICAL_CSS_ID;
     style.textContent =
-      ".vc-bgm-player,.vc-type-sfx-player{position:fixed;right:1rem;bottom:1rem;z-index:10110;display:inline-flex;align-items:center;gap:0;padding:0;border:none;background:transparent;color:#f7ecdf;box-shadow:none}" +
-      ".vc-bgm-player .vc-bgm-player__meta{flex:1 1 auto;min-width:0;max-width:0;opacity:0;overflow:hidden;display:flex;flex-direction:column;gap:.42rem;pointer-events:none}" +
-      ".vc-bgm-player__toggle{flex:0 0 auto;width:3.35rem;height:3.35rem;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid rgba(212,168,120,.48);background:rgba(20,12,8,.92);color:#f7ecdf;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.42)}" +
-      ".vc-bgm-player__ico,.vc-bgm-player__toggle .fa{width:1.2rem;height:1.2rem;flex:0 0 auto;display:block;font-size:1.2rem;line-height:1}" +
-      ".vc-bgm-player__label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
-      ".vc-bgm-player__slider-row{display:flex;align-items:center;gap:.45rem;width:100%;min-width:0}" +
-      ".vc-type-sfx-player[hidden]{display:none!important}";
+      "#vc-type-sfx-player.vc-type-sfx-player,.vc-type-sfx-player.vc-bgm-player{position:fixed;right:max(.85rem,env(safe-area-inset-right,0px));bottom:max(.95rem,env(safe-area-inset-bottom,0px));z-index:10110;display:inline-flex!important;flex-direction:row;align-items:center;gap:0;padding:0;border:none;border-radius:0;background:transparent;color:#f7ecdf;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;max-width:min(18.5rem,calc(100vw - 1.5rem))}" +
+      ".vc-type-sfx-player .vc-bgm-player__toggle{flex:0 0 auto;width:3.35rem;height:3.35rem;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid rgba(212,168,120,.48);background:rgba(20,12,8,.92);color:#f7ecdf;cursor:var(--vc-cursor-pointer);box-shadow:0 8px 24px rgba(0,0,0,.42)}" +
+      ".vc-type-sfx-player .vc-bgm-player__toggle .fa{width:1.2rem;height:1.2rem;font-size:1.2rem;line-height:1;display:block}" +
+      ".vc-type-sfx-player .vc-bgm-player__meta{flex:1 1 auto;min-width:0;max-width:0;opacity:0;overflow:hidden;display:flex;flex-direction:column;gap:.42rem;pointer-events:none}" +
+      ".vc-type-sfx-player.vc-bgm-player:hover,.vc-type-sfx-player.vc-bgm-player:focus-within,.vc-type-sfx-player.vc-bgm-player.is-open,#vc-type-sfx-player.vc-bgm-player:hover,#vc-type-sfx-player.vc-bgm-player:focus-within,#vc-type-sfx-player.vc-bgm-player.is-open{gap:.65rem!important;padding:.45rem .7rem .45rem .45rem!important;border-radius:1.15rem!important;border:1px solid rgba(212,168,120,.5)!important;background:linear-gradient(155deg,rgba(42,26,16,.96),rgba(16,10,8,.94))!important;background-color:rgba(24,15,10,.96)!important;box-shadow:0 14px 42px rgba(0,0,0,.55)!important}" +
+      ".vc-type-sfx-player.vc-bgm-player:hover .vc-bgm-player__meta,.vc-type-sfx-player.vc-bgm-player:focus-within .vc-bgm-player__meta,.vc-type-sfx-player.vc-bgm-player.is-open .vc-bgm-player__meta,#vc-type-sfx-player.vc-bgm-player:hover .vc-bgm-player__meta,#vc-type-sfx-player.vc-bgm-player:focus-within .vc-bgm-player__meta,#vc-type-sfx-player.vc-bgm-player.is-open .vc-bgm-player__meta{max-width:min(17.5rem,calc(100vw - 5.5rem));min-width:11.5rem;opacity:1;overflow:visible;pointer-events:auto}" +
+      ".vc-type-sfx-player .vc-bgm-player__label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(247,236,223,.92)}" +
+      ".vc-type-sfx-player .vc-bgm-player__slider-row{display:flex;align-items:center;gap:.45rem;width:100%;min-width:0}" +
+      ".vc-type-sfx-player .vc-bgm-player__slider-row>.fa{font-size:.78rem;opacity:.78;flex:0 0 auto;color:rgba(232,201,168,.88)}" +
+      ".vc-type-sfx-player .vc-bgm-player__range{-webkit-appearance:none;appearance:none;flex:1 1 auto;min-width:0;width:100%;height:1.35rem;margin:0;background:transparent;cursor:var(--vc-cursor-pointer)}" +
+      ".vc-type-sfx-player .vc-bgm-player__range::-webkit-slider-runnable-track{height:.28rem;border-radius:999px;background:rgba(247,236,223,.22)}" +
+      ".vc-type-sfx-player .vc-bgm-player__range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:1rem;height:1rem;margin-top:-.34rem;border-radius:50%;border:1px solid rgba(20,10,6,.55);background:linear-gradient(160deg,#f0d7b0,#d4a878);box-shadow:0 2px 8px rgba(0,0,0,.35)}" +
+      ".vc-type-sfx-player .vc-bgm-player__range::-moz-range-track{height:.28rem;border-radius:999px;background:rgba(247,236,223,.22);border:none}" +
+      ".vc-type-sfx-player .vc-bgm-player__range::-moz-range-thumb{width:1rem;height:1rem;border-radius:50%;border:1px solid rgba(20,10,6,.55);background:linear-gradient(160deg,#f0d7b0,#d4a878);box-shadow:0 2px 8px rgba(0,0,0,.35)}" +
+      ".vc-type-sfx-player[hidden],html.vc-type-sfx-off .vc-type-sfx-player{display:none!important}";
     (document.head || document.documentElement).appendChild(style);
   }
 
@@ -396,13 +406,18 @@
       "aria-label",
       on
         ? isIt()
-          ? "Volume suono tastiera"
-          : "Typing sound volume"
+          ? "Suono tastiera"
+          : "Typing sound"
         : isIt()
-          ? "Suono tastiera disattivato — alza lo slider"
-          : "Typing sound off — raise the slider",
+          ? "Suono tastiera spento"
+          : "Typing sound off",
     );
-    btn.title = btn.getAttribute("aria-label");
+    /* typeSfxTipFix1: no native title — overlaps the open panel and looks truncated */
+    try {
+      btn.removeAttribute("title");
+    } catch (eT) {
+      btn.title = "";
+    }
     btn.classList.toggle("is-muted", !on);
     if (wrap) wrap.classList.toggle("is-muted", !on);
     if (rangeEl) {
@@ -452,8 +467,15 @@
   }
 
   function ensureShell() {
-    if (wrap && wrap.isConnected) return wrap;
+    if (wrap && wrap.isConnected && wrap.querySelector(".fa-volume-down")) return wrap;
     wrap = document.getElementById("vc-type-sfx-player");
+    if (wrap && !wrap.querySelector(".fa-volume-down")) {
+      try {
+        wrap.remove();
+      } catch (eRm) {}
+      wrap = null;
+      volumeUiBound = false;
+    }
     if (!wrap) {
       wrap = document.createElement("div");
       wrap.id = "vc-type-sfx-player";
@@ -479,7 +501,10 @@
     btn = document.getElementById("vc-type-sfx-toggle") || wrap.querySelector(".vc-type-sfx-toggle");
     rangeEl = document.getElementById("vc-type-sfx-vol") || wrap.querySelector(".vc-bgm-player__range");
     if (rangeEl) {
-      rangeEl.setAttribute("aria-label", isIt() ? "Volume suono tastiera" : "Typing sound volume");
+      rangeEl.setAttribute("aria-label", isIt() ? "Volume" : "Volume");
+      try {
+        rangeEl.removeAttribute("title");
+      } catch (eTr) {}
     }
     if (btn && !btn.__vcTypeSfxBound) {
       btn.__vcTypeSfxBound = true;

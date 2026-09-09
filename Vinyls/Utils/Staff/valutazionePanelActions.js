@@ -478,6 +478,17 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
   );
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
+  try {
+    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../Web/siteStaffEventNotifications");
+    void notifyStaffValutazioneRemoved({
+      guild: channel?.guild || null,
+      staffUserId: String(staffUser?.id || ""),
+      kind: "positive",
+      reason: reason || removedReason,
+      actorName: memberDisplayName(null, actor, actor?.id),
+      sectionId: removeId,
+    }).catch(() => 0);
+  } catch (_) {}
   clearWebStaffProfileCache(staffUser?.id);
   return { ok: true };
 }
@@ -569,15 +580,14 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
         await appendStaffRolesHistoryEntry(guild.id, staffUser.id, {
           oldRole: currentRoleId,
           newRole: "",
+          kind: "depex",
           reason: "Depex automatico: 3 warn staff (valutazioni negative).",
           displayName: String(
             memberAfterFull?.displayName || staffUser?.globalName || staffUser?.username || "",
           ).trim() || null,
           username: String(staffUser?.username || "").trim() || null,
           avatarUrl:
-            (typeof memberAfterFull?.displayAvatarURL === "function" &&
-              memberAfterFull.displayAvatarURL({ size: 128 })) ||
-            (typeof staffUser?.displayAvatarURL === "function" && staffUser.displayAvatarURL({ size: 128 })) ||
+            guildMemberDisplayAvatarUrlDynamic(memberAfterFull || staffUser, { size: 128 }) ||
             null,
         });
         const pexDepexChannel = await resolveStaffPexDepexChannel(guild);
@@ -670,6 +680,17 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
   );
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
+  try {
+    const { notifyStaffValutazioneRemoved, memberDisplayName } = require("../Web/siteStaffEventNotifications");
+    void notifyStaffValutazioneRemoved({
+      guild: channel?.guild || null,
+      staffUserId: String(staffUser?.id || ""),
+      kind: "negative",
+      reason: reason || removedReason,
+      actorName: memberDisplayName(null, actor, actor?.id),
+      sectionId: removeId,
+    }).catch(() => 0);
+  } catch (_) {}
   clearWebStaffProfileCache(staffUser?.id);
   return { ok: true };
 }

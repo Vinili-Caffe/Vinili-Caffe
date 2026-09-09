@@ -74,6 +74,20 @@
     } catch (e) {}
   }
 
+  function lockPageAfterLogout() {
+    try {
+      window.__VC_HOGWARTS_STAFF_PREVIEW = false;
+      if (previewMode()) {
+        document.body.classList.add("vc-hw-preview-locked");
+        redirectHome();
+      }
+    } catch (eLock) {
+      try {
+        redirectHome();
+      } catch (eHome) {}
+    }
+  }
+
   function verifyAccess() {
     if (window.__VC_HOGWARTS_STAFF_PREVIEW) {
       unlockPage();
@@ -117,7 +131,15 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
   window.addEventListener("vc-discord-profile", function () {
-    if (previewMode()) verifyAccess();
+    if (!previewMode()) return;
+    if (!getToken()) {
+      lockPageAfterLogout();
+      return;
+    }
+    verifyAccess();
+  });
+  window.addEventListener("vc:auth-logout", function () {
+    if (previewMode()) lockPageAfterLogout();
   });
   document.addEventListener("vc-hogwarts-staff-preview-unlock", function () {
     unlockPage();

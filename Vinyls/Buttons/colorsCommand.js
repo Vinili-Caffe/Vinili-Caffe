@@ -147,11 +147,9 @@ module.exports = {
       await interaction.followUp({ content: "<a:VC_Alert:1482706673176150077> Non puoi applicare quel colore.", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
       return true;
     }
-    const pool = segment === "tier" ? unlocks.getTierExclusiveRoleIds() : segment === "plus"
-      ? unlocks.getPlusColorRoleIds()
-      : unlocks.getAllPersonalityChatColorRoleIds();
-    const trackedSet = new Set(pool);
-    const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, pool);
+    // Max 1 colore chat totale (Base / Livelli / Plus).
+    const trackedSet = new Set(unlocks.getAllPersonalityChatColorRoleIds());
+    const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, [...trackedSet]);
 
     const beforeMember = await guild.members.fetch({ user: ownerId, force: true }).catch(() => member);
     const beforeRoleSet = new Set(beforeMember?.roles?.cache?.keys?.() || []);

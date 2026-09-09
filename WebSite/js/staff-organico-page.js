@@ -56,44 +56,10 @@
 
   function renderStaffDelMese() {
     var card = T.byId("vc-staff-organico-sdm");
-    if (!card) return;
-    var block = state.staffDelMese || {};
-    var holders = block.holders || [];
-    var holdersHtml = "";
-    if (holders.length) {
-      holdersHtml =
-        '<ul class="vc-staff-organico-sdm__holders">' +
-        holders
-          .map(function (m) {
-            return (
-              "<li>" +
-              T.avatarImgHtml(m.avatarUrl, m.userId, { width: 40, height: 40 }) +
-              "<span><strong>" +
-              T.esc(T.userLabel(m.displayName, m.userId)) +
-              "</strong></span></li>"
-            );
-          })
-          .join("") +
-        "</ul>";
-    } else {
-      holdersHtml = '<p class="vc-staff-organico-sdm__empty">Nessuno con il ruolo al momento.</p>';
+    if (card) {
+      card.hidden = true;
+      card.innerHTML = "";
     }
-    card.innerHTML =
-      '<div class="vc-staff-organico-sdm__inner">' +
-      '<p class="vc-staff-organico-sdm__kicker">Premio mensile</p>' +
-      "<h2>Staff del Mese</h2>" +
-      '<p class="vc-staff-organico-sdm__lead">Ogni mese viene scelto <strong>un solo</strong> staffer da premiare. La scelta tiene conto di attività, presenza e contributo al team.</p>' +
-      '<ul class="vc-staff-organico-sdm__prizes">' +
-      "<li>Ruolo <strong>" +
-      T.esc(block.roleLabel || "Staffer del Mese") +
-      "</strong></li>" +
-      "<li><strong>5 giorni di pausa in più</strong></li>" +
-      "<li><strong>Nitro Boost</strong> (almeno un boost a Vinili &amp; Caffè)</li>" +
-      "</ul>" +
-      '<div class="vc-staff-organico-sdm__now"><p class="vc-staff-organico-sdm__now-label">Staffer del Mese ora</p>' +
-      holdersHtml +
-      "</div></div>";
-    card.hidden = false;
   }
 
   function renderRoster() {
@@ -140,26 +106,62 @@
     if (total <= HISTORY_PAGE_SIZE) return "";
     var totalPages = historyPageCount(rows);
     var page = state.historyPage;
-    var from = (page - 1) * HISTORY_PAGE_SIZE + 1;
-    var to = Math.min(total, page * HISTORY_PAGE_SIZE);
+
+    function gap() {
+      return '<span class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__gap" aria-hidden="true">\u2026</span>';
+    }
+    function pageBtn(n, active) {
+      return (
+        '<button type="button" class="vc-staff-pt-seg__btn' +
+        (active ? " is-active" : "") +
+        '" data-hist-page="' +
+        n +
+        '"' +
+        (active ? ' aria-current="page"' : "") +
+        ">" +
+        n +
+        "</button>"
+      );
+    }
+
+    var nums = [];
+    var windowSize = 5;
+    if (totalPages <= windowSize + 2) {
+      for (var i = 1; i <= totalPages; i += 1) nums.push(i);
+    } else {
+      var half = Math.floor(windowSize / 2);
+      var start = Math.max(2, page - half);
+      var end = Math.min(totalPages - 1, page + half);
+      if (page - half < 2) end = Math.min(totalPages - 1, windowSize + 1);
+      if (page + half > totalPages - 1) start = Math.max(2, totalPages - windowSize);
+      nums.push(1);
+      if (start > 2) nums.push("…");
+      for (var j = start; j <= end; j += 1) nums.push(j);
+      if (end < totalPages - 1) nums.push("…");
+      nums.push(totalPages);
+    }
+
+    var pagesHtml =
+      '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__navbtn" data-hist-page="prev"' +
+      (page <= 1 ? " disabled" : "") +
+      ' aria-label="Pagina precedente">\u2190</button>';
+    nums.forEach(function (n) {
+      if (n === "…") pagesHtml += gap();
+      else pagesHtml += pageBtn(n, n === page);
+    });
+    pagesHtml +=
+      '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__navbtn" data-hist-page="next"' +
+      (page >= totalPages ? " disabled" : "") +
+      ' aria-label="Pagina successiva">\u2192</button>';
+
     return (
       '<div class="vc-staff-inbox-pagination vc-staff-organico-hist__pagination">' +
-      '<div class="vc-staff-inbox-pagination__info">' +
-      T.esc(from + "\u2013" + to + " di " + total) +
-      "</div>" +
-      '<div class="vc-staff-inbox-pagination__nav">' +
-      '<button type="button" class="vc-staff-inbox-page-btn" data-hist-page="prev"' +
-      (page <= 1 ? " disabled" : "") +
-      ">\u2190 Prec</button>" +
-      '<span class="vc-staff-inbox-pagination__label">Pagina ' +
-      page +
-      " / " +
-      totalPages +
-      "</span>" +
-      '<button type="button" class="vc-staff-inbox-page-btn" data-hist-page="next"' +
-      (page >= totalPages ? " disabled" : "") +
-      ">Succ \u2192</button>" +
-      "</div></div>"
+      '<div class="vc-staff-inbox-pagination__row">' +
+      '<div class="vc-staff-pt-seg vc-staff-inbox-pagination__seg" role="navigation" aria-label="Pagine (' +
+      total +
+      ' voci)">' +
+      pagesHtml +
+      "</div></div></div>"
     );
   }
 
@@ -171,16 +173,44 @@
 
   function scanOrganicoAvatars(panel) {
     if (!panel) return;
+    // organicoSilhouette3: force site silhouette — never Discord embed/CDN on organico list.
     try {
-      if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
-        global.VcAvatarFallback.scan(panel);
+      var siteFb =
+        window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function"
+          ? window.VcDiscordAvatar.siteFallbackAvatarUrl()
+          : "";
+      if (!siteFb) return;
+      var imgs = panel.querySelectorAll(".vc-staff-organico-hist__av img");
+      for (var i = 0; i < imgs.length; i += 1) {
+        var img = imgs[i];
+        var src = String(img.getAttribute("src") || img.src || "").trim();
+        var isDiscord =
+          /discord(app)?\.(com|net)/i.test(src) ||
+          /\/embed\/avatars\//i.test(src) ||
+          !src ||
+          /^https?:\/\//i.test(src);
+        var keepSvg = /^data:image\/svg\+xml/i.test(src) && src.indexOf("stop-color") >= 0;
+        if (keepSvg && !/discord/i.test(src)) continue;
+        if (isDiscord || !keepSvg) {
+          img.removeAttribute("srcset");
+          img.src = siteFb;
+          img.setAttribute("src", siteFb);
+          img.classList.add("vc-avatar", "vc-avatar--ready", "vc-avatar-fallback-img");
+          img.classList.remove("vc-avatar--pending");
+          try {
+            img.dataset.vcAvatarOk = "1";
+            img.dataset.vcAvatarFallbackFinal = "1";
+          } catch (eDs) {}
+        }
       }
-    } catch (eScan) {}
-    try {
-      if (global.VcDiscordAvatar && typeof global.VcDiscordAvatar.scan === "function") {
-        global.VcDiscordAvatar.scan(panel);
-      }
-    } catch (eDa) {}
+    } catch (eForce) {}
+  }
+
+  function organicoSafeAvatarUrl(url) {
+    // organicoSilhouette3: always empty → site silhouette (no Discord embed/CDN).
+    var s = String(url || "").trim();
+    if (/^data:image\/svg\+xml/i.test(s) && !/discord/i.test(s)) return s;
+    return "";
   }
 
   function renderHistory() {
@@ -195,15 +225,9 @@
     var counts = historyKindCounts();
 
     var head =
-      '<header class="vc-staff-organico-hist__head">' +
-      "<div><h2>Cronologia del team</h2></div>" +
-      (filterId
-        ? '<button type="button" class="vc-staff-organico-hist__clear" id="vc-staff-organico-clear-filter">Mostra tutti</button>'
-        : "") +
-      "</header>" +
       '<div class="vc-staff-organico-hist__switch">' +
       '<div class="vc-staff-pt-seg vc-staff-organico-seg" role="group" aria-label="Filtra cronologia">' +
-      ['all', 'pex', 'depex']
+      ["all", "pex", "depex"]
         .map(function (k) {
           var meta = tabMeta(k, counts);
           var pressed = kind === k ? ' aria-selected="true"' : ' aria-selected="false"';
@@ -223,7 +247,11 @@
           );
         })
         .join("") +
-      "</div></div>";
+      "</div>" +
+      (filterId
+        ? '<button type="button" class="vc-staff-organico-hist__clear" id="vc-staff-organico-clear-filter">Mostra tutti</button>'
+        : "") +
+      "</div>";
 
     if (filterId) {
       head +=
@@ -243,35 +271,23 @@
       return;
     }
 
+    // organicoOnePag1: single pagination bar at bottom (inbox pattern).
     var pagination = buildHistoryPaginationHtml(rows);
-    var paginationTop = pagination
-      ? pagination.replace(
-          "vc-staff-organico-hist__pagination",
-          "vc-staff-organico-hist__pagination vc-staff-organico-hist__pagination--top",
-        )
-      : "";
-    var paginationFoot = pagination
-      ? pagination.replace(
-          "vc-staff-organico-hist__pagination",
-          "vc-staff-organico-hist__pagination vc-staff-organico-hist__pagination--foot",
-        )
-      : "";
 
     panel.innerHTML =
       head +
       '<div class="vc-staff-organico-hist__main">' +
-      paginationTop +
       '<ul class="vc-staff-organico-hist">' +
       pageRows
         .map(function (r) {
-          var kindLabel = r.kind === "depex" ? "Retrocessione" : "Promozione";
+          var kindLabel = r.kind === "depex" ? "Depex" : "Pex";
           return (
             '<li class="vc-staff-organico-hist__item vc-staff-organico-hist__item--' +
             T.esc(r.kind) +
             '">' +
             '<div class="vc-staff-organico-hist__row">' +
             '<div class="vc-staff-organico-hist__av">' +
-            T.avatarImgHtml(r.avatarUrl, r.userId, {
+            T.avatarImgHtml(organicoSafeAvatarUrl(r.avatarUrl), r.userId, {
               width: 44,
               height: 44,
               className: "vc-staff-avatar",
@@ -306,8 +322,13 @@
         })
         .join("") +
       "</ul>" +
-      paginationFoot +
-      "</div>";
+      "</div>" +
+      (pagination
+        ? pagination.replace(
+            "vc-staff-organico-hist__pagination",
+            "vc-staff-organico-hist__pagination vc-staff-organico-hist__pagination--foot",
+          )
+        : "");
     scanOrganicoAvatars(panel);
   }
 
@@ -412,11 +433,18 @@
         }
         var pageBtn = ev.target && ev.target.closest ? ev.target.closest("[data-hist-page]") : null;
         if (pageBtn && !pageBtn.disabled) {
-          var dir = pageBtn.getAttribute("data-hist-page");
+          var dir = String(pageBtn.getAttribute("data-hist-page") || "");
           var rows = historyRowsForRender();
           var maxPage = historyPageCount(rows);
-          if (dir === "prev" && state.historyPage > 1) state.historyPage -= 1;
-          else if (dir === "next" && state.historyPage < maxPage) state.historyPage += 1;
+          var nextPage = state.historyPage;
+          if (dir === "prev" && state.historyPage > 1) nextPage = state.historyPage - 1;
+          else if (dir === "next" && state.historyPage < maxPage) nextPage = state.historyPage + 1;
+          else {
+            var n = Number(dir);
+            if (Number.isFinite(n) && n >= 1 && n <= maxPage) nextPage = n;
+          }
+          if (nextPage === state.historyPage) return;
+          state.historyPage = nextPage;
           renderHistory();
           var list = history.querySelector(".vc-staff-organico-hist");
           if (list && list.scrollTop != null) list.scrollTop = 0;

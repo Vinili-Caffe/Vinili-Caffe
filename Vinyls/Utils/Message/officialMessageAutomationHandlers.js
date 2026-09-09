@@ -35,6 +35,7 @@ const BUMP_DETECTION_LOG_COOLDOWN_MS = 10 * 60 * 1000;
 const BUMP_SKIP_DEBUG_LOG_TTL_MS = 30 * 60 * 1000;
 const MEMBER_FETCH_CACHE_TTL_MS = 15_000;
 const memberFetchCache = new Map();
+const { resolveVoteRoleIdForGuild } = require("../Community/resolveVoteRoleId");
 function hasMediaPermission(member) {
   return MEDIA_BLOCK_ROLE_IDS.some((roleId) =>
     member?.roles?.cache?.has(roleId),
@@ -673,8 +674,9 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   const voteAgainHoursLabel = voteCooldownHours === 1 ? "1 ora" : `${voteCooldownHours} ore`;
   const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
   const votePlatformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
-  const voteRoleText = VOTE_ROLE_ID
-    ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per ${voteAgainHoursLabel}`
+  const resolvedVoteRoleId = await resolveVoteRoleIdForGuild(guild).catch(() => "");
+  const voteRoleText = resolvedVoteRoleId
+    ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${resolvedVoteRoleId}> per ${voteAgainHoursLabel}`
     : `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per ${voteAgainHoursLabel}`;
   const thankLine =
     voteListing === "topgg"
@@ -729,8 +731,9 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
       const expiresAt = new Date(Date.now() + voteCooldownMs);
       await upsertVoteRole(guild.id, userId, expiresAt);
       const member = await getCachedOrFetchMember(guild, userId);
-      if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
-        await member.roles.add(VOTE_ROLE_ID).catch(() => { });
+      const roleIdToGrant = resolvedVoteRoleId || VOTE_ROLE_ID;
+      if (member && roleIdToGrant && !member.roles.cache.has(roleIdToGrant)) {
+        await member.roles.add(roleIdToGrant).catch(() => { });
       }
     } catch (err) {
       global.logger?.warn?.("[officialMessageAutomation] role/event error: ", err?.message || err);

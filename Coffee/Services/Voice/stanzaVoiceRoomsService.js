@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const IDs = require("../../Utils/Config/ids");
 const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice");
-const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { CustomRole, ActivityUserProfile } = require("../../../Vinyls/Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
@@ -99,6 +99,7 @@ const stanzaLimitPending = new Map();
 const stanzaDescPending = new Map();
 const stanzaVicePending = new Map();
 const stanzaUsersMemberPending = new Map();
+const stanzaBotRenameUntil = new Map();
 
 const STANZA_NAME_LEAD = "༄";
 const STANZA_DEFAULT_EMOJI = "🏠";
@@ -107,9 +108,12 @@ const STANZA_CONNECTOR = STANZA_ANCHOR.charAt(0);
 const STANZA_VC_NAME_MAX = 100;
 const STANZA_VC_VOICE_STATUS_MAX = 500;
 const STANZA_RENAME_PROMPT_MS = 90_000;
+const STANZA_BOT_RENAME_TTL_MS = 12_000;
 const STANZA_EMPTY_TEARDOWN_MS = 10 * 60 * 1000;
 const STANZA_SNAPSHOT_VERSION = 1;
 const STANZA_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "stanzaVoiceRoomsSnapshot.json");
+/** Marker used in deploy/probe asserts — do not remove. */
+const STANZA_NAME_ENFORCE_MARKER = "stanzaNameEnforceChannelUpdate1";
 
 const stanzaEmptyTeardownTimers = new Map();
 
@@ -198,23 +202,51 @@ function sanitizeStanzaNamePart(raw, maxLen) {
   return s.slice(0, cap);
 }
 
+function markStanzaBotRename(channelId, ttlMs = STANZA_BOT_RENAME_TTL_MS) {
+  const id = String(channelId || "");
+  if (!id) return;
+  stanzaBotRenameUntil.set(id, Date.now() + Math.max(1000, Number(ttlMs) || STANZA_BOT_RENAME_TTL_MS));
+}
+
+function isStanzaBotRename(channelId) {
+  const id = String(channelId || "");
+  if (!id) return false;
+  const until = stanzaBotRenameUntil.get(id);
+  if (!until) return false;
+  if (Date.now() > until) {
+    stanzaBotRenameUntil.delete(id);
+    return false;
+  }
+  return true;
+}
+
+function findStanzaAnchorIndex(afterLead) {
+  const s = String(afterLead || "");
+  const exact = s.indexOf(STANZA_ANCHOR);
+  if (exact !== -1) return { idx: exact, len: STANZA_ANCHOR.length };
+  // Tolerate lookalike connectors Discord UI/audit may show (╵｜|) while canonical remains ︲.
+  const loose = s.match(/[︲╵｜|]\s*Stanza di\s+/iu);
+  if (!loose || loose.index == null) return null;
+  return { idx: loose.index, len: loose[0].length };
+}
+
 function parseStanzaVoiceName(name) {
   const n = String(name || "");
   if (!n.startsWith(STANZA_NAME_LEAD)) return null;
   const afterLead = n.slice(STANZA_NAME_LEAD.length);
   if (!afterLead) return null;
-  const anchorIdx = afterLead.indexOf(STANZA_ANCHOR);
-  if (anchorIdx !== -1) {
-    const emojiPart = afterLead.slice(0, anchorIdx);
+  const anchor = findStanzaAnchorIndex(afterLead);
+  if (anchor) {
+    const emojiPart = afterLead.slice(0, anchor.idx);
     if (!emojiPart) return null;
-    const labelPart = afterLead.slice(anchorIdx + STANZA_ANCHOR.length);
-    return { emojiPart, labelPart };
+    const labelPart = afterLead.slice(anchor.idx + anchor.len);
+    return { emojiPart, labelPart, hasAnchor: true };
   }
   const m = afterLead.match(/^((?:\p{Extended_Pictographic}(?:\u200D\p{Extended_Pictographic})*)+\uFE0F?)/u);
   if (!m) return null;
   const emojiPart = m[1];
   const labelPart = afterLead.slice(emojiPart.length);
-  return { emojiPart, labelPart };
+  return { emojiPart, labelPart, hasAnchor: false };
 }
 
 function isVoiceChannelProbablyStanza(voiceChannel) {
@@ -224,7 +256,7 @@ function isVoiceChannelProbablyStanza(voiceChannel) {
 function isVoiceChannelDiscoveryStanzaCandidate(voiceChannel) {
   const n = String(voiceChannel?.name || "");
   if (!n.startsWith(STANZA_NAME_LEAD)) return false;
-  return n.includes(STANZA_ANCHOR);
+  return Boolean(findStanzaAnchorIndex(n.slice(STANZA_NAME_LEAD.length)));
 }
 
 function isVoiceChannelDiscoveryRenamedStanzaCandidate(voiceChannel) {
@@ -240,29 +272,86 @@ function buildStanzaFullName(emojiPart, labelPart) {
   );
 }
 
-function buildStanzaVoiceNameFromUserPart(userInput, currentVoiceName) {
-  const parsed = parseStanzaVoiceName(String(currentVoiceName || ""));
-  if (!parsed) return null;
-  const { emojiPart } = parsed;
-  let raw = String(userInput || "")
+function isCanonicalStanzaVoiceName(name) {
+  const parsed = parseStanzaVoiceName(name);
+  if (!parsed?.hasAnchor) return false;
+  const label = normalizeStanzaUserLabel(parsed.labelPart);
+  if (!label) return false;
+  return buildStanzaFullName(parsed.emojiPart, label) === String(name || "");
+}
+
+/** Strip connector / accidental "Stanza di" so rename never duplicates the fixed middle. */
+function normalizeStanzaUserLabel(raw) {
+  let s = String(raw || "")
     .replace(/[\n\r\t]/g, " ")
     .replace(/[#[\]|]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  while (raw.startsWith(STANZA_CONNECTOR)) raw = raw.slice(STANZA_CONNECTOR.length).trimStart();
-  const prefixLen = STANZA_NAME_LEAD.length + emojiPart.length + STANZA_CONNECTOR.length;
-  const maxTail = Math.max(1, STANZA_VC_NAME_MAX - prefixLen);
-  const tail = sanitizeStanzaNamePart(raw, maxTail);
-  if (!tail) return null;
-  return `${STANZA_NAME_LEAD}${emojiPart}${STANZA_CONNECTOR}${tail}`.slice(0, STANZA_VC_NAME_MAX);
+  if (s.startsWith(STANZA_NAME_LEAD)) s = s.slice(STANZA_NAME_LEAD.length).trimStart();
+  const emojiOnly = s.match(/^((?:\p{Extended_Pictographic}(?:\u200D\p{Extended_Pictographic})*)+\uFE0F?)/u);
+  if (emojiOnly) s = s.slice(emojiOnly[1].length).trimStart();
+  while (s.startsWith(STANZA_CONNECTOR) || s.startsWith("╵") || s.startsWith("｜") || s.startsWith("|")) {
+    s = s.slice(1).trimStart();
+  }
+  const anchorPlain = String(STANZA_ANCHOR || "").replace(STANZA_CONNECTOR, "").trim();
+  if (anchorPlain && s.toLowerCase().startsWith(anchorPlain.toLowerCase())) {
+    s = s.slice(anchorPlain.length).trimStart();
+  }
+  while (s.startsWith(STANZA_CONNECTOR) || s.startsWith("╵") || s.startsWith("｜") || s.startsWith("|")) {
+    s = s.slice(1).trimStart();
+  }
+  return s;
+}
+
+function buildStanzaVoiceNameFromUserPart(userInput, currentVoiceName) {
+  const parsed = parseStanzaVoiceName(String(currentVoiceName || ""));
+  const emojiPart = parsed?.emojiPart || STANZA_DEFAULT_EMOJI;
+  const maxLabel = Math.max(
+    1,
+    STANZA_VC_NAME_MAX - STANZA_NAME_LEAD.length - String(emojiPart).length - STANZA_ANCHOR.length,
+  );
+  const part = sanitizeStanzaNamePart(normalizeStanzaUserLabel(userInput), maxLabel);
+  if (!part) return null;
+  // Always keep ༄ + emoji + "︲Stanza di " (do not drop the fixed middle on rename).
+  return buildStanzaFullName(emojiPart, part);
+}
+
+/**
+ * Recompute required channel name after any rename (panel or Discord UI).
+ * Returns null when newName is already canonical.
+ */
+function resolveEnforcedStanzaVoiceName(oldName, newName) {
+  const next = String(newName || "");
+  if (isCanonicalStanzaVoiceName(next)) return null;
+  const oldParsed = parseStanzaVoiceName(oldName);
+  const newParsed = parseStanzaVoiceName(next);
+  const emojiPart = oldParsed?.emojiPart || newParsed?.emojiPart || STANZA_DEFAULT_EMOJI;
+  const labelSource = newParsed ? newParsed.labelPart : next;
+  const maxLabel = Math.max(
+    1,
+    STANZA_VC_NAME_MAX - STANZA_NAME_LEAD.length - String(emojiPart).length - STANZA_ANCHOR.length,
+  );
+  const part = sanitizeStanzaNamePart(normalizeStanzaUserLabel(labelSource), maxLabel);
+  if (!part) {
+    // Empty/invalid strip: restore previous canonical label if possible.
+    const fallbackLabel = sanitizeStanzaNamePart(
+      normalizeStanzaUserLabel(oldParsed?.labelPart || "utente"),
+      maxLabel,
+    );
+    if (!fallbackLabel) return null;
+    const restored = buildStanzaFullName(emojiPart, fallbackLabel);
+    return restored === next ? null : restored;
+  }
+  const enforced = buildStanzaFullName(emojiPart, part);
+  return enforced === next ? null : enforced;
 }
 
 function buildStanzaVoiceNameWithNewEmoji(currentVoiceName, newEmoji) {
   const parsed = parseStanzaVoiceName(String(currentVoiceName || ""));
   if (!parsed) return null;
-  const n = String(currentVoiceName || "");
-  const suffix = n.slice(STANZA_NAME_LEAD.length + parsed.emojiPart.length);
-  return `${STANZA_NAME_LEAD}${newEmoji}${suffix}`.slice(0, STANZA_VC_NAME_MAX);
+  const label = normalizeStanzaUserLabel(parsed.labelPart);
+  if (!label) return null;
+  return buildStanzaFullName(newEmoji, label);
 }
 
 function extractExactUnicodeEmojiLine(raw) {
@@ -412,7 +501,7 @@ function buildStanzaJoinVisitorDmEmbed(member, voiceChannel, roomNamePlain, owne
         "**⏱️ · Le tue statistiche**\n" +
         `| ⏱️ · ⌛ Tempo personale : ${totalFormatted}`,
     )
-    .setThumbnail(member.displayAvatarURL({ size: 256 }))
+    .setThumbnail(userAvatarUrlDynamic(member, { size: 256 }))
     .setTimestamp(new Date());
 }
 
@@ -1878,7 +1967,7 @@ async function tryRehydrateStanzaRoomFromSnapshotRecord(guild, channelId, rec) {
   const meta = normalizeStanzaRecordFromSnapshot(rec, guild.id);
   if (!meta || String(meta.guildId) !== String(guild.id)) return false;
   const voiceCh = await fetchStanzaVoiceChannel(guild, id);
-  if (!voiceCh || !isVoiceChannelProbablyStanza(voiceCh)) return false;
+  if (!voiceCh?.isVoiceBased?.()) return false;
   if (await channelIdIsLinkedCustomRolePrivateVoc(guild.id, id)) return false;
   const ownerOw = voiceCh.permissionOverwrites.cache.get(meta.ownerId);
   if (!ownerOw?.allow?.has(PermissionsBitField.Flags.ManageChannels)) return false;
@@ -1888,6 +1977,15 @@ async function tryRehydrateStanzaRoomFromSnapshotRecord(guild, channelId, rec) {
   const humans = voiceCh.members.filter((m) => !m.user.bot);
   if (humans.size === 0) {
     scheduleStanzaEmptyTeardown(guild, id);
+  }
+  // Heal stripped names after restart (no channelUpdate until next rename).
+  if (!isCanonicalStanzaVoiceName(voiceCh.name)) {
+    const enforced = resolveEnforcedStanzaVoiceName(voiceCh.name, voiceCh.name);
+    if (enforced && enforced !== String(voiceCh.name || "")) {
+      markStanzaBotRename(id);
+      await voiceCh.setName(enforced, "Stanza: ripristino prefisso").catch(() => {});
+      await syncStanzaCompanionTextName(guild, id, enforced);
+    }
   }
   return true;
 }
@@ -2555,6 +2653,7 @@ async function handleStanzaRenameMessageCreate(message) {
     return true;
   }
 
+  markStanzaBotRename(vid);
   await voiceCh.setName(newName, "Stanza: rinomina").catch(() => {});
   await syncStanzaCompanionTextName(message.guild, vid, newName);
   await message.delete().catch(() => {});
@@ -2606,6 +2705,7 @@ async function handleStanzaEmojiMessageCreate(message) {
     return true;
   }
 
+  markStanzaBotRename(vid);
   await voiceCh.setName(newName, "Stanza: emoji").catch(() => {});
   await syncStanzaCompanionTextName(message.guild, vid, newName);
   await message.delete().catch(() => {});
@@ -2951,6 +3051,51 @@ async function handleStanzaPanelPromptMessageCreate(message) {
   return false;
 }
 
+/**
+ * Enforce ༄{emoji}︲Stanza di {label} after manual Discord renames (and any other name edits).
+ * Bot-initiated setName is ignored via stanzaBotRenameUntil to avoid loops.
+ */
+async function handleStanzaChannelUpdate(oldChannel, newChannel) {
+  void STANZA_NAME_ENFORCE_MARKER;
+  if (!newChannel?.guild || !isStanzaGuildAllowed(newChannel.guild.id)) return false;
+  const isVoice =
+    newChannel.type === ChannelType.GuildVoice ||
+    (typeof newChannel.isVoiceBased === "function" && newChannel.isVoiceBased());
+  if (!isVoice) return false;
+
+  const cid = String(newChannel.id || "");
+  if (!cid) return false;
+  if (isStanzaBotRename(cid)) return false;
+
+  const oldName = String(oldChannel?.name || "");
+  const newName = String(newChannel.name || "");
+  if (!oldName || oldName === newName) return false;
+
+  const guild = newChannel.guild;
+  let meta = await getStanzaMetaOrRehydrate(guild, cid);
+  if (!meta) {
+    const oldLooksManaged =
+      isVoiceChannelProbablyStanza({ name: oldName }) ||
+      isVoiceChannelDiscoveryStanzaCandidate({ name: oldName });
+    if (!oldLooksManaged) return false;
+  }
+
+  const enforced = resolveEnforcedStanzaVoiceName(oldName, newName);
+  if (!enforced || enforced === newName) return false;
+
+  markStanzaBotRename(cid);
+  const ok = await newChannel.setName(enforced, "Stanza: ripristino prefisso").then(() => true).catch((err) => {
+    global.logger?.warn?.("[stanza] name enforce failed:", err?.message || err);
+    return false;
+  });
+  if (!ok) return false;
+
+  await syncStanzaCompanionTextName(guild, cid, enforced);
+  await refreshStanzaPanelEmbedsIfPossible(guild, cid).catch(() => {});
+  global.logger?.info?.(`[stanza] name enforced ${cid}: ${JSON.stringify(newName)} -> ${JSON.stringify(enforced)}`);
+  return true;
+}
+
 function isStanzaVoiceChannelCached(guild, channelId) {
   const cid = String(channelId || "").trim();
   const gid = String(guild?.id || "").trim();
@@ -2979,4 +3124,24 @@ async function isStanzaCommandChannel(guild, channel) {
   return false;
 }
 
-module.exports = { isStanzaButtonActorAllowed, isStanzaCommandChannel, restoreStanzaRoomsFromSnapshot, finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty, handleStanzaButton, handleStanzaRenameMessageCreate, handleStanzaEmojiMessageCreate, handleStanzaLimitMessageCreate, handleStanzaDescMessageCreate, handleStanzaViceMessageCreate, handleStanzaPanelPromptMessageCreate, buildStanzaChannelName };
+module.exports = {
+  isStanzaButtonActorAllowed,
+  isStanzaCommandChannel,
+  restoreStanzaRoomsFromSnapshot,
+  finalizeStanzaVisitorVoiceSessionIfLeft,
+  handleStanzaVoiceLobbyJoin,
+  handleStanzaVoiceOccupied,
+  handleStanzaVoiceEmpty,
+  handleStanzaButton,
+  handleStanzaRenameMessageCreate,
+  handleStanzaEmojiMessageCreate,
+  handleStanzaLimitMessageCreate,
+  handleStanzaDescMessageCreate,
+  handleStanzaViceMessageCreate,
+  handleStanzaPanelPromptMessageCreate,
+  handleStanzaChannelUpdate,
+  buildStanzaChannelName,
+  resolveEnforcedStanzaVoiceName,
+  isCanonicalStanzaVoiceName,
+  STANZA_NAME_ENFORCE_MARKER,
+};

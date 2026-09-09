@@ -202,12 +202,25 @@ export function loadGaleoniEconomyUnlockMs(botRoot) {
   }
 }
 
+export function isServerEconomyEnabledInConfig(botRoot) {
+  const p = path.join(botRoot, "config.json");
+  if (!fs.existsSync(p)) return false;
+  try {
+    const cfg = JSON.parse(readUtf8(p));
+    return cfg?.serverEconomy?.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
 export function isGaleoniEconomyUnlockedAtMs(startMs, nowMs = Date.now()) {
   if (startMs == null || !Number.isFinite(Number(startMs))) return false;
   return Number(nowMs) >= Number(startMs);
 }
 
+/** Same idea as +help isEconomyCommandsVisible: server economy OR unlocked galeoni. */
 export function isWikiEconomyCategoryVisible(botRoot, nowMs = Date.now()) {
+  if (isServerEconomyEnabledInConfig(botRoot)) return true;
   return isGaleoniEconomyUnlockedAtMs(loadGaleoniEconomyUnlockMs(botRoot), nowMs);
 }
 
@@ -217,4 +230,66 @@ export function loadWikiHelpContext(botRoot) {
   const permissions = loadPermissionsNormalized(botRoot, ids);
   const memberRoleSet = buildWikiMemberRoleSet(ids);
   return { ids, permissions, memberRoleSet };
+}
+
+/** Roles CSV for HTML data-vc-cmd-roles (empty = public / any member). */
+export function rolesCsvForPrefixCommand(permCfg, canonicalSubs, ids) {
+  const subs = Array.isArray(canonicalSubs)
+    ? Array.from(
+        new Set(
+          canonicalSubs.map((s) => String(s || "").trim().toLowerCase()).filter(Boolean),
+        ),
+      )
+    : [];
+  const roleSets = [];
+  if (!subs.length) {
+    roleSets.push(Array.isArray(permCfg?.roles) ? permCfg.roles : null);
+  } else {
+    for (const sub of subs) {
+      const subRaw = permCfg?.subcommands?.[sub];
+      const roles = Array.isArray(subRaw)
+        ? subRaw
+        : Array.isArray(permCfg?.roles)
+          ? permCfg.roles
+          : null;
+      roleSets.push(roles);
+    }
+  }
+  if (roleSets.some((r) => !Array.isArray(r) || r.length === 0)) return "";
+  const all = new Set();
+  for (const roles of roleSets) {
+    for (const r of roles) all.add(String(r));
+  }
+  return [...all].join(",");
+}
+
+export function rolesCsvForSlashCommand(permNode) {
+  if (permNode == null) return "";
+  if (Array.isArray(permNode)) {
+    return permNode.length ? permNode.map(String).join(",") : "";
+  }
+  if (permNode && typeof permNode === "object") {
+    const base = normalizePermissionRoles(permNode);
+    const subs =
+      permNode.subcommands && typeof permNode.subcommands === "object"
+        ? permNode.subcommands
+        : null;
+    const subKeys = subs ? Object.keys(subs) : [];
+    if (!subKeys.length) {
+      return Array.isArray(base) && base.length ? base.map(String).join(",") : "";
+    }
+    const sets = [];
+    sets.push(base);
+    for (const k of subKeys) {
+      const sr = Array.isArray(subs[k]) ? subs[k] : normalizePermissionRoles(subs[k]);
+      sets.push(sr);
+    }
+    if (sets.some((r) => !Array.isArray(r) || r.length === 0)) return "";
+    const all = new Set();
+    for (const roles of sets) {
+      for (const r of roles) all.add(String(r));
+    }
+    return [...all].join(",");
+  }
+  return "";
 }

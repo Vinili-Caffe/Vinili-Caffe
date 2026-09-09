@@ -3,6 +3,7 @@ const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const {
   getUserWorkflowDetailFromDb,
   listUserWorkflowsForMember,
+  listUserInvitedSubjectChats,
 } = require("./siteStaffWorkflowStore");
 
 function isPauseDedupeKey(key) {
@@ -10,6 +11,15 @@ function isPauseDedupeKey(key) {
     .trim()
     .toLowerCase()
     .startsWith("pause:");
+}
+
+function pageQueueFromPath(pathHint) {
+  const p = String(pathHint || "")
+    .trim()
+    .toLowerCase();
+  if (p.indexOf("candidature") >= 0) return "candidature";
+  if (p.indexOf("appelli") >= 0 || p.indexOf("unban") >= 0 || p.indexOf("unmute") >= 0) return "appelli";
+  return "";
 }
 
 async function handleSiteUserWorkflowsGet(client, req, res) {
@@ -38,6 +48,26 @@ async function handleSiteUserWorkflowsGet(client, req, res) {
         return res.status(404).json({ ok: false, error: "not_found", message: "Richiesta non trovata." });
       }
       return res.status(200).json({ ok: true, item });
+    }
+
+    // subjectLiveChat1: list invited appelli/candidature chats for FAB popup
+    const subjectChats = String(req.query?.subjectChats || req.query?.liveChats || "")
+      .trim()
+      .toLowerCase();
+    if (subjectChats === "1" || subjectChats === "true" || subjectChats === "yes") {
+      const queueHint =
+        String(req.query?.queue || "").trim().toLowerCase() ||
+        pageQueueFromPath(req.query?.page || req.query?.path || "");
+      const items = await listUserInvitedSubjectChats(user.guild.id, user.userId, {
+        queue: queueHint || "all",
+        includeClosed: String(req.query?.includeClosed || "").trim() === "1",
+      });
+      return res.status(200).json({
+        ok: true,
+        kind: "subject_chats",
+        queue: queueHint || "all",
+        items,
+      });
     }
 
     const scope = String(req.query?.scope || "pending").trim().toLowerCase();

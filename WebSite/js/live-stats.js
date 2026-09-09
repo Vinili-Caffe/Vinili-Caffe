@@ -477,25 +477,22 @@
 
   function safeDiscordAvatarUrl(url) {
     var u = String(url || "").trim();
+    if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(u)) return "";
     if (/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(u)) {
       return preferDiscordAvatarDisplayUrl(u) || u;
     }
     return "";
   }
 
-  function defaultDiscordAvatarUrl(userId) {
-    var id = String(userId || "").trim();
-    var idx = 0;
-    if (/^\d{5,24}$/.test(id)) {
-      try {
-        idx = Number((BigInt(id) >> 22n) % 6n);
-      } catch (e) {
-        var n = 0;
-        for (var i = 0; i < id.length; i += 1) n = (n + id.charCodeAt(i)) % 6;
-        idx = n;
+  function defaultDiscordAvatarUrl() {
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
       }
-    }
-    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
   function renderStaffAvatarHtml(member, hue) {
@@ -1025,7 +1022,9 @@
     var gid = guild && guild.id != null ? String(guild.id).trim() : "";
     var icon = guild && guild.icon != null ? String(guild.icon).trim() : "";
     if (!gid || !icon) return "";
-        return "https://cdn.discordapp.com/icons/" + gid + "/" + icon + ".png?size=64";
+    // Keep animated GIF; fetch high-res for retina (size=64/256 looked soft in ~40px navbar).
+    var ext = icon.indexOf("a_") === 0 ? "gif" : "png";
+    return "https://cdn.discordapp.com/icons/" + gid + "/" + icon + "." + ext + "?size=512";
   }
 
   function applyHeaderGuildIcon(url) {
@@ -1034,12 +1033,10 @@
         try {
       if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
     } catch (e0) {}
-    var imgs = document.querySelectorAll("img.vc-header-logo-img");
+    // cinePolish1: never rewrite navbar brand logo (Discord CDN flash / wrong guild icon).
+    // Only the dedicated dashboard guild icon may follow invite icon updates.
+    var imgs = document.querySelectorAll("img#vc-dashboard-header-guild-icon");
     for (var i = 0; i < imgs.length; i += 1) {
-            if (imgs[i].getAttribute("data-vc-guild-brand") === "1") continue;
-      if (imgs[i].id === "vc-dashboard-header-guild-icon") continue;
-            var cur = String(imgs[i].getAttribute("src") || "");
-      if (cur.indexOf("/images/vc-header-logo.") >= 0) continue;
       if (imgs[i].getAttribute("src") !== u) imgs[i].setAttribute("src", u);
     }
   }

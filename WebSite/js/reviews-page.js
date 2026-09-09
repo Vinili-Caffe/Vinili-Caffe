@@ -12,16 +12,31 @@
     renderFingerprint: "",
     langFilter: "it",
     draftLang: "it",
+    filterStars: 0, /* reviewsFilters1: 0 = tutte, 1–5 */
+    sortBy: "newest", /* newest | oldest | rating_desc | rating_asc */
     reviewsPager: {
       page: 1,
       perPage: 9,
       totalPages: 1,
       userControlled: false,
     },
+    carouselIndex: 0,
+    carouselBound: false,
+    carouselTouchX: null,
+    stageKey: "",
+    stageSlideTimer: null,
+    stageForceMotion: false,
     draft: {
       server: { rating: 5, content: "" },
     },
   };
+
+  var REVIEW_SORT_OPTIONS = [
+    { id: "newest", label: "Più recenti" },
+    { id: "oldest", label: "Meno recenti" },
+    { id: "rating_desc", label: "Più stelle" },
+    { id: "rating_asc", label: "Meno stelle" },
+  ];
 
   function pageKind() {
     try {
@@ -411,9 +426,9 @@
       '<div class="vc-reviews-card__head">' +
       '<div class="vc-reviews-card__author">' +
       (review.authorAvatarUrl
-        ? '<img class="vc-reviews-card__avatar" src="' +
+        ? '<img class="vc-reviews-card__avatar vc-avatar vc-avatar--ready" src="' +
           esc(review.authorAvatarUrl) +
-          '" alt="" width="40" height="40" loading="eager" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" data-vc-avatar="1"' +
+          '" alt="" width="40" height="40" loading="eager" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1"' +
           (review.userId ? ' data-user-id="' + esc(review.userId) + '"' : "") +
           " />"
         : '<span class="vc-reviews-card__avatar vc-reviews-card__avatar--fallback"><i class="fa fa-user"></i></span>') +
@@ -525,14 +540,181 @@
     return mongoObjectIdToTimeMs(review.id);
   }
 
+  function reviewRatingValue(review) {
+    return Math.max(0, Math.min(5, Math.round(Number(review && review.rating) || 0)));
+  }
+
+  function normalizeReviewSort(value) {
+    var s = String(value || "").trim().toLowerCase();
+    if (s === "oldest" || s === "rating_desc" || s === "rating_asc") return s;
+    return "newest";
+  }
+
   function sortedReviewsNewestFirst(reviews) {
+    return sortReviewsList(reviews, "newest");
+  }
+
+  function sortReviewsList(reviews, sortBy) {
+    var mode = normalizeReviewSort(sortBy || state.sortBy);
     var list = Array.isArray(reviews) ? reviews.slice() : [];
     list.sort(function (a, b) {
-      var dt = reviewCreatedTs(b) - reviewCreatedTs(a);
-      if (dt !== 0) return dt;
+      if (mode === "oldest") {
+        var dto = reviewCreatedTs(a) - reviewCreatedTs(b);
+        if (dto !== 0) return dto;
+      } else if (mode === "rating_desc") {
+        var rd = reviewRatingValue(b) - reviewRatingValue(a);
+        if (rd !== 0) return rd;
+        var dtn = reviewCreatedTs(b) - reviewCreatedTs(a);
+        if (dtn !== 0) return dtn;
+      } else if (mode === "rating_asc") {
+        var ra = reviewRatingValue(a) - reviewRatingValue(b);
+        if (ra !== 0) return ra;
+        var dta = reviewCreatedTs(b) - reviewCreatedTs(a);
+        if (dta !== 0) return dta;
+      } else {
+        var dt = reviewCreatedTs(b) - reviewCreatedTs(a);
+        if (dt !== 0) return dt;
+      }
       return String(b && b.id ? b.id : "").localeCompare(String(a && a.id ? a.id : ""));
     });
     return list;
+  }
+
+  function hasActiveReviewsFilters() {
+    return Number(state.filterStars || 0) >= 1 || normalizeReviewSort(state.sortBy) !== "newest";
+  }
+
+  function ensureReviewsFiltersBar() {
+    var host = byId("vc-reviews-sections-row");
+    var section = host && host.querySelector ? host.querySelector(".vc-reviews-section--split") : null;
+    var stage = byId("vc-reviews-stage");
+    var bar = byId("vc-reviews-filters");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "vc-reviews-filters";
+      bar.className = "vc-feedback-filters vc-reviews-filters";
+      bar.setAttribute("aria-label", "Filtri recensioni");
+      if (section && stage && stage.parentNode === section) {
+        section.insertBefore(bar, stage);
+      } else if (section) {
+        section.insertBefore(bar, section.firstChild);
+      } else if (host) {
+        host.insertBefore(bar, host.firstChild);
+      } else {
+        document.body.appendChild(bar);
+      }
+      bar.addEventListener("click", function (ev) {
+        var tEl = ev.target;
+        if (!tEl || !tEl.closest) return;
+        var clearBtn = tEl.closest("[data-reviews-filter-clear]");
+        if (clearBtn && bar.contains(clearBtn)) {
+          state.filterStars = 0;
+          state.sortBy = "newest";
+          state.carouselIndex = 0;
+          state.reviewsPager.page = 1;
+          state.reviewsPager.userControlled = false;
+          state.stageKey = "";
+          syncReviewsFiltersBar();
+          render();
+          return;
+        }
+        var chip = tEl.closest("[data-reviews-filter]");
+        if (!chip || !bar.contains(chip) || chip.disabled) return;
+        var dim = String(chip.getAttribute("data-reviews-filter") || "");
+        var val = String(chip.getAttribute("data-reviews-filter-value") || "");
+        if (dim === "stars") {
+          var stars = Math.max(1, Math.min(5, Math.round(Number(val) || 0)));
+          state.filterStars = state.filterStars === stars ? 0 : stars;
+        } else if (dim === "sort") {
+          var nextSort = normalizeReviewSort(val);
+          state.sortBy = state.sortBy === nextSort ? "newest" : nextSort;
+        } else {
+          return;
+        }
+        state.carouselIndex = 0;
+        state.reviewsPager.page = 1;
+        state.reviewsPager.userControlled = false;
+        state.stageKey = "";
+        syncReviewsFiltersBar();
+        render();
+      });
+    }
+    syncReviewsFiltersBar();
+  }
+
+  function syncReviewsFiltersBar() {
+    /* reviewsCtaAlign1: __main + __rows + toolbar CTA (mirror feedbackSort1) */
+    var bar = byId("vc-reviews-filters");
+    if (!bar) return;
+    var starChips = "";
+    for (var s = 1; s <= 5; s += 1) {
+      var onStar = Number(state.filterStars || 0) === s;
+      starChips +=
+        '<button type="button" class="vc-feedback-filter-chip' +
+        (onStar ? " is-active" : "") +
+        '" data-reviews-filter="stars" data-reviews-filter-value="' +
+        s +
+        '" aria-pressed="' +
+        (onStar ? "true" : "false") +
+        '"><i class="fa fa-star" aria-hidden="true"></i> ' +
+        s +
+        "</button>";
+    }
+    var sortChips = REVIEW_SORT_OPTIONS.map(function (row) {
+      var on = normalizeReviewSort(state.sortBy) === row.id;
+      return (
+        '<button type="button" class="vc-feedback-filter-chip' +
+        (on ? " is-active" : "") +
+        '" data-reviews-filter="sort" data-reviews-filter-value="' +
+        esc(row.id) +
+        '" aria-pressed="' +
+        (on ? "true" : "false") +
+        '">' +
+        esc(row.label) +
+        "</button>"
+      );
+    }).join("");
+    /* azzeraFix1: dedicated clear row under filter chips (no margin-left:auto float) */
+    var clearRow = hasActiveReviewsFilters()
+      ? '<div class="vc-feedback-filters__row vc-feedback-filters__row--clear">' +
+        '<span class="vc-feedback-filters__label" aria-hidden="true"></span>' +
+        '<div class="vc-feedback-filters__chips">' +
+        '<button type="button" class="vc-feedback-filter-clear" data-reviews-filter-clear="1">' +
+        '<i class="fa fa-times" aria-hidden="true"></i> Azzera</button>' +
+        "</div></div>"
+      : "";
+    var viewer = state.payload && state.payload.viewer;
+    var tokenOk = Boolean(getToken());
+    var isLogged = Boolean(viewer && viewer.id);
+    var serverExisting = viewerOwnReview(viewer);
+    var ctaLabel =
+      isLogged && tokenOk && serverExisting
+        ? t("reviews.edit", "Modifica recensione")
+        : t("reviews.write", "Scrivi recensione");
+    /* reviewsCtaAlign1: same __main + __rows + __toolbar as feedbackSort1 */
+    bar.innerHTML =
+      '<div class="vc-feedback-filters__main">' +
+      '<div class="vc-feedback-filters__rows">' +
+      '<div class="vc-feedback-filters__row">' +
+      '<span class="vc-feedback-filters__label">Stelle</span>' +
+      '<div class="vc-feedback-filters__chips" role="group" aria-label="Stelle">' +
+      starChips +
+      "</div></div>" +
+      '<div class="vc-feedback-filters__row">' +
+      '<span class="vc-feedback-filters__label">Ordine</span>' +
+      '<div class="vc-feedback-filters__chips" role="group" aria-label="Ordine">' +
+      sortChips +
+      "</div></div>" +
+      clearRow +
+      "</div>" +
+      '<div class="vc-feedback-filters__toolbar">' +
+      '<button type="button" id="vc-reviews-open-form-btn" class="vc-reviews-head-cta vc-feedback-filters__cta">' +
+      '<i class="fa fa-pencil" aria-hidden="true"></i><span>' +
+      esc(ctaLabel) +
+      "</span></button>" +
+      "</div>" +
+      "</div>";
+    syncReviewHeadButton();
   }
 
   function extractDeepLinkReviewId() {
@@ -558,8 +740,303 @@
       }
     }
     if (idx < 0) return;
-    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
-    state.reviewsPager.page = Math.floor(idx / perPage) + 1;
+    state.carouselIndex = idx;
+    state.reviewsPager.userControlled = true;
+  }
+
+  function wrapCarouselIndex(i, n) {
+    var len = Math.max(0, Number(n) || 0);
+    if (len <= 0) return 0;
+    return ((Number(i) || 0) % len + len) % len;
+  }
+
+  function currentOrderedReviews() {
+    var payload = state.payload || { reviews: { server: [], staff: [], bot: [] } };
+    var listKey = isBotReviewsPage() ? "bot" : "server";
+    var allReviews = Array.isArray(payload.reviews && payload.reviews[listKey]) ? payload.reviews[listKey] : [];
+    if (isBotReviewsPage()) {
+      var want = normalizeLang(state.langFilter || currentSiteLang());
+      allReviews = allReviews.filter(function (row) {
+        return normalizeLang(row && row.contentLang) === want;
+      });
+    }
+    var stars = Math.max(0, Math.min(5, Math.round(Number(state.filterStars) || 0)));
+    if (stars >= 1) {
+      allReviews = allReviews.filter(function (row) {
+        return reviewRatingValue(row) === stars;
+      });
+    }
+    return sortReviewsList(allReviews, state.sortBy);
+  }
+
+  function pulseStageMotion() {
+    var stage = byId("vc-reviews-stage");
+    if (!stage) return;
+    state.stageForceMotion = true;
+    stage.classList.add("is-sliding");
+    if (state.stageSlideTimer) {
+      clearTimeout(state.stageSlideTimer);
+      state.stageSlideTimer = null;
+    }
+    state.stageSlideTimer = setTimeout(function () {
+      state.stageSlideTimer = null;
+      state.stageForceMotion = false;
+      var s = byId("vc-reviews-stage");
+      if (s) s.classList.remove("is-sliding");
+    }, 520);
+  }
+
+  function stepCarousel(dir) {
+    var ordered = currentOrderedReviews();
+    if (ordered.length <= 1) return;
+    state.carouselIndex = wrapCarouselIndex(state.carouselIndex + (dir < 0 ? -1 : 1), ordered.length);
+    state.reviewsPager.userControlled = true;
+    pulseStageMotion();
+    render();
+  }
+
+  function goCarouselIndex(nextIdx) {
+    var ordered = currentOrderedReviews();
+    if (!ordered.length) return;
+    state.carouselIndex = wrapCarouselIndex(nextIdx, ordered.length);
+    state.reviewsPager.userControlled = true;
+    pulseStageMotion();
+    render();
+  }
+
+  function stageSlotsKey(slots, idx, n) {
+    return (
+      String(n) +
+      "@" +
+      String(idx) +
+      "|" +
+      slots
+        .map(function (slot) {
+          var r = slot.review || {};
+          return (
+            String(slot.offset) +
+            ":" +
+            String(r.id || "") +
+            ":" +
+            String(r.rating || "") +
+            ":" +
+            String((r.content || "").length) +
+            ":" +
+            String((r.serverReply && r.serverReply.content) || "").length +
+            ":" +
+            String(Array.isArray(r.likes) ? r.likes.length : r.likeCount || 0) +
+            ":" +
+            (state.replyOpenId === r.id ? "1" : "0")
+          );
+        })
+        .join("|")
+    );
+  }
+
+  function syncStageTrackHeight(root) {
+    if (!root) return;
+    var center = root.querySelector(".vc-reviews-stage__card.is-center");
+    if (!center || root.classList.contains("is-solo") || root.classList.contains("is-empty")) {
+      root.style.removeProperty("min-height");
+      return;
+    }
+    var h = Math.ceil(center.getBoundingClientRect().height + 44);
+    if (h > 120) root.style.minHeight = h + "px";
+  }
+
+  function reviewCardMarkupForStage(review, posClass, offset) {
+    var html = reviewCardMarkup(review);
+    return html.replace(
+      'class="vc-reviews-card"',
+      'class="vc-reviews-card vc-reviews-stage__card ' +
+        esc(posClass) +
+        '" data-stage-offset="' +
+        esc(String(offset)) +
+        '" tabindex="' +
+        (offset === 0 ? "0" : "-1") +
+        '"',
+    );
+  }
+
+  function renderStageDots(n, idx) {
+    var dots = byId("vc-reviews-stage-dots");
+    if (!dots) return;
+    if (n <= 1) {
+      dots.hidden = true;
+      dots.innerHTML = "";
+      return;
+    }
+    dots.hidden = false;
+    var html = "";
+    for (var i = 0; i < n; i += 1) {
+      html +=
+        '<button type="button" class="vc-reviews-stage__dot' +
+        (i === idx ? " is-active" : "") +
+        '" data-reviews-stage-dot="' +
+        i +
+        '" role="tab" aria-selected="' +
+        (i === idx ? "true" : "false") +
+        '" aria-label="Recensione ' +
+        (i + 1) +
+        " di " +
+        n +
+        '"></button>';
+    }
+    dots.innerHTML = html;
+  }
+
+  function renderReviewsStage(orderedReviews) {
+    var root = byId("vc-reviews-server-list");
+    var stage = byId("vc-reviews-stage");
+    if (!root) return;
+    var n = orderedReviews.length;
+    var prevBtn = document.querySelector("[data-reviews-stage-prev]");
+    var nextBtn = document.querySelector("[data-reviews-stage-next]");
+    if (!n) {
+      state.stageKey = "";
+      root.className = "vc-reviews-stage__track is-empty";
+      root.style.removeProperty("min-height");
+      if (stage) stage.classList.add("is-empty");
+      root.setAttribute("aria-live", "off");
+      root.innerHTML = emptyMarkup(
+        "fa-commenting-o",
+        Number(state.filterStars || 0) >= 1
+          ? t("reviews.emptyFiltered", "Nessuna recensione con queste stelle")
+          : t("reviews.empty", "Ancora nessuna recensione"),
+        Number(state.filterStars || 0) >= 1
+          ? t("reviews.emptyFilteredHint", "Prova un altro filtro stelle o azzera i filtri.")
+          : isBotReviewsPage()
+            ? t("botReviews.emptyHint", "Scrivi la prima recensione su Vinili.")
+            : t("reviews.emptyHint", "Sarai tu a inaugurare questa sezione."),
+      );
+      renderStageDots(0, 0);
+      if (prevBtn) prevBtn.disabled = true;
+      if (nextBtn) nextBtn.disabled = true;
+      return;
+    }
+    if (stage) stage.classList.remove("is-empty");
+    var idx = wrapCarouselIndex(state.carouselIndex, n);
+    state.carouselIndex = idx;
+    var slots = [];
+    if (n === 1) {
+      slots.push({ offset: 0, review: orderedReviews[0] });
+    } else if (n === 2) {
+      slots.push({ offset: -1, review: orderedReviews[wrapCarouselIndex(idx - 1, n)] });
+      slots.push({ offset: 0, review: orderedReviews[idx] });
+    } else {
+      slots.push({ offset: -1, review: orderedReviews[wrapCarouselIndex(idx - 1, n)] });
+      slots.push({ offset: 0, review: orderedReviews[idx] });
+      slots.push({ offset: 1, review: orderedReviews[wrapCarouselIndex(idx + 1, n)] });
+    }
+    var key = stageSlotsKey(slots, idx, n);
+    var mode = n === 1 ? " is-solo" : n === 2 ? " is-duo" : " is-trio";
+    if (key === state.stageKey && root.querySelector(".vc-reviews-stage__card")) {
+      root.className = "vc-reviews-stage__track" + mode;
+      renderStageDots(n, idx);
+      if (prevBtn) prevBtn.disabled = n <= 1;
+      if (nextBtn) nextBtn.disabled = n <= 1;
+      if (stage) {
+        stage.setAttribute("data-count", String(n));
+        stage.setAttribute("data-index", String(idx + 1));
+      }
+      window.requestAnimationFrame(function () {
+        syncStageTrackHeight(root);
+      });
+      return;
+    }
+    state.stageKey = key;
+    root.className = "vc-reviews-stage__track" + mode;
+    root.setAttribute("aria-live", "off");
+    root.innerHTML = slots
+      .map(function (slot) {
+        var pos = slot.offset === 0 ? "is-center" : slot.offset < 0 ? "is-left" : "is-right";
+        return reviewCardMarkupForStage(slot.review, pos, slot.offset);
+      })
+      .join("");
+    renderStageDots(n, idx);
+    if (prevBtn) prevBtn.disabled = n <= 1;
+    if (nextBtn) nextBtn.disabled = n <= 1;
+    if (stage) {
+      stage.setAttribute("data-count", String(n));
+      stage.setAttribute("data-index", String(idx + 1));
+      if (state.stageForceMotion) stage.classList.add("is-sliding");
+      else stage.classList.remove("is-sliding");
+    }
+    window.requestAnimationFrame(function () {
+      syncStageTrackHeight(root);
+    });
+  }
+
+  function bindReviewsStageOnce() {
+    if (state.carouselBound) return;
+    state.carouselBound = true;
+    document.addEventListener("click", function (ev) {
+      var el = ev.target;
+      if (!el || typeof el.closest !== "function") return;
+      if (el.closest("[data-reviews-stage-prev]")) {
+        ev.preventDefault();
+        stepCarousel(-1);
+        return;
+      }
+      if (el.closest("[data-reviews-stage-next]")) {
+        ev.preventDefault();
+        stepCarousel(1);
+        return;
+      }
+      var dot = el.closest("[data-reviews-stage-dot]");
+      if (dot) {
+        ev.preventDefault();
+        goCarouselIndex(Number(dot.getAttribute("data-reviews-stage-dot")));
+        return;
+      }
+      var side = el.closest(".vc-reviews-stage__card.is-left, .vc-reviews-stage__card.is-right");
+      if (side && !el.closest("button, a, textarea, input, label")) {
+        var off = Number(side.getAttribute("data-stage-offset"));
+        if (off < 0) stepCarousel(-1);
+        else if (off > 0) stepCarousel(1);
+      }
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (!document.body || !document.body.classList.contains("vc-reviews-page")) return;
+      var stage = byId("vc-reviews-stage");
+      if (!stage || stage.classList.contains("is-empty")) return;
+      var t = ev.target;
+      var tag = t && t.tagName ? String(t.tagName).toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable)) return;
+      if (ev.key === "ArrowLeft") {
+        ev.preventDefault();
+        stepCarousel(-1);
+      } else if (ev.key === "ArrowRight") {
+        ev.preventDefault();
+        stepCarousel(1);
+      }
+    });
+    var track = byId("vc-reviews-server-list");
+    if (track) {
+      track.addEventListener(
+        "touchstart",
+        function (ev) {
+          var touch = ev.changedTouches && ev.changedTouches[0];
+          state.carouselTouchX = touch ? touch.clientX : null;
+        },
+        { passive: true },
+      );
+      track.addEventListener(
+        "touchend",
+        function (ev) {
+          var startX = state.carouselTouchX;
+          state.carouselTouchX = null;
+          if (startX == null) return;
+          var touch = ev.changedTouches && ev.changedTouches[0];
+          if (!touch) return;
+          var dx = touch.clientX - startX;
+          if (Math.abs(dx) < 48) return;
+          if (dx > 0) stepCarousel(-1);
+          else stepCarousel(1);
+        },
+        { passive: true },
+      );
+    }
   }
 
   function getPagedReviews(sortedReviews) {
@@ -816,6 +1293,25 @@
     }
   }
 
+  function setReviewHeadCtaLabel(btn, label, iconClass) {
+    if (!btn) return;
+    var ico = btn.querySelector("i.fa");
+    var span = btn.querySelector("span");
+    if (!span) {
+      span = document.createElement("span");
+      btn.appendChild(span);
+    }
+    if (!ico && iconClass) {
+      ico = document.createElement("i");
+      ico.className = iconClass;
+      ico.setAttribute("aria-hidden", "true");
+      btn.insertBefore(ico, span);
+    } else if (ico && iconClass) {
+      ico.className = iconClass;
+    }
+    span.textContent = label;
+  }
+
   function syncReviewHeadButton() {
     var btn = byId("vc-reviews-open-form-btn");
     if (!btn) return;
@@ -824,14 +1320,15 @@
     var isLogged = Boolean(viewer && viewer.id);
     var serverExisting = viewerOwnReview(viewer);
     btn.hidden = false;
+    btn.classList.add("vc-feedback-filters__cta");
     if (!isLogged || !tokenOk) {
-      btn.textContent = t("reviews.write", "Scrivi recensione");
+      setReviewHeadCtaLabel(btn, t("reviews.write", "Scrivi recensione"), "fa fa-pencil");
       btn.setAttribute("aria-label", t("reviews.writeAriaLogin", "Accedi con Discord per scrivere una recensione"));
     } else if (serverExisting) {
-      btn.textContent = t("reviews.edit", "Modifica recensione");
+      setReviewHeadCtaLabel(btn, t("reviews.edit", "Modifica recensione"), "fa fa-pencil");
       btn.setAttribute("aria-label", t("reviews.editBtn", "Modifica la tua recensione"));
     } else {
-      btn.textContent = t("reviews.write", "Scrivi recensione");
+      setReviewHeadCtaLabel(btn, t("reviews.write", "Scrivi recensione"), "fa fa-pencil");
       btn.setAttribute("aria-label", t("reviews.writeAriaNew", "Scrivi una nuova recensione"));
     }
     btn.onclick = function () {
@@ -883,31 +1380,21 @@
       state.langFilter = currentSiteLang();
     }
 
-    var listKey = isBotReviewsPage() ? "bot" : "server";
-    var allReviews = Array.isArray(payload.reviews && payload.reviews[listKey]) ? payload.reviews[listKey] : [];
-    if (isBotReviewsPage()) {
-      var want = normalizeLang(state.langFilter || currentSiteLang());
-      allReviews = allReviews.filter(function (row) {
-        return normalizeLang(row && row.contentLang) === want;
-      });
-    }
-    var orderedReviews = sortedReviewsNewestFirst(allReviews);
+    ensureReviewsFiltersBar(); /* reviewsFilters1 */
+    var orderedReviews = currentOrderedReviews();
     ensurePageIncludesDeepLink(orderedReviews);
-    var pageReviews = getPagedReviews(orderedReviews);
-    serverWrap.innerHTML = orderedReviews.length
-      ? pageReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
-      : emptyMarkup(
-          "fa-commenting-o",
-          t("reviews.empty", "Ancora nessuna recensione"),
-          isBotReviewsPage()
-            ? t("botReviews.emptyHint", "Scrivi la prima recensione su Vinili.")
-            : t("reviews.emptyHint", "Sarai tu a inaugurare questa sezione."),
-        );
+    renderReviewsStage(orderedReviews);
+    /* reviewsStage3: carousel replaces pager */
+    var pager = byId("vc-reviews-pager");
+    if (pager) {
+      pager.hidden = true;
+      pager.innerHTML = "";
+    }
     state.renderFingerprint = reviewsPayloadFingerprint(state.payload || payload);
-    renderReviewsPagerUserStyle(orderedReviews.length);
     syncReviewFormModal();
     syncReviewHeadButton();
     bind();
+    bindReviewsStageOnce();
     window.requestAnimationFrame(function () {
       applyReviewDeepLink();
     });
@@ -1037,16 +1524,27 @@
       return window.VcApiCache.keyFor(url, {
         scope: "reviews",
         auth: getToken(),
-        v: "authorNick2",
+        v: "cinePolish1",
       });
     }
-    return "reviewsAuthorNick1:" + pageKind();
+    return "reviewsCinePolish1:" + pageKind();
+  }
+
+  function showReviewsSkeleton() {
+    var track = byId("vc-reviews-server-list");
+    if (!track || state.payload) return;
+    track.innerHTML =
+      '<article class="vc-reviews-card vc-list-skel" aria-hidden="true">' +
+      '<div class="vc-list-skel__row"><span class="vc-list-skel__avatar"></span><span class="vc-list-skel__lines"><i></i><i></i></span></div>' +
+      '<span class="vc-list-skel__block"></span></article>';
+    track.setAttribute("aria-busy", "true");
   }
 
   function fetchPayload() {
     if (fetchPayloadInFlight) return fetchPayloadInFlight;
 
     setStatus("", false);
+    showReviewsSkeleton();
     var url = apiUrl();
     var cacheKey = reviewsCacheKey();
     var loadError = t("reviews.loadError", "Impossibile caricare le recensioni.");
@@ -1077,7 +1575,7 @@
           staleMs: 120000,
           persistMs: 15 * 60 * 1000,
           timeoutMs: 24000,
-          fetchInit: { method: "GET", headers: authHeaders(), cache: "no-store" },
+          fetchInit: { method: "GET", headers: authHeaders(), cache: "default" },
           onStale: function (cached) {
             if (cached && cached.body && cached.body.ok === true) {
               try {
@@ -1108,7 +1606,7 @@
       fetch(url, {
         method: "GET",
         headers: authHeaders(),
-        cache: "no-store",
+        cache: "default",
       })
         .then(parseJsonResponse)
         .then(function (body) {
@@ -1261,16 +1759,20 @@
           setStatus(err && err.message ? err.message : t("reviews.deleteError", "Errore durante l'eliminazione."), true);
         });
     };
-    var confirmP = window.VcDialog
-      ? window.VcDialog.confirm({
+    var confirmP = (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return false;
+      return D.confirm({
           title: t("reviews.confirmDeleteTitle", "Eliminare la recensione?"),
           message: t("reviews.confirmDelete", "Vuoi davvero eliminare la tua recensione?"),
           confirmLabel: t("reviews.delete", "Elimina"),
           cancelLabel: t("reviews.cancel", "Annulla"),
           danger: true,
           icon: "fa-trash-o",
-        })
-      : Promise.resolve(window.confirm(t("reviews.confirmDelete", "Vuoi davvero eliminare la tua recensione?")));
+        });
+    });
     confirmP.then(function (ok) {
       if (ok) run();
     });
@@ -1279,6 +1781,7 @@
   function main() {
     wireGateLoginCta();
     bindReviewsPagerOnce();
+    ensureReviewsFiltersBar(); /* reviewsFilters1: toolbar before data */
     if (isBotReviewsPage()) {
       state.langFilter = currentSiteLang();
       state.draftLang = currentSiteLang();
@@ -1295,7 +1798,11 @@
     var u = ev && ev.detail ? ev.detail.user : null;
     if (u) {
       hideReviewsGate();
-      fetchPayload();
+      if (state.payload) {
+        void refreshReviewsPayloadQuiet();
+      } else {
+        fetchPayload();
+      }
       return;
     }
     clearReviewsContent();
@@ -1320,6 +1827,11 @@
     if (document.visibilityState === "visible" && state.payload) {
       void refreshReviewsPayloadQuiet();
     }
+  });
+
+  window.addEventListener("vc:site-api-refetch", function () {
+    if (!byId("vc-reviews-server-list") && !byId("vc-reviews-bot-list")) return;
+    void fetchPayload();
   });
 
   window.addEventListener("hashchange", function () {

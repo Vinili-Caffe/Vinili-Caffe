@@ -379,6 +379,8 @@ async function recordManualStaffRoleHistoryIfNeeded(oldMember, newMember) {
   const guildId = String(newMember?.guild?.id || "").trim();
   if (!guildId || guildId !== String(IDs.guilds?.main || "")) return;
   if (newMember?.user?.bot) return;
+  const { isSocialRoleAnnounceGloballySuppressed } = require("../Utils/Moderation/muteRestoreAnnounceSuppress");
+  if (isSocialRoleAnnounceGloballySuppressed()) return;
     const founderRoleId = String(IDs.roles?.Founder || "").trim();
   if (founderRoleId && newMember?.roles?.cache?.has?.(founderRoleId)) return;
   const addedRoleIds = listStaffRolesAdded(oldMember, newMember);
@@ -3031,6 +3033,26 @@ module.exports = {
         global.logger?.warn?.("[guildMemberUpdate] staff boost auto valutazione:", newMember.id, err?.message || err);
       });
       await maybeAnnounceDonationPackageInSupporters(oldMember, newMember);
+
+      {
+        const nickChanged = String(oldMember.nickname || "") !== String(newMember.nickname || "");
+        const rolesChanged =
+          oldMember.roles?.cache?.size !== newMember.roles?.cache?.size ||
+          [...(newMember.roles?.cache?.keys?.() || [])].some((id) => !oldMember.roles?.cache?.has?.(id));
+        if ((nickChanged || rolesChanged) && !newMember.user?.bot) {
+          try {
+            const { schedulePersistUserFullState } = require("../Services/Community/userFullStatePersistenceService");
+            schedulePersistUserFullState(newMember.guild.id, newMember.id, {
+              member: newMember,
+              guild: newMember.guild,
+              client,
+              reason: nickChanged && rolesChanged ? "member_nick_roles" : nickChanged ? "member_nick" : "member_roles",
+            });
+          } catch (err) {
+            global.logger?.warn?.("[guildMemberUpdate] full state persist:", newMember.id, err?.message || err);
+          }
+        }
+      }
     } catch (error) {
       global.logger?.error?.("[guildMemberUpdate] failed:", error);
     }

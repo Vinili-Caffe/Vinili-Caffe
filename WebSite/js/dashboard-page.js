@@ -131,15 +131,24 @@
 
   function setError(msg, opts) {
     var el = byId("vc-dashboard-error");
-    if (!el) return;
     clearErrorTimer();
-    if (!msg) {
+    if (el) {
       el.hidden = true;
       el.textContent = "";
+    }
+    var text = String(msg || "").trim();
+    // toastOnlyAlerts1: errori dashboard → toast, non banner.
+    if (!text) return;
+    if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+      window.VcSiteToast.show(text, true, {
+        sticky: Boolean(opts && opts.sticky) || undefined,
+        ms: 4200,
+      });
       return;
     }
+    if (!el) return;
     el.hidden = false;
-    el.textContent = msg;
+    el.textContent = text;
     if (!(opts && opts.sticky)) {
       errorTimer = setTimeout(function () {
         errorTimer = null;

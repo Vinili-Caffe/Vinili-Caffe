@@ -2,7 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, Message
 const { getUserOverviewStats } = require("../Services/Community/activityService");
 const { resolveTopChannelEntries } = require("../Prefix/Stats/top");
 const { renderUserActivityCanvas } = require("../Utils/Render/activityCanvas");
-const { accountUsername, guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic } = require("../Utils/Discord/guildDiscordIdentity");
+const { memberDisplayName, userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { getEffectiveJoinedAt } = require("../Services/Community/effectiveMemberJoinService");
 const USER_REFRESH_CUSTOM_ID_PREFIX = "user_refresh";
 const USER_PERIOD_OPEN_CUSTOM_ID_PREFIX = "user_period_open";
@@ -72,9 +72,9 @@ async function buildUserOverviewPayload(guild, targetId, lookbackDays, view, cli
     const c = client || guild.client;
     user = await c.users.fetch(targetId).catch(() => null);
   }
-  const displayName = accountUsername(member || user);
+  const displayName = memberDisplayName(member || user);
   const userTag = user?.tag ?? user?.username ?? "User";
-  const avatarUrl = guildMemberDisplayAvatarUrlStatic(member || user, { size: 512 }) || userAvatarUrlStatic(user, { size: 512 });
+  const avatarUrl = userAvatarUrlDynamic(member || user, { size: 512 });
   const createdOn = user?.createdAt ?? new Date(0);
   const effectiveJoined = member ? await getEffectiveJoinedAt(member).catch(() => null) : null;
   const joinedOn =

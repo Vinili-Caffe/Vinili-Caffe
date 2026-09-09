@@ -101,6 +101,18 @@ function countStanzaHumanMembers(channel) {
   return n;
 }
 
+function hasBotMemberInStanzaChannel(channel) {
+  const guild = channel?.guild;
+  const channelId = String(channel?.id || "");
+  if (!guild?.voiceStates?.cache || !channelId) return false;
+  for (const vs of guild.voiceStates.cache.values()) {
+    if (String(vs.channelId || "") !== channelId) continue;
+    const member = vs.member || guild.members.cache.get(vs.id);
+    if (member?.user?.bot) return true;
+  }
+  return false;
+}
+
 const stanzaChannelMeta = new Map();
 const stanzaOwnerToChannel = new Map();
 const stanzaCreateLocks = new Set();
@@ -255,6 +267,22 @@ function buildStanzaFullName(emojiPart, labelPart) {
   );
 }
 
+function normalizeStanzaUserLabel(raw) {
+  let s = String(raw || "")
+    .replace(/[\n\r\t]/g, " ")
+    .replace(/[#[\]|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const connector = String(STANZA_ANCHOR || "").charAt(0) || "︲";
+  while (s.startsWith(connector)) s = s.slice(connector.length).trimStart();
+  const anchorPlain = String(STANZA_ANCHOR || "").replace(connector, "").trim();
+  if (anchorPlain && s.toLowerCase().startsWith(anchorPlain.toLowerCase())) {
+    s = s.slice(anchorPlain.length).trimStart();
+  }
+  while (s.startsWith(connector)) s = s.slice(connector.length).trimStart();
+  return s;
+}
+
 function buildStanzaVoiceNameFromUserPart(userInput, currentVoiceName) {
   const parsed = parseStanzaVoiceName(String(currentVoiceName || ""));
   const emojiPart = parsed?.emojiPart || STANZA_DEFAULT_EMOJI;
@@ -262,7 +290,7 @@ function buildStanzaVoiceNameFromUserPart(userInput, currentVoiceName) {
     1,
     STANZA_VC_NAME_MAX - STANZA_NAME_LEAD.length - String(emojiPart).length - STANZA_ANCHOR.length,
   );
-  const part = sanitizeStanzaNamePart(userInput, maxLabel);
+  const part = sanitizeStanzaNamePart(normalizeStanzaUserLabel(userInput), maxLabel);
   if (!part) return null;
   return buildStanzaFullName(emojiPart, part);
 }
@@ -270,7 +298,9 @@ function buildStanzaVoiceNameFromUserPart(userInput, currentVoiceName) {
 function buildStanzaVoiceNameWithNewEmoji(currentVoiceName, newEmoji) {
   const parsed = parseStanzaVoiceName(String(currentVoiceName || ""));
   if (!parsed) return null;
-  return buildStanzaFullName(newEmoji, parsed.labelPart);
+  const label = normalizeStanzaUserLabel(parsed.labelPart);
+  if (!label) return null;
+  return buildStanzaFullName(newEmoji, label);
 }
 
 function extractExactUnicodeEmojiLine(raw) {
@@ -1189,6 +1219,10 @@ async function handleStanzaVoiceEmpty(oldState, newState) {
   if (!stanzaChannelMeta.has(prevId)) return;
   const humans = countStanzaHumanMembers(channel);
   if (humans > 0) {
+    clearStanzaEmptyTeardownTimer(prevId);
+    return;
+  }
+  if (hasBotMemberInStanzaChannel(channel)) {
     clearStanzaEmptyTeardownTimer(prevId);
     return;
   }

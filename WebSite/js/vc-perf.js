@@ -1,7 +1,15 @@
+/**
+ * Fixed perf tier for everyone (no device/network autodetection).
+ * Tiers available in CSS/API: full | mid | lite
+ * forceMidAll1: always mid — detection + localStorage pref ignored.
+ * Sets html.vc-perf-{tier} and data-vc-perf early for CSS.
+ */
 (function (global) {
   if (global.VcPerf && global.VcPerf.__ready) return;
 
-    var STORAGE_KEY = "vc_perf_tier_pref_v3";
+  /* forceMidAll1: one tier for all devices (avoids bad auto-detect → lag). */
+  var FORCE_TIER = "mid";
+  var STORAGE_KEY = "vc_perf_tier_pref_v3";
   var lastTier = "";
 
   function conn() {
@@ -27,41 +35,6 @@
     }
   }
 
-  function deviceMemoryGb() {
-    try {
-      var n = Number(navigator.deviceMemory);
-      return Number.isFinite(n) && n > 0 ? n : 0;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  function cpuCores() {
-    try {
-      var n = Number(navigator.hardwareConcurrency);
-      return Number.isFinite(n) && n > 0 ? n : 0;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  function downlinkMbps() {
-    try {
-      var n = Number(conn() && conn().downlink);
-      return Number.isFinite(n) && n >= 0 ? n : -1;
-    } catch (e) {
-      return -1;
-    }
-  }
-
-  function manualPref() {
-    try {
-      var v = String(localStorage.getItem(STORAGE_KEY) || "").trim().toLowerCase();
-      if (v === "lite" || v === "mid" || v === "full" || v === "auto") return v;
-    } catch (e) {}
-    return "auto";
-  }
-
   function isPhoneOrPwa() {
     try {
       if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
@@ -78,35 +51,16 @@
     return false;
   }
 
-    function detectAutoTier() {
-    if (saveDataOn()) return "lite";
-    if (isPhoneOrPwa()) {
-      var etP = effectiveType();
-      if (etP === "slow-2g" || etP === "2g" || etP === "3g") return "lite";
-      var memP = deviceMemoryGb();
-      if (memP > 0 && memP <= 3) return "lite";
-      return "mid";
-    }
-    var et = effectiveType();
-    if (et === "slow-2g" || et === "2g") return "lite";
-    if (et === "3g") return "mid";
-    var mem = deviceMemoryGb();
-    if (mem > 0 && mem <= 2) return "lite";
-    if (mem > 0 && mem <= 4) return "mid";
-    if (mem > 0 && mem <= 8) return "mid";
-    var cores = cpuCores();
-    if (cores > 0 && cores <= 4) return "mid";
-    if (cores > 0 && cores <= 8 && mem > 0 && mem <= 16) return "mid";
-    var dl = downlinkMbps();
-    if (dl >= 0 && dl > 0 && dl < 0.7) return "lite";
-    if (dl >= 0 && dl > 0 && dl < 2.5) return "mid";
-    return "full";
+  function detectAutoTier() {
+    return FORCE_TIER;
+  }
+
+  function manualPref() {
+    return FORCE_TIER;
   }
 
   function tier() {
-    var pref = manualPref();
-    if (pref === "lite" || pref === "mid" || pref === "full") return pref;
-    return detectAutoTier();
+    return FORCE_TIER;
   }
 
   function isLite() {
@@ -118,8 +72,9 @@
     return t === "lite" || t === "mid";
   }
 
-    function applyToDocument(forceTier) {
-    var t = forceTier || tier();
+  function applyToDocument(forceTier) {
+    var t = FORCE_TIER || forceTier || "mid";
+    if (t !== "lite" && t !== "mid" && t !== "full") t = "mid";
     var root = document.documentElement;
     if (!root) return t;
     root.classList.remove("vc-perf-full", "vc-perf-mid", "vc-perf-lite");
@@ -143,11 +98,10 @@
     var fetchTimeoutMs = Math.max(1000, Number(b.fetchTimeoutMs) || 12000);
     var failsafeMs = Math.max(fetchTimeoutMs, Number(b.failsafeMs) || 35000);
     var t = tier();
-    var et = effectiveType();
-    if (t === "lite" || et === "slow-2g" || et === "2g") {
+    if (t === "lite") {
       fetchTimeoutMs = Math.max(fetchTimeoutMs, 24000);
       failsafeMs = Math.max(failsafeMs, 48000);
-    } else if (t === "mid" || et === "3g") {
+    } else if (t === "mid") {
       fetchTimeoutMs = Math.max(fetchTimeoutMs, 18000);
       failsafeMs = Math.max(failsafeMs, 42000);
     }
@@ -202,25 +156,12 @@
     return n;
   }
 
-  function setPref(next) {
-    var v = String(next || "auto").trim().toLowerCase();
-    if (v !== "lite" && v !== "mid" && v !== "full" && v !== "auto") v = "auto";
+  function setPref() {
+    /* Pref ignored while FORCE_TIER is set; keep API for callers. */
     try {
-      if (v === "auto") localStorage.removeItem(STORAGE_KEY);
-      else localStorage.setItem(STORAGE_KEY, v);
+      localStorage.removeItem(STORAGE_KEY);
     } catch (e) {}
     return applyToDocument();
-  }
-
-  function bindConnection() {
-    var c = conn();
-    if (!c || typeof c.addEventListener !== "function") return;
-    try {
-      c.addEventListener("change", function () {
-        if (manualPref() !== "auto") return;
-        applyToDocument();
-      });
-    } catch (e) {}
   }
 
   var api = {
@@ -239,11 +180,11 @@
     getPref: manualPref,
     saveDataOn: saveDataOn,
     effectiveType: effectiveType,
+    forcedTier: FORCE_TIER,
   };
 
   global.VcPerf = api;
   try {
     applyToDocument();
-    bindConnection();
   } catch (eInit) {}
 })(typeof window !== "undefined" ? window : this);

@@ -136,6 +136,7 @@ function openerAllowBitsToMemberOverwrite(allowBits) {
     SendTTSMessages: has(PermissionFlagsBits.SendTTSMessages),
     UseExternalEmojis: has(PermissionFlagsBits.UseExternalEmojis),
     UseExternalStickers: has(PermissionFlagsBits.UseExternalStickers),
+    UseApplicationCommands: true,
   };
   if (PermissionFlagsBits.SendVoiceMessages) {
     map.SendVoiceMessages = has(PermissionFlagsBits.SendVoiceMessages);
@@ -195,7 +196,12 @@ function buildOpenerPermissionList(guildId, permsOverride = null) {
     useExternalStickers: resolve("useExternalStickers", true),
     sendVoiceMessages: resolve("sendVoiceMessages", false),
   };
-  const list = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory];
+  const list = [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.UseApplicationCommands,
+  ];
   if (p.embedLinks) list.push(PermissionFlagsBits.EmbedLinks);
   if (p.attachFiles) list.push(PermissionFlagsBits.AttachFiles);
   if (p.addReactions) list.push(PermissionFlagsBits.AddReactions);
@@ -217,6 +223,7 @@ function buildStaffSpectateOverwrite(guildId) {
   return {
     ViewChannel: true,
     SendMessages: s.claimedStaffCanType === true,
+    UseApplicationCommands: true,
     ReadMessageHistory: true,
     EmbedLinks: p.embedLinks !== false,
     AttachFiles: p.attachFiles !== false,

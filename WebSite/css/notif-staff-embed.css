@@ -1,3 +1,8 @@
+/* 20260907cursorAnim3: animated GIF cursors (vinyl default / coffee pointer) */
+:root {
+  --vc-cursor-default: url("/images/musicrecordspin-cursor-anim-v3.gif") 12 12, auto;
+  --vc-cursor-pointer: url("/images/coffe-cursor-anim-v3.gif") 9 11, pointer;
+}
 body.vc-notifications-page .vc-notif-staff-inbox,
 body.vc-notifications-page #vc-staff-inbox.vc-notif-staff-inbox {
   display: grid !important;
@@ -149,7 +154,7 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc
   padding: 0.42rem 0.95rem !important;
   border-radius: 999px !important;
   box-shadow: none !important;
-  cursor: pointer !important;
+  cursor: var(--vc-cursor-pointer) !important;
 }
 
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn.is-active {
@@ -266,14 +271,30 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc
   color: #1a120d !important;
 }
 
-body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading {
-  min-height: 0 !important;
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading,
+body.vc-notifications-page #vc-staff-inbox-list.is-loading .vc-staff-inbox-loading,
+body.vc-notifications-page #vc-staff-inbox-list[data-inbox-loading="1"] .vc-staff-inbox-loading {
+  min-height: 10rem !important;
   padding: 0.75rem 0 !important;
+  display: grid !important;
+  gap: 0.85rem !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading__skel,
-body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading__card {
-  display: none !important;
+body.vc-notifications-page #vc-staff-inbox-list.is-loading .vc-staff-inbox-loading__skel {
+  display: grid !important;
+  gap: 0.75rem !important;
+  visibility: visible !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-loading__card,
+body.vc-notifications-page #vc-staff-inbox-list.is-loading .vc-staff-inbox-loading__card {
+  display: block !important;
+  height: 4.8rem !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 body.vc-notifications-page #vc-staff-inbox-loading.vc-staff-loading,
@@ -382,10 +403,14 @@ body.vc-notifications-page .vc-notif-staff-inbox.is-booting #vc-staff-inbox-list
     margin-top: 0.65rem !important;
   }
 
-  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filters,
-  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group,
-  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group__seg {
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filters {
     width: 100% !important;
+  }
+
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group:not(.vc-staff-inbox-filter-group--board),
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group__seg {
+    width: auto !important;
+    max-width: 100% !important;
   }
 
   body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-tools-tab,
@@ -442,7 +467,7 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row.vc-staff-inbox-i
     rgba(16, 12, 10, 0.72)
   ) !important;
   padding: 0.85rem 0.95rem !important;
-  cursor: pointer !important;
+  cursor: var(--vc-cursor-pointer) !important;
 }
 
 body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row.vc-staff-inbox-item.is-selected {
@@ -450,20 +475,54 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row.vc-staff-inbox-i
   box-shadow: inset 0 0 0 1px rgba(212, 168, 136, 0.12) !important;
 }
 
-body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row-icon {
+/* inboxListCompactAll1: anteprime inbox = avatar + nome/badge + azione (no desc/meta) */
+body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row.vc-staff-inbox-item .vc-notify-row-title {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-item--list-compact .vc-notify-row-desc,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-item--list-compact .vc-notify-row-meta,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-item--list-compact .vc-staff-inbox-item__preview,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-item--list-compact .vc-staff-inbox-item__meta {
+  display: none !important;
+}
+
+/* inboxAvatarCircle1: icona lista staff = cerchio (era 0.85rem / quadrato) */
+body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row-icon,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-avatar-wrap {
   width: 2.6rem !important;
   height: 2.6rem !important;
-  border-radius: 0.85rem !important;
+  border-radius: 50% !important;
   overflow: hidden !important;
-  background: rgba(20, 15, 12, 0.7) !important;
+  background: #1a120d !important;
   color: rgba(232, 196, 156, 0.95) !important;
+  flex-shrink: 0 !important;
 }
 
 body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row-icon img {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+  object-position: center center !important;
   display: block !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row-icon img[data-vc-avatar],
+body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row-icon img.vc-avatar,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row-icon img.vc-staff-avatar,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-avatar-wrap img {
+  border-radius: 50% !important;
+  clip-path: circle(50%) !important;
+  -webkit-clip-path: circle(50%) !important;
+}
+
+/* inboxAvatarPending1 */
+body.vc-notifications-page .vc-notif-staff-inbox img.vc-avatar--pending,
+body.vc-notifications-page .vc-notif-staff-inbox img[data-vc-avatar].vc-avatar--pending {
+  opacity: 1 !important;
 }
 
 body.vc-notifications-page .vc-notif-staff-inbox .vc-notify-row-title {
@@ -528,10 +587,55 @@ body.vc-notifications-page .vc-notif-staff-inbox:not(.has-detail) .vc-staff-inbo
 }
 
 body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination {
-  margin-top: 0.35rem !important;
+  margin-top: 0.75rem !important;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+  justify-content: center !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination__seg.vc-staff-pt-seg,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination .vc-staff-pt-seg {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.12rem !important;
+  padding: 0.2rem !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+  box-shadow: none !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination .vc-staff-pt-seg__btn {
+  appearance: none !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: rgba(245, 235, 224, 0.72) !important;
+  font-size: 0.8rem !important;
+  font-weight: 650 !important;
+  min-height: 0 !important;
+  min-width: 1.95rem !important;
+  padding: 0.4rem 0.72rem !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  cursor: var(--vc-cursor-pointer) !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination .vc-staff-pt-seg__btn.is-active {
+  background: rgba(232, 201, 168, 0.92) !important;
+  color: #1a120d !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination .vc-staff-inbox-pagination__gap {
+  opacity: 0.55 !important;
+  cursor: default !important;
+  pointer-events: none !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-pagination__info {
+  display: none !important;
 }
 
 @media (max-width: 959px) {
@@ -591,7 +695,7 @@ body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-reload-btn {
   padding: 0.18rem 0.62rem;
   font-size: 0.82rem;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--vc-cursor-pointer);
   margin-left: 0.35rem;
   vertical-align: baseline;
 }
@@ -700,6 +804,15 @@ body.vc-notifications-page .vc-notif-staff-inbox.has-detail .vc-staff-inbox-acti
   }
 }
 
+body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.65rem !important;
+  width: 100% !important;
+}
+
 body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg {
   display: inline-flex !important;
   flex-wrap: wrap !important;
@@ -730,7 +843,7 @@ body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar 
   padding: 0.42rem 0.95rem !important;
   border-radius: 999px !important;
   box-shadow: none !important;
-  cursor: pointer !important;
+  cursor: var(--vc-cursor-pointer) !important;
 }
 
 body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg__btn.is-active,
@@ -758,7 +871,7 @@ body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-row.vc-staff-inbo
   border-radius: 1rem !important;
   background: linear-gradient(120deg, rgba(36, 24, 18, 0.55), rgba(16, 12, 10, 0.72)) !important;
   padding: 0.85rem 0.95rem !important;
-  cursor: pointer !important;
+  cursor: var(--vc-cursor-pointer) !important;
   position: relative !important;
 }
 
@@ -824,7 +937,7 @@ body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-close-btn {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  cursor: pointer !important;
+  cursor: var(--vc-cursor-pointer) !important;
   flex-shrink: 0 !important;
 }
 
@@ -835,21 +948,32 @@ body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-close-btn:focus-v
 }
 
 body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-clear-btn {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
   border: 1px solid rgba(var(--vc-sand-rgb, 212, 168, 136), 0.28) !important;
   border-radius: 999px !important;
   background: rgba(48, 34, 24, 0.72) !important;
   color: rgba(247, 236, 223, 0.92) !important;
-  padding: 0.45rem 0.9rem !important;
+  padding: 0.45rem 0.95rem !important;
   font-size: 0.82rem !important;
   font-weight: 650 !important;
+  min-height: 2.2rem !important;
   width: auto !important;
+  cursor: var(--vc-cursor-pointer) !important;
+  box-shadow: none !important;
 }
 
-body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-filter-bar .vc-notify-clear-btn:hover,
-body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-filter-bar .vc-notify-clear-btn:focus-visible {
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-clear-btn:hover,
+body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-clear-btn:focus-visible {
   border-color: rgba(var(--vc-sand-rgb, 212, 168, 136), 0.44) !important;
   background: rgba(68, 48, 34, 0.82) !important;
   color: #fff7ec !important;
+  outline: none !important;
 }
 
 @media (max-width: 720px) {
@@ -859,5 +983,63 @@ body.vc-notifications-page .vc-notif-personal-inbox .vc-notify-filter-bar .vc-no
 
   body.vc-notifications-page .vc-notif-personal-inbox .vc-staff-inbox-unified-bar {
     width: 100% !important;
+  }
+}
+
+/* ptBarOne1: tabs+scope+hint = UN solo chrome (niente seconda barra sotto) */
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-unified.vc-staff-inbox-unified-bar,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar.vc-staff-inbox-toolbar__filters {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.45rem 0.75rem !important;
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-tabs,
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-scope,
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-filters,
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-tabs.vc-staff-inbox-filter-group,
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-scope.vc-staff-inbox-filter-group,
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-filters.vc-staff-inbox-filter-group,
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-tabs.vc-staff-inbox-filter-group--board,
+body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-scope.vc-staff-inbox-filter-group--board,
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group--board {
+  display: contents !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  box-shadow: none !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-unified-bar .vc-staff-pt-seg {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-board-toolbar__hint {
+  flex: 1 1 12rem !important;
+  min-width: 0 !important;
+}
+
+@media (max-width: 720px) {
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-toolbar__filters,
+  body.vc-notifications-page .vc-notif-staff-inbox #vc-staff-inbox-unified {
+    width: 100% !important;
+  }
+
+  /* non forzare width 100% sui gruppi (rompe display:contents / crea 2 barre) */
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group,
+  body.vc-notifications-page .vc-notif-staff-inbox .vc-staff-inbox-filter-group__seg {
+    width: auto !important;
+    max-width: 100% !important;
   }
 }

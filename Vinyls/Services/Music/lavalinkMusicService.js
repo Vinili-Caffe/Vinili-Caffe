@@ -3,6 +3,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getVoiceConnection, VoiceConnectionStatus } = require("@discordjs/voice");
 const { Shoukaku, Connectors, LoadType, Constants, Utils } = require("shoukaku");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const { memberDisplayName, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
@@ -2175,6 +2176,60 @@ async function destroyGhostMusicStateIfBotNotInVoice(client, guild) {
   } catch (_) {}
 }
 
+function getIdealMusicNode(client) {
+  const sh = client?.shoukaku;
+  if (!sh?.nodes?.size) return null;
+  return (
+    sh.nodes.get(process.env.LAVALINK_NODE_NAME || "main") ||
+    (typeof sh.getIdealNode === "function" ? sh.getIdealNode() : null) ||
+    sh.nodes.values().next().value ||
+    null
+  );
+}
+
+/**
+ * Avvia un brano in coda con gli stessi mirror della prima play.
+ * Se lo stream non parte, prova i brani successivi invece di lasciare la coda bloccata.
+ */
+async function playSessionTrackNow(client, player, session, guildId, track, opts = {}) {
+  const maxAttempts = Math.max(1, Math.min(12, Number(opts.maxAttempts) || 8));
+  const node = getIdealMusicNode(client);
+  if (!node?.rest || !player || !session) {
+    return { ok: false, interrupted: false, reason: "no_node" };
+  }
+  let cand = track;
+  for (let attempt = 0; attempt < maxAttempts && cand; attempt += 1) {
+    session.nowPlaying = describeTrack(cand);
+    session.currentRequesterUserId = cand?.vcRequestedByUserId || session.currentRequesterUserId || null;
+    session.currentRequesterUserTag = cand?.vcRequestedByUserTag || session.currentRequesterUserTag || null;
+    const started = await playWithMirrorFallbacks(player, session, node, cand);
+    if (started.interrupted) return { ok: false, interrupted: true };
+    if (started.ok && started.track) {
+      session.playingEncoded = started.track.encoded;
+      session.nowPlaying = describeTrack(started.track);
+      session.earlyPlayFailed = false;
+      if (typeof session.suppressQueueEndUntil !== "undefined") {
+        session.suppressQueueEndUntil = Date.now() + 4000;
+      }
+      if (session.repeatOne && started.track.encoded) {
+        session.repeatEncoded = started.track.encoded;
+      }
+      try {
+        persistMusicQueueSnapshotNow(client);
+      } catch (_) {}
+      return { ok: true, track: started.track };
+    }
+    logMusic("queue advance after failed start", {
+      guildId: String(guildId || ""),
+      attempt: attempt + 1,
+      label: describeTrack(cand),
+      left: Array.isArray(session.tracks) ? session.tracks.length : 0,
+    });
+    cand = shiftNextQueueTrack(session, null);
+  }
+  return { ok: false, interrupted: false, reason: "exhausted" };
+}
+
 function attachEndHandler(client, player, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !player) return;
@@ -2201,10 +2256,17 @@ function attachEndHandler(client, player, guildId) {
       const encoded = endedEncoded || session.repeatEncoded;
       if (typeof encoded === "string" && encoded.length) {
         try {
-          markFreshPlayAttempt(session);
-          await playEncodedFromStart(player, encoded);
-          session.playingEncoded = encoded;
-          return;
+          const replayTrack = {
+            encoded,
+            info: null,
+            _mirrorCandidates: null,
+          };
+          const replayed = await playSessionTrackNow(client, player, session, gid, replayTrack, {
+            maxAttempts: 1,
+          });
+          if (replayed.ok) return;
+          session.repeatOne = false;
+          session.repeatEncoded = null;
         } catch (err) {
           logMusic("repeat replay:", err?.message || err);
           session.repeatOne = false;
@@ -2225,15 +2287,21 @@ function attachEndHandler(client, player, guildId) {
           while (session.history.length > 64) session.history.shift();
         }
         const snap = session.repeatQueueSnapshot;
-        session.tracks = snap.slice(1).map((e) => ({ encoded: e.encoded }));
+        session.tracks = snap.slice(1).map((e) => ({ encoded: e.encoded, info: e.info || null }));
         const head = snap[0];
-        session.nowPlaying = String(head.label || "").trim() || "Traccia sconosciuta";
         clearSessionCurrentRequester(session);
         try {
-          markFreshPlayAttempt(session);
-          await playEncodedFromStart(player, head.encoded);
-          session.playingEncoded = head.encoded;
-          return;
+          const looped = await playSessionTrackNow(
+            client,
+            player,
+            session,
+            gid,
+            { encoded: head.encoded, info: head.info || null },
+            { maxAttempts: 1 },
+          );
+          if (looped.ok) return;
+          session.repeatQueue = false;
+          session.repeatQueueSnapshot = null;
         } catch (err) {
           logMusic("repeat queue loop:", err?.message || err);
           session.repeatQueue = false;
@@ -2274,15 +2342,22 @@ function attachEndHandler(client, player, guildId) {
       session.history.push({ encoded: endedEncoded, label: endedLabel });
       while (session.history.length > 64) session.history.shift();
     }
-    session.nowPlaying = describeTrack(next);
-    session.currentRequesterUserId = next?.vcRequestedByUserId || null;
-    session.currentRequesterUserTag = next?.vcRequestedByUserTag || null;
-    if (session.repeatOne && next?.encoded) {
-      session.repeatEncoded = next.encoded;
-    }
     try {
-      await playEncodedFromStart(player, next.encoded);
-      session.playingEncoded = next.encoded;
+      const played = await playSessionTrackNow(client, player, session, gid, next);
+      if (played.ok || played.interrupted) return;
+      logMusic("play next exhausted queue", { guildId: gid });
+      const notifyChannelId = session.textChannelId || null;
+      session.nowPlaying = null;
+      session.playingEncoded = null;
+      clearSessionCurrentRequester(session);
+      session.tracks = [];
+      musicIdleSince.set(guildId, Date.now());
+      persistMusicQueueSnapshotNow(client);
+      if (!shouldSuppressQueueEndedEmbed(session, reasonRaw)) {
+        scheduleMusicQueueEndedEmbed(client, notifyChannelId, guildId);
+      } else {
+        cancelPendingQueueEndedEmbed(gid);
+      }
     } catch (err) {
       global.logger?.warn?.("[MUSIC] play next failed:", err?.message || err);
       await leaveMusicVoiceChannelMarked(client, guildId);
@@ -2658,6 +2733,7 @@ async function playMusicRequest(ctx, query) {
     const volume = resolveDefaultJoinGlobalVolume();
     await player.setGlobalVolume(volume);
   } else {
+    attachEndHandler(client, player, guildId);
     const volume = resolveDefaultJoinGlobalVolume();
     await player.setGlobalVolume(volume).catch(() => {});
     if (player.paused) await player.setPaused(false).catch(() => {});
@@ -2742,10 +2818,10 @@ async function playMusicRequest(ctx, query) {
     }
 
     if (requesterUser && typeof requesterUser.displayAvatarURL === "function") {
-      const nome = String(requesterUser.globalName || requesterUser.username || "Utente").trim() || "Utente";
+      const nome = memberDisplayName(member || requesterUser) || "Utente";
       embed.setFooter({
         text: `Richiesto da ${nome}`.slice(0, 2048),
-        iconURL: requesterUser.displayAvatarURL({ size: 64 }),
+        iconURL: userAvatarUrlDynamic(member || requesterUser, { size: 64 }),
       });
     }
 

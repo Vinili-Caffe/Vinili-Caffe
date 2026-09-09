@@ -14,9 +14,8 @@ const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter");
 const { getUserPartnershipScoresForGuild } = require("../../Services/Partner/tenantLeaderboardService");
 const { buildTenantLookupNotFoundPayload } = require("./tenantLookupNotFoundRuntime");
 const {
-  accountUsername,
-  guildMemberDisplayAvatarUrlStatic,
-  userAvatarUrlStatic,
+  memberDisplayName,
+  userAvatarUrlDynamic,
 } = require("../Discord/guildDiscordIdentity");
 const { memberHasPartnerManagerRole, isPartnershipOperational } = require("./partnershipConfigResolver");
 const { partnersChatPartnerCommandDeniedReplyContent } = require("./partnersChatChannelUtils");
@@ -161,13 +160,8 @@ async function buildTenantPointsPayload(client, guild, options = {}) {
 
   const scores = await getUserPartnershipScoresForGuild(guildId, targetUserId);
   const displayUser = user || member?.user || null;
-  const username = displayUser
-    ? accountUsername(displayUser) || displayUser.username || `User ${targetUserId}`
-    : `User ${targetUserId}`;
-  const avatarUrl =
-    guildMemberDisplayAvatarUrlStatic(member || displayUser, { size: 256 }) ||
-    userAvatarUrlStatic(displayUser, { size: 256 }) ||
-    null;
+  const username = memberDisplayName(member || displayUser) || `User ${targetUserId}`;
+  const avatarUrl = userAvatarUrlDynamic(member || displayUser, { size: 256 }) || null;
 
   const ownerId = String(options.ownerId || options.requesterMember?.id || "").trim();
   let requesterMember = options.requesterMember || null;

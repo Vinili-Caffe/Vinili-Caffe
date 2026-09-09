@@ -202,10 +202,12 @@ function buildStaffTrackTimeline(guild, staff, { limit = 400 } = {}) {
     const key = String(reason || "").trim().slice(0, 120).toLowerCase();
     if (key && existingWarnText.has(key)) continue;
     if (key) existingWarnText.add(key);
+    const dateRaw = raw && typeof raw === "object" ? raw.date || raw.createdAt || raw.at : null;
+    const date = dateRaw ? new Date(dateRaw) : null;
     push({
       kind: "warn",
       reason: reason || null,
-      date: null,
+      date: date && Number.isFinite(date.getTime()) ? date.toISOString() : null,
       actorId: String(raw?.actorId || "").trim() || null,
       actorName: String(raw?.actorName || "").trim() || null,
       from: null,
@@ -215,7 +217,19 @@ function buildStaffTrackTimeline(guild, staff, { limit = 400 } = {}) {
     });
   }
 
-  items.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  function timelineSortKey(row) {
+    const dated = String(row?.date || "").trim();
+    if (dated) return dated;
+    const kind = String(row?.kind || "").toLowerCase();
+    // Undated active warns must stay visible (localeCompare("") buried them under old vals).
+    if (kind === "warn") {
+      const id = Math.max(0, Math.floor(Number(row?.entryId) || 0));
+      return `9999-12-31T23:59:${String(Math.min(59, id)).padStart(2, "0")}.000Z`;
+    }
+    return "";
+  }
+
+  items.sort((a, b) => timelineSortKey(b).localeCompare(timelineSortKey(a)));
   return items.slice(0, Math.max(1, Math.min(800, Number(limit) || 400)));
 }
 

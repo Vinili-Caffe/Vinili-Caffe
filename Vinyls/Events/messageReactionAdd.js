@@ -7,7 +7,7 @@ const { handlePollVoteReaction } = require("../Services/Community/pollReactionTh
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache");
-const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../Utils/Discord/guildDiscordIdentity");
 const { resolveCanvasDiscordMarkup } = require("../Utils/Discord/resolveCanvasDiscordText");
 
 function isViniliFullFeatureGuild(guildId) {
@@ -88,8 +88,8 @@ function clamp(value, max) {
 }
 
 function sanitizeUsername(member, author) {
-  const fallback = accountUsername(author);
-  const raw = (member ? accountUsername(member) : fallback)
+  const fallback = memberDisplayName(author);
+  const raw = (member ? memberDisplayName(member) : fallback)
     .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
     .replace(/\s+/g, " ")
     .replace(/\n/g, " ")
@@ -245,7 +245,7 @@ function buildSkullEmbed(user, message, postImageName) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
-      name: accountUsername(message.member || message.author),
+      name: memberDisplayName(message.member || message.author),
       iconURL: guildMemberDisplayAvatarUrlDynamic(message.member || message.author, { size: 64 }) || undefined,
     })
     .setDescription(

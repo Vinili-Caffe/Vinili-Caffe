@@ -11,7 +11,7 @@ const NUMBER_EMOJIS = ["<:1_:1444099163116535930>", "<:2_:1444099161673826368>",
 const POLL_VOTE_EMOJI_IDS = new Set(
   NUMBER_EMOJIS.map((entry) => String(entry.match(/:(\d+)>$/)?.[1] || "").trim()).filter(Boolean),
 );
-const POLL_ROLE_ID = "1442569014474965033";
+const POLL_ROLE_ID = "1544830663822147625";
 const NATIVE_POLL_QUESTION_MAX = 300;
 const NATIVE_POLL_ANSWER_MAX = 55;
 const DEFAULT_NATIVE_POLL_DURATION_HOURS = 24;
@@ -176,7 +176,7 @@ function buildPollMessageContent(pollNumber, question, answersText) {
 
 ${answersText}
 
-<a:VC_Ping:1482694298687246377>︲<@&1442569014474965033>`;
+<a:VC_Ping:1482694298687246377>︲<@&1544830663822147625>`;
 }
 
 async function applyPollReactions(pollMessage, reactionEmojis) {

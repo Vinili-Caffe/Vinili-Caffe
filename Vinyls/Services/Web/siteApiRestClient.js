@@ -278,8 +278,10 @@ function wrapUser(raw, clientRef = null) {
       const size = opts.size || 128;
       const ext = opts.extension || (raw.avatar?.startsWith("a_") ? "gif" : "png");
       if (raw.avatar) return `https://cdn.discordapp.com/avatars/${id}/${raw.avatar}.${ext}?size=${size}`;
+      // feedbackAvatar2: never invent Discord embed/blurple defaults for site-api REST users.
+      if (opts.allowDefault === false || opts.forceStatic === true) return null;
       const idx = Number(BigInt(id) >> 22n) % 6;
-      return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+      return `https://cdn.discordapp.com/embed/avatars/${idx}.png?size=${size}`;
     },
     tag: raw.discriminator && raw.discriminator !== "0" ? `${raw.username}#${raw.discriminator}` : raw.username,
     toString: () => `<@${id}>`,
@@ -330,6 +332,18 @@ function colorValueToInt(raw) {
   if (typeof raw === "number" && Number.isFinite(raw)) return Math.max(0, Math.floor(raw));
   const s = String(raw).trim();
   if (!s) return null;
+  const hexPart = s.startsWith("#") ? s.slice(1) : s;
+  if (/^[0-9a-fA-F]{3}$/.test(hexPart) || /^[0-9a-fA-F]{6}$/.test(hexPart)) {
+    const hex = hexPart.replace(/[^0-9a-fA-F]/g, "");
+    if (hex.length === 3) {
+      const full = hex
+        .split("")
+        .map((c) => c + c)
+        .join("");
+      return parseInt(full, 16);
+    }
+    if (hex.length === 6) return parseInt(hex, 16);
+  }
   if (s.startsWith("#")) {
     const hex = s.slice(1).replace(/[^0-9a-fA-F]/g, "");
     if (hex.length === 3) {
@@ -450,22 +464,44 @@ function wrapRole(raw, guild = null, existingMembers = null) {
       }
       if (payload.colors && typeof payload.colors === "object") {
         const colorsBody = buildRoleColorsApiBody(payload.colors);
-        if (colorsBody) {
-          body.colors = colorsBody;
-          body.color = colorsBody.primary_color;
+        if (!colorsBody) {
+          throw new Error("invalid_role_colors");
         }
+        // Solo `colors` (come discord.js): evitare `color` legacy che può far restare il ruolo solido.
+        body.colors = colorsBody;
       } else if (payload.color != null) {
         const c = colorValueToInt(payload.color);
         if (c != null) {
-          body.color = c;
           body.colors = { primary_color: c, secondary_color: null, tertiary_color: null };
         }
+      }
+      if (!Object.keys(body).length) {
+        throw new Error("empty_role_edit");
       }
       const updated = await rest.patch(Routes.guildRole(guild.id, roleId), {
         body,
         reason: reason ? String(reason).slice(0, 512) : undefined,
       });
       const wrapped = wrapRole(updated, guild, role.members);
+      if (body.colors && typeof body.colors === "object") {
+        const wantP = Number(body.colors.primary_color);
+        const gotP = Number(wrapped?.colors?.primaryColor ?? wrapped?.color ?? NaN);
+        if (Number.isFinite(wantP) && Number.isFinite(gotP) && wantP !== gotP) {
+          throw new Error("role_color_mismatch");
+        }
+        const wantS = body.colors.secondary_color;
+        const gotS = wrapped?.colors?.secondaryColor;
+        const wantT = body.colors.tertiary_color;
+        const gotT = wrapped?.colors?.tertiaryColor;
+        const sameNullable = (a, b) => {
+          if (a == null && b == null) return true;
+          if (a == null || b == null) return false;
+          return Number(a) === Number(b);
+        };
+        if (!sameNullable(wantS, gotS) || !sameNullable(wantT, gotT)) {
+          throw new Error("role_color_mismatch");
+        }
+      }
       guild.roles.cache.set(roleId, wrapped);
       return wrapped;
     },
@@ -1167,10 +1203,22 @@ function wrapGuild(raw, client) {
     },
   };
 
-  guild.roles.fetch = async (roleId) => {
-    if (roleId) {
+  guild.roles.fetch = async (roleId, opts = {}) => {
+    const force = Boolean(opts && opts.force);
+    if (roleId && !force) {
       const existing = guild.roles.cache.get(String(roleId));
       if (existing) return existing;
+    }
+    if (roleId && force && client._rest) {
+      try {
+        const raw = await client._rest.get(Routes.guildRole(guild.id, String(roleId)));
+        const prev = guild.roles.cache.get(String(roleId));
+        const wrapped = wrapRole(raw, guild, prev?.members || null);
+        if (wrapped?.id) guild.roles.cache.set(wrapped.id, wrapped);
+        return wrapped;
+      } catch (_) {
+        /* fall through to full enrich */
+      }
     }
     await enrichGuildRoles(client._rest, guild);
     return roleId ? guild.roles.cache.get(String(roleId)) || null : guild.roles.cache;
@@ -1202,14 +1250,10 @@ function wrapGuild(raw, client) {
     }
     if (options.colors && typeof options.colors === "object") {
       const colorsBody = buildRoleColorsApiBody(options.colors);
-      if (colorsBody) {
-        body.colors = colorsBody;
-        body.color = colorsBody.primary_color;
-      }
+      if (colorsBody) body.colors = colorsBody;
     } else if (options.color != null) {
       const c = colorValueToInt(options.color);
       if (c != null) {
-        body.color = c;
         body.colors = { primary_color: c, secondary_color: null, tertiary_color: null };
       }
     }
@@ -1334,13 +1378,9 @@ function wrapGuild(raw, client) {
     },
     fetch: async (opts = {}) => {
       const force = opts?.force === true;
-      if (
-        typeof opts === "string" ||
-        typeof opts?.user === "string" ||
-        (typeof opts === "object" && opts && !opts.query && (opts.user || opts.id))
-      ) {
-        const uid = String(typeof opts === "string" ? opts : opts.user || opts.id || "").trim();
-        if (!uid) return null;
+      const fetchOne = async (rawUid) => {
+        const uid = String(rawUid || "").trim();
+        if (!uid || !/^\d{5,24}$/.test(uid)) return null;
         if (!force) {
           const cached = guild.members.cache.get(uid);
           if (cached) return cached;
@@ -1358,6 +1398,33 @@ function wrapGuild(raw, client) {
         const member = wrapMember(rawM, guild, wrapUser(rawM.user, client));
         guild.members.cache.set(uid, member);
         return member;
+      };
+      // discord.js-compatible: fetch({ user: string[] })
+      if (Array.isArray(opts?.user)) {
+        const list = [
+          ...new Set(
+            opts.user
+              .map((x) => String(x || "").trim())
+              .filter((id) => /^\d{5,24}$/.test(id)),
+          ),
+        ];
+        const out = asCacheMap();
+        const concurrency = 20;
+        for (let i = 0; i < list.length; i += concurrency) {
+          const chunk = list.slice(i, i + concurrency);
+          const got = await Promise.all(chunk.map((id) => fetchOne(id).catch(() => null)));
+          for (const m of got) {
+            if (m?.id) out.set(m.id, m);
+          }
+        }
+        return out;
+      }
+      if (
+        typeof opts === "string" ||
+        typeof opts?.user === "string" ||
+        (typeof opts === "object" && opts && !opts.query && (opts.user || opts.id) && !Array.isArray(opts.user))
+      ) {
+        return fetchOne(typeof opts === "string" ? opts : opts.user || opts.id);
       }
       const rawMembers = await fetchAllMembers(client._rest, guild.id);
       for (const rawM of rawMembers) {

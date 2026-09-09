@@ -161,6 +161,7 @@ function partnershipPublishChannelCommandsDeniedReplyContent(channel, options = 
 }
 
 async function partnersChatPartnerCommandDeniedReplyContent(channel, options = {}) {
+  if (options.allowPartnership === true && channel?.__webTicketPartnership) return null;
   const guildId = String(channel?.guild?.id || channel?.guildId || "").trim();
   if (guildId && !isViniliFullFeatureGuild(guildId)) {
     if (!tenantPmCommandsZoneConfigured(guildId)) return null;

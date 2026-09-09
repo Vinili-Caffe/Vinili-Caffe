@@ -74,20 +74,28 @@
   function setStatus(msg, isError) {
     var tools = T();
     var el = qs("#vc-staff-pt-status");
-    if (!el) return;
-    if (!msg) {
+    if (el) {
       el.hidden = true;
       el.textContent = "";
-      return;
+      el.classList.remove("is-error");
     }
-    el.hidden = false;
-    el.textContent = msg;
-    el.classList.toggle("is-error", Boolean(isError));
+    var text = String(msg || "").trim();
+    // toastOnlyAlerts1: niente banner status — toast staff/site.
     if (tools && typeof tools.setStatus === "function") {
       try {
-        tools.setStatus("vc-staff-pt-status", msg, Boolean(isError));
+        tools.setStatus("vc-staff-pt-status", text, Boolean(isError));
+        return;
       } catch (eSt) {}
     }
+    if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+      if (!text) window.VcSiteToast.hide();
+      else window.VcSiteToast.show(text, Boolean(isError));
+      return;
+    }
+    if (!el || !text) return;
+    el.hidden = false;
+    el.textContent = text;
+    el.classList.toggle("is-error", Boolean(isError));
   }
 
   function ensureShell() {
@@ -108,27 +116,14 @@
   function renderToolbar() {
     var root = qs("#vc-staff-pt-toolbar");
     if (!root) return;
-    root.innerHTML =
-      '<div class="vc-staff-pt-board__toolbar">' +
-      '<div class="vc-staff-pt-seg" role="group" aria-label="Filtro elenco">' +
-      '<button type="button" class="vc-staff-pt-seg__btn' +
-      (!state.pendingOnly ? " is-active" : "") +
-      '" data-pt-filter="all">Tutti</button>' +
-      '<button type="button" class="vc-staff-pt-seg__btn' +
-      (state.pendingOnly ? " is-active" : "") +
-      '" data-pt-filter="pending">In attesa</button>' +
-      "</div>" +
-      '<p class="vc-staff-pt-board__hint">Conferma o nega le segnalazioni in attesa prima di chiudere il turno.</p>' +
-      "</div>";
-    root.querySelectorAll("[data-pt-filter]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var next = btn.getAttribute("data-pt-filter") === "pending";
-        if (next === state.pendingOnly) return;
-        state.pendingOnly = next;
-        resetPagination();
-        load();
-      });
-    });
+    // Switcher Tutti/In attesa vive nella unified bar (#vc-staff-inbox-scope).
+    root.hidden = true;
+    root.innerHTML = "";
+    try {
+      if (typeof window.__vcRenderStaffInboxScope === "function") {
+        window.__vcRenderStaffInboxScope();
+      }
+    } catch (eScope) {}
   }
 
   function buildPaginationHtml() {
@@ -406,6 +401,16 @@
     mount: mount,
     unmount: unmount,
     refresh: refresh,
+    isPendingOnly: function () {
+      return Boolean(state.pendingOnly);
+    },
+    setPendingOnly: function (pending) {
+      var next = Boolean(pending);
+      if (next === state.pendingOnly) return;
+      state.pendingOnly = next;
+      resetPagination();
+      load();
+    },
   };
 
     try {

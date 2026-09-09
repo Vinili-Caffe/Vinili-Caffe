@@ -83,39 +83,9 @@ async function deleteRecentModerationStickies(channel, keepId = "") {
   if (deletions.length) await Promise.all(deletions);
 }
 
-async function ensureModerationStickyPanel(client, channelRef) {
-  const channel = await resolveSanzioniChannel(client, channelRef);
-  if (!channel?.isTextBased?.()) return null;
-  const panelRow = await getSanzioniPanelRow(channel.id);
-  const payload = buildModerationGuideStickyPayload();
-  const existingId = String(panelRow?.sanzioniPanelMessageId || "").trim();
-  if (existingId) {
-    const existing = await channel.messages.fetch(existingId).catch(() => null);
-    if (existing && isModerationStickyPanelMessage(existing)) {
-      await existing.edit(payload).catch(() => null);
-      await deleteRecentModerationStickies(channel, existing.id);
-      return existing;
-    }
-  }
-  const sent = await channel
-    .send({ ...payload, __skipNoticeEmbed: true })
-    .catch((err) => {
-      global.logger?.warn?.("[SANZIONI STICKY] send failed:", err?.message || err);
-      return null;
-    });
-  if (sent?.id) {
-    await saveSanzioniPanelMessageId(channel.id, sent.id);
-    await deleteRecentModerationStickies(channel, sent.id);
-  }
-  return sent;
-}
-
-async function maybeRepositionModerationStickyNow(channelRef, client) {
-  const channel = await resolveSanzioniChannel(client, channelRef);
-  const sanzioniChannelId = getSanzioniChannelId();
-  if (!channel?.isTextBased?.() || String(channel.id) !== sanzioniChannelId) return;
-
-  const lockKey = String(channel.id);
+async function withModerationStickyLock(channelId, fn) {
+  const lockKey = String(channelId || "").trim();
+  if (!lockKey) return fn();
   while (moderationStickyLocks.get(lockKey)) {
     await moderationStickyLocks.get(lockKey);
   }
@@ -125,12 +95,72 @@ async function maybeRepositionModerationStickyNow(channelRef, client) {
   });
   moderationStickyLocks.set(lockKey, gate);
   try {
+    return await fn();
+  } finally {
+    moderationStickyLocks.delete(lockKey);
+    release?.();
+  }
+}
+
+async function ensureModerationStickyPanel(client, channelRef) {
+  const channel = await resolveSanzioniChannel(client, channelRef);
+  if (!channel?.isTextBased?.()) return null;
+
+  return withModerationStickyLock(channel.id, async () => {
+    const payload = buildModerationGuideStickyPayload();
+    const latest = await channel.messages.fetch({ limit: 1 }).catch(() => null);
+    const last = latest?.first?.() || [...(latest?.values?.() || [])][0] || null;
+
+    // Already sticky at bottom → edit in place (no delete/recreate race).
+    if (last && isModerationStickyPanelMessage(last)) {
+      await last.edit(payload).catch(() => null);
+      await saveSanzioniPanelMessageId(channel.id, last.id);
+      await deleteRecentModerationStickies(channel, last.id);
+      return last;
+    }
+
+    const panelRow = await getSanzioniPanelRow(channel.id);
+    const existingId = String(panelRow?.sanzioniPanelMessageId || "").trim();
+    if (existingId) {
+      const existing = await channel.messages.fetch(existingId).catch(() => null);
+      // Mid-channel sticky: drop it and send fresh at bottom.
+      if (existing && isModerationStickyPanelMessage(existing)) {
+        await existing.delete().catch(() => null);
+      }
+    }
+
+    const sent = await channel
+      .send({ ...payload, __skipNoticeEmbed: true })
+      .catch((err) => {
+        global.logger?.warn?.("[SANZIONI STICKY] send failed:", err?.message || err);
+        return null;
+      });
+    if (sent?.id) {
+      await saveSanzioniPanelMessageId(channel.id, sent.id);
+      await deleteRecentModerationStickies(channel, sent.id);
+    }
+    return sent;
+  });
+}
+
+async function maybeRepositionModerationStickyNow(channelRef, client) {
+  const channel = await resolveSanzioniChannel(client, channelRef);
+  const sanzioniChannelId = getSanzioniChannelId();
+  if (!channel?.isTextBased?.() || String(channel.id) !== sanzioniChannelId) return;
+
+  return withModerationStickyLock(channel.id, async () => {
     const panelRow = await getSanzioniPanelRow(channel.id);
     const stickyId = String(panelRow?.sanzioniPanelMessageId || "").trim();
     const latest = await channel.messages.fetch({ limit: 1 }).catch(() => null);
     const last = latest?.first?.() || [...(latest?.values?.() || [])][0] || null;
     if (last && stickyId && String(last.id) === stickyId && isModerationStickyPanelMessage(last)) {
       await deleteRecentModerationStickies(channel, stickyId);
+      return;
+    }
+    // Last message is already the sticky (DB id stale) → just resync id.
+    if (last && isModerationStickyPanelMessage(last)) {
+      await saveSanzioniPanelMessageId(channel.id, last.id);
+      await deleteRecentModerationStickies(channel, last.id);
       return;
     }
 
@@ -145,10 +175,7 @@ async function maybeRepositionModerationStickyNow(channelRef, client) {
 
     await saveSanzioniPanelMessageId(channel.id, sent.id);
     await deleteRecentModerationStickies(channel, sent.id);
-  } finally {
-    moderationStickyLocks.delete(lockKey);
-    release?.();
-  }
+  });
 }
 
 async function maybeRepositionModerationSticky(channelRef, client, options = {}) {

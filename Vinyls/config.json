@@ -273,7 +273,7 @@
       "1528439672219500734"
     ],
     "mainGuildId": "1329080093599076474",
-    "staffRoleIds": ["1442568894349840435"],
+    "staffRoleIds": ["1544831228690046976"],
     "threadName": "Prove richiesta",
     "prompt": "Manda qui le prove",
     "autoArchiveDuration": 10080
@@ -314,7 +314,7 @@
       "failsafeMs": 5400000
     },
     "hogwartsHouseChannelMinigames": {
-      "enabled": true,
+      "enabled": false,
       "durationMs": 60000,
       "quizDurationMs": 120000,
       "hourlyHousePoints": 20,
@@ -340,7 +340,7 @@
       "themedGameTypes": ["hogwartsQuiz", "hogwartsMemoryEmoji", "hogwartsCipher"]
     },
     "hogwartsBasilisk": {
-      "enabled": true,
+      "enabled": false,
       "chancePercent": 2,
       "wholeHouseChancePercent": 0.35,
       "persistentPlayersChancePercent": 2.5,
@@ -354,7 +354,7 @@
       "onlyDuringHogwartsEvent": true
     },
     "hogwartsHouseBasilisk": {
-      "enabled": true,
+      "enabled": false,
       "chancePercent": 2,
       "wholeHouseChancePercent": 0.35,
       "persistentPlayersChancePercent": 2,
@@ -370,7 +370,7 @@
     "hogwartsEventBonusMinigames": true,
     "hogwartsEventBonusHousePointsMultiplier": 0.5,
     "burrobirraEffect": {
-      "enabled": true,
+      "enabled": false,
       "onlyDuringHogwartsEvent": true,
       "windowStartHour": 12,
       "windowStartMinute": 0,
@@ -381,7 +381,7 @@
       "minGapBetweenMs": 5400000
     },
     "hogwartsHouseBurrobirraEffect": {
-      "enabled": true,
+      "enabled": false,
       "onlyDuringHogwartsEvent": true,
       "spawnChancePercent": 2,
       "durationMs": 3600000,
@@ -681,7 +681,7 @@
     ]
   },
   "premiLaReact": {
-    "enabled": true,
+    "enabled": false,
     "eventKey": "premi_la_react_2026",
     "startDate": "2026-07-11T12:00:00",
     "endDate": "2026-08-11T12:00:00",
@@ -765,8 +765,8 @@
         "displayName": "d1unkk",
         "discordUserId": "610531025470095390",
         "deleteAnnouncementOnOffline": true,
-        "voiceNameOn": "༄🟢︲Streaming D1uk: ON",
-        "voiceNameOff": "༄🔴︲Streaming D1uk: OFF",
+        "voiceNameOn": "༄🟢︲Streaming diunk17: ON",
+        "voiceNameOff": "༄🔴︲Streaming diunk17: OFF",
         "voiceStatusOn": "Sono in live su https://www.twitch.tv/d1unkk"
       }
     ]
@@ -778,21 +778,21 @@
     "streamVoiceChannelId": "1540424077255123096",
     "streamers": [
       {
-        "slug": "d1uk",
-        "displayName": "d1uk",
+        "slug": "diunk17",
+        "displayName": "diunk17",
         "discordUserId": "610531025470095390",
         "deleteAnnouncementOnOffline": true,
-        "voiceNameOn": "༄🟢︲Streaming D1uk: ON",
-        "voiceNameOff": "༄🔴︲Streaming D1uk: OFF",
-        "voiceStatusOn": "Sono in live su https://kick.com/d1uk"
+        "voiceNameOn": "༄🟢︲Streaming diunk17: ON",
+        "voiceNameOff": "༄🔴︲Streaming diunk17: OFF",
+        "voiceStatusOn": "Sono in live su https://kick.com/diunk17"
       }
     ]
   },
   "kickSubscriberSync": {
     "enabled": true,
-    "streamerSlug": "d1uk",
-    "roleId": "1539781035360002089",
-    "moderatorRoleId": "1540420675313860618",
+    "streamerSlug": "diunk17",
+    "roleId": "1544830822031298592",
+    "moderatorRoleId": "1544831244640976917",
     "graceHours": 48,
     "moderatorGraceHours": 336,
     "reconcileIntervalMs": 900000,
@@ -928,6 +928,9 @@
     "1471512797140484230": "1471627880575275008",
     "1471512808448458958": "1471627711901470781"
   },
+  "hogwartsRuntime": {
+    "disabled": true
+  },
   "hogwartsEvent": {
     "enabled": false,
     "previewMode": false,
@@ -947,7 +950,7 @@
       "sortingReward": 250
     },
     "completionRoleId": "1507000390493798511",
-    "finaleWinnerHouseBonusRoleId": "1543350496792682517",
+    "finaleWinnerHouseBonusRoleId": "1544830792168116234",
     "finaleAnnounceChannelId": "1481660281032675510",
     "finaleLotteryChannelId": "1442569101225496819",
     "finaleLotteryAt": "2026-09-02T15:00:00",

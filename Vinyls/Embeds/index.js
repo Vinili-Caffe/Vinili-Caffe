@@ -1,5 +1,6 @@
 const path = require("path");
 const { listJsFilesRecursive } = require("../../shared/runtime/fsRuntime");
+const { isDiscordPanelEnabled } = require("../Utils/Config/discordPanelsConfig");
 const EMBEDS_DIR = __dirname;
 const SECTION_MENU = "menu";
 const SECTION_EMBED_WITH_BUTTONS = "embedWithButtons";
@@ -37,9 +38,30 @@ function loadPanels() {
 
 if (panels.length === 0) loadPanels();
 
-function getPanelsBySection(section) {
+function getPanelsBySection(section, { includeDisabled = false } = {}) {
   if (panels.length === 0) loadPanels();
-  return panels.filter((p) => p.section === section).map((p) => ({ name: p.name, run: p.run }));
+  return panels
+    .filter((p) => p.section === section)
+    .filter((p) => includeDisabled || isDiscordPanelEnabled(p.name))
+    .map((p) => ({ name: p.name, run: p.run }));
 }
 
-module.exports = { getPanelsBySection, loadPanels, byName, SECTION_MENU, SECTION_EMBED_WITH_BUTTONS, SECTION_EMBED_ONLY };
+function listAllPanelMeta() {
+  if (panels.length === 0) loadPanels();
+  return panels.map((p) => ({
+    name: p.name,
+    section: p.section,
+    order: p.order,
+    enabled: isDiscordPanelEnabled(p.name),
+  }));
+}
+
+module.exports = {
+  getPanelsBySection,
+  loadPanels,
+  listAllPanelMeta,
+  byName,
+  SECTION_MENU,
+  SECTION_EMBED_WITH_BUTTONS,
+  SECTION_EMBED_ONLY,
+};

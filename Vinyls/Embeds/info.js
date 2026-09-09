@@ -6,6 +6,7 @@ const INFO_CHANNEL_ID = IDs.channels.info;
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 const { siteTicketsPageDiscordRef, siteUserProfilePageDiscordRef } = require("../../shared/web/siteTicketsPageRef");
+const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding");
 const INFO_MEDIA_NAME = "info.gif";
 const INFO_MEDIA_PATH = path.join(__dirname, "..", "Photos", INFO_MEDIA_NAME);
 
@@ -86,7 +87,7 @@ async function run(client) {
   const infoFooterText = "Usa i bottoni sottostanti per accedere ad altre categorie del server.";
   const gifAttachment = new AttachmentBuilder(INFO_MEDIA_PATH, { name: INFO_MEDIA_NAME });
     const infoEmbedPrimary = new EmbedBuilder()
-    .setColor("#6f4e37")
+    .setColor(TENANT_EMBED_COLOR)
     .setTitle("Ti diamo il benvenuto nella nostra community!")
     .setDescription(infoIntroText)
     .addFields(

@@ -18,6 +18,7 @@ const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeRemind
 const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameService");
 const { startBurrobirraEffectLoop } = require("../Services/Minigames/burrobirraEffectService");
 const { startHouseBurrobirraEffectLoop } = require("../Services/Minigames/hogwartsHouseBurrobirraEffectService");
+const { isHogwartsRuntimeDisabled } = require("../Utils/Web/hogwartsRuntimeKillSwitch");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService");
@@ -31,7 +32,6 @@ const { startHogwartsSpellListHuntLoop } = require("../Services/Community/hogwar
 const { startHogwartsSpellListHuntEndLoop } = require("../Services/Community/hogwartsSpellListHuntEndService");
 const { startPotionReminderLoop } = require("../Services/Community/hogwartsPotionReminderService");
 const { startHogwartsEventEndLoop } = require("../Services/Community/hogwartsEventEndService");
-const { startHogwartsFinaleChaosDayLoop } = require("../Services/Community/hogwartsFinaleChaosDayService");
 const { startConsumableBoostExpiryLoop } = require("../Services/Community/hogwartsConsumableBoostsService");
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
@@ -75,6 +75,7 @@ const { runScheduledEnds, syncActiveGiveawayButtons, scheduleActiveGiveawayEnds 
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
 const { startStaffGracePurgeLoop } = require("../Services/Community/userLeaveBackupService");
+const { startUserFullStatePersistenceLoop } = require("../Services/Community/userFullStatePersistenceService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
 const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService");
@@ -677,37 +678,37 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "hogwarts shop purchase log backfill",
       weight: 86,
-      enabled: primaryScheduler && fullSync,
+      enabled: false,
       run: () => syncHogwartsShopLogsOnStartup(client),
     },
     {
       label: "hogwarts shop boost minigame usage backfill",
       weight: 86,
-      enabled: primaryScheduler && fullSync,
+      enabled: false,
       run: () => syncShopBoostMinigameUsageBackfillOnStartup(client),
     },
     {
       label: "hogwarts minigame house points backfill",
       weight: 86,
-      enabled: primaryScheduler && fullSync,
+      enabled: false,
       run: () => syncHogwartsMinigameHousePointsBackfillOnStartup(client),
     },
     {
       label: "hogwarts house sorting announce backfill",
       weight: 87,
-      enabled: primaryScheduler && fullSync,
+      enabled: false,
       run: () => syncHouseSortingAnnouncesOnStartup(client),
     },
     {
       label: "hogwarts sorting role repair",
       weight: 87,
-      enabled: primaryScheduler && fullSync,
+      enabled: false,
       run: () => syncSortingRolesOnStartup(client),
     },
     {
       label: "hogwarts basilisk curse state hydrate",
       weight: 87,
-      enabled: primaryScheduler,
+      enabled: false,
       run: async () => {
         const { hydrateBasiliskScopeState } = require("../Services/Community/hogwartsBasiliskService");
         await hydrateBasiliskScopeState(client);
@@ -1188,8 +1189,14 @@ function startPrimaryLoops(client, engagementTick) {
   const loopStarters = [
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
     ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
-    ["[BURROBIRRA] Failed to start loop", () => startBurrobirraEffectLoop(client)],
-    ["[HOUSE BURROBIRRA] Failed to start loop", () => startHouseBurrobirraEffectLoop(client)],
+    ["[BURROBIRRA] Failed to start loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startBurrobirraEffectLoop(client);
+    }],
+    ["[HOUSE BURROBIRRA] Failed to start loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startHouseBurrobirraEffectLoop(client);
+    }],
     ["[VOTE ROLE] Failed to start cleanup loop", () => startVoteRoleCleanupLoop(client)],
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
     ["[PREMEMBER] Failed to start Unverified sweep loop", () => startPreMemberRoleSweepLoop(client)],
@@ -1200,15 +1207,25 @@ function startPrimaryLoops(client, engagementTick) {
     ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
     ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
-    ["[PREMI LA REACT] Failed to start loop", () => startReactPressEventLoop(client)],
-    ["[GALEONI ECONOMY CHANNEL] Failed to start unlock loop", () => startGaleoniEconomyChannelUnlockLoop(client)],
+    ["[PREMI LA REACT] Failed to start loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startReactPressEventLoop(client);
+    }],
+    ["[GALEONI ECONOMY CHANNEL] Failed to start unlock loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startGaleoniEconomyChannelUnlockLoop(client);
+    }],
     ["[TRIS] Failed to purge disabled sessions", () => {
       void purgeDisabledTrisSessions(client).catch((err) =>
         global.logger?.warn?.("[TRIS] purge disabled sessions:", err?.message || err),
       );
     }],
-    ["[PREMI LA REACT END] Failed to start leaderboard loop", () => startPremiLaReactEndLoop(client)],
+    ["[PREMI LA REACT END] Failed to start leaderboard loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startPremiLaReactEndLoop(client);
+    }],
     ["[HOGWARTS FORBIDDEN CHANNELS] Failed to start loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
       const booksCfg = client?.config?.hogwartsForbiddenBooks;
       const presenceCfg = client?.config?.presence?.forbiddenSectionEvent;
       const {
@@ -1219,18 +1236,40 @@ function startPrimaryLoops(client, engagementTick) {
       }
       startForbiddenSectionChannelDecorLoop(client);
     }],
-    ["[HOGWARTS SPELL LIST HUNT] Failed to start loop", () => startHogwartsSpellListHuntLoop(client)],
-    ["[HOGWARTS SPELL LIST HUNT END] Failed to start leaderboard loop", () => startHogwartsSpellListHuntEndLoop(client)],
-    ["[HOGWARTS POTIONS] Failed to start reminder loop", () => startPotionReminderLoop(client)],
-    ["[HOGWARTS EVENT END] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
-    ["[HOGWARTS FINALE CHAOS] Failed to start loop", () => startHogwartsFinaleChaosDayLoop(client)],
-    ["[HOGWARTS CONSUMABLE BOOST EXPIRY] Failed to start loop", () => startConsumableBoostExpiryLoop(client)],
+    ["[HOGWARTS SPELL LIST HUNT] Failed to start loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startHogwartsSpellListHuntLoop(client);
+    }],
+    ["[HOGWARTS SPELL LIST HUNT END] Failed to start leaderboard loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startHogwartsSpellListHuntEndLoop(client);
+    }],
+    ["[HOGWARTS POTIONS] Failed to start reminder loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startPotionReminderLoop(client);
+    }],
+    ["[HOGWARTS EVENT END] Failed to start completion loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startHogwartsEventEndLoop(client);
+    }],
+    ["[HOGWARTS CONSUMABLE BOOST EXPIRY] Failed to start loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startConsumableBoostExpiryLoop(client);
+    }],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
+    ["[USER FULL STATE] Failed to start persistence loop", () => startUserFullStatePersistenceLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
+    ["[WEB TICKET SLA] Failed to start loop", () => {
+      const { startWebTicketSlaNotifLoop } = require("../Utils/Web/siteWebTicketsApi");
+      startWebTicketSlaNotifLoop(client);
+    }],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],
     ["[WEEKLY ACTIVITY WINNERS] Failed to start loop", () => startWeeklyActivityWinnersLoop(client)],
-    ["[HOGWARTS HOUSE CUP] Failed to start loop", () => startHogwartsHouseCupLoop(client)],
+    ["[HOGWARTS HOUSE CUP] Failed to start loop", () => {
+      if (isHogwartsRuntimeDisabled(client)) return;
+      startHogwartsHouseCupLoop(client);
+    }],
     ["[CONTEST PRIZE] Failed to start cron", () => startContestPrizeMaintenanceCron(client)],
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
@@ -1549,8 +1588,11 @@ module.exports = {
     if (primaryScheduler) {
             startPauseMessageStatusMaintenance(client);
             try {
-        const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils");
-        startStaffListPeriodicRefreshLoop(client);
+        const { isDiscordPanelEnabled } = require("../Utils/Config/discordPanelsConfig");
+        if (isDiscordPanelEnabled("staffList")) {
+          const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils");
+          startStaffListPeriodicRefreshLoop(client);
+        }
       } catch (err) {
         global.logger?.warn?.("[STAFF LIST] startup bootstrap failed:", err?.message || err);
       }

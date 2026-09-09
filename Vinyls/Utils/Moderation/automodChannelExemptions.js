@@ -81,10 +81,18 @@ function isAutomodExemptChannel(channel, guild, client = null) {
 
 function collectDiscordAutomodExemptChannelIds(guild, client = null) {
   const ids = new Set();
-  for (const id of getStaticAutomodExemptChannelIds(client)) ids.add(id);
-  for (const id of getAutomodExemptCategoryIds(guild)) ids.add(id);
-  if (guild?.channels?.cache) {
-    for (const ch of guild.channels.cache.values()) {
+  const cache = guild?.channels?.cache;
+  const keep = (id) => {
+    const key = String(id || "").trim();
+    if (!/^\d{16,22}$/.test(key)) return;
+    if (cache && !cache.has(key)) return;
+    ids.add(key);
+  };
+  for (const id of getStaticAutomodExemptChannelIds(client)) keep(id);
+  for (const id of getAutomodExemptCategoryIds(guild)) keep(id);
+  if (cache) {
+    for (const ch of cache.values()) {
+      if (typeof ch?.isThread === "function" && ch.isThread()) continue;
       if (isChannelInCustomPrivateCategory(ch, guild)) ids.add(String(ch.id));
       if (isStanzaAutomodExemptChannel(ch, guild)) ids.add(String(ch.id));
     }

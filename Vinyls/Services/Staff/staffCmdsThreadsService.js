@@ -18,6 +18,9 @@ const {
   alwaysAccessStaffThreadRoleIds,
 } = require("../../Utils/Staff/staffThreadQualification");
 const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess");
+const { resolveExistingStaffThread } = require("../../Utils/Staff/staffManagedThreadResolve");
+
+let ensureCmdsThreadsPromise = null;
 
 const STAFF_CMDS_THREAD_SPECS = [
   {
@@ -208,16 +211,15 @@ async function createStaffCmdsThread(parent, guild, spec) {
 }
 
 async function ensureStaffCmdsThread(client, guild, parent, spec, savedId) {
-  const parentId = String(parent.id);
-  if (savedId) {
-    const existing =
-      client.channels?.cache?.get(savedId) || (await client.channels.fetch(savedId).catch(() => null));
-    if (existing?.isThread?.() && String(existing.parentId || "") === parentId) {
-      return existing;
+  const logTag = "[STAFF CMDS THREAD]";
+  const existing = await resolveExistingStaffThread(client, parent, spec.name, savedId, logTag);
+  if (existing) {
+    if (String(existing.id) !== String(savedId || "")) {
+      await setStaffCmdsThreadId(spec.key, existing.id);
     }
-    await deleteThreadIfAny(client, savedId);
-    await setStaffCmdsThreadId(spec.key, null);
+    return existing;
   }
+
   const thread = await createStaffCmdsThread(parent, guild, spec);
   if (!thread) return null;
   await setStaffCmdsThreadId(spec.key, thread.id);
@@ -242,7 +244,7 @@ async function retireStaffCmdsHubMessage(parent) {
   }
 }
 
-async function ensureStaffCmdsThreadsOnReady(client) {
+async function ensureStaffCmdsThreadsOnReadyImpl(client) {
   const guildId = String(IDs.guilds?.main || "");
   const parentId = String(IDs.channels?.staffCmds || "").trim();
   if (!guildId || !parentId) {
@@ -282,6 +284,14 @@ async function ensureStaffCmdsThreadsOnReady(client) {
   }
   await retireStaffCmdsHubMessage(parent);
   await retireLegacyPartnerPmCommandsThread(client);
+}
+
+function ensureStaffCmdsThreadsOnReady(client) {
+  if (ensureCmdsThreadsPromise) return ensureCmdsThreadsPromise;
+  ensureCmdsThreadsPromise = ensureStaffCmdsThreadsOnReadyImpl(client).finally(() => {
+    ensureCmdsThreadsPromise = null;
+  });
+  return ensureCmdsThreadsPromise;
 }
 
 async function retireLegacyPartnerPmCommandsThread(client) {

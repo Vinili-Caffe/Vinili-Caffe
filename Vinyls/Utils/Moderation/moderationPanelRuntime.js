@@ -8,7 +8,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
 } = require("discord.js");
-const { accountUsername, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { memberDisplayName, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const PANEL_PREFIX = "mpr";
 const SECTION_HOME = "home";
@@ -340,7 +340,7 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
   const vid = String(viewerId || "");
   const targetUser = await client.users.fetch(tid).catch(() => null);
   const member = await guild.members.fetch(tid).catch(() => null);
-  const name = (member ? accountUsername(member) : accountUsername(targetUser)) || tid;
+  const name = memberDisplayName(member || targetUser) || tid;
   let sec = String(section || SECTION_HOME).toLowerCase();
   if (sec === SECTION_CASES) sec = SECTION_HOME;
   const allowed = new Set([SECTION_HOME, SECTION_SANCTIONS]);
@@ -360,8 +360,8 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
     .setColor("#6f4e37")
     .setTitle("<:VC_BanHammer:1482534474502897795> Pannello moderazione")
     .setDescription(lines.join("\n"))
-    .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null)
-    .setFooter({ text: `Server ${guild.id} · Aperto da ${vid} · Target ${tid}` });
+    .setThumbnail(userAvatarUrlDynamic(member || targetUser, { size: 128 }) || null)
+    .setFooter({ text: `Server ${guild.id} · Aperto da ${vid} · Target ${name} · ${tid}` });
 
   const gid = String(guild.id);
   const components = [

@@ -13,6 +13,7 @@ const {
 } = require("./embedMediaFallback");
 const { sanitizeEmbedFooterText } = require("../../../shared/discord/embedFooterText");
 const DEFAULT_FOOTER_TEXT = "© 2026 Vinili & Caffè. Tutti i diritti riservati.";
+/** Branding ufficiale Vinili: viola. */
 const DEFAULT_COLOR = TENANT_EMBED_COLOR;
 let embedBrandDefaultColor = TENANT_EMBED_COLOR;
 const ERROR_EMBED_COLORS = new Set([0xed4245, 0xe74c3c, 0xbe3851, 0xff0000]);
@@ -113,7 +114,7 @@ function normalizeEmbedColorForBrand(embedColor) {
   ) {
     return getEmbedBrandDefaultColor();
   }
-    return embedColor;
+  return embedColor;
 }
 
 function applyDefaultEmbedColor(embed, guild) {
@@ -216,12 +217,17 @@ function resolveGuildFromContext(context) {
 function normalizeOutgoingPayload(payload, guild) {
   if (payload == null) return payload;
 
-    let next = payload;
+  let next = payload;
+  try {
+    const { applyEmergencyRoleRemapToOutgoingPayload } = require("../Config/emergencyRoleIdRemap");
+    next = applyEmergencyRoleRemapToOutgoingPayload(next);
+  } catch (_) {}
+
   try {
     const { coercePlainContentToNoticePayload } = require("./simpleNoticeEmbed");
-    next = coercePlainContentToNoticePayload(payload, guild) || payload;
+    next = coercePlainContentToNoticePayload(next, guild) || next;
   } catch (_) {
-    next = payload;
+    /* keep next */
   }
 
   if (typeof next === "string") return next;
@@ -238,6 +244,7 @@ function normalizeOutgoingPayload(payload, guild) {
     delete cleaned.__skipDefaultEmbedFooter;
     return cleaned;
   }
+  // Remap role mentions even when there are no embeds (partnership pings, etc.).
   if (!Array.isArray(next.embeds) || next.embeds.length === 0) return next;
   const withMedia = applyEmbedMediaFallbackToPayload(next);
   return stripDefaultFooterInternals(applyDefaultFooterToEmbeds(withMedia, guild));

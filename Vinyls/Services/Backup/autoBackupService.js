@@ -3,7 +3,6 @@ const path = require("path");
 const cron = require("node-cron");
 const {
   createGuildBackup,
-  deleteGuildBackup,
   pruneGuildBackups,
   validateAndHealGuildBackups,
 } = require("./serverBackupService");
@@ -14,7 +13,10 @@ const {
 
 const MIN_BACKUP_GAP_MS = 50 * 60 * 1000;
 const MAX_MANUAL_BACKUPS = 50;
-const MAX_AUTOMATIC_BACKUPS = 1;
+const MAX_AUTOMATIC_BACKUPS = Math.max(
+  1,
+  Math.min(30, Number(process.env.BACKUP_AUTO_KEEP || 7) || 7),
+);
 const MAX_MANUAL_BACKUP_AGE_DAYS = 45;
 const MIN_MANUAL_BACKUPS_TO_KEEP = 8;
 const AUTO_BACKUP_TIMEZONE = "Europe/Rome";
@@ -106,11 +108,11 @@ async function runGuildAutoBackup(guild) {
     source: "automatic",
     maxMessagesPerChannel: 0,
     includeAssetData: false,
+    includeStructureAssetBytes: true,
   });
 
-  if (previousAutoId && previousAutoId !== created.backupId) {
-    await deleteGuildBackup(guild.id, previousAutoId).catch(() => null);
-  }
+  // Keep last N automatic backups via prune — do not delete the previous immediately.
+  void previousAutoId;
 
   await writeMarker(guild.id, {
     backupId: created.backupId,

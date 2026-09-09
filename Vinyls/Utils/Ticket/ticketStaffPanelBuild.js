@@ -35,9 +35,20 @@ function hasStaffTicketRole(member, ticketType) {
     return memberCanAccessPartnershipTicket(member);
   }
   if (type === "high" || type === "highstaff") {
-    return Boolean(HIGHSTAFF_ROLE_ID && member.roles.cache.has(HIGHSTAFF_ROLE_ID));
+    try {
+      const { memberHasConfiguredRole, memberHasRoleId } = require("../Staff/staffRoleHierarchy");
+      if (memberHasConfiguredRole(member, "HighStaff")) return true;
+      return Boolean(HIGHSTAFF_ROLE_ID && memberHasRoleId(member, HIGHSTAFF_ROLE_ID));
+    } catch {
+      return Boolean(HIGHSTAFF_ROLE_ID && member.roles.cache.has(HIGHSTAFF_ROLE_ID));
+    }
   }
+  try {
+    const { memberHasRoleId } = require("../Staff/staffRoleHierarchy");
+    return SUPPORT_TICKET_STAFF_ROLE_IDS.some((id) => memberHasRoleId(member, id));
+  } catch {
     return SUPPORT_TICKET_STAFF_ROLE_IDS.some((id) => member.roles.cache.has(id));
+  }
 }
 
 function isTicketOpenedByMember(ticketDoc, memberOrUserId) {

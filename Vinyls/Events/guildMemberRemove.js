@@ -22,6 +22,7 @@ const {
   handleTenantPartnerManagerLeave,
 } = require("../Services/Partner/partnerManagerLeaveService");
 const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService");
+const { purgeLeftMemberCustomPerksFromDiscord } = require("../Services/Community/customRoleLeftMemberDiscordCleanupService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
@@ -163,6 +164,41 @@ async function closeOpenTicketsForMember(member, closeReason = "Utente uscito da
     closeReason,
     closedBy: member.client.user?.id || null,
     deleteReason: `Ticket chiuso automaticamente: ${closeReason} (${member.id})`,
+  });
+}
+
+async function closeOpenWebTicketsForMember(member, closeReason = "Utente uscito dal server") {
+  const {
+    closeOpenWebTicketsForGuildUser,
+    autoUnclaimOpenWebTicketsClaimedByUser,
+    removeLeftUserFromOpenWebTickets,
+  } = require("../Utils/Web/siteWebTicketsApi");
+  const client = member.client;
+  const guildId = member.guild?.id;
+  const userId = member.id;
+  await closeOpenWebTicketsForGuildUser(client, guildId, userId, {
+    closeReason,
+    closedBy: client?.user?.id || "system",
+    closedByName: "Sistema",
+  });
+  await autoUnclaimOpenWebTicketsClaimedByUser(client, guildId, userId, {
+    reason: closeReason.includes("kick")
+      ? "perché è stato kickato dal server"
+      : "perché è uscito dal server",
+    claimerName: member.user?.globalName || member.user?.username || "",
+  }).catch((err) => {
+    global.logger?.warn?.(
+      "[guildMemberRemove] web ticket auto-unclaim on leave:",
+      userId,
+      err?.message || err,
+    );
+  });
+  await removeLeftUserFromOpenWebTickets(client, guildId, userId).catch((err) => {
+    global.logger?.warn?.(
+      "[guildMemberRemove] web ticket remove added on leave:",
+      userId,
+      err?.message || err,
+    );
   });
 }
 
@@ -472,6 +508,35 @@ module.exports = {
         }).catch((err) => {
           global.logger?.warn?.("[guildMemberRemove] ticket auto-unclaim on leave (tenant):", member.id, err?.message || err);
         });
+        let autoCloseOnLeaveTenant = true;
+        try {
+          const { getTicketSettingsSync } = require("../MultiGuild/core/tenantTicketSettings");
+          autoCloseOnLeaveTenant =
+            getTicketSettingsSync(member.guild.id)?.autoCloseOnUserLeave !== false;
+        } catch (_) {
+          autoCloseOnLeaveTenant = true;
+        }
+        if (autoCloseOnLeaveTenant) {
+          await closeOpenWebTicketsForMember(member, "Utente uscito dal server").catch((err) => {
+            global.logger?.warn?.(
+              "[guildMemberRemove] web tickets auto-close on leave (tenant):",
+              member.id,
+              err?.message || err,
+            );
+          });
+        } else {
+          const {
+            autoUnclaimOpenWebTicketsClaimedByUser,
+            removeLeftUserFromOpenWebTickets,
+          } = require("../Utils/Web/siteWebTicketsApi");
+          await autoUnclaimOpenWebTicketsClaimedByUser(member.client, member.guild.id, member.id, {
+            reason: "perché è uscito dal server",
+            claimerName: member.user?.globalName || member.user?.username || "",
+          }).catch(() => {});
+          await removeLeftUserFromOpenWebTickets(member.client, member.guild.id, member.id).catch(
+            () => {},
+          );
+        }
         await handleTenantPartnerManagerLeave(member, client).catch((err) => {
           global.logger?.warn?.("[guildMemberRemove] handleTenantPartnerManagerLeave:", err?.message || err);
         });
@@ -527,10 +592,31 @@ module.exports = {
       } catch (_) {
         autoCloseOnLeave = true;
       }
+      const leaveCloseReason = wasKicked
+        ? "Utente kickato dal server"
+        : "Utente uscito dal server";
       if (autoCloseOnLeave) {
-        await closeOpenTicketsForMember(
-          member,
-          wasKicked ? "Utente kickato dal server" : "Utente uscito dal server",
+        await closeOpenTicketsForMember(member, leaveCloseReason);
+        await closeOpenWebTicketsForMember(member, leaveCloseReason).catch((err) => {
+          global.logger?.warn?.(
+            "[guildMemberRemove] web tickets auto-close on leave:",
+            member.id,
+            err?.message || err,
+          );
+        });
+      } else {
+        const {
+          autoUnclaimOpenWebTicketsClaimedByUser,
+          removeLeftUserFromOpenWebTickets,
+        } = require("../Utils/Web/siteWebTicketsApi");
+        await autoUnclaimOpenWebTicketsClaimedByUser(member.client, member.guild.id, member.id, {
+          reason: wasKicked
+            ? "perché è stato kickato dal server"
+            : "perché è uscito dal server",
+          claimerName: member.user?.globalName || member.user?.username || "",
+        }).catch(() => {});
+        await removeLeftUserFromOpenWebTickets(member.client, member.guild.id, member.id).catch(
+          () => {},
         );
       }
       await autoUnclaimOpenTicketsClaimedByUser(member.guild, member.id, {
@@ -571,6 +657,9 @@ module.exports = {
       await backupUserOnLeave(guild.id, member.id, member);
       if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
         await enqueueCustomPerksDiscordCleanupAfterLeave(guild.id, member.id).catch(() => {});
+        await purgeLeftMemberCustomPerksFromDiscord(guild, member.id, { source: "guildMemberRemove" }).catch((err) => {
+          global.logger?.warn?.("[guildMemberRemove] custom role discord purge:", member.id, err?.message || err);
+        });
       }
       await cleanupUserData(guild.id, member.id, activeClient);
       void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {

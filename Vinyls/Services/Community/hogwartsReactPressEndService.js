@@ -309,6 +309,8 @@ async function runPremiLaReactEndSweep(client) {
 }
 
 function startPremiLaReactEndLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (!client || loopState.has(client)) return;
   loopState.add(client);
   const tick = () => {

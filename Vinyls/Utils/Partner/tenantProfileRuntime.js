@@ -4,7 +4,7 @@ const { applyPartnershipPayloadBranding } = require("../../MultiGuild/utils/tena
 const { safePanelMessageUpdate } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter");
 const { getDevIds } = require("../Moderation/commandPermissions");
-const { accountUsername, guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
+const { memberDisplayName, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { TENANT_PROFILE_SECTIONS, OBJECTIVES_PER_PAGE, NOTIFICATIONS_LIMIT, BADGE_DEFS, MAX_SELECTED_BADGES, BADGES_BROWSE_PER_PAGE, TENANT_PROFILE_BADGE_ARROWS, TENANT_PARTNERSHIP_ARROWS, t, getLanguageFlag, getLanguageLabel, LANGUAGE_PICKER_ROWS } = require("./tenantProfileConstants");
 const { getTenantProfileSnapshot } = require("../../Services/Partner/tenantProfileProgressService");
 const { listTenantStaffNotifications, countUnreadNotifications } = require("../../Services/Partner/tenantStaffNotificationService");
@@ -107,13 +107,8 @@ async function resolveDisplayUser(client, guild, userId) {
     member?.user ||
     client?.users?.cache?.get(userId) ||
     (await client?.users?.fetch?.(userId).catch(() => null));
-  const username = user
-    ? accountUsername(user) || user.username || `User ${userId}`
-    : `User ${userId}`;
-  const avatarUrl =
-    guildMemberDisplayAvatarUrlStatic(member || user, { size: 256 }) ||
-    userAvatarUrlStatic(user, { size: 256 }) ||
-    null;
+  const username = memberDisplayName(member || user) || `User ${userId}`;
+  const avatarUrl = userAvatarUrlDynamic(member || user, { size: 256 }) || null;
   return { member, user, username, avatarUrl };
 }
 

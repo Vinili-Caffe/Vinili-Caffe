@@ -490,19 +490,40 @@ async function enableAntiNuke(guild, actorId) {
   const snap = getAntiNukeStatusSnapshot(guildId);
   const cfg = snap?.config || {};
 
-  const setResult=setAntiNukeConfigSnapshot({...cfg,enabled:true,panicMode:{...(cfg.panicMode||{}),enabled:true,autoBackupSync:{...(cfg.panicMode?.autoBackupSync||{}),enabled:true,},},});
+  // Arm the module + panic *capability*, but do NOT start a live panic.
+  // Starting panic on enable was locking the whole server (channel lockdown)
+  // and making it look like the bot "vanished" from threads/channels.
+  const setResult = setAntiNukeConfigSnapshot({
+    ...cfg,
+    enabled: true,
+    panicMode: {
+      ...(cfg.panicMode || {}),
+      enabled: true,
+      autoBackupSync: {
+        ...(cfg.panicMode?.autoBackupSync || {}),
+        enabled: true,
+      },
+    },
+  });
   if (!setResult?.ok) return { ok: false, changed: false, note: "Errore riabilitazione AntiNuke." };
 
-  const triggered=await triggerAntiNukePanicExternal(guild,`manual security panic enable by ${String(actorId||"unknown")}`,
-    500,
-  ).catch(() => ({ ok: false }));
+  // If a leftover panic is still running from a previous arm, stop it cleanly.
+  let panicStopped = false;
+  if (snap?.panicActive) {
+    const stopped = await stopAntiNukePanic(
+      guild,
+      `security enable cleanup by ${String(actorId || "unknown")}`,
+      actorId,
+    ).catch(() => ({ ok: false }));
+    panicStopped = Boolean(stopped?.ok);
+  }
 
   return {
     ok: true,
     changed: true,
-    note: triggered?.ok
-      ? "AntiNuke riabilitato + panic manuale avviata."
-      : "AntiNuke riabilitato (panic manuale non avviata).",
+    note: panicStopped
+      ? "AntiNuke riabilitato (protezione armata, panic residua stoppata)."
+      : "AntiNuke riabilitato (protezione armata, panic NON avviata).",
   };
 }
 
@@ -510,22 +531,26 @@ async function enableAutoMod(guildId, actorId) {
   const cfg = getAutoModConfigSnapshot();
   const rules = getAutoModRulesSnapshot();
   const panic = getAutoModPanicSnapshot(guildId);
-  const wasActive = Boolean(rules?.status?.enabled && cfg?.panic?.enabled && panic?.active);
-  if (wasActive) return { ok: true, changed: false, note: "AutoMod già attivo con panic in corso." };
+  const wasArmed = Boolean(rules?.status?.enabled && cfg?.panic?.enabled);
+  if (wasArmed && !panic?.active) {
+    return { ok: true, changed: false, note: "AutoMod già attivo (protezione armata)." };
+  }
 
   const r1 = updateAutoModConfig("enabled", true);
   const r2 = updateAutoModConfig("panic.enabled", true);
   if (!r1?.ok || !r2?.ok) {
     return { ok: false, changed: false, note: "Errore riabilitazione AutoMod." };
   }
-  const trig=triggerAutoModPanicExternal(guildId,String(actorId||"manual"),{activityBoost:1,raidBoost:1,});
+
+  // Do not force a live panic on enable — only arm detection.
+  if (panic?.active) {
+    clearAutoModPanicState(guildId);
+  }
 
   return {
     ok: true,
     changed: true,
-    note: trig?.activated
-      ? "AutoMod riabilitato + panic manuale avviata."
-      : "AutoMod riabilitato (panic manuale non avviata).",
+    note: "AutoMod riabilitato (protezione armata, panic NON avviata).",
   };
 }
 

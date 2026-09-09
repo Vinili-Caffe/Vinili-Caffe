@@ -1,4 +1,8 @@
 (function () {
+  /* ptrSheetGuard2 + phoneSheetPtrLock1 + ptrAriaModalFix1:
+     block PTR only when overlays are actually open — never because
+     #vc-mobile-nav-drawer sits in the DOM with aria-modal. */
+  /* cursorTrailOff1: scia rimossa — lagga troppo su tutte le pagine */
   if (window.__vcPtrBooted) return;
   window.__vcPtrBooted = true;
 
@@ -123,6 +127,18 @@
   }
 
   function finalizeScrollRestore() {
+    /* notifSidebar4: PTR restore must not fight notif body scroll lock. */
+    try {
+      var rootN = document.documentElement;
+      if (
+        rootN.classList.contains("vc-notif-sheet-open") ||
+        rootN.classList.contains("vc-notif-drawer-open")
+      ) {
+        return;
+      }
+      var ddN = document.getElementById("vc-notif-dropdown");
+      if (ddN && (ddN.open || ddN.hasAttribute("open"))) return;
+    } catch (eNotifSkip) {}
     var y = 0;
     try {
       y = Math.max(0, Math.round(Number(window.__vcPtrRestoreY) || 0));
@@ -355,30 +371,93 @@
     }
   }
 
+  function hasOpenOverlayClass(el) {
+    if (!el || !el.className) return false;
+    var cn = typeof el.className === "string" ? el.className : String(el.className.baseVal || "");
+    return /(?:^|\s)vc-(?:\S+)-(?:sheet|modal)-open(?:\s|$)/.test(cn);
+  }
+
+  function overlayBlocksPtr() {
+    try {
+      if (typeof window.__vcIsPageScrollFrozen === "function" && window.__vcIsPageScrollFrozen()) {
+        return true;
+      }
+    } catch (eFr) {}
+    try {
+      var root = document.documentElement;
+      var body = document.body;
+      if (hasOpenOverlayClass(root) || hasOpenOverlayClass(body)) return true;
+      if (root.classList.contains("vc-notif-sheet-open")) return true;
+      if (root.classList.contains("vc-notif-drawer-open")) return true;
+      if (root.classList.contains("vc-staff-datepicker-open")) return true;
+      if (root.classList.contains("vc-dialog-open")) return true;
+      if (root.classList.contains("vc-dash-confirm-open")) return true;
+      if (root.classList.contains("vc-scroll-soft-lock") && hasOpenOverlayClass(root)) return true;
+      if (body && body.classList.contains("vc-dash-partnership-sheet-open")) return true;
+      if (body && body.classList.contains("vc-wt-gate-open")) return true;
+      if (body && body.classList.contains("vc-role-modal-open")) return true;
+    } catch (eCls) {}
+    try {
+      var rootOpen = document.documentElement;
+      if (rootOpen.classList.contains("vc-staff-manage-sheet-open")) return true;
+      if (rootOpen.classList.contains("vc-staff-stat-sheet-open")) return true;
+      if (rootOpen.classList.contains("vc-staff-reso-sheet-open")) return true;
+      var notif = document.getElementById("vc-notif-dropdown");
+      if (
+        notif &&
+        (notif.open || notif.hasAttribute("open")) &&
+        (rootOpen.classList.contains("vc-notif-sheet-open") ||
+          rootOpen.classList.contains("vc-notif-drawer-open"))
+      ) {
+        return true;
+      }
+    } catch (eDom) {}
+    return false;
+  }
+
   function shouldIgnoreStart(target) {
     if (refreshing) return true;
+    if (overlayBlocksPtr()) return true;
     try {
-      if (document.documentElement.classList.contains("vc-mobile-nav-open")) return true;
-      if (document.documentElement.classList.contains("vc-staff-manage-sheet-open")) return true;
-      if (document.documentElement.classList.contains("vc-staff-stat-sheet-open")) return true;
-      if (document.documentElement.classList.contains("vc-dialog-open")) return true;
-      if (document.documentElement.classList.contains("vc-notif-sheet-open")) return true;
+      var root = document.documentElement;
+      var body = document.body;
+      if (root.classList.contains("vc-mobile-nav-open")) return true;
+      if (body && body.classList.contains("vc-mobile-nav-open")) return true;
+      /* Catch-all: any vc-*-sheet-open / vc-*-modal-open on html or body */
+      if (hasOpenOverlayClass(root) || hasOpenOverlayClass(body)) return true;
+      if (root.classList.contains("vc-dialog-open")) return true;
+      if (root.classList.contains("vc-dash-confirm-open")) return true;
+      if (root.classList.contains("vc-staff-datepicker-open")) return true;
+      if (root.classList.contains("vc-user-profile-bday-open")) return true;
+      if (body && body.classList.contains("vc-user-profile-bday-open")) return true;
+      if (body && body.classList.contains("vc-role-modal-open")) return true;
+      if (body && body.classList.contains("vc-dash-partnership-sheet-open")) return true;
+      if (body && body.classList.contains("vc-wt-gate-open")) return true;
     } catch (eNav) {}
-    if (document.body && document.body.classList.contains("vc-mobile-nav-open")) return true;
     var dialog = document.getElementById("vc-site-dialog");
     if (dialog && !dialog.hasAttribute("hidden")) return true;
     var notif = document.getElementById("vc-notif-dropdown");
-    if (notif && notif.hasAttribute("open")) return true;
+    if (notif && (notif.open || notif.hasAttribute("open"))) return true;
+    try {
+      /* Do NOT match bare [aria-modal]: #vc-mobile-nav-drawer always has it. */
+      if (
+        document.querySelector(
+          ".vc-dialog.is-open, #vc-site-dialog.is-open:not([hidden]), .vc-dash-confirm.is-open",
+        )
+      ) {
+        return true;
+      }
+    } catch (eModal) {}
     var ae = document.activeElement;
     if (ae && /^(input|textarea|select)$/i.test(ae.tagName)) return true;
     if (ae && ae.isContentEditable) return true;
     var node = target;
     if (node && node.nodeType === 3) node = node.parentElement;
     if (node && node.closest) {
-                  if (node.closest("input, textarea, select, [contenteditable='true'], [role='slider'], .vc-no-ptr")) {
+      if (node.closest("input, textarea, select, [contenteditable='true'], [role='slider'], .vc-no-ptr")) {
         return true;
       }
-                  if (
+      if (
         node.closest(
           "#vc-mobile-nav-toggle, #vc-mobile-nav-close, #vc-mobile-nav-drawer, .vc-mobile-nav-drawer, .vc-mobile-nav-tile, header .vc-icon-btn, header button, header summary, #header-quick-actions",
         )
@@ -387,7 +466,24 @@
       }
       if (
         node.closest(
-          ".vc-staff-manage-sheet, .vc-staff-stat-sheet, .vc-dialog, .vc-dash-confirm, .vc-notif-panel",
+          [
+            ".vc-staff-manage-sheet",
+            ".vc-staff-stat-sheet",
+            ".vc-staff-reso-sheet",
+            ".vc-staff-datepicker",
+            ".vc-dialog.is-open",
+            "#vc-site-dialog.is-open",
+            ".vc-dash-confirm.is-open",
+            ".vc-notif-panel",
+            ".vc-notif-mobile-backdrop",
+            ".vc-notif-dropdown[open]",
+            ".vc-reviews-modal",
+            ".vc-user-profile-bday-pop",
+            ".vc-wt-user-pick",
+            ".vc-wfc-subject-overlay",
+            ".vc-role-modal",
+            ".vc-dashboard-partnership-sheet-backdrop",
+          ].join(", "),
         )
       ) {
         return true;
@@ -546,6 +642,10 @@
 
   function onTouchMoveProbe(ev) {
     if (!tracking || moveBound || refreshing || !ev.touches || ev.touches.length !== 1) return;
+    if (shouldIgnoreStart(ev.target)) {
+      abortPull(true);
+      return;
+    }
     var t = ev.touches[0];
     var dy = t.clientY - startY;
     var dx = t.clientX - startX;
@@ -564,6 +664,10 @@
 
   function onTouchMove(ev) {
     if (!tracking || refreshing || !ev.touches || ev.touches.length !== 1) return;
+    if (shouldIgnoreStart(ev.target)) {
+      abortPull(true);
+      return;
+    }
     var t = ev.touches[0];
     var dy = t.clientY - startY;
     var dx = t.clientX - startX;
@@ -669,6 +773,7 @@
       }
     } catch (eNav) {}
     try {
+      /* notifSidebar4: soft repair — never force-close open notif drawer on visibility/pageshow. */
       if (typeof window.__vcRepairNotifDropdownPortal === "function") {
         window.__vcRepairNotifDropdownPortal();
       }
@@ -676,8 +781,17 @@
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") {
         window.__vcSyncLoaderScrollLock();
-      } else if (typeof window.__vcUnpinPageScroll === "function") {
-        window.__vcUnpinPageScroll();
+      } else {
+        var rootLock = document.documentElement;
+        var ddLock = document.getElementById("vc-notif-dropdown");
+        var notifOpen = Boolean(
+          (ddLock && (ddLock.open || ddLock.hasAttribute("open"))) ||
+            rootLock.classList.contains("vc-notif-sheet-open") ||
+            rootLock.classList.contains("vc-notif-drawer-open"),
+        );
+        if (!notifOpen && typeof window.__vcUnpinPageScroll === "function") {
+          window.__vcUnpinPageScroll();
+        }
       }
     } catch (eScroll) {}
         try {

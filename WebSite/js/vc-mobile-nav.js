@@ -1,4 +1,5 @@
 (function () {
+  /* mobileNavProfileCache1: first-paint profile from me-cache + prefer landing syncFooter */
     if (window.__vcLandingMobileNavActive) return;
 
   var DRAWER_ID = "vc-mobile-nav-drawer";
@@ -92,6 +93,18 @@
   }
 
   function mobileAvatarUrl(u) {
+    try {
+      var server = window.__VC_SERVER_IDENTITY;
+      if (server && server.avatarUrl && (!u || !u.id || String(server.userId || "") === String(u.id || "") || !server.userId)) {
+        var serverUrl = String(server.avatarUrl || "").trim();
+        if (/^https?:\/\//i.test(serverUrl)) {
+          if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
+            return window.VcDiscordAvatar.resolveUrl(serverUrl, 64, server.memberAvatar || "", u && u.id) || serverUrl;
+          }
+          return serverUrl;
+        }
+      }
+    } catch (eServer) {}
     if (!u || !u.id) return "";
     try {
       if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromUser === "function") {
@@ -103,14 +116,31 @@
       var ext = String(u.avatar).indexOf("a_") === 0 ? "gif" : "png";
       return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
     }
-    if (typeof BigInt === "undefined") return "";
     try {
-      var bi = BigInt(String(u.id));
-      var idx = Number((bi >> 22n) % 6n);
-      return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
-    } catch (e4) {
-      return "";
-    }
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
+      }
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function mobileAccountDisplayName(profile) {
+    try {
+      var server = window.__VC_SERVER_IDENTITY;
+      if (server && String(server.displayName || "").trim()) {
+        if (!profile || !profile.id || String(server.userId || "") === String(profile.id || "") || !server.userId) {
+          return String(server.displayName).trim();
+        }
+      }
+    } catch (eN) {}
+    try {
+      if (window.VcDiscordIdentity && typeof window.VcDiscordIdentity.pickDisplayName === "function") {
+        return window.VcDiscordIdentity.pickDisplayName(profile, "Utente");
+      }
+    } catch (eP) {}
+    return String((profile && (profile.global_name || profile.username)) || "Utente").trim() || "Utente";
   }
 
   function readCachedDiscordUserId() {
@@ -152,11 +182,73 @@
     return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
   }
 
+  function mobileProfileDetailUserId() {
+    try {
+      var path = String(window.location.pathname || "/")
+        .replace(/\/index\.html$/i, "")
+        .replace(/\/+$/, "") || "/";
+      var m = path.match(/^\/users?\/(\d{17,22})$/i);
+      if (m) return m[1];
+      if (path === "/user" || path === "/users") {
+        var q = new URLSearchParams(window.location.search || "");
+        var id = String(q.get("id") || q.get("userId") || q.get("uid") || "").trim();
+        if (/^\d{17,22}$/.test(id)) return id;
+      }
+    } catch (e) {}
+    return "";
+  }
+
+  function isMobileOwnProfileCurrent(userId) {
+    var id = resolveMobileAccountUserId(userId);
+    var viewing = mobileProfileDetailUserId();
+    return Boolean(id && viewing && id === viewing);
+  }
+
+  function readCachedProfileForMobile() {
+    try {
+      var token = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+      if (!token) return null;
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (exp && Date.now() >= exp) return null;
+      var fp = String(exp) + "|" + token.slice(0, 32);
+      var now = Date.now();
+      var keys = [
+        ["sessionStorage", "vc_discord_me_cache_v1", 180000],
+        ["localStorage", "vc_discord_me_cache_local_v1", 7 * 24 * 60 * 60 * 1000],
+      ];
+      for (var i = 0; i < keys.length; i += 1) {
+        var store = keys[i][0] === "sessionStorage" ? sessionStorage : localStorage;
+        var raw = store.getItem(keys[i][1]);
+        if (!raw) continue;
+        var o = JSON.parse(raw);
+        var age = now - Number((o && o.at) || 0);
+        if (
+          o &&
+          o.v === 1 &&
+          o.user &&
+          String(o.fp || "") === fp &&
+          isFinite(age) &&
+          age >= 0 &&
+          age <= keys[i][2]
+        ) {
+          return o.user;
+        }
+      }
+    } catch (eCache) {}
+    return null;
+  }
+
   function syncDrawerFooter() {
+    try {
+      var shared = window.__vcMobileNavSyncFooter;
+      if (typeof shared === "function" && shared !== syncDrawerFooter) {
+        return shared();
+      }
+    } catch (eShared) {}
     var foot = document.getElementById("vc-mobile-nav-drawer-footer");
     if (!foot) return;
     foot.innerHTML = "";
-    var profile = window.__VC_DISCORD_PROFILE;
+    var profile = window.__VC_DISCORD_PROFILE || readCachedProfileForMobile();
     var logoutBtn = document.getElementById("discord-logout-btn");
     var loginBtn = document.getElementById("discord-login-btn");
     var loginState = document.getElementById("discord-login-state");
@@ -172,7 +264,8 @@
       }
     } catch (eTok) {}
     var pendingShell = loginState && loginState.querySelector(".vc-auth-pending-shell");
-    if (pendingShell || (hasToken && !profile)) {
+    var earlyAvatar = loginState && loginState.querySelector(".vc-auth-early-shell img.discord-avatar-img");
+    if ((pendingShell && !earlyAvatar) || (hasToken && !profile)) {
       var pending = document.createElement("div");
       pending.className = "vc-mobile-nav-footer__account";
       pending.setAttribute("aria-busy", "true");
@@ -190,8 +283,7 @@
       var wrap = document.createElement("div");
       wrap.className = "vc-mobile-nav-footer__account";
       var imgUrl = mobileAvatarUrl(profile);
-      var name =
-        String(profile.global_name || profile.username || "Utente").trim() || "Utente";
+      var name = mobileAccountDisplayName(profile);
       var who = document.createElement("div");
       who.className = "vc-mobile-nav-footer__who";
       var left = document.createElement("div");
@@ -231,6 +323,10 @@
       prof.href = mobileProfileHref(profile.id);
       prof.setAttribute("aria-label", i18nLabel("auth.profile", "Profilo"));
       prof.title = i18nLabel("auth.profile", "Profilo");
+      if (isMobileOwnProfileCurrent(profile.id)) {
+        prof.classList.add("is-active");
+        prof.setAttribute("aria-current", "page");
+      }
       prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i>';
       actions.appendChild(prof);
       if (isDashboardNavAllowed()) {
@@ -241,6 +337,10 @@
         dash.setAttribute("aria-label", i18nLabel("auth.dashboard", "Dashboard"));
         dash.title = i18nLabel("auth.dashboard", "Dashboard");
         dash.setAttribute("data-vc-mobile-dashboard", "1");
+        if (document.body && document.body.classList.contains("vc-dashboard-page")) {
+          dash.classList.add("is-active");
+          dash.setAttribute("aria-current", "page");
+        }
         dash.innerHTML = '<i class="fa fa-server" aria-hidden="true"></i>';
         dash.addEventListener("click", function () {
           closeDrawer();
@@ -256,7 +356,11 @@
       lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i>';
       lo.addEventListener("click", function () {
         if (logoutBtn) logoutBtn.click();
-        else if (typeof window.__vcDiscordClearToken === "function") {
+        else if (typeof window.__vcDiscordCompleteLogout === "function") {
+          try {
+            window.__vcDiscordCompleteLogout({ reason: "user" });
+          } catch (eOut) {}
+        } else if (typeof window.__vcDiscordClearToken === "function") {
           try {
             window.__vcDiscordClearToken();
           } catch (eClear) {}
@@ -419,6 +523,34 @@
     return t === "gestione" || t === "gestione staff" || t === "area staff" || t === "staff area";
   }
 
+  /* recensioniNav1: never keep legacy Suggerimenti label or /suggerimenti/# href. */
+  function normalizePublicNavHref(href) {
+    var h = String(href || "").trim();
+    var low = h.toLowerCase();
+    if (
+      low.indexOf("/suggerimenti") >= 0 ||
+      low === "#" ||
+      low.indexOf("richieste_suggerimenti") >= 0
+    ) {
+      return "/feedback/";
+    }
+    return h;
+  }
+
+  function normalizePublicNavLabel(href, label) {
+    var h = String(href || "").toLowerCase();
+    var lab = String(label || "").replace(/\s+/g, " ").trim();
+    if (
+      h.indexOf("/feedback") >= 0 ||
+      h.indexOf("/suggerimenti") >= 0 ||
+      h.indexOf("richieste_suggerimenti") >= 0
+    ) {
+      return i18nLabel("nav.suggestions", "Feedback");
+    }
+    if (/^suggerimenti$/i.test(lab)) return i18nLabel("nav.suggestions", "Feedback");
+    return lab;
+  }
+
   function navItemHidden(el) {
     return !el || el.hidden || el.hasAttribute("hidden");
   }
@@ -546,21 +678,42 @@
   }
 
   function markTileActive(a, source) {
-    if (!a || !source) return;
-    if (
-      source.classList.contains("is-active") ||
-      source.classList.contains("vc-snav-item--active") ||
-      source.classList.contains("vc-snav-row--active") ||
-      source.getAttribute("aria-current") === "page"
-    ) {
+    if (!a) return;
+    var href = "";
+    try {
+      href = a.getAttribute("href") || (source && source.getAttribute && source.getAttribute("href")) || "";
+    } catch (eHref) {}
+    var match = false;
+    try {
+      if (
+        window.__VC_MOBILE_NAV_CANONICAL &&
+        typeof window.__VC_MOBILE_NAV_CANONICAL.hrefMatches === "function"
+      ) {
+        match = window.__VC_MOBILE_NAV_CANONICAL.hrefMatches(href);
+      } else {
+        var here = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+        var target = href;
+        try {
+          target = String(new URL(href, window.location.href).pathname || "/").replace(/\/+$/, "") || "/";
+        } catch (eU) {}
+        if (target === "/") match = here === "/";
+        else match = target === here;
+      }
+    } catch (eMatch) {}
+    if (match) {
       a.classList.add("is-active");
       a.setAttribute("aria-current", "page");
+    } else {
+      a.classList.remove("is-active");
+      try {
+        a.removeAttribute("aria-current");
+      } catch (eRm) {}
     }
   }
 
   function createTileFromRow(row) {
     if (navItemHidden(row)) return null;
-    var href = row.getAttribute("href");
+    var href = normalizePublicNavHref(row.getAttribute("href"));
     if (!href) return null;
     if (isStaffOnlyNavHref(href)) return null;
     var target = row.getAttribute("target");
@@ -569,6 +722,7 @@
     var a = document.createElement("a");
     a.className = "vc-mobile-nav-tile";
     a.href = href;
+    a.setAttribute("href", href);
     if (target) a.setAttribute("target", target);
     if (rel) a.setAttribute("rel", rel);
     if (dvl) a.setAttribute("data-vc-loading", dvl);
@@ -589,7 +743,7 @@
     }
     if (!labelText) labelText = String(row.textContent || "").trim();
     if (isStaffOnlyNavLabel(labelText)) return null;
-    lab.textContent = labelText;
+    lab.textContent = normalizePublicNavLabel(href, labelText);
     a.appendChild(ico);
     a.appendChild(lab);
     markTileActive(a, row);
@@ -601,12 +755,13 @@
 
   function createTileFromItem(item) {
     if (navItemHidden(item)) return null;
-    var href = item.getAttribute("href");
+    var href = normalizePublicNavHref(item.getAttribute("href"));
     if (!href) return null;
     if (isStaffOnlyNavHref(href)) return null;
     var a = document.createElement("a");
     a.className = "vc-mobile-nav-tile";
     a.href = href;
+    a.setAttribute("href", href);
     var ico = document.createElement("span");
     ico.className = "vc-mobile-nav-tile-ico";
     ico.setAttribute("aria-hidden", "true");
@@ -617,7 +772,7 @@
     var innerSpan = item.querySelector("span");
     var labelText = innerSpan ? String(innerSpan.textContent || "").trim() : String(item.textContent || "").trim();
     if (isStaffOnlyNavLabel(labelText)) return null;
-    lab.textContent = labelText;
+    lab.textContent = normalizePublicNavLabel(href, labelText);
     a.appendChild(ico);
     a.appendChild(lab);
     markTileActive(a, item);
@@ -718,16 +873,22 @@
   function rebuildGrid() {
     var gridRoot = document.getElementById("vc-mobile-nav-drawer-grid");
     if (!gridRoot) return;
+    var usedCanonical = false;
     try {
       if (window.__VC_MOBILE_NAV_CANONICAL && window.__VC_MOBILE_NAV_CANONICAL.shouldUse()) {
         window.__VC_MOBILE_NAV_CANONICAL.build(gridRoot);
+        usedCanonical = true;
+      }
+    } catch (eCanon) {}
+    if (usedCanonical) {
+      try {
         appendStaffGuideSection(
           gridRoot,
           document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"),
         );
-        return;
-      }
-    } catch (eCanon) {}
+      } catch (eStaff) {}
+      return;
+    }
     var nav = document.querySelector("nav.vc-header-snav");
     if (!nav) return;
     gridRoot.innerHTML = "";
@@ -754,7 +915,36 @@
     }
 
     appendStaffGuideSection(gridRoot, document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
+  }
+
+  function stripDrawerBrandMarquee(root) {
+    if (!root || !root.querySelectorAll) return;
+    var links = root.querySelectorAll("a.vc-header-site-name");
+    var i;
+    for (i = 0; i < links.length; i += 1) {
+      var nameEl = links[i];
+      nameEl.classList.remove("is-marquee");
+      try {
+        nameEl.style.removeProperty("--vc-marquee-distance");
+        nameEl.style.removeProperty("--vc-marquee-duration");
+      } catch (eStyle) {}
+      nameEl.removeAttribute("data-vc-marquee-dist");
+      nameEl.removeAttribute("data-vc-marquee-cw");
+      nameEl.removeAttribute("data-vc-marquee-text");
+      var clones = nameEl.querySelectorAll(".vc-header-site-name__text.is-clone");
+      var c;
+      for (c = clones.length - 1; c >= 0; c -= 1) {
+        if (clones[c].parentNode) clones[c].parentNode.removeChild(clones[c]);
       }
+      var track = nameEl.querySelector(".vc-header-site-name__track");
+      if (track) {
+        track.style.transform = "";
+        track.style.animation = "";
+        var texts = track.querySelectorAll(".vc-header-site-name__text");
+        if (texts[0]) texts[0].style.paddingInlineEnd = "";
+      }
+    }
+  }
 
   function cloneBrand(intoEl) {
     var bar = document.querySelector(".vc-header-bar");
@@ -768,12 +958,9 @@
     for (w = 0; w < walks.length; w += 1) {
       walks[w].removeAttribute("id");
     }
+    stripDrawerBrandMarquee(clone);
     intoEl.appendChild(clone);
-    try {
-      if (typeof window.__vcSyncHeaderSiteNameMarquee === "function") {
-        window.__vcSyncHeaderSiteNameMarquee(intoEl);
-      }
-    } catch (eMarquee) {}
+    stripDrawerBrandMarquee(intoEl);
   }
 
   function onMqChange() {
@@ -1011,6 +1198,9 @@
         rebuildGrid();
         removeHeaderDashboardBtn();
       });
+      window.addEventListener("vc-server-identity", function () {
+        syncDrawerFooter();
+      });
       window.addEventListener("vc-dashboard-access", function () {
         rebuildGrid();
         removeHeaderDashboardBtn();
@@ -1018,6 +1208,7 @@
       window.addEventListener("vc-auth-session-boot", function () {
         rebuildGrid();
         removeHeaderDashboardBtn();
+        syncDrawerFooter();
       });
       document.addEventListener("vc-hogwarts-staff-preview-unlock", function () {
         if (drawer && drawer.classList.contains("vc-mobile-nav-drawer--open")) rebuildGrid();

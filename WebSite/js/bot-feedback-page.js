@@ -667,16 +667,20 @@
               setStatus(err.message || "Errore eliminazione.", true);
             });
         };
-        var confirmP = window.VcDialog
-          ? window.VcDialog.confirm({
+        var confirmP = (typeof window.__vcEnsureDialog === "function"
+          ? window.__vcEnsureDialog()
+          : Promise.resolve(window.VcDialog)
+        ).then(function (D) {
+          if (!D || typeof D.confirm !== "function") return false;
+          return D.confirm({
               title: "Eliminare il feedback?",
               message: "Eliminare definitivamente questo feedback?",
               confirmLabel: "Elimina",
               cancelLabel: "Annulla",
               danger: true,
               icon: "fa-trash-o",
-            })
-          : Promise.resolve(window.confirm("Eliminare definitivamente questo feedback?"));
+            });
+        });
         confirmP.then(function (ok) {
           if (ok) run();
         });
@@ -701,16 +705,20 @@
               setStatus(err.message || "Errore eliminazione.", true);
             });
         };
-        var confirmP = window.VcDialog
-          ? window.VcDialog.confirm({
+        var confirmP = (typeof window.__vcEnsureDialog === "function"
+          ? window.__vcEnsureDialog()
+          : Promise.resolve(window.VcDialog)
+        ).then(function (D) {
+          if (!D || typeof D.confirm !== "function") return false;
+          return D.confirm({
               title: "Eliminare il feedback?",
               message: "Eliminare il tuo feedback?",
               confirmLabel: "Elimina",
               cancelLabel: "Annulla",
               danger: true,
               icon: "fa-trash-o",
-            })
-          : Promise.resolve(window.confirm("Eliminare il tuo feedback?"));
+            });
+        });
         confirmP.then(function (ok) {
           if (ok) run();
         });

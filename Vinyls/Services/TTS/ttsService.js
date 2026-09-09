@@ -1,5 +1,6 @@
 const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus, entersState, VoiceConnectionStatus, StreamType, } = require("@discordjs/voice");
 const { isVoiceTransportError, voiceTransportErrorMessage } = require("../../../shared/discord/voiceTransportErrors");
+const { getTtsVoiceJoinPolicy, voiceJoinRetryWaitMs } = require("../../../shared/discord/ttsVoiceJoinPolicy");
 const { notifyBotPresenceVoiceActivity } = require("../../../shared/discord/botPresenceActivity");
 const { Readable } = require("stream");
 const fs = require("fs");
@@ -21,7 +22,6 @@ const { filterScriptsForTtsLang, stripUrlsForTts, softenAttachedDotsForTts } = r
 const MAX_TTS_QUEUE = 10000;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
 const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000;
-const TTS_RESTORE_CONCURRENCY = 3;
 const TTS_POST_JOIN_EMPTY_LEAVE_GRACE_MS = 6000;
 const ttsStates = new Map();
 const ttsLastJoinAtByGuild = new Map();
@@ -1149,13 +1149,24 @@ function shouldLogTtsJoinWarning(guildId, channelId, errMessage, ttlMs = 30000) 
   ttsJoinWarnCache.set(key, now);
   return true;
 }
-async function destroyGuildVoiceConnection(guildId) {
+async function destroyGuildVoiceConnection(guildId, opts = {}) {
   const gid = String(guildId || "");
-  if (!gid) return;
+  if (!gid) return false;
   markTtsVoiceDisconnectSuppress(gid);
+  const policy = getTtsVoiceJoinPolicy();
   const existing = getVoiceConnection(gid);
-  if (existing) destroyVoiceConnectionSafe(existing, "[TTS] destroy existing voice connection:");
-  await sleep(600);
+  let destroyed = false;
+  if (existing) {
+    destroyed = destroyVoiceConnectionSafe(existing, "[TTS] destroy existing voice connection:");
+  }
+  const settleMs =
+    opts.settleMs != null
+      ? Math.max(0, Number(opts.settleMs) || 0)
+      : destroyed
+        ? policy.destroySettleMs
+        : policy.emptyDestroySettleMs;
+  if (settleMs > 0) await sleep(settleMs);
+  return destroyed;
 }
 async function ensureConnection(state, voiceChannel) {
   const musicBlock = resolveMusicBlocksTtsForGuild(voiceChannel.client, voiceChannel.guild.id);
@@ -1164,9 +1175,10 @@ async function ensureConnection(state, voiceChannel) {
   if (lockedChannelId && lockedChannelId !== voiceChannel.id) {
     return null;
   }
+  const policy = getTtsVoiceJoinPolicy();
   if (state.connection?.joinConfig?.channelId === voiceChannel.id) {
     try {
-      await entersState(state.connection, VoiceConnectionStatus.Ready, 5_000);
+      await entersState(state.connection, VoiceConnectionStatus.Ready, Math.min(policy.readyTimeoutMs, 8_000));
       attachTtsVoiceConnectionDisconnectHandler(state.connection, voiceChannel);
       notifyBotPresenceVoiceActivity(voiceChannel.client);
       return state.connection;
@@ -1181,9 +1193,8 @@ async function ensureConnection(state, voiceChannel) {
   }
   markTtsVoiceDisconnectSuppress(voiceChannel.guild.id);
   await destroyGuildVoiceConnection(voiceChannel.guild.id);
-  const isIpDiscoveryError = isVoiceTransportError;
-  const maxAttempts = Math.max(1, Number(process.env.TTS_VOICE_JOIN_MAX_ATTEMPTS || 2));
-  const readyTimeoutMs = Math.max(5_000, Number(process.env.TTS_VOICE_JOIN_READY_TIMEOUT_MS || 10_000));
+  const maxAttempts = policy.maxAttempts;
+  const readyTimeoutMs = policy.readyTimeoutMs;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let connection = null;
     try {
@@ -1210,19 +1221,23 @@ async function ensureConnection(state, voiceChannel) {
         destroyVoiceConnectionSafe(connection, "[TTS] connection destroy after error:");
         state.connection = null;
       }
-      await destroyGuildVoiceConnection(voiceChannel.guild.id);
-      if (isIpDiscoveryError(err) && attempt < maxAttempts) {
-        const waitMs = Math.min(1500 * attempt, 8000);
+      await destroyGuildVoiceConnection(voiceChannel.guild.id, { settleMs: policy.destroySettleMs });
+      if (isVoiceTransportError(err) && attempt < maxAttempts) {
+        const waitMs = voiceJoinRetryWaitMs(attempt);
         const errMessage = String(err?.message || err);
         if (
           shouldLogTtsJoinWarning(
             voiceChannel.guild?.id,
             voiceChannel.id,
-            errMessage,
+            `retry:${errMessage}`,
+            12_000,
           )
         ) {
           global.logger?.warn?.(
-            "[TTS] IP discovery / socket closed, retry in " + waitMs + "ms:",
+            "[TTS] voice join retry",
+            `${attempt}/${maxAttempts}`,
+            "in",
+            waitMs + "ms:",
             errMessage,
           );
         }
@@ -1593,11 +1608,16 @@ async function restoreTtsConnections(client) {
     if (!booleanFromConfig(client?.config?.tts?.restoreVoiceOnRestart, true)) {
       return;
     }
+    const policy = getTtsVoiceJoinPolicy();
+    if (policy.restoreBootDelayMs > 0) {
+      await sleep(policy.restoreBootDelayMs);
+    }
     const prefix = String(client?.config?.prefix || "+");
     const states = await voiceFindManyLeanForBot(String(client.user.id), { includeLegacyWithoutBot: false }).catch(() => []);
+    const concurrency = policy.restoreConcurrency;
 
-    for (let i = 0; i < states.length; i += TTS_RESTORE_CONCURRENCY) {
-      const batch = states.slice(i, i + TTS_RESTORE_CONCURRENCY);
+    for (let i = 0; i < states.length; i += concurrency) {
+      const batch = states.slice(i, i + concurrency);
       await Promise.all(
         batch.map(async (entry) => {
           const channel = await getClientChannelCached(client, entry?.channelId);
@@ -1630,6 +1650,9 @@ async function restoreTtsConnections(client) {
           restoreTtsQueueForChannel(channel);
         }),
       );
+      if (policy.restoreGapMs > 0 && i + concurrency < states.length) {
+        await sleep(policy.restoreGapMs);
+      }
     }
   } catch (error) {
     global.logger?.error?.("[TTS] Failed to restore voice connections", error);

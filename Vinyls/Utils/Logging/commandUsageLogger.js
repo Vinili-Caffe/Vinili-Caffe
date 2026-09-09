@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached } = require("../Interaction/interactionEntityCache");
-const { embedThumbnailAvatarUrl } = require("../Discord/guildDiscordIdentity");
+const { embedThumbnailAvatarUrl, memberDisplayName } = require("../Discord/guildDiscordIdentity");
 const RESOLUTION_CACHE_TTL_MS = 30_000;
 const EMBED_FIELD_MAX = 1024;
 const resolutionCache = new Map();
@@ -67,15 +67,17 @@ async function logCommandUsage(client, { channelId, serverName, user, userId, co
   if (!channelId) return;
   const channel = await getCentralChannel(client, channelId);
   if (!channel) return;
+  const displayName =
+    memberDisplayName(userLike) || String(user || "").trim() || String(userId || "unknown");
   const embed = new EmbedBuilder().setColor("#6f4e37").setAuthor({
-    name: `${user} ha usato un comando.`,
+    name: `${displayName} ha usato un comando.`,
     iconURL: embedThumbnailAvatarUrl(userLike || { id: userId }, { size: 64 }),
   })
     .setTitle(`${client.user.username} - Log Comandi`)
     .addFields(
       { name: "<a:VC_Channel:1482534583944871996> Server:", value: truncateEmbedField(serverName || "—") },
       { name: "<:VC_Bot:1482526555174604964> Comando:", value: formatCommandContentField(content) },
-      { name: "<:member_role_icon:1330530086792728618> Utente:", value: truncateEmbedField(`${user} · \`${userId}\``) },
+      { name: "<:member_role_icon:1330530086792728618> Utente:", value: truncateEmbedField(`${displayName} · \`${userId}\``) },
     )
     .setTimestamp();
   await channel.send({ embeds: [embed] }).catch((err) => {

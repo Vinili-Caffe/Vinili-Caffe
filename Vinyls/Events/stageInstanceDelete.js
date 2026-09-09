@@ -1,4 +1,3 @@
-const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffAutoValutazioniService");
 const { handleMovieNightStageClose } = require("../Services/Community/movieNightAnnouncementService");
 const { snapshotSerataFilmHouseAttendance } = require("../Services/Community/hogwartsSerataFilmHouseLeaderboardService");
 
@@ -9,9 +8,7 @@ module.exports = {
     const channelId = String(stageInstance?.channelId || stageInstance?.channel?.id || "");
     if (!guild || !channelId) return;
     const attendanceSnapshot = snapshotSerataFilmHouseAttendance(guild.id);
-    await finishSerataFilmSessionsForChannel(guild, channelId).catch((err) => {
-      global.logger?.warn?.("[stageInstanceDelete] serata film staff auto:", err?.message || err);
-    });
+    // staff auto-vals run inside handleMovieNightStageClose (serataFilmFinishFromClose1)
     await handleMovieNightStageClose(stageInstance, { attendanceSnapshot }).catch((err) => {
       global.logger?.warn?.("[stageInstanceDelete] movie night close:", err?.message || err);
     });

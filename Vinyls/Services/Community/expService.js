@@ -9,7 +9,7 @@ const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClie
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const VINILI_EMBED_COLOR_INT = 0x826bc2;
-const { guildMemberDisplayAvatarUrlDynamic, accountUsername, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity");
+const { memberDisplayName, resolveEmbedUserAvatarUrl } = require("../../Utils/Discord/guildDiscordIdentity");
 const { parseScheduleMs, parseScheduleEndMs } = require("../../Utils/Web/hogwartsEventSchedule");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
@@ -610,7 +610,7 @@ async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = nul
 
 async function buildLevelUpEmbed(member, level) {
   const avatarUrl = await resolveEmbedUserAvatarUrl(member, { size: 256 });
-  const name = accountUsername(member);
+  const name = memberDisplayName(member);
   return {
     embeds: [
       {
@@ -650,13 +650,14 @@ async function sendLevelUpAnnouncement(guild, member, level) {
 
 async function buildPerksLevelEmbed(member, level, roleId) {
   const avatarUrl = await resolveEmbedUserAvatarUrl(member, { size: 256 });
+  const name = memberDisplayName(member);
   return {
     embeds: [
       {
         color: VINILI_EMBED_COLOR_INT,
-        title: `${accountUsername(member)} leveled up!`,
+        title: `${name} leveled up!`,
         thumbnail: { url: avatarUrl },
-        author: { name: accountUsername(member), icon_url: avatarUrl },
+        author: { name, icon_url: avatarUrl },
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${formatMemberMention(member)}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il <@&${roleId}>`,

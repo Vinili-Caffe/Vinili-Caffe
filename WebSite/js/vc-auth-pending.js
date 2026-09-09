@@ -89,9 +89,14 @@
         "?size=128"
       );
     }
-    var disc = Number(user.discriminator);
-    if (!isFinite(disc) || disc === 0) disc = Number(String(user.id || "").slice(-4)) % 5;
-    return "https://cdn.discordapp.com/embed/avatars/" + (disc % 5) + ".png";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
+      }
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
   function escAttr(v) {
@@ -106,6 +111,12 @@
     var nodes = document.querySelectorAll("#discord-login-btn, button[data-vc-discord-login]");
     for (var i = 0; i < nodes.length; i += 1) {
       nodes[i].hidden = true;
+      try {
+        nodes[i].setAttribute("hidden", "");
+        nodes[i].classList.add("vc-discord-login-btn--gone");
+        nodes[i].setAttribute("aria-hidden", "true");
+        nodes[i].style.setProperty("display", "none", "important");
+      } catch (eHide) {}
     }
   }
 
@@ -141,11 +152,33 @@
 
   function profileShellHtml(user) {
     var name = String((user && (user.global_name || user.username)) || "Utente").trim() || "Utente";
-    var img = avatarUrl(user);
+    try {
+      if (window.VcDiscordIdentity && typeof window.VcDiscordIdentity.pickDisplayName === "function") {
+        name = window.VcDiscordIdentity.pickDisplayName(user, "Utente");
+      }
+    } catch (eDn) {}
+    try {
+      var server = window.__VC_SERVER_IDENTITY;
+      if (server && String(server.displayName || "").trim()) {
+        if (!user || !user.id || String(server.userId || "") === String(user.id || "") || !server.userId) {
+          name = String(server.displayName).trim();
+        }
+      }
+    } catch (eServerName) {}
+    var img = "";
+    try {
+      var serverAv = window.__VC_SERVER_IDENTITY;
+      if (serverAv && serverAv.avatarUrl && (!user || !user.id || String(serverAv.userId || "") === String(user.id || "") || !serverAv.userId)) {
+        img = String(serverAv.avatarUrl || "").trim();
+      }
+    } catch (eServerAv) {}
+    if (!img) img = avatarUrl(user);
     var label = escAttr(name);
+    var guildImg = /\/guilds\/\d+\/users\//i.test(img);
     var avatarVisual = img
       ? '<img class="discord-avatar-img" data-vc-avatar="1"' +
-        (user && user.avatar ? ' data-avatar-hash="' + escAttr(String(user.avatar)) + '"' : "") +
+        (guildImg ? ' data-vc-guild-avatar="1"' : "") +
+        (!guildImg && user && user.avatar ? ' data-avatar-hash="' + escAttr(String(user.avatar)) + '"' : "") +
         ' src="' +
         escAttr(img) +
         '" alt="" width="38" height="38" decoding="async" aria-label="' +
@@ -182,6 +215,18 @@
     try {
       window.__VC_DISCORD_PROFILE = user || window.__VC_DISCORD_PROFILE || null;
     } catch (eProf) {}
+    if (user && user.id) {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("vc-discord-profile", { detail: { user: user, early: true } }),
+        );
+      } catch (eProfEv) {}
+    }
+    try {
+      if (typeof window.__vcMobileNavSyncFooter === "function") {
+        window.__vcMobileNavSyncFooter();
+      }
+    } catch (eFoot) {}
   }
 
   function warmDashboardMenuFromCache(token) {
@@ -233,6 +278,7 @@
   }
 
   function bootEarlyAuthHeader() {
+    /* mobileNavProfileCache1: apply cached profile before session-boot so drawer can paint */
     injectEarlyAuthCss();
     var token = "";
     try {
@@ -249,12 +295,12 @@
     } catch (eH) {}
     document.documentElement.classList.add("vc-auth-session-pending");
     warmDashboardMenuFromCache(token);
-    try {
-      window.dispatchEvent(new CustomEvent("vc-auth-session-boot"));
-    } catch (eBootEv) {}
     var cached = readCachedMe(token);
     function apply() {
       applyEarlyAuthShell(cached);
+      try {
+        window.dispatchEvent(new CustomEvent("vc-auth-session-boot"));
+      } catch (eBootEv) {}
     }
     if (document.body) apply();
     else document.addEventListener("DOMContentLoaded", apply);

@@ -2,7 +2,6 @@ const { getGuildMemberCached, getUserCached } = require("../Interaction/interact
 const {
   accountUsername,
   userAvatarUrlDynamic,
-  discordDefaultAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
 const { identityFromMember } = require("./siteStaffRosterCache");
 
@@ -52,7 +51,8 @@ function identityFallback(userId, label = FALLBACK_LABEL) {
     userId: uid,
     displayName: label,
     username: "",
-    avatarUrl: discordDefaultAvatarUrl({ id: uid }, { size: 128 }),
+    // avatarSiteFb1: empty → client site silhouette (never Discord embed defaults).
+    avatarUrl: "",
   };
 }
 
@@ -63,7 +63,7 @@ function identityFromUser(user, userId) {
     userId: uid,
     displayName: displayName || FALLBACK_LABEL,
     username: accountUsername(user) || "",
-    avatarUrl: userAvatarUrlDynamic(user, { size: 128 }) || discordDefaultAvatarUrl(user || { id: uid }, { size: 128 }),
+    avatarUrl: userAvatarUrlDynamic(user, { size: 128 }) || "",
   };
 }
 
@@ -145,7 +145,7 @@ async function resolveWebUserIdentity(client, guild, userId, opts = {}) {
         userId: uid,
         displayName: safeDisplayLabel(id.displayName, uid),
         username: id.username || "",
-        avatarUrl: id.avatarUrl || discordDefaultAvatarUrl({ id: uid }, { size: 128 }),
+        avatarUrl: id.avatarUrl || "",
       };
       writeIdentityOkCache(out);
       return out;
@@ -171,6 +171,8 @@ async function resolveWebUserIdentitiesBatch(client, guild, userIds, opts = {}) 
   const cap = Math.max(1, Number(opts.cap) || DEFAULT_CAP);
   const budgetMs = Math.max(250, Number(opts.budgetMs) || DEFAULT_BUDGET_MS);
   const paceMs = Math.max(0, Number(opts.paceMs) || 0);
+  const cacheOnly = Boolean(opts.cacheOnly);
+  const fillFallback = opts.fillFallback !== false && !cacheOnly;
   const unique = [...new Set((userIds || []).map((x) => String(x || "").trim()).filter(isDiscordSnowflake))];
   const out = new Map();
   const missing = [];
@@ -188,7 +190,7 @@ async function resolveWebUserIdentitiesBatch(client, guild, userIds, opts = {}) 
         userId: uid,
         displayName: safeDisplayLabel(id.displayName, uid),
         username: id.username || "",
-        avatarUrl: id.avatarUrl || discordDefaultAvatarUrl({ id: uid }, { size: 128 }),
+        avatarUrl: id.avatarUrl || "",
       };
       writeIdentityOkCache(resolved);
       out.set(uid, resolved);
@@ -204,25 +206,30 @@ async function resolveWebUserIdentitiesBatch(client, guild, userIds, opts = {}) 
     missing.push(uid);
   }
 
-  const toFetch = missing.slice(0, cap);
-  const t0 = Date.now();
-  for (let i = 0; i < toFetch.length; i += batchSize) {
-    if (Date.now() - t0 > budgetMs) break;
-    const chunk = toFetch.slice(i, i + batchSize);
-    await Promise.all(
-      chunk.map(async (uid) => {
-                const id = await resolveWebUserIdentity(client, guild, uid, {
-                    skipGuildMember: opts.skipGuildMember !== false,
-          preferFreshUser: true,
-        });
-        out.set(uid, id);
-      }),
-    );
-    if (paceMs && i + batchSize < toFetch.length) await sleep(paceMs);
+  if (!cacheOnly) {
+    const toFetch = missing.slice(0, cap);
+    const t0 = Date.now();
+    for (let i = 0; i < toFetch.length; i += batchSize) {
+      if (Date.now() - t0 > budgetMs) break;
+      const chunk = toFetch.slice(i, i + batchSize);
+      await Promise.all(
+        chunk.map(async (uid) => {
+          const id = await resolveWebUserIdentity(client, guild, uid, {
+            // Default: allow guild cache/member. Callers that fear member storms pass skipGuildMember:true.
+            skipGuildMember: Boolean(opts.skipGuildMember),
+            preferFreshUser: true,
+          });
+          out.set(uid, id);
+        }),
+      );
+      if (paceMs && i + batchSize < toFetch.length) await sleep(paceMs);
+    }
   }
 
-  for (const uid of missing) {
-    if (!out.has(uid)) out.set(uid, identityFallback(uid));
+  if (fillFallback) {
+    for (const uid of missing) {
+      if (!out.has(uid)) out.set(uid, identityFallback(uid));
+    }
   }
   return out;
 }

@@ -931,6 +931,8 @@ async function runConsumableBoostExpiryTick(client) {
 }
 
 function startConsumableBoostExpiryLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (!client || expiryLoopClients.has(client)) return;
   expiryLoopClients.add(client);
   const cron = require("node-cron");

@@ -30,7 +30,7 @@ self.addEventListener("pushsubscriptionchange", function (event) {
   );
 });
 
-var PUSH_ICON_PATH = "/images/vc-server-icon.png";
+var PUSH_ICON_PATH = "/images/og-server-icon.gif?v=20260904brandGif1";
 
 function normalizePushIcon(icon) {
   var s = String(icon || "").trim();

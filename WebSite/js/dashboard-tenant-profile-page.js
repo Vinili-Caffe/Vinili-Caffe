@@ -766,8 +766,14 @@
 
   async function confirmDevAction(action) {
     if (action === "revokePremium") {
-      if (window.VcDialog && typeof window.VcDialog.choose === "function") {
-        return window.VcDialog.choose({
+      var D0 = window.VcDialog;
+      if (!D0 || typeof D0.choose !== "function") {
+        if (typeof window.__vcEnsureDialog === "function") {
+          D0 = await window.__vcEnsureDialog();
+        }
+      }
+      if (D0 && typeof D0.choose === "function") {
+        return D0.choose({
           title: i18n("dashProf.dev.confirmRevokePremiumTitle", "Revocare Premium?"),
           message: i18n(
             "dashProf.dev.confirmRevokePremium",
@@ -789,13 +795,7 @@
           ],
         });
       }
-      var legacy = window.confirm(
-        i18n(
-          "dashProf.dev.confirmRevokePremiumLegacy",
-          "Revocare Premium? OK = solo revoca. Per riaccreditare i crediti usa il pannello Crediti.",
-        ),
-      );
-      return legacy ? "revoke" : null;
+      return null;
     }
     var meta = {
       leave: {
@@ -838,8 +838,14 @@
     };
     var cfg = meta[action];
     if (!cfg) return true;
-    if (window.VcDialog && typeof window.VcDialog.confirm === "function") {
-      return window.VcDialog.confirm({
+    var D = window.VcDialog;
+    if (!D || typeof D.confirm !== "function") {
+      if (typeof window.__vcEnsureDialog === "function") {
+        D = await window.__vcEnsureDialog();
+      }
+    }
+    if (D && typeof D.confirm === "function") {
+      return D.confirm({
         title: cfg.title,
         message: cfg.message,
         confirmLabel: cfg.confirmLabel,
@@ -848,7 +854,7 @@
         icon: cfg.icon,
       });
     }
-    return window.confirm(cfg.message);
+    return false;
   }
 
   function syncDevCreditsDraftFromDom() {

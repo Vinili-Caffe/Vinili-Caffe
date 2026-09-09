@@ -17,7 +17,15 @@ function isReadOnlySiteGet(req) {
   if (path.startsWith("/webhooks/site-rank-card")) return true;
   if (path.startsWith("/webhooks/site-custom-profile")) return true;
   if (path.startsWith("/webhooks/site-profile-extras")) return true;
+  if (path.startsWith("/webhooks/site-welcome-pronouns")) return true;
   if (path.startsWith("/webhooks/site-users")) return true;
+  if (path.startsWith("/webhooks/site-roles")) return true;
+  if (path.startsWith("/webhooks/site-vote")) return true;
+  // mobileApisFast2: ticket/candidature GET must not burn strict rate limit on CGNAT phones
+  if (path.startsWith("/webhooks/site-web-tickets")) return true;
+  if (path.startsWith("/webhooks/site-candidature")) return true;
+  if (path.startsWith("/webhooks/site-unban")) return true;
+  if (path.startsWith("/webhooks/site-unmute")) return true;
   if (path.startsWith("/webhooks/site-reviews")) return true;
   if (path.startsWith("/webhooks/site-hogwarts-sorting/forbidden-books")) return true;
   if (path === "/webhooks/site-rules") return true;
@@ -35,12 +43,13 @@ function shouldSkipRateLimit(req) {
     path === "/webhooks/site-api/health" ||
     path === "/webhooks/health" ||
     path === "/webhooks/status" ||
-        path === "/webhooks/site-kick-sub/events" ||
-        (method === "POST" &&
+    path === "/webhooks/site-kick-sub/events" ||
+    (method === "POST" &&
       path.startsWith("/webhooks/site-notifications") &&
       (path.includes("/push/subscribe") || path.includes("/push/unsubscribe"))) ||
     isReadOnlySiteGet(req) ||
-            (method === "GET" && path.startsWith("/webhooks/site-staff-"))
+    // Staff inbox/workflows/chat: no rate limit (GET+POST) — detail+chat open together.
+    path.startsWith("/webhooks/site-staff-")
   );
 }
 

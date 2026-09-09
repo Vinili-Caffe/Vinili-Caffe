@@ -9,7 +9,7 @@ const {
 } = require("../../Utils/Partner/partnersChatChannelUtils");
 const {
   isPartnershipOperational,
-  memberHasPartnerManagerRole,
+  memberCanExecutePartnership,
   resolvePartnershipConfigSync,
   shouldApplyMainPartnershipFilters,
 } = require("../../Utils/Partner/partnershipConfigResolver");
@@ -46,7 +46,7 @@ module.exports = {
       return;
     }
 
-    if (!memberHasPartnerManagerRole(interaction.member, guildId)) {
+    if (!memberCanExecutePartnership(interaction.member, guildId)) {
       const isMain = shouldApplyMainPartnershipFilters(guildId);
       await interaction.reply({
         embeds: [

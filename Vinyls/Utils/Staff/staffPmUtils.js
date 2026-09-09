@@ -8,13 +8,25 @@ const {
   resetStaffLadderTrackInDb,
 } = require("./staffDocUtils");
 const { getHighestStaffLadderRoleId } = require("./staffRoleHierarchy");
+const { memberHasAnyRemappedRole, remapRoleIdForward } = require("../Config/emergencyRoleIdRemap");
 
-const ROLE_PM = IDs.roles.PartnerManager;
-const ROLE_STAFF_GENERIC = IDs.roles.Staff;
+function getPartnerManagerRoleIdLive() {
+  return remapRoleIdForward(IDs.roles?.PartnerManager) || String(IDs.roles?.PartnerManager || "").trim() || null;
+}
 
 function memberHasPartnerManagerRole(member) {
-  return Boolean(ROLE_PM && member?.roles?.cache?.has?.(ROLE_PM));
+  const roleId = getPartnerManagerRoleIdLive();
+  if (!roleId || !member) return false;
+  if (memberHasAnyRemappedRole(member, roleId)) return true;
+  try {
+    const { memberHasRoleNameMatch } = require("../Config/emergencyRoleIdRemap");
+    return memberHasRoleNameMatch(member, /partner\s*manager/i);
+  } catch {
+    return false;
+  }
 }
+
+const ROLE_STAFF_GENERIC = IDs.roles.Staff;
 
 function memberHasAnyStaffPresenceForDepexSync(member) {
   if (!member?.roles?.cache) return false;
@@ -92,7 +104,9 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
 }
 
 module.exports = {
-  ROLE_PM,
+  get ROLE_PM() {
+    return getPartnerManagerRoleIdLive();
+  },
   memberHasPartnerManagerRole,
   memberHasAnyStaffPresenceForDepexSync,
   initPartnerManagerFieldsIfMissing,

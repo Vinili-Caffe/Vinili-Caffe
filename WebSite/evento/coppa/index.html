@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html class="vc-site-polish" lang="it">
   <head>
+  <script id="vc-site-photo-bg-prime">(function(){try{window.__VC_SITE_PHOTO_BG=true;document.documentElement.classList.add("vc-site-photo-bg","vc-cine-static-bg","vc-home-cine-live","vc-home-motion-ready")}catch(e){}})();</script>
+  <link rel="stylesheet" id="vc-site-photo-bg-link" href="/css/vc-site-photo-bg.css?v=20260906gifNeverWebp1" />
+  <link rel="stylesheet" id="vc-avatar-css" href="/css/vc-avatar.css?v=20260907avatarGlow1" />
 <style id="vc-fa-noflash-css">html:not(.vc-fa-ready) .fa{visibility:hidden!important;opacity:0!important}html:not(.vc-fa-ready) .fa:before{content:""!important}html.vc-fa-ready .fa{visibility:visible!important;opacity:1!important}</style>
 <script id="vc-auth-instant-boot">(function(){try{var t=localStorage.getItem("vc_discord_access_token");if(!t)return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;document.documentElement.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
 <style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}</style>
@@ -25,11 +28,14 @@
 <link rel="preload" as="font" type="font/woff2" href="/css/font-awesome/fonts/fontawesome-webfont.woff2?v=4.7.0" crossorigin />
 <link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css?v=20260831faLocal1" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="../../css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="stylesheet" href="../../css/vc-landing-core.css?v=20260831cssSplitFix1" />
-    <link rel="stylesheet" href="../../css/vc-landing-ext.css?v=20260902promoCandMobileFix1" /><link rel="icon" href="{{GUILD_ICON_URL}}" />
-  </head>
+    <link rel="stylesheet" href="../../css/vc-landing-core.css?v=20260907heroIconBg1" />
+    <link rel="stylesheet" href="../../css/vc-landing-ext.css?v=20260907heroIconBg1" /><link rel="icon" href="{{GUILD_ICON_URL}}" />
+  <script src="/js/vc-home-cine.js?v=20260907cardHeroIcon1" defer></script>
+<link rel="stylesheet" href="/css/vc-image-lightbox.css?v=20260908imgLightbox2" id="vc-image-lightbox-css" />
+</head>
   <body id="top" class="vc-body vc-hw-page vc-hw-points-page vc-hw-page--with-header relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
     <div class="vc-home-cine" aria-hidden="true">
+      <img class="vc-home-cine__photo" src="/images/sfondo.gif?v=20260906gifNeverWebp1" alt="" decoding="async" loading="eager" draggable="false" />
       <canvas class="vc-home-cine__canvas"></canvas>
       <div class="vc-home-cine__veil"></div>
       <div class="vc-home-cine__grain"></div>
@@ -85,25 +91,84 @@
     </main>
 
         
-  <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
-    <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
-      <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5"
-        aria-label="Social e home">
-        {{FOOTER_SOCIAL_LEFT}}
-        <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-          href="{{SITE_URL}}">{{SITE_NAME}}</a>
-        {{FOOTER_SOCIAL_RIGHT}}
+    <footer class="vc-premium-footer" aria-label="Footer" data-i18n-attr="aria-label:footer.aria">
+    <div class="vc-premium-footer__card">
+      <div class="vc-premium-footer__outer">
+        <div class="vc-premium-footer__inner">
+          <div class="vc-premium-footer__grid">
+            <section class="vc-premium-footer__brand" aria-label="Vinili & Caffè">
+              <a class="vc-premium-footer__logo-row" href="https://www.viniliecaffe.it/">
+                <span class="vc-premium-footer__logo" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                    <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="vc-premium-footer__wordmark">Vinili & Caffè</span>
+              </a>
+              <p class="vc-premium-footer__desc" data-i18n="footer.desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+              <div class="vc-premium-footer__socials" aria-label="Social" data-i18n-attr="aria-label:footer.social">
+                <a class="vc-premium-footer__social" href="https://www.instagram.com/viniliecaffe/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="https://discord.gg/viniliecaffe" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 5.4A17 17 0 0 0 15.2 4l-.2.4a13 13 0 0 1 3.2 1.6 10.8 10.8 0 0 0-4-1.2 11.2 11.2 0 0 0-4.4.2A10.8 10.8 0 0 0 5.8 6a13 13 0 0 1 3.3-1.6L8.9 4a17 17 0 0 0-4.4 1.4C1.8 9.4 1 13.3 1.4 17.2A17 17 0 0 0 6.6 20l1.1-1.5c-.6-.2-1.2-.5-1.8-.9l.4-.3c3.4 1.6 7.2 1.6 10.6 0l.4.3c-.6.4-1.2.7-1.8.9l1.1 1.5a17 17 0 0 0 5.2-2.8c.5-4.5-.8-8.4-2.3-11.8ZM8.8 15.1c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="https://www.tiktok.com/@viniliecaffe" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4v9.1a4.4 4.4 0 1 1-4.4-4.4c.35 0 .7.04 1.03.12v2.55a1.9 1.9 0 1 0 1.03 1.68V4h2.34Zm0 0c.4 2.15 1.74 3.43 3.7 3.84v2.42c-1.52-.08-2.8-.56-3.7-1.36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+              </div>
+            </section>
+            <div class="vc-premium-footer__navcols">
+            <nav class="vc-premium-footer__col" aria-label="Community" data-i18n-attr="aria-label:footer.community">
+              <h4 data-i18n="footer.community">Community</h4>
+              <ul>
+                <li><a href="https://www.viniliecaffe.it/" data-i18n="footer.home">Home</a></li>
+                <li><a href="https://www.viniliecaffe.it/user" data-i18n="footer.users">Users</a></li>
+                <li><a href="https://www.viniliecaffe.it/ruoli" data-i18n="footer.roles">Ruoli</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Scopri" data-i18n-attr="aria-label:footer.discover">
+              <h4 data-i18n="footer.discover">Scopri</h4>
+              <ul>
+                <li><a href="/wiki" data-i18n="footer.wiki">Wiki</a></li>
+                <li><a href="https://www.viniliecaffe.it/regole" data-i18n="footer.rules">Regole</a></li>
+                <li><a href="/faq" data-i18n="footer.faq">FAQ</a></li>
+                <li><a href="/sponsor" data-i18n="footer.sponsor">Sponsor</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Supporta" data-i18n-attr="aria-label:footer.support">
+              <h4 data-i18n="footer.support">Supporta</h4>
+              <ul>
+                <li><a href="https://www.viniliecaffe.it/perks" data-i18n="footer.perks">Perks</a></li>
+                <li><a href="https://www.viniliecaffe.it/vote" data-i18n="footer.vote">Vota</a></li>
+                <li><a href="https://www.viniliecaffe.it/recensioni" data-i18n="footer.reviews">Recensioni</a></li>
+                <li><a href="https://www.viniliecaffe.it/donazioni" data-i18n="footer.donations">Donazioni</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Richieste" data-i18n-attr="aria-label:footer.requests">
+              <h4 data-i18n="footer.requests">Richieste</h4>
+              <ul>
+                <li><a href="https://www.viniliecaffe.it/appelli" data-i18n="footer.appeals">Appelli</a></li>
+                <li><a href="https://www.viniliecaffe.it/candidature" data-i18n="footer.applications">Candidature</a></li>
+                <li><a href="https://www.viniliecaffe.it/feedback/" data-i18n="footer.suggestions">Feedback</a></li>
+                <li><a href="https://www.viniliecaffe.it/tickets" data-i18n="footer.tickets">Tickets</a></li>
+              </ul>
+            </nav>
+            </div>
+          </div>
+        </div>
+        <div class="vc-premium-footer__legal">
+          <p><a class="vc-footer-copy-link" href="https://www.viniliecaffe.it/copyright">© 2026 Vinili & Caffè. All rights reserved.</a></p>
+          <nav aria-label="Link legali" data-i18n-attr="aria-label:footer.legalLinks">
+            <a href="https://www.viniliecaffe.it/terms" data-i18n="footer.terms">Termini di Servizio</a>
+            <span aria-hidden="true"></span>
+            <a href="https://www.viniliecaffe.it/privacy" data-i18n="footer.privacy">Privacy Policy</a>
+            <span aria-hidden="true"></span>
+            <a href="https://www.viniliecaffe.it/cookie" data-i18n="footer.cookies">Cookie Policy</a>
+          </nav>
+        </div>
       </div>
-      <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80"
-        aria-label="Link legali">
-        <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
-        <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
-        <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
-      </nav>
-      <p class="max-w-xl text-sm leading-relaxed text-slate-400">
-        © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
-        <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
-      </p>
     </div>
   </footer>
 <script>
@@ -125,8 +190,11 @@
     <script src="../../js/vc-evento-bgm-defer.js?v=20260831eventoBgmFix1" defer></script>
 <script src="../../js/hogwarts-house-points-page.js?v=20260829coppaSchoolHide1"></script>
 <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
-    <script src="../../js/vc-landing.js?v=20260831sitePerfFix1" defer></script>
+    <script src="/js/vc-image-lightbox.js?v=20260908imgLightbox2" defer data-vc-img-lightbox="1"></script>
+<script src="../../js/vc-landing.js?v=20260908imgLightbox2" defer></script>
     <script src="../../js/vc-auth-pending.js?v=20260831navAuthCacheFix1"></script>
-<script src="../../js/discord-auth.js?v=20260831navAuthCacheFix1" defer></script><script src="/js/vc-ptr.js?v=20260831sitePerfFix1" defer></script>
+<script src="/js/vc-discord-avatar.js?v=20260906avatarHub1" defer></script>
+<script src="/js/vc-avatar-fallback.js?v=20260906avatarHub1" defer></script>
+<script src="../../js/discord-auth.js?v=20260908imgLightbox2" defer></script><script src="/js/vc-ptr.js?v=20260831sitePerfFix1" defer></script>
 </body>
 </html>

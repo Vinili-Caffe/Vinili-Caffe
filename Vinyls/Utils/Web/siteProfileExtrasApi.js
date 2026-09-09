@@ -167,9 +167,13 @@ function isColorCategory(cat) {
 }
 
 function categoryRolePool(cat) {
-  if (cat === "colors_level") return colorUnlocks.getTierExclusiveRoleIds();
+  // Colori Base / Livelli / Plus: sempre lo stesso pool — max 1 colore totale.
   if (isColorCategory(cat)) return colorUnlocks.getAllPersonalityChatColorRoleIds();
   return PERSONALITY_CATEGORY_ROLE_IDS[cat] || [];
+}
+
+function isMultiToggleCategory(cat) {
+  return cat === "mentions" || cat === "hobby";
 }
 
 async function buildRolePanelCategory(guild, member, cat, prefetched = {}) {
@@ -184,6 +188,8 @@ async function buildRolePanelCategory(guild, member, cat, prefetched = {}) {
       : await colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false);
   let options = [{ value: "remove", label: "Rimuovi selezione" }];
   let selected = "";
+  const selectedIds = [];
+  const multi = isMultiToggleCategory(key);
 
   if (key === "colors_level") {
     const unlocked = colorUnlocks.listUnlockedTierRoleIds(level);
@@ -209,14 +215,19 @@ async function buildRolePanelCategory(guild, member, cat, prefetched = {}) {
     for (const rid of pool) {
       if (!guild.roles.cache.has(rid)) continue;
       options.push({ value: rid, label: roleOptionLabel(guild, rid), unlocked: true });
-      if (member.roles.cache.has(rid)) selected = rid;
+      if (member.roles.cache.has(rid)) {
+        selectedIds.push(rid);
+        selected = rid;
+      }
     }
   }
 
   return {
     key,
     label: ROLE_PANEL_LABELS[key] || key,
-    selected: selected || "",
+    selected: multi ? "" : selected || "",
+    selectedIds: multi ? selectedIds : selected ? [selected] : [],
+    multi,
     options,
     canPickPlus: canPlus,
     level,
@@ -254,7 +265,9 @@ async function getProfileExtras(client, { accessToken, section: sectionRaw } = {
     canPlus,
   ] = await Promise.all([
     needDm ? getNoDmPreferences(guild.id, userId).catch(() => ({ blockAll: false, disabled: new Set() })) : null,
-    needNotif ? getSerializedSiteNotifPrefs(guild.id, userId).catch(() => ({ groups: [] })) : null,
+    needNotif
+      ? getSerializedSiteNotifPrefs(guild.id, userId, { member }).catch(() => ({ groups: [] }))
+      : null,
     needPrivacy ? readPrivacyState(guild.id, userId) : null,
     needBirthday ? getBirthdayProfile(guild.id, userId).catch(() => null) : null,
     needReactions ? MentionReaction.findOne({ guildId: guild.id, userId }).lean().catch(() => null) : null,
@@ -549,8 +562,10 @@ async function mutateRolePanel(guild, member, userId, payload) {
 
   const level = await colorUnlocks.fetchNumericProfileLevel(guild.id, userId).catch(() => 0);
   const canPlus = await colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false);
-  const removePool = categoryRolePool(category).filter((id) => guild.roles.cache.has(id) && member.roles.cache.has(id));
+  const poolAll = categoryRolePool(category).filter((id) => guild.roles.cache.has(id));
+  const heldInPool = poolAll.filter((id) => member.roles.cache.has(id));
   const isRemove = value === "remove";
+  const multi = isMultiToggleCategory(category);
 
   if (!isRemove) {
     if (isColorCategory(category)) {
@@ -571,16 +586,42 @@ async function mutateRolePanel(guild, member, userId, payload) {
     }
   }
 
-  const toRemove = removePool;
+  let toRemove = [];
+  let addIds = [];
+  let message = "Ruolo aggiornato.";
+
+  if (isRemove) {
+    toRemove = heldInPool;
+    message = "Selezione rimossa.";
+  } else if (multi) {
+    // Ping / Hobby: toggle — puoi tenerne più di uno.
+    if (member.roles.cache.has(value)) {
+      toRemove = [value];
+      message = "Ruolo rimosso.";
+    } else {
+      addIds = [value];
+      message = "Ruolo aggiunto.";
+    }
+  } else if (isColorCategory(category)) {
+    // Base / Livelli / Plus: max 1 colore totale.
+    toRemove = heldInPool.filter((id) => id !== value);
+    if (!member.roles.cache.has(value)) addIds = [value];
+    message = "Colore aggiornato.";
+  } else {
+    // Pronomi / età / ecc.: esclusivi nella categoria.
+    toRemove = heldInPool.filter((id) => id !== value);
+    if (!member.roles.cache.has(value)) addIds = [value];
+  }
+
   if (toRemove.length) {
     await member.roles.remove(toRemove, `Profile role panel via sito (${category})`).catch(() => null);
   }
-  if (!isRemove) {
-    await member.roles.add(value, `Profile role panel via sito (${category})`).catch(() => null);
+  if (addIds.length) {
+    await member.roles.add(addIds, `Profile role panel via sito (${category})`).catch(() => null);
   }
 
   await persistPersonalityRoleDelta(guild.id, userId, {
-    added: isRemove ? [] : [value],
+    added: addIds,
     removed: toRemove,
   }).catch(() => null);
 
@@ -589,7 +630,7 @@ async function mutateRolePanel(guild, member, userId, payload) {
   return {
     ok: true,
     rolePanelCategory: panel,
-    message: isRemove ? "Ruolo rimosso." : "Ruolo aggiornato.",
+    message,
   };
 }
 
@@ -603,7 +644,9 @@ async function mutateProfileExtras(client, payload) {
   let result;
   try {
     if (section === "dm") result = await mutateDm(guild.id, userId, payload);
-    else if (section === "site_notif") result = await mutateSiteNotifPrefs(guild.id, userId, payload);
+    else if (section === "site_notif") {
+      result = await mutateSiteNotifPrefs(guild.id, userId, payload, { member });
+    }
     else if (section === "privacy") result = await mutatePrivacy(guild.id, userId, payload);
     else if (section === "birthday") result = await mutateBirthday(guild, userId, client, payload);
     else if (section === "mention_reaction" || section === "reactions") {

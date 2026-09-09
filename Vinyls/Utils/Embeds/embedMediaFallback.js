@@ -44,8 +44,10 @@ function isDiscordCdnUrl(url) {
 }
 
 function sanitizeEmbedMediaUrl(url, { preferDefaultOnBad = true, size = 256 } = {}) {
-  const raw = String(url == null ? "" : url).trim();
+  let raw = String(url == null ? "" : url).trim();
   if (!raw || raw === "null" || raw === "undefined") return null;
+  // Discord embed media requires https (or attachment/data). Upgrade plain http.
+  if (/^http:\/\//i.test(raw)) raw = `https://${raw.slice("http://".length)}`;
   if (!/^https:\/\//i.test(raw) && !/^attachment:\/\//i.test(raw) && !/^data:/i.test(raw)) return null;
   if (/^attachment:\/\//i.test(raw) || /^data:/i.test(raw)) return raw;
   if (BAD_TOKEN_RE.test(raw)) {

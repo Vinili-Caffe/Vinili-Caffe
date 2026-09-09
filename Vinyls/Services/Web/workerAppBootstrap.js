@@ -27,7 +27,11 @@ function loadDotEnv() {
 
 function loadVinylsConfig() {
   const configPath = path.join(ROOT, "Vinyls", "config.json");
-  return JSON.parse(fs.readFileSync(configPath, "utf8"));
+  const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  try {
+    require("../../Utils/Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(cfg);
+  } catch (_) {}
+  return cfg;
 }
 
 function resolveMongoUrl() {

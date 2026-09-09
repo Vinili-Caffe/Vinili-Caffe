@@ -31,7 +31,6 @@ const TIME_ZONE = "Europe/Rome";
 const GAMES = Object.freeze(["reactPress", "forbiddenSection", "spellListHunt"]);
 const CHAOS_FORBIDDEN_MAX_WINNERS = 1;
 const CHAOS_FIND_SCROLL_WINNERS = 1;
-const loopState = new WeakSet();
 
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
@@ -1188,18 +1187,9 @@ async function tickFinaleChaos(client) {
   await trySpawnSlot(client, guild, c, slot, plan);
 }
 
-function startHogwartsFinaleChaosDayLoop(client) {
-  if (!client || loopState.has(client)) return;
-  loopState.add(client);
-  const run = () => {
-    tickFinaleChaos(client).catch((err) =>
-      global.logger?.warn?.("[FINALE CHAOS] tick:", err?.message || err),
-    );
-  };
-  run();
-  const interval = setInterval(run, 20 * 1000);
-  if (typeof interval.unref === "function") interval.unref();
-  global.logger?.info?.("[FINALE CHAOS] loop avviato");
+/** Evento concluso: non avviare più il day-loop (niente tick / log a boot). */
+function startHogwartsFinaleChaosDayLoop(_client) {
+  return;
 }
 
 module.exports = {

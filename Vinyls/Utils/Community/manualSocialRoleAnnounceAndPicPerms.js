@@ -169,7 +169,7 @@ function buildSelfieVerifiedGuildedStyleEmbed(member, roleId, title) {
         `<@${member.id}>, \`hai sbloccato:\``,
         `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${roleId}>!`,
         "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
-        "<a:VC_HeartWhite:1448673535253024860> - Permesso di scrivere nel canale <#1470029899740873029>",
+        "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
         "",
         "<a:VC_Arrow:1482706699365257397> Scopri i tuoi vantaggi sul nostro [sito](https://viniliecaffe.it/perks).",
       ].join("\n"),
@@ -325,6 +325,8 @@ async function sendSelfieVerifiedRoleAnnounce(member, channel, roleId, title) {
 }
 
 async function recoverManualSocialRoleAnnouncesOnStartup(client, opts = {}) {
+  const { isSocialRoleAnnounceGloballySuppressed } = require("../Moderation/muteRestoreAnnounceSuppress");
+  if (isSocialRoleAnnounceGloballySuppressed()) return { ok: false, reason: "suppressed" };
   const {
     isRecoveryPrimaryShard,
     DEFAULT_RECOVERY_LOOKBACK_MS,
@@ -399,6 +401,8 @@ async function recoverManualSocialRoleAnnouncesOnStartup(client, opts = {}) {
 async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, newMember) {
   if (!oldMember || !newMember?.guild || !newMember.user) return;
   if (String(newMember.guild.id) !== MAIN_GUILD_ID) return;
+  const { isSocialRoleAnnounceGloballySuppressed } = require("../Moderation/muteRestoreAnnounceSuppress");
+  if (isSocialRoleAnnounceGloballySuppressed()) return;
   if (!rolesCacheChanged(oldMember, newMember)) return;
 
   const channel = await resolveSupportersChannel(newMember.guild);

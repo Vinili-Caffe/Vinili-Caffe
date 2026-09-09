@@ -103,7 +103,7 @@ function resolveSubSyncConfig(client) {
       ? client.config.kickSubscriberSync
       : {};
   const live = resolveKickLiveConfig(client);
-  const streamerSlug = normalizeSlug(raw.streamerSlug || live.streamers?.[0]?.slug || "d1uk");
+  const streamerSlug = normalizeSlug(raw.streamerSlug || live.streamers?.[0]?.slug || "diunk17");
   const roleId = String(raw.roleId || IDs.roles?.KickSub || process.env.KICK_SUB_ROLE_ID || "").trim();
   const moderatorRoleId = String(
     raw.moderatorRoleId || IDs.roles?.KickModerator || process.env.KICK_MOD_ROLE_ID || "",

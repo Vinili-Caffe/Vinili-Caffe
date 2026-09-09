@@ -4,6 +4,26 @@ const { resolveSubmissionChannel } = require("../../Events/interaction/candidatu
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 const { applyWebsiteUnmute } = require("../../Events/interaction/unmuteWebsiteHandlers");
 
+function appealSubjectOpenUrl(messageId) {
+  const mid = String(messageId || "").trim();
+  if (!mid) return "/appelli/";
+  return `/appelli/?chat=${encodeURIComponent(`appelli:${mid}`)}`;
+}
+
+async function notifyAppealSubject(guildId, userId, { title, body, dedupeKey, messageId }) {
+  return enqueueSiteInAppNotification({
+    guildId,
+    userId,
+    title,
+    body,
+    kind: "workflow_decision",
+    channel: "personal",
+    openUrl: appealSubjectOpenUrl(messageId),
+    dedupeKey,
+    dedupeWindowMs: 86_400_000,
+    replaceDedupe: true,
+  });
+}
 const UNBAN_ACC = "website_unban_acc";
 const UNBAN_REJ = "website_unban_rej";
 const UNMUTE_ACC = "website_unmute_acc";
@@ -269,17 +289,13 @@ async function notifyAppealAutoClosed(guild, userId, kind, messageId) {
   const uid = String(userId || "").trim();
   if (!guild?.id || !uid) return;
   const isUnban = k === "unban";
-  await enqueueSiteInAppNotification({
-    guildId: guild.id,
-    userId: uid,
+  await notifyAppealSubject(guild.id, uid, {
     title: isUnban ? "Richiesta unban chiusa" : "Richiesta unmute chiusa",
     body: isUnban
       ? "La tua richiesta unban è stata chiusa automaticamente perché il ban non risulta più attivo."
       : "La tua richiesta unmute è stata chiusa automaticamente perché il mute non risulta più attivo.",
-    kind: "info",
-    openUrl: "/appelli",
     dedupeKey: `appeal-auto-close:${k}:${uid}:${messageId || "x"}`,
-    dedupeWindowMs: 86_400_000,
+    messageId,
   }).catch(() => null);
 }
 
@@ -469,29 +485,21 @@ async function decideUnbanAppeal(guild, userId, messageId, accept, actorMember =
     try {
       await guild.members.unban(userId, "Richiesta unban accettata (sito)");
       staffNote = "Unban completato.";
-      await enqueueSiteInAppNotification({
-        guildId: guild.id,
-        userId,
+      await notifyAppealSubject(guild.id, userId, {
         title: "Richiesta unban accettata",
         body: "Lo staff ha accettato la tua richiesta unban: puoi rientrare nel server con l'invito ufficiale o tramite il sito.",
-        kind: "mod",
-        openUrl: "/appelli",
         dedupeKey: `unban-acc:${userId}:${messageId}`,
-        dedupeWindowMs: 86_400_000,
+        messageId,
       });
     } catch (err) {
       const notBanned =
         err?.code === 10026 || String(err?.message || "").toLowerCase().includes("not banned");
       if (notBanned) {
-        await enqueueSiteInAppNotification({
-          guildId: guild.id,
-          userId,
+        await notifyAppealSubject(guild.id, userId, {
           title: "Richiesta unban accettata",
           body: "Lo staff ha accettato la tua richiesta: puoi rientrare nel server con l'invito ufficiale o tramite il sito.",
-          kind: "mod",
-          openUrl: "/appelli",
           dedupeKey: `unban-acc:${userId}:${messageId}`,
-          dedupeWindowMs: 86_400_000,
+          messageId,
         });
         staffNote = "L'utente non risultava bannato.";
       } else {
@@ -502,15 +510,11 @@ async function decideUnbanAppeal(guild, userId, messageId, accept, actorMember =
     return { ok: true, status: 200, message: staffNote || "Unban completato." };
   }
 
-  await enqueueSiteInAppNotification({
-    guildId: guild.id,
-    userId,
+  await notifyAppealSubject(guild.id, userId, {
     title: "Richiesta unban rifiutata",
     body: "Lo staff ha rifiutato la tua richiesta unban. Puoi inviare una nuova richiesta dopo il cooldown di 15 giorni sul sito.",
-    kind: "mod",
-    openUrl: "/appelli",
     dedupeKey: `unban-rej:${userId}:${messageId}`,
-    dedupeWindowMs: 86_400_000,
+    messageId,
   });
   await syncWorkflow(false);
   return { ok: true, status: 200, message: "Richiesta unban rifiutata." };
@@ -544,29 +548,21 @@ async function decideUnmuteAppeal(guild, userId, messageId, accept, actorMember 
     if (!out?.ok) {
       return { ok: false, status: 400, message: out?.message || "Impossibile completare l'unmute." };
     }
-    await enqueueSiteInAppNotification({
-      guildId: guild.id,
-      userId,
+    await notifyAppealSubject(guild.id, userId, {
       title: "Richiesta unmute accettata",
       body: "Lo staff ha accettato la tua richiesta unmute: il timeout/mute è stato rimosso.",
-      kind: "mod",
-      openUrl: "/appelli",
       dedupeKey: `unmute-acc:${userId}:${messageId}`,
-      dedupeWindowMs: 86_400_000,
+      messageId,
     });
     await syncWorkflow(true);
     return { ok: true, status: 200, message: "Unmute completato." };
   }
 
-  await enqueueSiteInAppNotification({
-    guildId: guild.id,
-    userId,
+  await notifyAppealSubject(guild.id, userId, {
     title: "Richiesta unmute rifiutata",
     body: "Lo staff ha rifiutato la tua richiesta unmute. Puoi inviare una nuova richiesta dopo il cooldown sul sito.",
-    kind: "mod",
-    openUrl: "/appelli",
     dedupeKey: `unmute-rej:${userId}:${messageId}`,
-    dedupeWindowMs: 86_400_000,
+    messageId,
   });
   await syncWorkflow(false);
   return { ok: true, status: 200, message: "Richiesta unmute rifiutata." };

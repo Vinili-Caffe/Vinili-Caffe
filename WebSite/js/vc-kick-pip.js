@@ -12,17 +12,6 @@
     }
   }
   if (!isHomePage()) return;
-  try {
-    var coarseKick =
-      (window.matchMedia && window.matchMedia("(max-width: 639.98px)").matches) ||
-      (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-      (window.matchMedia && window.matchMedia("(hover: none)").matches) ||
-      Number(navigator.maxTouchPoints || 0) > 0 ||
-      Boolean(navigator.standalone);
-        if (coarseKick) return;
-  } catch (eKickPhone) {
-    return;
-  }
   if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
   if (document.body && document.body.classList.contains("vc-seratafilm-page")) return;
 
@@ -169,9 +158,19 @@
         });
       }
     } catch (eDlg) {}
-    try {
-      window.alert(message || title);
-    } catch (eA) {}
+    if (typeof window.__vcEnsureDialog === "function") {
+      return window.__vcEnsureDialog().then(function (D) {
+        if (D && typeof D.alert === "function") {
+          return D.alert({
+            title: title,
+            message: message,
+            okLabel: okLabel,
+            icon: icon,
+            danger: danger,
+          });
+        }
+      });
+    }
     return Promise.resolve();
   }
 
@@ -654,7 +653,7 @@
     }
 
         if (subStatus && subStatus.linked && !subStatus.subActive) {
-      var subUrl = String(subStatus.subscribeUrl || "").trim() || "https://kick.com/d1uk";
+      var subUrl = String(subStatus.subscribeUrl || "").trim() || "https://kick.com/diunk17";
       void showPipAlert({
         title: t("kickPip.subLinkedTitle", "Quasi fatto"),
         message: t(
@@ -1292,7 +1291,7 @@
     var kickOpen =
       String(lastPayload.url || "").trim() ||
       String((subStatus && subStatus.subscribeUrl) || "").trim() ||
-      "https://kick.com/d1uk";
+      "https://kick.com/diunk17";
     loadRememberedTime(lastStreamId || (lastPayload && lastPayload.id));
     if (playBtn) {
       playBtn.disabled = true;
@@ -1678,9 +1677,20 @@
     root.style.bottom = "auto";
   }
 
-  function startDrag(ev) {
+  function isCoarsePointer() {
+    try {
+      if (window.matchMedia && window.matchMedia("(max-width: 639.98px)").matches) return true;
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+      if (window.matchMedia && window.matchMedia("(hover: none)").matches) return true;
+      if (Number(navigator.maxTouchPoints || 0) > 0) return true;
+    } catch (eCoarse) {}
+    return false;
+  }
+
+  function startDrag(ev, opts) {
     if (docPipWindow) return;
     if (!ev || (ev.button != null && ev.button !== 0)) return;
+    opts = opts || {};
     var rect = root.getBoundingClientRect();
     dragState = {
       pointerId: ev.pointerId,
@@ -1691,12 +1701,19 @@
       left: rect.left,
       top: rect.top,
       moved: false,
+      captureOnMove: opts.captureOnMove === true,
+      captured: false,
     };
     root.classList.add("vc-kick-pip--dragging");
-    try {
-      root.setPointerCapture(ev.pointerId);
-    } catch (eCap) {}
-    ev.preventDefault();
+    if (!dragState.captureOnMove) {
+      try {
+        root.setPointerCapture(ev.pointerId);
+        dragState.captured = true;
+      } catch (eCap) {}
+      try {
+        ev.preventDefault();
+      } catch (ePrev) {}
+    }
   }
 
   root.addEventListener("pointerdown", function (ev) {
@@ -1704,12 +1721,30 @@
     if (!tEl || !tEl.closest) return;
     if (tEl.closest("[data-vc-kick-pip-dismiss], [data-vc-kick-pip-float], [data-vc-kick-pip-sound], [data-vc-kick-pip-play], [data-vc-kick-pip-sub], .vc-kick-pip__gate, .vc-kick-pip__open")) return;
     if (tEl.closest("video")) return;
-    if (tEl.closest("[data-vc-kick-pip-drag]") || tEl.closest(".vc-kick-pip__chrome") || tEl.closest(".vc-kick-pip__meta")) {
+    var coarse = isCoarsePointer();
+    /* kickPhoneOn1: su telefono trascina solo dal handle, non da tutta la card */
+    var canDrag = coarse
+      ? !!tEl.closest("[data-vc-kick-pip-drag]")
+      : !!(tEl.closest("[data-vc-kick-pip-drag]") || tEl.closest(".vc-kick-pip__chrome") || tEl.closest(".vc-kick-pip__meta"));
+    if (canDrag) {
       metaDragMoved = false;
-      startDrag(ev);
+      startDrag(ev, { captureOnMove: coarse });
     }
   });
   root.addEventListener("pointermove", function (ev) {
+    if (dragState && dragState.captureOnMove && !dragState.captured) {
+      var dx0 = Math.abs(ev.clientX - dragState.startX);
+      var dy0 = Math.abs(ev.clientY - dragState.startY);
+      if (dx0 + dy0 > 6) {
+        try {
+          root.setPointerCapture(ev.pointerId);
+          dragState.captured = true;
+        } catch (eCap2) {}
+        try {
+          ev.preventDefault();
+        } catch (ePrev2) {}
+      }
+    }
     if (dragState && dragState.moved) metaDragMoved = true;
     onDragMove(ev);
   });

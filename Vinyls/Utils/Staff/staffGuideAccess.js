@@ -83,6 +83,14 @@ function getRequiredRoleIdsForSection(sectionId) {
   return [];
 }
 
+/** Staff ladder / Staff role — excludes Partner Manager–only (same gate as guida staff). */
+function memberCanAccessStaffFeedbackBoard(member) {
+  if (!member) return false;
+  if (isPartnerManagerOnlyMember(member)) return false;
+  if (memberHasAnyRole(member, getStaffGuideAccessRoleIds())) return true;
+  return memberHasStaffLadderRole(member);
+}
+
 function memberCanReadStaffGuideSection(member, sectionId) {
   const id = String(sectionId || "").trim();
   if (!id || !member) return false;
@@ -91,9 +99,7 @@ function memberCanReadStaffGuideSection(member, sectionId) {
   if (!meta) return false;
 
   if (STAFF_GUIDE_LADDER_SECTION_IDS.has(id)) {
-    if (isPartnerManagerOnlyMember(member)) return false;
-    if (memberHasAnyRole(member, getStaffGuideAccessRoleIds())) return true;
-    return memberHasStaffLadderRole(member);
+    return memberCanAccessStaffFeedbackBoard(member);
   }
 
   const required = getRequiredRoleIdsForSection(id);
@@ -121,4 +127,5 @@ module.exports = {
   memberCanReadStaffGuideSection,
   listReadableStaffGuideSections,
   isPartnerManagerOnlyMember,
+  memberCanAccessStaffFeedbackBoard,
 };

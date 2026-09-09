@@ -2046,19 +2046,32 @@
       var secondi = Math.floor((distanza % (1000 * 60)) / 1000);
       var te = document.getElementById("timer");
       if (te) {
-        te.innerHTML =
-          '<div class="tile" data-unit="days"><span class="num">' +
-          giorni +
-          '</span><span class="lbl">Giorni</span></div>' +
-          '<div class="tile" data-unit="hours"><span class="num">' +
-          ore +
-          '</span><span class="lbl">Ore</span></div>' +
-          '<div class="tile" data-unit="minutes"><span class="num">' +
-          minuti +
-          '</span><span class="lbl">Minuti</span></div>' +
-          '<div class="tile" data-unit="seconds"><span class="num">' +
-          secondi +
-          '</span><span class="lbl">Secondi</span></div>';
+        try {
+          te.removeAttribute("data-i18n");
+          te.removeAttribute("data-i18n-src");
+        } catch (eI18) {}
+        /* sfCountdownStable1: update nums in place — full innerHTML every tick looked like a reload */
+        var existing = te.querySelectorAll(".tile .num");
+        if (existing && existing.length === 4) {
+          existing[0].textContent = String(giorni);
+          existing[1].textContent = String(ore);
+          existing[2].textContent = String(minuti);
+          existing[3].textContent = String(secondi);
+        } else {
+          te.innerHTML =
+            '<div class="tile" data-unit="days"><span class="num">' +
+            giorni +
+            '</span><span class="lbl">Giorni</span></div>' +
+            '<div class="tile" data-unit="hours"><span class="num">' +
+            ore +
+            '</span><span class="lbl">Ore</span></div>' +
+            '<div class="tile" data-unit="minutes"><span class="num">' +
+            minuti +
+            '</span><span class="lbl">Minuti</span></div>' +
+            '<div class="tile" data-unit="seconds"><span class="num">' +
+            secondi +
+            '</span><span class="lbl">Secondi</span></div>';
+        }
       }
     }
     scheduleCountdownAudioFromFilmAt();

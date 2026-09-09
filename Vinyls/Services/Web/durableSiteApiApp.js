@@ -87,6 +87,15 @@ function expandCorsOriginAllowlist(origins) {
         const alt = new URL(o);
         alt.hostname = "localhost";
         set.add(alt.origin);
+      } else if (u.hostname.startsWith("www.")) {
+        // appelliApi1: site lives on www; env often has apex-only CORS origins
+        const alt = new URL(o);
+        alt.hostname = u.hostname.slice(4);
+        set.add(alt.origin);
+      } else if (u.hostname && !u.hostname.startsWith("www.")) {
+        const alt = new URL(o);
+        alt.hostname = `www.${u.hostname}`;
+        set.add(alt.origin);
       }
     } catch {
       continue;
@@ -110,7 +119,11 @@ function corsAllowlistPermitsAnyLoopbackDevOrigin(allowlist) {
 
 function loadVinylsConfig() {
   const configPath = path.join(ROOT, "Vinyls", "config.json");
-  return JSON.parse(fs.readFileSync(configPath, "utf8"));
+  const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  try {
+    require("../../Utils/Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(cfg);
+  } catch (_) {}
+  return cfg;
 }
 
 async function main() {
@@ -232,6 +245,7 @@ async function main() {
     const isSiteKickSub = pathStr.startsWith("/webhooks/site-kick-sub");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
+    const isSiteWikiHelp = pathStr.startsWith("/webhooks/site-wiki-help");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteBotFeedback = pathStr.startsWith("/webhooks/site-bot-feedback");
@@ -258,6 +272,13 @@ async function main() {
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
     const isSiteCustomProfile = pathStr.startsWith("/webhooks/site-custom-profile");
     const isSiteProfileExtras = pathStr.startsWith("/webhooks/site-profile-extras");
+    // appelliApi1: subject live chat on /appelli uses these user workflow endpoints
+    const isSiteUserWorkflow =
+      pathStr.startsWith("/webhooks/site-user-workflows") ||
+      pathStr.startsWith("/webhooks/site-user-workflow-chat");
+    const isSiteStaffWorkflow =
+      pathStr.startsWith("/webhooks/site-staff-workflows") ||
+      pathStr.startsWith("/webhooks/site-staff-workflow-chat");
     if (
       !isStatus &&
       !isCandidature &&
@@ -271,6 +292,7 @@ async function main() {
       !isSiteKickSub &&
       !isSiteRoles &&
       !isSiteRankCard &&
+      !isSiteWikiHelp &&
       !isSiteReviews &&
       !isSiteSuggestions &&
       !isSiteBotFeedback &&
@@ -282,7 +304,9 @@ async function main() {
       !isSiteStaffAccess &&
       !isSiteHogwartsSorting &&
       !isSiteCustomProfile &&
-      !isSiteProfileExtras
+      !isSiteProfileExtras &&
+      !isSiteUserWorkflow &&
+      !isSiteStaffWorkflow
     ) {
       return next();
     }
@@ -290,16 +314,16 @@ async function main() {
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
     if (originNorm && candidatureCorsAllowlist.includes(originNorm)) {
-      allowOrigin = originRaw;
+      allowOrigin = originNorm;
     } else if (
       originNorm &&
       candidatureCorsAllowlist.length > 0 &&
       corsAllowlistPermitsAnyLoopbackDevOrigin(candidatureCorsAllowlist) &&
       isLoopbackBrowserOriginUrl(originNorm)
     ) {
-      allowOrigin = originRaw;
+      allowOrigin = originNorm;
     } else if (originNorm && candidatureCorsAllowlist.length === 0) {
-      if (isLoopbackBrowserOriginUrl(originNorm)) allowOrigin = originRaw;
+      if (isLoopbackBrowserOriginUrl(originNorm)) allowOrigin = originNorm;
     }
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);

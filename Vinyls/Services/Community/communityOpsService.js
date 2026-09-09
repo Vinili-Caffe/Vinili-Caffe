@@ -5,6 +5,7 @@ const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/C
 const { sponsorMainLeave } = require("../../Utils/Community/activityUserProfilePaths");
 const { isSponsorGuildVerify } = require("../../Utils/Interaction/verifyUtils");
 const IDs = require("../../Utils/Config/ids");
+const { resolveVoteRoleIdForGuild } = require("../../Utils/Community/resolveVoteRoleId");
 const { getEffectiveJoinedAt } = require("./effectiveMemberJoinService");
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const CHECK_INTERVAL_MS = 60 * 1000;
@@ -76,8 +77,10 @@ async function removeExpiredVoteRoles(client) {
       continue;
     }
     const member = guild.members.cache.get(item.userId) || (await guild.members.fetch(item.userId).catch(() => null));
-    if (member?.roles?.cache?.has(VOTE_ROLE_ID)) {
-      await member.roles.remove(VOTE_ROLE_ID).catch(() => { });
+    const resolvedVoteRoleId = await resolveVoteRoleIdForGuild(guild).catch(() => "");
+    const roleIdToRemove = resolvedVoteRoleId || VOTE_ROLE_ID;
+    if (member?.roles?.cache?.has(roleIdToRemove)) {
+      await member.roles.remove(roleIdToRemove).catch(() => { });
     }
     await ActivityUserProfile.updateOne(
       { guildId: item.guildId, userId: item.userId },
@@ -160,10 +163,40 @@ async function applySponsorGuildAutoVerificato(member) {
   await ensureSponsorVerificatoForMember(member);
 }
 
+/** Add target tenure role first; only then strip the others (avoids empty tenure on rate-limit). */
+async function syncTenureDiscordRoles(member, keepRoleId) {
+  const keep = String(keepRoleId || "").trim();
+  const all = [ROLE_STAGE_1, ROLE_STAGE_2, ROLE_STAGE_3].map((id) => String(id || "").trim()).filter(Boolean);
+  if (!member || !keep || !all.includes(keep)) return null;
+
+  let current = member;
+  if (!current.roles.cache.has(keep)) {
+    current = (await addRolesAndGetMember(current.guild, current.id, [keep])) || current;
+    if (!current.roles.cache.has(keep)) {
+      global.logger?.warn?.(
+        "[VERIFY TENURE] keep-role add failed (no strip):",
+        String(current.guild?.id || ""),
+        current.id,
+        keep,
+      );
+      return null;
+    }
+  }
+
+  const extras = all.filter((id) => id !== keep && current.roles.cache.has(id));
+  if (extras.length) {
+    await current.roles.remove(extras).catch(() => {});
+    current =
+      (await getGuildMemberCached(current.guild, current.id, { preferFresh: true }).catch(() => current)) ||
+      current;
+  }
+  return current;
+}
+
 async function applyTenureForMember(member, record) {
   if (!member || !record) return;
   if (mongoose.connection?.readyState !== 1) return;
-    const mutedRoleId = String(IDs.roles?.Muted || "").trim();
+  const mutedRoleId = String(IDs.roles?.Muted || "").trim();
   if (mutedRoleId && member.roles?.cache?.has?.(mutedRoleId)) return;
   const timeoutUntil =
     Number(member?.communicationDisabledUntilTimestamp || 0) ||
@@ -194,72 +227,42 @@ async function applyTenureForMember(member, record) {
   else if (joinedOk) baseTenureMs = joinedMs;
   else if (verifiedOk) baseTenureMs = verifiedMs;
   if (!Number.isFinite(baseTenureMs) || baseTenureMs <= 0) return;
-  const stage1At = new Date(baseTenureMs + STAGE_1_DAYS * DAY_MS,);
-  const stage2At = new Date(baseTenureMs + STAGE_2_DAYS * DAY_MS,);
+  const stage1At = new Date(baseTenureMs + STAGE_1_DAYS * DAY_MS);
+  const stage2At = new Date(baseTenureMs + STAGE_2_DAYS * DAY_MS);
 
-  const has1 = member.roles.cache.has(ROLE_STAGE_1);
-  const has2 = member.roles.cache.has(ROLE_STAGE_2);
-  const has3 = member.roles.cache.has(ROLE_STAGE_3);
+  const has1 = Boolean(ROLE_STAGE_1 && member.roles.cache.has(ROLE_STAGE_1));
+  const has2 = Boolean(ROLE_STAGE_2 && member.roles.cache.has(ROLE_STAGE_2));
+  const has3 = Boolean(ROLE_STAGE_3 && member.roles.cache.has(ROLE_STAGE_3));
 
+  let desiredRoleId = ROLE_STAGE_1;
+  let desiredStage = 1;
   if (now >= stage2At) {
-    if (!has3 || has1 || has2) {
-      if (canManageRoles) {
-        await member.roles.remove([ROLE_STAGE_1, ROLE_STAGE_2].filter(Boolean)).catch(() => { });
-        const refreshedMember = ROLE_STAGE_3
-          ? (await addRolesAndGetMember(member.guild, member.id, [ROLE_STAGE_3])) || member
-          : member;
-        if ((ROLE_STAGE_1 && refreshedMember.roles.cache.has(ROLE_STAGE_1)) || (ROLE_STAGE_2 && refreshedMember.roles.cache.has(ROLE_STAGE_2)) || (ROLE_STAGE_3 && !refreshedMember.roles.cache.has(ROLE_STAGE_3))) return;
-      }
+    desiredRoleId = ROLE_STAGE_3;
+    desiredStage = 3;
+  } else if (now >= stage1At) {
+    desiredRoleId = ROLE_STAGE_2;
+    desiredStage = 2;
+  }
+
+  const alreadyOk =
+    (desiredStage === 3 && has3 && !has1 && !has2) ||
+    (desiredStage === 2 && has2 && !has1 && !has3) ||
+    (desiredStage === 1 && has1 && !has2 && !has3);
+
+  if (!alreadyOk && canManageRoles && desiredRoleId) {
+    const synced = await syncTenureDiscordRoles(member, desiredRoleId);
+    if (!synced) {
+      // Keep Discord as-is; do not advance DB stage when role sync failed.
+      return;
     }
-    if (stageValue !== 3) {
-      await ActivityUserProfile.updateOne(
-        { guildId: record.guildId, userId: record.userId },
-        { $set: { "profile.verificationTenure.stage": 3 } },
-      );
-    }
+  } else if (!alreadyOk && !canManageRoles) {
     return;
   }
 
-  if (now >= stage1At) {
-    if (!has2 || has1 || has3) {
-      if (canManageRoles) {
-        await member.roles.remove([ROLE_STAGE_1, ROLE_STAGE_3].filter(Boolean)).catch(() => { });
-        const refreshedMember = ROLE_STAGE_2
-          ? (await addRolesAndGetMember(member.guild, member.id, [ROLE_STAGE_2])) || member
-          : member;
-        if ((ROLE_STAGE_1 && refreshedMember.roles.cache.has(ROLE_STAGE_1)) || (ROLE_STAGE_3 && refreshedMember.roles.cache.has(ROLE_STAGE_3)) || (ROLE_STAGE_2 && !refreshedMember.roles.cache.has(ROLE_STAGE_2))) return;
-      }
-    }
-    if (stageValue !== 2) {
-      await ActivityUserProfile.updateOne(
-        { guildId: record.guildId, userId: record.userId },
-        { $set: { "profile.verificationTenure.stage": 2 } },
-      );
-    }
-    return;
-  }
-
-  if (has2 || has3) {
-    if (canManageRoles) {
-      await member.roles.remove([ROLE_STAGE_2, ROLE_STAGE_3].filter(Boolean)).catch(() => { });
-    }
-  }
-  if (!has1) {
-    if (canManageRoles && ROLE_STAGE_1) {
-      const refreshedMember = (await addRolesAndGetMember(member.guild, member.id, [ROLE_STAGE_1])) || member;
-      if (!refreshedMember.roles.cache.has(ROLE_STAGE_1)) {
-        global.logger?.warn?.(
-          "[VERIFY TENURE] NuovoUtente non assegnato dopo tentativo:",
-          guildId,
-          member.id,
-        );
-      }
-    }
-  }
-  if (stageValue !== 1) {
+  if (stageValue !== desiredStage) {
     await ActivityUserProfile.updateOne(
       { guildId: record.guildId, userId: record.userId },
-      { $set: { "profile.verificationTenure.stage": 1 } },
+      { $set: { "profile.verificationTenure.stage": desiredStage } },
     );
   }
 }
@@ -270,12 +273,22 @@ async function runTenureSweep(client) {
     .lean()
     .catch(() => []);
   if (!docs.length) return;
+  let i = 0;
   for (const doc of docs) {
+    i += 1;
     const guild = await getClientGuildCached(client, doc.guildId);
     if (!guild) continue;
     const member = await getGuildMemberCached(guild, doc.userId);
     if (!member) continue;
-    await applyTenureForMember(member, doc);
+    try {
+      await applyTenureForMember(member, doc);
+    } catch (error) {
+      global.logger?.warn?.("[VERIFY TENURE] apply failed:", doc.userId, error?.message || error);
+    }
+    // Soft pacing so recovery-on-start does not mass rate-limit role adds.
+    if (i % 8 === 0) {
+      await new Promise((r) => setTimeout(r, 350));
+    }
   }
 }
 
@@ -395,11 +408,13 @@ function replaceNumberSuffixOnly(name, nextNumber) {
 
 const PUBLIC_VOICE_SEPARATOR_NAME = "〝";
 const PUBLIC_VOICE_NUMBERING_GROUPS = ["Lounge", "Duo", "Trio", "Quad", "Penta", "Hexa", "Setta", "Octa", "Squad"];
-const PUBLIC_VOICE_HUB_CHANNEL_IDS = new Set(
-  (Array.isArray(IDs.publicVoiceHubChannelIds) ? IDs.publicVoiceHubChannelIds : [])
-    .map((id) => String(id || "").trim())
-    .filter(Boolean),
-);
+function getPublicVoiceHubChannelIdSet() {
+  return new Set(
+    (Array.isArray(IDs.publicVoiceHubChannelIds) ? IDs.publicVoiceHubChannelIds : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean),
+  );
+}
 const PUBLIC_VOICE_DECORATIVE_PREFIX = "༄";
 const VOICE_RENAME_GAP_MS = 1500;
 const CATEGORY_RENAME_GAP_MS = 2500;
@@ -471,7 +486,7 @@ function resolvePublicVoiceNumberingGroup(channel) {
 }
 
 function isPublicVoiceNumberingTarget(channel) {
-  if (PUBLIC_VOICE_HUB_CHANNEL_IDS.has(String(channel?.id || ""))) return false;
+  if (getPublicVoiceHubChannelIdSet().has(String(channel?.id || ""))) return false;
   return Boolean(resolvePublicVoiceNumberingGroup(channel));
 }
 

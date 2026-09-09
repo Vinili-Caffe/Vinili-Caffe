@@ -3,8 +3,9 @@ const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require("../..
 const { getBotState, setBotState } = require("../BotState/botStateStore");
 const { getGuildMemberCached, getUserCached } = require("../Interaction/interactionEntityCache");
 const {
-  userAvatarUrlStatic,
-  guildMemberDisplayAvatarUrlStatic,
+  guildMemberDisplayAvatarUrlDynamic,
+  userAvatarUrlDynamic,
+  normalizeDiscordCdnAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
 const {
   getPauseStatusLabel,
@@ -483,10 +484,7 @@ function memberToSubjectFields(member, userId) {
     member?.user?.globalName,
     member?.user?.username,
   );
-      const avatarUrl =
-    guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
-    userAvatarUrlStatic(member?.user || member, { size: 128 }) ||
-    "";
+  const avatarUrl = liveWorkflowAvatarUrl(member, member?.user || member, 128);
   return {
     ...(displayName ? { displayName } : {}),
     ...(avatarUrl ? { avatarUrl } : {}),
@@ -494,17 +492,51 @@ function memberToSubjectFields(member, userId) {
 }
 
 function hasRealDiscordAvatarUrl(url) {
-  return /cdn\.discordapp\.com\/avatars\/\d+\//i.test(String(url || ""));
+  const u = String(url || "").trim();
+  if (!u) return false;
+  if (/\/embed\/avatars\//i.test(u)) return false;
+  // User global + guild member + media CDN (pause usa spesso /avatars/, resoconti spesso /guilds/.../avatars/)
+  return /(?:cdn\.discordapp\.com|media\.discordapp\.net)\/(?:avatars\/\d+\/|guilds\/\d+\/users\/\d+\/avatars\/)/i.test(
+    u,
+  );
 }
 
+function preferAnimatedStoredAvatarUrl(url, size = 128) {
+  const raw = String(url || "").trim();
+  if (!hasRealDiscordAvatarUrl(raw)) return "";
+  try {
+    if (typeof normalizeDiscordCdnAvatarUrl === "function") {
+      return normalizeDiscordCdnAvatarUrl(raw, { size, preferAnimated: true }) || raw;
+    }
+  } catch (_) {}
+  if (/\/a_[a-f0-9]+\./i.test(raw)) {
+    return raw.replace(/\.(png|webp|jpg|jpeg)(\?|$)/i, ".gif$2");
+  }
+  return raw;
+}
+
+/** Mai usare embed/default Discord: se manca il member, non deve coprire l'avatar salvato. */
+function liveWorkflowAvatarUrl(member, user, size = 128) {
+  const fromMember = member
+    ? guildMemberDisplayAvatarUrlDynamic(member, { size, allowDefault: false })
+    : "";
+  if (hasRealDiscordAvatarUrl(fromMember)) return preferAnimatedStoredAvatarUrl(fromMember, size) || fromMember;
+  const fromUser = user
+    ? userAvatarUrlDynamic(user, { size, allowDefault: false })
+    : "";
+  if (hasRealDiscordAvatarUrl(fromUser)) return preferAnimatedStoredAvatarUrl(fromUser, size) || fromUser;
+  return "";
+}
+
+/* mobileStaffFast1: list enrichment must not Discord-fetch (timeouts on phone). Cache only. */
 async function resolveWorkflowSubject(client, guild, userId) {
   const uid = String(userId || "").trim();
   if (!/^\d{16,20}$/.test(uid)) return { displayName: "", avatarUrl: "" };
 
-  const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
+  const member = guild?.members?.cache?.get?.(uid) || null;
   let user = member?.user || null;
-  if (!user && client) {
-    user = await getUserCached(client, uid).catch(() => null);
+  if (!user && client?.users?.cache?.get) {
+    user = client.users.cache.get(uid) || null;
   }
 
   const displayName = pickSubjectDisplayName(
@@ -513,10 +545,7 @@ async function resolveWorkflowSubject(client, guild, userId) {
     user?.globalName,
     user?.username,
   );
-  const avatarUrl =
-    guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
-    userAvatarUrlStatic(user || member, { size: 128 }) ||
-    "";
+  const avatarUrl = liveWorkflowAvatarUrl(member, user, 128);
 
   return {
     displayName: displayName || "",
@@ -549,10 +578,15 @@ async function enrichWorkflowListSubjects(client, guild, items) {
       items
         .filter((it) => {
           const uid = String(it?.userId || "").trim();
-          if (!/^\d{16,20}$/.test(uid)) return false;
+          if (!/^\d{16,22}$/.test(uid)) return false;
           const name = String(it?.displayName || "").trim();
-          const nameIsId = !name || name === uid || /^\d{16,20}$/.test(name);
-          return nameIsId || !hasRealDiscordAvatarUrl(it?.avatarUrl);
+          const nameMissing =
+            !name ||
+            name === uid ||
+            /^\d{16,22}$/.test(name) ||
+            isGenericWorkflowSubjectLabel(name) ||
+            isWorkflowRoleSlug(name, { workflowType: it.type || it.kind || "" });
+          return nameMissing || !hasRealDiscordAvatarUrl(it?.avatarUrl);
         })
         .map((it) => String(it.userId)),
     ),
@@ -580,12 +614,17 @@ async function enrichWorkflowListSubjects(client, guild, items) {
       return it;
     }
     const name = String(it.displayName || "").trim();
-    const nameIsId = !name || name === uid || /^\d{16,20}$/.test(name);
+    const nameMissing =
+      !name ||
+      name === uid ||
+      /^\d{16,22}$/.test(name) ||
+      isGenericWorkflowSubjectLabel(name) ||
+      isWorkflowRoleSlug(name, { workflowType: it.type || it.kind || "" });
     const subName = String(sub.displayName || "").trim();
-    const subIsId = !subName || subName === uid || /^\d{16,20}$/.test(subName);
+    const subIsId = !subName || subName === uid || /^\d{16,22}$/.test(subName);
     return {
       ...it,
-      displayName: nameIsId ? (subIsId ? "Utente" : subName) : it.displayName,
+      displayName: nameMissing ? (subIsId ? "Utente" : subName) : it.displayName,
       avatarUrl: sub.avatarUrl || (hasRealDiscordAvatarUrl(it.avatarUrl) ? it.avatarUrl : "") || "",
     };
   });
@@ -642,22 +681,29 @@ function docToListItem(doc, memberCache) {
       stored.displayName,
     ) || stored.displayName || "";
   const decidedBy = String(doc?.workflowDecidedBy || "").trim();
-  const decidedMember = decidedBy ? memberCache?.get?.(decidedBy) || null : null;
-  const decidedByName = decidedBy
-    ? String(
-        decidedMember?.displayName ||
-          decidedMember?.user?.globalName ||
-          decidedMember?.user?.username ||
-          doc?.workflowDecidedByName ||
-          decidedBy,
-      ).trim() || decidedBy
-    : "";
+  const decidedMember = decidedBy && !/^system$/i.test(decidedBy) ? memberCache?.get?.(decidedBy) || null : null;
+  const storedDecidedName = String(doc?.workflowDecidedByName || "").trim();
+  let decidedByName = "";
+  if (/^system$/i.test(decidedBy) || /^system$/i.test(storedDecidedName)) {
+    decidedByName = "Sistema";
+  } else {
+    decidedByName =
+      pickSubjectDisplayName(
+        decidedBy,
+        storedDecidedName,
+        decidedMember?.displayName,
+        decidedMember?.user?.globalName,
+        decidedMember?.user?.username,
+      ) ||
+      (storedDecidedName && !/^\d{16,22}$/.test(storedDecidedName) ? storedDecidedName.slice(0, 120) : "") ||
+      "";
+  }
   const createdFromMsg = snowflakeToDate(doc?.workflowMessageId);
   const createdAt = createdFromMsg || (doc?.createdAt ? new Date(doc.createdAt) : null);
   const avatarUrl =
-    guildMemberDisplayAvatarUrlStatic(member, { size: 128 }) ||
-    userAvatarUrlStatic(member?.user, { size: 128 }) ||
-    (hasRealDiscordAvatarUrl(stored.avatarUrl) ? stored.avatarUrl : "") ||
+    liveWorkflowAvatarUrl(member, member?.user, 128) ||
+    preferAnimatedStoredAvatarUrl(stored.avatarUrl, 128) ||
+    (hasRealDiscordAvatarUrl(stored.avatarUrl) ? String(stored.avatarUrl).trim() : "") ||
     "";
   const base = {
     recordId: String(doc?._id || ""),
@@ -756,6 +802,18 @@ function docToListItem(doc, memberCache) {
       actionKey,
       proposedLabel,
       roleId: doc?.workflowRoleId ? String(doc.workflowRoleId) : null,
+      roleLabel: (() => {
+        const kind = String(doc?.workflowKind || "").trim().toLowerCase();
+        if (kind === "p") return "Partner Manager";
+        const rid = String(doc?.workflowRoleId || "").trim();
+        const guild = member?.guild || null;
+        if (rid && guild?.roles?.cache?.get) {
+          const name = String(guild.roles.cache.get(rid)?.name || "").trim();
+          if (name) return name;
+        }
+        if (kind === "s") return "Staff";
+        return "";
+      })(),
       weekKey,
       weekLabel: formatWeekLabel(weekKey),
       statusLabel: deriveResocontoStatusLabel(doc),
@@ -801,52 +859,59 @@ function parseNumberedQaBlocks(text) {
   const raw = stripDiscordDecorations(text || "", { keepNewlines: true });
   if (!raw) return [];
   const normalized = raw
-    .replace(/\s+(\d{1,2})\.\s+/g, "\n$1. ")
-    .replace(/^\n+/, "")
+    .replace(/(\d{1,2})\\\./g, "$1.")
+    .replace(/\*\*/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
-  const chunks = normalized
-    .split(/\n(?=\d{1,2}\.\s)/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (chunks.length <= 1 && !/^\d{1,2}\.\s/.test(normalized)) return [];
+  if (!normalized) return [];
 
-  return chunks
-    .map((chunk) => {
-      const match = chunk.match(/^(\d{1,2})\.\s*([\s\S]+)$/);
-      if (!match) return null;
-      const num = match[1];
-      const rest = String(match[2] || "").trim();
-      if (!rest) return { name: `Domanda ${num}`, value: "—" };
+  const lines = normalized.split("\n");
+  const blocks = [];
+  let expected = 1;
+  let current = null;
 
-      const nl = rest.indexOf("\n");
-      if (nl > 0) {
-        const qLine = rest.slice(0, nl).trim();
-        const aBlock = rest.slice(nl + 1).trim();
-        if (qLine && aBlock) {
-          return {
-            name: `${num}. ${qLine}`,
-            value: aBlock || "—",
-          };
-        }
-      }
+  const flush = () => {
+    if (!current) return;
+    const name = String(current.name || "").trim();
+    let value = String(current.value || "").trim();
+    if (!name && !value) {
+      current = null;
+      return;
+    }
+    const qInline = name.match(/^(\d{1,2}\.\s*[\s\S]{1,280}?\?)\s+([\s\S]+)$/);
+    if (qInline && !value) {
+      blocks.push({ name: qInline[1].trim(), value: qInline[2].trim() || "—" });
+    } else {
+      blocks.push({ name: name || `Domanda ${blocks.length + 1}`, value: value || "—" });
+    }
+    current = null;
+  };
 
-      const withQuestion = rest.match(/^([\s\S]{1,220}?\?)\s+([\s\S]+)$/);
-      if (withQuestion && String(withQuestion[2] || "").trim()) {
-        return {
-          name: `${num}. ${withQuestion[1].trim()}`,
-          value: withQuestion[2].trim() || "—",
-        };
-      }
-
+  for (const line of lines) {
+    const m = String(line || "").match(/^(\d{1,2})\.\s*(.*)$/);
+    const num = m ? Number(m[1]) : 0;
+    if (m && Number.isFinite(num) && num === expected) {
+      flush();
+      const rest = String(m[2] || "").trim();
       const idLine = rest.match(/^(ID(?:\s+Discord)?)\s+(.+)$/i);
-      if (idLine) return { name: `${num}. ${idLine[1]}`, value: idLine[2].trim() || "—" };
-
       const ageLine = rest.match(/^(Et[aà])\s+(.+)$/i);
-      if (ageLine) return { name: `${num}. ${ageLine[1]}`, value: ageLine[2].trim() || "—" };
-
-      return { name: `Domanda ${num}`, value: rest };
-    })
-    .filter(Boolean);
+      if (idLine) {
+        current = { name: `${num}. ${idLine[1]}`, value: idLine[2].trim() };
+      } else if (ageLine) {
+        current = { name: `${num}. ${ageLine[1]}`, value: ageLine[2].trim() };
+      } else {
+        current = { name: `${num}. ${rest}`.trim(), value: "" };
+      }
+      expected += 1;
+      continue;
+    }
+    if (!current) continue;
+    current.value = current.value ? `${current.value}\n${line}` : line;
+  }
+  flush();
+  return blocks;
 }
 
 function normalizeResocontoActionKey(raw) {
@@ -1176,6 +1241,9 @@ async function enrichResocontoRolesHistory(detail, doc, guild) {
   const userId = String(detail.userId || doc?.userId || "").trim();
   const guildId = String(guild?.id || doc?.guildId || "").trim();
   if (!userId || !guildId) return detail;
+  if (guild?.roles?.fetch) {
+    await guild.roles.fetch().catch(() => null);
+  }
 
   function normalizeRoleToken(value) {
     const raw = String(value == null ? "" : value).trim();
@@ -1274,11 +1342,71 @@ async function enrichResocontoRolesHistory(detail, doc, guild) {
     return out;
   }
 
-    if (Array.isArray(detail.rolesHistory) && detail.rolesHistory.length) {
-    const deduped = dedupeRoleRows(detail.rolesHistory).slice(0, 6);
-    detail.rolesHistory = deduped;
-    return detail;
+  function humanizeRoleKey(key) {
+    return String(key || "")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+      .trim();
   }
+
+  function roleKeyFromConfiguredId(roleId) {
+    const raw = String(roleId || "").trim();
+    if (!raw) return null;
+    const roles = IDs.roles || {};
+    for (const [key, val] of Object.entries(roles)) {
+      if (String(val) === raw) return key;
+    }
+    return null;
+  }
+
+  function displayRoleLabel(value) {
+    const raw = String(value == null ? "" : value).trim();
+    if (!raw) return "";
+    if (/^\d{16,22}$/.test(raw)) {
+      let id = raw;
+      try {
+        const { remapKnownRoleSnowflake } = require("../Config/emergencyRoleIdRemap");
+        const mapped = remapKnownRoleSnowflake(raw);
+        if (mapped) id = mapped;
+      } catch (_) {}
+      const role =
+        guild?.roles?.cache?.get?.(id) ||
+        guild?.roles?.cache?.get?.(raw) ||
+        null;
+      const live = String(role?.name || "").trim();
+      if (live) return live;
+      // careerMemberHelper1: same fallback as profilo — map known staff IDs (Member/Helper/…)
+      // so Member→Helper does not disappear when Discord cache misses the role.
+      const key = roleKeyFromConfiguredId(id) || roleKeyFromConfiguredId(raw);
+      if (key) return humanizeRoleKey(key) || key;
+      return "";
+    }
+    return raw;
+  }
+
+  function hydrateRoleRowLabels(rows) {
+    return (Array.isArray(rows) ? rows : [])
+      .map((row) => {
+        if (!row) return null;
+        const from = displayRoleLabel(row.from || row.oldRole);
+        const to = displayRoleLabel(row.to || row.newRole);
+        if (!from && !to) return null;
+        return {
+          ...row,
+          from: from || null,
+          to: to || null,
+          oldRole: from || null,
+          newRole: to || null,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  // Snapshot on the workflow doc can be incomplete (e.g. only last pex).
+  // Always prefer staff.rolesHistory from the profile — same source as profilo carriera.
+  const snapshot = Array.isArray(detail.rolesHistory) && detail.rolesHistory.length
+    ? hydrateRoleRowLabels(dedupeRoleRows(detail.rolesHistory))
+    : [];
 
   try {
     const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
@@ -1286,61 +1414,71 @@ async function enrichResocontoRolesHistory(detail, doc, guild) {
       .select("staff.rolesHistory")
       .lean()
       .catch(() => null);
-    const hist = Array.isArray(profile?.staff?.rolesHistory) ? profile.staff.rolesHistory : [];
+    const histRaw = Array.isArray(profile?.staff?.rolesHistory) ? profile.staff.rolesHistory : [];
+    let hist = histRaw;
+    try {
+      const { isHiddenManualStaffCareerReason } = require("../Staff/staffTrackHistory");
+      hist = histRaw.filter((row) => !isHiddenManualStaffCareerReason(row?.reason));
+    } catch (_) {}
     if (!hist.length) {
-            if (!Array.isArray(detail.rolesHistory)) detail.rolesHistory = [];
+      detail.rolesHistory = snapshot;
       return detail;
     }
-    const roleName = (id) => {
-      const rid = String(id || "").trim();
-      if (!rid) return "";
-      const role = guild?.roles?.cache?.get?.(rid);
-      return String(role?.name || "").trim() || rid;
-    };
-    const rows = dedupeRoleRows(
-      hist
-        .map((row) => {
-          const d = row?.date ? new Date(row.date) : null;
-          const iso = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
-          const from = roleName(row?.oldRole);
-          const to = roleName(row?.newRole);
-          if (!to && !from) return null;
-          let dateLabel = "";
-          try {
-            if (iso) {
-              dateLabel = new Date(iso).toLocaleDateString("it-IT", {
-                day: "2-digit",
-                month: "short",
-                year: "2-digit",
-              });
-            }
-          } catch (_) {}
-          return {
-            from: from || null,
-            to: to || null,
-            reason: String(row?.reason || "").trim() || null,
-            dateIso: iso,
-            dateLabel: dateLabel || null,
-            _sort: iso ? new Date(iso).getTime() : 0,
-          };
-        })
-        .filter(Boolean)
-        .sort((a, b) => b._sort - a._sort)
-        .map(({ _sort, ...rest }) => rest),
-    ).slice(0, 6);
-    detail.rolesHistory = rows;
-    if (doc?._id && rows.length) {
+    const rows = hydrateRoleRowLabels(
+      dedupeRoleRows(
+        hist
+          .map((row) => {
+            const d = row?.date ? new Date(row.date) : null;
+            const iso = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
+            const from = displayRoleLabel(row?.oldRole);
+            const to = displayRoleLabel(row?.newRole);
+            if (!to && !from) return null;
+            let dateLabel = "";
+            try {
+              if (iso) {
+                dateLabel = new Date(iso).toLocaleDateString("it-IT", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "2-digit",
+                });
+              }
+            } catch (_) {}
+            return {
+              from: from || null,
+              to: to || null,
+              oldRole: from || null,
+              newRole: to || null,
+              reason: String(row?.reason || "").trim() || null,
+              dateIso: iso,
+              dateLabel: dateLabel || null,
+              _sort: iso ? new Date(iso).getTime() : 0,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b._sort - a._sort)
+          .map(({ _sort, ...rest }) => rest),
+      ),
+    );
+    // Merge snapshot under profile so any extra labels still help, then prefer profile length.
+    detail.rolesHistory = rows.length
+      ? hydrateRoleRowLabels(dedupeRoleRows([...rows, ...snapshot]))
+      : snapshot;
+    if (doc?._id && detail.rolesHistory.length) {
       const prev =
         doc.workflowFields && typeof doc.workflowFields === "object" && !Array.isArray(doc.workflowFields)
           ? { ...doc.workflowFields }
           : {};
       void SiteDocument.updateOne(
         { _id: doc._id },
-        { $set: { workflowFields: { ...prev, rolesHistory: rows } } },
+        { $set: { workflowFields: { ...prev, rolesHistory: detail.rolesHistory } } },
       ).catch(() => null);
     }
   } catch (_) {
-    detail.rolesHistory = Array.isArray(detail.rolesHistory) ? detail.rolesHistory : [];
+    detail.rolesHistory = snapshot.length
+      ? snapshot
+      : Array.isArray(detail.rolesHistory)
+        ? hydrateRoleRowLabels(detail.rolesHistory)
+        : [];
   }
   return detail;
 }
@@ -1450,6 +1588,17 @@ async function upsertStaffWorkflowItem(payload) {
       (status !== "pending" ? existing?.decidedAt || new Date() : null),
   };
   if (
+    Array.isArray(incomingWorkflowFields) &&
+    incomingWorkflowFields.length
+  ) {
+    update.workflowFields = incomingWorkflowFields
+      .map((field) => ({
+        name: stripDiscordDecorations(field?.name || "", { keepNewlines: true }).slice(0, 240),
+        value: stripDiscordDecorations(field?.value || "", { keepNewlines: true }).slice(0, 8000),
+      }))
+      .filter((field) => field.name || field.value)
+      .slice(0, 40);
+  } else if (
     incomingWorkflowFields &&
     typeof incomingWorkflowFields === "object" &&
     !Array.isArray(incomingWorkflowFields)
@@ -2089,6 +2238,59 @@ async function listUserWorkflowsForMember(guildId, userId, opts = {}) {
   return (docs || []).map((doc) => docToListItem(doc, null));
 }
 
+/** Live chat FAB: appelli/candidature where subject was invited into workflow chat. */
+async function listUserInvitedSubjectChats(guildId, userId, opts = {}) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return [];
+  const rawQ = String(opts.queue || opts.queues || "")
+    .trim()
+    .toLowerCase();
+  let queues = ["appelli", "candidature"];
+  if (rawQ === "appelli" || rawQ === "candidature") queues = [rawQ];
+  else if (rawQ && rawQ !== "all" && rawQ !== "subject") {
+    queues = rawQ
+      .split(",")
+      .map((x) => String(x || "").trim().toLowerCase())
+      .filter((x) => x === "appelli" || x === "candidature");
+    if (!queues.length) queues = ["appelli", "candidature"];
+  }
+  const includeClosed = Boolean(opts.includeClosed);
+  const filter = {
+    docType: WORKFLOW_DOC,
+    guildId: gid,
+    userId: uid,
+    workflowQueue: { $in: queues },
+  };
+  if (!includeClosed) filter.status = "pending";
+  const docs = await SiteDocument.find(filter)
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .limit(30)
+    .lean()
+    .catch(() => []);
+  const out = [];
+  for (const doc of docs || []) {
+    const fields =
+      doc?.workflowFields && typeof doc.workflowFields === "object" ? doc.workflowFields : {};
+    const sc = fields.subjectChat && typeof fields.subjectChat === "object" ? fields.subjectChat : {};
+    const windows = Array.isArray(sc.windows) ? sc.windows : [];
+    if (!windows.length) continue;
+    const active = windows.some((w) => w && !w.leftAt);
+    const item = docToListItem(doc, null);
+    out.push({
+      ...item,
+      queue: String(doc?.workflowQueue || "").trim().toLowerCase(),
+      chatInvited: true,
+      chatActive: active,
+      openPath:
+        String(doc?.workflowQueue || "").toLowerCase() === "candidature"
+          ? `/candidature/?chat=${encodeURIComponent(String(doc?.dedupeKey || ""))}`
+          : `/appelli/?chat=${encodeURIComponent(String(doc?.dedupeKey || ""))}`,
+    });
+  }
+  return out;
+}
+
 async function getUserWorkflowDetailFromDb(guildId, userId, dedupeKey) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
@@ -2347,6 +2549,104 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
           avatarUrl: hit.avatarUrl || item.avatarUrl,
         };
       });
+    } catch (_) {}
+  }
+
+  // Candidature/appelli: hydrate names/avatars (user fetch only — no guild member storms).
+  // Cache first, then a real user-only budget so list titles stop falling back to "Candidatura Helper #N".
+  if ((q === "candidature" || q === "appelli") && client && items.length) {
+    try {
+      const { resolveWebUserIdentitiesBatch, safeDisplayLabel, FALLBACK_LABEL } = require("./siteWebUserIdentity");
+      const guild = client.guilds?.cache?.get(gid) || null;
+      const needIds = items
+        .map((it) => String(it.userId || "").trim())
+        .filter((id) => /^\d{16,22}$/.test(id));
+      const identityMap = await resolveWebUserIdentitiesBatch(client, guild, needIds, {
+        cacheOnly: true,
+        fillFallback: false,
+        cap: 40,
+        budgetMs: 50,
+      });
+      const stillNeed = needIds.filter((uid) => {
+        const hit = identityMap.get(uid);
+        if (!hit) return true;
+        const name = String(hit.displayName || "").trim();
+        return !name || name === FALLBACK_LABEL || name === uid;
+      });
+      if (stillNeed.length) {
+        /* mobileStaffFast1: keep list snappy on phone; stored names already cover most rows */
+        const fetched = await resolveWebUserIdentitiesBatch(client, guild, stillNeed, {
+          cap: 24,
+          batchSize: 6,
+          budgetMs: 700,
+          skipGuildMember: true,
+          fillFallback: false,
+        });
+        if (fetched && typeof fetched.forEach === "function") {
+          fetched.forEach((val, key) => {
+            if (val) identityMap.set(key, val);
+          });
+        }
+      }
+      const persistOps = [];
+      items = items.map((item, idx) => {
+        const uid = String(item.userId || "").trim();
+        const hit = identityMap.get(uid);
+        if (!hit) return item;
+        const current = String(item.displayName || "").trim();
+        const currentMissing =
+          !current ||
+          current === uid ||
+          /^\d{16,22}$/.test(current) ||
+          isGenericWorkflowSubjectLabel(current) ||
+          isWorkflowRoleSlug(current, { workflowType: item.type || item.kind || "" });
+        const resolvedName = pickSubjectDisplayName(
+          uid,
+          hit.displayName && hit.displayName !== FALLBACK_LABEL ? hit.displayName : "",
+          hit.username,
+          safeDisplayLabel(
+            hit.displayName && hit.displayName !== FALLBACK_LABEL ? hit.displayName : hit.username,
+            uid,
+            "",
+          ),
+        );
+        const nextName = currentMissing ? resolvedName || item.displayName || "" : item.displayName;
+        const nextAvatar =
+          preferAnimatedStoredAvatarUrl(hit.avatarUrl, 128) ||
+          preferAnimatedStoredAvatarUrl(item.avatarUrl, 128) ||
+          (hasRealDiscordAvatarUrl(hit.avatarUrl) ? String(hit.avatarUrl).trim() : "") ||
+          (hasRealDiscordAvatarUrl(item.avatarUrl) ? String(item.avatarUrl).trim() : "") ||
+          "";
+        const doc = docs[idx];
+        if (
+          doc?._id &&
+          ((nextName && nextName !== String(doc.workflowSubjectName || "").trim()) ||
+            (hasRealDiscordAvatarUrl(nextAvatar) &&
+              nextAvatar !== String(doc.workflowSubjectAvatarUrl || "").trim()))
+        ) {
+          persistOps.push({
+            updateOne: {
+              filter: { _id: doc._id },
+              update: {
+                $set: {
+                  ...(nextName ? { workflowSubjectName: String(nextName).slice(0, 120) } : {}),
+                  ...(hasRealDiscordAvatarUrl(nextAvatar)
+                    ? { workflowSubjectAvatarUrl: String(nextAvatar).slice(0, 512) }
+                    : {}),
+                },
+              },
+            },
+          });
+        }
+        return {
+          ...item,
+          displayName: nextName,
+          avatarUrl: nextAvatar,
+        };
+      });
+      if (persistOps.length) {
+        void SiteDocument.bulkWrite(persistOps, { ordered: false }).catch(() => null);
+      }
     } catch (_) {}
   }
 
@@ -3278,6 +3578,7 @@ module.exports = {
   listStaffWorkflowFromDb,
   listStaffWorkflowForInbox,
   listUserWorkflowsForMember,
+  listUserInvitedSubjectChats,
   getUserWorkflowDetailFromDb,
   getPendingPauseWorkflowForMember,
   getStaffWorkflowDetailFromDb,

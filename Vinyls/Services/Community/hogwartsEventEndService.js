@@ -500,6 +500,8 @@ async function runHogwartsEventCompletionSweep(client, options = {}) {
 }
 
 function startHogwartsEventEndLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (!client || loopState.has(client)) return;
   loopState.add(client);
 

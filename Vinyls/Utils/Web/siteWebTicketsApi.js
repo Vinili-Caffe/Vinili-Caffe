@@ -12,6 +12,7 @@ const {
   nextWebTicketNumber,
 } = require("../../Schemas/Web/siteWebTicketSchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
+const { fetchWebsiteGuildMember } = require("./websiteGuildMemberFetch");
 const { normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const {
   guildMemberDisplayAvatarUrlDynamic,
@@ -24,6 +25,7 @@ const {
   clearWebTicketPagePresence,
   shouldSkipWebTicketInAppNotif,
 } = require("./webTicketPagePresence");
+const { setTyping: setChatTyping, clearTyping: clearChatTyping } = require("./siteChatTyping");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { broadcastSiteWebTicketsEvent } = require("./siteSuggestionsBroadcast");
 const { hasStaffTicketRole } = require("../Ticket/ticketStaffPanelBuild");
@@ -1720,6 +1722,7 @@ async function refreshStaffTicketQueueNotif(client, guildId, category, { push = 
         title,
         body,
         kind: "web_ticket",
+        channel: "inbox",
         openUrl: `/tickets/?view=staff&ticketId=${sid}#${sid}`,
         ticketId: sid,
         dedupeKey,
@@ -1748,11 +1751,12 @@ async function notifyMentionedUsers(
   content,
   { allowRoleMentions = false } = {},
 ) {
+  /* notifUseful1: notify participants too (staff Inbox Mentions / opener Personali) */
   const gid = String(guildId || "").trim();
-  if (!gid || !content) return;
+  if (!gid || !content) return [];
   const { userIds, roleIds } = parseMentionTargets(content);
   const effectiveRoleIds = allowRoleMentions ? roleIds : [];
-  if (!userIds.length && !effectiveRoleIds.length) return;
+  if (!userIds.length && !effectiveRoleIds.length) return [];
 
   const guild =
     client?.guilds?.cache?.get?.(gid) ||
@@ -1775,25 +1779,27 @@ async function notifyMentionedUsers(
   const sid = String(ticket?._id || ticket?.id || "");
   const preview = previewFromContent(content, 0) || "Ti hanno menzionato";
   const safeAuthor = String(authorName || "Qualcuno").trim() || "Qualcuno";
+  const mentioned = [...recipients].slice(0, 40);
   await Promise.all(
-    [...recipients]
-      .filter((userId) => !isTicketChatParticipant(ticket, userId))
-      .slice(0, 40)
-      .map((userId) => {
-        if (shouldSkipWebTicketInAppNotif(userId, sid, "mention")) return Promise.resolve(false);
-        return enqueueSiteInAppNotification({
-          guildId: gid,
-          userId,
-          title: safeAuthor,
-          body: preview,
-          kind: "web_ticket_mention",
-          openUrl: ticketChatOpenUrl(ticket, userId),
-          ticketId: sid,
-          dedupeKey: `web_ticket:mention:${sid}:${userId}`,
-          replaceDedupe: true,
-        });
-      }),
+    mentioned.map((userId) => {
+      if (shouldSkipWebTicketInAppNotif(userId, sid, "mention")) return Promise.resolve(false);
+      const openUrl = ticketChatOpenUrl(ticket, userId);
+      const staffView = openUrl.includes("view=staff");
+      return enqueueSiteInAppNotification({
+        guildId: gid,
+        userId,
+        title: staffView ? `${safeAuthor} ti ha menzionato` : `${safeAuthor} ti ha menzionato`,
+        body: preview,
+        kind: "web_ticket_mention",
+        channel: staffView ? "inbox" : "personal",
+        openUrl,
+        ticketId: sid,
+        dedupeKey: `web_ticket:mention:${sid}:${userId}`,
+        replaceDedupe: true,
+      });
+    }),
   ).catch(() => null);
+  return mentioned;
 }
 
 async function notifyUserTicketEvent(guildId, ticket, title, body, targetUserId = null, { mode = "event", openUrl } = {}) {
@@ -1802,18 +1808,24 @@ async function notifyUserTicketEvent(guildId, ticket, title, body, targetUserId 
   const sid = String(ticket._id || ticket.id || "");
   if (shouldSkipWebTicketInAppNotif(userId, sid, mode)) return;
   const key = mode === "claimed" ? `web_ticket:claimed:${sid}` : `web_ticket:${mode}:${sid}:${userId}`;
+  const isStaffTarget = Boolean(openUrl && String(openUrl).includes("view=staff"));
   await enqueueSiteInAppNotification({
     guildId,
     userId,
     title,
     body,
     kind: "web_ticket",
+    channel: isStaffTarget ? "inbox" : "personal",
     openUrl: openUrl || `/tickets/?ticketId=${sid}#${sid}`,
     ticketId: sid,
     dedupeKey: key,
     dedupeWindowMs: 86_400_000,
     replaceDedupe: mode === "claimed" || mode === "closed" || mode === "close-request" || mode === "close-rejected",
   }).catch(() => null);
+  if (mode === "closed" && !isStaffTarget) {
+    await removeInboxItemByDedupeKey(userId, `web_ticket:needs_reply:${sid}`).catch(() => null);
+    await removeInboxItemByDedupeKey(userId, `web_ticket:staff_reply:${sid}`).catch(() => null);
+  }
 }
 
 function ticketChatOpenUrl(ticket, userId) {
@@ -1824,44 +1836,114 @@ function ticketChatOpenUrl(ticket, userId) {
   return `/tickets/?view=staff&ticketId=${sid}#${sid}`;
 }
 
-async function notifyTicketChatMessage(ticket, { authorId, authorName, preview, kind, messageId } = {}) {
+async function clearTicketNeedsReplyNotif(ticket, userId) {
+  const sid = String(ticket?._id || ticket?.id || "").trim();
+  const uid = String(userId || "").trim();
+  if (!sid || !uid) return;
+  await removeInboxItemByDedupeKey(uid, `web_ticket:needs_reply:${sid}`).catch(() => null);
+}
+
+async function notifyTicketChatMessage(
+  ticket,
+  { authorId, authorName, preview, kind, messageId, skipUserIds = [] } = {},
+) {
+  /* notifUseful1: opener Personali (staff reply / needs reply) + staff Inbox new-msg for participants */
   if (!ticket) return;
   const guildId = String(ticket.guildId || "").trim();
   const sid = String(ticket._id || ticket.id || "");
   const author = String(authorId || "").trim();
   if (!guildId || !sid || !author) return;
+  const skip = new Set(
+    (Array.isArray(skipUserIds) ? skipUserIds : [skipUserIds]).map((id) => String(id || "").trim()).filter(Boolean),
+  );
+  skip.add(author);
+
   const recipients = new Set();
   const claimer = String(ticket.claimedBy || "").trim();
   const owner = String(ticket.userId || "").trim();
-  if (claimer && claimer !== author) recipients.add(claimer);
-  if (owner && owner !== author) recipients.add(owner);
+  if (claimer) recipients.add(claimer);
+  if (owner) recipients.add(owner);
   for (const u of listAddedUsers(ticket)) {
-    if (u.id && u.id !== author) recipients.add(u.id);
+    if (u.id) recipients.add(u.id);
   }
-  recipients.delete(author);
+  try {
+    const authors = await listTicketMessageAuthorIds(ticket._id || ticket.id);
+    for (const id of authors || []) recipients.add(String(id));
+  } catch (_) {}
+
+  for (const id of skip) recipients.delete(id);
   if (!recipients.size) return;
+
   const subject = String(ticket.subject || ticket.channelName || "").trim() || "Ticket";
   const safeAuthor = String(authorName || "Qualcuno").trim() || "Qualcuno";
   const previewText = String(preview || "Nuovo messaggio").trim() || "Nuovo messaggio";
+  const authorIsStaff = String(kind || "").trim().toLowerCase() === "staff";
+
+  if (authorIsStaff && owner && !skip.has(owner)) {
+    await enqueueSiteInAppNotification({
+      guildId,
+      userId: owner,
+      title: "Staff ha risposto",
+      body: previewText.startsWith(safeAuthor) ? previewText : `${safeAuthor}: ${previewText}`,
+      kind: "web_ticket",
+      channel: "personal",
+      openUrl: `/tickets/?ticketId=${sid}#${sid}`,
+      ticketId: sid,
+      dedupeKey: `web_ticket:staff_reply:${sid}`,
+      replaceDedupe: true,
+      fromName: safeAuthor,
+      ticketLabel: subject,
+      preview: previewText,
+      messageId,
+      collapseChat: true,
+    }).catch(() => null);
+    await enqueueSiteInAppNotification({
+      guildId,
+      userId: owner,
+      title: "Serve una tua risposta",
+      body: `Lo staff aspetta un tuo messaggio nel ticket «${subject}».`,
+      kind: "web_ticket",
+      channel: "personal",
+      openUrl: `/tickets/?ticketId=${sid}#${sid}`,
+      ticketId: sid,
+      dedupeKey: `web_ticket:needs_reply:${sid}`,
+      replaceDedupe: true,
+    }).catch(() => null);
+    recipients.delete(owner);
+  }
+
+  if (!authorIsStaff && owner && author === owner) {
+    await clearTicketNeedsReplyNotif(ticket, owner);
+    await removeInboxItemByDedupeKey(owner, `web_ticket:sla:${sid}`).catch(() => null);
+  }
+
   await Promise.all(
-    [...recipients].map((userId) =>
-      enqueueSiteInAppNotification({
+    [...recipients].map((userId) => {
+      const openUrl = ticketChatOpenUrl(ticket, userId);
+      const staffView = openUrl.includes("view=staff");
+      return enqueueSiteInAppNotification({
         guildId,
         userId,
-        title: safeAuthor,
+        title: staffView ? "Nuovo messaggio" : safeAuthor,
         body: previewText,
         kind: "web_ticket",
-        openUrl: ticketChatOpenUrl(ticket, userId),
+        channel: staffView ? "inbox" : "personal",
+        openUrl,
         ticketId: sid,
         dedupeKey: `web_ticket:chat:${sid}:${userId}`,
         replaceDedupe: true,
+        collapseChat: true,
         fromName: safeAuthor,
         ticketLabel: subject,
         preview: previewText,
         messageId,
-      }),
-    ),
+      });
+    }),
   ).catch(() => null);
+
+  if (!authorIsStaff && claimer) {
+    await removeInboxItemByDedupeKey(claimer, `web_ticket:sla:${sid}`).catch(() => null);
+  }
 }
 
 async function createSystemMessage(ticket, content) {
@@ -2203,13 +2285,45 @@ function parseWebPartnershipCommandInput(rawInput) {
   return { managerId, description };
 }
 
+async function resolveFreshActorMemberForPartnership(actor, guild) {
+  let member = actor?.member || null;
+  const uid = String(actor?.userId || member?.id || "").trim();
+  if (!guild || !uid) return member;
+  try {
+    if (typeof guild.roles?.fetch === "function" && (guild.roles.cache?.size || 0) < 2) {
+      await guild.roles.fetch().catch(() => null);
+    }
+  } catch {
+  }
+  try {
+    if (typeof guild.members?.fetch === "function") {
+      const fresh = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
+      if (fresh) member = fresh;
+    }
+  } catch {
+  }
+  return member;
+}
+
+function memberCanRunPartnershipLikeDiscord(member, guild) {
+  const { memberHasPartnerManagerRole } = require("../Partner/partnershipConfigResolver");
+  if (!member || !guild) return false;
+  if (memberHasPartnerManagerRole(member, guild.id)) return true;
+  if (String(guild.ownerId || "") === String(member.id || "")) return true;
+  try {
+    if (member.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
+    if (member.permissions?.has?.(PermissionFlagsBits.ManageGuild)) return true;
+  } catch {
+  }
+  return false;
+}
+
 async function executeWebTicketPartnershipSlash(client, actor, ticket, rawInput, { guild, fakeChannel, outputs }) {
   const {
     isPartnershipOperational,
     resolvePartnershipConfigSync,
     isPartnershipSkipManagerAllowed,
     buildSkipDeniedEmbed,
-    memberHasPartnerManagerRole,
   } = require("../Partner/partnershipConfigResolver");
   const { partnersChatPartnerCommandDeniedReplyContent } = require("../Partner/partnersChatChannelUtils");
   const { executeTenantPartnership } = require("../../Services/Partner/tenantPartnershipExecuteService");
@@ -2234,7 +2348,9 @@ async function executeWebTicketPartnershipSlash(client, actor, ticket, rawInput,
     return "WEB_PARTNERSHIP_NEED_FORM";
   }
 
-  if (!memberHasPartnerManagerRole(actor.member, guild.id)) {
+  const actorMember = await resolveFreshActorMemberForPartnership(actor, guild);
+  if (actorMember) actor.member = actorMember;
+  if (!memberCanRunPartnershipLikeDiscord(actorMember, guild)) {
     return "Non hai i permessi per fare partnership (serve il ruolo Partner Manager).";
   }
 
@@ -2729,15 +2845,39 @@ async function resolveMemberOrStaff(client, req) {
     return { ok: false, status: user.status, error: user.error, message: user.message };
   }
   let member = user.member;
-    try {
-    const guild = member?.guild || user.guild;
-    const uid = String(member?.id || user.userId || "").trim();
-    if (guild?.members?.fetch && uid) {
-      const fresh = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
-      if (fresh) member = fresh;
+  // ticketsListHang1 + mobileApisFast2: skip soft refresh when roles.cache already usable.
+  // Extra Discord fetch stacked on resolveWebsiteGuildMember and hung phones.
+  try {
+    const hasRoles =
+      member &&
+      member.roles &&
+      member.roles.cache &&
+      typeof member.roles.cache.has === "function";
+    if (!hasRoles) {
+      const guild = member?.guild || user.guild;
+      const uid = String(member?.id || user.userId || "").trim();
+      if (guild && uid) {
+        const fresh = await fetchWebsiteGuildMember(guild, uid, {
+          timeoutMs: 1800,
+          retry: false,
+          soft: true,
+        }).catch(() => null);
+        if (fresh && fresh.roles && fresh.roles.cache && typeof fresh.roles.cache.has === "function") {
+          member = fresh;
+        }
+      }
     }
   } catch {
-      }
+    /* keep cached member */
+  }
+  if (!member || !member.id) {
+    return {
+      ok: false,
+      status: 401,
+      error: "unauthorized",
+      message: "Sessione Discord non valida. Ricarica o accedi di nuovo.",
+    };
+  }
   return {
     ok: true,
     isStaff: memberIsWebTicketStaff(member),
@@ -2786,6 +2926,49 @@ async function handleSiteWebTicketsPresencePost(client, req, res) {
     String(req.body?.view || "").trim().toLowerCase() === "staff";
   setWebTicketPagePresence(actor.userId, { ticketId, inbox });
   return res.status(200).json({ ok: true, ticketId: ticketId || null, inbox: Boolean(inbox) });
+}
+
+async function handleSiteWebTicketsTypingPost(client, req, res) {
+  const actor = await resolveMemberOrStaff(client, req);
+  if (!actor.ok) {
+    return res.status(actor.status).json({ ok: false, error: actor.error, message: actor.message });
+  }
+  const ticketId = String(req.params?.ticketId || req.body?.ticketId || "").trim();
+  if (!mongoose.isValidObjectId(ticketId)) {
+    return res.status(400).json({ ok: false, error: "bad_id", message: "Ticket non valido." });
+  }
+  const access = await loadTicketForActor(ticketId, actor);
+  if (!access.ok) {
+    return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+  }
+  const stop = req.body?.stop === true || req.body?.clear === true;
+  if (stop) {
+    clearChatTyping({
+      kind: "ticket",
+      id: ticketId,
+      userId: actor.userId,
+      eventType: "web_ticket_typing",
+      extra: { ticketId },
+    });
+    return res.status(200).json({ ok: true, stopped: true });
+  }
+  const userName =
+    String(
+      actor.member?.displayName ||
+        actor.member?.user?.globalName ||
+        actor.member?.user?.username ||
+        actor.displayName ||
+        "Utente",
+    ).trim() || "Utente";
+  setChatTyping({
+    kind: "ticket",
+    id: ticketId,
+    userId: actor.userId,
+    userName,
+    eventType: "web_ticket_typing",
+    extra: { ticketId },
+  });
+  return res.status(200).json({ ok: true });
 }
 
 async function handleSiteWebTicketsMetaGet(client, req, res) {
@@ -3218,11 +3401,17 @@ async function handleSiteWebTicketsMentionsGet(client, req, res) {
   }
 
   res.setHeader("Cache-Control", "private, max-age=15");
+  const filter = String(req.query?.filter || "all").trim().toLowerCase();
+  let outUsers = kind === "channels" ? [] : users;
+  let outRoles = kind === "channels" ? [] : roles;
+  if (filter === "roles") outUsers = [];
+  if (filter === "users") outRoles = [];
   return res.status(200).json({
     ok: true,
     q,
-    users: kind === "channels" ? [] : users,
-    roles: kind === "channels" ? [] : roles,
+    filter,
+    users: outUsers,
+    roles: outRoles,
     channels,
   });
 }
@@ -3983,14 +4172,6 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
   });
   emitTicketEvent({ type: "web_tickets_list_changed", at: new Date().toISOString() });
 
-  void notifyTicketChatMessage(ticket, {
-    authorId: actor.userId,
-    authorName: displayNameForMember(actor.member),
-    preview: previewFromContent(content, imageUrls.length),
-    kind,
-    messageId: String(msg._id || ""),
-  });
-
   void notifyMentionedUsers(
     client,
     String(ticket.guildId),
@@ -3999,7 +4180,16 @@ async function handleSiteWebTicketsMessagePost(client, req, res) {
     displayNameForMember(actor.member),
     content,
     { allowRoleMentions: kind === "staff" },
-  );
+  ).then((mentioned) => {
+    void notifyTicketChatMessage(ticket, {
+      authorId: actor.userId,
+      authorName: displayNameForMember(actor.member),
+      preview: previewFromContent(content, imageUrls.length),
+      kind,
+      messageId: String(msg._id || ""),
+      skipUserIds: mentioned || [],
+    });
+  });
 
   return res.status(200).json({
     ok: true,
@@ -4387,6 +4577,7 @@ async function handleSiteWebTicketsClaimPost(client, req, res) {
       push: false,
       excludeUserIds: [ticket.userId],
     });
+    void clearTicketSlaNotifsForTicket(client, ticket).catch(() => null);
   }
   return res.status(200).json({ ok: true, ticket: serialized, message: serializeMessage(sys) });
 }
@@ -4433,6 +4624,220 @@ async function handleSiteWebTicketsUnclaimPost(client, req, res) {
     excludeUserIds: [ticket.userId, actor.userId],
   });
   return res.status(200).json({ ok: true, ticket: serialized, message: serializeMessage(sys) });
+}
+
+async function closeOpenWebTicketsForGuildUser(client, guildId, userId, options = {}) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return { closed: 0 };
+
+  const closeReason =
+    sanitizeText(options.closeReason, MAX_CLOSE_REASON) || "Utente uscito dal server";
+  const closedBy = String(options.closedBy || client?.user?.id || "system").trim() || "system";
+  const closedByName =
+    sanitizeText(options.closedByName, 80) ||
+    String(client?.user?.username || "").trim() ||
+    "Sistema";
+
+  const openTickets = await SiteWebTicket.find({
+    guildId: gid,
+    userId: uid,
+    status: { $in: [WEB_TICKET_STATUS.OPEN, WEB_TICKET_STATUS.CLAIMED] },
+  })
+    .limit(50)
+    .catch(() => []);
+  if (!Array.isArray(openTickets) || !openTickets.length) return { closed: 0 };
+
+  let closed = 0;
+  for (const ticket of openTickets) {
+    try {
+      if (String(ticket.status) === WEB_TICKET_STATUS.CLOSED) continue;
+      ticket.status = WEB_TICKET_STATUS.CLOSED;
+      ticket.closedBy = closedBy;
+      ticket.closedByName = closedByName;
+      ticket.closedAt = new Date();
+      ticket.closeReason = closeReason;
+      ticket.closeRequestedBy = null;
+      ticket.closeRequestedByName = "";
+      ticket.closeRequestedAt = null;
+      ticket.closeRequestReason = "";
+      await ticket.save();
+
+      const sys = await createSystemMessage(
+        ticket,
+        `Ticket chiuso automaticamente · ${closeReason}`,
+      );
+      const serialized = serializeTicket(ticket, { includeStaffFields: true });
+      const broadcastTicket = ticketBroadcastPayload(serialized);
+      emitTicketEvent({ type: "web_ticket_updated", ticket: broadcastTicket });
+      emitTicketEvent({
+        type: "web_ticket_message",
+        ticketId: serialized.id,
+        message: serializeMessage(sys),
+        ticket: broadcastTicket,
+      });
+
+      const claimerId = String(ticket.claimedBy || "").trim();
+      if (claimerId && claimerId !== uid) {
+        void notifyUserTicketEvent(
+          gid,
+          ticket,
+          "Ticket chiuso",
+          `Il ticket #${ticket.ticketNumber} è stato chiuso automaticamente: ${closeReason}.`,
+          claimerId,
+          {
+            mode: "closed",
+            openUrl: `/tickets/?view=staff&ticketId=${String(ticket._id)}#${String(ticket._id)}`,
+          },
+        );
+      }
+      if (!claimerId) {
+        void refreshStaffTicketQueueNotif(client, gid, ticket.category, {
+          push: false,
+          excludeUserIds: [uid],
+        });
+      }
+
+      void sendWebTicketDiscordLog(client, "closed", ticket, {
+        actorId: closedBy,
+        actorName: closedByName,
+        reason: closeReason,
+      });
+      closed += 1;
+    } catch (err) {
+      global.logger?.warn?.(
+        "[webTickets] auto-close on leave failed:",
+        String(ticket?._id || ""),
+        err?.message || err,
+      );
+    }
+  }
+
+  if (closed) {
+    emitTicketEvent({ type: "web_tickets_list_changed", at: new Date().toISOString() });
+  }
+  return { closed };
+}
+
+async function autoUnclaimOpenWebTicketsClaimedByUser(client, guildId, userId, options = {}) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return { unclaimed: 0 };
+
+  const reasonSuffix =
+    String(options.reason || "").trim() || "perché è uscito dal server";
+  const claimerNameHint = sanitizeText(options.claimerName, 80);
+
+  const claimed = await SiteWebTicket.find({
+    guildId: gid,
+    claimedBy: uid,
+    status: WEB_TICKET_STATUS.CLAIMED,
+    userId: { $ne: uid },
+  })
+    .limit(50)
+    .catch(() => []);
+  if (!Array.isArray(claimed) || !claimed.length) return { unclaimed: 0 };
+
+  let unclaimed = 0;
+  for (const ticket of claimed) {
+    try {
+      const name = String(ticket.claimedByName || claimerNameHint || "Staff").trim() || "Staff";
+      ticket.status = WEB_TICKET_STATUS.OPEN;
+      ticket.claimedBy = null;
+      ticket.claimedByName = "";
+      ticket.claimedAt = null;
+      await ticket.save();
+      const sys = await createSystemMessage(
+        ticket,
+        `${name} ha rilasciato il ticket automaticamente ${reasonSuffix}.`,
+      );
+      const serialized = serializeTicket(ticket, { includeStaffFields: true });
+      const broadcastTicket = ticketBroadcastPayload(serialized);
+      emitTicketEvent({ type: "web_ticket_updated", ticket: broadcastTicket });
+      emitTicketEvent({
+        type: "web_ticket_message",
+        ticketId: serialized.id,
+        message: serializeMessage(sys),
+        ticket: broadcastTicket,
+      });
+      void sendWebTicketDiscordLog(client, "unclaimed", ticket, {
+        actorId: uid,
+        actorName: name,
+      });
+      void refreshStaffTicketQueueNotif(client, gid, ticket.category, {
+        push: true,
+        excludeUserIds: [ticket.userId, uid],
+      });
+      unclaimed += 1;
+    } catch (err) {
+      global.logger?.warn?.(
+        "[webTickets] auto-unclaim on leave failed:",
+        String(ticket?._id || ""),
+        err?.message || err,
+      );
+    }
+  }
+
+  if (unclaimed) {
+    emitTicketEvent({ type: "web_tickets_list_changed", at: new Date().toISOString() });
+  }
+  return { unclaimed };
+}
+
+async function removeLeftUserFromOpenWebTickets(client, guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return { removed: 0 };
+
+  const tickets = await SiteWebTicket.find({
+    guildId: gid,
+    status: { $in: [WEB_TICKET_STATUS.OPEN, WEB_TICKET_STATUS.CLAIMED] },
+    "addedUsers.id": uid,
+    userId: { $ne: uid },
+  })
+    .limit(50)
+    .catch(() => []);
+  if (!Array.isArray(tickets) || !tickets.length) return { removed: 0 };
+
+  let removed = 0;
+  for (const ticket of tickets) {
+    try {
+      const before = Array.isArray(ticket.addedUsers) ? ticket.addedUsers.length : 0;
+      ticket.addedUsers = (ticket.addedUsers || []).filter((u) => String(u?.id || "").trim() !== uid);
+      if (ticket.addedUsers.length === before) continue;
+      await ticket.save();
+      const sys = await createSystemMessage(
+        ticket,
+        `Un membro aggiunto è stato rimosso automaticamente (uscita dal server).`,
+      );
+      const serialized = serializeTicket(ticket, { includeStaffFields: true });
+      const broadcastTicket = ticketBroadcastPayload(serialized);
+      emitTicketEvent({ type: "web_ticket_updated", ticket: broadcastTicket });
+      emitTicketEvent({
+        type: "web_ticket_message",
+        ticketId: serialized.id,
+        message: serializeMessage(sys),
+        ticket: broadcastTicket,
+      });
+      void sendWebTicketDiscordLog(client, "member_removed", ticket, {
+        actorId: "system",
+        actorName: "Sistema",
+        targetUserId: uid,
+      });
+      removed += 1;
+    } catch (err) {
+      global.logger?.warn?.(
+        "[webTickets] remove added member on leave failed:",
+        String(ticket?._id || ""),
+        err?.message || err,
+      );
+    }
+  }
+
+  if (removed) {
+    emitTicketEvent({ type: "web_tickets_list_changed", at: new Date().toISOString() });
+  }
+  return { removed };
 }
 
 async function handleSiteWebTicketsClosePost(client, req, res) {
@@ -5354,6 +5759,118 @@ async function countOpenWebTickets(guildId) {
   return { openTickets, unclaimedTickets };
 }
 
+/* notifUseful1: Ticket SLA — unclaimed / waiting-on-staff too long */
+const WEB_TICKET_SLA_DEFAULT_MINUTES = 45;
+const WEB_TICKET_SLA_SWEEP_MS = 5 * 60 * 1000;
+let webTicketSlaLoopHandle = null;
+
+function webTicketSlaThresholdMs() {
+  const raw = Number(process.env.WEB_TICKET_SLA_MINUTES || WEB_TICKET_SLA_DEFAULT_MINUTES);
+  const mins = Number.isFinite(raw) && raw > 0 ? Math.min(24 * 60, Math.max(10, raw)) : WEB_TICKET_SLA_DEFAULT_MINUTES;
+  return mins * 60_000;
+}
+
+async function clearTicketSlaNotifsForTicket(client, ticket) {
+  const sid = String(ticket?._id || ticket?.id || "").trim();
+  if (!sid) return;
+  const guildId = String(ticket.guildId || "").trim();
+  const category = normalizeCategory(ticket.category) || "supporto";
+  const recipients = await listStaffRecipientsForCategory(client, guildId, category, [ticket.userId]);
+  const claimer = String(ticket.claimedBy || "").trim();
+  if (claimer) recipients.push(claimer);
+  await Promise.all(
+    [...new Set(recipients)].map((userId) =>
+      removeInboxItemByDedupeKey(userId, `web_ticket:sla:${sid}`).catch(() => null),
+    ),
+  ).catch(() => null);
+}
+
+async function sweepWebTicketSlaNotifications(client) {
+  const guildId = String(IDs.guilds?.main || "").trim();
+  if (!guildId || !client) return { checked: 0, notified: 0 };
+  const thresholdMs = webTicketSlaThresholdMs();
+  const cutoff = new Date(Date.now() - thresholdMs);
+  const open = await SiteWebTicket.find({
+    guildId,
+    status: { $in: [WEB_TICKET_STATUS.OPEN, WEB_TICKET_STATUS.CLAIMED] },
+  })
+    .select(
+      "_id guildId category subject authorName ticketNumber userId claimedBy claimedByName claimedAt createdAt lastMessageAt lastAuthorKind",
+    )
+    .limit(80)
+    .lean()
+    .catch(() => []);
+  if (!Array.isArray(open) || !open.length) return { checked: 0, notified: 0 };
+
+  let notified = 0;
+  for (const ticket of open) {
+    const sid = String(ticket._id || "");
+    const claimer = String(ticket.claimedBy || "").trim();
+    const lastAt = ticket.lastMessageAt ? new Date(ticket.lastMessageAt) : ticket.createdAt ? new Date(ticket.createdAt) : null;
+    if (!sid || !lastAt || Number.isNaN(lastAt.getTime())) continue;
+
+    const unclaimedStale = !claimer && lastAt <= cutoff;
+    const waitingOnStaff =
+      Boolean(claimer) &&
+      String(ticket.lastAuthorKind || "").toLowerCase() === "user" &&
+      lastAt <= cutoff;
+    if (!unclaimedStale && !waitingOnStaff) {
+      continue;
+    }
+
+    const category = normalizeCategory(ticket.category) || "supporto";
+    const label = CATEGORY_LABELS[category] || category;
+    const subject = String(ticket.subject || "").trim() || label;
+    const author = String(ticket.authorName || "Un utente").trim() || "Un utente";
+    const mins = Math.round(thresholdMs / 60_000);
+    const title = unclaimedStale ? "Ticket non preso (SLA)" : "Ticket in attesa staff (SLA)";
+    const body = unclaimedStale
+      ? `${author} · ${subject} — senza claim da oltre ${mins} min`
+      : `${author} · ${subject} — in attesa di risposta staff da oltre ${mins} min`;
+
+    let recipients = [];
+    if (unclaimedStale) {
+      recipients = await listStaffRecipientsForCategory(client, guildId, category, [ticket.userId]);
+    } else if (claimer) {
+      recipients = [claimer];
+    }
+    if (!recipients.length) continue;
+
+    await Promise.all(
+      recipients.slice(0, 40).map((userId) =>
+        enqueueSiteInAppNotification({
+          guildId,
+          userId,
+          title,
+          body,
+          kind: "web_ticket_sla",
+          channel: "inbox",
+          openUrl: `/tickets/?view=staff&ticketId=${sid}#${sid}`,
+          ticketId: sid,
+          dedupeKey: `web_ticket:sla:${sid}`,
+          replaceDedupe: true,
+          push: true,
+        }).catch(() => null),
+      ),
+    ).catch(() => null);
+    notified += 1;
+  }
+  return { checked: open.length, notified };
+}
+
+function startWebTicketSlaNotifLoop(client) {
+  if (webTicketSlaLoopHandle) return webTicketSlaLoopHandle;
+  const tick = () => {
+    void sweepWebTicketSlaNotifications(client).catch((err) =>
+      global.logger?.warn?.("[WEB TICKET SLA]", err?.message || err),
+    );
+  };
+  tick();
+  webTicketSlaLoopHandle = setInterval(tick, WEB_TICKET_SLA_SWEEP_MS);
+  webTicketSlaLoopHandle.unref?.();
+  return webTicketSlaLoopHandle;
+}
+
 async function handleSiteWebTicketsRatePost(client, req, res) {
   const actor = await resolveMemberOrStaff(client, req);
   if (!actor.ok) {
@@ -5464,6 +5981,7 @@ async function handleSiteWebTicketsRatePost(client, req, res) {
 module.exports = {
   handleSiteWebTicketsMetaGet,
   handleSiteWebTicketsPresencePost,
+  handleSiteWebTicketsTypingPost,
   handleSiteWebTicketsEmojisGet,
   handleSiteWebTicketsMentionsGet,
   handleSiteWebTicketsResolvePost,
@@ -5478,6 +5996,9 @@ module.exports = {
   handleSiteWebTicketsClaimPost,
   handleSiteWebTicketsUnclaimPost,
   handleSiteWebTicketsClosePost,
+  closeOpenWebTicketsForGuildUser,
+  autoUnclaimOpenWebTicketsClaimedByUser,
+  removeLeftUserFromOpenWebTickets,
   handleSiteWebTicketsMembersPost,
   handleSiteWebTicketsMembersRemovePost,
   handleSiteWebTicketsTransferPost,
@@ -5497,4 +6018,10 @@ module.exports = {
   serializeMessage,
   ticketBroadcastPayload,
   notifyStaffNewTicket,
+  startWebTicketSlaNotifLoop,
+  sweepWebTicketSlaNotifications,
+  listGuildMentionChannels,
+  sanitizeWebTicketMentionsToScope,
+  sanitizeWebTicketChannelMentions,
+  memberCanViewChannelId,
 };

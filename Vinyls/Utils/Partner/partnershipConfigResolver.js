@@ -4,6 +4,35 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { isViniliFullFeatureGuild } = require("../../MultiGuild/core/guildFeatureScope");
 const { getPartnershipConfigSync, isPartnershipSetupComplete } = require("../../MultiGuild/core/tenantPartnershipSettings");
 const { PARTNER_SAME_TARGET_COOLDOWN_MS } = require("./partnerSameTargetCooldown");
+const {
+  remapRoleIdForward,
+  expandRemappedRoleIds,
+  memberHasAnyRemappedRole,
+  memberHasRoleNameMatch,
+} = require("../Config/emergencyRoleIdRemap");
+
+function preferLivePartnerManagerRoleId(rawRoleId, { preferIds = true } = {}) {
+  const fromRaw = remapRoleIdForward(rawRoleId);
+  if (!preferIds) return fromRaw || null;
+  const fromIds = remapRoleIdForward(IDs.roles?.PartnerManager);
+  // Main guild only: prefer current ids.js after emergency remap; never keep a dead pre-remap id.
+  return fromIds || fromRaw || null;
+}
+
+function preferLivePartnershipPingRoleId(rawRoleId, { preferIds = true } = {}) {
+  const fromRaw = remapRoleIdForward(rawRoleId);
+  if (!preferIds) return fromRaw || null;
+  const fromIds = remapRoleIdForward(IDs.roles?.Partnership);
+  // Prefer live Partnership role from ids.js (old mongo ping ids still tag dead roles).
+  return fromIds || fromRaw || null;
+}
+
+function normalizePartnershipPings(pings, { preferIds = true } = {}) {
+  if (!pings || typeof pings !== "object") return pings;
+  const customRoleId = preferLivePartnershipPingRoleId(pings.customRoleId, { preferIds }) || null;
+  if (String(pings.customRoleId || "").trim() === String(customRoleId || "").trim()) return pings;
+  return { ...pings, customRoleId };
+}
 
 function getMainGuildId() {
   return String(IDs.guilds?.main || "").trim();
@@ -54,14 +83,14 @@ function buildLegacyPartnershipConfig(guildId) {
     pointsRemovedChannelId: IDs.channels?.puntiTolti || null,
     descriptionChannelId: IDs.channels?.descriptionPartner || null,
     partnersChatChannelId: IDs.channels?.partnersChat || null,
-    partnerManagerRoleId: IDs.roles?.PartnerManager || null,
-    partnerBlacklistRoleId: IDs.roles?.blackilistPartner || null,
-    partnershipPingRoleId: IDs.roles?.Partnership || null,
+    partnerManagerRoleId: preferLivePartnerManagerRoleId(IDs.roles?.PartnerManager),
+    partnerBlacklistRoleId: remapRoleIdForward(IDs.roles?.blackilistPartner) || IDs.roles?.blackilistPartner || null,
+    partnershipPingRoleId: preferLivePartnershipPingRoleId(IDs.roles?.Partnership),
     invite: null,
     pings: {
       hereMembers: null,
       everyoneMembers: null,
-      customRoleId: IDs.roles?.Partnership || null,
+      customRoleId: preferLivePartnershipPingRoleId(IDs.roles?.Partnership),
       customRoleMembers: null,
       configured: Boolean(IDs.roles?.Partnership),
     },
@@ -137,7 +166,9 @@ function mergeMainPartnershipConfig(guildId) {
   }
 
   const partnerDesc = mongo.partnerDesc?.configured ? mongo.partnerDesc : legacy.partnerDesc;
-  const pings = mongo.pings?.configured ? mongo.pings : legacy.pings;
+  const pings = normalizePartnershipPings(mongo.pings?.configured ? mongo.pings : legacy.pings, {
+    preferIds: true,
+  });
   const descriptionChannelId =
     partnerDesc?.mode === "channel" ? partnerDesc.channelId || legacy.descriptionChannelId : legacy.descriptionChannelId;
 
@@ -151,15 +182,19 @@ function mergeMainPartnershipConfig(guildId) {
     pmCommandsCategoryIds: mongo.pmCommandsCategoryIds?.length
       ? mongo.pmCommandsCategoryIds
       : legacy.pmCommandsCategoryIds,
-    partnerManagerRoleId: mongo.partnerManagerRoleId || legacy.partnerManagerRoleId,
-    partnershipPingRoleId: pings?.customRoleId || legacy.partnershipPingRoleId,
+    partnerManagerRoleId:
+      preferLivePartnerManagerRoleId(mongo.partnerManagerRoleId) ||
+      preferLivePartnerManagerRoleId(legacy.partnerManagerRoleId),
+    partnershipPingRoleId:
+      preferLivePartnershipPingRoleId(pings?.customRoleId) ||
+      preferLivePartnershipPingRoleId(legacy.partnershipPingRoleId),
     pings,
     skipManager: mongo.skipManager === true,
     thankYouEmbed,
     partnerDesc,
     descriptionChannelId,
     manualPartnershipEnabled: mongo.manualPartnershipEnabled === true,
-    managerBadgeRoleId: mongo.managerBadgeRoleId || legacy.managerBadgeRoleId,
+    managerBadgeRoleId: remapRoleIdForward(mongo.managerBadgeRoleId) || remapRoleIdForward(legacy.managerBadgeRoleId) || mongo.managerBadgeRoleId || legacy.managerBadgeRoleId,
     managerLeaveAction: mongo.managerLeaveAction || legacy.managerLeaveAction,
     sameServerCooldownMs:
       mongo.sameServerCooldownMs !== undefined ? mongo.sameServerCooldownMs : legacy.sameServerCooldownMs,
@@ -219,21 +254,24 @@ function resolvePartnershipConfigSync(guildId) {
     partnersChatChannelId: tenant?.pmCommandsChannelId || null,
     pmCommandsChannelId: tenant?.pmCommandsChannelId || null,
     pmCommandsCategoryIds: tenant?.pmCommandsCategoryIds || [],
-    partnerManagerRoleId: tenant?.partnerManagerRoleId || null,
-    managerBadgeRoleId: tenant?.managerBadgeRoleId || null,
+    partnerManagerRoleId: preferLivePartnerManagerRoleId(tenant?.partnerManagerRoleId, { preferIds: false }),
+    managerBadgeRoleId: remapRoleIdForward(tenant?.managerBadgeRoleId) || tenant?.managerBadgeRoleId || null,
     managerLeaveAction: tenant?.managerLeaveAction ?? null,
     behaviorDeleteAction: tenant?.behaviorDeleteAction ?? null,
     sameServerCooldownMs: tenant?.sameServerCooldownMs ?? null,
     partnerBlacklistRoleId: null,
-    partnershipPingRoleId: tenant?.pings?.customRoleId || null,
+    partnershipPingRoleId: preferLivePartnershipPingRoleId(tenant?.pings?.customRoleId, { preferIds: false }),
     invite: tenant?.invite || null,
-    pings: tenant?.pings || {
-      hereMembers: null,
-      everyoneMembers: null,
-      customRoleId: null,
-      customRoleMembers: null,
-      configured: false,
-    },
+    pings: normalizePartnershipPings(
+      tenant?.pings || {
+        hereMembers: null,
+        everyoneMembers: null,
+        customRoleId: null,
+        customRoleMembers: null,
+        configured: false,
+      },
+      { preferIds: false },
+    ),
     thankYouEmbed: tenant?.thankYouEmbed || {
       enabled: false,
       color: null,
@@ -309,10 +347,24 @@ function isPartnershipOperational(guildId) {
   return Boolean(cfg?.partnershipsChannelId && cfg.partnerManagerRoleId);
 }
 
+function collectPartnerManagerRoleIds(guildId) {
+  const ids = new Set();
+  const gid = String(guildId || "").trim();
+  const fromCfg = resolvePartnershipConfigSync(gid)?.partnerManagerRoleId;
+  for (const id of expandRemappedRoleIds(fromCfg)) ids.add(id);
+  // Main / Vinili only: also accept live ids.js PartnerManager (emergency remap aliases).
+  if (gid && (isViniliFullFeatureGuild(gid) || isMainPartnershipSettingsGuild(gid))) {
+    for (const id of expandRemappedRoleIds(IDs.roles?.PartnerManager)) ids.add(id);
+  }
+  return [...ids];
+}
+
 function memberHasPartnerManagerRole(member, guildId) {
-  const roleId = resolvePartnershipConfigSync(guildId)?.partnerManagerRoleId;
-  if (!roleId || !member?.roles?.cache) return false;
-  return member.roles.cache.has(String(roleId));
+  if (!member) return false;
+  const roleIds = collectPartnerManagerRoleIds(guildId);
+  if (roleIds.length && memberHasAnyRemappedRole(member, roleIds)) return true;
+  // Last resort after emergency role recreate: match by display name.
+  return memberHasRoleNameMatch(member, /partner\s*manager/i);
 }
 
 async function guildMemberHasPartnerManagerRole(client, guildId, userId) {
@@ -398,7 +450,32 @@ function getPartnershipChannelId(guildId) {
 }
 
 function getPartnerManagerRoleId(guildId) {
-  return resolvePartnershipConfigSync(guildId)?.partnerManagerRoleId || null;
+  const gid = String(guildId || "").trim();
+  const fromCfg = resolvePartnershipConfigSync(gid)?.partnerManagerRoleId;
+  if (gid && (isViniliFullFeatureGuild(gid) || isMainPartnershipSettingsGuild(gid))) {
+    return preferLivePartnerManagerRoleId(fromCfg) || preferLivePartnerManagerRoleId(IDs.roles?.PartnerManager);
+  }
+  return preferLivePartnerManagerRoleId(fromCfg, { preferIds: false });
+}
+
+function memberCanExecutePartnership(member, guildId) {
+  const gid = String(guildId || member?.guild?.id || "").trim();
+  if (memberHasPartnerManagerRole(member, gid)) return true;
+  if (!gid || isViniliFullFeatureGuild(gid) || isMainPartnershipSettingsGuild(gid)) return false;
+  try {
+    const { PermissionFlagsBits } = require("discord.js");
+    if (
+      member?.permissions?.has?.(PermissionFlagsBits.Administrator) ||
+      member?.permissions?.has?.(PermissionFlagsBits.ManageGuild)
+    ) {
+      return true;
+    }
+  } catch (_) {}
+  try {
+    const ownerId = String(member?.guild?.ownerId || "").trim();
+    if (ownerId && ownerId === String(member?.id || member?.user?.id || "").trim()) return true;
+  } catch (_) {}
+  return false;
 }
 
 function getPartnershipLogsChannelId(guildId) {
@@ -439,7 +516,12 @@ function getPartnershipLogChannelIds(guildId) {
 function getPartnershipPingRoleId(guildId) {
   const cfg = resolvePartnershipConfigSync(guildId);
   if (!cfg) return null;
-  return cfg.partnershipPingRoleId || cfg.pings?.customRoleId || null;
+  const preferIds = Boolean(cfg.legacy);
+  return (
+    preferLivePartnershipPingRoleId(cfg.partnershipPingRoleId, { preferIds }) ||
+    preferLivePartnershipPingRoleId(cfg.pings?.customRoleId, { preferIds }) ||
+    null
+  );
 }
 
 function getPartnerBlacklistRoleId(guildId) {
@@ -490,14 +572,40 @@ async function shouldRouteTenantPartnershipProfile(message, opts = {}) {
   if (!guildId || !isTenantPartnershipPrefixToolkitEnabled(guildId)) return false;
   if (!isPartnershipOperational(guildId)) return false;
 
-    if (!isViniliFullFeatureGuild(guildId)) return true;
+  if (!isViniliFullFeatureGuild(guildId)) return true;
 
-  const member = message?.member;
+  let member = message?.member || null;
+  const authorId = String(message?.author?.id || "").trim();
+  const guild = message?.guild;
+  const pmRoleId = String(resolvePartnershipConfigSync(guildId)?.partnerManagerRoleId || "").trim();
+  if (guild && authorId) {
+    const needsFetch =
+      !member ||
+      (pmRoleId && !member.roles?.cache?.has(pmRoleId));
+    if (needsFetch) {
+      member = await guild.members.fetch(authorId).catch(() => member);
+    }
+  }
+
   if (!memberHasPartnerManagerRole(member, guildId)) return false;
 
-    if (!forcePmMode) return false;
+  if (forcePmMode) return true;
 
-  return true;
+  try {
+    const {
+      isStaffCmdsPmCommandsThread,
+      isStaffCmdsPmCommandsThreadSync,
+      isStaffCmdsMainChannel,
+      ensureStaffCmdsThreadIdsHydrated,
+    } = require("../Staff/staffCmdsChannelUtils");
+    const channel = message?.channel;
+    if (isStaffCmdsPmCommandsThreadSync(channel)) return true;
+    if (isStaffCmdsMainChannel(channel)) return true;
+    await ensureStaffCmdsThreadIdsHydrated().catch(() => null);
+    if (await isStaffCmdsPmCommandsThread(channel)) return true;
+  } catch (_) {}
+
+  return false;
 }
 
 function isProfilePmModeArg(args = []) {
@@ -547,4 +655,4 @@ function collectPartnershipChannelIdsForAutomod() {
 const SETUP_REQUIRED_REPLY =
   "<:vegax:1443934876440068179> Partnership non configurata su questo server. Un admin deve completare `+setup`.";
 
-module.exports = { buildLegacyPartnershipConfig, buildMainPartnershipMongoSeed, getMainGuildId, isMainPartnershipSettingsGuild, resolvePartnershipConfigSync, isPartnershipOperational, shouldApplyMainPartnershipFilters, isTenantPartnershipPrefixToolkitEnabled, shouldBlockTenantPartnershipPrefixCommands, shouldUseTenantStatsInfoRouting, shouldRouteTenantPartnershipProfile, isProfilePmModeArg, memberHasPartnerManagerRole, guildMemberHasPartnerManagerRole, userQualifiesForTenantMissions, getPartnershipChannelId, getPartnerManagerRoleId, getPartnershipLogsChannelId, getPointsRemovedLogChannelId, resolvePartnershipLifecycleLogChannelId, resolvePointsCustomLogChannelId, getPartnershipLogChannelIds, getPartnershipPingRoleId, getPartnerBlacklistRoleId, getDescriptionChannelId, getPartnersChatChannelId, getPmCommandsCategoryIds, tenantPmCommandsZoneConfigured, listPartnershipAuditGuildIds, listOperationalPartnershipGuildIds, collectPartnershipChannelIdsForAutomod, SETUP_REQUIRED_REPLY, isPartnershipSkipManagerAllowed, buildSkipDeniedEmbed, buildPartnershipCompletedReplyEmbed };
+module.exports = { buildLegacyPartnershipConfig, buildMainPartnershipMongoSeed, getMainGuildId, isMainPartnershipSettingsGuild, resolvePartnershipConfigSync, isPartnershipOperational, shouldApplyMainPartnershipFilters, isTenantPartnershipPrefixToolkitEnabled, shouldBlockTenantPartnershipPrefixCommands, shouldUseTenantStatsInfoRouting, shouldRouteTenantPartnershipProfile, isProfilePmModeArg, memberHasPartnerManagerRole, memberCanExecutePartnership, guildMemberHasPartnerManagerRole, userQualifiesForTenantMissions, getPartnershipChannelId, getPartnerManagerRoleId, getPartnershipLogsChannelId, getPointsRemovedLogChannelId, resolvePartnershipLifecycleLogChannelId, resolvePointsCustomLogChannelId, getPartnershipLogChannelIds, getPartnershipPingRoleId, getPartnerBlacklistRoleId, getDescriptionChannelId, getPartnersChatChannelId, getPmCommandsCategoryIds, tenantPmCommandsZoneConfigured, listPartnershipAuditGuildIds, listOperationalPartnershipGuildIds, collectPartnershipChannelIdsForAutomod, SETUP_REQUIRED_REPLY, isPartnershipSkipManagerAllowed, buildSkipDeniedEmbed, buildPartnershipCompletedReplyEmbed };

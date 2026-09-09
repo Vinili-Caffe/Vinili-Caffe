@@ -16,11 +16,9 @@ const {
 } = require("../../Utils/Partner/tenantPartnershipPrefixMessages");
 const { replyPrefixSetupRequired } = require("../../Utils/Partner/tenantSetupRequiredReply");
 const {
-  siteWorkflowUrl,
-  buildSiteLinkRow,
-  profileMovedToSiteMessage,
-  isTenantPrefixProfileEmbedAllowed,
-} = require("../../Utils/Web/discordWorkflowUiGate");
+  partnersChatPartnerCommandDeniedReplyContent,
+  sendPartnersChatDeniedPrefixCleanup,
+} = require("../../Utils/Partner/partnersChatChannelUtils");
 const { buildSimpleNoticePayload } = require("../../Utils/Embeds/simpleNoticeEmbed");
 const { EmbedBuilder } = require("discord.js");
 
@@ -98,15 +96,6 @@ async function replyTenantPartnershipProfile(message, targetUser) {
   await upsertProfileReply(message, payload);
 }
 
-async function replyProfileMovedToSite(message) {
-  const url = siteWorkflowUrl("userProfile");
-  await safeMessageReply(message, {
-    ...buildSimpleNoticePayload(profileMovedToSiteMessage(), message.guild),
-    components: [buildSiteLinkRow("Apri il tuo profilo", url)],
-    allowedMentions: { repliedUser: false },
-  });
-}
-
 module.exports = {
   name: "profile",
   keepCommandMessage: true,
@@ -119,9 +108,6 @@ module.exports = {
     if (!message?.guild || !message?.author) return;
 
     const guildId = message.guild.id;
-    if (isViniliFullFeatureGuild(guildId)) {
-      return replyProfileMovedToSite(message);
-    }
 
     if (shouldBlockTenantPartnershipPrefixCommands(guildId)) {
       return safeMessageReply(message, {
@@ -156,16 +142,24 @@ module.exports = {
       return;
     }
 
-    if (
-      isTenantPrefixProfileEmbedAllowed(guildId) &&
-      (await shouldRouteTenantPartnershipProfile(message))
-    ) {
+    if (!isPartnershipOperational(guildId)) {
+      return replyPrefixSetupRequired(message, { keepCommandMessage: true });
+    }
+
+    const denied = await partnersChatPartnerCommandDeniedReplyContent(message.channel).catch(() => null);
+    if (denied) {
+      return sendPartnersChatDeniedPrefixCleanup(message, denied);
+    }
+
+    if (await shouldRouteTenantPartnershipProfile(message)) {
       await replyTenantPartnershipProfile(message, targetUser);
       return;
     }
 
-    if (!isPartnershipOperational(guildId)) {
-      return replyPrefixSetupRequired(message, { keepCommandMessage: true });
+    // Main guild: same Discord partnership profile as tenant servers (no site redirect embed).
+    if (isViniliFullFeatureGuild(guildId) && isPartnershipOperational(guildId)) {
+      await replyTenantPartnershipProfile(message, targetUser);
+      return;
     }
 
     if (shouldApplyMultiGuildLayer(guildId)) {

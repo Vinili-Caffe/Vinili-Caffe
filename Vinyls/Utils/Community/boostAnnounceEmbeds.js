@@ -12,7 +12,7 @@ function buildBoostEmbed(member, boostCount) {
       `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER IL BOOST!__**\n` +
       "\n" +
       `<a:VC_Boost:1482706171386269830> **Boostando il server una volta hai sbloccato questi vantaggi:**\n` +
-      `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.ServerBooster}> con badge speciale\n` +
+      `<:sparkledred:1470064814502973591> Ruolo Server Booster con badge speciale\n` +
       `<a:VC_NewsExclamation:1471891662786527253> Permesso di cambiare il nickname\n` +
       `<:moon:1470064812615667827> Permesso di allegare immagini e link in chat\n` +
       `<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server\n` +
@@ -42,7 +42,7 @@ function buildBoostEmbedSecond(member, boostCount) {
       `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER IL DOPPIO BOOST!__**\n` +
       "\n" +
       `<a:VC_Boost:1482706171386269830> **Boostando il server due volte hai sbloccato questi vantaggi:**\n` +
-      `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.DoubleBooster}> con badge speciale\n` +
+      `<:sparkledred:1470064814502973591> Ruolo Double Booster con badge speciale\n` +
       "<:moon:1470064812615667827> Tutti i perks precedenti\n" +
       "<:sparkle:1470064801811140866> Permesso di usare le Soundboard esterne\n" +
       "<:VC_Color:1482532543273238569> Sfondo personalizzato per la tua card del comando `+rank`\n" +

@@ -50,7 +50,7 @@ const IDs = {
   },
   roles: {
     Member: (config.roles && config.roles.Member) || "1442568949605597264",
-    HighStaff: (config.roles && config.roles.HighStaff) || "1442568894349840435",
+    HighStaff: (config.roles && config.roles.HighStaff) || "1544831228690046976",
     Founder: (config.roles && config.roles.Founder) || "1442568886988963923",
   },
   categories: {

@@ -1,6 +1,15 @@
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { runExpiredCustomRolesSweep } = require("../../Services/Community/customRoleExpiryService");
 
+function remapRoleId(roleId) {
+  try {
+    const { remapRoleIdForward } = require("../Config/emergencyRoleIdRemap");
+    return remapRoleIdForward(roleId) || String(roleId || "").trim();
+  } catch {
+    return String(roleId || "").trim();
+  }
+}
+
 function isExpired(doc) {
   const expiresAt = doc?.expiresAt ? new Date(doc.expiresAt) : null;
   if (!expiresAt || Number.isNaN(expiresAt.getTime())) return false;
@@ -49,12 +58,12 @@ async function resolveCustomRoleState({ guild, userId, client = null, cleanupExp
   let secondaryGone = false;
 
   if (doc?.roleId) {
-    const primary = await fetchRoleStrict(guild, doc.roleId);
+    const primary = await fetchRoleStrict(guild, remapRoleId(doc.roleId));
     role = primary.role;
     primaryGone = primary.gone;
   }
   if (doc?.secondaryRoleId) {
-    const secondary = await fetchRoleStrict(guild, doc.secondaryRoleId);
+    const secondary = await fetchRoleStrict(guild, remapRoleId(doc.secondaryRoleId));
     secondaryRole = secondary.role;
     secondaryGone = secondary.gone;
   }

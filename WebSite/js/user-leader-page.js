@@ -69,11 +69,27 @@
   }
 
   function avatarUrl(row) {
+    try {
+      if (window.VcDiscordIdentity && typeof window.VcDiscordIdentity.pickAvatarUrl === "function") {
+        var picked = window.VcDiscordIdentity.pickAvatarUrl(row, 128);
+        if (picked) return picked;
+      }
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.pickAvatarUrl === "function") {
+        var pickedAv = window.VcDiscordAvatar.pickAvatarUrl(row, 128);
+        if (pickedAv) return pickedAv;
+      }
+    } catch (ePick) {}
     var fromApi = String(row.avatarUrl || "").trim();
     if (/^https?:\/\//i.test(fromApi)) {
       try {
+        var isGuild = /\/guilds\/\d+\/users\//i.test(fromApi);
         if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
-          return window.VcDiscordAvatar.resolveUrl(fromApi, 128, row.avatar, row.userId);
+          return window.VcDiscordAvatar.resolveUrl(
+            fromApi,
+            128,
+            isGuild ? row.memberAvatar || "" : row.avatar,
+            row.userId,
+          );
         }
         if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferAnimatedUrl === "function") {
           return window.VcDiscordAvatar.preferAnimatedUrl(fromApi, 128);
@@ -84,24 +100,16 @@
     var id = String(row.userId || "").trim();
     var av = String(row.avatar || "").trim();
     if (id && av) {
-      var ext = av.indexOf("a_") === 0 ? "gif" : "png";
-      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + "." + ext + "?size=128";
+      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + ".png?size=128";
     }
-    var disc = parseInt(String(row.discriminator || "0"), 10);
-    if (!Number.isFinite(disc)) disc = 0;
-    var idx;
-    if (disc !== 0) {
-      idx = disc % 5;
-    } else if (id && /^\d{5,22}$/.test(id)) {
-      try {
-        idx = Number((BigInt(id) >> BigInt(22)) % BigInt(6));
-      } catch (e) {
-        idx = 0;
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
       }
-    } else {
-      idx = 0;
-    }
-    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
   function formatIntIt(n) {
@@ -291,23 +299,15 @@
     return '<span class="vc-ul-rank-num">#' + esc(String(rank)) + "</span>";
   }
 
-  function defaultEmbedAvatarUrl(row) {
-    var id = String(row.userId || "").trim();
-    var disc = parseInt(String(row.discriminator || "0"), 10);
-    var idx;
-    if (!Number.isFinite(disc)) disc = 0;
-    if (disc !== 0) {
-      idx = disc % 5;
-    } else if (id && /^\d{5,22}$/.test(id)) {
-      try {
-        idx = Number((BigInt(id) >> BigInt(22)) % BigInt(6));
-      } catch (e) {
-        idx = 0;
+  function defaultEmbedAvatarUrl() {
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
       }
-    } else {
-      idx = 0;
-    }
-    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
   function profileHref(userId) {
@@ -517,6 +517,13 @@
         { credentials: "omit", cache: "no-store", headers: headers },
         USERS_FETCH_TIMEOUT_MS,
       ).then(function (r) {
+        if (r && r.status === 429) {
+          try {
+            if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
+              window.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), url);
+            }
+          } catch (e429) {}
+        }
         return r.json().then(function (j) {
           return { ok: r.ok, status: r.status, body: j };
         });
@@ -531,13 +538,20 @@
         try {
           var overlay = document.getElementById("vc-ul-loading");
           var sub = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
-          if (sub) sub.textContent = "Ancora un momento, sto recuperando la classifica…";
+          if (sub) sub.textContent = "Ancora un momento, sto preparando la pagina…";
         } catch (eSub) {}
         return fetchWithTimeout(
           url,
           { credentials: "omit", cache: "no-store", headers: headers },
           USERS_FETCH_TIMEOUT_MS,
         ).then(function (r) {
+          if (r && r.status === 429) {
+            try {
+              if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
+                window.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), url);
+              }
+            } catch (e429b) {}
+          }
           return r.json().then(function (j) {
             return { ok: r.ok, status: r.status, body: j };
           });
@@ -770,11 +784,11 @@
 
     function syncLeaderLoaderBlocking(overlay, loading) {
     if (!overlay) return;
-    var root = document.documentElement;
-    var bootHide =
-      root.classList.contains("vc-user-leader-pending") ||
-      root.classList.contains("vc-user-leader-route");
-    if (loading && bootHide) overlay.setAttribute("data-vc-loader-blocking", "1");
+    // Always use the canonical full-screen boot overlay (same as initial /user/
+    // classifica load). Without data-vc-loader-blocking, CSS falls back to the
+    // old teal card loader — visible when switching boards after boot clears
+    // vc-user-leader-pending / vc-user-leader-route.
+    if (loading) overlay.setAttribute("data-vc-loader-blocking", "1");
     else overlay.removeAttribute("data-vc-loader-blocking");
     try {
       if (typeof window.__vcSyncLoaderBlockingLiveClass === "function") window.__vcSyncLoaderBlockingLiveClass();
@@ -797,8 +811,8 @@
         overlay.style.removeProperty("pointer-events");
       }
     }
-    if (title) title.textContent = label || "Caricamento classifica";
-    if (sub) sub.textContent = state.loading ? "Sto aggiornando i dati della community…" : "";
+    if (title) title.textContent = label || "Caricamento...";
+    if (sub) sub.textContent = state.loading ? "Sto preparando la pagina..." : "";
     if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
@@ -811,11 +825,76 @@
   }
 
   function setState(msg, isErr) {
+    var text = String(msg || "").trim();
     var el = byId("vc-user-leader-state");
-    if (!el) return;
-    el.textContent = msg || "";
-    el.className = "vc-user-leader-state" + (isErr ? " vc-user-leader-state--err" : "");
-    el.hidden = !msg;
+    // leaderToast429Fix1 + toastOnlyAlerts1: tutti gli avvisi → toast (mai banner).
+    if (el) {
+      el.textContent = "";
+      el.hidden = true;
+      el.className = "vc-user-leader-state";
+    }
+    if (!text) {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") window.VcSiteToast.hide();
+      } catch (eHide) {}
+      return;
+    }
+    function paintToast() {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+          window.VcSiteToast.show(text, Boolean(isErr), {
+            ms: isErr ? (/troppe richieste/i.test(text) ? 4200 : 3200) : 1800,
+            pending: !isErr && /[…]$|\.\.\.$|caricamento/i.test(text),
+          });
+          return true;
+        }
+      } catch (eToast) {}
+      return false;
+    }
+    if (paintToast()) return;
+    window.setTimeout(function () {
+      if (paintToast()) return;
+      if (!el) return;
+      el.textContent = text;
+      el.className = "vc-user-leader-state" + (isErr ? " vc-user-leader-state--err" : "");
+      el.hidden = false;
+    }, 80);
+  }
+
+  function isRateLimitedPayload(out) {
+    if (!out) return false;
+    if (Number(out.status) === 429) return true;
+    var err = String((out.body && (out.body.error || out.body.code || out.body.message)) || "")
+      .toLowerCase()
+      .trim();
+    return (
+      err.indexOf("rate_limit") >= 0 ||
+      err === "rate_limited" ||
+      err === "rate_limited_client" ||
+      err.indexOf("too many") >= 0
+    );
+  }
+
+  function formatLeaderLoadError(out) {
+    if (isRateLimitedPayload(out)) return "Troppe richieste. Riprova tra poco.";
+    var bodyMsg = out && out.body && (out.body.message || out.body.error);
+    if (bodyMsg && !/^HTTP\s*\d+/i.test(String(bodyMsg)) && String(bodyMsg).toLowerCase() !== "rate_limited") {
+      return String(bodyMsg);
+    }
+    var st = Number(out && out.status) || 0;
+    if (st > 0) return "HTTP " + String(st) + " — dati non disponibili.";
+    return "Dati non disponibili. Riprova tra poco.";
+  }
+
+  var leader429RetryTimer = null;
+  function scheduleLeader429Retry() {
+    if (leader429RetryTimer) return;
+    leader429RetryTimer = window.setTimeout(function () {
+      leader429RetryTimer = null;
+      if (document.visibilityState !== "visible") return;
+      if (state.loading) return;
+      load({ silent: true });
+    }, 8500);
   }
 
   function cardHead(row) {
@@ -1105,6 +1184,33 @@
     if (lab) lab.textContent = "Pagina " + state.page + " di " + tp;
   }
 
+  function boardLeadBlurb(board) {
+    var b = String(board || "level");
+    var key =
+      b === "weekly"
+        ? "user.subWeekly"
+        : b === "messages"
+          ? "user.subMessages"
+          : b === "voice"
+            ? "user.subVoice"
+            : "user.subLevel";
+    var fallback =
+      b === "weekly"
+        ? "Classifica dell'attività settimanale (EXP della settimana)"
+        : b === "messages"
+          ? "Classifica per messaggi inviati in chat"
+          : b === "voice"
+            ? "Classifica per tempo trascorso in vocal"
+            : "Classifica per livello (EXP totale)";
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var tr = window.VcI18n.t(key);
+        if (tr && tr !== key) return tr;
+      }
+    } catch (eI18n) {}
+    return fallback;
+  }
+
   function applyStats(data) {
     var st = data && data.stats ? data.stats : {};
     var board = String((data && data.board) || state.board || "level");
@@ -1157,11 +1263,7 @@
     if (tn && topRow) {
       tn.textContent = String(topRow.displayName || topRow.username || "").trim() || "—";
     }
-    if (sub) {
-      var blurb = "";
-      blurb = "";
-      sub.textContent = blurb;
-    }
+    if (sub) sub.textContent = boardLeadBlurb(board);
   }
 
   function applyAnimatedStats(data) {
@@ -1224,7 +1326,7 @@
       tn.textContent = String(st.topPlayerUsername || "—").trim() || "—";
     }
 
-    if (sub) sub.textContent = "";
+    if (sub) sub.textContent = boardLeadBlurb(board);
   }
 
   function render(data) {
@@ -1241,6 +1343,7 @@
       var msgEl = byId("vc-ul-empty-msg");
       var searchMiss = Boolean(state.searchUserId);
       var loadErr = data && data.loadError === true;
+      var rateLimited = data && data.rateLimited === true;
       if (titleEl && msgEl) {
         if (searchMiss && !loadErr) {
           if (ico) {
@@ -1248,6 +1351,12 @@
           }
           titleEl.textContent = "Nessun utente trovato";
           msgEl.textContent = "Prova a modificare i filtri di ricerca";
+        } else if (rateLimited) {
+          if (ico) {
+            ico.className = "fa fa-clock-o vc-ul-empty-ico";
+          }
+          titleEl.textContent = "Troppe richieste";
+          msgEl.textContent = "Aspetta qualche secondo e riprova: sto già aggiornando in automatico.";
         } else {
           if (ico) {
             ico.className = "fa fa-users vc-ul-empty-ico";
@@ -1316,19 +1425,43 @@
       }
     }
     if (!silent) {
-      setLoading(true, state.page === 1 ? "Caricamento classifica" : "Aggiornamento classifica");
+      setLoading(true, "Caricamento...");
       setState("Caricamento…", false);
     }
     var paintedStale = false;
     function applyPayload(out, fromSilent) {
       if (!out || !out.ok || !out.body || out.body.ok !== true) {
         if (fromSilent && paintedStale) return;
-        var msg =
-          (out && out.body && (out.body.message || out.body.error)) ||
-          ("HTTP " + String((out && out.status) || "") + " — dati non disponibili.");
-        setState(String(msg), true);
-        render({ rows: [], total: 0, totalPages: 1, board: state.board, loadError: true });
+        var rateLimited = isRateLimitedPayload(out);
+        if (rateLimited) {
+          try {
+            if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
+              window.VcApiCache.noteWebhook429(0, url);
+            }
+          } catch (eNote) {}
+        }
+        var msg = formatLeaderLoadError(out);
+        // Toast only (no banner under navbar). Keep stale/current cards if present.
+        if (!fromSilent || !paintedStale) setState(msg, true);
+        if (paintedStale) {
+          if (rateLimited) scheduleLeader429Retry();
+          return;
+        }
+        var gridEl = byId("vc-ul-grid");
+        if (gridEl && gridEl.querySelector(".vc-ul-card")) {
+          if (rateLimited) scheduleLeader429Retry();
+          return;
+        }
+        render({
+          rows: [],
+          total: 0,
+          totalPages: 1,
+          board: state.board,
+          loadError: true,
+          rateLimited: rateLimited,
+        });
         syncSearchUi();
+        if (rateLimited) scheduleLeader429Retry();
         return;
       }
       setState("", false);
@@ -1580,7 +1713,7 @@
     initFilters();
     initProfileWarmPrefetch();
     setFiltersOpen(false);
-    setLoading(true, "Caricamento classifica");
+    setLoading(true, "Caricamento...");
     load();
     startLiveUsersPolling();
         setTimeout(function () {
@@ -1602,6 +1735,12 @@
     if (document.visibilityState !== "visible") return;
     if (state.loading || state.filtersOpen) return;
     load({ silent: true });
+  });
+
+  window.addEventListener("vc:site-api-refetch", function () {
+    if (isProfileMode()) return;
+    if (!byId("vc-ul-grid")) return;
+    load({ silent: false });
   });
 
   window.addEventListener("beforeunload", stopLiveUsersPolling);

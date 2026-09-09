@@ -642,7 +642,7 @@ function buildPendingEmbed(member) {
     .setDescription(
       [
         `<@${member.id}>, \`hai sbloccato:\``,
-        `<:VC_Reply:1482532158080942191> Il ruolo <@&${ROLE_ID}> ti verrà dato entro **3 minuti** dal bot!`,
+        "<:VC_Reply:1482532158080942191> Ti verrà dato entro **3 minuti** dal bot!",
         "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
         "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare nickname",
         "",

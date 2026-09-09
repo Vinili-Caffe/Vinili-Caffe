@@ -6,6 +6,7 @@
     sections: [],
     intro: null,
     activeTab: "",
+    activeChild: "",
     cache: {},
     loading: false,
   };
@@ -24,6 +25,21 @@
     warnstaff: "fa-ban",
     guidapartners: "fa-handshake-o",
     guidamiddle: "fa-users",
+  };
+
+  var TAB_LABELS = {
+    regolamento: "Regolamento",
+    regole_staff: "Staff",
+    limiti: "Limiti",
+    compiti_fissi: "Compiti",
+    pause: "Pause",
+    lineeguida: "Linee guida",
+    comandi: "Comandi",
+    valutazioni: "Valutazioni",
+    pex: "Pex",
+    warnstaff: "Warn",
+    guidapartners: "Partners",
+    guidamiddle: "Middle",
   };
 
   var CARD_ICONS = {
@@ -103,7 +119,7 @@
     var root = T.byId("vc-staff-guide-tabs");
     if (!root) return;
     var tabs = topLevelSections().map(function (s) {
-      return { id: s.id, label: s.label };
+      return { id: s.id, label: TAB_LABELS[s.id] || s.label };
     });
     root.innerHTML = "";
     tabs.forEach(function (tab) {
@@ -222,13 +238,88 @@
       });
   }
 
+  function makePanelShell(opts) {
+    var panel = document.createElement("section");
+    panel.className = "vc-staff-guide-panel vc-regole-card";
+    panel.setAttribute("data-guide-card", opts.id || "");
+    var head = document.createElement("div");
+    head.className = "vc-staff-guide-panel__head";
+    var ico = document.createElement("span");
+    ico.className = "vc-regole-card-ico";
+    var ii = document.createElement("i");
+    ii.className = "fa " + cardIcon(opts.id);
+    ii.setAttribute("aria-hidden", "true");
+    ico.appendChild(ii);
+    var title = document.createElement("p");
+    title.className = "vc-regole-card-title";
+    title.textContent = opts.title || "";
+    head.appendChild(ico);
+    head.appendChild(title);
+    if (opts.tag) {
+      var tag = document.createElement("div");
+      tag.className = "vc-regole-card-tag";
+      var ti = document.createElement("i");
+      ti.className = "fa fa-book";
+      ti.setAttribute("aria-hidden", "true");
+      tag.appendChild(ti);
+      tag.appendChild(document.createTextNode(" " + opts.tag));
+      head.appendChild(tag);
+    }
+    var body = document.createElement("div");
+    body.className = "vc-regole-card-body";
+    body.style.display = "block";
+    var inner = document.createElement("div");
+    inner.className = "vc-regole-card-body-inner vc-staff-guide-faq-body";
+    var lab = document.createElement("span");
+    lab.className = "vc-regole-body-label";
+    lab.textContent = "GUIDA";
+    var content = document.createElement("div");
+    content.className = "vc-regole-body-text vc-staff-guide-prose";
+    content.innerHTML = opts.html
+      ? opts.html
+      : '<p class="vc-staff-guide-p">Caricamento\u2026</p>';
+    inner.appendChild(lab);
+    inner.appendChild(content);
+    body.appendChild(inner);
+    panel.appendChild(head);
+    panel.appendChild(body);
+    panel._guideContent = content;
+    panel._guideId = opts.id || "";
+    panel._guideLoaded = Boolean(opts.html);
+    return panel;
+  }
+
+  function renderSubSwitcher(kids, activeId, onPick) {
+    var track = document.createElement("div");
+    track.className = "vc-regole-tabs vc-regole-tabs--sub";
+    track.setAttribute("role", "tablist");
+    track.setAttribute("aria-label", "Sottosezioni");
+    kids.forEach(function (child) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "vc-regole-tab" + (child.id === activeId ? " vc-regole-tab--on" : "");
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", child.id === activeId ? "true" : "false");
+      btn.setAttribute("data-guide-sub", child.id);
+      var ic = document.createElement("i");
+      ic.className = "fa " + cardIcon(child.id);
+      ic.setAttribute("aria-hidden", "true");
+      btn.appendChild(ic);
+      btn.appendChild(document.createTextNode(" " + (child.label || child.id)));
+      btn.addEventListener("click", function () {
+        onPick(child.id);
+      });
+      track.appendChild(btn);
+    });
+    return track;
+  }
+
   function renderList() {
     var root = T.byId("vc-staff-guide-list");
     if (!root) return;
     root.innerHTML = "";
 
     var tabId = state.activeTab;
-    var cards = [];
 
     if (!tabId) {
       root.innerHTML = '<p class="vc-regole-state">Seleziona una sezione della guida.</p>';
@@ -238,33 +329,50 @@
     var meta = findSection(tabId);
     var kids = childrenOf(tabId);
     if (kids.length) {
-      kids.forEach(function (child, idx) {
-        var card = makeCard({
-          id: child.id,
-          title: child.label,
+      var wanted = "";
+      try {
+        wanted = String(new URL(location.href).searchParams.get("section") || "").trim();
+      } catch (eWanted) {}
+      var activeChild = kids[0].id;
+      if (wanted && kids.some(function (k) { return k.id === wanted; })) activeChild = wanted;
+      else if (state.activeChild && kids.some(function (k) { return k.id === state.activeChild; })) {
+        activeChild = state.activeChild;
+      }
+      state.activeChild = activeChild;
+
+      function paintChild(childId) {
+        state.activeChild = childId;
+        root.innerHTML = "";
+        root.appendChild(
+          renderSubSwitcher(kids, childId, function (id) {
+            syncUrl(id);
+            paintChild(id);
+          }),
+        );
+        var childMeta = findSection(childId);
+        var panel = makePanelShell({
+          id: childId,
+          title: childMeta ? childMeta.label : childId,
           tag: meta ? meta.label : "Sezione",
           html: "",
-          open: idx === 0,
         });
-        cards.push(card);
-        root.appendChild(card);
-      });
-      bindExclusiveOpen(cards);
-      if (cards[0]) loadCardContent(cards[0]);
-      revealAccordion();
+        root.appendChild(panel);
+        loadCardContent(panel);
+        revealAccordion();
+      }
+
+      paintChild(activeChild);
       return;
     }
 
-    var placeholder = makeCard({
+    state.activeChild = "";
+    var placeholder = makePanelShell({
       id: tabId,
       title: meta ? meta.label : tabId,
       tag: meta && meta.description ? meta.description : "Sezione",
       html: "",
-      open: true,
     });
-    cards.push(placeholder);
     root.appendChild(placeholder);
-    bindExclusiveOpen(cards);
     loadCardContent(placeholder);
     revealAccordion();
   }
@@ -272,6 +380,7 @@
   function selectTab(tabId, opts) {
     opts = opts || {};
     state.activeTab = String(tabId || "");
+    state.activeChild = "";
     renderTabs();
     renderList();
     if (!opts.keepUrl) {
@@ -308,11 +417,13 @@
     if (!wanted) return;
     var list = T.byId("vc-staff-guide-list");
     if (!list) return;
+    var subBtn = list.querySelector('[data-guide-sub="' + wanted.replace(/"/g, "") + '"]');
+    if (subBtn && typeof subBtn.click === "function") {
+      subBtn.click();
+      return;
+    }
     var card = list.querySelector('[data-guide-card="' + wanted.replace(/"/g, "") + '"]');
     if (!card) return;
-    list.querySelectorAll("details.vc-regole-card").forEach(function (d) {
-      d.open = d === card;
-    });
     if (!card._guideLoaded) loadCardContent(card);
   }
 

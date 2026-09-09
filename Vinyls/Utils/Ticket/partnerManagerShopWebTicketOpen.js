@@ -31,20 +31,18 @@ function sitePublicOrigin() {
 }
 
 function displayNameForMember(member) {
-  return String(member?.user?.username || member?.displayName || "").trim() || "Utente";
+  try {
+    const { memberDisplayName, accountUsername } = require("../Discord/guildDiscordIdentity");
+    return memberDisplayName(member) || accountUsername(member) || "Utente";
+  } catch (_) {
+    return String(member?.nickname || member?.displayName || member?.user?.username || "").trim() || "Utente";
+  }
 }
 
 function avatarForMember(member) {
   try {
-    const {
-      guildMemberDisplayAvatarUrlDynamic,
-      guildMemberDisplayAvatarUrlStatic,
-    } = require("../Discord/guildDiscordIdentity");
-    return (
-      guildMemberDisplayAvatarUrlDynamic(member) ||
-      guildMemberDisplayAvatarUrlStatic(member) ||
-      ""
-    );
+    const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+    return userAvatarUrlDynamic(member, { size: 128 }) || "";
   } catch (_) {
     return "";
   }

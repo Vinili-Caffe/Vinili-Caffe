@@ -6,7 +6,8 @@
     dedupeKey: "",
     tab: "",
     messages: [],
-    canSend: false,
+    // null = unknown (pre-boot). false only after API/boot says closed.
+    canSend: null,
     maxImages: 3,
     loading: false,
     sending: false,
@@ -17,12 +18,19 @@
     seq: 0,
     replyTo: null,
     composerImages: [],
+    draftText: "",
+    draftSelStart: null,
+    draftSelEnd: null,
     guildEmojis: null,
     profileId: "",
     isStaffReviewer: false,
     isSubject: false,
     subjectChat: null,
     status: "pending",
+    typingRoom: null,
+    mentionNames: {},
+    mentionMenu: { open: false, q: "", items: [], index: 0, mode: "user", filter: "all", loading: false },
+    mentionTimer: null,
   };
 
   function c(key) {
@@ -54,16 +62,17 @@
   }
 
   function defaultAvatarUrl(userId) {
-    var uid = String(userId || "").trim();
-    var idx = 0;
-    if (/^\d{17,20}$/.test(uid)) {
-      try {
-        idx = Number((BigInt(uid) >> 22n) % 6n);
-      } catch (e) {
-        idx = 0;
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
       }
-    }
-    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+    } catch (eSite) {}
+    return (
+      "data:image/svg+xml;charset=utf-8," +
+      encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>',
+      )
+    );
   }
 
   function avatarHtml(url, id, opts) {
@@ -74,19 +83,12 @@
     var w = Number(opts.width) || 28;
     var h = Number(opts.height) || 28;
     var uid = String(id || "").trim();
-    var src = String(url || "").trim() || defaultAvatarUrl(uid);
-    var fb = defaultAvatarUrl(uid);
-    var svg =
-      "data:image/svg+xml;charset=utf-8," +
-      encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(%23g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>',
-      );
+    var siteFb = defaultAvatarUrl(uid);
+    var raw = String(url || "").trim();
+    if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(raw)) raw = "";
+    var src = raw || siteFb;
     var onerr =
-      "this.onerror=function(){this.onerror=null;this.src='" +
-      svg.replace(/'/g, "%27") +
-      "';};this.src='" +
-      fb.replace(/'/g, "\\'") +
-      "';";
+      "this.onerror=null;this.src='" + siteFb.replace(/'/g, "%27") + "';";
     return (
       '<img class="' +
       esc(cls) +
@@ -114,7 +116,6 @@
     return String(text || "")
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uFFFD]/g, "")
       .replace(/[\u200B\u200C\uFEFF]/g, "")
-      .replace(/<(?:@(?:!|&)?|#)\d+>/g, "")
       .replace(/\\([\\`*_{}[\]()#+\-.!|>])/g, "$1")
       .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
       .replace(/\*\*(.+?)\*\*/g, "$1")
@@ -123,6 +124,87 @@
       .replace(/`([^`\n]+)`/g, "$1")
       .replace(/[*_`~|]+/g, "")
       .trim();
+  }
+
+  function plainPreviewText(text) {
+    return cleanText(text)
+      .replace(/<@!?(\d{5,32})>/g, function (_m, id) {
+        return "@" + resolveMentionName("user", id);
+      })
+      .replace(/<@&(\d{5,32})>/g, function (_m, id) {
+        return "@" + resolveMentionName("role", id);
+      })
+      .replace(/<#(\d{5,32})>/g, function (_m, id) {
+        return "#" + resolveMentionName("channel", id);
+      })
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function rememberMentionName(type, id, name) {
+    var cleaned = String(name || "")
+      .replace(/^[@#]+/, "")
+      .trim();
+    if (!cleaned || !id) return;
+    if (!state.mentionNames) state.mentionNames = {};
+    state.mentionNames[String(type) + ":" + String(id)] = cleaned;
+  }
+
+  function resolveMentionName(type, id) {
+    var key = String(type) + ":" + String(id);
+    if (state.mentionNames && state.mentionNames[key]) return state.mentionNames[key];
+    if (type === "role") return "ruolo";
+    if (type === "channel") return "canale";
+    return "utente";
+  }
+
+  function seedMentionNamesFromMessages(list) {
+    (Array.isArray(list) ? list : []).forEach(function (m) {
+      if (!m) return;
+      if (m.authorId && m.authorName) rememberMentionName("user", m.authorId, m.authorName);
+      if (m.replyTo && m.replyTo.authorName && m.replyTo.id) {
+        /* reply preview only */
+      }
+    });
+  }
+
+  function formatBodyWithMentions(text) {
+    var raw = String(text || "");
+    var tokens = [];
+    var withPlaceholders = raw.replace(/<@!?(\d{5,32})>|<@&(\d{5,32})>|<#(\d{5,32})>/g, function (_all, uid, rid, cid) {
+      var i = tokens.length;
+      if (uid) {
+        tokens.push(
+          '<span class="vc-wt-msg-mention vc-wt-msg-mention--user" data-mention-user="' +
+            esc(uid) +
+            '">@' +
+            esc(resolveMentionName("user", uid)) +
+            "</span>",
+        );
+      } else if (rid) {
+        tokens.push(
+          '<span class="vc-wt-msg-mention vc-wt-msg-mention--role" data-mention-role="' +
+            esc(rid) +
+            '">@' +
+            esc(resolveMentionName("role", rid)) +
+            "</span>",
+        );
+      } else {
+        tokens.push(
+          '<span class="vc-wt-msg-mention vc-wt-msg-mention--channel" data-mention-channel="' +
+            esc(cid) +
+            '">#' +
+            esc(resolveMentionName("channel", cid)) +
+            "</span>",
+        );
+      }
+      return "{{M" + i + "}}";
+    });
+    var html = formatMessageHtml(withPlaceholders, { keepNewlines: true });
+    tokens.forEach(function (tok, i) {
+      html = html.split("{{M" + i + "}}").join(tok);
+    });
+    return html;
   }
 
   function formatChatTime(iso) {
@@ -249,18 +331,41 @@
       esc(m.replyTo.authorName || "Messaggio") +
       "</span>" +
       '<span class="vc-wfc-reply-quote__text">' +
-      esc(m.replyTo.content || "") +
+      esc(plainPreviewText(m.replyTo.content) || m.replyTo.content || "") +
       "</span></div>"
     );
   }
 
   function messageActionsHtml(m, closed) {
-    if (closed || String(m.authorKind || "") === "system") return "";
+    if (String(m.authorKind || "") === "system") return "";
+    var mine = String(m.authorId || "") === String(state.profileId || "");
+    var canCopy = Boolean(plainPreviewText(m.content));
+    var canEdit = !closed && mine && state.canSend !== false;
+    var canDelete = canEdit;
+    var canReply = !closed && state.canSend !== false;
+    if (!canCopy && !canEdit && !canDelete && !canReply) return "";
     return (
       '<div class="vc-wfc-msg__tools">' +
-      '<button type="button" class="vc-wfc-msg__tool" data-reply-msg="' +
-      esc(m.id) +
-      '" title="Rispondi"><i class="fa fa-reply" aria-hidden="true"></i></button>' +
+      (canReply
+        ? '<button type="button" class="vc-wfc-msg__tool" data-reply-msg="' +
+          esc(m.id) +
+          '" title="Rispondi" aria-label="Rispondi"><i class="fa fa-reply" aria-hidden="true"></i></button>'
+        : "") +
+      (canCopy
+        ? '<button type="button" class="vc-wfc-msg__tool" data-copy-msg="' +
+          esc(m.id) +
+          '" title="Copia testo" aria-label="Copia testo"><i class="fa fa-clipboard" aria-hidden="true"></i></button>'
+        : "") +
+      (canEdit
+        ? '<button type="button" class="vc-wfc-msg__tool" data-edit-msg="' +
+          esc(m.id) +
+          '" title="Modifica" aria-label="Modifica"><i class="fa fa-pencil" aria-hidden="true"></i></button>'
+        : "") +
+      (canDelete
+        ? '<button type="button" class="vc-wfc-msg__tool vc-wfc-msg__tool--danger" data-del-msg="' +
+          esc(m.id) +
+          '" title="Elimina" aria-label="Elimina"><i class="fa fa-trash-o" aria-hidden="true"></i></button>'
+        : "") +
       "</div>"
     );
   }
@@ -270,6 +375,13 @@
       return '<p class="vc-wfc-empty">Caricamento chat…</p>';
     }
     if (!state.messages.length) {
+      if (c("forceReadOnly") === true || state.canSend === false) {
+        return (
+          '<p class="vc-wfc-empty">' +
+          esc(String(c("emptyReadOnlyMessage") || "Nessun messaggio in discussione.")) +
+          "</p>"
+        );
+      }
       return '<p class="vc-wfc-empty">Nessun messaggio. Scrivi qui come su Discord (emoji, risposte, allegati).</p>';
     }
     return (
@@ -277,7 +389,7 @@
       state.messages
         .map(function (m) {
           var kind = String(m.authorKind || "staff").toLowerCase();
-          var body = cleanText(m.content);
+          var body = String(m.content || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uFFFD]/g, "");
           if (kind === "system") {
             return (
               '<li class="vc-wfc-msg vc-wfc-msg--system" data-msg-id="' +
@@ -286,7 +398,7 @@
               '<div class="vc-wfc-system" role="status">' +
               '<span class="vc-wfc-system__label">Sistema</span>' +
               '<span class="vc-wfc-system__text">' +
-              esc(body || "Aggiornamento") +
+              esc(plainPreviewText(body) || "Aggiornamento") +
               "</span>" +
               '<time class="vc-wfc-system__time">' +
               esc(formatChatTime(m.createdAt)) +
@@ -320,10 +432,12 @@
             esc(kindLabel) +
             "</span><time>" +
             esc(formatChatTime(m.createdAt)) +
-            "</time></div>" +
+            "</time>" +
+            (m.editedAt ? '<span class="vc-wfc-msg__edited">(modificato)</span>' : "") +
+            "</div>" +
             replyQuoteHtml(m) +
             (body
-              ? '<div class="vc-wfc-msg__text">' + formatMessageHtml(body, { keepNewlines: true }) + "</div>"
+              ? '<div class="vc-wfc-msg__text">' + formatBodyWithMentions(body) + "</div>"
               : "") +
             mediaGalleryHtml(m.imageUrls) +
             reactionsBarHtml(m, !state.canSend) +
@@ -412,6 +526,9 @@
   }
 
   function closedMessageText() {
+    if (c("forceReadOnly") === true) {
+      return String(c("closedMessage") || "Discussione in sola lettura.");
+    }
     var meta = subjectChatMeta();
     if (state.isSubject && meta && meta.inviteOnly && meta.invited && !meta.active) {
       return "Non sei più nella discussione. Puoi ancora leggere i messaggi ricevuti mentre eri presente.";
@@ -419,21 +536,42 @@
     return String(c("closedMessage") || "Chat in sola lettura: la pratica non è più in attesa.");
   }
 
+  function itemIsPending(item) {
+    return String((item && item.status) || state.status || "").toLowerCase() === "pending";
+  }
+
+  function panelCanSend(item, key) {
+    if (c("forceReadOnly") === true) return false;
+    if (!itemIsPending(item)) return false;
+    // inboxReadonly1: before boot (or different key) canSend is null/stale —
+    // do not treat initial false as closed or every discussion opens read-only.
+    var keyed = Boolean(state.dedupeKey) && String(state.dedupeKey) === String(key || "");
+    if (!keyed || state.canSend == null) return true;
+    return state.canSend !== false;
+  }
+
   function renderPanel(item, tab) {
     var key = dedupeKeyFor(item, tab);
     if (!key) return "";
-    var pending = String(item.status || state.status || "").toLowerCase() === "pending";
-    var canSend = pending && state.canSend !== false;
+    var forceReadOnly = c("forceReadOnly") === true;
+    var canSend = panelCanSend(item, key);
     var err =
       state.error && state.dedupeKey === key
         ? '<p class="vc-wfc-error" role="alert">' + esc(state.error) + "</p>"
         : "";
     var sendClass = String(c("sendBtnClass") || "vc-wfc-send-btn");
     var panelTitle = String(c("panelTitle") || "Discussione");
-    var panelHint = String(c("panelHint") || "Emoji · risposte · allegati · reazioni");
-    var manage = subjectManageHtml();
+    // Only archive/force mode uses the "Solo lettura · cronologia" copy.
+    var panelHint = forceReadOnly
+      ? "Solo lettura · cronologia completa"
+      : canSend
+        ? String(c("panelHint") || "Emoji · @utenti · #canali · risposte · allegati")
+        : String(c("closedHint") || c("panelHint") || "Discussione chiusa");
+    var manage = forceReadOnly || !canSend ? "" : subjectManageHtml();
     return (
-      '<section class="vc-wfc" id="vc-wfc-root" data-dedupe-key="' +
+      '<section class="vc-wfc' +
+      (forceReadOnly || !canSend ? " vc-wfc--readonly" : "") +
+      '" id="vc-wfc-root" data-dedupe-key="' +
       esc(key) +
       '" aria-label="Discussione pratica">' +
       '<div class="vc-wfc-head"><div class="vc-wfc-head__title"><h3>' +
@@ -457,12 +595,13 @@
           '<input type="file" id="vc-wfc-file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple hidden />' +
           "</label>" +
           '<button type="button" class="vc-wfc-composer__emoji" id="vc-wfc-emoji" title="Emoji"><i class="fa fa-smile-o" aria-hidden="true"></i></button>' +
-          '<textarea id="vc-wfc-input" rows="2" maxlength="2000" placeholder="Scrivi un messaggio…"></textarea>' +
+          '<textarea id="vc-wfc-input" rows="2" maxlength="2000" placeholder="Scrivi… (@ utenti, # canali)"></textarea>' +
           '<button type="submit" class="' +
           esc(sendClass) +
           '" id="vc-wfc-send"' +
           (state.sending ? " disabled" : "") +
-          ">Invia</button></div></form>"
+          ">Invia</button></div>" +
+          '<div id="vc-wfc-typing" class="vc-chat-typing" hidden aria-live="polite"></div></form>'
         : '<p class="vc-wfc-closed">' + esc(closedMessageText()) + "</p>") +
       "</section>"
     );
@@ -495,6 +634,22 @@
     ) {
       return;
     }
+    /* Soft dedupe: same author+content within 15s (WS + POST race / double-send). */
+    try {
+      var content = String(msg.content || "").trim();
+      var authorId = String(msg.authorId || "").trim();
+      var created = Date.parse(String(msg.createdAt || "")) || Date.now();
+      if (content && authorId) {
+        var dup = state.messages.some(function (m) {
+          if (!m || String(m.id) === String(msg.id)) return false;
+          if (String(m.authorId || "") !== authorId) return false;
+          if (String(m.content || "").trim() !== content) return false;
+          var t = Date.parse(String(m.createdAt || "")) || 0;
+          return Math.abs(created - t) < 15000;
+        });
+        if (dup) return;
+      }
+    } catch (eDedup) {}
     state.messages.push(msg);
     state.messages.sort(function (a, b) {
       return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
@@ -572,7 +727,37 @@
     bindSubjectActions();
     var input = byId("vc-wfc-input");
     if (input) {
+      input.addEventListener("input", function () {
+        captureDraft();
+        scheduleMentionSuggest(input);
+        pulseWorkflowTyping(Boolean(String(state.draftText || "").trim()));
+      });
       input.addEventListener("keydown", function (ev) {
+        if (state.mentionMenu.open) {
+          if (ev.key === "ArrowDown" && state.mentionMenu.items.length) {
+            ev.preventDefault();
+            state.mentionMenu.index = (state.mentionMenu.index + 1) % state.mentionMenu.items.length;
+            renderMentionMenu();
+            return;
+          }
+          if (ev.key === "ArrowUp" && state.mentionMenu.items.length) {
+            ev.preventDefault();
+            state.mentionMenu.index =
+              (state.mentionMenu.index - 1 + state.mentionMenu.items.length) % state.mentionMenu.items.length;
+            renderMentionMenu();
+            return;
+          }
+          if ((ev.key === "Enter" || ev.key === "Tab") && state.mentionMenu.items.length) {
+            ev.preventDefault();
+            applyMentionPick(state.mentionMenu.items[state.mentionMenu.index]);
+            return;
+          }
+          if (ev.key === "Escape") {
+            ev.preventDefault();
+            hideMentionMenu();
+            return;
+          }
+        }
         if (ev.key === "Enter" && !ev.shiftKey) {
           ev.preventDefault();
           sendMessage();
@@ -609,6 +794,339 @@
         refreshDom();
       });
     }
+    var typingEl = byId("vc-wfc-typing");
+    if (typingEl && state.typingRoom) state.typingRoom.renderInto(typingEl);
+  }
+
+  function mentionTriggerContext(textarea) {
+    if (!textarea) return null;
+    var val = String(textarea.value || "");
+    var caret = Number(textarea.selectionStart);
+    if (!Number.isFinite(caret)) caret = val.length;
+    var before = val.slice(0, caret);
+    var line = before.split("\n").pop() || "";
+    var channel = line.match(/#([^\s#]*)$/);
+    if (channel) return { kind: "channel", q: channel[1] || "" };
+    var mention = line.match(/@([^\s@]*)$/);
+    if (mention) return { kind: "mention", q: mention[1] || "" };
+    return null;
+  }
+
+  function scheduleMentionSuggest(textarea) {
+    var ctx = mentionTriggerContext(textarea);
+    if (!ctx) {
+      hideMentionMenu();
+      return;
+    }
+    if (state.mentionTimer) clearTimeout(state.mentionTimer);
+    state.mentionTimer = setTimeout(function () {
+      state.mentionTimer = null;
+      fetchMentions(ctx.q, ctx.kind === "channel" ? "channel" : "user");
+    }, 120);
+  }
+
+  function ensureMentionMenu() {
+    var menu = byId("vc-wfc-mention-menu");
+    if (menu) return menu;
+    menu = document.createElement("div");
+    menu.id = "vc-wfc-mention-menu";
+    menu.className = "vc-wt-mention-menu vc-wfc-mention-menu";
+    menu.hidden = true;
+    document.body.appendChild(menu);
+    return menu;
+  }
+
+  function hideMentionMenu() {
+    state.mentionMenu = {
+      open: false,
+      q: "",
+      items: [],
+      index: 0,
+      mode: "user",
+      filter: state.mentionMenu.filter || "all",
+      loading: false,
+    };
+    var menu = byId("vc-wfc-mention-menu");
+    if (menu) {
+      menu.hidden = true;
+      menu.innerHTML = "";
+    }
+  }
+
+  function positionMentionMenu() {
+    var menu = byId("vc-wfc-mention-menu");
+    var input = byId("vc-wfc-input");
+    if (!menu || !input || menu.hidden) return;
+    var rect = input.getBoundingClientRect();
+    var maxH = state.mentionMenu.mode === "channel" ? 360 : 280;
+    var h = Math.min(maxH, Math.max(120, window.innerHeight - 24));
+    var top = Math.max(8, rect.top - h - 8);
+    if (rect.top < 160) top = Math.min(window.innerHeight - h - 8, rect.bottom + 8);
+    menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 320)) + "px";
+    menu.style.top = top + "px";
+    menu.style.width = Math.min(320, Math.max(220, rect.width)) + "px";
+    menu.style.maxHeight = h + "px";
+  }
+
+  function wireMentionMenuFilters(menu) {
+    if (!menu) return;
+    menu.querySelectorAll("[data-mention-filter]").forEach(function (btn) {
+      if (btn._vcWfcFilterWired) return;
+      btn._vcWfcFilterWired = true;
+      btn.addEventListener("mousedown", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var next = String(btn.getAttribute("data-mention-filter") || "all");
+        if (next === String(state.mentionMenu.filter || "all")) return;
+        state.mentionMenu.filter = next;
+        fetchMentions(state.mentionMenu.q || "", state.mentionMenu.mode || "user");
+      });
+    });
+  }
+
+  function renderMentionMenu() {
+    var menu = ensureMentionMenu();
+    var mode = state.mentionMenu.mode || "user";
+    var filter = state.mentionMenu.filter || "all";
+    var showFilters = mode !== "channel" && state.isStaffReviewer;
+    var filtersHtml = showFilters
+      ? '<div class="vc-wt-mention-menu__filters" role="tablist">' +
+        [
+          { id: "all", label: "Tutti" },
+          { id: "users", label: "Utenti" },
+          { id: "roles", label: "Ruoli" },
+        ]
+          .map(function (f) {
+            return (
+              '<button type="button" class="vc-wt-mention-menu__filter' +
+              (filter === f.id ? " is-on" : "") +
+              '" data-mention-filter="' +
+              f.id +
+              '">' +
+              f.label +
+              "</button>"
+            );
+          })
+          .join("") +
+        "</div>"
+      : "";
+    if (!state.mentionMenu.open) {
+      menu.hidden = true;
+      menu.innerHTML = "";
+      return;
+    }
+    if (state.mentionMenu.loading) {
+      menu.hidden = false;
+      menu.innerHTML =
+        filtersHtml +
+        '<p class="vc-wt-mention-menu__hint">' +
+        (mode === "channel" ? "Caricamento canali…" : "Caricamento menzioni…") +
+        "</p>";
+      wireMentionMenuFilters(menu);
+      positionMentionMenu();
+      return;
+    }
+    var items = state.mentionMenu.items || [];
+    if (!items.length) {
+      menu.hidden = false;
+      menu.innerHTML =
+        filtersHtml +
+        '<p class="vc-wt-mention-menu__hint">' +
+        (mode === "channel" ? "Nessun canale trovato" : "Nessuna menzione trovata") +
+        "</p>";
+      wireMentionMenuFilters(menu);
+      positionMentionMenu();
+      return;
+    }
+    menu.hidden = false;
+    menu.innerHTML =
+      filtersHtml +
+      items
+        .map(function (it, idx) {
+          var type = String(it.type || "user");
+          var icon = String(it.channelIcon || "");
+          var cls =
+            "vc-wt-mention-menu__item" +
+            (idx === state.mentionMenu.index ? " is-active" : "") +
+            (type === "role" ? " is-role" : type === "channel" ? " is-channel is-channel--" + (icon || "text") : " is-user");
+          var avMark = type === "role" ? "R" : type === "channel" ? "#" : "@";
+          var av =
+            type === "user" && it.avatarUrl
+              ? '<img class="vc-wt-mention-menu__av" src="' + esc(it.avatarUrl) + '" alt="" />'
+              : '<span class="vc-wt-mention-menu__av vc-wt-mention-menu__av--fallback">' + avMark + "</span>";
+          var prefix = type === "channel" ? "#" : "@";
+          var sub = type === "role" ? "Ruolo" : type === "channel" ? it.channelKind || "Canale" : it.username || "Utente";
+          if (type === "channel" && it.parentName) sub += " · " + it.parentName;
+          if (type === "user" && it.roleName) sub = it.roleName + (it.username ? " · @" + it.username : "");
+          return (
+            '<button type="button" class="' +
+            cls +
+            '" data-mention-idx="' +
+            idx +
+            '">' +
+            av +
+            '<span class="vc-wt-mention-menu__meta"><strong>' +
+            prefix +
+            esc(it.name) +
+            "</strong><small>" +
+            esc(sub) +
+            "</small></span></button>"
+          );
+        })
+        .join("");
+    wireMentionMenuFilters(menu);
+    menu.querySelectorAll("[data-mention-idx]").forEach(function (btn) {
+      if (btn._vcWfcPickWired) return;
+      btn._vcWfcPickWired = true;
+      function pick(ev) {
+        if (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+        var i = Number(btn.getAttribute("data-mention-idx"));
+        applyMentionPick((state.mentionMenu.items || [])[i]);
+      }
+      btn.addEventListener("mousedown", pick);
+      btn.addEventListener("click", pick);
+    });
+    positionMentionMenu();
+  }
+
+  function applyMentionPick(item) {
+    if (!item) return;
+    var input = byId("vc-wfc-input");
+    if (!input) return;
+    var type = String(item.type || "user");
+    var id = String(item.id || "").trim();
+    if (!id) return;
+    var markup = String(item.markup || "").trim();
+    if (!markup) {
+      if (type === "channel") markup = "<#" + id + ">";
+      else if (type === "role") markup = "<@&" + id + ">";
+      else markup = "<@" + id + ">";
+    }
+    rememberMentionName(type, id, item.name);
+    var trigger = type === "channel" ? "#" : "@";
+    var q = String(state.mentionMenu.q != null ? state.mentionMenu.q : "");
+    var caret = Number(input.selectionStart);
+    if (!Number.isFinite(caret)) caret = String(input.value || "").length;
+    var val = String(input.value || "");
+    var before = val.slice(0, caret);
+    var after = val.slice(caret);
+    var re = new RegExp(trigger.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$");
+    if (re.test(before)) before = before.replace(re, markup + " ");
+    else before = before + markup + " ";
+    input.value = before + after;
+    var pos = before.length;
+    input.selectionStart = input.selectionEnd = pos;
+    input.focus();
+    captureDraft();
+    hideMentionMenu();
+    pulseWorkflowTyping(Boolean(String(state.draftText || "").trim()));
+  }
+
+  function fetchMentions(q, mode) {
+    mode = mode || "user";
+    if (!state.dedupeKey) return Promise.resolve();
+    var filter = mode === "channel" ? "all" : String(state.mentionMenu.filter || "all");
+    state.mentionMenu = {
+      open: true,
+      q: q || "",
+      items: [],
+      index: 0,
+      mode: mode,
+      filter: filter,
+      loading: true,
+    };
+    renderMentionMenu();
+    var url =
+      apiBase() +
+      "/mentions?dedupeKey=" +
+      encodeURIComponent(state.dedupeKey) +
+      "&q=" +
+      encodeURIComponent(q || "") +
+      (mode === "channel" ? "&kind=channels" : "") +
+      (mode !== "channel" && filter !== "all" ? "&filter=" + encodeURIComponent(filter) : "");
+    return fetchJson(url, { method: "GET", headers: authHeaders(false), cache: false, timeoutMs: 10000 })
+      .then(function (out) {
+        if (!out.res.ok || !out.data || !out.data.ok) {
+          state.mentionMenu.loading = false;
+          state.mentionMenu.items = [];
+          renderMentionMenu();
+          return;
+        }
+        var items = [];
+        if (mode === "channel") {
+          items = Array.isArray(out.data.channels) ? out.data.channels : [];
+          items.forEach(function (ch) {
+            rememberMentionName("channel", ch.id, ch.name);
+          });
+        } else {
+          var users = Array.isArray(out.data.users) ? out.data.users : [];
+          var roles = state.isStaffReviewer && Array.isArray(out.data.roles) ? out.data.roles : [];
+          users.forEach(function (u) {
+            rememberMentionName("user", u.id, u.name);
+          });
+          roles.forEach(function (r) {
+            rememberMentionName("role", r.id, r.name);
+          });
+          items = users.concat(roles).slice(0, 24);
+        }
+        state.mentionMenu.loading = false;
+        state.mentionMenu.items = mode === "channel" ? items.slice(0, 80) : items;
+        state.mentionMenu.index = 0;
+        renderMentionMenu();
+      })
+      .catch(function () {
+        state.mentionMenu.loading = false;
+        state.mentionMenu.items = [];
+        renderMentionMenu();
+      });
+  }
+
+  function ensureWorkflowTypingRoom() {
+    if (state.typingRoom) {
+      state.typingRoom.selfId = String(state.profileId || "").trim();
+      return state.typingRoom;
+    }
+    if (!global.VcChatTyping || !global.VcChatTyping.TypingRoom) return null;
+    state.typingRoom = new global.VcChatTyping.TypingRoom({
+      selfId: String(state.profileId || "").trim(),
+      minInterval: 2000,
+      onChange: function () {
+        var el = byId("vc-wfc-typing");
+        if (state.typingRoom) state.typingRoom.renderInto(el);
+      },
+      sendFn: function (opts) {
+        if (!state.dedupeKey || !state.canSend) return;
+        void fetchJson(apiBase() + "/typing", {
+          method: "POST",
+          headers: authHeaders(true),
+          body: JSON.stringify(
+            opts && opts.stop
+              ? { dedupeKey: state.dedupeKey, stop: true }
+              : { dedupeKey: state.dedupeKey },
+          ),
+          timeoutMs: 6000,
+        }).catch(function () {});
+      },
+    });
+    return state.typingRoom;
+  }
+
+  function pulseWorkflowTyping(hasText) {
+    var room = ensureWorkflowTypingRoom();
+    if (room) room.pulse(Boolean(hasText));
+  }
+
+  function stopWorkflowTypingRoom() {
+    if (state.typingRoom) {
+      try {
+        state.typingRoom.pulse(false);
+      } catch (e0) {}
+      state.typingRoom.reset();
+    }
+    hideMentionMenu();
   }
 
   function onChatClick(ev) {
@@ -619,11 +1137,26 @@
         return String(m.id) === String(rid);
       });
       if (msg) {
-        state.replyTo = { id: msg.id, authorName: msg.authorName, content: cleanText(msg.content) || "Allegato" };
+        state.replyTo = { id: msg.id, authorName: msg.authorName, content: plainPreviewText(msg.content) || "Allegato" };
         refreshDom();
         var input = byId("vc-wfc-input");
         if (input) input.focus();
       }
+      return;
+    }
+    var copyBtn = ev.target.closest("[data-copy-msg]");
+    if (copyBtn) {
+      copyMessageText(copyBtn.getAttribute("data-copy-msg"));
+      return;
+    }
+    var editBtn = ev.target.closest("[data-edit-msg]");
+    if (editBtn) {
+      startEditMessage(editBtn.getAttribute("data-edit-msg"));
+      return;
+    }
+    var delBtn = ev.target.closest("[data-del-msg]");
+    if (delBtn) {
+      deleteMessage(delBtn.getAttribute("data-del-msg"));
       return;
     }
     var reactBtn = ev.target.closest("[data-react-msg]");
@@ -635,6 +1168,173 @@
     if (addBtn) {
       openEmojiPickerForReaction(addBtn.getAttribute("data-react-add"));
     }
+  }
+
+  function copyMessageText(messageId) {
+    var msg = state.messages.find(function (m) {
+      return String(m.id) === String(messageId);
+    });
+    var text = plainPreviewText(msg && msg.content);
+    if (!text) return;
+    var done = function () {
+      notifyUi("Testo copiato.", false);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        notifyUi("Copia non riuscita.", true);
+      });
+      return;
+    }
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      done();
+    } catch (eCopy) {
+      notifyUi("Copia non riuscita.", true);
+    }
+  }
+
+  function removeMessageFromState(messageId) {
+    state.messages = state.messages.filter(function (m) {
+      return String(m.id) !== String(messageId);
+    });
+    refreshDom();
+  }
+
+  function startEditMessage(messageId) {
+    var msg = state.messages.find(function (m) {
+      return String(m.id) === String(messageId);
+    });
+    if (!msg) return;
+    var node = document.querySelector('#vc-wfc-scroll [data-msg-id="' + messageId + '"]');
+    if (!node) return;
+    var bubble = node.querySelector(".vc-wfc-msg__bubble");
+    if (!bubble || bubble.querySelector(".vc-wfc-msg__edit")) return;
+    var textEl = bubble.querySelector(".vc-wfc-msg__text");
+    if (textEl) textEl.hidden = true;
+    var form = document.createElement("form");
+    form.className = "vc-wfc-msg__edit";
+    form.innerHTML =
+      '<textarea class="vc-wfc-msg__edit-input" rows="3" maxlength="2000"></textarea>' +
+      '<div class="vc-wfc-msg__edit-actions">' +
+      '<button type="button" data-edit-cancel>Annulla</button>' +
+      '<button type="submit">Salva</button>' +
+      "</div>";
+    var ta = form.querySelector("textarea");
+    ta.value = String(msg.content || "").replace(/\u200b/g, "");
+    var insertAfter = textEl || bubble.querySelector(".vc-wfc-msg__meta");
+    if (insertAfter && insertAfter.nextSibling) bubble.insertBefore(form, insertAfter.nextSibling);
+    else bubble.appendChild(form);
+    ta.focus();
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      saveEditMessage(messageId, ta.value);
+    });
+    form.querySelector("[data-edit-cancel]").addEventListener("click", function () {
+      form.remove();
+      if (textEl) textEl.hidden = false;
+    });
+  }
+
+  function saveEditMessage(messageId, content) {
+    if (!state.dedupeKey || !messageId || state.sending) return;
+    var text = String(content || "").trim();
+    var existing = state.messages.find(function (m) {
+      return String(m.id) === String(messageId);
+    });
+    var imageCount = existing && Array.isArray(existing.imageUrls) ? existing.imageUrls.length : 0;
+    if (!text && !imageCount) {
+      deleteMessage(messageId, { fromEmptyEdit: true });
+      return;
+    }
+    state.sending = true;
+    fetchJson(apiBase() + "/messages/" + encodeURIComponent(messageId), {
+      method: "PATCH",
+      headers: authHeaders(true),
+      body: JSON.stringify({ dedupeKey: state.dedupeKey, content: text }),
+      timeoutMs: 15000,
+    })
+      .then(function (out) {
+        state.sending = false;
+        if (!out.res.ok || !out.data || !out.data.ok) {
+          state.error = (out.data && out.data.message) || "Modifica non riuscita.";
+          refreshDom();
+          return;
+        }
+        if (out.data.deleted && out.data.messageId) {
+          removeMessageFromState(out.data.messageId);
+          return;
+        }
+        if (out.data.message) patchMessage(out.data.message);
+        refreshDom();
+      })
+      .catch(function () {
+        state.sending = false;
+        state.error = "Errore di rete sulla modifica.";
+        refreshDom();
+      });
+  }
+
+  function deleteMessage(messageId, opts) {
+    if (!state.dedupeKey || !messageId || state.sending) return;
+    opts = opts || {};
+    var run = function () {
+      state.sending = true;
+      fetchJson(
+        apiBase() +
+          "/messages/" +
+          encodeURIComponent(messageId) +
+          "?dedupeKey=" +
+          encodeURIComponent(state.dedupeKey),
+        {
+          method: "DELETE",
+          headers: authHeaders(true),
+          body: JSON.stringify({ dedupeKey: state.dedupeKey }),
+          timeoutMs: 15000,
+        },
+      )
+        .then(function (out) {
+          state.sending = false;
+          if (!out.res.ok || !out.data || !out.data.ok) {
+            state.error = (out.data && out.data.message) || "Eliminazione non riuscita.";
+            refreshDom();
+            return;
+          }
+          removeMessageFromState(messageId);
+        })
+        .catch(function () {
+          state.sending = false;
+          state.error = "Errore di rete sull\u2019eliminazione.";
+          refreshDom();
+        });
+    };
+    if (opts.fromEmptyEdit) {
+      run();
+      return;
+    }
+    (typeof global.__vcEnsureDialog === "function"
+      ? global.__vcEnsureDialog()
+      : Promise.resolve(global.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return;
+      return D.confirm({
+        title: "Eliminare il messaggio?",
+        message: "Eliminare questo messaggio?",
+        confirmLabel: "Elimina",
+        cancelLabel: "Annulla",
+        danger: true,
+        icon: "fa-trash-o",
+      }).then(function (ok) {
+        if (ok) run();
+      });
+    });
   }
 
   function ensureGuildEmojis(cb) {
@@ -676,12 +1376,15 @@
         anchor: anchor,
         guildEmojis: emojis,
         preferCustom: true,
+        preferAbove: true,
+        focusTarget: input,
         onPick: function (pick) {
           if (pick.custom && global.VcEmojiPicker.formatCustom) {
             insertAtCursor(input, global.VcEmojiPicker.formatCustom(pick));
           } else if (pick.unicode) {
             insertAtCursor(input, pick.unicode);
           }
+          captureDraft();
         },
       });
     });
@@ -695,6 +1398,7 @@
         anchor: msgEl || byId("vc-wfc-scroll"),
         guildEmojis: emojis,
         preferCustom: false,
+        preferAbove: true,
         onPick: function (pick) {
           var emoji = pick.custom && global.VcEmojiPicker.formatCustom ? global.VcEmojiPicker.formatCustom(pick) : pick.unicode;
           if (emoji) toggleReaction(messageId, emoji);
@@ -721,15 +1425,21 @@
   }
 
   function sendMessage() {
-    var input = byId("vc-wfc-input");
-    if (!state.dedupeKey || !input || state.sending) return;
-    var content = String(input.value || "").trim();
+    captureDraft();
+    if (!state.dedupeKey || state.sending) return;
+    var content = String(state.draftText || "").trim();
     var images = state.composerImages.slice();
     if (!content && !images.length) return;
+    stopWorkflowTypingRoom();
+    var replySnap = state.replyTo;
+    var replyToId = replySnap && replySnap.id ? replySnap.id : undefined;
+    /* Clear composer immediately so refreshDom/captureDraft cannot resurrect the text. */
+    clearDraft();
+    state.composerImages = [];
+    state.replyTo = null;
     state.sending = true;
     state.error = "";
-    refreshDom();
-    var replyToId = state.replyTo && state.replyTo.id ? state.replyTo.id : undefined;
+    refreshDom({ skipCapture: true });
     fetchJson(apiBase(), {
       method: "POST",
       headers: authHeaders(true),
@@ -739,21 +1449,27 @@
       .then(function (out) {
         state.sending = false;
         if (!out.res.ok || !out.data || !out.data.ok || !out.data.message) {
+          state.draftText = content;
+          state.composerImages = images.slice();
+          state.replyTo = replySnap;
           state.error = (out.data && out.data.message) || "Invio non riuscito.";
-          refreshDom();
+          refreshDom({ skipCapture: true });
           return;
         }
-        input.value = "";
+        clearDraft();
         state.composerImages = [];
         state.replyTo = null;
         appendMessage(out.data.message);
-        refreshDom();
+        refreshDom({ skipCapture: true });
         scrollToBottom();
       })
       .catch(function () {
         state.sending = false;
+        state.draftText = content;
+        state.composerImages = images.slice();
+        state.replyTo = replySnap;
         state.error = "Errore di rete sulla chat.";
-        refreshDom();
+        refreshDom({ skipCapture: true });
       });
   }
 
@@ -814,9 +1530,15 @@
         var data = JSON.parse(ev.data);
         if (!data || String(data.dedupeKey || "") !== String(dedupeKey)) return;
         if (data.type === "workflow_chat_message" && data.message) {
-          appendMessage(data.message);
+          patchMessage(data.message);
+          if (data.message.authorId) {
+            var roomClr = ensureWorkflowTypingRoom();
+            if (roomClr) roomClr.clearUser(data.message.authorId);
+          }
           refreshDom();
           scrollToBottom();
+        } else if (data.type === "workflow_chat_message_deleted" && data.messageId) {
+          removeMessageFromState(data.messageId);
         } else if (data.type === "workflow_chat_reaction" && data.message) {
           if (messageVisibleToSubjectClient(data.message)) {
             patchMessage(data.message);
@@ -825,6 +1547,11 @@
         } else if (data.type === "workflow_chat_subject") {
           if (data.subjectChat) state.subjectChat = data.subjectChat;
           loadMessages(dedupeKey, { silent: true });
+        } else if (data.type === "workflow_chat_typing") {
+          var room = ensureWorkflowTypingRoom();
+          if (!room) return;
+          if (data.stop) room.clearUser(data.userId);
+          else room.note(data.userId, data.userName);
         }
       } catch (e2) {}
     };
@@ -849,18 +1576,27 @@
   function chatErrorMessage(out) {
     var data = out && out.data && typeof out.data === "object" ? out.data : null;
     var msg = data && data.message ? String(data.message).trim() : "";
-    if (msg) return msg;
     var err = data && data.error ? String(data.error).trim().toLowerCase() : "";
     var st = Number(out && out.res && out.res.status) || 0;
-    if (err === "aborted") return "";
+    var soft = Boolean((out && out.soft) || (data && data.soft));
+    /* notifApiErr1: abort / soft / rate → niente banner rosso */
+    if (err === "aborted" || soft) return "";
+    if (err === "rate_limited_client" || err === "rate_limited" || st === 429) return "";
+    if (err === "network_error" || err === "invalid_json" || err === "empty_body") return "";
+    if (msg && err !== "missing_token" && err !== "invalid_token" && st !== 401) return msg;
     if (err === "missing_token" || err === "invalid_token" || st === 401) {
-      return "Sessione non pronta. Ricarica o riapri il dettaglio.";
+      return "";
     }
     if (err === "not_found" || st === 404) return "Pratica non trovata per la chat.";
     if (err === "timeout" || err === "oauth_timeout" || st === 408 || st === 504) {
       return "Chat lenta a rispondere. Riprova tra un attimo.";
     }
+    if (err === "forbidden" || err === "not_invited" || st === 403) {
+      return msg || "Non autorizzato ad aprire questa chat.";
+    }
     if (st >= 500) return "Servizio chat temporaneamente non disponibile.";
+    if (msg) return msg;
+    if (err) return "Chat non disponibile (" + err + ").";
     return "Chat non disponibile.";
   }
 
@@ -898,7 +1634,18 @@
     return start
       .then(function () {
         if (seq !== state.seq || state.dedupeKey !== dedupeKey) return null;
-        return fetchJson(url, { timeoutMs: opts._retried ? 14000 : 10000 });
+        var tokFn = c("getToken");
+        var tok = tokFn ? String(tokFn() || "").trim() : "";
+        if (!tok && !opts.silent) {
+          return {
+            res: { ok: false, status: 401 },
+            data: { ok: false, error: "missing_token", message: "Sessione non pronta. Ricarica o riapri il dettaglio." },
+          };
+        }
+        return fetchJson(url, {
+          timeoutMs: opts._retried ? 14000 : 10000,
+          cache: false,
+        });
       })
       .then(function (out) {
         if (!out) return;
@@ -906,37 +1653,68 @@
         if (!out.res.ok || !out.data || !out.data.ok) {
           var err = String((out.data && out.data.error) || "").toLowerCase();
           var st = Number(out.res && out.res.status) || 0;
+          var retryCount = Number(opts._retryCount || 0);
+          var isRate =
+            err === "rate_limited_client" ||
+            err === "rate_limited" ||
+            st === 429;
           var canRetry =
-            !opts.silent &&
-            !opts._retried &&
+            retryCount < (isRate ? 6 : opts.silent ? 0 : 3) &&
             (err === "aborted" ||
               err === "timeout" ||
               err === "oauth_timeout" ||
               err === "missing_token" ||
+              err === "network_error" ||
+              err === "invalid_json" ||
+              err === "empty_body" ||
               err === "not_found" ||
+              Boolean(out.soft) ||
+              Boolean(out.data && out.data.soft) ||
+              isRate ||
               st === 401 ||
               st === 404 ||
               st === 408 ||
+              st === 0 ||
               st === 502 ||
               st === 503 ||
               st === 504 ||
-              !out.data ||
-              !Object.keys(out.data || {}).length);
+              (!opts.silent && (!out.data || !Object.keys(out.data || {}).length)));
           if (canRetry) {
+            var delay = isRate
+              ? Math.min(9000, 900 + retryCount * 1100)
+              : err === "not_found" || st === 404
+                ? 500
+                : 350;
+            // Keep loading; never flash "Chat in coda…" during backoff.
+            if (!opts.silent) {
+              state.error = "";
+              state.loading = true;
+              refreshDom();
+            }
             return new Promise(function (resolve) {
-              window.setTimeout(resolve, err === "not_found" || st === 404 ? 500 : 350);
+              window.setTimeout(resolve, delay);
             }).then(function () {
               if (seq !== state.seq || state.dedupeKey !== dedupeKey) return;
               return loadMessages(
                 dedupeKey,
-                Object.assign({}, opts, { _retried: true, _skippedTokenWait: true }),
+                Object.assign({}, opts, {
+                  _retried: true,
+                  _skippedTokenWait: err !== "missing_token",
+                  _retryCount: retryCount + 1,
+                }),
               );
             });
           }
           if (!opts.silent) {
             var mapped = chatErrorMessage(out);
-            if (!mapped && err === "aborted") return;
-            state.error = mapped || "Chat non disponibile.";
+            if (!mapped) {
+              /* notifApiErr1: benign → lascia loading spento senza banner rosso */
+              state.error = "";
+              state.loading = false;
+              refreshDom();
+              return;
+            }
+            state.error = mapped;
             state.loading = false;
             refreshDom();
           }
@@ -944,35 +1722,105 @@
         }
         state.loading = false;
         state.error = "";
-        state.canSend = Boolean(out.data.canSend);
+        var nextMessages = Array.isArray(out.data.messages) ? out.data.messages.slice() : [];
+        // chatKeepMsgs2: silent poll con payload vuoto non cancella la cronologia già in schermo.
+        if (
+          opts.silent &&
+          !nextMessages.length &&
+          Array.isArray(state.messages) &&
+          state.messages.length
+        ) {
+          nextMessages = state.messages.slice();
+        }
+        var nextCanSend = c("forceReadOnly") === true ? false : Boolean(out.data.canSend);
+        var nextStatus = String(out.data.status || "pending");
+        var unchanged =
+          Boolean(opts.silent) &&
+          messagesFingerprint(nextMessages) === messagesFingerprint(state.messages) &&
+          nextCanSend === Boolean(state.canSend) &&
+          nextStatus === String(state.status || "pending");
+        state.canSend = nextCanSend;
         state.maxImages = Number(out.data.maxImages) || 3;
         state.isStaffReviewer = Boolean(out.data.isStaffReviewer);
         state.isSubject = Boolean(out.data.isSubject);
-        state.status = String(out.data.status || "pending");
+        state.status = nextStatus;
         state.subjectChat = out.data.subjectChat || null;
-        state.messages = Array.isArray(out.data.messages) ? out.data.messages.slice() : [];
+        state.messages = nextMessages;
+        seedMentionNamesFromMessages(state.messages);
+        if (unchanged) return;
         refreshDom();
         if (!opts.silent) scrollToBottom();
       })
       .catch(function () {
         if (seq !== state.seq || state.dedupeKey !== dedupeKey) return;
-        if (!opts.silent && !opts._retried) {
+        if (!opts.silent && Number(opts._retryCount || 0) < 2) {
           return loadMessages(
             dedupeKey,
-            Object.assign({}, opts, { _retried: true, _skippedTokenWait: true }),
+            Object.assign({}, opts, {
+              _retried: true,
+              _skippedTokenWait: true,
+              _retryCount: Number(opts._retryCount || 0) + 1,
+            }),
           );
         }
         if (!opts.silent) {
+          /* notifApiErr1: rete soft dopo retry → niente banner rosso (lista/chat possono riprendersi) */
           state.loading = false;
-          state.error = "Errore di rete sulla chat.";
+          state.error = "";
           refreshDom();
         }
       });
   }
 
-  function refreshDom() {
+  function captureDraft() {
+    var input = byId("vc-wfc-input");
+    if (!input) return;
+    state.draftText = String(input.value || "");
+    try {
+      state.draftSelStart = input.selectionStart;
+      state.draftSelEnd = input.selectionEnd;
+    } catch (e0) {
+      state.draftSelStart = null;
+      state.draftSelEnd = null;
+    }
+  }
+
+  function restoreDraft() {
+    var input = byId("vc-wfc-input");
+    if (!input) return;
+    var text = String(state.draftText || "");
+    if (input.value !== text) input.value = text;
+    try {
+      if (state.draftSelStart != null && state.draftSelEnd != null) {
+        input.setSelectionRange(state.draftSelStart, state.draftSelEnd);
+      }
+    } catch (e1) {}
+  }
+
+  function clearDraft() {
+    state.draftText = "";
+    state.draftSelStart = null;
+    state.draftSelEnd = null;
+    try {
+      var input = byId("vc-wfc-input");
+      if (input) input.value = "";
+    } catch (eClr) {}
+  }
+
+  function messagesFingerprint(list) {
+    return (Array.isArray(list) ? list : [])
+      .map(function (m) {
+        var reactions = Array.isArray(m && m.reactions) ? m.reactions.length : 0;
+        return String((m && m.id) || "") + ":" + reactions + ":" + String((m && m.content) || "").length;
+      })
+      .join("|");
+  }
+
+  function refreshDom(opts) {
+    opts = opts || {};
     var root = byId("vc-wfc-root");
     if (!root) return;
+    if (!opts.skipCapture) captureDraft();
     var scroll = byId("vc-wfc-scroll");
     var nearBottom = scroll ? scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 48 : true;
     var item = { status: state.status || "pending", dedupeKey: state.dedupeKey };
@@ -982,25 +1830,35 @@
     if (!fresh) return;
     root.replaceWith(fresh);
     bindComposer();
+    restoreDraft();
     if (nearBottom) scrollToBottom();
   }
 
   function teardown() {
+    captureDraft();
+    stopWorkflowTypingRoom();
     state.seq += 1;
     state.dedupeKey = "";
     state.tab = "";
     state.messages = [];
-    state.canSend = false;
+    state.canSend = null;
     state.loading = false;
     state.sending = false;
     state.managingSubject = false;
     state.error = "";
     state.replyTo = null;
     state.composerImages = [];
+    clearDraft();
     state.isStaffReviewer = false;
     state.isSubject = false;
     state.subjectChat = null;
     state.status = "pending";
+    state.typingRoom = null;
+    if (state.mentionTimer) {
+      clearTimeout(state.mentionTimer);
+      state.mentionTimer = null;
+    }
+    hideMentionMenu();
     if (state.pollTimer) {
       clearInterval(state.pollTimer);
       state.pollTimer = null;
@@ -1015,6 +1873,29 @@
     }
   }
 
+  function keysShareConversation(prevKey, nextKey, item) {
+    var a = String(prevKey || "").trim();
+    var b = String(nextKey || "").trim();
+    if (!a || !b) return false;
+    if (a === b) return true;
+    var mid = String(
+      (item && (item.messageId || item.recordId || item.id)) || "",
+    ).trim();
+    if (mid && a.indexOf(mid) >= 0 && b.indexOf(mid) >= 0) return true;
+    var pa = a.split(":");
+    var pb = b.split(":");
+    if (pa[0] && pa[0] === pb[0] && pa[0] === "pause" && pa.length >= 3 && pb.length >= 3) {
+      return pa[1] === pb[1] && pa[2] === pb[2];
+    }
+    // Same queue prefix + overlapping snowflake tail (messageId upgrade).
+    if (pa[0] && pa[0] === pb[0] && pa.length >= 2 && pb.length >= 2) {
+      var ta = pa[pa.length - 1];
+      var tb = pb[pb.length - 1];
+      if (/^\d{16,22}$/.test(ta) && ta === tb) return true;
+    }
+    return false;
+  }
+
   function boot(item, tab) {
     var key = dedupeKeyFor(item, tab);
     if (!key) {
@@ -1022,28 +1903,81 @@
       return;
     }
     state.profileId = c("getProfileId") ? String(c("getProfileId")() || "") : "";
-    var sameKey = state.dedupeKey === key;
+    var prevKey = String(state.dedupeKey || "");
+    var sameKey = prevKey === key;
+    var sameConv = keysShareConversation(prevKey, key, item);
     var root = byId("vc-wfc-root");
-    if (sameKey && root) {
-      bindComposer();
-            if ((!state.messages.length && !state.loading) || state.error) {
-        state.error = "";
+
+    // Sheet re-render / soft-refresh: keep messages; never teardown the same pratica.
+    if (sameConv) {
+      if (!sameKey) {
+        state.dedupeKey = key;
+        if (state.pollTimer) {
+          try {
+            clearInterval(state.pollTimer);
+          } catch (ePoll) {}
+          state.pollTimer = null;
+        }
+        connectWs(key);
+      }
+      state.tab = tab || state.tab || "";
+      if (c("forceReadOnly") === true) {
+        state.canSend = false;
+      } else if (item && String(item.status || "").toLowerCase() === "pending") {
+        // Remount of an open pratica: keep API canSend if known, else optimistic write.
+        if (state.canSend == null) state.canSend = true;
+      } else if (item && String(item.status || "").toLowerCase() !== "pending") {
+        state.canSend = false;
+        state.status = String(item.status || state.status || "closed");
+      }
+      if (root) {
+        if (!state.messages.length && !state.loading) {
+          state.loading = true;
+          state.error = "";
+          refreshDom();
+          loadMessages(key);
+        } else {
+          refreshDom();
+        }
+        bindComposer();
+        restoreDraft();
+        return;
+      }
+      // Panel missing from DOM but state still warm — re-insert via caller HTML, then paint.
+      if (state.messages.length) {
+        // Caller just wiped #vc-wfc-root; wait a tick for new empty panel in DOM.
+        window.setTimeout(function () {
+          if (!keysShareConversation(state.dedupeKey, key, item) && state.dedupeKey !== key) return;
+          var again = byId("vc-wfc-root");
+          if (!again) return;
+          refreshDom();
+          bindComposer();
+          restoreDraft();
+        }, 0);
+        return;
+      }
+      if (!state.loading) {
         state.loading = true;
         loadMessages(key);
       }
+      connectWs(key);
       return;
     }
-    if (sameKey && (state.messages.length || state.loading)) {
-            bindComposer();
-      return;
-    }
+
     teardown();
     state.dedupeKey = key;
     state.tab = tab || "";
     state.loading = true;
     state.error = "";
-    state.canSend = String(item.status || "").toLowerCase() === "pending";
+    state.status = String(item.status || "pending").toLowerCase() || "pending";
+    state.canSend =
+      c("forceReadOnly") === true
+        ? false
+        : state.status === "pending";
+    // Paint composer immediately for pending (don't wait for messages fetch).
+    refreshDom();
     bindComposer();
+    restoreDraft();
     loadMessages(key);
     connectWs(key);
   }
@@ -1058,5 +1992,6 @@
     boot: boot,
     renderPanel: renderPanel,
     refreshDom: refreshDom,
+    captureDraft: captureDraft,
   };
 })(window);

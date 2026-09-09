@@ -12,8 +12,8 @@ const renderRankCanvas = require("../Render/rankCanvas");
 const { guildMemberDisplayAvatarUrlForSite, memberDisplayName } = require("../Discord/guildDiscordIdentity");
 const { animatedDiscordCdnAvatarUrl } = require("./siteLiveAvatars");
 
-const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1495472189347074119").trim();
-const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1494996567214788818").trim();
+const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1544830868575625276").trim();
+const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1544830850552823849").trim();
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -40,11 +40,15 @@ async function getServerAvatarOnly(client, payload) {
   const accessToken = String(payload?.accessToken || "").trim();
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
+  const member = resolved.member;
   return {
     ok: true,
     status: 200,
     userId: resolved.userId,
-    avatarUrl: resolvePreferredAvatarUrl(resolved.member),
+    username: String(member?.user?.username || "").trim(),
+    displayName: memberDisplayName(member, member?.user),
+    memberAvatar: String(member?.avatar || "").trim() || "",
+    avatarUrl: resolvePreferredAvatarUrl(member),
   };
 }
 

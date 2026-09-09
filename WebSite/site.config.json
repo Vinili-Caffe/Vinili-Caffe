@@ -3,11 +3,14 @@
   "siteUrl": "https://www.viniliecaffe.it/",
   "voteUrl": "/vote",
   "discadiaVoteUrl": "https://discadia.com/vote/viniliecaffe/",
-  "topggVoteUrl": "https://top.gg/discord/servers/832911595289169920",
+  "topggVoteUrl": "https://top.gg/discord/servers/832911595289169920/vote",
   "reviewsUrl": "https://disboard.org/it/server/1329080093599076474",
   "donationsUrl": "https://www.paypal.com/paypalme/viniliecaffeit",
   "premiumCheckoutUrl": "",
-  "discordOauth": { "clientId": "1329118940110127204", "redirectUri": "https://www.viniliecaffe.it/" },
+  "discordOauth": {
+    "clientId": "1329118940110127204",
+    "redirectUri": "https://www.viniliecaffe.it/"
+  },
   "maintenance": {
     "enabled": false,
     "allowedUserIds": [],
@@ -26,7 +29,7 @@
   "wikiUrl": "/wiki",
   "sponsorUrl": "/sponsor",
   "wikiBotViniliAvatarUrl": "https://cdn.discordapp.com/avatars/1329118940110127204/a_2f3825915a41d0f9bcbf9f2675e6d6f0.gif?size=128",
-  "wikiBotCaffeAvatarUrl": "",
+  "wikiBotCaffeAvatarUrl": "https://cdn.discordapp.com/avatars/1466495522474037463/a_22dd648e8c21d246ccca2cf395533ea8.gif?size=128",
   "faqUrl": "/faq",
   "communityRulesUrl": "",
   "communityRulesApiUrl": "/webhooks/site-rules",
@@ -89,7 +92,16 @@
   "hogwartsHousePoints": {
     "pollIntervalMs": 15000,
     "maxPoints": 100000,
-    "scaleStops": [500, 1000, 2500, 5000, 10000, 25000, 50000, 100000],
+    "scaleStops": [
+      500,
+      1000,
+      2500,
+      5000,
+      10000,
+      25000,
+      50000,
+      100000
+    ],
     "gryffindor": 0,
     "ravenclaw": 0,
     "hufflepuff": 0,
@@ -98,13 +110,48 @@
       "title": "Clessidre dell'anno scolastico",
       "subtitle": "Punti raccolti nella fascia scolastica attiva in questo momento.",
       "periods": [
-        { "label": "1° anno", "range": "1 - 14 giugno 2026", "startDate": "2026-06-01", "endDate": "2026-06-14" },
-        { "label": "2° anno", "range": "15 - 28 giugno 2026", "startDate": "2026-06-15", "endDate": "2026-06-28" },
-        { "label": "3° anno", "range": "29 giugno - 12 luglio 2026", "startDate": "2026-06-29", "endDate": "2026-07-12" },
-        { "label": "4° anno", "range": "13 - 26 luglio 2026", "startDate": "2026-07-13", "endDate": "2026-07-26" },
-        { "label": "5° anno", "range": "27 luglio - 9 agosto 2026", "startDate": "2026-07-27", "endDate": "2026-08-09" },
-        { "label": "6° anno", "range": "10 - 23 agosto 2026", "startDate": "2026-08-10", "endDate": "2026-08-23" },
-        { "label": "7° anno", "range": "24 - 30 agosto 2026", "startDate": "2026-08-24", "endDate": "2026-08-30" }
+        {
+          "label": "1° anno",
+          "range": "1 - 14 giugno 2026",
+          "startDate": "2026-06-01",
+          "endDate": "2026-06-14"
+        },
+        {
+          "label": "2° anno",
+          "range": "15 - 28 giugno 2026",
+          "startDate": "2026-06-15",
+          "endDate": "2026-06-28"
+        },
+        {
+          "label": "3° anno",
+          "range": "29 giugno - 12 luglio 2026",
+          "startDate": "2026-06-29",
+          "endDate": "2026-07-12"
+        },
+        {
+          "label": "4° anno",
+          "range": "13 - 26 luglio 2026",
+          "startDate": "2026-07-13",
+          "endDate": "2026-07-26"
+        },
+        {
+          "label": "5° anno",
+          "range": "27 luglio - 9 agosto 2026",
+          "startDate": "2026-07-27",
+          "endDate": "2026-08-09"
+        },
+        {
+          "label": "6° anno",
+          "range": "10 - 23 agosto 2026",
+          "startDate": "2026-08-10",
+          "endDate": "2026-08-23"
+        },
+        {
+          "label": "7° anno",
+          "range": "24 - 30 agosto 2026",
+          "startDate": "2026-08-24",
+          "endDate": "2026-08-30"
+        }
       ],
       "gryffindor": 0,
       "ravenclaw": 0,
@@ -122,14 +169,20 @@
   },
   "hogwartsBgm": {
     "youtube": {
-      "videoUrls": ["https://www.youtube.com/watch?v=pDst9A3sqis"]
+      "videoUrls": [
+        "https://www.youtube.com/watch?v=pDst9A3sqis"
+      ]
     },
     "baseVolume": 0.34
   },
   "seratafilmBgm": {
     "youtube": {
-      "videoUrls": ["https://www.youtube.com/watch?v=7wnVYIJipzU"],
-      "eventVideoUrls": ["https://www.youtube.com/watch?v=pDst9A3sqis"]
+      "videoUrls": [
+        "https://www.youtube.com/watch?v=7wnVYIJipzU"
+      ],
+      "eventVideoUrls": [
+        "https://www.youtube.com/watch?v=pDst9A3sqis"
+      ]
     },
     "trackUrls": [],
     "fadeStartSeconds": 120,
@@ -137,13 +190,17 @@
   },
   "seratafilmEvent": {
     "timezone": "Europe/Rome",
-    "recurring": { "weekday": 6, "hour": 21, "minute": 0 },
+    "recurring": {
+      "weekday": 6,
+      "hour": 21,
+      "minute": 0
+    },
     "overrideIso": "",
-    "linkFilm": "/images/evento-hogwarts/streamingcommunityz-web.mp4",
+    "linkFilm": "/images/seratafilm/il-corvo-web.mp4",
     "hogwartsThemeVideoUrl": "/images/evento-hogwarts/theme-bg.mp4",
-    "filmTitle": "Harry Potter e i Doni della Morte - Parte 2",
+    "filmTitle": "Il Corvo",
     "adBreak": {
-      "enabled": true,
+      "enabled": false,
       "videoUrl": "/seratafilm/ad.mp4",
       "atPercent": 50,
       "totalMs": 62000,
@@ -155,19 +212,62 @@
       "outroText": "Grazie per la pazienza. Buona visione!"
     },
     "schedule": [
-      { "date": "2026-06-06", "title": "Harry Potter e la pietra filosofale" },
-      { "date": "2026-06-13", "title": "Harry Potter e la camera dei segreti" },
-      { "date": "2026-06-20", "skip": true },
-      { "date": "2026-06-27", "title": "Harry Potter e il prigioniero di Azkaban" },
-      { "date": "2026-07-04", "title": "Harry Potter e il calice di fuoco" },
-      { "date": "2026-07-11", "skip": true },
-      { "date": "2026-07-18", "title": "Harry Potter e l'Ordine della Fenice" },
-      { "date": "2026-07-25", "title": "Harry Potter e il principe mezzosangue" },
-      { "date": "2026-08-01", "skip": true },
-      { "date": "2026-08-08", "title": "Harry Potter e i Doni della Morte - Parte 1" },
-      { "date": "2026-08-15", "skip": true },
-      { "date": "2026-08-22", "skip": true },
-      { "date": "2026-08-29", "title": "Harry Potter e i Doni della Morte - Parte 2" }
+      {
+        "date": "2026-06-06",
+        "title": "Harry Potter e la pietra filosofale"
+      },
+      {
+        "date": "2026-06-13",
+        "title": "Harry Potter e la camera dei segreti"
+      },
+      {
+        "date": "2026-06-20",
+        "skip": true
+      },
+      {
+        "date": "2026-06-27",
+        "title": "Harry Potter e il prigioniero di Azkaban"
+      },
+      {
+        "date": "2026-07-04",
+        "title": "Harry Potter e il calice di fuoco"
+      },
+      {
+        "date": "2026-07-11",
+        "skip": true
+      },
+      {
+        "date": "2026-07-18",
+        "title": "Harry Potter e l'Ordine della Fenice"
+      },
+      {
+        "date": "2026-07-25",
+        "title": "Harry Potter e il principe mezzosangue"
+      },
+      {
+        "date": "2026-08-01",
+        "skip": true
+      },
+      {
+        "date": "2026-08-08",
+        "title": "Harry Potter e i Doni della Morte - Parte 1"
+      },
+      {
+        "date": "2026-08-15",
+        "skip": true
+      },
+      {
+        "date": "2026-08-22",
+        "skip": true
+      },
+      {
+        "date": "2026-08-29",
+        "title": "Harry Potter e i Doni della Morte - Parte 2"
+      },
+      {
+        "date": "2026-09-05",
+        "title": "Il Corvo"
+      }
     ]
   },
   "discordInviteCode": "viniliecaffe",
@@ -184,8 +284,8 @@
       "1521562607339704442",
       "1442568893435478097",
       "1502322782602530977",
-      "1442568894349840435",
-      "1502321956236824677",
+      "1544831228690046976",
+      "1544831236868931636",
       "1442568901887000618",
       "1442568904311570555",
       "1442568910070349985"
@@ -195,22 +295,25 @@
       "1521562607339704442",
       "1442568893435478097",
       "1502322782602530977",
-      "1442568894349840435",
-      "1502321956236824677",
+      "1544831228690046976",
+      "1544831236868931636",
       "1442568901887000618",
       "1442568904311570555",
       "1442568910070349985"
     ],
-    "excludeFromStaffListRoleIds": ["1442568905582317740", "1494089487863644330"],
+    "excludeFromStaffListRoleIds": [
+      "1544831242510270464",
+      "1545183984932233367"
+    ],
     "communityManagerRoleId": "",
     "maxMembersToScan": 50000,
     "staffListShowEachRole": true,
     "showEmptyStaffRoles": true
   },
-  "openGraphImageUrl": "https://cdn.discordapp.com/icons/1329080093599076474/a_152fffe587276d12887237d53390e495.png?size=256&v=ogguild1",
+  "openGraphImageUrl": "https://www.viniliecaffe.it/images/og-server-icon.gif?v=20260904brandGif1",
   "rankCardApiUrl": "/webhooks/site-rank-card",
-  "openGraphImageWidth": 128,
-  "openGraphImageHeight": 128,
+  "openGraphImageWidth": 512,
+  "openGraphImageHeight": 512,
   "openGraphSiteName": "Vinili & Caffè",
   "themeColor": "#140f0c",
   "metaDescription": "Community Discord italiana: vinili, caffè, musica e chiacchiere. Entra nel server ufficiale Vinili & Caffè.",
@@ -261,6 +364,10 @@
     "until": "2026-07-03T23:59:59"
   },
   "siteRoutes": {
-    "hiddenPaths": ["/seratafilm/accesso-richiesto", "/staff/accesso-richiesto"]
-  }
+    "hiddenPaths": [
+      "/seratafilm/accesso-richiesto",
+      "/staff/accesso-richiesto"
+    ]
+  },
+  "siteBannerUrl": "https://www.viniliecaffe.it/images/og-banner.gif?v=20260904brandGif1"
 }

@@ -105,9 +105,11 @@ async function refreshTicketStaffPanelsInChannel(channel, ticketDoc) {
 
 function canClaimTicket(member, ticketType, _guildId = null) {
   if (!member) return false;
+  const roles = member.roles?.cache;
+  if (!roles || typeof roles.has !== "function") return false;
   const isSupport = ticketType === "supporto" && hasAnyRole(member, STAFF_ROLE_IDS);
   const isPartnership = ticketType === "partnership" && memberCanAccessPartnershipTicket(member);
-  const isHigh = ticketType === "high" && member.roles.cache.has(HIGHSTAFF_ROLE_ID);
+  const isHigh = ticketType === "high" && Boolean(HIGHSTAFF_ROLE_ID) && roles.has(HIGHSTAFF_ROLE_ID);
   const isPerks = ticketType === "perks" && memberCanAccessPerksTicket(member);
   return isSupport || isPartnership || isHigh || isPerks;
 }

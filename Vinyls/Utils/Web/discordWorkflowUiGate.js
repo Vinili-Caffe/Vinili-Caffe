@@ -113,7 +113,13 @@ function isDiscordTicketsEnabled() {
 
 function profileMovedToSiteMessage() {
   const url = siteWorkflowUrl("userPersonalize");
-  return `<a:VC_Alert:1482706673176150077> Il **profilo** si gestisce **solo sul sito** (non più via [profilo sul sito](https://www.viniliecaffe.it/personalizza/)):\n${url}`;
+  let staffCmdsMention = "#staff-cmds";
+  try {
+    const IDs = require("../Config/ids");
+    const id = String(IDs.channels?.staffCmds || "").trim();
+    if (/^\d{16,20}$/.test(id)) staffCmdsMention = `<#${id}>`;
+  } catch (_) {}
+  return `<a:VC_Alert:1482706673176150077> Il **profilo community** si gestisce **solo sul sito**:\n${url}\n\nPartner Manager: usa \`+profile\` nel thread **Comandi Partner Manager** sotto ${staffCmdsMention}.`;
 }
 
 async function replyProfileMovedToSite(interaction) {

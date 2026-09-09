@@ -601,6 +601,91 @@
     updateMusicButtonUi();
   }
 
+  /* sfBgmAuto1: like Hogwarts — try audible autoplay; muted prime as fallback */
+  /* sfBgmSeekKick1: YT often "plays" at 0:00 muted until a small seek */
+  function playMutedPrime() {
+    if (!player || !playerReady) return;
+    if (lockedOffForFilm || isProjectionBlockingBgm()) return;
+    try {
+      player.mute();
+      player.playVideo();
+    } catch (eMute) {}
+  }
+
+  function nudgePlaybackIfStuck() {
+    if (!player || !playerReady) return;
+    try {
+      var t = Number(player.getCurrentTime());
+      if (!Number.isFinite(t) || t >= 0.2) return;
+      var startSec = 0;
+      try {
+        var pub = youtubePublicCfg();
+        startSec = Math.max(0, Number(pub && pub.startSeconds) || 0);
+      } catch (eS) {}
+      player.seekTo(Math.max(0.25, startSec || 0.25), true);
+    } catch (eN) {}
+  }
+
+  function kickAudiblePlayback(opts) {
+    opts = opts || {};
+    var markOnOk = opts.markOnOk !== false;
+    if (!player || !playerReady) return;
+    if (lockedOffForFilm || isProjectionBlockingBgm()) return;
+    try {
+      if (typeof player.unMute === "function") player.unMute();
+      player.setVolume(Math.round(baseVol * 100));
+      player.playVideo();
+    } catch (ePlay) {
+      playMutedPrime();
+      return;
+    }
+    window.setTimeout(function () {
+      if (lockedOffForFilm || isProjectionBlockingBgm() || mutedByUser) return;
+      nudgePlaybackIfStuck();
+      try {
+        if (typeof player.unMute === "function") player.unMute();
+        player.setVolume(Math.round(baseVol * 100));
+      } catch (eU) {}
+    }, 280);
+    window.setTimeout(function () {
+      if (lockedOffForFilm || isProjectionBlockingBgm() || mutedByUser) return;
+      try {
+        var st = player.getPlayerState();
+        var YTPS = window.YT && window.YT.PlayerState;
+        var playing = YTPS && (st === YTPS.PLAYING || st === YTPS.BUFFERING);
+        var t = Number(player.getCurrentTime()) || 0;
+        var isMuted = typeof player.isMuted === "function" ? player.isMuted() : false;
+        if (playing && t < 0.15) nudgePlaybackIfStuck();
+        if (markOnOk && playing && !isMuted && t >= 0.05) {
+          markAudibleStarted();
+        }
+      } catch (eCheck) {}
+    }, 700);
+  }
+
+  function markAudibleStarted() {
+    started = true;
+    mutedByUser = false;
+    hideHint();
+    if (typeof detachFirst === "function") {
+      detachFirst();
+      detachFirst = null;
+    }
+    showMusicPlayer();
+    updateMusicButtonUi();
+  }
+
+  function tryAutoStartAudible() {
+    if (lockedOffForFilm || isProjectionBlockingBgm()) return;
+    if (started || mutedByUser) return;
+    if (!youtubePublicCfg() || !player || !playerReady) return;
+    kickAudiblePlayback({ markOnOk: true });
+    window.setTimeout(function () {
+      if (started || mutedByUser || lockedOffForFilm || isProjectionBlockingBgm()) return;
+      playMutedPrime();
+    }, 1100);
+  }
+
   function createPlayerAndCue() {
     if (lockedOffForFilm || isProjectionBlockingBgm()) return;
     var pub = youtubePublicCfg();
@@ -644,6 +729,20 @@
           } catch (e6) {}
           startSeekUiLoop();
           syncSeekSliderUi();
+          tryAutoStartAudible();
+        },
+        onStateChange: function (ev) {
+          if (!window.YT || !window.YT.PlayerState) return;
+          if (ev.data !== window.YT.PlayerState.PLAYING) return;
+          if (lockedOffForFilm || isProjectionBlockingBgm() || mutedByUser) return;
+          try {
+            var t = Number(player.getCurrentTime()) || 0;
+            if (t < 0.15) nudgePlaybackIfStuck();
+            if (started || !mutedByUser) {
+              if (typeof player.unMute === "function") player.unMute();
+              player.setVolume(Math.round(baseVol * 100));
+            }
+          } catch (eSt) {}
         },
         onError: function (ev) {
           var code = ev && ev.data != null ? ev.data : "?";
@@ -709,11 +808,7 @@
       detachFirst();
       detachFirst = null;
     }
-    try {
-      player.unMute();
-      player.setVolume(Math.round(baseVol * 100));
-      player.playVideo();
-    } catch (e8) {}
+    kickAudiblePlayback({ markOnOk: false });
     showMusicPlayer();
     updateMusicButtonUi();
   }
@@ -761,7 +856,10 @@
     loadYoutubeIframeApi()
       .then(function () {
         if (!youtubePublicCfg()) return;
-        if (player) return;
+        if (player) {
+          tryAutoStartAudible();
+          return;
+        }
         createPlayerAndCue();
       })
       .catch(function () {
@@ -769,6 +867,12 @@
       });
     return true;
   };
+
+  window.addEventListener("vc:cookie-accepted", function () {
+    if (lockedOffForFilm || isProjectionBlockingBgm() || mutedByUser) return;
+    if (!youtubePublicCfg()) return;
+    startFromUserGesture(true);
+  });
 
   window.__vcSeratafilmYoutubeOnTick = function (remainingMs) {
     if (lockedOffForFilm || isProjectionBlockingBgm() || mutedByUser) {

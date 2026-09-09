@@ -11,6 +11,7 @@ const { extractMovieNightProposalTitle } = require("../../Utils/Community/movieN
 const { siteWorkflowUrl } = require("../../Utils/Web/discordWorkflowUiGate");
 const { resolveSerataFilmHouseLeaderboard, sendSerataFilmHouseLeaderboardToReportChannel, formatCombinedRankingLines, collectHouseRoleIdsFromRanked, HOUSE_POINTS_BY_RANK, startSerataFilmHouseAttendanceSession, snapshotSerataFilmHouseAttendance, clearSerataFilmHouseAttendanceSession, restoreSerataFilmHouseAttendanceSession } = require("./hogwartsSerataFilmHouseLeaderboardService");
 const { isHogwartsWeeklyTopReplaced } = require("./weeklyActivityWinnersService");
+const { startSerataFilmSession, finishSerataFilmSessionsForChannel } = require("../Staff/staffAutoValutazioniService");
 const TIME_ZONE = "Europe/Rome";
 const STATE_KEY = "movieNightAnnouncement.v1";
 const ANNOUNCE_CRON = "0 15 * * 1";
@@ -34,8 +35,8 @@ const REVIEW_THREAD_DISCOVERY_MAX_AGE_MS = REVIEW_THREAD_CLOSE_AFTER_MS + 12 * 6
 const FALLBACK_MOVIE_DESCRIPTION = "Non ho trovato una descrizione affidabile in italiano, ma sarà una buona occasione per scoprirlo insieme durante la serata.";
 const ANNOUNCEMENT_CHANNEL_ID = "1481660281032675510";
 const MOVIE_NIGHT_EVENT_CHANNEL_ID = "1497535199813042306";
-const EVENTS_ROLE_ID = String(IDs.roles?.Events || "1442569012063109151");
-const SERATA_FILM_ROLE_ID = String(IDs.roles?.SerataFilm || "1500844750956400761");
+const EVENTS_ROLE_ID = String(IDs.roles?.Events || "1544830669023346688");
+const SERATA_FILM_ROLE_ID = String(IDs.roles?.SerataFilm || "1544830665688612924");
 const STAFF_COMMUNICATION_CHANNEL_ID = String(IDs.channels?.staffNews || "1442569239063167139");
 const STAFF_COMMUNICATION_ROLE_ID = String(IDs.roles?.Staff || "1442568910070349985");
 const MOVIE_NIGHT_FILM_HOUR = 21;
@@ -457,8 +458,6 @@ function buildMovieNightStartAnnouncementMessage(title) {
     `> <:VC_movie:1497534838801174559> Tutto è pronto! Tra pochi minuti, alle **${MOVIE_NIGHT_DISPLAY_TIME}**, inizierà il nostro appuntamento con il cinema trasmettendo **${title}**!`,
     "",
     `<a:VC_HeartsPink:1468685897389052008> Vi aspettiamo in numerosi in <#${MOVIE_NIGHT_EVENT_CHANNEL_ID}>`,
-    "",
-    MOVIE_NIGHT_CLOSING_LINE_DURING_EVENT,
     "",
     `<a:VC_Ping:1482694298687246377>︲<@&${SERATA_FILM_ROLE_ID}> . @everyone`,
   ].join("\n");
@@ -1588,6 +1587,9 @@ async function handleMovieNightEventStart(event, opts = {}) {
       await startSerataFilmHouseAttendanceSession(guild).catch((err) => {
         global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] serata film house attendance start failed:", err?.message || err);
       });
+      await startSerataFilmSession(event).catch((err) => {
+        global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] serata film staff session start failed:", err?.message || err);
+      });
       return { skipped: true, reason: startStatus.reason || "already_announced", weekKey, permissionsOpened };
     }
   }
@@ -1616,6 +1618,9 @@ async function handleMovieNightEventStart(event, opts = {}) {
   });
   await startSerataFilmHouseAttendanceSession(guild).catch((err) => {
     global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] serata film house attendance start failed:", err?.message || err);
+  });
+  await startSerataFilmSession(event).catch((err) => {
+    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] serata film staff session start failed:", err?.message || err);
   });
   return { ok: true, messageId: String(message.id || ""), title, permissionsOpened, weekKey };
 }
@@ -2191,9 +2196,22 @@ async function handleMovieNightStageClose(stageInstance, opts = {}) {
   const attendanceSnapshot = opts.attendanceSnapshot instanceof Map
     ? opts.attendanceSnapshot
     : snapshotSerataFilmHouseAttendance(guild.id);
+
+  // serataFilmFinishFromClose1: always attempt staff auto-vals on stage close / recovery
+  // (even if announce was already posted — vals may have been skipped before).
+  const stateEarly = await getBotState(STATE_KEY, null).catch(() => null);
+  const staffAuto = await finishSerataFilmSessionsForChannel(guild, channelId, {
+    attendanceSnapshot,
+    eventId: String(stateEarly?.eventId || stageInstance?.id || `stage-${Date.now()}`),
+    startedAt: Date.parse(String(stateEarly?.eventStartAnnouncedAt || stateEarly?.stagePermissionsOpenedAt || "")) || undefined,
+  }).catch((err) => {
+    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] serata film staff auto finish failed:", err?.message || err);
+    return { ok: false, error: String(err?.message || err) };
+  });
+
   const weekKey = getRomeWeekKey(opts.now || new Date());
   const fixedSchedule = getHarryPotterMovieNightScheduleForWeek(opts.now || new Date());
-  if (fixedSchedule?.skip) return { skipped: true, reason: "fixed_schedule_skip", weekKey };
+  if (fixedSchedule?.skip) return { skipped: true, reason: "fixed_schedule_skip", weekKey, staffAuto };
 
   const result = await withMovieNightStageCloseLock(weekKey, async () => {
     const state = await getBotState(STATE_KEY, null);

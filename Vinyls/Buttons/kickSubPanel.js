@@ -22,7 +22,7 @@ function match(interaction) {
 }
 
 function buildPublicPanelPayload(cfg) {
-  const slug = String(cfg?.streamerSlug || "d1uk").trim() || "d1uk";
+  const slug = String(cfg?.streamerSlug || "diunk17").trim() || "diunk17";
   const roleMention = cfg?.roleId ? `<@&${cfg.roleId}>` : "il ruolo sub";
   const embed = new EmbedBuilder()
     .setColor(KICK_GREEN)
@@ -46,7 +46,7 @@ function buildPublicPanelPayload(cfg) {
 async function buildPrivateDashboard(client, discordUserId) {
   const cfg = resolveSubSyncConfig(client);
   const st = await getLinkStatus(client, discordUserId);
-  const slug = String(cfg.streamerSlug || "d1uk").trim() || "d1uk";
+  const slug = String(cfg.streamerSlug || "diunk17").trim() || "diunk17";
   const components = [];
 
   if (!st.linked) {

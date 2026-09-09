@@ -112,8 +112,29 @@ async function backupUserOnLeave(guildId, userId, member = null) {
   const restoreRoleIds = deferRolesForMute ? [] : getRestorableRoleIdsFromMember(member);
   const trackedRoleIds = getTrackedRolesFromMember(member);
 
+  // Snapshot Discord completo prima che il membro sparisca dalla cache.
+  try {
+    const { persistUserFullState } = require("./userFullStatePersistenceService");
+    if (member?.guild) {
+      await persistUserFullState(gid, uid, {
+        member,
+        guild: member.guild,
+        reason: "leave_backup",
+      }).catch(() => null);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const refreshed = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+    .select("profile.discordState")
+    .lean()
+    .catch(() => null);
+  const discordState =
+    refreshed?.profile?.discordState || source?.profile?.discordState || null;
+
   const shouldUpsertBackup =
-    Boolean(source) || restoreRoleIds.length > 0 || trackedRoleIds.length > 0;
+    Boolean(source) || restoreRoleIds.length > 0 || trackedRoleIds.length > 0 || Boolean(discordState);
 
   if (!shouldUpsertBackup) {
     await UserLeaveBackup.updateOne(
@@ -123,13 +144,25 @@ async function backupUserOnLeave(guildId, userId, member = null) {
     return false;
   }
 
+  const backupDoc = source
+    ? {
+        ...source,
+        profile: {
+          ...(source.profile || {}),
+          discordState: discordState || source.profile?.discordState || null,
+        },
+      }
+    : discordState
+      ? { guildId: gid, userId: uid, profile: { discordState } }
+      : null;
+
   await UserLeaveBackup.updateOne(
     { guildId: gid, userId: uid },
     {
       $set: {
         guildId: gid,
         userId: uid,
-        backupDoc: source || null,
+        backupDoc,
         restoreRoleIds,
         rejoinTrackedRoleIds: trackedRoleIds,
         leftAt: new Date(),

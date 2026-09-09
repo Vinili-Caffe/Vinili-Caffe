@@ -140,12 +140,13 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const { handleSiteVoteGet } = require("../../Utils/Web/siteVoteApi");
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
-  const { submitSiteRoleRequest, leaveSiteRole } = require("../../Utils/Web/siteRoleRequestApi");
+  const { submitSiteRoleRequest, leaveSiteRole, getSiteRoleRequestStates } = require("../../Utils/Web/siteRoleRequestApi");
   const { getRankCardCustomization, getServerAvatarOnly, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
   const { getCustomProfileCustomization, getCustomProfileGuildEmojis, mutateCustomProfile } = require("../../Utils/Web/siteCustomProfileApi");
   const { getProfileExtras, mutateProfileExtras } = require("../../Utils/Web/siteProfileExtrasApi");
+  const { getWelcomePronouns } = require("../../Utils/Web/siteWelcomePronounsApi");
   const { getSiteReviews, submitSiteReview, deleteSiteReview, toggleSiteReviewLike, upsertServerReviewReply } = require("../../Utils/Web/siteReviewsApi");
-  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffSetSiteSuggestionDecision, staffDeleteSiteSuggestion } = require("../../Utils/Web/siteSuggestionsApi");
+  const { getSiteSuggestions, createSiteSuggestion, updateOwnSiteSuggestion, deleteOwnSiteSuggestion, addSiteSuggestionComment, updateSiteSuggestionComment, deleteSiteSuggestionComment, setSiteSuggestionCommentVote, setSiteSuggestionVote, staffAcceptSiteSuggestion, staffRejectSiteSuggestion, staffSetSiteSuggestionDecision, staffDeleteSiteSuggestion, serveSiteSuggestionFile } = require("../../Utils/Web/siteSuggestionsApi");
   const {
     getBotFeedbackList,
     createBotFeedback,
@@ -176,6 +177,11 @@ function mountSiteWebhookRoutes(app, client, deps) {
     handleSiteChromePrefsPost,
   } = require("../../Utils/Web/siteChromePrefsApi");
   const { handleSiteStaffAccessGet } = require("../../Utils/Web/siteStaffAccessApi");
+  const {
+    handleSiteConfessionaleGet,
+    handleSiteConfessionalePost,
+    handleSiteConfessionaleDeletePost,
+  } = require("../../Utils/Web/siteConfessionaleApi");
   const { handleSiteStaffPauseGet, handleSiteStaffPausePost } = require("../../Utils/Web/siteStaffPauseApi");
   const { handleSiteStaffProfileGet } = require("../../Utils/Web/siteStaffProfileApi");
   const { handleSiteStaffGuideGet } = require("../../Utils/Web/siteStaffGuideApi");
@@ -220,12 +226,35 @@ function mountSiteWebhookRoutes(app, client, deps) {
     handleSiteWebTicketsRatePost,
     handleSiteWebTicketsFileGet,
     handleSiteWebTicketsPresencePost,
+    handleSiteWebTicketsTypingPost,
   } = require("../../Utils/Web/siteWebTicketsApi");
   const { handleHogwartsForbiddenBooksClaim, handleHogwartsForbiddenBooksGet, handleHogwartsForbiddenBooksPublicStatus, handleHogwartsHousePointsGet, handleHogwartsPotionsGet, handleHogwartsPotionsPost, handleHogwartsShopGet, handleHogwartsShopPurchasePost, handleHogwartsSortingBootstrap, handleHogwartsSortingEligibility, handleHogwartsSortingSubmit, handleHogwartsSortingAccessGet, handleHogwartsGringottGet, setHogwartsMutationNoStore } = require("../../Utils/Web/siteHogwartsSortingApi");
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
   const hogwartsMutationNoStore = (req, res, next) => {
     if (req.method === "POST" || req.method === "PATCH") setHogwartsMutationNoStore(res);
     next();
   };
+  // eventoClosedApi1: pagine /evento offline → API Hogwarts spente (file sorgente restano).
+  app.use("/webhooks/site-hogwarts-sorting", (req, res, next) => {
+    try {
+      if (isHogwartsRuntimeDisabled(client)) {
+        return res.status(410).json({
+          ok: false,
+          error: "event_closed",
+          message: "Evento Hogwarts concluso.",
+        });
+      }
+      const ev = client?.config?.hogwartsEvent;
+      if (ev && typeof ev === "object" && ev.enabled === false) {
+        return res.status(410).json({
+          ok: false,
+          error: "event_closed",
+          message: "Evento Hogwarts concluso.",
+        });
+      }
+    } catch (_) {}
+    return next();
+  });
   app.use("/webhooks/site-hogwarts-sorting", hogwartsMutationNoStore);
 
   app.get("/webhooks/site-rules", (req, res) => {
@@ -234,7 +263,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.json(buildCommunityRulesSitePayload());
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-rules:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.get("/webhooks/site-users", (req, res) => {
@@ -269,6 +298,11 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.get("/webhooks/site-chrome-prefs", (req, res) => handleSiteChromePrefsGet(client, req, res));
   app.post("/webhooks/site-chrome-prefs", (req, res) => handleSiteChromePrefsPost(client, req, res));
   app.get("/webhooks/site-staff-access", (req, res) => handleSiteStaffAccessGet(client, req, res));
+  app.get("/webhooks/site-confessionale", (req, res) => handleSiteConfessionaleGet(client, req, res));
+  app.post("/webhooks/site-confessionale", (req, res) => handleSiteConfessionalePost(client, req, res));
+  app.post("/webhooks/site-confessionale/:id/delete", (req, res) =>
+    handleSiteConfessionaleDeletePost(client, req, res),
+  );
   app.get("/webhooks/site-staff-dashboard", (req, res) => handleSiteStaffDashboardGet(client, req, res));
   app.get("/webhooks/site-staff-manage", (req, res) => handleSiteStaffManageGet(client, req, res));
   app.post("/webhooks/site-staff-manage", (req, res) => handleSiteStaffManagePost(client, req, res));
@@ -291,8 +325,18 @@ function mountSiteWebhookRoutes(app, client, deps) {
     handleSiteStaffWorkflowChatEmojisGet,
     handleSiteStaffWorkflowChatFileGet,
     handleSiteStaffWorkflowChatSubjectPost,
+    handleSiteStaffWorkflowChatMessagePatch,
+    handleSiteStaffWorkflowChatMessageDelete,
+    handleSiteStaffWorkflowChatTypingPost,
+    handleSiteStaffWorkflowChatMentionsGet,
   } = require("../../Utils/Web/siteStaffWorkflowChatApi");
   app.get("/webhooks/site-staff-workflow-chat/emojis", (req, res) => handleSiteStaffWorkflowChatEmojisGet(client, req, res));
+  app.get("/webhooks/site-staff-workflow-chat/mentions", (req, res) =>
+    handleSiteStaffWorkflowChatMentionsGet(client, req, res),
+  );
+  app.post("/webhooks/site-staff-workflow-chat/typing", (req, res) =>
+    handleSiteStaffWorkflowChatTypingPost(client, req, res),
+  );
   app.get("/webhooks/site-staff-workflow-chat/files/:folderKey/:fileName", (req, res) =>
     handleSiteStaffWorkflowChatFileGet(client, req, res),
   );
@@ -302,16 +346,34 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.post("/webhooks/site-staff-workflow-chat/subject", (req, res) =>
     handleSiteStaffWorkflowChatSubjectPost(client, req, res),
   );
+  app.patch("/webhooks/site-staff-workflow-chat/messages/:messageId", (req, res) =>
+    handleSiteStaffWorkflowChatMessagePatch(client, req, res),
+  );
+  app.delete("/webhooks/site-staff-workflow-chat/messages/:messageId", (req, res) =>
+    handleSiteStaffWorkflowChatMessageDelete(client, req, res),
+  );
   app.get("/webhooks/site-staff-workflow-chat", (req, res) => handleSiteStaffWorkflowChatGet(client, req, res));
   app.post("/webhooks/site-staff-workflow-chat", (req, res) => handleSiteStaffWorkflowChatPost(client, req, res));
   const { handleSiteUserWorkflowsGet } = require("../../Utils/Web/siteUserWorkflowApi");
   app.get("/webhooks/site-user-workflows", (req, res) => handleSiteUserWorkflowsGet(client, req, res));
   app.get("/webhooks/site-user-workflow-chat/emojis", (req, res) => handleSiteStaffWorkflowChatEmojisGet(client, req, res));
+  app.get("/webhooks/site-user-workflow-chat/mentions", (req, res) =>
+    handleSiteStaffWorkflowChatMentionsGet(client, req, res),
+  );
+  app.post("/webhooks/site-user-workflow-chat/typing", (req, res) =>
+    handleSiteStaffWorkflowChatTypingPost(client, req, res),
+  );
   app.get("/webhooks/site-user-workflow-chat/files/:folderKey/:fileName", (req, res) =>
     handleSiteStaffWorkflowChatFileGet(client, req, res),
   );
   app.post("/webhooks/site-user-workflow-chat/reactions", (req, res) =>
     handleSiteStaffWorkflowChatReactionPost(client, req, res),
+  );
+  app.patch("/webhooks/site-user-workflow-chat/messages/:messageId", (req, res) =>
+    handleSiteStaffWorkflowChatMessagePatch(client, req, res),
+  );
+  app.delete("/webhooks/site-user-workflow-chat/messages/:messageId", (req, res) =>
+    handleSiteStaffWorkflowChatMessageDelete(client, req, res),
   );
   app.get("/webhooks/site-user-workflow-chat", (req, res) => handleSiteStaffWorkflowChatGet(client, req, res));
   app.post("/webhooks/site-user-workflow-chat", (req, res) => handleSiteStaffWorkflowChatPost(client, req, res));
@@ -336,7 +398,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return handleSiteWebTicketsMetaGet(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets meta:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/presence", async (req, res) => {
@@ -344,7 +406,15 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsPresencePost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets presence:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
+    }
+  });
+  app.post("/webhooks/site-web-tickets/:ticketId/typing", async (req, res) => {
+    try {
+      return await handleSiteWebTicketsTypingPost(client, req, res);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-web-tickets typing:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.get("/webhooks/site-web-tickets/emojis", async (req, res) => {
@@ -352,7 +422,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsEmojisGet(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets emojis:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.get("/webhooks/site-web-tickets/mentions", async (req, res) => {
@@ -360,7 +430,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsMentionsGet(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets mentions:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/resolve", async (req, res) => {
@@ -368,7 +438,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsResolvePost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets resolve:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.get("/webhooks/site-web-tickets/commands", async (req, res) => {
@@ -376,7 +446,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsCommandsGet(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets commands:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.get("/webhooks/site-web-tickets/files/:ticketId/:fileName", async (req, res) => {
@@ -384,7 +454,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsFileGet(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets file:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.get("/webhooks/site-web-tickets", async (req, res) => {
@@ -392,7 +462,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsListGet(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets list:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets", async (req, res) => {
@@ -400,7 +470,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsCreatePost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets create:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.get("/webhooks/site-web-tickets/:ticketId", async (req, res) => {
@@ -408,7 +478,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsDetailGet(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets detail:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/messages", async (req, res) => {
@@ -416,7 +486,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsMessagePost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets message:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.patch("/webhooks/site-web-tickets/:ticketId/messages/:messageId", async (req, res) => {
@@ -424,7 +494,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsMessagePatch(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets message patch:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.delete("/webhooks/site-web-tickets/:ticketId/messages/:messageId", async (req, res) => {
@@ -432,7 +502,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsMessageDelete(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets message delete:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/messages/:messageId/reactions", async (req, res) => {
@@ -440,7 +510,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsReactionPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets reaction:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/claim", async (req, res) => {
@@ -448,7 +518,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsClaimPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets claim:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/unclaim", async (req, res) => {
@@ -456,7 +526,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsUnclaimPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets unclaim:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/close", async (req, res) => {
@@ -464,7 +534,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsClosePost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets close:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/members", async (req, res) => {
@@ -472,7 +542,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsMembersPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets members:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/members/remove", async (req, res) => {
@@ -480,7 +550,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsMembersRemovePost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets members remove:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/transfer", async (req, res) => {
@@ -488,7 +558,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsTransferPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets transfer:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/category", async (req, res) => {
@@ -496,7 +566,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsCategoryPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets category:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/rename", async (req, res) => {
@@ -504,7 +574,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsRenamePost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets rename:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/close-request", async (req, res) => {
@@ -512,7 +582,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsCloseRequestPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets close-request:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/close-request/accept", async (req, res) => {
@@ -520,7 +590,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsCloseRequestAcceptPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets close-request accept:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/close-request/reject", async (req, res) => {
@@ -528,7 +598,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsCloseRequestRejectPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets close-request reject:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/rate", async (req, res) => {
@@ -536,7 +606,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsRatePost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets rate:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.post("/webhooks/site-web-tickets/:ticketId/command", async (req, res) => {
@@ -544,7 +614,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return await handleSiteWebTicketsCommandPost(client, req, res);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-web-tickets command:", err);
-      return res.status(500).json({ ok: false, error: "internal" });
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno. Riprova tra poco." });
     }
   });
   app.get("/webhooks/site-hogwarts-sorting/bootstrap", (req, res) => handleHogwartsSortingBootstrap(client, req, res));
@@ -658,6 +728,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       redirect_uri: redirectUri,
       response_type: "token",
       scope: "identify",
+      prompt: "none",
       state,
     });
     const authorizeUrl = `https://discord.com/oauth2/authorize?${q.toString()}`;
@@ -667,7 +738,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
       "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex\"><title>Discord</title></head><body>" +
       "<script>(function(){var n=" +
       nonceJson +
-      ";try{sessionStorage.setItem(\"vc_oauth_state_nonce_v1\",n);}catch(e){}location.replace(" +
+      ";try{sessionStorage.setItem(\"vc_oauth_state_nonce_v1\",n);sessionStorage.setItem(\"vc_oauth_attempted_none_v1\",\"1\");}catch(e){}location.replace(" +
       urlJson +
       ");})();<\/script></body></html>";
     res.status(200).type("text/html; charset=utf-8").send(html);
@@ -715,8 +786,37 @@ function mountSiteWebhookRoutes(app, client, deps) {
     const { handleKickSubEventsWebhook } = require("../../Utils/Web/kickSubscriberWebhookApi");
     return handleKickSubEventsWebhook(client, req, res);
   });
+  app.get("/webhooks/site-wiki-help", async (req, res) => {
+    try {
+      const { getWikiHelpAccess } = require("../../Utils/Web/siteWikiHelpApi");
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const bot = String(req.query?.bot || req.query?.pane || "prod");
+      const out = await getWikiHelpAccess(client, { accessToken, bot });
+      return res.status(Number(out.status) || 200).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-wiki-help:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.get("/webhooks/site-roles", (req, res) => {
     return handleSiteRolesGet(client, req, res);
+  });
+  app.get("/webhooks/site-roles/request-state", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getSiteRoleRequestStates(client, { accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-roles request-state:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
   });
   app.post("/webhooks/site-roles/request", async (req, res) => {
     try {
@@ -919,6 +1019,35 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  app.get("/webhooks/site-welcome-pronouns", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+          badge: "Benvenut* su",
+          gender: "u",
+          i18nKey: "home.welcome",
+          source: "fallback",
+        });
+      }
+      const out = await getWelcomePronouns(client, { accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-welcome-pronouns get:", err);
+      return res.status(500).json({
+        ok: false,
+        error: "internal",
+        message: "Errore interno.",
+        badge: "Benvenut* su",
+        gender: "u",
+        i18nKey: "home.welcome",
+        source: "fallback",
+      });
+    }
+  });
   app.get("/webhooks/site-profile-extras", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -960,6 +1089,10 @@ function mountSiteWebhookRoutes(app, client, deps) {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
       const kind = String((req.query && req.query.kind) || "").trim();
       const out = await getSiteReviews(client, { accessToken, kind });
+      if (out && out.ok) {
+        // cinePolish1: short private cache — safe (auth-aware body via Bearer); browsers still use VcApiCache.
+        res.setHeader("Cache-Control", accessToken ? "private, max-age=30" : "public, max-age=45");
+      }
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-reviews get:", err);
@@ -1053,10 +1186,21 @@ function mountSiteWebhookRoutes(app, client, deps) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  app.get("/webhooks/site-suggestions/files/:suggestionId/:fileName", async (req, res) => {
+    try {
+      await serveSiteSuggestionFile(client, req, res);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions file:", err);
+      if (!res.headersSent) return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.get("/webhooks/site-suggestions", async (req, res) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const out = await getSiteSuggestions(client, { accessToken });
+      const out = await getSiteSuggestions(client, { accessToken, board: req.query?.board });
+      if (out && out.ok) {
+        res.setHeader("Cache-Control", accessToken ? "private, max-age=20" : "public, max-age=30");
+      }
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-suggestions get:", err);
@@ -1077,6 +1221,11 @@ function mountSiteWebhookRoutes(app, client, deps) {
       const out = await createSiteSuggestion(client, {
         accessToken,
         content: body.content,
+        kind: body.kind,
+        tag: body.tag != null ? body.tag : body.topic,
+        topic: body.topic != null ? body.topic : body.tag,
+        images: body.images,
+        board: body.board,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
@@ -1189,6 +1338,9 @@ function mountSiteWebhookRoutes(app, client, deps) {
         accessToken,
         suggestionId: req.params?.suggestionId,
         content: body.content,
+        kind: body.kind,
+        tag: body.tag != null ? body.tag : body.topic,
+        topic: body.topic != null ? body.topic : body.tag,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {

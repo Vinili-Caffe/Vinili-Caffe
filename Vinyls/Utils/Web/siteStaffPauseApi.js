@@ -146,14 +146,9 @@ function serializePendingPauseChat(item) {
   };
 }
 
-function defaultAvatarUrl(userId) {
-  try {
-    const id = BigInt(String(userId || "0"));
-    const idx = Number((id >> 22n) % 6n);
-    return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
-  } catch (e) {
-    return "https://cdn.discordapp.com/embed/avatars/0.png";
-  }
+function defaultAvatarUrl(_userId) {
+  // Site JSON only: empty → frontend silhouette (no Discord embed defaults).
+  return "";
 }
 
 function resolveMemberDisplay(guild, userId, identityMap = null) {

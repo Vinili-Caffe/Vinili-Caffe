@@ -1,6 +1,9 @@
 <!DOCTYPE html>
-<html lang="it">
+<html class="vc-site-polish" lang="it">
 <head>
+  <script id="vc-site-photo-bg-prime">(function(){try{window.__VC_SITE_PHOTO_BG=true;document.documentElement.classList.add("vc-site-photo-bg","vc-cine-static-bg","vc-home-cine-live","vc-home-motion-ready")}catch(e){}})();</script>
+  <link rel="stylesheet" id="vc-site-photo-bg-link" href="/css/vc-site-photo-bg.css?v=20260906gifNeverWebp1" />
+
 <style id="vc-fa-noflash-css">html:not(.vc-fa-ready) .fa{visibility:hidden!important;opacity:0!important}html:not(.vc-fa-ready) .fa:before{content:""!important}html.vc-fa-ready .fa{visibility:visible!important;opacity:1!important}</style>
     <script>(function(){try{if(window.trustedTypes){window.trustedTypes.createPolicy("default",{createHTML:function(s){return String(s)},createScript:function(s){return String(s)},createScriptURL:function(s){return String(s)}})}}catch(e){}})();</script>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
@@ -26,8 +29,17 @@
     <script defer src="../js/seratafilm-countdown.js?v={{BUILD_ASSET_VERSION}}"></script>
     <script defer src="../js/seratafilm-hogwarts-theme.js?v={{BUILD_ASSET_VERSION}}"></script>
 <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
-    </head>
-<body id="top" class="vc-seratafilm-page">
+    <script src="/js/vc-home-cine.js?v=20260907cardHeroIcon1" defer></script>
+<link rel="stylesheet" href="/css/vc-image-lightbox.css?v=20260908imgLightbox2" id="vc-image-lightbox-css" />
+</head>
+<body id="top" class="vc-body vc-seratafilm-page">
+    <div class="vc-home-cine" aria-hidden="true">
+      <img class="vc-home-cine__photo" src="/images/sfondo.gif?v=20260906gifNeverWebp1" alt="" decoding="async" loading="eager" draggable="false" />
+      <canvas class="vc-home-cine__canvas"></canvas>
+      <div class="vc-home-cine__veil"></div>
+      <div class="vc-home-cine__grain"></div>
+    </div>
+
 <div id="vc-seratafilm-hogwarts-bg" class="vc-seratafilm-hogwarts-bg" hidden aria-hidden="true">
   <video id="vc-seratafilm-hogwarts-bg-video" class="vc-seratafilm-hogwarts-bg__video" muted autoplay loop playsinline preload="auto"></video>
   <div class="vc-seratafilm-hogwarts-bg__veil"></div>
@@ -152,8 +164,8 @@
                 <div class="sponsor-logo">
                     <img src="evento_mensile.png?v={{BUILD_ASSET_VERSION}}" alt="" width="130" height="130" loading="lazy" decoding="async" fetchpriority="low" style="width: 100%; max-width: 130px; border-radius: 30px;">
                 </div>
-                <div class="sponsor-text"><strong data-i18n="sf.seasonalTitle">EVENTO STAGIONALE</strong></div>
-                <p data-i18n="sf.seasonalBody">Hogwarts ti aspetta! Completa lo smistamento in una casata, partecipa agli eventi e vinci Nitro Boost, una Decorazione o un VIP!</p>
+                <div class="sponsor-text"><strong data-i18n="sf.seasonalTitle">EVENTO MENSILE</strong></div>
+                <p data-i18n="sf.seasonalBody">Il membro più attivo a fine mese vince Nitro Boost, il secondo una decorazione (max 15,99€) e il terzo VIP+ per 30 giorni. Partecipa e scala la classifica!</p>
             </div>
         </aside>
 
@@ -163,7 +175,7 @@
                     <h1 data-i18n="sf.countdownTitle">🍿 MANCA POCO ALLA PROIEZIONE DEL FILM!</h1>
                     <p class="subtitle" data-i18n="sf.countdownSubtitle">Prepara snack e bevande: appena scatta lo zero inizierà la streaming!</p>
 
-                    <div id="timer" aria-live="polite" data-i18n="sf.loadingTimer">Caricamento...</div>
+                    <div id="timer" aria-live="polite">Caricamento...</div>
 
                     <div class="hint">
                         <span class="pill" data-i18n="sf.countdownPill">⏳ Conto alla rovescia in tempo reale</span>
@@ -272,5 +284,6 @@
         };
     </script>
     <script src="../js/seratafilm-access-gate.js?v={{BUILD_ASSET_VERSION}}"></script><script src="/js/vc-ptr.js?v=20260831sitePerfFix1" defer></script>
+<script src="/js/vc-image-lightbox.js?v=20260908imgLightbox2" defer data-vc-img-lightbox="1"></script>
 </body>
 </html>

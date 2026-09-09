@@ -1,6 +1,11 @@
 const { ChannelType, PermissionsBitField } = require("discord.js");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
+const {
+  canSafelyDeleteCustomPerkRole,
+  collectBlockedSystemRoleIds,
+  isCustomRolePurgeDryRun,
+} = require("../../Utils/Community/userCustomRoleFilter");
 const { getClientGuildCached, getGuildChannelCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const CUSTOM_VOICE_CATEGORY_ID = IDs.categories.categoryPrivate;
 const CHECK_INTERVAL_MS = 60 * 1000;
@@ -67,9 +72,11 @@ async function canManageChannels(guild) {
   );
 }
 
-async function deleteDiscordCustomPerkArtifacts(guild, doc) {
+async function deleteDiscordCustomPerkArtifacts(guild, doc, opts = {}) {
   if (!guild || !doc?.userId) return { roleHandled: true, channelHandled: true };
   const userId = String(doc.userId);
+  const dryRun = opts.dryRun === true || isCustomRolePurgeDryRun();
+  const blockedRoleIds = collectBlockedSystemRoleIds();
   let role = doc.roleId
     ? guild.roles.cache.get(doc.roleId) || (await getGuildRoleCached(guild, doc.roleId))
     : null;
@@ -77,26 +84,43 @@ async function deleteDiscordCustomPerkArtifacts(guild, doc) {
     ? guild.roles.cache.get(doc.secondaryRoleId) || (await getGuildRoleCached(guild, doc.secondaryRoleId))
     : null;
   let voiceChannel = await resolveVoiceChannel(guild, doc);
+  const skippedRoles = [];
+
+  async function tryDeleteCustomRole(roleObj, label) {
+    if (!roleObj) return;
+    const gate = canSafelyDeleteCustomPerkRole(roleObj, doc, { blockedRoleIds });
+    if (!gate.ok) {
+      skippedRoles.push({ roleId: String(roleObj.id), roleName: roleObj.name, reason: gate.reason, label });
+      global.logger?.warn?.(
+        `[CUSTOM ROLE PURGE] skip ${label} role=${roleObj.id} user=${userId} reason=${gate.reason}`,
+      );
+      return;
+    }
+    if (!(await canManageRole(guild, roleObj))) {
+      skippedRoles.push({ roleId: String(roleObj.id), roleName: roleObj.name, reason: "not_manageable", label });
+      return;
+    }
+    if (dryRun) {
+      skippedRoles.push({ roleId: String(roleObj.id), roleName: roleObj.name, reason: "dry_run", label });
+      global.logger?.info?.(
+        `[CUSTOM ROLE PURGE] dry-run would delete ${label} role=${roleObj.id} user=${userId}`,
+      );
+      return;
+    }
+    await roleObj.delete(`Custom role expired for user ${userId}`).catch(() => { });
+  }
 
   if (role) {
-    if (await canManageRole(guild, role)) {
-      await role
-        .delete(`Custom role expired for user ${userId}`)
-        .catch(() => { });
-      role =
-        guild.roles.cache.get(doc.roleId) ||
-        (await getGuildRoleCached(guild, doc.roleId));
-    }
+    await tryDeleteCustomRole(role, "primary");
+    role =
+      guild.roles.cache.get(doc.roleId) ||
+      (await getGuildRoleCached(guild, doc.roleId));
   }
   if (secondaryRole) {
-    if (await canManageRole(guild, secondaryRole)) {
-      await secondaryRole
-        .delete(`Custom secondary role expired for user ${userId}`)
-        .catch(() => { });
-      secondaryRole =
-        guild.roles.cache.get(doc.secondaryRoleId) ||
-        (await getGuildRoleCached(guild, doc.secondaryRoleId));
-    }
+    await tryDeleteCustomRole(secondaryRole, "secondary");
+    secondaryRole =
+      guild.roles.cache.get(doc.secondaryRoleId) ||
+      (await getGuildRoleCached(guild, doc.secondaryRoleId));
   }
   const roleHandled = !role && !secondaryRole;
 
@@ -113,7 +137,7 @@ async function deleteDiscordCustomPerkArtifacts(guild, doc) {
     }
   }
 
-  return { roleHandled, channelHandled };
+  return { roleHandled, channelHandled, dryRun, skippedRoles };
 }
 
 async function processExpiredCustomRole(client, doc) {
@@ -198,6 +222,18 @@ async function runExpiredCustomRolesSweep(client) {
     const mod = require("./customPerksDiscordCleanupQueueService");
     await mod.runCustomPerksDiscordCleanupQueueSweep(client);
   } catch {
+  }
+  try {
+    const { runOrphanCustomRolesDiscordSweep } = require("./customRoleLeftMemberDiscordCleanupService");
+    const orphanSweepEnabled = String(process.env.VC_CUSTOM_ROLE_ORPHAN_SWEEP || "").trim() === "1";
+    if (orphanSweepEnabled) {
+      await runOrphanCustomRolesDiscordSweep(client, {
+        deleteMongoIfNoBackup: true,
+        dryRun: isCustomRolePurgeDryRun(),
+      });
+    }
+  } catch (err) {
+    global.logger?.warn?.("[CUSTOM ROLE EXPIRY] orphan left-member sweep failed:", err?.message || err);
   }
 }
 

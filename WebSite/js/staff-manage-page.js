@@ -225,7 +225,47 @@
               entryId: null,
             };
           });
-        if (state._modalMode) {
+
+    // Fallback: warn.entries may exist even if trackHistory omitted undated warns.
+    try {
+      var haveWarn = new Set();
+      rows.forEach(function (r) {
+        var k = String((r && r.kind) || "").toLowerCase();
+        if (k !== "warn" && k !== "warn_rm") return;
+        var reason = String((r && r.reason) || "")
+          .trim()
+          .slice(0, 120)
+          .toLowerCase();
+        var id = Number((r && r.entryId) || 0);
+        if (id > 0) haveWarn.add("id:" + id);
+        if (reason) haveWarn.add("r:" + reason);
+      });
+      var warnEntries =
+        m.warn && Array.isArray(m.warn.entries) ? m.warn.entries : [];
+      for (var wi = 0; wi < warnEntries.length; wi += 1) {
+        var we = warnEntries[wi] || {};
+        var wid = Number(we.id || 0);
+        var wtext = String(we.text || "").trim();
+        var wreason = wtext.slice(0, 120).toLowerCase();
+        if ((wid > 0 && haveWarn.has("id:" + wid)) || (wreason && haveWarn.has("r:" + wreason))) {
+          continue;
+        }
+        if (wid > 0) haveWarn.add("id:" + wid);
+        if (wreason) haveWarn.add("r:" + wreason);
+        rows.push({
+          kind: "warn",
+          reason: wtext || null,
+          date: null,
+          actorId: null,
+          actorName: null,
+          from: null,
+          to: null,
+          entryId: wid > 0 ? wid : null,
+        });
+      }
+    } catch (eWarnMerge) {}
+
+    if (state._modalMode) {
       rows = rows.filter(function (r) {
         var k = String((r && r.kind) || "").toLowerCase();
         return (
@@ -238,7 +278,22 @@
         );
       });
     }
+
+    rows.sort(function (a, b) {
+      return historySortKey(b).localeCompare(historySortKey(a));
+    });
     return rows;
+  }
+
+  function historySortKey(r) {
+    var dated = String((r && r.date) || "").trim();
+    if (dated) return dated;
+    var k = String((r && r.kind) || "").toLowerCase();
+    if (k === "warn") {
+      var id = Math.max(0, Math.floor(Number((r && r.entryId) || 0)));
+      return "9999-12-31T23:59:" + String(Math.min(59, id)).padStart(2, "0") + ".000Z";
+    }
+    return "";
   }
 
   function historyEntryIdPart(r) {
@@ -550,16 +605,18 @@
 
   function forgeRoleLabel(m) {
     if (!m) return "Staff";
-    var ladder = String(m.ladderRoleLabel || "").trim();
-    if (ladder) return ladder;
+    // Prefer full Discord badge label (e.g. "Founder & Partner Manager"), not ladder-only.
     var raw = String(m.displayRoleLabel || "").trim();
-        var parts = raw.split(/\s*&\s*/);
+    if (!raw) raw = String(m.ladderRoleLabel || "").trim();
+    var parts = raw.split(/\s*&\s*/);
     var keep = [];
     for (var i = 0; i < parts.length; i += 1) {
-      var part = String(parts[i] || "").trim();
+      var part = String(parts[i] || "")
+        .replace(/^[^A-Za-z0-9]+/, "")
+        .replace(/\s+/g, " ")
+        .trim();
       if (!part) continue;
-      var core = part.replace(/^[^A-Za-z0-9]+/, "").replace(/\s+/g, " ").trim();
-      var low = core.toLowerCase();
+      var low = part.toLowerCase();
       if (
         low === "staff" ||
         low === "high staff" ||
@@ -573,8 +630,21 @@
       }
       keep.push(part);
     }
-    raw = keep.join(" & ").trim();
-    return raw || "Staff";
+    if (m && m.isPm) {
+      var hasPm = keep.some(function (p) {
+        return String(p || "")
+          .toLowerCase()
+          .indexOf("partner manager") !== -1;
+      });
+      if (!hasPm) keep.push("Partner Manager");
+    }
+    return keep.join(" & ").trim() || "Staff";
+  }
+
+  function renderCareerRoleHtml(m) {
+    return (
+      '<strong class="vc-staff-rank-forge__role">' + T.esc(forgeRoleLabel(m)) + "</strong>"
+    );
   }
 
   function chooseCareerAction(hub) {
@@ -644,7 +714,6 @@
   }
 
   function renderCareerForge(m) {
-    var roleLabel = forgeRoleLabel(m);
     var canAct = !state.readOnly;
     var isPm = Boolean(m.isPm);
     var canPexHub = Boolean(m.canPex || m.canPexProspect || (m.canPexPm && !isPm));
@@ -656,10 +725,7 @@
       '<div class="vc-staff-rank-forge__badge">' +
       '<span class="vc-staff-rank-forge__kicker">Ruolo attuale</span>' +
       '<div class="vc-staff-rank-forge__roles">' +
-      "<strong>" +
-      T.esc(roleLabel) +
-      "</strong>" +
-      (m.isPm ? '<em class="vc-staff-rank-forge__pm">Partner Manager</em>' : "") +
+      renderCareerRoleHtml(m) +
       "</div></div>";
 
     if (!canAct) {
@@ -692,7 +758,7 @@
   function renderPmOnlyDetail(m) {
     var html = readOnlyBannerHtml() + renderCareerForge(m);
     html +=
-      '<section class="vc-staff-manage-history-sec"><h3>Cronologia valutazioni</h3>' +
+      '<section class="vc-staff-manage-history-sec"><h3>Cronologia valutazioni & warn</h3>' +
       historyHtml(historyRowsForMember(m), state.historyPage) +
       "</section>";
     return html;
@@ -701,7 +767,7 @@
   function renderStaffDetail(m) {
     var html = readOnlyBannerHtml() + renderCareerForge(m);
     html +=
-      '<section class="vc-staff-manage-history-sec"><h3>Cronologia valutazioni</h3>' +
+      '<section class="vc-staff-manage-history-sec"><h3>Cronologia valutazioni & warn</h3>' +
       historyHtml(historyRowsForMember(m), state.historyPage) +
       "</section>";
     return html;

@@ -1259,6 +1259,8 @@ async function tickFinaleChaosSpellListRounds(client, guild, chaosCfg, nowMs = D
 }
 
 function startHogwartsSpellListHuntLoop(client) {
+  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
+  if (isHogwartsRuntimeDisabled(client)) return;
   if (!client || loopState.has(client)) return;
   loopState.add(client);
   const tick = () => {

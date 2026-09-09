@@ -29,6 +29,8 @@
       host.setAttribute("aria-live", "polite");
       host.setAttribute("aria-atomic", "true");
       host.setAttribute("data-vc-toast-align", "1");
+      /* toastZ1: always above sheets/modals even if CSS cache is stale */
+      host.style.setProperty("z-index", "300000", "important");
     } catch (eCls) {}
     return host;
   }

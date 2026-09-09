@@ -127,7 +127,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<a:VC_PepeFoto:1479131953100750882> Sblocca subito i PicPerms!")
       .setDescription([
-        '<:VC_Link:1482460590894088222> Stanco di non poter inviare immagini in <#1442569130573303898>? Inserisci “.gg/viniliecaffe” o “viniliecaffe.it” nel tuo stato, boosta il server o raggiungi <@&1442568936423034940> per sbloccare velocemente il permesso!',
+        '<:VC_Link:1482460590894088222> Stanco di non poter inviare immagini in <#1442569130573303898>? Inserisci “.gg/viniliecaffe” o “viniliecaffe.it” nel tuo stato, boosta il server o raggiungi <@&1544830753815134320> per sbloccare velocemente il permesso!',
         `> <a:VC_Arrow:1482706699365257397> Scopri tutte le ricompense di boost & livelli [sul nostro sito](https://viniliecaffe.it/perks)`,
       ].join("\n")),
   () =>
@@ -135,7 +135,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_Color:1482532543273238569> Sblocca i colori gradienti esclusivi!")
       .setDescription([
-        "<:VC_Vip:1482534921472835895> Ottieni i colori PLUS con i ruoli <@&1329497467481493607> o <@&1442568932136587297> e ricorda: con <@&1442568950805430312> puoi crearne uno personalizzato! Per impostare il tuo colore usa il [profilo sul sito](https://www.viniliecaffe.it/personalizza/)",
+        "<:VC_Vip:1482534921472835895> Ottieni i colori PLUS con i ruoli <@&1329497467481493607> o <@&1544830759741825145> e ricorda: con <@&1544830866616754257> puoi crearne uno personalizzato! Per impostare il tuo colore usa il [profilo sul sito](https://www.viniliecaffe.it/personalizza/)",
       ].join("\n")),
   () =>
     new EmbedBuilder()

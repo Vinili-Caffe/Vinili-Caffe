@@ -429,7 +429,7 @@ async function run(root) {
     const sheMember = {
       roles: {
         cache: {
-          has: (id) => String(id) === "1442568999043989565",
+          has: (id) => String(id) === "1544830740624183336",
         },
       },
     };
@@ -684,6 +684,25 @@ async function run(root) {
   const staffChatUtils = require(path.join(root, "Utils", "Staff", "staffChatChannelUtils"));
   const pmThread = await staffChatUtils.resolveStaffChatPmThread(null);
   assert(pmThread === null, "resolveStaffChatPmThread senza client non lancia");
+
+  const staffThreadResolve = require(path.join(root, "Utils", "Staff", "staffManagedThreadResolve"));
+  assert(
+    staffThreadResolve.__test.normalizeThreadName("  Chat   High Staff ") === "chat high staff",
+    "normalizeThreadName staff thread",
+  );
+
+  const findBotVoiceEligibility = require(path.join(root, "Utils", "Minigames", "findBotVoiceChannelEligibility"));
+  const hubIds = require(path.join(root, "Utils", "Config", "ids")).publicVoiceHubChannelIds || [];
+  const merged = findBotVoiceEligibility.__test.mergeFindBotVoiceExcludedChannelIds(null, ["999"]);
+  assert(merged.includes("999"), "mergeFindBotVoiceExcludedChannelIds keeps custom ids");
+  if (hubIds[0]) {
+    assert(merged.includes(String(hubIds[0])), "mergeFindBotVoiceExcludedChannelIds includes voice hubs");
+  }
+  const fakeHub = { id: hubIds[0] || "1442569113108218058", isVoiceBased: () => true, guild: null };
+  assert(
+    findBotVoiceEligibility.__test.isVoiceChannelEligibleForFindBotMinigame(fakeHub, null, merged) === false,
+    "voice hub excluded from findBotVoice",
+  );
 
   console.log("CRITICAL_SYSTEMS_TEST_OK");
   try {

@@ -1,6 +1,6 @@
 "use strict";
 
-const { loadAutomodScamConfig } = require("../Moderation/automodScamConfig");
+const { findHateSpeechMatch } = require("../Moderation/automodHateSpeechMatch");
 
 const USER_MIN_INTERVAL_MS = 2500;
 const USER_WINDOW_MS = 30_000;
@@ -11,7 +11,6 @@ const STAFF_WINDOW_MS = 30_000;
 const STAFF_WINDOW_MAX = 20;
 
 const buckets = new Map();
-const recentBodies = new Map();
 
 function pruneBuckets(now) {
   if (buckets.size < 800) return;
@@ -76,111 +75,18 @@ function consumeWebTicketMessageRateLimit(opts = {}) {
   return { ok: true };
 }
 
-function normalizeCompareBody(content) {
-  return String(content || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .slice(0, 500);
-}
-
-function countNewlines(content) {
-  return (String(content || "").match(/\n/g) || []).length;
-}
-
-function hasExcessiveBlankLineRuns(content) {
-  return /\n{9,}/.test(String(content || ""));
-}
-
-function hasRepeatedCharSpam(content) {
-  return /(.)\1{11,}/u.test(String(content || ""));
-}
-
-function findBlockedScamDomain(content) {
-  const text = String(content || "").toLowerCase();
-  if (!text) return "";
-  const cfg = loadAutomodScamConfig();
-  const domains = Array.isArray(cfg?.domains) ? cfg.domains : [];
-  for (const d of domains) {
-    const dom = String(d || "").trim().toLowerCase();
-    if (!dom) continue;
-    if (text.includes(dom)) return dom;
-  }
-  const keywords = Array.isArray(cfg?.discordKeywords) ? cfg.discordKeywords : [];
-  for (const kw of keywords) {
-    const needle = String(kw || "").trim().toLowerCase();
-    if (needle.length >= 4 && text.includes(needle)) return needle;
-  }
-  return "";
-}
-
-function hasMassMentions(content) {
-  const text = String(content || "");
-  const userMentions = text.match(/<@!?\d{16,22}>/g) || [];
-  const roleMentions = text.match(/<@&\d{16,22}>/g) || [];
-  return userMentions.length + roleMentions.length >= 6;
-}
-
+/** ticketHateOnly1: web tickets keep only racist/homophobic slur filters */
 function checkWebTicketUserMessageAutomod(opts = {}) {
   const content = String(opts.content || "");
   if (!content.trim()) return { ok: true };
 
-  const scamHit = findBlockedScamDomain(content);
-  if (scamHit) {
+  const hate = findHateSpeechMatch(content);
+  if (hate) {
     return {
       ok: false,
-      error: "automod_scam",
-      message: "Il messaggio contiene un link o testo bloccato dall’automod.",
+      error: "automod_hate",
+      message: "Il messaggio contiene linguaggio razzista o omofobo non consentito.",
     };
-  }
-
-  if (hasRepeatedCharSpam(content)) {
-    return {
-      ok: false,
-      error: "automod_spam",
-      message: "Messaggio rifiutato: troppi caratteri ripetuti.",
-    };
-  }
-
-  if (hasExcessiveBlankLineRuns(content)) {
-    return {
-      ok: false,
-      error: "automod_flood",
-      message: "Messaggio rifiutato: troppe righe vuote consecutive.",
-    };
-  }
-
-  if (hasMassMentions(content)) {
-    return {
-      ok: false,
-      error: "automod_mentions",
-      message: "Troppe menzioni in un solo messaggio.",
-    };
-  }
-
-  const guildId = String(opts.guildId || "").trim() || "g";
-  const userId = String(opts.userId || "").trim();
-  const ticketId = String(opts.ticketId || "").trim() || "t";
-  if (userId) {
-    const body = normalizeCompareBody(content);
-    if (body.length >= 8) {
-      const key = `${guildId}:${ticketId}:${userId}`;
-      const prev = recentBodies.get(key) || [];
-      const sameCount = prev.filter((x) => x === body).length;
-      if (sameCount >= 2) {
-        return {
-          ok: false,
-          error: "automod_repeat",
-          message: "Hai già inviato lo stesso messaggio più volte. Evita lo spam.",
-        };
-      }
-      const next = [...prev, body].slice(-4);
-      recentBodies.set(key, next);
-      if (recentBodies.size > 2000) {
-        const first = recentBodies.keys().next().value;
-        if (first) recentBodies.delete(first);
-      }
-    }
   }
 
   return { ok: true };

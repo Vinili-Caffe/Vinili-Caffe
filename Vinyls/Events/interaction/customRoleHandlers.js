@@ -21,10 +21,13 @@ let pendingLoaded = false;
 const PRIVATE_FLAG = 1 << 6;
 const MAX_ROLE_ICON_BYTES = 2 * 1024 * 1024;
 const PROFILE_PROMPT_TTL_MS = 90_000;
+/** Same TTL as site role join requests (createSiteRoleJoinRequest). */
+const CUSTOM_ROLE_GRANT_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 const IDs = require("../../Utils/Config/ids");
 const CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS = [ IDs?.roles?.VIP, IDs?.roles?.ServerBooster, IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus, ].filter(Boolean);
 const GRADIENT_HOLO_DENIED_MSG = "<:VC_Attention:1482534443632558151> **Gradiente** e **olografico** sono riservati a chi ha ruolo **VIP**, **Server Booster**, **Double Booster** o **VIP+**. Gli altri possono usare solo il **colore solido** (stesso menu → Solido).";
 const PENDING_SITE_ROLE_DOC = SITE_DOCUMENT_TYPE.ROLE_REQUEST_PENDING;
+const PENDING_ROLE_GRANT_DOC = SITE_DOCUMENT_TYPE.ROLE_GRANT_PENDING;
 
 function mapPendingSiteRoleDoc(doc) {
   if (!doc) return null;
@@ -101,6 +104,86 @@ async function resolvePendingSiteRoleRequest(token) {
   if (request && Number(request.expiresAt || 0) > Date.now()) return request;
   request = await loadPendingSiteRoleRequest(t);
   if (request) pendingSiteRoleRequests.set(t, request);
+  return request;
+}
+
+function mapPendingRoleGrantDoc(doc) {
+  if (!doc) return null;
+  const expiresAt = doc.expiresAt ? new Date(doc.expiresAt).getTime() : 0;
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+  return {
+    guildId: String(doc.guildId || ""),
+    channelId: String(doc.workflowChannelId || doc.channelId || "") || null,
+    requesterId: String(doc.requesterId || ""),
+    targetId: String(doc.userId || doc.targetId || ""),
+    roleId: String(doc.roleId || ""),
+    promptMessageId: String(doc.workflowMessageId || doc.promptMessageId || "") || null,
+    dmChannelId: String(doc.dmChannelId || ""),
+    dmMessageId: String(doc.dmMessageId || ""),
+    expiresAt,
+  };
+}
+
+async function persistPendingRoleGrant(token, row) {
+  const t = String(token || "").trim();
+  if (!t || !row) return;
+  await SiteDocument.findOneAndUpdate(
+    { docType: PENDING_ROLE_GRANT_DOC, requestToken: t },
+    {
+      $set: {
+        guildId: String(row.guildId || ""),
+        requesterId: String(row.requesterId || ""),
+        userId: String(row.targetId || ""),
+        roleId: String(row.roleId || ""),
+        workflowChannelId: String(row.channelId || ""),
+        workflowMessageId: String(row.promptMessageId || ""),
+        dmChannelId: String(row.dmChannelId || ""),
+        dmMessageId: String(row.dmMessageId || ""),
+        expiresAt: new Date(Number(row.expiresAt) || Date.now()),
+        status: "pending",
+      },
+      $setOnInsert: {
+        docType: PENDING_ROLE_GRANT_DOC,
+        requestToken: t,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch((err) => {
+    global.logger?.warn?.("[custom-role-grant] persist pending:", err?.message || err);
+  });
+}
+
+async function loadPendingRoleGrant(token) {
+  const t = String(token || "").trim();
+  if (!t) return null;
+  const doc = await SiteDocument.findOne({ docType: PENDING_ROLE_GRANT_DOC, requestToken: t })
+    .lean()
+    .catch(() => null);
+  const mapped = mapPendingRoleGrantDoc(doc);
+  if (!mapped) {
+    if (doc) {
+      await SiteDocument.deleteOne({ docType: PENDING_ROLE_GRANT_DOC, requestToken: t }).catch(() => {});
+    }
+    return null;
+  }
+  return mapped;
+}
+
+async function deletePendingRoleGrant(token) {
+  const t = String(token || "").trim();
+  if (!t) return;
+  pendingRoleGrants.delete(t);
+  await SiteDocument.deleteOne({ docType: PENDING_ROLE_GRANT_DOC, requestToken: t }).catch(() => {});
+}
+
+async function resolvePendingRoleGrant(token) {
+  const t = String(token || "").trim();
+  if (!t) return null;
+  ensurePendingLoaded();
+  let request = pendingRoleGrants.get(t) || null;
+  if (request && Number(request.expiresAt || 0) > Date.now()) return request;
+  request = await loadPendingRoleGrant(t);
+  if (request) pendingRoleGrants.set(t, request);
   return request;
 }
 
@@ -496,7 +579,7 @@ async function updatePanelMessage(interaction, panelMessageId, role) {
   await msg.edit({ embeds: [updated] }).catch(() => { });
 }
 
-async function createCustomRoleGrantRequest({ client, guildId, channelId, requesterId, targetId, roleId, timeoutMs = 60_000 }) {
+async function createCustomRoleGrantRequest({ client, guildId, channelId, requesterId, targetId, roleId, timeoutMs = CUSTOM_ROLE_GRANT_TTL_MS }) {
   const guild = await getClientGuildCached(client, guildId);
   const channel = channelId ? await fetchGuildChannel(guild, channelId) : null;
   const targetMember = await fetchGuildMember(guild, targetId);
@@ -564,6 +647,7 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
   }
 
   ensurePendingLoaded();
+  const grantTtlMs = Math.max(15_000, Number(timeoutMs || CUSTOM_ROLE_GRANT_TTL_MS) || CUSTOM_ROLE_GRANT_TTL_MS);
   pendingRoleGrants.set(token, {
     guildId,
     channelId: channelId ? String(channelId) : null,
@@ -573,16 +657,17 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
     promptMessageId: promptMsg?.id || null,
     dmChannelId: dmSent.channelId,
     dmMessageId: dmSent.id,
-    expiresAt: Date.now() + Math.max(15_000, Number(timeoutMs || 60_000)),
+    expiresAt: Date.now() + grantTtlMs,
   });
   persistPendingNow();
+  await persistPendingRoleGrant(token, pendingRoleGrants.get(token));
 
   const expiryTimer = setTimeout(
     async () => {
       ensurePendingLoaded();
-      const req = pendingRoleGrants.get(token);
+      const req = (await resolvePendingRoleGrant(token)) || pendingRoleGrants.get(token);
       if (!req) return;
-      pendingRoleGrants.delete(token);
+      await deletePendingRoleGrant(token);
       persistPendingNow();
       const g = await getClientGuildCached(client, req.guildId);
       if (req.channelId && req.promptMessageId) {
@@ -623,7 +708,7 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
           .catch(() => {});
       }
     },
-    Math.max(15_000, Number(timeoutMs || 60_000)),
+    grantTtlMs,
   );
   if (typeof expiryTimer?.unref === "function") expiryTimer.unref();
 
@@ -979,7 +1064,15 @@ async function handleRoleActionButton(interaction) {
     }
     const HOLO = { primaryColor: 11127295, secondaryColor: 16759788, tertiaryColor: 16761760 };
     const edited = await role.edit({ colors: HOLO }, `Custom role holographic by ${interaction.user.tag}`).then(() => true).catch(() => false);
-    if (!edited) {
+    const applied =
+      edited &&
+      (await confirmRoleState((liveRole) => {
+        const p = Number(liveRole.colors?.primaryColor ?? NaN);
+        const s = Number(liveRole.colors?.secondaryColor ?? NaN);
+        const t = Number(liveRole.colors?.tertiaryColor ?? NaN);
+        return p === HOLO.primaryColor && s === HOLO.secondaryColor && t === HOLO.tertiaryColor;
+      }));
+    if (!applied) {
       await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare lo stile olografico.", flags: 1 << 6 }).catch(() => { });
       return true;
     }
@@ -1114,10 +1207,20 @@ async function handleRoleActionModal(interaction) {
       return true;
     }
     const edited = await role
-      .edit({ colors: { primaryColor: hex } }, `Custom role color by ${interaction.user.tag}`)
+      .edit(
+        { colors: { primaryColor: hex, secondaryColor: null, tertiaryColor: null } },
+        `Custom role color by ${interaction.user.tag}`,
+      )
       .then(() => true)
       .catch(() => false);
-    const colorApplied = edited || await confirmRoleState((liveRole) => String(liveRole.hexColor || "").toUpperCase() === hex.toUpperCase());
+    const colorApplied =
+      edited &&
+      (await confirmRoleState((liveRole) => {
+        const primaryOk = String(liveRole.hexColor || "").toUpperCase() === hex.toUpperCase();
+        const secondary = liveRole.colors?.secondaryColor;
+        const tertiary = liveRole.colors?.tertiaryColor;
+        return primaryOk && (secondary == null || secondary === 0) && (tertiary == null || tertiary === 0);
+      }));
     if (!colorApplied) {
       await interaction
         .reply({
@@ -1152,8 +1255,23 @@ async function handleRoleActionModal(interaction) {
       await interaction.reply({ content: "<:vegax:1443934876440068179> Colori HEX non validi. Esempio: `#ff66cc`.", flags: 1 << 6 }).catch(() => { });
       return true;
     }
-    const edited = await role.edit({ colors: { primaryColor: hex1, secondaryColor: hex2 } }, `Custom role gradient by ${interaction.user.tag}`).then(() => true).catch(() => false);
-    const applied = edited || await confirmRoleState((liveRole) => String(liveRole.hexColor || "").toUpperCase() === hex1.toUpperCase());
+    const edited = await role
+      .edit(
+        { colors: { primaryColor: hex1, secondaryColor: hex2, tertiaryColor: null } },
+        `Custom role gradient by ${interaction.user.tag}`,
+      )
+      .then(() => true)
+      .catch(() => false);
+    const applied =
+      edited &&
+      (await confirmRoleState((liveRole) => {
+        const p = Number(liveRole.colors?.primaryColor ?? liveRole.color ?? NaN);
+        const s = Number(liveRole.colors?.secondaryColor ?? NaN);
+        const t = liveRole.colors?.tertiaryColor;
+        const wantP = parseInt(hex1.replace(/^#/, ""), 16);
+        const wantS = parseInt(hex2.replace(/^#/, ""), 16);
+        return p === wantP && s === wantS && (t == null || t === 0);
+      }));
     if (!applied) {
       await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare il gradiente.", flags: 1 << 6 }).catch(() => { });
       return true;
@@ -1478,7 +1596,7 @@ async function handleAddRemoveSelectMenus(interaction) {
       return true;
     }
 
-    const started = await createCustomRoleGrantRequest({ client: interaction.client, guildId: interaction.guild.id, channelId: interaction.channel.id, requesterId: ownerId, targetId, roleId, timeoutMs: 60_000, });
+    const started = await createCustomRoleGrantRequest({ client: interaction.client, guildId: interaction.guild.id, channelId: interaction.channel.id, requesterId: ownerId, targetId, roleId });
 
     if (!started?.ok) {
       await interaction
@@ -2132,7 +2250,7 @@ async function handleGrantButtons(interaction) {
     return true;
   }
   ensurePendingLoaded();
-  const request = pendingRoleGrants.get(token);
+  const request = await resolvePendingRoleGrant(token);
   if (!request) {
     await interaction
       .reply({
@@ -2160,7 +2278,7 @@ async function handleGrantButtons(interaction) {
     return true;
   }
   if (Date.now() > request.expiresAt) {
-    pendingRoleGrants.delete(token);
+    await deletePendingRoleGrant(token);
     persistPendingNow();
     await interaction
       .reply({ content: "<:VC_Refresh:1473359252276904203> Richiesta scaduta.", flags: 1 << 6 })
@@ -2179,11 +2297,15 @@ async function handleGrantButtons(interaction) {
   };
 
   const guild = await getClientGuildCached(interaction.client, request.guildId);
-  const channel = await fetchGuildChannel(guild, request.channelId);
+  const channel = request.channelId ? await fetchGuildChannel(guild, request.channelId) : null;
   const role = await fetchGuildRole(guild, request.roleId);
   const requester = await fetchGuildMember(guild, request.requesterId);
   const targetMember = await fetchGuildMember(guild, request.targetId);
-  const promptMsg = channel?.messages?.cache?.get(request.promptMessageId) || (await channel?.messages?.fetch(request.promptMessageId).catch(() => null));
+  const promptMsg =
+    request.promptMessageId && channel
+      ? channel?.messages?.cache?.get(request.promptMessageId) ||
+        (await channel?.messages?.fetch(request.promptMessageId).catch(() => null))
+      : null;
 
   const disabledRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_grant:${token}:yes`)
     .setEmoji("<:vegacheckmark:1443666279058772028>")
@@ -2197,7 +2319,7 @@ async function handleGrantButtons(interaction) {
   );
 
   if (action === "no") {
-    pendingRoleGrants.delete(token);
+    await deletePendingRoleGrant(token);
     persistPendingNow();
     if (promptMsg) {
       await promptMsg
@@ -2213,19 +2335,16 @@ async function handleGrantButtons(interaction) {
         })
         .catch(() => { });
     }
+    const rejectedEmbed = new EmbedBuilder()
+      .setColor("#e67e22")
+      .setTitle("<:cancel:1461730653677551691> Ruolo rifiutato")
+      .setDescription(
+        `<:vegax:1443934876440068179> ${targetMember || `<@${request.targetId}>`} ha rifiutato di ricevere il ruolo ${role ? `**${role.name}**` : ""}.`,
+      );
     if (channel) {
-      await channel
-        .send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#e67e22")
-              .setTitle("<:cancel:1461730653677551691> Ruolo rifiutato")
-              .setDescription(
-                `<:vegax:1443934876440068179> ${targetMember || `<@${request.targetId}>`} ha rifiutato di ricevere il ruolo ${role ? `**${role.name}**` : ""}.`,
-              ),
-          ],
-        })
-        .catch(() => { });
+      await channel.send({ embeds: [rejectedEmbed] }).catch(() => { });
+    } else if (requester?.user && typeof requester.user.send === "function") {
+      await requester.user.send({ embeds: [rejectedEmbed] }).catch(() => { });
     }
     await updateGrantMessage({
       embeds: [
@@ -2239,8 +2358,8 @@ async function handleGrantButtons(interaction) {
     return true;
   }
 
-  if (!guild || !channel || !role || !targetMember || !requester) {
-    pendingRoleGrants.delete(token);
+  if (!guild || !role || !targetMember || !requester) {
+    await deletePendingRoleGrant(token);
     persistPendingNow();
     await updateGrantMessage({
       content:
@@ -2255,7 +2374,7 @@ async function handleGrantButtons(interaction) {
     !me?.permissions?.has(PermissionsBitField.Flags.ManageRoles) ||
     role.position >= me.roles.highest.position
   ) {
-    pendingRoleGrants.delete(token);
+    await deletePendingRoleGrant(token);
     persistPendingNow();
     if (promptMsg) {
       await promptMsg
@@ -2287,7 +2406,7 @@ async function handleGrantButtons(interaction) {
     .add(role.id, `Custom role accepted from ${requester.user.tag}`)
     .then(() => true)
     .catch(() => false);
-  pendingRoleGrants.delete(token);
+  await deletePendingRoleGrant(token);
   persistPendingNow();
   const refreshedTargetMember = grantApplied
     ? await fetchGuildMember(guild, request.targetId).catch(() => null)
@@ -2336,18 +2455,18 @@ async function handleGrantButtons(interaction) {
       })
       .catch(() => { });
   }
-  await channel
-    .send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#2ecc71")
-          .setTitle("<:success:1461731530333229226> Ruolo Concesso")
-          .setDescription(
-            `<:vegacheckmark:1443666279058772028> Il ruolo **${role.name}** è stato assegnato a ${targetMember}.`,
-          ),
-      ],
-    })
-    .catch(() => { });
+  const grantedEmbed = new EmbedBuilder()
+    .setColor("#2ecc71")
+    .setTitle("<:success:1461731530333229226> Ruolo Concesso")
+    .setDescription(
+      `<:vegacheckmark:1443666279058772028> Il ruolo **${role.name}** è stato assegnato a ${targetMember}.`,
+    );
+  if (channel) {
+    await channel.send({ embeds: [grantedEmbed] }).catch(() => { });
+  } else if (requester?.user && typeof requester.user.send === "function") {
+    // Grant da sito/DM-only: niente canale guild → avvisa il richiedente in DM
+    await requester.user.send({ embeds: [grantedEmbed] }).catch(() => { });
+  }
   await updateGrantMessage({
     embeds: [
       new EmbedBuilder()
@@ -2632,7 +2751,7 @@ async function handleCustomProfilePromptMessage(message) {
       const targetMember = await getGuildMemberCached(message.guild, targetId);
       if (!targetMember || targetMember.user?.bot) return done("<:vegax:1443934876440068179> Utente non valido.");
       if (type === "role_add") {
-        const started = await createCustomRoleGrantRequest({ client: message.client, guildId: message.guild.id, channelId: message.channel.id, requesterId: pending.ownerId, targetId, roleId: role.id, timeoutMs: 60_000 });
+        const started = await createCustomRoleGrantRequest({ client: message.client, guildId: message.guild.id, channelId: message.channel.id, requesterId: pending.ownerId, targetId, roleId: role.id });
         return done(started?.ok ? `<:thumbsup:1471292172145004768> Ho inviato la richiesta in DM a <@${targetId}>.` : "<:VC_Attention:1482534443632558151> Non sono riuscito ad avviare la richiesta (DM chiusi o errore).");
       }
       if (

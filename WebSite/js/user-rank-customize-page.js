@@ -1682,16 +1682,20 @@
           setStatus("Errore di rete durante il reset.", true);
         });
     };
-    var confirmP = window.VcDialog
-      ? window.VcDialog.confirm({
+    var confirmP = (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return false;
+      return D.confirm({
           title: "Ripristinare i colori?",
           message: "Vuoi davvero ripristinare i colori predefiniti?",
           confirmLabel: "Ripristina",
           cancelLabel: "Annulla",
           danger: true,
           icon: "fa-undo",
-        })
-      : Promise.resolve(window.confirm("Vuoi davvero ripristinare i colori predefiniti?"));
+        });
+    });
     confirmP.then(function (ok) {
       if (ok) run();
     });

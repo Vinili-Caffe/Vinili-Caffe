@@ -1,4 +1,7 @@
 (function () {
+  /* cursorTrailOff1: disabled sitewide (lag) */
+  return;
+  /* cursorAllPages1: same SVG trail as /seratafilm/ — rAF only while moving */
     var SEGMENTS = 18;
   var SEGMENT_LEN = 11;
   var LINE_WIDTH = 2.8;

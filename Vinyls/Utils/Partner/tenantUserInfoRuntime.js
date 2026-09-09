@@ -3,7 +3,7 @@ const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBrandi
 const { applyPartnershipPayloadBranding } = require("../../MultiGuild/utils/tenantEmbedBranding");
 const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter");
 const { getUserPartnershipScores } = require("../../Services/Partner/tenantLeaderboardService");
-const { accountUsername, guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
+const { memberDisplayName, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { buildTenantLookupNotFoundPayload } = require("./tenantLookupNotFoundRuntime");
 const { t } = require("./tenantPartnershipI18n");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
@@ -76,13 +76,8 @@ async function buildTenantUserInfoPayload(client, sourceGuild, options = {}) {
   const scores = await getUserPartnershipScores(targetUserId);
 
   const displayUser = user || member?.user || null;
-  const username = displayUser
-    ? accountUsername(displayUser) || displayUser.username || `User ${targetUserId}`
-    : `User ${targetUserId}`;
-  const avatarUrl =
-    guildMemberDisplayAvatarUrlStatic(member || displayUser, { size: 256 }) ||
-    userAvatarUrlStatic(displayUser, { size: 256 }) ||
-    null;
+  const username = memberDisplayName(member || displayUser) || `User ${targetUserId}`;
+  const avatarUrl = userAvatarUrlDynamic(member || displayUser, { size: 256 }) || null;
   const profileUrl = `https://discord.com/users/${targetUserId}`;
 
   const embed = new EmbedBuilder()

@@ -1,4 +1,9 @@
 const Embeds = require("../Embeds");
+const { isDiscordPanelEnabled } = require("../Utils/Config/discordPanelsConfig");
+const {
+  persistDiscordPanelRecipes,
+  cleanupDisabledDiscordPanelMessages,
+} = require("../Services/Community/discordPanelRecipePersistenceService");
 
 const LOG_PANELS = String(process.env.LOG_PANELS || "0") === "1";
 const WARMUP_SPONSOR_DELAY_MS = 500;
@@ -42,7 +47,16 @@ async function runEmbedOnlySections(client) {
   if (LOG_PANELS) global.logger?.info?.(`[PANELS] runEmbedOnlySections finished in ${Date.now() - startedAt}ms.`);
 }
 
+function anySponsorPanelEnabled() {
+  return (
+    isDiscordPanelEnabled("sponsor") ||
+    isDiscordPanelEnabled("sponsorVerify") ||
+    isDiscordPanelEnabled("sponsorTicket")
+  );
+}
+
 async function warmupSponsorGuilds(client) {
+  if (!anySponsorPanelEnabled()) return;
   const startedAt = Date.now();
   const sponsorIds = Array.isArray(client.config?.sponsorGuildIds) ? client.config.sponsorGuildIds : Object.keys(client.config?.sponsorVerifyChannelIds || {});
   if (sponsorIds.length === 0) return;
@@ -73,10 +87,31 @@ async function warmupSponsorGuilds(client) {
 
 async function runAllClientReadyPanels(client) {
   const startedAt = Date.now();
+  const cleanup = await cleanupDisabledDiscordPanelMessages(client).catch((err) => {
+    global.logger?.warn?.("[PANELS] cleanup disabled failed:", err?.message || err);
+    return null;
+  });
+  if (cleanup && !cleanup.skipped && (cleanup.deleted > 0 || cleanup.clearedSlots > 0)) {
+    global.logger?.info?.(
+      `[PANELS] disabled cleanup deleted=${cleanup.deleted} clearedSlots=${cleanup.clearedSlots}`,
+    );
+  }
   await warmupSponsorGuilds(client);
   await runMenuAndSelectSections(client);
   await runEmbedWithButtonsSections(client);
   await runEmbedOnlySections(client);
+  const recipes = await persistDiscordPanelRecipes({
+    lastPublishAt: new Date(),
+    lastCleanup: cleanup?.skipped ? undefined : cleanup,
+  }).catch((err) => {
+    global.logger?.warn?.("[PANELS] recipe persist failed:", err?.message || err);
+    return null;
+  });
+  if (recipes && !recipes.skipped) {
+    global.logger?.info?.(
+      `[PANELS] recipes saved enabled=${(recipes.enabledNames || []).join(",") || "(none)"} total=${recipes.recipes?.length || 0}`,
+    );
+  }
   if (LOG_PANELS) global.logger?.info?.(`[PANELS] runAllClientReadyPanels finished in ${Date.now() - startedAt}ms.`);
 }
 

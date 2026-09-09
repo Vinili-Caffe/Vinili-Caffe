@@ -4,7 +4,7 @@ const IDs = require("../../Utils/Config/ids");
 const { resolvePublicSiteBase } = require("../../Utils/Web/verifyOauthPublicUrl");
 const publicSiteBase = resolvePublicSiteBase();
 const { siteTicketsPageUrl } = require("../../../shared/web/siteTicketsPageRef");
-const suggestionSiteUrl = `${publicSiteBase}/suggerimenti`;
+const suggestionSiteUrl = `${publicSiteBase}/feedback`;
 const ticketsSiteUrl = siteTicketsPageUrl();
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
@@ -72,8 +72,8 @@ const defaultPool = [
       "Tra quote, livelli, classifiche e comandi utility c'è molto da usare: prova una funzione nuova questa settimana.",
   },
   {
-    title: "Suggerimenti",
-    description: `Hai un'idea per migliorare il server? Inviala dalla pagina suggerimenti del sito: ${suggestionSiteUrl}`,
+    title: "Feedback",
+    description: `Hai un'idea o un problema da segnalare? Invialo dalla pagina Feedback del sito: ${suggestionSiteUrl}`,
   },
   {
     title: "News e aggiornamenti",
@@ -144,8 +144,8 @@ const defaultPool = [
     description: `Le quote migliori finiscono in ${channelMention(IDs.channels.quotes, "canale quotes")}: ottimo per salvare momenti top della community.`,
   },
   {
-    title: "Suggerimenti sul sito",
-    description: `Quando invii un'idea da ${suggestionSiteUrl}, spiega sempre anche il motivo e il vantaggio.`,
+    title: "Feedback sul sito",
+    description: `Quando invii un'idea o una segnalazione da ${suggestionSiteUrl}, spiega sempre anche il motivo e il vantaggio.`,
   },
   {
     title: "Canale polls",

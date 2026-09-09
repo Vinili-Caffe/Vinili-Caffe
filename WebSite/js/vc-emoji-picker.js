@@ -407,19 +407,33 @@
     var pad = 8;
     var gap = 8;
     var w = Math.min(340, window.innerWidth - pad * 2);
-    var maxH = Math.min(320, window.innerHeight - pad * 2);
+    var vh = window.innerHeight;
+    var spaceAbove = Math.max(0, rect.top - pad - gap);
+    var spaceBelow = Math.max(0, vh - rect.bottom - pad - gap);
+    var preferAbove = !pending || pending.preferAbove !== false;
+    var placeAbove =
+      preferAbove
+        ? spaceAbove >= 140 || spaceAbove >= spaceBelow
+        : spaceBelow >= 140 || spaceBelow > spaceAbove;
+    var maxH = Math.min(320, Math.max(140, placeAbove ? spaceAbove : spaceBelow));
+    if (maxH < 140) maxH = Math.min(320, Math.max(140, Math.max(spaceAbove, spaceBelow)));
     panel.style.position = "fixed";
     panel.style.width = w + "px";
     panel.style.maxHeight = maxH + "px";
-        void panel.offsetHeight;
-    var h = Math.min(Math.max(panel.offsetHeight || 240, 160), maxH);
+    void panel.offsetHeight;
+    var h = Math.min(Math.max(panel.offsetHeight || 200, 140), maxH);
     var left = Math.min(Math.max(pad, rect.left + rect.width / 2 - w / 2), window.innerWidth - w - pad);
-    var top = rect.top - h - gap;
-    if (top < pad) {
-      top = Math.min(window.innerHeight - h - pad, rect.bottom + gap);
+    var top;
+    if (placeAbove) {
+      top = rect.top - h - gap;
+      if (top < pad) top = pad;
+    } else {
+      top = rect.bottom + gap;
+      if (top + h > vh - pad) top = Math.max(pad, vh - h - pad);
     }
     panel.style.left = Math.round(left) + "px";
-    panel.style.top = Math.round(Math.max(pad, top)) + "px";
+    panel.style.top = Math.round(Math.max(pad, Math.min(top, vh - h - pad))) + "px";
+    panel.style.zIndex = "121200";
   }
 
   function openPicker(opts) {
@@ -431,6 +445,7 @@
       guildEmojis: unicodeOnly ? [] : Array.isArray(opts.guildEmojis) ? opts.guildEmojis : [],
       useCustom: unicodeOnly ? false : opts.preferCustom === true,
       unicodeOnly: unicodeOnly,
+      preferAbove: opts.preferAbove !== false,
       onPick: typeof opts.onPick === "function" ? opts.onPick : null,
     };
     bindReposition(pending.anchor);

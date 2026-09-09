@@ -7,6 +7,7 @@ const {
   SiteDocument,
   SITE_DOCUMENT_TYPE,
   UserLeaveBackup,
+  UserFullDiscordStateHistory,
   ModCase,
 } = require("../../Schemas/Community/communitySchemas");
 
@@ -312,6 +313,7 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
 
   const deleted = {
     userLeaveBackups: 0,
+    userFullDiscordStateHistories: 0,
     muteRoleSnapshotProfiles: 0,
     customPerksDiscordCleanupProfiles: 0,
     guildReposts: 0,
@@ -339,6 +341,7 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
 
   if (dryRun) {
     deleted.userLeaveBackups = await UserLeaveBackup.countDocuments({ userId: uid }).catch(() => 0);
+    deleted.userFullDiscordStateHistories = await UserFullDiscordStateHistory.countDocuments({ userId: uid }).catch(() => 0);
     deleted.muteRoleSnapshotProfiles = await ActivityUserProfile.countDocuments({
       userId: uid,
       "profile.muteRoleSnapshot.roleIds.0": { $exists: true },
@@ -367,6 +370,9 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
     }
   } else {
     deleted.userLeaveBackups = countRows(await UserLeaveBackup.deleteMany({ userId: uid }).catch(() => null));
+    deleted.userFullDiscordStateHistories = countRows(
+      await UserFullDiscordStateHistory.deleteMany({ userId: uid }).catch(() => null),
+    );
                 deleted.muteRoleSnapshotProfiles = countRows(
       await ActivityUserProfile.updateMany(
         { userId: uid, "profile.muteRoleSnapshot.roleIds.0": { $exists: true } },

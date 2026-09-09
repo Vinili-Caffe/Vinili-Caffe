@@ -1,4 +1,4 @@
-const MUTE_RESTORE_ANNOUNCE_SUPPRESS_MS = 90_000;
+const DEFAULT_RESTORE_ANNOUNCE_SUPPRESS_MS = 90_000;
 const muteRestoreAnnounceSuppressByMember = new Map();
 
 function memberSuppressKey(guildId, userId) {
@@ -11,7 +11,11 @@ function cleanupMuteRestoreAnnounceSuppress(now = Date.now()) {
   }
 }
 
-function registerMuteMirrorRestoreRoleSuppress(guildId, userId, roleIds) {
+function isSocialRoleAnnounceGloballySuppressed() {
+  return String(process.env.VC_SUPPRESS_SOCIAL_ROLE_ANNOUNCES || "").trim() === "1";
+}
+
+function registerMuteMirrorRestoreRoleSuppress(guildId, userId, roleIds, opts = {}) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) return;
@@ -21,17 +25,28 @@ function registerMuteMirrorRestoreRoleSuppress(guildId, userId, roleIds) {
   if (!ids.length) return;
   const now = Date.now();
   cleanupMuteRestoreAnnounceSuppress(now);
+  const ttlMs = Math.max(
+    1000,
+    Number(opts.ttlMs || DEFAULT_RESTORE_ANNOUNCE_SUPPRESS_MS) || DEFAULT_RESTORE_ANNOUNCE_SUPPRESS_MS,
+  );
   const key = memberSuppressKey(gid, uid);
   const prev = muteRestoreAnnounceSuppressByMember.get(key);
   const merged = new Set(prev?.roleIds instanceof Set ? [...prev.roleIds] : []);
   for (const id of ids) merged.add(id);
   muteRestoreAnnounceSuppressByMember.set(key, {
-    until: now + MUTE_RESTORE_ANNOUNCE_SUPPRESS_MS,
+    until: now + ttlMs,
     roleIds: merged,
   });
 }
 
+function registerBulkRoleRestoreAnnounceSuppress(guildId, userId, roleIds, opts = {}) {
+  registerMuteMirrorRestoreRoleSuppress(guildId, userId, roleIds, {
+    ttlMs: opts.ttlMs || 7 * 24 * 60 * 60 * 1000,
+  });
+}
+
 function wasRoleRestoredByMuteMirror(guildId, userId, roleId) {
+  if (isSocialRoleAnnounceGloballySuppressed()) return true;
   const rid = String(roleId || "").trim();
   if (!rid) return false;
   const now = Date.now();
@@ -42,7 +57,9 @@ function wasRoleRestoredByMuteMirror(guildId, userId, roleId) {
 }
 
 module.exports = {
-  MUTE_RESTORE_ANNOUNCE_SUPPRESS_MS,
+  DEFAULT_RESTORE_ANNOUNCE_SUPPRESS_MS,
   registerMuteMirrorRestoreRoleSuppress,
+  registerBulkRoleRestoreAnnounceSuppress,
+  isSocialRoleAnnounceGloballySuppressed,
   wasRoleRestoredByMuteMirror,
 };

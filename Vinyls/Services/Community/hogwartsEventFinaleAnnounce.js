@@ -128,7 +128,7 @@ function buildHogwartsFinaleAnnounceContent(client, cfg, data) {
     "",
     `La casata migliore, ovvero ${winningHouse}, avrà in aggiunta una speciale estrazione dove uno tra tutti i casati potranno partecipare e vincere in aggiunta: __Nitro Boost__ e la possibilità di creare un ruolo custom e una vocale personale per un mese (in caso di boost). L’estrazione sarà effettuata ${lotteryWhen} con diretta in ${lotteryChannel}.`,
     "",
-    "> Il primo evento stagionale di **Vinili&Caffè** giunge al termine ma stiamo già lavorando per la seconda season degli eventi stagionali del server. Hai idee su funzioni o temi da trattare? Diccelo scrivendoci tramite la pagina del nostro sito adibita ai [suggerimenti](https://www.viniliecaffe.it/suggerimenti)",
+    "> Il primo evento stagionale di **Vinili&Caffè** giunge al termine ma stiamo già lavorando per la seconda season degli eventi stagionali del server. Hai idee su funzioni o temi da trattare? Diccelo scrivendoci tramite la pagina [Feedback](https://www.viniliecaffe.it/feedback) del sito",
     "",
     "> <:VC_Mention:1482526855289634997> Seguici sui social per bonus improvvisi:",
     "- [Instagram](https://www.instagram.com/viniliecaffe)",

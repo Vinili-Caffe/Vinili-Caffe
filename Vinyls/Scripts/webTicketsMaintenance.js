@@ -645,7 +645,7 @@ async function importDiscordTickets(
         continue;
       }
 
-      const category = normalizeCategory(row.ticketType);
+    const category = normalizeCategory(row.ticketType);
       const openerId = String(row.userId || "0");
       const openerTag = String(row.userTag || "").trim();
       let messageRows = await resolveMessageRowsForImport(
@@ -662,19 +662,19 @@ async function importDiscordTickets(
       const subject = resolveSubject(row, messageRows, authorName);
       const status = resolveTicketStatus(row);
       const ticketPayload = {
-        guildId,
+      guildId,
         userId: openerId,
         authorName,
-        authorAvatarUrl: "",
-        category,
+      authorAvatarUrl: "",
+      category,
         subject,
         status,
         discordImportKey: importKey,
-        claimedBy: row.claimedBy ? String(row.claimedBy) : null,
-        claimedByName: "",
+      claimedBy: row.claimedBy ? String(row.claimedBy) : null,
+      claimedByName: "",
         claimedAt: row.claimedAt ? new Date(row.claimedAt) : row.claimedBy ? new Date(row.updatedAt || row.createdAt || Date.now()) : null,
-        closedBy: row.closedBy ? String(row.closedBy) : null,
-        closedByName: "",
+      closedBy: row.closedBy ? String(row.closedBy) : null,
+      closedByName: "",
         closedAt: row.closedAt ? new Date(row.closedAt) : !coerceTicketOpen(row.open) ? new Date(row.updatedAt || Date.now()) : null,
         closeReason: String(row.closeReason || "").slice(0, 500) || (status === WEB_TICKET_STATUS.CLOSED ? "Import da Discord" : ""),
         ratingTicketScore: row.ratingScore != null ? Number(row.ratingScore) : null,
@@ -682,7 +682,7 @@ async function importDiscordTickets(
         messageCount: 0,
         lastMessageAt: row.closedAt ? new Date(row.closedAt) : row.createdAt ? new Date(row.createdAt) : new Date(),
         lastMessagePreview: "",
-        lastAuthorKind: "system",
+      lastAuthorKind: "system",
         createdAt: row.createdAt ? new Date(row.createdAt) : undefined,
       };
 
@@ -706,12 +706,12 @@ async function importDiscordTickets(
       if (!messageRows.length) {
         messageRows = [
           {
-            authorId: "system",
-            authorName: "Sistema",
-            authorAvatarUrl: "",
-            authorKind: "system",
-            content: `Ticket Discord #${row.ticketNumber} importato (${category}). Canale: ${row.channelId || "n/d"}.`,
-            imageUrls: [],
+      authorId: "system",
+      authorName: "Sistema",
+      authorAvatarUrl: "",
+      authorKind: "system",
+      content: `Ticket Discord #${row.ticketNumber} importato (${category}). Canale: ${row.channelId || "n/d"}.`,
+      imageUrls: [],
             createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
           },
         ];

@@ -715,9 +715,9 @@ function createBumpReminderService(options) {
   return { recordBump, setBumpAt, restorePendingReminders, sweepDueReminders };
 }
 
-const disboardService = createBumpReminderService({ model: buildBumpStateModel("disboard", DISBOARD_BUMP_USER_ID), configKey: "disboard", defaultCooldownMinutes: 120, mentionContent: "<@&1442569013074071644>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP`!**", url: "https://disboard.org/it/server/1329080093599076474", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISBOARD REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISBOARD REMINDER]", suppressInfoLogs: true, });
+const disboardService = createBumpReminderService({ model: buildBumpStateModel("disboard", DISBOARD_BUMP_USER_ID), configKey: "disboard", defaultCooldownMinutes: 120, mentionContent: "<@&1544830661637046303>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP`!**", url: "https://disboard.org/it/server/1329080093599076474", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISBOARD REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISBOARD REMINDER]", suppressInfoLogs: true, });
 
-const discadiaBumpService = createBumpReminderService({ model: buildBumpStateModel("discadia", DISCADIA_BUMP_USER_ID), configKey: "discadia", defaultCooldownMinutes: 1440, mentionContent: "<@&1442569013074071644>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP` SU DISCADIA!**", url: "https://discadia.com/server/viniliecaffe/", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER]", suppressInfoLogs: true, });
+const discadiaBumpService = createBumpReminderService({ model: buildBumpStateModel("discadia", DISCADIA_BUMP_USER_ID), configKey: "discadia", defaultCooldownMinutes: 1440, mentionContent: "<@&1544830661637046303>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP` SU DISCADIA!**", url: "https://discadia.com/server/viniliecaffe/", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER]", suppressInfoLogs: true, });
 let discadiaVoteReminderLoopHandle = null;
 const BUMP_DUE_REMINDER_SWEEP_MS = 2 * 60 * 1000;
 
@@ -1004,31 +1004,10 @@ function resolveVoteCompletedSiteOpenUrl(client) {
   return fromTopgg || fromDiscadia || fromIds || "https://www.viniliecaffe.it/vote";
 }
 
-async function enqueueVoteCompletedSiteNotification(client, userId, voteListing, opts = {}) {
-  const listing = voteListingKey(voteListing);
-  const uid = String(userId || "").trim();
-  const guildId = String(IDs.guilds.main || "").trim();
-  if (!uid || !guildId) return false;
-  const platformLabel = listing === "topgg" ? "Top.gg" : "Discadia";
-  const voteAtMs = Math.max(0, Math.floor(Number(opts.voteAtMs) || Date.now()));
-  const openUrl = resolveVoteCompletedSiteOpenUrl(client);
-  try {
-    return Boolean(
-      await enqueueSiteInAppNotification({
-        guildId,
-        userId: uid,
-        title: listing === "topgg" ? "Voto su Top.gg registrato" : "Voto su Discadia registrato",
-        body: `Il voto su ${platformLabel} è stato registrato: hai ricevuto EXP e ricompense sul server. Grazie per il supporto!`,
-        kind: "vote",
-        openUrl,
-        dedupeKey: `vote_done:${listing}:${uid}:${Math.floor(voteAtMs / 60_000)}`,
-        dedupeWindowMs: 90_000,
-      }),
-    );
-  } catch (err) {
-    global.logger?.warn?.("[DISCADIA VOTE] site notification:", err?.message || err);
-    return false;
-  }
+async function enqueueVoteCompletedSiteNotification(_client, _userId, _voteListing, _opts = {}) {
+  // notifCats1: no in-app/push for "voto registrato" (Top.gg / Discadia).
+  // Vote counting, rewards, and vote_reminder schedulers stay intact.
+  return false;
 }
 
 async function recordDiscadiaVote(client, guildId, userId, options = {}) {
@@ -1136,7 +1115,8 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
 
   scheduleDiscadiaVoteReminder(client, mainGuildId, userId, now, voteListing);
 
-    await enqueueVoteCompletedSiteNotification(client, userId, voteListing, {
+  // notifCats1: intentionally skip voto-registrato site notif (reminders still scheduled above).
+  void enqueueVoteCompletedSiteNotification(client, userId, voteListing, {
     voteAtMs: now.getTime(),
   });
 

@@ -13,7 +13,12 @@ const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("./part
 const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel, partnerManagerCanAffordReward, getPartnerRewardPointCost } = require("./partnerPointsUtils");
 const { PARTNER_MILESTONE_REWARD_LABELS } = require("./partnerManagerMilestoneDm");
 const { buildPartnerRewardDiscountBanner } = require("../../../shared/partner/partnerManagerRewardTiers");
-const { accountUsername, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const {
+  accountUsername,
+  memberDisplayName,
+  memberLabelWithUsername,
+  userAvatarUrlDynamic,
+} = require("../Discord/guildDiscordIdentity");
 const {
   resolveSerataFilmAttendanceForWeek,
   buildSerataFilmAttendanceDescriptionLine,
@@ -258,7 +263,8 @@ function appendStaffDelMeseBadge(guild, member, badges) {
   if (!sdmId || !member?.roles?.cache?.has(sdmId)) return list;
   if (list.some((b) => String(b?.roleId || "") === sdmId || String(b?.kind || "") === "sdm")) return list;
   const discordRole = guild?.roles?.cache?.get(sdmId) || null;
-  list.push({
+  // Prima dei badge staff/carriera (Moderator, Staff, …).
+  list.unshift({
     kind: "sdm",
     icon: "fa-trophy",
     label: discordRole?.name || "Staff del Mese",
@@ -940,7 +946,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     (await getGuildMemberCached(guild, tid).catch(() => null)) ||
     (await guild.members.fetch({ user: tid }).catch(() => null));
   const targetUser = member?.user || (await client.users.fetch(tid).catch(() => null));
-  const name = (member ? accountUsername(member) : accountUsername(targetUser)) || tid;
+  const avatarSubject = member || targetUser;
+  const name =
+    (member
+      ? memberLabelWithUsername(member, targetUser)
+      : memberDisplayName(null, targetUser) || accountUsername(targetUser)) || tid;
   const viewerMemForPanel =
     (await getGuildMemberCached(guild, String(viewerId)).catch(() => null)) ||
     (await guild.members.fetch({ user: String(viewerId) }).catch(() => null));
@@ -976,7 +986,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             `<:VC_Staff:1494286904089247754> **${name}** non ha ruoli Staff né Partner Manager.\n\n` +
             "<a:VC_Verified:1482532479637127188> Usa i pulsanti per pexare direttamente da **Member** verso un ruolo Staff o Partner Manager.",
           )
-          .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
+          .setThumbnail(userAvatarUrlDynamic(avatarSubject, { size: 128 }) || null),
       ],
       components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid, sourceMessageId, {
         enableNextTargetButton,
@@ -1090,7 +1100,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
               redeemed: Math.max(0, Math.floor(Number(s?.partnerRedeemSpend || 0))),
             }),
           )
-          .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
+          .setThumbnail(userAvatarUrlDynamic(avatarSubject, { size: 128 }) || null),
       ],
       components: withCloseProfileComponents(
         mergeProfileComponents(selectRow, hsRows, [...shopBtnRows, ...homeBottomRows]),
@@ -1144,7 +1154,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setColor("#6f4e37")
           .setTitle(pmTitle)
           .setDescription(pmHomeDesc.slice(0, 4090))
-          .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
+          .setThumbnail(userAvatarUrlDynamic(avatarSubject, { size: 128 }) || null),
       ],
       components: withCloseProfileComponents(
         mergeProfileComponents(selectRow, [...pmStaffPexRows, ...hsRows], homeBottomRows),
@@ -1204,7 +1214,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       new EmbedBuilder()
         .setColor("#6f4e37")
         .setDescription(desc)
-        .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
+        .setThumbnail(userAvatarUrlDynamic(avatarSubject, { size: 128 }) || null),
     );
     const valExtraRows = [...valTradeRows, ...homeBottomRows];
     return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, valExtraRows), viewerId, tid, sourceMessageId, { enableNextTargetButton, section: sec }) };
@@ -1245,10 +1255,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         new EmbedBuilder()
           .setColor("#3498DB")
           .setTitle("Statistiche Sanzioni")
-          .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 256 }) || null)
+          .setThumbnail(userAvatarUrlDynamic(avatarSubject, { size: 256 }) || null)
           .setAuthor({
-            name: targetUser?.username || String(modId),
-            iconURL: userAvatarUrlDynamic(targetUser, { size: 128 }) || null,
+            name: name || String(modId),
+            iconURL: userAvatarUrlDynamic(avatarSubject, { size: 128 }) || null,
           })
           .addFields(
             {
@@ -1278,7 +1288,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   let viewerName = "";
   try {
     const viewerMember = await guild.members.fetch(String(viewerId));
-    viewerName = accountUsername(viewerMember) || String(viewerId);
+    viewerName = memberLabelWithUsername(viewerMember) || String(viewerId);
   } catch (e) {
     try {
       const viewerUser = await client.users.fetch(String(viewerId));
@@ -1327,7 +1337,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setColor("#6f4e37")
         .setTitle(`<a:VC_Announce:1482534613568979007> Profilo Staff ${name}`)
         .setDescription(homeDesc)
-        .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
+        .setThumbnail(userAvatarUrlDynamic(avatarSubject, { size: 128 }) || null),
     ],
     components: withCloseProfileComponents(
       mergeProfileComponents(selectRow, hsRows, sfAttRow ? [...homeBottomRows, sfAttRow] : homeBottomRows),

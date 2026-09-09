@@ -31,6 +31,11 @@
       profilePendingWatchdogTimer = null;
       try {
         if (!document.documentElement.classList.contains("vc-user-profile-pending")) return;
+        // staffCommSwitch2: non dismissare pending/loader se lo switch Community è ancora senza shell.
+        if (shouldHoldCommunitySwitchLoader(byId("vc-user-profile-view"))) {
+          armProfilePendingWatchdog();
+          return;
+        }
         if (profileInitialLoadDone || profileBootSettled) {
           clearProfilePending();
           clearProfileLoading();
@@ -38,7 +43,7 @@
         }
         if (tryInstantProfileFromCache()) return;
         profilePendingWatchdogAttempts += 1;
-        if (profilePendingWatchdogAttempts > 4) {
+        if (profilePendingWatchdogAttempts > (isCoarseMobileProfile() ? 10 : 5)) {
           profileBootGaveUp = true;
           try {
             window.__VC_PROFILE_GAVE_UP = true;
@@ -65,7 +70,7 @@
       } catch (eWatch) {
         clearProfilePending();
       }
-    }, 4000);
+    }, isCoarseMobileProfile() ? 5500 : 4000);
   }
 
   function isCoarseMobileProfile() {
@@ -77,7 +82,8 @@
   }
 
   function profileFetchTimeoutMs() {
-    return isCoarseMobileProfile() ? 22000 : PROFILE_FETCH_TIMEOUT_MS;
+    /* phoneApiGlobalFix1: mobile più paziente sul first-stamp Discord */
+    return isCoarseMobileProfile() ? 30000 : PROFILE_FETCH_TIMEOUT_MS;
   }
 
   function setProfilePageTitle(pageLabel) {
@@ -103,9 +109,11 @@
     return false;
   }
 
-  var PROFILE_BOOT_FAILSAFE_MS = Math.min(
-    profileFetchTimeoutMs() * (PROFILE_FETCH_MAX_RETRIES + 1) + (isStandalonePwa() ? 8000 : 5000),
-    isCoarseMobileProfile() ? 18000 : 24000,
+  /* phoneApiGlobalFix1: failsafe SEMPRE ≥ budget fetch reale (prima cap 18s < fetch 32s). */
+  var PROFILE_BOOT_FAILSAFE_MS = Math.max(
+    Math.max(profileFetchTimeoutMs() + 8000, 32000) * (PROFILE_FETCH_MAX_RETRIES > 0 ? 2 : 1) +
+      (isStandalonePwa() ? 10000 : 8000),
+    isCoarseMobileProfile() ? 52000 : 40000,
   );
 
   function byId(id) {
@@ -266,6 +274,191 @@
     var root = base.split("?")[0];
     var endpoint = root.replace(/\/site-users\/?$/i, "/site-rank-card-public");
         return endpoint + "?userId=" + encodeURIComponent(id);
+  }
+
+  function payloadLooksLikeUser(payload, userId) {
+    var want = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(want)) return false;
+    if (!payload || typeof payload !== "object") return false;
+    var profile = payload.profile || {};
+    var level = payload.level || {};
+    var candidates = [
+      profile.userId,
+      profile.id,
+      profile.discordId,
+      level.userId,
+      level.id,
+      payload.userId,
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var got = String(candidates[i] || "").trim();
+      if (/^\d{17,20}$/.test(got)) return got === want;
+    }
+    // profileSwitchFix1: senza id esplicito non indovinare (evita riuso dati viewer/altro utente).
+    return false;
+  }
+
+  // staffCommSwitch2: bind fetch target into payload so lock checks survive lean/cached rows.
+  function withExplicitUserId(payload, userId) {
+    var want = String(userId || "").trim();
+    var base = payload && typeof payload === "object" ? payload : {};
+    if (!/^\d{17,20}$/.test(want)) return base;
+    var profile = base.profile && typeof base.profile === "object" ? Object.assign({}, base.profile) : {};
+    var level = base.level && typeof base.level === "object" ? base.level : {};
+    var found = "";
+    var candidates = [
+      profile.userId,
+      profile.id,
+      profile.discordId,
+      level.userId,
+      level.id,
+      base.userId,
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var got = String(candidates[i] || "").trim();
+      if (/^\d{17,20}$/.test(got)) {
+        found = got;
+        break;
+      }
+    }
+    if (found && found !== want) return base;
+    if (!/^\d{17,20}$/.test(String(profile.userId || "").trim())) profile.userId = want;
+    return Object.assign({}, base, { userId: want, profile: profile });
+  }
+
+  function communitySwitchGateActive() {
+    try {
+      return document.documentElement.classList.contains("vc-user-profile-comm-switch");
+    } catch (eGate) {
+      return false;
+    }
+  }
+
+  function dismissStuckProfileSpinners() {
+    try {
+      clearProfileLoading();
+    } catch (eClr) {}
+    try {
+      var root = byId("vc-user-profile-view");
+      if (!root) return;
+      var nodes = root.querySelectorAll(
+        ":scope > .vc-user-profile-loader, :scope > [data-vc-profile-boot], .vc-user-profile-loader__spin",
+      );
+      for (var i = 0; i < nodes.length; i += 1) {
+        var n = nodes[i];
+        if (n.closest && n.closest("[data-vc-profile-staff-pane]")) continue;
+        if (n.getAttribute && n.getAttribute("data-vc-staff-loading")) continue;
+        try {
+          n.remove();
+        } catch (eRm) {}
+      }
+    } catch (eSpin) {}
+  }
+
+  function finishCommunitySwitchPaint(userId) {
+    var id = String(userId || "").trim();
+    try {
+      document.documentElement.classList.remove(
+        "vc-user-profile-comm-switch",
+        "vc-user-profile-staff-tab-pending",
+        "vc-staff-boot-block",
+      );
+      if (document.body) {
+        document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
+      }
+    } catch (eCls) {}
+    dismissStuckProfileSpinners();
+    try {
+      var root = byId("vc-user-profile-view");
+      var shell = root && root.querySelector(":scope > .vc-user-profile-shell");
+      if (shell) {
+        shell.hidden = false;
+        shell.removeAttribute("data-vc-community-stale");
+        shell.setAttribute("aria-hidden", "false");
+        shell.style.removeProperty("display");
+        shell.style.removeProperty("visibility");
+        if (/^\d{17,20}$/.test(id)) shell.setAttribute("data-vc-community-user", id);
+      }
+    } catch (eShell) {}
+    unlockProfileChrome();
+    clearProfilePending();
+  }
+
+  function shouldHoldCommunitySwitchLoader(root, userId) {
+    if (!communitySwitchGateActive()) return false;
+    var id = String(userId || lockedCommunityUserId || parseProfileId() || "").trim();
+    if (!/^\d{17,20}$/.test(id)) return true;
+    return !communityShellLooksReadyFor(root || byId("vc-user-profile-view"), id);
+  }
+
+  // profileDataLock1: URL id + lock devono coincidere; mai dipingere un altro utente.
+  function canonicalProfileTargetId() {
+    var urlId = parseProfileId();
+    if (/^\d{17,20}$/.test(urlId)) return urlId;
+    if (/^\d{17,20}$/.test(lockedCommunityUserId)) return lockedCommunityUserId;
+    return "";
+  }
+
+  function isAllowedProfileTarget(userId) {
+    var want = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(want)) return false;
+    var urlId = parseProfileId();
+    if (/^\d{17,20}$/.test(urlId) && urlId !== want) return false;
+    if (lockedCommunityUserId && lockedCommunityUserId !== want) return false;
+    return true;
+  }
+
+  function lockProfileTarget(userId) {
+    var id = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(id)) return "";
+    lockedCommunityUserId = id;
+    return id;
+  }
+
+  function invalidateProfilePaintState(reason) {
+    try {
+      lastProfileRenderSignature = "";
+      lastRenderedProfile = null;
+      profileRankRenderToken += 1;
+      lastRankPreviewUserId = "";
+      lastRankPreviewLoadedAt = 0;
+      profileInitialLoadDone = false;
+      profileBootSettled = false;
+    } catch (eInv) {}
+    try {
+      window.__VC_PROFILE_PREFETCH_RESULT = null;
+      if (
+        window.__VC_PROFILE_PREFETCH &&
+        lockedCommunityUserId &&
+        String(window.__VC_PROFILE_PREFETCH.userId || "") !== lockedCommunityUserId
+      ) {
+        window.__VC_PROFILE_PREFETCH = null;
+      }
+    } catch (ePref) {}
+    try {
+      var root = byId("vc-user-profile-view");
+      var shell = root && root.querySelector(":scope > .vc-user-profile-shell");
+      if (shell) {
+        shell.setAttribute("data-vc-community-stale", "1");
+        shell.setAttribute("data-vc-community-user", "");
+      }
+    } catch (eShell) {}
+    return reason || "";
+  }
+
+  function profileShellAndRankAligned(root, userId) {
+    var want = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(want)) return false;
+    if (!communityShellLooksReadyFor(root, want)) return false;
+    try {
+      var img = root && root.querySelector ? root.querySelector("#vc-user-rankcard-image") : byId("vc-user-rankcard-image");
+      if (!img) return true;
+      var marked = String(img.getAttribute("data-vc-rank-for") || "").trim();
+      if (!marked) return true;
+      return marked === want;
+    } catch (eAlign) {
+      return false;
+    }
   }
 
   function profileRenderSignature(userId, payload, viewerId) {
@@ -489,10 +682,34 @@
     );
   }
 
+  function notifyUser(msg, isError) {
+    var text = String(msg || "").trim();
+    if (!text) return;
+    try {
+      if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+        window.VcSiteToast.show(text, Boolean(isError), { ms: isError ? 3600 : 2200 });
+        return;
+      }
+    } catch (eToast) {}
+    try {
+      if (window.VcDialog && typeof window.VcDialog.alert === "function") {
+        void window.VcDialog.alert({ title: isError ? "Errore" : "Avviso", message: text });
+        return;
+      }
+    } catch (eDlg) {}
+    if (typeof window.__vcEnsureDialog === "function") {
+      void window.__vcEnsureDialog().then(function (D) {
+        if (D && typeof D.alert === "function") {
+          return D.alert({ title: isError ? "Errore" : "Avviso", message: text });
+        }
+      });
+    }
+  }
+
   async function createCustomFromProfile(target) {
     var token = getDiscordToken();
     if (!token) {
-      window.alert("Effettua il login Discord per creare ruolo o vocale.");
+      notifyUser("Effettua il login Discord per creare ruolo o vocale.", true);
       return;
     }
     var t = String(target || "").trim().toLowerCase();
@@ -514,13 +731,13 @@
         return null;
       });
       if (!data || data.ok !== true) {
-        window.alert((data && data.message) || "Creazione non riuscita.");
+        notifyUser((data && data.message) || "Creazione non riuscita.", true);
         if (btn) btn.disabled = false;
         return;
       }
       window.location.href = customProfileEditorUrl(t);
     } catch (e) {
-      window.alert("Errore di rete. Riprova.");
+      notifyUser("Errore di rete. Riprova.", true);
       if (btn) btn.disabled = false;
     }
   }
@@ -669,16 +886,15 @@
     }
   }
 
-  function defaultEmbedAvatarUrl(userId) {
-    var idx = 0;
-    if (/^\d{17,20}$/.test(String(userId || ""))) {
-      try {
-        idx = Number((BigInt(String(userId)) >> BigInt(22)) % BigInt(6));
-      } catch (e) {
-        idx = 0;
+  function defaultEmbedAvatarUrl() {
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
       }
-    }
-    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
   function profileAvatarSrc(url, avatarHash, userId, size) {
@@ -686,18 +902,37 @@
     var hash = String(avatarHash || "").trim();
     var uid = String(userId || "").trim();
     var n = Number(size) || 256;
+    var isGuild = /\/guilds\/\d+\/users\//i.test(raw);
     var resolved = "";
     try {
-      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
-        resolved = window.VcDiscordAvatar.resolveUrl(raw, n, hash, uid) || "";
+      if (window.VcDiscordIdentity && typeof window.VcDiscordIdentity.pickAvatarUrl === "function" && !raw) {
+        resolved = window.VcDiscordIdentity.pickAvatarUrl(
+          { avatarUrl: raw, avatar: hash, userId: uid, memberAvatar: isGuild ? hash : "" },
+          n,
+        );
+      }
+      if (!resolved && window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
+        resolved = window.VcDiscordAvatar.resolveUrl(raw, n, isGuild ? "" : hash, uid) || "";
       }
     } catch (eAv) {}
     if (!resolved && raw) resolved = raw;
-    if (!resolved && hash && uid) {
+    if (!resolved && hash && uid && !isGuild) {
+      // avatarAnimRestore1: GIF se hash a_ (anche telefono).
       var ext = hash.indexOf("a_") === 0 ? "gif" : "png";
       resolved = "https://cdn.discordapp.com/avatars/" + uid + "/" + hash + "." + ext + "?size=" + n;
     }
     if (!resolved) resolved = uid ? defaultEmbedAvatarUrl(uid) : "";
+    return resolved;
+  }
+
+  function menuListAvatarSrc(url, userId, size) {
+    var n = Number(size) || 64;
+    var resolved = profileAvatarSrc(url, "", userId, n);
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferStaticUrl === "function") {
+        resolved = window.VcDiscordAvatar.preferStaticUrl(resolved, n) || resolved;
+      }
+    } catch (eStatic) {}
     return resolved;
   }
 
@@ -793,6 +1028,7 @@
       return {
         ok: Boolean(out && out.httpOk && b && b.ok === true),
         notFound: Boolean(b && b.notFound),
+        userId: String(userId || ""),
         profile: b && b.profile ? b.profile : null,
         level: rows.level || null,
         weekly: rows.weekly || null,
@@ -851,14 +1087,36 @@
 
     var sources = [directFetch()];
     try {
+      // profileDataLock1: prefetch result must match requested userId (never reuse peer/viewer).
       var readyPrefetch = window.__VC_PROFILE_PREFETCH_RESULT;
+      var readyPrefetchUser = "";
+      try {
+        readyPrefetchUser = String(
+          (readyPrefetch && readyPrefetch.userId) ||
+            (window.__VC_PROFILE_PREFETCH && window.__VC_PROFILE_PREFETCH.userId) ||
+            "",
+        ).trim();
+      } catch (ePrefUid) {
+        readyPrefetchUser = "";
+      }
       if (
         readyPrefetch &&
         readyPrefetch.httpOk &&
         readyPrefetch.body &&
-        readyPrefetch.body.ok
+        readyPrefetch.body.ok &&
+        readyPrefetchUser === String(userId) &&
+        payloadLooksLikeUser(
+          {
+            profile: readyPrefetch.body.profile || {},
+            level: (readyPrefetch.body.rows && readyPrefetch.body.rows.level) || {},
+            userId: readyPrefetchUser,
+          },
+          userId,
+        )
       ) {
         sources.unshift(Promise.resolve(mapBody(readyPrefetch)));
+      } else if (readyPrefetch && readyPrefetchUser && readyPrefetchUser !== String(userId)) {
+        window.__VC_PROFILE_PREFETCH_RESULT = null;
       }
     } catch (eReadyPref) {}
     try {
@@ -873,6 +1131,9 @@
         sources.unshift(
           prefetch.promise
             .then(function (out) {
+              if (!out || String((out && out.userId) || prefetch.userId || "") !== String(userId)) {
+                return emptyResult(false);
+              }
               return mapBody(out);
             })
             .catch(function () {
@@ -990,7 +1251,10 @@
     if (!want) return true;
     try {
       var idEl = shell.querySelector(".vc-user-profile-id");
-      return Boolean(idEl && String(idEl.textContent || "").indexOf(want) !== -1);
+      if (!idEl) return false;
+      var txt = String(idEl.textContent || "");
+      // staffCommSwitch2: indexOf("") è sempre 0 — richiedi id reale.
+      return /^\d{17,20}$/.test(want) && txt.indexOf(want) !== -1;
     } catch (eId) {
       return false;
     }
@@ -1077,7 +1341,14 @@
       '<p class="vc-user-profile-loader__title">Caricamento profilo</p>' +
       '<p class="vc-user-profile-loader__sub">Sto recuperando le statistiche dell\'utente...</p>';
         if (force || !profileViewLooksReady(root)) {
-      root.innerHTML = "";
+      if (opts.preserveStaffPane) {
+        try {
+          var shells = root.querySelectorAll(":scope > .vc-user-profile-shell");
+          for (var si = 0; si < shells.length; si += 1) shells[si].remove();
+        } catch (eShells) {}
+      } else {
+        root.innerHTML = "";
+      }
     }
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
@@ -1089,14 +1360,24 @@
 
   function parseWantsStaffTab() {
     try {
-      return (
-        String(new URLSearchParams(window.location.search || "").get("tab") || "")
-          .trim()
-          .toLowerCase() === "staff"
-      );
-    } catch (e) {
-      return false;
-    }
+      var tab = String(new URLSearchParams(window.location.search || "").get("tab") || "")
+        .trim()
+        .toLowerCase();
+      if (tab === "staff") return true;
+      if (tab === "community") return false;
+    } catch (e) {}
+    // staffTabOrganico1: fallback storage se URL senza ?tab= (reload senza query persa).
+    try {
+      var stored =
+        String(sessionStorage.getItem("vc_user_profile_tab_v1") || "").trim().toLowerCase() ||
+        String(localStorage.getItem("vc_user_profile_tab_v1") || "").trim().toLowerCase();
+      if (stored === "staff") return true;
+    } catch (eStore) {}
+    try {
+      if (document.body && document.body.classList.contains("vc-user-profile-staff-tab")) return true;
+      if (document.documentElement.classList.contains("vc-user-profile-staff-tab-pending")) return true;
+    } catch (eCls) {}
+    return false;
   }
 
   function renderLoading(root, opts) {
@@ -1677,20 +1958,20 @@
   var PROFILE_ROLE_IDS = {
     founder: "1442568886988963923",
     manager: "1521562607339704442",
-    staffDelMese: "1442568895251611924",
+    staffDelMese: "1544831233404575835",
     director: "1502322782602530977",
-    highStaff: "1442568894349840435",
+    highStaff: "1544831228690046976",
     staff: "1442568910070349985",
-    partnerManager: "1442568905582317740",
-    donator: "1442568916114346096",
-    vip: "1442568950805430312",
-    vipPlus: "1495472189347074119",
+    partnerManager: "1544831242510270464",
+    donator: "1544830864565735515",
+    vip: "1544830866616754257",
+    vipPlus: "1544830868575625276",
     serverBooster: "1329497467481493607",
-    doubleBooster: "1494996567214788818",
-    topWeeklyText: "1468674837957574757",
-    topWeeklyVoc: "1468674787399172208",
-    mvp: "1500843454014423101",
-    memberOfTheMonth: "1500848813680758836",
+    doubleBooster: "1544830850552823849",
+    topWeeklyText: "1544830834849087630",
+    topWeeklyVoc: "1544830836686200992",
+    mvp: "1544830832227782699",
+    memberOfTheMonth: "1544830838443741194",
   };
 
   function buildProfileBadges(rank, roles, birthday) {
@@ -1918,22 +2199,19 @@
     root.hidden = false;
     var wantsStaffTab = false;
     try {
-      wantsStaffTab =
-        String(new URLSearchParams(window.location.search || "").get("tab") || "")
-          .trim()
-          .toLowerCase() === "staff";
+      wantsStaffTab = parseWantsStaffTab();
     } catch (eTab) {
       wantsStaffTab = false;
     }
-        if (opts.communityOnly) wantsStaffTab = false;
+        // staffTabOrganico1: communityOnly = paint shell sotto lock staff; NON azzerare intent Staff
+        // (prima: `if (communityOnly) wantsStaffTab = false` → refresh tornava a Community).
             var savedStaffPane = null;
     try {
       var existingPane = root.querySelector("[data-vc-profile-staff-pane]");
-      if (existingPane && wantsStaffTab) {
-        var paneFor = String(existingPane.getAttribute("data-vc-staff-user") || "").trim();
-        if (paneFor && paneFor === String(userId)) {
-          savedStaffPane = existingPane.parentNode.removeChild(existingPane);
-        }
+      // profileSwitchFix1 / staffPeerFix2 / staffTabOrganico1: preserve staff pane on staff tab + peer switch
+      // even when data-vc-staff-user is empty/stale (community re-paint must not drop it).
+      if (existingPane && (wantsStaffTab || opts.communityOnly || opts.preserveStaffPane)) {
+        savedStaffPane = existingPane.parentNode.removeChild(existingPane);
       }
     } catch (eSave) {
       savedStaffPane = null;
@@ -1953,6 +2231,7 @@
     var profile = payload.profile || {};
     var profileNick = resolveProfileDisplayName(profile, level);
     var profileHandle = String(profile.username || level.username || "").trim();
+    var knownOutOfGuild = payload.inGuild === false || profile.inGuild === false;
     var avatar = profileAvatarSrc(
       String(profile.avatarUrl || level.avatarUrl || "").trim(),
       String(profile.avatar || level.avatar || "").trim(),
@@ -2025,13 +2304,18 @@
             var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
             var username = String(member.username || "").trim();
             var href = profilePublicUrl(member.id);
-            var avatarUrl = profileAvatarSrc(String(member.avatarUrl || "").trim(), "", member.id, 128);
+            var uid = String(member.id || "").trim();
+            var avatarUrl = menuListAvatarSrc(String(member.avatarUrl || "").trim(), uid, 64);
             return (
               '<a class="vc-user-profile-shared__user" href="' +
               esc(href) +
               '">' +
               (avatarUrl
-                ? '<img class="vc-user-profile-shared__avatar" src="' + esc(avatarUrl) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+                ? '<img class="vc-user-profile-shared__avatar" src="' +
+                  esc(avatarUrl) +
+                  '" alt="" width="40" height="40" loading="eager" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1" data-user-id="' +
+                  esc(uid) +
+                  '" />'
                 : '<span class="vc-user-profile-shared__avatar vc-user-profile-shared__avatar--fallback"><i class="fa fa-user" aria-hidden="true"></i></span>') +
               '<span class="vc-user-profile-shared__name">' +
               esc(name) +
@@ -2223,9 +2507,14 @@
       (avatar
         ? '<img class="vc-user-profile-avatar" src="' +
           esc(avatar) +
-          '" alt="" width="256" height="256" loading="eager" decoding="async" referrerpolicy="no-referrer" vcAvatarStatic="1" onerror="this.onerror=null;this.src=\'' +
-          esc(defaultEmbedAvatarUrl(userId)) +
-          '\'" />'
+          '" alt="" width="256" height="256" loading="eager" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" data-user-id="' +
+          esc(userId) +
+          '"' +
+          (String(profile.avatar || level.avatar || "").trim()
+            ? ' data-avatar-hash="' + esc(String(profile.avatar || level.avatar || "").trim()) + '"'
+            : "") +
+          ( /\/guilds\/\d+\/users\//i.test(String(avatar)) ? ' data-vc-guild-avatar="1"' : "") +
+          " />"
         : '<span class="vc-user-profile-avatar vc-user-profile-avatar--fallback"><i class="fa fa-user"></i></span>') +
       "</span>" +
       "</div>" +
@@ -2242,6 +2531,9 @@
       '<p class="vc-user-profile-id">ID: ' +
       esc(userId) +
       "</p>" +
+      (knownOutOfGuild
+        ? '<p class="vc-user-profile-outguild mt-1 text-sm text-slate-300/80">Non è nel server Discord</p>'
+        : "") +
       "</div>" +
       (viewerOwns
         ? '<a class="vc-user-profile-customize vc-user-profile-customize--pill" href="' +
@@ -2360,7 +2652,15 @@
     wireBirthdayBadge(root, userId);
     if (opts.skipStaffSync) {
       try {
+        // staffTabOrganico1: sotto lock community mentre URL/storage dicono Staff,
+        // non chiamare paintCommunityChrome (resettava activeTab → Community al refresh).
         if (
+          wantsStaffTab ||
+          parseWantsStaffTab() ||
+          (document.body && document.body.classList.contains("vc-user-profile-staff-tab"))
+        ) {
+          /* keep staff tab chrome */
+        } else if (
           window.VCUserProfileStaffTab &&
           typeof window.VCUserProfileStaffTab.paintCommunityChrome === "function"
         ) {
@@ -2428,7 +2728,16 @@
     if (!img || !status) return;
     var uid = String(userId || "").trim();
     if (!/^\d{17,20}$/.test(uid)) return;
-        if (lockedCommunityUserId && lockedCommunityUserId !== uid) return;
+    // profileDataLock1: rank card must follow URL/lock AND community shell — never mix users.
+    if (!isAllowedProfileTarget(uid)) return;
+    var shellUid = communityShellUserId();
+    if (shellUid && shellUid !== uid) return;
+    try {
+      var idEl = document.querySelector(
+        "#vc-user-profile-view > .vc-user-profile-shell .vc-user-profile-id",
+      );
+      if (idEl && String(idEl.textContent || "").indexOf(uid) === -1) return;
+    } catch (eHeroRank) {}
     var now = Date.now();
     var markedFor = String(img.getAttribute("data-vc-rank-for") || "").trim();
     if (uid && markedFor && markedFor !== uid) {
@@ -2551,21 +2860,16 @@
     var messages = result && result.messages ? result.messages : null;
     var voice = result && result.voice ? result.voice : null;
     var profile = (result && result.profile ? result.profile : {}) || {};
+    var uid = String(userId || "").trim();
 
-        if (
-      lockedCommunityUserId &&
-      String(userId || "") !== lockedCommunityUserId &&
-      !(
-        document.body &&
-        document.body.classList.contains("vc-user-profile-staff-tab")
-      )
-    ) {
+    // profileDataLock1: reject stale peer/viewer paints against URL/lock.
+    if (!isAllowedProfileTarget(uid)) {
       return false;
     }
 
     if (result && result.notFound) {
       if (silent) return false;
-      renderEmpty(root, userId);
+      renderEmpty(root, uid);
       return false;
     }
 
@@ -2575,11 +2879,11 @@
       if (
         root &&
         profileViewLooksReady(root) &&
-        String(communityShellUserId(root) || "") === String(userId || "")
+        String(communityShellUserId(root) || "") === uid
       ) {
         return false;
       }
-      if (lastRenderedProfile && String(lastRenderedProfile.userId || "") === String(userId || "")) {
+      if (lastRenderedProfile && String(lastRenderedProfile.userId || "") === uid) {
         return false;
       }
       renderError(
@@ -2591,15 +2895,32 @@
       return false;
     }
 
+    var paintPayload = withExplicitUserId(
+      {
+        profile: profile || {},
+        level: level || {},
+        weekly: weekly || {},
+        messages: messages || {},
+        voice: voice || {},
+        userId: uid,
+      },
+      uid,
+    );
+    if (!payloadLooksLikeUser(paintPayload, uid)) {
+      // profileDataLock1: payload di un altro utente (prefetch/cache race) — scarta.
+      // staffCommSwitch2: durante switch non lasciare bg vuoto — tieni il loader.
+      return false;
+    }
+
     var hasStats =
       (level && Number(level.exp) > 0) ||
       (weekly && Number(weekly.weeklyExp) > 0) ||
       (messages && Number(messages.messagesTotal) > 0) ||
       (voice && Number(voice.voiceTotalSeconds) > 0);
     var hasProfileShell =
-      Boolean(profile.customProfile) ||
-      Boolean(String(profile.displayName || profile.username || "").trim()) ||
-      (Array.isArray(profile.roles) && profile.roles.length > 0);
+      Boolean(paintPayload.profile && paintPayload.profile.customProfile) ||
+      Boolean(String((paintPayload.profile && paintPayload.profile.displayName) || (paintPayload.profile && paintPayload.profile.username) || "").trim()) ||
+      (Array.isArray(paintPayload.profile && paintPayload.profile.roles) && paintPayload.profile.roles.length > 0);
     var hasAny = Boolean(level || weekly || messages || voice) && (hasStats || hasProfileShell);
 
     if (!hasAny && hasProfileShell) {
@@ -2608,38 +2929,39 @@
 
     if (!hasAny) {
       if (silent) return false;
-      renderEmpty(root, userId);
+      renderEmpty(root, uid);
       return false;
     }
 
-    lastRenderedProfile = {
-      root: root,
-      userId: userId,
-      payload: {
-        profile: profile || {},
-        level: level || {},
-        weekly: weekly || {},
-        messages: messages || {},
-        voice: voice || {},
-      },
-    };
-
-    var viewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
-    var nextSig = profileRenderSignature(userId, lastRenderedProfile.payload, viewerId);
-    var rankImg = root.querySelector("#vc-user-rankcard-image");
-    var rankMismatch = Boolean(rankImg && !rankCardImgMatchesUser(rankImg, userId));
-    var shellUserNow = communityShellUserId(root);
-    var shellOk = shellUserNow === String(userId);
-
-            var onStaffTab = Boolean(
+    var onStaffTab = Boolean(
       document.body && document.body.classList.contains("vc-user-profile-staff-tab"),
     );
+    // Tab staff: non toccare lastRenderedProfile/DOM community (evita flash del proprio profilo
+    // quando si torna su Community).
     if (onStaffTab && silent) {
-      lastProfileRenderSignature = nextSig;
       profileInitialLoadDone = true;
       profileBootSettled = true;
       return true;
     }
+
+    lastRenderedProfile = {
+      root: root,
+      userId: uid,
+      payload: {
+        profile: paintPayload.profile || {},
+        level: paintPayload.level || {},
+        weekly: paintPayload.weekly || {},
+        messages: paintPayload.messages || {},
+        voice: paintPayload.voice || {},
+      },
+    };
+
+    var viewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
+    var nextSig = profileRenderSignature(uid, lastRenderedProfile.payload, viewerId);
+    var rankImg = root.querySelector("#vc-user-rankcard-image");
+    var rankMismatch = Boolean(rankImg && !rankCardImgMatchesUser(rankImg, uid));
+    var shellUserNow = communityShellUserId(root);
+    var shellOk = shellUserNow === uid;
 
     var sameDom =
       silent && shellOk && nextSig === lastProfileRenderSignature && Boolean(rankImg);
@@ -2647,7 +2969,7 @@
       profileInitialLoadDone = true;
       profileBootSettled = true;
       if (rankMismatch || !rankImg.getAttribute("src")) {
-        loadProfileRankCardPreview(userId, { force: true });
+        loadProfileRankCardPreview(uid, { force: true });
       }
       return true;
     }
@@ -2664,20 +2986,25 @@
         profileBootSettled = true;
         try {
           if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.sync === "function") {
-            window.VCUserProfileStaffTab.sync(userId, root);
+            window.VCUserProfileStaffTab.sync(uid, root);
           }
         } catch (eStaffDefer) {}
         return true;
       }
-      renderProfile(root, userId, lastRenderedProfile.payload, {
+      renderProfile(root, uid, lastRenderedProfile.payload, {
         skipStaffSync: Boolean(lockedCommunityUserId),
         communityOnly: Boolean(lockedCommunityUserId),
       });
       profileInitialLoadDone = true;
-      loadProfileRankCardPreview(userId, { force: true });
+      profileBootSettled = true;
+      loadProfileRankCardPreview(uid, { force: true });
       try {
-        document.documentElement.classList.remove("vc-user-profile-comm-switch");
-      } catch (eGate) {}
+        finishCommunitySwitchPaint(uid);
+      } catch (eGate) {
+        try {
+          document.documentElement.classList.remove("vc-user-profile-comm-switch");
+        } catch (eGate2) {}
+      }
       return true;
     } catch (eRender) {
       if (!silent) {
@@ -2714,9 +3041,10 @@
   function tryInstantProfileFromCache() {
     var userId = parseProfileId();
     if (!userId || profileInitialLoadDone) return false;
+    lockProfileTarget(userId);
     var root = byId("vc-user-profile-view");
     if (!root) return false;
-    if (profileViewLooksReady(root)) {
+    if (communityShellLooksReadyFor(root, userId) && profileShellAndRankAligned(root, userId)) {
       profileInitialLoadDone = true;
       profileBootSettled = true;
       clearProfilePending();
@@ -2728,17 +3056,30 @@
     var cachedOut = readCachedProfileBundle(userId);
     var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
     if (!(cachedOut && cachedOut.httpOk && cachedBody && cachedBody.ok && !cachedBody.notFound)) return false;
+    var cachedPayload = withExplicitUserId(
+      {
+        profile: cachedBody.profile || null,
+        level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : null,
+        weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : null,
+        messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : null,
+        voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : null,
+        userId: userId,
+      },
+      userId,
+    );
+    if (!payloadLooksLikeUser(cachedPayload, userId)) return false;
     return applyProfileResult(
       root,
       userId,
       {
         ok: true,
         notFound: false,
-        profile: cachedBody.profile || null,
-        level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : null,
-        weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : null,
-        messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : null,
-        voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : null,
+        userId: userId,
+        profile: cachedPayload.profile,
+        level: cachedPayload.level,
+        weekly: cachedPayload.weekly,
+        messages: cachedPayload.messages,
+        voice: cachedPayload.voice,
       },
       false,
     );
@@ -2753,7 +3094,7 @@
     } catch (eClr) {}
     profileMemberEnrichTimer = window.setTimeout(function () {
       profileMemberEnrichTimer = null;
-      loadProfile({ silent: true, bypassCache: true });
+      loadProfile({ silent: true, bypassCache: true, userId: id });
     }, 700);
   }
 
@@ -2762,6 +3103,7 @@
     var silent = Boolean(options.silent);
     var force = Boolean(options.force);
     var bypassCache = Boolean(options.bypassCache);
+    var preserveStaffPane = Boolean(options.preserveStaffPane);
     var allowRetry = options.retry !== false;
     var retryCount = Math.max(0, Number(options.retryCount) || 0);
     if ((profileBootGaveUp || window.__VC_PROFILE_GAVE_UP) && !silent && !force) {
@@ -2778,6 +3120,16 @@
       if (!silent) clearProfilePending();
       return Promise.resolve();
     }
+    // profileDataLock1: ogni fetch si ancora al target corrente (URL/lock).
+    if (!isAllowedProfileTarget(userId)) {
+      var canon = canonicalProfileTargetId();
+      if (!canon) {
+        if (!silent) clearProfilePending();
+        return Promise.resolve();
+      }
+      userId = canon;
+    }
+    lockProfileTarget(userId);
     var root = byId("vc-user-profile-view");
     if (!root) {
       if (!silent) clearProfilePending();
@@ -2808,25 +3160,47 @@
         var cachedOut = readCachedProfileBundle(userId);
         var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
         if (cachedOut && cachedOut.httpOk && cachedBody && cachedBody.ok && !cachedBody.notFound) {
-          applyProfileResult(
-            root,
-            userId,
+          var cachedPayload = withExplicitUserId(
             {
-              ok: true,
-              notFound: false,
               profile: cachedBody.profile || null,
               level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : null,
               weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : null,
               messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : null,
               voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : null,
+              userId: userId,
             },
-            false,
+            userId,
           );
+          // profileDataLock1: mai stampare cache di un altro utente.
+          if (payloadLooksLikeUser(cachedPayload, userId)) {
+            applyProfileResult(
+              root,
+              userId,
+              {
+                ok: true,
+                notFound: false,
+                userId: userId,
+                profile: cachedPayload.profile,
+                level: cachedPayload.level,
+                weekly: cachedPayload.weekly,
+                messages: cachedPayload.messages,
+                voice: cachedPayload.voice,
+              },
+              false,
+            );
+          }
         } else if (!profileInitialLoadDone && !keepVisible) {
-          renderLoading(root);
+          renderLoading(root, {
+            force: Boolean(preserveStaffPane || communitySwitchGateActive()),
+            preserveStaffPane: Boolean(preserveStaffPane || communitySwitchGateActive()),
+          });
         }
       } else if (!profileInitialLoadDone && !keepVisible) {
-                renderLoading(root);
+                // staffCommSwitch2: non wipe-are il pane staff durante switch Community.
+        renderLoading(root, {
+          force: true,
+          preserveStaffPane: Boolean(preserveStaffPane || communitySwitchGateActive()),
+        });
       }
     }
 
@@ -2880,6 +3254,15 @@
       .finally(function () {
         if (silent || !parseProfileId()) return;
         var root = byId("vc-user-profile-view");
+        // staffCommSwitch2: mai spegnere loader/pending se lo shell community target non c'è ancora.
+        if (shouldHoldCommunitySwitchLoader(root, userId)) {
+          try {
+            if (!byId("vc-user-profile-loading") || (byId("vc-user-profile-loading") && byId("vc-user-profile-loading").hidden)) {
+              renderLoading(root, { force: true, preserveStaffPane: true });
+            }
+          } catch (eHold) {}
+          return;
+        }
         if (profileInitialLoadDone || profileBootSettled) {
           clearProfilePending();
           clearProfileLoading();
@@ -2911,11 +3294,15 @@
     }
     if (force) profileMainInFlight = false;
     profileMainInFlight = true;
-    if (parseProfileId()) dismissCommunityBootOverlay();
+    var bootId = parseProfileId();
+    if (bootId) {
+      lockProfileTarget(bootId);
+      dismissCommunityBootOverlay();
+    }
     armProfilePendingWatchdog();
     try {
       if (!(options && options.force) && tryInstantProfileFromCache()) {
-        return loadProfile({ silent: true }).finally(function () {
+        return loadProfile({ silent: true, userId: bootId || undefined }).finally(function () {
           profileMainInFlight = false;
         });
       }
@@ -2970,6 +3357,7 @@
       window.__VC_PROFILE_GAVE_UP = false;
     } catch (eGave) {}
 
+    lockProfileTarget(userId);
     unlockProfileChrome();
     root.hidden = false;
     try {
@@ -2992,34 +3380,45 @@
     var cachedOk =
       lastRenderedProfile &&
       String(lastRenderedProfile.userId) === String(userId) &&
-      lastRenderedProfile.payload;
-    var broken = profileViewLooksBroken(root);
+      lastRenderedProfile.payload &&
+      payloadLooksLikeUser(lastRenderedProfile.payload, userId);
+    // profileDataLock1: shell di un altro utente = broken (anche se "sembra ready").
+    var wrongUserShell = Boolean(
+      root.querySelector(":scope > .vc-user-profile-shell") &&
+        !communityShellLooksReadyFor(root, userId),
+    );
+    var broken = profileViewLooksBroken(root) || wrongUserShell || !profileShellAndRankAligned(root, userId);
 
     if (cachedOk && broken) {
       try {
         lastRenderedProfile.root = root;
         renderProfile(root, userId, lastRenderedProfile.payload);
         profileInitialLoadDone = true;
-        loadProfileRankCardPreview(userId, { force: false });
+        loadProfileRankCardPreview(userId, { force: true });
       } catch (eRepaint) {
         profileInitialLoadDone = false;
       }
-      loadProfile({ silent: true });
+      loadProfile({ silent: true, userId: userId });
       return;
     }
 
-    if (!broken && profileViewLooksReady(root)) {
+    if (!broken && profileViewLooksReady(root) && communityShellLooksReadyFor(root, userId)) {
       profileInitialLoadDone = true;
       if (cachedOk) lastRenderedProfile.root = root;
       try {
         syncProfileStaffTab(userId, root);
       } catch (eSync) {}
-      loadProfile({ silent: true });
+      loadProfile({ silent: true, userId: userId });
       return;
     }
 
+    if (wrongUserShell || !cachedOk) {
+      invalidateProfilePaintState("repair-mismatch");
+      lockProfileTarget(userId);
+    }
+
         profileInitialLoadDone = false;
-    main({ force: false });
+    main({ force: true });
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
@@ -3028,6 +3427,17 @@
     var nextViewerId = currentViewer && currentViewer.id ? String(currentViewer.id) : "";
     if (!lastRenderedProfile || !lastRenderedProfile.root) return;
         if (prevViewerId === nextViewerId) return;
+    var targetId = canonicalProfileTargetId();
+    // profileDataLock1: mai ripitturare shell/rank di un utente diverso dall'URL.
+    if (
+      targetId &&
+      String(lastRenderedProfile.userId || "") !== targetId
+    ) {
+      return;
+    }
+    if (!payloadLooksLikeUser(lastRenderedProfile.payload, lastRenderedProfile.userId)) {
+      return;
+    }
     var sig = profileRenderSignature(lastRenderedProfile.userId, lastRenderedProfile.payload, nextViewerId);
     if (sig === lastProfileRenderSignature && lastRenderedProfile.root.querySelector("#vc-user-rankcard-image")) {
       return;
@@ -3118,12 +3528,23 @@
     var id = ev && ev.detail && ev.detail.userId ? String(ev.detail.userId) : "";
     if (!/^\d{17,20}$/.test(id)) return;
     if (!parseProfileId()) return;
-    loadProfile({ silent: true });
+    // profileDataLock1: cambio peer → wipe stato precedente, fetch solo target URL.
+    lockProfileTarget(id);
+    if (
+      !lastRenderedProfile ||
+      String(lastRenderedProfile.userId || "") !== id ||
+      !payloadLooksLikeUser(lastRenderedProfile.payload || {}, id)
+    ) {
+      invalidateProfilePaintState("id-changed");
+      lockProfileTarget(id);
+    }
+    loadProfile({ silent: true, force: true, userId: id, preserveStaffPane: true });
   });
 
   window.addEventListener("popstate", function () {
     if (!parseProfileId()) return;
     var id = parseProfileId();
+    lockProfileTarget(id);
     if (
       window.VCUserProfileStaffTab &&
       typeof window.VCUserProfileStaffTab.sync === "function"
@@ -3131,7 +3552,15 @@
       var root = byId("vc-user-profile-view");
       window.VCUserProfileStaffTab.sync(id, root);
     }
-    loadProfile({ silent: true });
+    if (
+      !lastRenderedProfile ||
+      String(lastRenderedProfile.userId || "") !== id ||
+      !communityShellLooksReadyFor(byId("vc-user-profile-view"), id)
+    ) {
+      invalidateProfilePaintState("popstate");
+      lockProfileTarget(id);
+    }
+    loadProfile({ silent: true, force: true, userId: id, preserveStaffPane: true });
   });
 
   window.VCUserProfilePage = {
@@ -3158,19 +3587,40 @@
       var heroIdOk = false;
       try {
         var idEl = shell && shell.querySelector(".vc-user-profile-id");
-        heroIdOk = Boolean(idEl && String(idEl.textContent || "").indexOf(id) !== -1);
+        heroIdOk = Boolean(
+          idEl && /^\d{17,20}$/.test(id) && String(idEl.textContent || "").indexOf(id) !== -1,
+        );
       } catch (eHero) {
         heroIdOk = false;
       }
+      var rankImg = byId("vc-user-rankcard-image");
+      var rankFor = rankImg ? String(rankImg.getAttribute("data-vc-rank-for") || "").trim() : "";
+      var rankMismatch = Boolean(rankFor && rankFor !== id);
       var shellReallyOk = Boolean(shell && shellUser === id && !shellStale && heroIdOk);
+
+      // profileDataLock1: shell ok ma rank di un altro utente → forza reload rank (mai lasciare mix).
+      if (shellReallyOk && !wipe && rankMismatch) {
+        try {
+          lastRankPreviewUserId = "";
+          lastRankPreviewLoadedAt = 0;
+          profileRankRenderToken += 1;
+          if (rankImg) {
+            rankImg.removeAttribute("src");
+            rankImg.removeAttribute("data-vc-rank-for");
+            setRankCardPreviewReady(rankImg, false);
+          }
+        } catch (eRankWipe) {}
+        loadProfileRankCardPreview(id, { force: true });
+      }
 
       if (shellReallyOk && !wipe) {
         try {
-          document.documentElement.classList.remove("vc-user-profile-staff-tab-pending");
-          if (document.body) {
-            document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
-          }
-        } catch (eClsOk) {}
+          finishCommunitySwitchPaint(id);
+        } catch (eClsOk) {
+          try {
+            document.documentElement.classList.remove("vc-user-profile-comm-switch");
+          } catch (eGateOk) {}
+        }
         try {
           shell.hidden = false;
           shell.removeAttribute("data-vc-community-stale");
@@ -3179,32 +3629,42 @@
           shell.style.removeProperty("visibility");
         } catch (eShow) {}
         loadProfileRankCardPreview(id, { force: true });
-        try {
-          document.documentElement.classList.remove("vc-user-profile-comm-switch");
-        } catch (eGateOk) {}
         return true;
       }
 
       function paintFromPayload(payload) {
         if (paintSeq !== communityPaintSeq) return false;
         if (lockedCommunityUserId && lockedCommunityUserId !== id) return false;
+        if (parseProfileId() && parseProfileId() !== id) return false;
+        var bound = withExplicitUserId(payload, id);
+        if (!payloadLooksLikeUser(bound, id)) return false;
         lastProfileRenderSignature = "";
-        lastRenderedProfile = { root: root, userId: id, payload: payload };
+        lastRenderedProfile = { root: root, userId: id, payload: bound };
                 profileRankRenderToken += 1;
         lastRankPreviewUserId = "";
         lastRankPreviewLoadedAt = 0;
-        renderProfile(root, id, payload, { skipStaffSync: true, communityOnly: true });
+        profileInitialLoadDone = true;
+        profileBootSettled = true;
+        renderProfile(root, id, bound, { skipStaffSync: true, communityOnly: true });
         loadProfileRankCardPreview(id, { force: true });
         try {
-          document.documentElement.classList.remove("vc-user-profile-comm-switch");
-        } catch (eGate) {}
+          finishCommunitySwitchPaint(id);
+        } catch (eGate) {
+          try {
+            document.documentElement.classList.remove("vc-user-profile-comm-switch");
+          } catch (eGate2) {}
+        }
         return true;
       }
 
-            if (
+      // Con wipe (es. staff→community) non riusare lastRenderedProfile in memoria:
+      // può essere sporco / del viewer. Preferisci cache per-id o fetch.
+      if (
+        !wipe &&
         lastRenderedProfile &&
         String(lastRenderedProfile.userId || "") === id &&
-        lastRenderedProfile.payload
+        lastRenderedProfile.payload &&
+        payloadLooksLikeUser(withExplicitUserId(lastRenderedProfile.payload, id), id)
       ) {
         try {
           if (paintFromPayload(lastRenderedProfile.payload)) return true;
@@ -3215,30 +3675,41 @@
         var cachedOut = readCachedProfileBundle(id);
         var cachedBody = cachedOut && cachedOut.body ? cachedOut.body : null;
         if (cachedOut && cachedOut.httpOk && cachedBody && cachedBody.ok && !cachedBody.notFound) {
-          var payload = {
-            profile: cachedBody.profile || {},
-            level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : {},
-            weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : {},
-            messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : {},
-            voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : {},
-          };
-          if (paintFromPayload(payload)) return true;
+          var payload = withExplicitUserId(
+            {
+              profile: cachedBody.profile || {},
+              level: cachedBody.rows && cachedBody.rows.level ? cachedBody.rows.level : {},
+              weekly: cachedBody.rows && cachedBody.rows.weekly ? cachedBody.rows.weekly : {},
+              messages: cachedBody.rows && cachedBody.rows.messages ? cachedBody.rows.messages : {},
+              voice: cachedBody.rows && cachedBody.rows.voice ? cachedBody.rows.voice : {},
+              userId: id,
+            },
+            id,
+          );
+          // profileSwitchFix1 / profileDataLock1: mai forzare userId su cache ambigua/sbagliata.
+          // staffCommSwitch2: withExplicitUserId ancora solo se profile/level erano del fetch id.
+          if (payloadLooksLikeUser(payload, id) && paintFromPayload(payload)) return true;
         }
       } catch (eCache) {}
 
             try {
         lastProfileRenderSignature = "";
-        if (
-          lastRenderedProfile &&
-          String(lastRenderedProfile.userId || "") !== id
-        ) {
-          lastRenderedProfile = null;
-        }
+        lastRenderedProfile = null;
         profileRankRenderToken += 1;
         lastRankPreviewUserId = "";
         lastRankPreviewLoadedAt = 0;
         profileInitialLoadDone = false;
-        renderLoading(root, { force: true });
+        // staffCommSwitch2: reset boot settled altrimenti finally/watchdog spengono il loader a vuoto.
+        profileBootSettled = false;
+        try {
+          window.__VC_PROFILE_PREFETCH_RESULT = null;
+        } catch (eClrPref) {}
+        try {
+          document.documentElement.classList.add("vc-user-profile-comm-switch");
+        } catch (eGateOn) {}
+        // communityStaffSwitchFlash1: loader senza distruggere il pane staff
+        renderLoading(root, { force: true, preserveStaffPane: true });
+        armProfilePendingWatchdog();
       } catch (eLoad) {}
 
             try {
@@ -3248,7 +3719,7 @@
         }
       } catch (eCls) {}
 
-      loadProfile({ silent: false, force: true, userId: id });
+      loadProfile({ silent: false, force: true, userId: id, preserveStaffPane: true });
       return false;
     },
     lockCommunityUser: function (userId) {
@@ -3257,5 +3728,11 @@
     unlockCommunityUser: function () {
       lockedCommunityUserId = "";
     },
+    // profileDataLock1: esposto per assert/test
+    profileDomAligned: function (userId) {
+      return profileShellAndRankAligned(byId("vc-user-profile-view"), userId || parseProfileId());
+    },
+    // staffCommSwitch2
+    finishCommunitySwitch: finishCommunitySwitchPaint,
   };
 })();

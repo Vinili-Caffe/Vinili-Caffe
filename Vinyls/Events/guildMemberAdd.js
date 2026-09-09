@@ -60,11 +60,12 @@ const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
 const VOTE_ROLE_ID = IDs.roles.Voter;
+const { resolveVoteRoleIdForGuild } = require("../Utils/Community/resolveVoteRoleId");
 const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 const VOTE_ROLE_EXPIRES_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.expiresAt`;
 const VOTE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [IDs.roles.VIP, IDs.roles.ServerBooster, IDs.roles.DoubleBooster, IDs.roles.Level50].filter(Boolean);
-const INVITE_REWARD_TIERS = [{ target: 5, roleIds: [IDs.roles.Promoter, IDs.roles.PicPerms || "1468938195348754515",].filter(Boolean), }, { target: 25, roleIds: [IDs.roles.Propulsor].filter(Boolean), }, { target: 100, roleIds: [IDs.roles.Catalyst].filter(Boolean), },];
+const INVITE_REWARD_TIERS = [{ target: 5, roleIds: [IDs.roles.Promoter, IDs.roles.PicPerms || "1544830789760454759",].filter(Boolean), }, { target: 25, roleIds: [IDs.roles.Propulsor].filter(Boolean), }, { target: 100, roleIds: [IDs.roles.Catalyst].filter(Boolean), },];
 const INVITE_MILESTONE_EMBED_COLOR = 0x9b59b6;
 
 function shortInviteLinkForFooter() {
@@ -468,7 +469,7 @@ function buildWelcomeEmbed(member) {
     )
     .setDescription(
       `__${uname}__ ${word} nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
-      "<:VC_addperson:1485419347068588073> Usa il comando [profilo sul sito](https://www.viniliecaffe.it/personalizza/) in <#1442569138114662490> per **personalizzare il tuo profilo**\n",
+      "<:VC_addperson:1485419347068588073> [Vai sul sito](https://www.viniliecaffe.it/personalizza/) per **personalizzare il tuo profilo**\n",
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined)
     .setImage(DIVIDER_URL)
@@ -1293,7 +1294,7 @@ function isCustomRoleDocActive(doc) {
 }
 
 async function restoreDiscadiaVoteRoleOnRejoin(member) {
-  if (!member?.guild || !member?.id || !VOTE_ROLE_ID) return;
+  if (!member?.guild || !member?.id) return;
   const guildId = String(member.guild.id);
   if (String(guildId) !== String(IDs.guilds.main || "")) return;
   try {
@@ -1315,16 +1316,18 @@ async function restoreDiscadiaVoteRoleOnRejoin(member) {
   const expiresAtMs = expiresAt.getTime();
   if (expiresAtMs <= now) return;
   if (expiresAtMs - now > VOTE_RESTORE_WINDOW_MS) return;
-  if (member.roles.cache.has(VOTE_ROLE_ID)) return;
+  const resolvedVoteRoleId = (await resolveVoteRoleIdForGuild(member.guild).catch(() => "")) || VOTE_ROLE_ID;
+  if (!resolvedVoteRoleId) return;
+  if (member.roles.cache.has(resolvedVoteRoleId)) return;
 
   const me = member.guild.members.me;
   if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles)) return;
-  const role = await getGuildRoleCached(member.guild, VOTE_ROLE_ID);
+  const role = await getGuildRoleCached(member.guild, resolvedVoteRoleId);
   if (!role) return;
   if (role.position >= me.roles.highest.position) return;
 
-  const refreshed = await addRolesAndGetMember(member.guild, member.id, [VOTE_ROLE_ID]).catch(() => null);
-  if (!refreshed?.roles?.cache?.has?.(VOTE_ROLE_ID)) return;
+  const refreshed = await addRolesAndGetMember(member.guild, member.id, [resolvedVoteRoleId]).catch(() => null);
+  if (!refreshed?.roles?.cache?.has?.(resolvedVoteRoleId)) return;
 }
 
 async function restoreCustomRoleOnRejoin(member) {

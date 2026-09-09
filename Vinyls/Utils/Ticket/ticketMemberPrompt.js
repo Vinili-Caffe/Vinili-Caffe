@@ -115,6 +115,7 @@ async function handleTicketMemberPromptMessage(message) {
     await editTicketMemberOverwrite(message.channel, targetId, {
       ViewChannel: true,
       SendMessages: true,
+      UseApplicationCommands: true,
     });
     clearTicketMemberPrompt(message.guild.id, message.author.id);
     await message.delete().catch(() => {});

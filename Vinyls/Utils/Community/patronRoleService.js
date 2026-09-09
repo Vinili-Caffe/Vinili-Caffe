@@ -2,7 +2,7 @@ const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnouncementGate");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { applyPronounGenderToEmbedForMember } = require("./pronounGenderUtils");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
@@ -74,11 +74,17 @@ async function resolveSupportersChannel(guild) {
 
 async function sendPatronRoleAnnounce(member, channel) {
   if (!PATRON_ROLE_ID || !channel?.isTextBased?.()) return false;
-  const prereqMentions = PATRON_PREREQUISITE_ROLE_IDS.map((id) => `<@&${id}>`).join(", ");
+  const guild = member?.guild;
+  const patronRoleMention = guild?.roles?.cache?.get(PATRON_ROLE_ID)
+    ? `<@&${PATRON_ROLE_ID}>`
+    : "il tuo ruolo Patron";
+  const prereqMentions = PATRON_PREREQUISITE_ROLE_IDS.map((id) =>
+    guild?.roles?.cache?.get(id) ? `<@&${id}>` : "un prerequisito",
+  ).join(", ");
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
-      name: accountUsername(member),
+      name: memberDisplayName(member),
       iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined,
     })
     .setTitle("Nuovx Patron <a:VC_StarPink:1330194976440848500>")
@@ -86,7 +92,7 @@ async function sendPatronRoleAnnounce(member, channel) {
     .setDescription(
       [
         `<@${member.id}>, \`hai sbloccato:\``,
-        `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${PATRON_ROLE_ID}>!`,
+        `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo ${patronRoleMention}!`,
         "<:VC_Dot:1482532364222595303> - Possibilità di **scrivere in gigante**",
         "",
         `<a:VC_Arrow:1482706699365257397> Hai completato i ruoli ${prereqMentions}.`,

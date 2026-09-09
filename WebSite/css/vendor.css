@@ -1,5 +1,18 @@
+/* 20260907cursorAnim3 */
+:root{--vc-cursor-default:url("/images/musicrecordspin-cursor-anim-v3.gif") 12 12, auto;--vc-cursor-pointer:url("/images/coffe-cursor-anim-v3.gif") 9 11, pointer;}
+/**
+ *  ------------------------------------------------------------------
+ *  TOC:
+ *  01. Core Owl Carousel CSS File
+ *  02. Magnific Popup CSS
+ *
+ * =================================================================== 
+ */
 
+/* 
+ */
 
+/* clearfix */
 .owl-carousel .owl-wrapper:after {
 	content: ".";
 	display: block;
@@ -9,6 +22,7 @@
 	height: 0;
 }
 
+/* display none until init */
 .owl-carousel {
 	display: none;
 	position: relative;
@@ -36,7 +50,7 @@
 	float: left;
 }
 .owl-controls .owl-page, .owl-controls .owl-buttons div {
-	cursor: pointer;
+	cursor: var(--vc-cursor-pointer);
 }
 .owl-controls {
 	-webkit-user-select: none;
@@ -47,10 +61,12 @@
 	-webkit-tap-highlight-color: transparent;
 }
 
+/* mouse grab icon */
 .grabbing {
 	cursor: url(grabbing.png) 8 8, move;
 }
 
+/* fix */
 .owl-carousel .owl-wrapper, .owl-carousel .owl-item {
 	-webkit-backface-visibility: hidden;
 	-moz-backface-visibility: hidden;
@@ -60,6 +76,10 @@
 	-ms-transform: translate3d(0, 0, 0);
 }
 
+/* 
+ *  Owl Carousel CSS3 Transitions 
+ *  v1.3.2
+ */
 .owl-origin {
 	-webkit-perspective: 1200px;
 	-webkit-perspective-origin-x: 50%;
@@ -70,6 +90,7 @@
 	perspective: 1200px;
 }
 
+/* fade */
 .owl-fade-out {
 	z-index: 10;
 	-webkit-animation: fadeOut .7s both ease;
@@ -82,6 +103,7 @@
 	animation: fadeIn .7s both ease;
 }
 
+/* backSlide */
 .owl-backSlide-out {
 	-webkit-animation: backSlideOut 1s both ease;
 	-moz-animation: backSlideOut 1s both ease;
@@ -93,6 +115,7 @@
 	animation: backSlideIn 1s both ease;
 }
 
+/* goDown */
 .owl-goDown-out {
 	-webkit-animation: scaleToFade .7s ease both;
 	-moz-animation: scaleToFade .7s ease both;
@@ -104,6 +127,7 @@
 	animation: goDown .6s ease both;
 }
 
+/* scaleUp */
 .owl-fadeUp-in {
 	-webkit-animation: scaleUpFrom .5s ease both;
 	-moz-animation: scaleUpFrom .5s ease both;
@@ -115,6 +139,9 @@
 	animation: scaleUpTo .5s ease both;
 }
 
+/* Keyframes */
+
+/*empty*/
 @-webkit-keyframes empty {
 	0% {
 		opacity: 1;
@@ -332,6 +359,10 @@
 	}
 }
 
+
+/* 
+ *  02. Magnific Popup CSS
+ */
 .mfp-bg {
 	top: 0;
 	left: 0;
@@ -396,7 +427,7 @@
 	cursor: zoom-out;
 }
 .mfp-zoom {
-	cursor: pointer;
+	cursor: var(--vc-cursor-pointer);
 	cursor: -webkit-zoom-in;
 	cursor: -moz-zoom-in;
 	cursor: zoom-in;
@@ -440,7 +471,7 @@
 }
 button.mfp-close, button.mfp-arrow {
 	overflow: visible;
-	cursor: pointer;
+	cursor: var(--vc-cursor-pointer);
 	background: transparent;
 	border: 0;
 	-webkit-appearance: none;
@@ -589,6 +620,7 @@ button::-moz-focus-inner {
 	background: #000;
 }
 
+/* Main image in popup */
 img.mfp-img {
 	width: auto;
 	max-width: 100%;
@@ -602,6 +634,7 @@ img.mfp-img {
 	margin: 0 auto;
 }
 
+/* The shadow behind the image */
 .mfp-figure {
 	line-height: 0;
 }
@@ -647,10 +680,13 @@ img.mfp-img {
 	max-width: 100%;
 }
 .mfp-gallery .mfp-image-holder .mfp-figure {
-	cursor: pointer;
+	cursor: var(--vc-cursor-pointer);
 }
 @media screen and (max-width:800px) and (orientation:landscape), screen and (max-height:300px) {
 
+	/**
+	     * Remove all paddings around the image on small screen
+	     */
 	.mfp-img-mobile .mfp-image-holder {
 		padding-left: 0;
 		padding-right: 0;

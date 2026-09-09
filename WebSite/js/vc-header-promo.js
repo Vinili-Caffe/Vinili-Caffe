@@ -1,11 +1,112 @@
 (function () {
-  var PROMO_VER = "20260902headerMarqueeFix5";
+  /* candPillNoFlash2: default hidden until eligibility decided (no FOUC for staff) */
+  var PROMO_VER = "20260907candPillNoFlash2";
+  var layoutLock = false;
+  var layoutCooldownUntil = 0;
+  var marqueeSettledUntil = 0;
+  var staffHoldUntil = 0;
 
   function readCfg() {
     try {
       return window.__VC_HEADER_PROMO || null;
     } catch (e) {
       return null;
+    }
+  }
+
+  function hasStaffSiteAccess() {
+    try {
+      if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
+      var p = window.__VC_STAFF_PERMS;
+      if (p && typeof p === "object" && p.ok === true) return true;
+      var raw =
+        sessionStorage.getItem("vc_staff_access_ok_v2") ||
+        localStorage.getItem("vc_staff_access_ok_v2_local");
+      if (raw) {
+        var data = JSON.parse(raw);
+        if (data && data.ok === true && Number(data.exp || 0) > Date.now()) return true;
+      }
+      var menuRaw =
+        sessionStorage.getItem("vc_menu_staff_v1") || localStorage.getItem("vc_menu_staff_local_v1");
+      if (menuRaw) {
+        var menu = JSON.parse(menuRaw);
+        if (menu && menu.allowed === true) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function hasDiscordToken() {
+    try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        var tFn = window.__vcDiscordGetAccessToken();
+        if (tFn) return true;
+      }
+    } catch (eFn) {}
+    try {
+      var t = localStorage.getItem("vc_discord_access_token");
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (t && (!exp || Date.now() < exp)) return true;
+    } catch (eTok) {}
+    try {
+      if (window.__VC_DISCORD_PROFILE) return true;
+    } catch (eProf) {}
+    return false;
+  }
+
+  function staffMenuDecisionKnown() {
+    try {
+      if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
+      if (window.__VC_STAFF_MENU_ALLOWED === false) return true;
+      var p = window.__VC_STAFF_PERMS;
+      if (p && typeof p === "object" && p.ok === true) return true;
+      var menuRaw =
+        sessionStorage.getItem("vc_menu_staff_v1") || localStorage.getItem("vc_menu_staff_local_v1");
+      if (menuRaw) {
+        var menu = JSON.parse(menuRaw);
+        if (menu && typeof menu.allowed === "boolean") return true;
+      }
+      var raw =
+        sessionStorage.getItem("vc_staff_access_ok_v2") ||
+        localStorage.getItem("vc_staff_access_ok_v2_local");
+      if (raw) {
+        var data = JSON.parse(raw);
+        if (data && data.ok === true && Number(data.exp || 0) > Date.now()) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  /* Logged-in + staff check still in flight → keep pill hidden (no flash then hide). */
+  function shouldHoldCandidatureReveal() {
+    if (hasStaffSiteAccess()) return true;
+    if (!hasDiscordToken()) return false;
+    if (staffMenuDecisionKnown()) return false;
+    if (!staffHoldUntil) staffHoldUntil = Date.now() + 4500;
+    if (Date.now() > staffHoldUntil) return false;
+    return true;
+  }
+
+  function setPromoHidden(btn, hidden) {
+    if (!btn) return;
+    if (hidden) {
+      btn.hidden = true;
+      btn.setAttribute("hidden", "");
+      btn.setAttribute("aria-hidden", "true");
+      btn.classList.add("vc-header-promo-btn--staff-hidden");
+      btn.classList.remove("vc-header-promo-btn--ready");
+      try {
+        btn.style.setProperty("display", "none", "important");
+      } catch (eDisp) {}
+    } else {
+      btn.classList.remove("vc-header-promo-btn--staff-hidden");
+      btn.classList.add("vc-header-promo-btn--ready");
+      btn.removeAttribute("aria-hidden");
+      btn.hidden = false;
+      btn.removeAttribute("hidden");
+      try {
+        btn.style.removeProperty("display");
+      } catch (eDisp2) {}
     }
   }
 
@@ -51,6 +152,16 @@
     return false;
   }
 
+  function isCandidaturePromo(btn) {
+    return !!(btn && btn.classList.contains("vc-header-promo-btn--candidature"));
+  }
+
+  function shouldPromoMarquee(btn) {
+    if (!btn) return false;
+    if (isCandidaturePromo(btn)) return true;
+    return isCompactNav();
+  }
+
   function resolveMode(cfg) {
     var event = cfg && cfg.event;
     if (!event || event.enabled === false) return isEventHeaderPage() ? "" : "candidature";
@@ -92,9 +203,11 @@
       "vc-header-promo-btn--event-marquee-full",
       "vc-header-promo-btn--mobile-marquee",
       "vc-header-promo-btn--candidature-mobile-marquee",
+      "vc-header-promo-btn--candidature-marquee",
     );
     btn.style.removeProperty("--vc-promo-marquee-distance");
     btn.style.removeProperty("--vc-promo-marquee-duration");
+    btn.style.removeProperty("--vc-promo-marquee-gap");
     btn.style.removeProperty("max-width");
 
     var clip = btn.querySelector(".vc-header-promo-btn__clip");
@@ -130,6 +243,7 @@
     return [
       label ? String(label.textContent || "").trim() : "",
       badge ? String(badge.textContent || "").trim() : "",
+      isCandidaturePromo(btn) ? "candidature" : "event",
       isCompactNav() ? "compact" : "wide",
     ].join("|");
   }
@@ -137,61 +251,126 @@
   function promoMarqueeStable(btn) {
     if (!btn || !btn.classList.contains("is-marquee")) return false;
     var track = btn.querySelector(".vc-header-promo-btn__track");
-    if (!track || !track.querySelector(".vc-header-promo-btn__unit.is-clone")) return false;
+    var unit = track && track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
+    if (!track || !unit || !track.querySelector(".vc-header-promo-btn__unit.is-clone")) return false;
     if (promoMarqueeSignature(btn) !== btn.getAttribute("data-vc-promo-marquee-sig")) return false;
     var stored = Number(btn.getAttribute("data-vc-promo-marquee-dist") || 0);
     if (!Number.isFinite(stored) || stored <= 0) return false;
-    void track.offsetWidth;
-    var liveDist = Math.max(Math.round(track.scrollWidth / 2), 36);
-    return Math.abs(liveDist - stored) <= 3;
+    void unit.offsetWidth;
+    var liveDist = Math.max(Math.ceil(unit.getBoundingClientRect().width || 0), 36);
+    // Tolleranza più larga: su /personalizza/ il gate fa oscillare di pochi px e
+    // riavviare normalizePromoDom ferma il marquee (sembra statico).
+    var tol = Date.now() < marqueeSettledUntil ? 18 : 8;
+    return Math.abs(liveDist - stored) <= tol;
+  }
+
+  function schedulePromoRetry(ms) {
+    if (layoutLock) return;
+    if (Date.now() < layoutCooldownUntil) return;
+    var n = Number(window.__vcPromoRetryCount || 0);
+    if (n > 24) return;
+    window.__vcPromoRetryCount = n + 1;
+    var delay = Number(ms);
+    if (!Number.isFinite(delay) || delay < 0) delay = 120;
+    window.clearTimeout(window.__vcPromoRetryT);
+    window.__vcPromoRetryT = window.setTimeout(function () {
+      boot({ layoutOnly: true });
+    }, delay);
   }
 
   function layoutPromoMarquee(btn) {
     if (!btn || btn.hidden) return;
+    if (layoutLock) return;
 
-    if (!isCompactNav()) {
+    if (!shouldPromoMarquee(btn)) {
       normalizePromoDom(btn);
       return;
     }
 
     if (promoMarqueeStable(btn)) return;
 
-    normalizePromoDom(btn);
+    layoutLock = true;
+    try {
+      normalizePromoDom(btn);
 
-    var clip = btn.querySelector(".vc-header-promo-btn__clip");
-    var track = clip && clip.querySelector(".vc-header-promo-btn__track");
-    var unit = track && track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
-    if (!clip || !track || !unit) return;
+      var clip = btn.querySelector(".vc-header-promo-btn__clip");
+      var track = clip && clip.querySelector(".vc-header-promo-btn__track");
+      var unit = track && track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
+      if (!clip || !track || !unit) {
+        schedulePromoRetry(220);
+        return;
+      }
 
-    void btn.offsetWidth;
-    var clipW = Math.floor(clip.getBoundingClientRect().width || clip.clientWidth || 0);
-    var unitW = Math.ceil(unit.scrollWidth || unit.getBoundingClientRect().width || 0);
-    if (unitW <= 0) return;
-    if (!isCompactNav() && unitW <= clipW + 2) return;
+      void btn.offsetWidth;
+      var clipW = Math.floor(clip.getBoundingClientRect().width || clip.clientWidth || 0);
+      var unitW = Math.ceil(unit.scrollWidth || unit.getBoundingClientRect().width || 0);
+      if (unitW <= 0) {
+        // Header spesso display/visibility nascosti sotto gate/loading (es. /personalizza/)
+        schedulePromoRetry(280);
+        return;
+      }
+      if (!isCandidaturePromo(btn) && unitW <= clipW + 2) return;
 
-    var gap = 10;
-    unit.style.paddingInlineEnd = gap + "px";
-    var cloneUnit = unit.cloneNode(true);
-    cloneUnit.classList.add("is-clone");
-    cloneUnit.setAttribute("aria-hidden", "true");
-    track.appendChild(cloneUnit);
+      // Gap fisso via CSS var (stesso su unit + clone). NON usare track.scrollWidth/2
+      // mentre il clone è ancora display:none → distanza errata e loop a scatti.
+      var gap = 16;
+      btn.style.setProperty("--vc-promo-marquee-gap", gap + "px");
+      unit.style.paddingInlineEnd = gap + "px";
+      void unit.offsetWidth;
+      var segment = Math.max(
+        Math.ceil(unit.getBoundingClientRect().width || unit.scrollWidth || unitW + gap),
+        unitW + gap,
+        36,
+      );
 
-    void track.offsetWidth;
-    var distance = Math.max(Math.round(track.scrollWidth / 2), 36);
-    btn.style.setProperty("--vc-promo-marquee-distance", distance + "px");
-    btn.style.setProperty("--vc-promo-marquee-duration", Math.max(5.5, distance / 22) + "s");
-    btn.classList.add("is-marquee");
-    btn.setAttribute("data-vc-promo-marquee-sig", promoMarqueeSignature(btn));
-    btn.setAttribute("data-vc-promo-marquee-dist", String(distance));
+      var cloneUnit = unit.cloneNode(true);
+      cloneUnit.classList.add("is-clone");
+      cloneUnit.setAttribute("aria-hidden", "true");
+      cloneUnit.style.paddingInlineEnd = gap + "px";
+      track.appendChild(cloneUnit);
+
+      btn.style.setProperty("--vc-promo-marquee-distance", segment + "px");
+      // ~28px/s: scorrevole senza essere frenetica
+      var duration = Math.max(6.5, Math.min(18, segment / 28));
+      btn.style.setProperty("--vc-promo-marquee-duration", duration.toFixed(2) + "s");
+      btn.classList.add("is-marquee");
+      if (isCandidaturePromo(btn)) {
+        btn.classList.add("vc-header-promo-btn--candidature-mobile-marquee");
+        btn.classList.add("vc-header-promo-btn--candidature-marquee");
+      }
+      if (isCompactNav()) btn.classList.add("vc-header-promo-btn--mobile-marquee");
+      btn.setAttribute("data-vc-promo-marquee-sig", promoMarqueeSignature(btn));
+      btn.setAttribute("data-vc-promo-marquee-dist", String(segment));
+
+      // Dopo is-marquee il clone diventa visibile: riallinea distanza se il layout è cambiato.
+      void track.offsetWidth;
+      var liveUnit = track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
+      if (liveUnit) {
+        var liveSeg = Math.max(Math.ceil(liveUnit.getBoundingClientRect().width || 0), 36);
+        if (Math.abs(liveSeg - segment) > 2) {
+          btn.style.setProperty("--vc-promo-marquee-distance", liveSeg + "px");
+          btn.setAttribute("data-vc-promo-marquee-dist", String(liveSeg));
+          var liveDur = Math.max(6.5, Math.min(18, liveSeg / 28));
+          btn.style.setProperty("--vc-promo-marquee-duration", liveDur.toFixed(2) + "s");
+        }
+      }
+      layoutCooldownUntil = Date.now() + 1400;
+      marqueeSettledUntil = Date.now() + 4500;
+    } finally {
+      layoutLock = false;
+    }
   }
 
   function applyMode(btn, cfg, mode) {
     if (!btn || !cfg) return;
-    if (!mode) {
-      btn.hidden = true;
-      btn.setAttribute("hidden", "");
+    if (!mode || (mode === "candidature" && (hasStaffSiteAccess() || shouldHoldCandidatureReveal()))) {
+      setPromoHidden(btn, true);
+      if (mode === "candidature" && shouldHoldCandidatureReveal() && !hasStaffSiteAccess()) {
+        scheduleFullBootRetry(220);
+      }
       return;
     }
+    setPromoHidden(btn, false);
     btn.hidden = false;
     btn.removeAttribute("hidden");
     var isEvent = mode === "event";
@@ -226,6 +405,10 @@
     var btn = document.createElement("a");
     btn.className = "vc-header-promo-btn " + modClass;
     btn.id = "vc-header-promo-btn";
+    btn.hidden = true;
+    btn.setAttribute("hidden", "");
+    btn.setAttribute("aria-hidden", "true");
+    btn.classList.add("vc-header-promo-btn--staff-hidden");
     btn.innerHTML =
       '<span class="vc-header-promo-btn__dot" aria-hidden="true"></span>' +
       '<span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track">' +
@@ -258,25 +441,131 @@
     } catch (eMar) {}
   }
 
-  function boot() {
+  function scheduleFullBootRetry(ms) {
+    var n = Number(window.__vcPromoFullRetryCount || 0);
+    if (n > 28) return;
+    window.__vcPromoFullRetryCount = n + 1;
+    var delay = Number(ms);
+    if (!Number.isFinite(delay) || delay < 0) delay = 200;
+    window.clearTimeout(window.__vcPromoFullRetryT);
+    window.__vcPromoFullRetryT = window.setTimeout(function () {
+      boot();
+    }, delay);
+  }
+
+  function boot(opts) {
+    opts = opts || {};
     var cfg = readCfg();
     var mode = cfg ? resolveMode(cfg) : "";
+    var earlyBtn = document.getElementById("vc-header-promo-btn");
+    if (earlyBtn && !earlyBtn.classList.contains("vc-header-promo-btn--ready")) {
+      setPromoHidden(earlyBtn, true);
+    }
+    if (mode === "candidature" && (hasStaffSiteAccess() || shouldHoldCandidatureReveal())) {
+      if (earlyBtn) setPromoHidden(earlyBtn, true);
+      if (!hasStaffSiteAccess() && shouldHoldCandidatureReveal()) {
+        scheduleFullBootRetry(240);
+      }
+      return;
+    }
     var btn = ensurePromoButton(cfg, mode) || document.getElementById("vc-header-promo-btn");
     if (!btn) return;
+    if (opts.layoutOnly) {
+      if (btn.hidden || btn.classList.contains("vc-header-promo-btn--staff-hidden")) return;
+      layoutPromoMarquee(btn);
+      return;
+    }
     if (cfg) applyMode(btn, cfg, mode);
     else layoutPromoMarquee(btn);
     syncBrandMarquee();
   }
 
+  function ensurePromoVisibilityWatch(btn) {
+    if (!btn || btn.__vcPromoRoBound) return;
+    btn.__vcPromoRoBound = true;
+    try {
+      if (typeof ResizeObserver === "function") {
+        var ro = new ResizeObserver(function () {
+          if (layoutLock || Date.now() < layoutCooldownUntil) return;
+          if (promoMarqueeStable(btn)) return;
+          schedulePromoRetry(160);
+        });
+        ro.observe(btn);
+        btn.__vcPromoRo = ro;
+      }
+    } catch (eRo) {}
+    try {
+      if (typeof IntersectionObserver === "function") {
+        var io = new IntersectionObserver(
+          function (entries) {
+            var hit = false;
+            for (var i = 0; i < entries.length; i += 1) {
+              if (entries[i] && entries[i].isIntersecting && entries[i].intersectionRatio > 0) {
+                hit = true;
+                break;
+              }
+            }
+            if (!hit) return;
+            if (layoutLock || Date.now() < layoutCooldownUntil) return;
+            if (promoMarqueeStable(btn)) return;
+            schedulePromoRetry(120);
+          },
+          { root: null, threshold: [0, 0.01, 1] },
+        );
+        io.observe(btn);
+        btn.__vcPromoIo = io;
+      }
+    } catch (eIo) {}
+  }
+
   function scheduleBootPasses() {
+    var pre = document.getElementById("vc-header-promo-btn");
+    if (pre) setPromoHidden(pre, true);
     boot();
-    [180, 450, 1200, 2400].forEach(function (ms) {
+    var btn0 = document.getElementById("vc-header-promo-btn");
+    if (btn0) ensurePromoVisibilityWatch(btn0);
+    [180, 450, 900, 1200, 2400, 3600, 5200, 8000].forEach(function (ms) {
       window.setTimeout(function () {
         var btn = document.getElementById("vc-header-promo-btn");
+        if (btn) ensurePromoVisibilityWatch(btn);
+        if (shouldHoldCandidatureReveal() || hasStaffSiteAccess()) {
+          boot();
+          return;
+        }
         if (btn && promoMarqueeStable(btn)) return;
-        boot();
+        if (btn && (btn.hidden || btn.classList.contains("vc-header-promo-btn--staff-hidden"))) {
+          boot();
+          return;
+        }
+        boot({ layoutOnly: true });
       }, ms);
     });
+    watchPersonalizzaGate();
+  }
+
+  function watchPersonalizzaGate() {
+    if (window.__vcPromoGateWatch) return;
+    window.__vcPromoGateWatch = true;
+    try {
+      var root = document.documentElement;
+      if (!root || typeof MutationObserver !== "function") return;
+      var mo = new MutationObserver(function () {
+        var pending =
+          root.classList.contains("vc-rank-customize-pending") ||
+          root.classList.contains("vc-custom-profile-pending");
+        if (pending) return;
+        if (!root.classList.contains("vc-styles-ready") && !root.classList.contains("vc-page-cine-ready")) {
+          return;
+        }
+        window.clearTimeout(window.__vcPromoGateBootT);
+        window.__vcPromoGateBootT = window.setTimeout(function () {
+          window.__vcPromoRetryCount = 0;
+          boot({ layoutOnly: true });
+          syncBrandMarquee();
+        }, 180);
+      });
+      mo.observe(root, { attributes: true, attributeFilter: ["class"] });
+    } catch (eMo) {}
   }
 
   if (document.readyState === "loading") {
@@ -288,6 +577,25 @@
     window.setTimeout(boot, 80);
   });
   window.addEventListener("vc:langchange", boot);
+  window.addEventListener("vc:auth-logout", function () {
+    staffHoldUntil = 0;
+    window.__vcPromoFullRetryCount = 0;
+    boot();
+  });
+  window.addEventListener("vc:discord-auth", function () {
+    staffHoldUntil = 0;
+    window.__vcPromoFullRetryCount = 0;
+    boot();
+  });
+  window.addEventListener("vc-discord-auth-ready", function () {
+    boot();
+  });
+  window.addEventListener("vc-discord-profile", function () {
+    boot();
+  });
+  window.addEventListener("vc:staff-access-ok", function () {
+    boot();
+  });
   window.addEventListener(
     "resize",
     function () {

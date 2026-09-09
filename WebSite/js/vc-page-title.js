@@ -3,6 +3,7 @@
 
   var DEFAULT_BRAND = "Vinili & Caffè";
   var SEP = " | ";
+  /* titleNoDupBrand1 */
 
   function siteBrandName() {
     try {
@@ -56,6 +57,8 @@
     var brand = String(brandOpt || siteBrandName()).trim() || DEFAULT_BRAND;
     var cleaned = stripDecorations(pageOrFull);
     if (!cleaned) return brand;
+    /* titleNoDupBrand1: mai "Brand | Brand" / brand-only → solo brand */
+    if (isBrandLabel(cleaned, brand)) return brand;
 
     var pipe = cleaned.indexOf("|");
     var left;
@@ -64,6 +67,7 @@
       left = cleaned.slice(0, pipe).trim();
       right = polishPageLabel(cleaned.slice(pipe + 1));
       if (!right && !left) return brand;
+      if (isBrandLabel(left, brand) && isBrandLabel(right, brand)) return brand;
       if (isBrandLabel(right, brand) && !isBrandLabel(left, brand)) {
         return brand + SEP + polishPageLabel(left);
       }
@@ -79,6 +83,7 @@
       left = cleaned.slice(0, dash).trim();
       right = polishPageLabel(cleaned.slice(dash).replace(/^\s+[-–—]\s+/, ""));
       if (right && isBrandLabel(left, brand)) {
+        if (isBrandLabel(right, brand)) return brand;
         return brand + SEP + right;
       }
     }

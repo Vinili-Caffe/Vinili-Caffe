@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { wasRoleRestoredByMuteMirror } = require("../../Services/Moderation/mutedMirrorRoleService");
 const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils");
@@ -130,7 +130,7 @@ function buildDonationPackageEmbed(tier, member, isPurchase = false) {
   }
 
   return new EmbedBuilder()
-    .setAuthor({ name: accountUsername(member), iconURL: avatarUrl || undefined })
+    .setAuthor({ name: memberDisplayName(member), iconURL: avatarUrl || undefined })
     .setDescription(perkBlock)
     .setColor("#6f4e37")
     .setThumbnail(avatarUrl || null)

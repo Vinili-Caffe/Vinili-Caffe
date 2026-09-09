@@ -15,6 +15,9 @@ const {
   alwaysAccessStaffThreadRoleIds,
 } = require("../../Utils/Staff/staffThreadQualification");
 const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess");
+const { resolveExistingStaffThread } = require("../../Utils/Staff/staffManagedThreadResolve");
+
+let ensureChatThreadsPromise = null;
 
 const STAFF_CHAT_THREAD_SPECS = [
   {
@@ -208,16 +211,15 @@ async function createStaffChatThread(parent, guild, spec) {
 }
 
 async function ensureStaffChatThread(client, guild, parent, spec, savedId) {
-  const parentId = String(parent.id);
-  if (savedId) {
-    const existing =
-      client.channels?.cache?.get(savedId) || (await client.channels.fetch(savedId).catch(() => null));
-    if (existing?.isThread?.() && String(existing.parentId || "") === parentId) {
-      return existing;
+  const logTag = "[STAFF CHAT THREAD]";
+  const existing = await resolveExistingStaffThread(client, parent, spec.name, savedId, logTag);
+  if (existing) {
+    if (String(existing.id) !== String(savedId || "")) {
+      await setStaffChatThreadId(spec.key, existing.id);
     }
-    await deleteThreadIfAny(client, savedId);
-    await setStaffChatThreadId(spec.key, null);
+    return existing;
   }
+
   const thread = await createStaffChatThread(parent, guild, spec);
   if (!thread) return null;
   await setStaffChatThreadId(spec.key, thread.id);
@@ -242,7 +244,7 @@ async function retireStaffChatHubMessage(parent) {
   }
 }
 
-async function ensureStaffChatThreadsOnReady(client) {
+async function ensureStaffChatThreadsOnReadyImpl(client) {
   const guildId = String(IDs.guilds?.main || "");
   const parentId = String(IDs.channels?.staffChat || "").trim();
   if (!guildId || !parentId) {
@@ -274,6 +276,14 @@ async function ensureStaffChatThreadsOnReady(client) {
     }
   }
   await retireStaffChatHubMessage(parent);
+}
+
+function ensureStaffChatThreadsOnReady(client) {
+  if (ensureChatThreadsPromise) return ensureChatThreadsPromise;
+  ensureChatThreadsPromise = ensureStaffChatThreadsOnReadyImpl(client).finally(() => {
+    ensureChatThreadsPromise = null;
+  });
+  return ensureChatThreadsPromise;
 }
 
 async function syncStaffChatThreadsForMemberChange(oldMember, newMember) {

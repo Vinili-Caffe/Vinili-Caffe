@@ -1,6 +1,12 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { accountUsername, memberDisplayName, userAvatarUrlDynamic, discordDefaultAvatarUrl } = require("../Discord/guildDiscordIdentity");
+const {
+  accountUsername,
+  memberDisplayName,
+  userAvatarUrlDynamic,
+  guildMemberDisplayAvatarUrlForSite,
+  discordDefaultAvatarUrl,
+} = require("../Discord/guildDiscordIdentity");
 const { summarizeModActionsByModWindows } = require("../Moderation/modCaseStore");
 const {
   computeConsumedPauseDays,
@@ -32,15 +38,20 @@ const { resolveSerataFilmAttendanceForWeek } = require("../Staff/serataFilmAtten
 const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../Staff/staffLegacyMerge");
 const { isHiddenManualStaffCareerReason } = require("../Staff/staffTrackHistory");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
-const { fetchWebsiteGuildMember, readCachedWebsiteMember } = require("./websiteGuildMemberFetch");
+const {
+  fetchWebsiteGuildMember,
+  readCachedWebsiteMember,
+  clearWebsiteMemberCaches,
+} = require("./websiteGuildMemberFetch");
 const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi");
 
 const PROFILE_CACHE_TTL_MS = 120_000;
 const PROFILE_STALE_CACHE_MS = 15 * 60 * 1000;
 const PROFILE_CACHE_MAX = 200;
 const profileCache = new Map();
-const PROFILE_PAYLOAD_VERSION = 21;
-const STAFF_MEMBER_SOFT_TIMEOUT_MS = 2800;
+const PROFILE_PAYLOAD_VERSION = 22;
+const STAFF_MEMBER_SOFT_TIMEOUT_MS = 8000;
+const STAFF_MEMBER_HARD_TIMEOUT_MS = 14000;
 const STAFF_LEGACY_SOFT_TIMEOUT_MS = 350;
 
 function stripDiscordDecorations(text) {
@@ -258,20 +269,59 @@ function humanizeRoleKey(key) {
     .trim();
 }
 
+let _roleIdRemapCache = null;
+function loadRoleIdRemap() {
+  if (_roleIdRemapCache) return _roleIdRemapCache;
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const fp = path.join(__dirname, "../../Data/roleIdRemap.emergency.json");
+    const raw = JSON.parse(fs.readFileSync(fp, "utf8"));
+    const forward = raw?.idRemap && typeof raw.idRemap === "object" ? raw.idRemap : {};
+    const reverse = {};
+    for (const [oldId, newId] of Object.entries(forward)) {
+      const o = String(oldId || "").trim();
+      const n = String(newId || "").trim();
+      if (o && n) reverse[n] = o;
+    }
+    _roleIdRemapCache = { forward, reverse };
+  } catch (_) {
+    _roleIdRemapCache = { forward: {}, reverse: {} };
+  }
+  return _roleIdRemapCache;
+}
+
+function resolveCanonicalRoleId(roleId) {
+  const raw = String(roleId || "").trim();
+  if (!/^\d{16,22}$/.test(raw)) return raw;
+  const { forward } = loadRoleIdRemap();
+  const mapped = String(forward[raw] || "").trim();
+  return mapped && /^\d{16,22}$/.test(mapped) ? mapped : raw;
+}
+
+function roleKeyFromId(roleId) {
+  const raw = resolveCanonicalRoleId(roleId);
+  const roles = IDs.roles || {};
+  for (const [key, val] of Object.entries(roles)) {
+    if (String(val) === raw) return key;
+  }
+  return null;
+}
+
 function roleNameFromId(guild, roleIdOrName) {
   const raw = String(roleIdOrName || "").trim();
   if (!raw || raw === "—" || raw === "-") return "—";
   if (!/^\d{16,22}$/.test(raw)) {
     return stripDiscordDecorations(raw) || raw;
   }
-  const live = guild?.roles?.cache?.get(raw)?.name;
+  const canonical = resolveCanonicalRoleId(raw);
+  const live =
+    guild?.roles?.cache?.get(canonical)?.name || guild?.roles?.cache?.get(raw)?.name;
   if (live) return stripDiscordDecorations(live) || live;
-  const roles = IDs.roles || {};
-  for (const [key, val] of Object.entries(roles)) {
-    if (String(val) === raw) {
-      const label = humanizeRoleKey(key);
-      return label || raw;
-    }
+  const key = roleKeyFromId(canonical) || roleKeyFromId(raw);
+  if (key) {
+    const label = humanizeRoleKey(key);
+    return label || raw;
   }
   return raw;
 }
@@ -285,12 +335,9 @@ function normalizeCareerRoleToken(value) {
     .trim();
   if (!s) return "";
   if (/^\d{16,22}$/.test(s)) {
-    const roles = IDs.roles || {};
-    for (const [key, val] of Object.entries(roles)) {
-      if (String(val) === s) {
-        s = humanizeRoleKey(key).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-        break;
-      }
+    const key = roleKeyFromId(s);
+    if (key) {
+      s = humanizeRoleKey(key).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     }
   }
   const aliases = {
@@ -612,7 +659,14 @@ async function resolveStaffProfileAvatarUrl(client, guild, member, user, userId)
   let avatarSubject = member;
   let targetUser = member?.user || user || null;
 
-    const fromMember =
+  // avatarAnimRestore1: preferisci GIF sito (guild → user), non PNG embed-static.
+  const fromSite = guildMemberDisplayAvatarUrlForSite(avatarSubject || targetUser, {
+    size: 256,
+    preferAnimated: true,
+  });
+  if (fromSite) return fromSite;
+
+  const fromMember =
     avatarSubject?.avatar != null && avatarSubject.avatar !== ""
       ? userAvatarUrlDynamic(avatarSubject, { size: 256 })
       : null;
@@ -669,6 +723,7 @@ async function buildProspectProfilePayloadForWeb(client, member, user, viewerMem
   const username = accountUsername(targetUser) || accountUsername(member) || userId;
   const displayName = memberDisplayName(member, targetUser) || username;
   const avatarUrl = await resolveStaffProfileAvatarUrl(client, guild, member, targetUser, userId);
+  const avatarHash = String(targetUser?.avatar || member?.user?.avatar || "").trim();
   return {
     ok: true,
     prospect: true,
@@ -678,6 +733,7 @@ async function buildProspectProfilePayloadForWeb(client, member, user, viewerMem
       username,
       displayName,
       avatarUrl,
+      ...(avatarHash ? { avatar: avatarHash } : {}),
     },
     pexOptions: buildProspectPexOptions(viewerMember),
   };
@@ -813,6 +869,9 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
       displayName,
       username,
       avatarUrl,
+      ...(String(targetUser?.avatar || member?.user?.avatar || "").trim()
+        ? { avatar: String(targetUser?.avatar || member?.user?.avatar || "").trim() }
+        : {}),
     },
     role: {
       label: roleLabel,
@@ -904,6 +963,7 @@ async function handleSiteStaffProfileGet(client, req, res) {
       String(req.query?.fresh || req.query?.nocache || "").trim().toLowerCase() === "true";
     if (wantFresh) {
       clearStaffProfileCacheForUser(targetUserId);
+      clearWebsiteMemberCaches(targetUserId);
     }
 
     const cached = wantFresh ? null : readProfileCache(viewerUserId, targetUserId);
@@ -927,19 +987,27 @@ async function handleSiteStaffProfileGet(client, req, res) {
           message: "Server Discord temporaneamente non disponibile.",
         });
       }
-      const cachedMember =
-        guild.members.cache.get(targetUserId) || readCachedWebsiteMember(targetUserId) || null;
+      const cachedMember = wantFresh
+        ? null
+        : guild.members.cache.get(targetUserId) || readCachedWebsiteMember(targetUserId) || null;
             if (cachedMember) {
         targetMember = cachedMember;
       } else {
-        targetMember = await fetchWebsiteGuildMember(guild, targetUserId, {
-          timeoutMs: STAFF_MEMBER_SOFT_TIMEOUT_MS,
-          retry: true,
-        }).catch(() => null);
+        // Soft probe first (no negative-cache poison). Fresh/Riprova skips straight to hard+force.
+        if (!wantFresh) {
+          targetMember = await fetchWebsiteGuildMember(guild, targetUserId, {
+            timeoutMs: STAFF_MEMBER_SOFT_TIMEOUT_MS,
+            retry: true,
+            soft: true,
+          }).catch(() => null);
+        }
                 if (!targetMember) {
-          fetchWebsiteGuildMember(guild, targetUserId, {
-            timeoutMs: 10_000,
-            retry: false,
+          // Await a longer resolve before 503 — fire-and-forget left peer switches empty.
+          targetMember = await fetchWebsiteGuildMember(guild, targetUserId, {
+            timeoutMs: STAFF_MEMBER_HARD_TIMEOUT_MS,
+            retry: true,
+            soft: true,
+            force: Boolean(wantFresh),
           }).catch(() => null);
         }
       }

@@ -3,6 +3,7 @@ const IDs = require("../Config/ids");
 const { getResocontoReviewerUserIdsForSegment } = require("../Staff/resocontoAccess");
 
 const { getPartnerManagerRoleId } = require("../Partner/partnershipConfigResolver");
+const { memberHasRoleId, memberHasConfiguredRole } = require("../Staff/staffRoleHierarchy");
 const {
   applyTicketStaffRoleOverwrites,
   buildTicketMemberCreateOverwrite,
@@ -24,6 +25,7 @@ const PARTNERSHIP_TICKET_REVIEWER_ALLOW = [
   PermissionFlagsBits.AttachFiles,
   PermissionFlagsBits.ReadMessageHistory,
   PermissionFlagsBits.AddReactions,
+  PermissionFlagsBits.UseApplicationCommands,
 ];
 
 const PARTNERSHIP_TICKET_REVIEWER_OVERWRITES = Object.freeze({
@@ -33,6 +35,7 @@ const PARTNERSHIP_TICKET_REVIEWER_OVERWRITES = Object.freeze({
   EmbedLinks: true,
   AttachFiles: true,
   AddReactions: true,
+  UseApplicationCommands: true,
 });
 
 function buildPartnershipTicketReviewerCreateOverwrites() {
@@ -131,7 +134,7 @@ function memberHasTicketElevatedClosePrivileges(member, ticketDoc = null) {
   ) {
     return false;
   }
-  if (HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) return true;
+  if (memberHasConfiguredRole(member, "HighStaff") || memberHasRoleId(member, HIGHSTAFF_ROLE_ID)) return true;
   if (!memberIsResocontoPmReviewer(member)) return false;
   if (!ticketDoc) return true;
   return String(ticketDoc?.ticketType || "").trim() === "partnership";
@@ -142,7 +145,7 @@ function memberCanAccessPartnershipTicket(member) {
   if (uid && RESOCONTO_PM_REVIEWER_USER_IDS.includes(uid)) return true;
   if (!member?.roles?.cache) return false;
   const roleIds = getPartnershipTicketStaffRoleIds(member?.guild?.id);
-  return roleIds.some((roleId) => member.roles.cache.has(roleId));
+  return roleIds.some((roleId) => memberHasRoleId(member, roleId));
 }
 
 module.exports = {

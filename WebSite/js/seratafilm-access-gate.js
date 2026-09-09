@@ -7,7 +7,7 @@
   if (!window.__VC_ACCESS_GATE_LOADED && !window.__VC_ACCESS_GATE_BOOT) {
     window.__VC_ACCESS_GATE_BOOT = true;
     var s = document.createElement("script");
-    s.src = "/js/vc-access-gate.js?v=20260829sfStream1";
+    s.src = "/js/vc-access-gate.js?v=20260907authLogoutRoleGate1";
     (document.head || document.documentElement).appendChild(s);
   }
 

@@ -1,0 +1,76 @@
+/* vc-avatar hub: circle ovunque + anti-flash (pending → ready) */
+img.vc-avatar,
+img[data-vc-avatar],
+img[data-vc-avatar-fallback],
+.discord-avatar-img,
+.vc-staff-avatar,
+.vc-user-profile-avatar,
+.vc-user-profile-shared__avatar img,
+.vc-reviews-card__avatar,
+.vc-ul-avatar img,
+.vc-role-member-avatar,
+.vc-role-card-owneravatar,
+.vc-vote-list-avatar,
+.vc-vote-podium-avatar,
+.vc-wfc-msg__av img,
+.vc-staff-organico-hist__av img,
+.vc-cpf-members__av img,
+.vc-dash-lb-card__avatar img,
+.vc-dash-pm__avatar img,
+.vc-tprof-thumb-wrap img {
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  background-color: #1a120d !important;
+  background-image: none !important;
+  flex-shrink: 0;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* Anti-flash: cerchio scuro finché pending (niente broken icon / salto default) */
+img.vc-avatar.vc-avatar--pending,
+img[data-vc-avatar].vc-avatar--pending {
+  opacity: 0 !important;
+}
+
+img.vc-avatar.vc-avatar--ready,
+img[data-vc-avatar].vc-avatar--ready,
+img.vc-avatar-fallback-img,
+img[data-vc-avatar].vc-avatar-fallback-img {
+  opacity: 1 !important;
+  transition: opacity 0.12s ease;
+}
+
+.discord-avatar-clip,
+.vc-staff-avatar-wrap,
+.vc-ul-avatar,
+.vc-wfc-msg__av,
+.vc-staff-organico-hist__av,
+.vc-cpf-members__av,
+.vc-dash-lb-card__avatar,
+.vc-dash-pm__avatar,
+.vc-tprof-thumb-wrap,
+.vc-role-member-avatar,
+.discord-account-popover__avatar {
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  background-color: #1a120d;
+}
+
+/* avatarGlow1: profile wrap must stay overflow:visible so ::before/::after outer halo is not clipped
+   (image circle clip lives on .vc-user-profile-avatarclip) */
+.vc-user-profile-avatarwrap {
+  border-radius: 50% !important;
+  overflow: visible !important;
+  background-color: #1a120d;
+}
+
+.discord-avatar-img--fallback {
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  background: #1a120d !important;
+  color: rgba(244, 220, 194, 0.85);
+}

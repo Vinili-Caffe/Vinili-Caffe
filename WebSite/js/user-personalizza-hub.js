@@ -381,6 +381,13 @@
       maybeRedirectOwnPersonalizza();
     } catch (eProf) {}
   });
+  window.addEventListener("vc:auth-logout", function () {
+    try {
+      window.location.replace("/");
+    } catch (eOut) {
+      window.location.href = "/";
+    }
+  });
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   }

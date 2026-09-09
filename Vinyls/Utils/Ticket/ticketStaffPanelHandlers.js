@@ -487,6 +487,7 @@ async function handleTicketStaffPanelInteraction(interaction, helpers = {}) {
     await editTicketMemberOverwrite(interaction.channel, userId, {
       ViewChannel: true,
       SendMessages: true,
+      UseApplicationCommands: true,
     });
     await panelSelectFollowUp(interaction, rebuildAddMemberComponents, {
       embeds: [
@@ -609,6 +610,7 @@ async function handleTicketStaffPanelInteraction(interaction, helpers = {}) {
     await editTicketMemberOverwrite(interaction.channel, targetUserId, {
       ViewChannel: true,
       SendMessages: true,
+      UseApplicationCommands: true,
     });
     const msg = await interaction.channel.messages.fetch(ticketDocXfer.messageId).catch(() => null);
     if (msg) {

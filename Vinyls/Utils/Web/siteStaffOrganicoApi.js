@@ -19,35 +19,24 @@ const LADDER_IDS = staffLadderRoleIds();
 const ORGANICO_CACHE_TTL_MS = 45_000;
 const organicoCache = new Map();
 
-function defaultAvatarForUserId(userId, size = 128) {
-  const uid = String(userId || "").trim();
-  let index = 0;
-  if (/^\d{16,22}$/.test(uid)) {
-    try {
-      index = Number((BigInt(uid) >> 22n) % 6n);
-    } catch {
-      index = 0;
-    }
-  }
-  return `https://cdn.discordapp.com/embed/avatars/${index}.png?size=${size}`;
+function defaultAvatarForUserId(_userId, _size = 128) {
+  // organicoAvatarSilhouette1: never Discord embed defaults — client uses site silhouette.
+  return "";
 }
 
 function hasRealDiscordAvatarUrl(url) {
-  return /^https:\/\/cdn\.discordapp\.com\/avatars\//i.test(String(url || "").trim());
+  const s = String(url || "").trim();
+  if (!s || /\/embed\/avatars\//i.test(s)) return false;
+  return /^https:\/\/cdn\.discordapp\.com\/avatars\//i.test(s);
 }
 
 function isEmbedDiscordAvatarUrl(url) {
   return /cdn\.discordapp\.com\/embed\/avatars\//i.test(String(url || "").trim());
 }
 
-function pickHistoryAvatarUrl(snapAvatar, identityAvatar, userId) {
-  const snap = String(snapAvatar || "").trim();
-  const idAv = String(identityAvatar || "").trim();
-  if (hasRealDiscordAvatarUrl(snap)) return snap;
-  if (hasRealDiscordAvatarUrl(idAv)) return idAv;
-  if (/^https:\/\//i.test(snap) && !isEmbedDiscordAvatarUrl(snap)) return snap;
-  if (/^https:\/\//i.test(idAv) && !isEmbedDiscordAvatarUrl(idAv)) return idAv;
-  return defaultAvatarForUserId(userId, 128);
+function pickHistoryAvatarUrl(_snapAvatar, _identityAvatar, _userId) {
+  // organicoSilhouette3: organico history never exposes Discord avatar URLs.
+  return "";
 }
 
 function organicoCacheKey(filterUserId) {
@@ -112,14 +101,44 @@ function resolveRoleIdForWeight(guild, roleIdOrName) {
   const raw = String(roleIdOrName || "").trim();
   if (!raw) return "";
   if (/^\d{16,22}$/.test(raw)) return raw;
-  const normalized = stripDiscordDecorations(raw).toLowerCase();
+  const normalized = stripDiscordDecorations(raw)
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return raw;
+  const roles = IDs.roles || {};
+
+  // organicoModDedupe1: Mod / Moderator / Moderatore = stesso gradino (non Senior).
+  if (/^(mod|moderator|moderatore)$/i.test(normalized)) {
+    const modId = String(roles.Mod || "").trim();
+    if (modId) return modId;
+  }
+  if (/^(senior\s*mod(erator|eratore)?|smod)$/i.test(normalized)) {
+    const smodId = String(roles.SeniorModerator || "").trim();
+    if (smodId) return smodId;
+  }
+
   if (guild?.roles?.cache) {
     for (const role of guild.roles.cache.values()) {
       const name = stripDiscordDecorations(role.name || "").toLowerCase();
-      if (name === normalized) return role.id;
+      if (name && name === normalized) return role.id;
     }
   }
-  const roles = IDs.roles || {};
+
+  const ladderLabels = STAFF_LADDER_KEYS_HIGH_TO_LOW.map((key) => ({
+    key,
+    id: String(roles[key] || "").trim(),
+    label: humanizeRoleKey(key).toLowerCase(),
+  }))
+    .filter((x) => x.id && x.label)
+    .sort((a, b) => b.label.length - a.label.length);
+
+  for (const row of ladderLabels) {
+    if (normalized === row.label) return row.id;
+    const re = new RegExp(`(?:^|\\s)${row.label.replace(/\s+/g, "\\s+")}(?:\\s|$)`, "i");
+    if (re.test(normalized)) return row.id;
+  }
+
   for (const [key, val] of Object.entries(roles)) {
     const id = String(val || "").trim();
     if (!id) continue;
@@ -127,23 +146,36 @@ function resolveRoleIdForWeight(guild, roleIdOrName) {
     const keyNorm = String(key).toLowerCase();
     if (label === normalized || keyNorm === normalized.replace(/\s+/g, "")) return id;
   }
-  if (normalized) {
-    for (const key of STAFF_LADDER_KEYS_HIGH_TO_LOW) {
-      const label = humanizeRoleKey(key).toLowerCase();
-      const id = String(roles[key] || "").trim();
-      if (!id || !label) continue;
-      const re = new RegExp(`(?:^|\\s|༄|☕|🎠|🥢)${label}(?:\\s|$)`, "i");
-      if (re.test(normalized) || normalized.endsWith(label)) return id;
-    }
-    if (guild?.roles?.cache) {
-      for (const role of guild.roles.cache.values()) {
-        const name = stripDiscordDecorations(role.name || "").toLowerCase();
-        if (!name) continue;
-        if (normalized.endsWith(name) || name.endsWith(normalized)) return role.id;
-      }
-    }
-  }
   return raw;
+}
+
+function inferKindFromReason(reason) {
+  const r = String(reason || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (!r) return null;
+  if (/\bdepex\b|\bretrocess/.test(r)) return "depex";
+  if (/\bpex\b|\bpromoz/.test(r)) return "pex";
+  if (/warn staff|valutazioni negative|automatico/.test(r) && /depex|retrocess|rimosso|member/.test(r)) {
+    return "depex";
+  }
+  return null;
+}
+
+function dedupeHistoryRows(rows) {
+  const out = [];
+  const seen = new Set();
+  for (const r of rows || []) {
+    const fromId = String(r.fromRoleId || r.fromRole || "").trim();
+    const toId = String(r.toRoleId || r.toRole || "").trim();
+    const bucket = Math.floor(Number(r._sort || 0) / (10 * 60 * 1000));
+    const key = `${r.userId}|${r.kind}|${fromId}|${toId}|${bucket}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
 }
 
 function staffTrackWeight(roleIdOrName, guild) {
@@ -352,7 +384,22 @@ async function resolveHistoryIdentity(_guild, _client, userId, cache) {
 function mergeUserHistoryRows(doc) {
   const fromStaff = Array.isArray(doc?.staff?.rolesHistory) ? doc.staff.rolesHistory : [];
   const fromRetention = Array.isArray(doc?.staffRolesHistoryRetention) ? doc.staffRolesHistoryRetention : [];
-  return fromStaff.concat(fromRetention);
+  const fromTrack = (Array.isArray(doc?.staff?.trackHistory) ? doc.staff.trackHistory : [])
+    .filter((row) => {
+      const k = String(row?.kind || "").toLowerCase();
+      return k === "pex" || k === "depex";
+    })
+    .map((row) => ({
+      kind: String(row.kind || "").toLowerCase(),
+      oldRole: row.oldRole,
+      newRole: row.newRole,
+      reason: row.reason,
+      date: row.date,
+      displayName: row.displayName,
+      username: row.username,
+      avatarUrl: row.avatarUrl,
+    }));
+  return fromStaff.concat(fromRetention).concat(fromTrack);
 }
 
 function rosterMembersById(roster) {
@@ -375,12 +422,14 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
     query.$or = [
       { "staff.rolesHistory.0": { $exists: true } },
       { "staffRolesHistoryRetention.0": { $exists: true } },
+      { "staff.trackHistory.0": { $exists: true } },
     ];
   }
 
   const docs = await ActivityUserProfile.find(query, {
     userId: 1,
     "staff.rolesHistory": 1,
+    "staff.trackHistory": 1,
     staffRolesHistoryRetention: 1,
   })
     .lean()
@@ -427,9 +476,17 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
 
     for (const row of mergeUserHistoryRows(doc)) {
       if (!row) continue;
-      if (isHiddenManualStaffCareerReason(row.reason)) continue;
+      const reasonRaw = String(row.reason || "");
+      const isAuto =
+        /\bautomatico\b/i.test(reasonRaw) ||
+        /\bdepex automatico\b/i.test(reasonRaw) ||
+        /\b3 warn staff\b/i.test(reasonRaw);
+      if (!isAuto && isHiddenManualStaffCareerReason(row.reason)) continue;
       const storedKind = row.kind === "pex" || row.kind === "depex" ? row.kind : null;
-      const kind = storedKind || classifyPexDepexKind(row.oldRole, row.newRole, guild);
+      const kind =
+        storedKind ||
+        classifyPexDepexKind(row.oldRole, row.newRole, guild) ||
+        inferKindFromReason(row.reason);
       if (!kind) continue;
       const d = row?.date ? new Date(row.date) : null;
       const iso = d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
@@ -446,14 +503,18 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
         (liveOk && identity.avatarUrl) || identity.avatarUrl,
         uid,
       );
+      const fromRoleId = resolveRoleIdForWeight(guild, row.oldRole);
+      const toRoleId = resolveRoleIdForWeight(guild, row.newRole);
       rows.push({
         kind,
         userId: uid,
         displayName,
         username,
         avatarUrl,
-        fromRole: roleNameFromId(guild, row.oldRole),
-        toRole: roleNameFromId(guild, row.newRole),
+        fromRoleId,
+        toRoleId,
+        fromRole: roleNameFromId(guild, fromRoleId || row.oldRole),
+        toRole: roleNameFromId(guild, toRoleId || row.newRole),
         reason: stripDiscordDecorations(row.reason || "") || null,
         dateIso: iso,
         dateLabel: formatHistoryDate(iso),
@@ -463,13 +524,14 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
   }
 
   rows.sort((a, b) => b._sort - a._sort);
-  const total = rows.length;
+  const deduped = dedupeHistoryRows(rows);
+  const total = deduped.length;
   const stats = {
     total,
     shown: total,
-    pexCount: rows.filter((r) => r.kind === "pex").length,
-    depexCount: rows.filter((r) => r.kind === "depex").length,
-    skipped: rows.filter((r) => !r.kind).length,
+    pexCount: deduped.filter((r) => r.kind === "pex").length,
+    depexCount: deduped.filter((r) => r.kind === "depex").length,
+    skipped: 0,
     truncated: false,
   };
 
@@ -482,7 +544,7 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
   }
 
   return {
-    items: rows.map(({ _sort, ...rest }) => rest),
+    items: deduped.map(({ _sort, fromRoleId, toRoleId, ...rest }) => rest),
     stats,
   };
 }
@@ -511,8 +573,8 @@ function historyIdentityIncomplete(items) {
   let bad = 0;
   for (const it of list) {
     const name = String(it?.displayName || "").trim();
+    // organicoSilhouette3: missing avatar is expected (silhouette); only names matter.
     if (!name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId)) bad += 1;
-    else if (!hasRealDiscordAvatarUrl(it?.avatarUrl)) bad += 1;
   }
   return bad >= Math.max(3, Math.ceil(list.length * 0.12));
 }
@@ -523,9 +585,8 @@ function warmMissingHistoryIdentities(client, guild, items) {
       (items || [])
         .filter((it) => {
           const name = String(it?.displayName || "").trim();
-          const nameBad = !name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId);
-          const avBad = !hasRealDiscordAvatarUrl(it?.avatarUrl);
-          return nameBad || avBad;
+          // organicoSilhouette3: warm names only — avatars stay empty for silhouette UI.
+          return !name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId);
         })
         .map((it) => String(it?.userId || "").trim())
         .filter(Boolean),
@@ -610,22 +671,14 @@ async function handleSiteStaffOrganicoGet(client, req, res) {
         for (const item of historyResult.items || []) {
       const live = byId.get(String(item.userId || ""));
       item.displayName = safeDisplayLabel(item.displayName, item.userId);
-      if (!live) continue;
-      if (isSnowflakeLabel(item.displayName, item.userId) || item.displayName === FALLBACK_LABEL) {
-        item.displayName = safeDisplayLabel(live.displayName, item.userId);
-        item.username = live.username || item.username;
+      if (live) {
+        if (isSnowflakeLabel(item.displayName, item.userId) || item.displayName === FALLBACK_LABEL) {
+          item.displayName = safeDisplayLabel(live.displayName, item.userId);
+          item.username = live.username || item.username;
+        }
+        // organicoSilhouette3: history list uses site silhouette only — never Discord CDN/embed.
       }
-      const liveAvatar = String(live.avatarUrl || "").trim();
-      if (hasRealDiscordAvatarUrl(liveAvatar)) {
-        item.avatarUrl = liveAvatar;
-      } else if (
-        /^https:\/\//i.test(liveAvatar) &&
-        (!hasRealDiscordAvatarUrl(item.avatarUrl) || isEmbedDiscordAvatarUrl(item.avatarUrl))
-      ) {
-        item.avatarUrl = liveAvatar;
-      } else if (!hasRealDiscordAvatarUrl(item.avatarUrl)) {
-        item.avatarUrl = pickHistoryAvatarUrl(item.avatarUrl, liveAvatar, item.userId);
-      }
+      item.avatarUrl = "";
     }
 
     const payload = {

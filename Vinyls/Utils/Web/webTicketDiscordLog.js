@@ -9,6 +9,9 @@ const { TICKET_UX_COLOR } = require("../Ticket/ticketUxMessages");
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
 const MAX_DIFF = 1600;
 
+/** Inbox sito (/tickets/) è la fonte di verità: niente mirror su #ticket logs / activity. */
+const WEB_TICKET_DISCORD_LOGS_ENABLED = false;
+
 function resolveSitePublicOrigin() {
   const raw = String(
     process.env.WEBSITE_PUBLIC_ORIGIN || process.env.WEBSITE_PUBLIC_URL || DEFAULT_SITE_ORIGIN,
@@ -324,6 +327,7 @@ function buildWebTicketLogEmbed(action, ticket, meta = {}) {
 }
 
 async function sendWebTicketDiscordLog(client, action, ticket, meta = {}) {
+  if (!WEB_TICKET_DISCORD_LOGS_ENABLED) return null;
   try {
     const guildId = String(ticket?.guildId || meta.guildId || "").trim();
     const channel = await resolveWebTicketLogChannel(client, guildId, ticket);
@@ -359,6 +363,7 @@ async function sendWebTicketDiscordLog(client, action, ticket, meta = {}) {
 }
 
 async function sendWebTicketMessageActivityLog(client, kind, ticket, messageDoc, meta = {}) {
+  if (!WEB_TICKET_DISCORD_LOGS_ENABLED) return null;
   try {
     const guildId = String(ticket?.guildId || meta.guildId || "").trim();
     const channel = await resolveActivityLogChannel(client, guildId);

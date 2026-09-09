@@ -14,16 +14,26 @@ async function enqueueCustomPerksDiscordCleanupAfterLeave(guildId, userId) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
   if (!isValidGuildUserId(gid, uid)) return;
-  const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
-    .select("profile.customRole profile.mentionReaction.reactions")
-    .lean()
-    .catch(() => null);
+  const [doc, customRoleDoc] = await Promise.all([
+    ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+      .select("profile.customRole profile.mentionReaction.reactions")
+      .lean()
+      .catch(() => null),
+    CustomRole.findOne(
+      { guildId: gid, userId: uid },
+      "roleId secondaryRoleId customVocChannelId customVocEmoji",
+    ).lean(),
+  ]);
   const cr = doc?.profile?.customRole || {};
   const reactions = Array.isArray(doc?.profile?.mentionReaction?.reactions)
     ? doc.profile.mentionReaction.reactions
     : [];
-  const hasRole = Boolean(String(cr.roleId || "").trim() || String(cr.secondaryRoleId || "").trim());
-  const hasVoc = Boolean(String(cr.customVocChannelId || "").trim());
+  const roleId = String(cr.roleId || customRoleDoc?.roleId || "").trim() || null;
+  const secondaryRoleId = String(cr.secondaryRoleId || customRoleDoc?.secondaryRoleId || "").trim() || null;
+  const customVocChannelId = String(cr.customVocChannelId || customRoleDoc?.customVocChannelId || "").trim() || null;
+  const customVocEmoji = cr.customVocEmoji || customRoleDoc?.customVocEmoji || null;
+  const hasRole = Boolean(roleId || secondaryRoleId);
+  const hasVoc = Boolean(customVocChannelId);
   const hasReactions = reactions.some((x) => String(x || "").trim());
   if (!hasRole && !hasVoc && !hasReactions) return;
   const runAt = await resolveNextLeaveBackupExpiryClock(gid, uid);
@@ -32,10 +42,10 @@ async function enqueueCustomPerksDiscordCleanupAfterLeave(guildId, userId) {
     {
       $set: {
         "profile.customPerksDiscordCleanup.runAt": runAt,
-        "profile.customPerksDiscordCleanup.roleId": cr.roleId || null,
-        "profile.customPerksDiscordCleanup.secondaryRoleId": cr.secondaryRoleId || null,
-        "profile.customPerksDiscordCleanup.customVocChannelId": cr.customVocChannelId || null,
-        "profile.customPerksDiscordCleanup.customVocEmoji": cr.customVocEmoji || null,
+        "profile.customPerksDiscordCleanup.roleId": roleId,
+        "profile.customPerksDiscordCleanup.secondaryRoleId": secondaryRoleId,
+        "profile.customPerksDiscordCleanup.customVocChannelId": customVocChannelId,
+        "profile.customPerksDiscordCleanup.customVocEmoji": customVocEmoji,
         "profile.customPerksDiscordCleanup.clearMentionReactions": hasReactions,
       },
     },

@@ -182,8 +182,8 @@
         el.classList.contains("vc-sponsor-embed") ||
         el.classList.contains("vc-candidature-card") ||
         el.classList.contains("vc-regole-card") ||
-        el.classList.contains("vc-support-donate-role") ||
-        el.classList.contains("vc-cmd-grp");
+        el.classList.contains("vc-support-donate-role");
+      /* wikiCmdAccFrames2: .vc-cmd-grp resta accordion, non home-panel */
       if (!isSelfCard) return;
     }
     if (
@@ -196,8 +196,11 @@
       return;
     }
     el.classList.add("vc-home-panel");
+    var skipSheen =
+      (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) ||
+      (window.VcPerf && typeof window.VcPerf.isLite === "function" && window.VcPerf.isLite());
     if (el.classList.contains("vc-fx-card")) {
-      if (!el.querySelector(":scope > .vc-fx-sheen")) {
+      if (!skipSheen && !el.querySelector(":scope > .vc-fx-sheen")) {
         var extra = document.createElement("span");
         extra.className = "vc-fx-sheen";
         extra.setAttribute("aria-hidden", "true");
@@ -206,6 +209,7 @@
       return;
     }
     el.classList.add("vc-fx-card");
+    if (skipSheen) return;
     var sheen = document.createElement("span");
     sheen.className = "vc-fx-sheen";
     sheen.setAttribute("aria-hidden", "true");
@@ -216,7 +220,7 @@
     var root = document.querySelector("main") || document.querySelector(".vc-page");
     if (!root) return [];
     var found = root.querySelectorAll(
-      ".vc-page-cine-card, .vc-home-deck__cell, .vc-home-highlight-card, .vc-home-linkpanel, .vc-home-storycard, #stats .vc-stat-cell, .vc-notify-stat, .vc-role-card, .vc-ul-card, .vc-legal-card, .vc-faq-group, .vc-reviews-card, .vc-reviews-formcard, .vc-staff-block, .vc-staff-hub-card, .vc-sponsor-card, .vc-sponsor-embed, .vc-wiki-cmd-shell, .vc-perks-card, .vc-candidature-card, .vc-unban-before-card, .vc-unmute-before-card, .vc-auth-required-card, .vc-regole-card, .vc-support-donate-role, .vc-vote-live-card, .vc-vote-live-statbox, .vc-user-profile-block, .vc-cmd-grp"
+      ".vc-page-cine-card, .vc-home-deck__cell, .vc-home-highlight-card, .vc-home-linkpanel, .vc-home-storycard, #stats .vc-stat-cell, .vc-notify-stat, .vc-role-card, .vc-ul-card, .vc-legal-card, .vc-faq-group, .vc-reviews-card, .vc-reviews-formcard, .vc-staff-block, .vc-staff-hub-card, .vc-sponsor-card, .vc-sponsor-embed, .vc-wiki-cmd-shell, .vc-perks-card, .vc-candidature-card, .vc-unban-before-card, .vc-unmute-before-card, .vc-auth-required-card, .vc-regole-card, .vc-support-donate-role, .vc-vote-live-card, .vc-vote-live-statbox, .vc-user-profile-block"
     );
     var list = [];
     for (var i = 0; i < found.length; i++) {

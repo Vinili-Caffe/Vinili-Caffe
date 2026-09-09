@@ -1407,6 +1407,10 @@ async function publishWeeklyActivityWinners(client, options = {}) {
   const messageWinnerMention = awarded?.messageWinner?.userId ? `<@${awarded.messageWinner.userId}>` : "Nessun vincitore";
   const voiceWinnerMention = awarded?.voiceWinner?.userId ? `<@${awarded.voiceWinner.userId}>` : "Nessun vincitore";
   const minigameWinnerMention = awarded?.minigameWinner?.userId ? `<@${awarded.minigameWinner.userId}>` : "Nessun vincitore";
+  const safeMinigameWinnerRoleMention =
+    MINIGAME_WINNER_ROLE_ID && guild?.roles?.cache?.get(MINIGAME_WINNER_ROLE_ID)
+      ? `<@&${MINIGAME_WINNER_ROLE_ID}>`
+      : "il ruolo dei vincitori";
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setLabel("Chat")
@@ -1425,14 +1429,14 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     : "<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.";
   const minigameAnnounceLine =
     mode === "weekly" && MINIGAME_WINNER_ROLE_ID && !suppressMinigameThisWeek
-      ? `\n<:VC_Podio1:1482694399283433582> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo <@&${MINIGAME_WINNER_ROLE_ID}>.`
+      ? `\n<:VC_Podio1:1482694399283433582> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo ${safeMinigameWinnerRoleMention}.`
       : "";
   const payload = {
     content: `<@&1442568949605597264>
 ${introLine}
 
-<:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
-<:VC_Podio1:1482694399283433582> Con un totale di **${formatVoiceHoursFromExp(voiceWinnerTotal)}** in vocale, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.${minigameAnnounceLine}
+<:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__** e il ruolo <@&1544830834849087630>.
+<:VC_Podio1:1482694399283433582> Con un totale di **${formatVoiceHoursFromExp(voiceWinnerTotal)}** in vocale, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__** e il ruolo <@&1544830836686200992>.${minigameAnnounceLine}
 _ _`,
     embeds: [embed],
     components: [button],
@@ -1602,7 +1606,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
   );
   if (!options.skipDiscordSends && channel) {
     const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
-    const votersRoleTextByIndex = ["<@&1521787468201066666>", "<@&1442568950805430312>", "<@&1442568916114346096>"];
+    const votersRoleTextByIndex = ["<@&1521787468201066666>", "<@&1544830866616754257>", "<@&1544830864565735515>"];
     const voter1 = monthlyVotersTop[0];
     const voter2 = monthlyVotersTop[1];
     const voter3 = monthlyVotersTop[2];
@@ -1610,13 +1614,13 @@ async function publishMonthlyActivityWinners(client, options = {}) {
       ? [
         "\n<:VC_Leaderboard:1482534806314287387> **Top Voters:**",
         voter1
-          ? `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${voter1.userId}> <a:VC_Arrow:1482706699365257397> **${voter1.value}** *voti* · \`${votersRoleTextByIndex[0]} 30 giorni\``
+          ? `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${voter1.userId}> <a:VC_Arrow:1482706699365257397> **${voter1.value}** *voti* · ${votersRoleTextByIndex[0]} 30 giorni`
           : null,
         voter2
-          ? `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${voter2.userId}> <a:VC_Arrow:1482706699365257397> **${voter2.value}** *voti* · \`${votersRoleTextByIndex[1]} 30 giorni\``
+          ? `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${voter2.userId}> <a:VC_Arrow:1482706699365257397> **${voter2.value}** *voti* · ${votersRoleTextByIndex[1]} 30 giorni`
           : null,
         voter3
-          ? `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${voter3.userId}> <a:VC_Arrow:1482706699365257397> **${voter3.value}** *voti* · \`${votersRoleTextByIndex[2]} 30 giorni\``
+          ? `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${voter3.userId}> <a:VC_Arrow:1482706699365257397> **${voter3.value}** *voti* · ${votersRoleTextByIndex[2]} 30 giorni`
           : null,
       ].filter(Boolean).join("\n")
       : "";
@@ -1625,7 +1629,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
         content: `<@&1442568949605597264>
 ${introLine}
 
-<:VC_Podio1:1482694399283433582> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__** e riceve il ruolo <@&1500848813680758836> e un **Nitro Boost** riscattabile tramite ${siteTicketsPageDiscordRef("HIGH STAFF")}.
+<:VC_Podio1:1482694399283433582> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__** e riceve il ruolo <@&1544830838443741194> e un **Nitro Boost** riscattabile tramite ${siteTicketsPageDiscordRef("HIGH STAFF")}.
 ${monthlyAnnounce.secondLine}
 ${monthlyAnnounce.thirdLine}
 ${votersTextLine}

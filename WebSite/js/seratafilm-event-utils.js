@@ -237,21 +237,17 @@
     try {
       var bgm = window.__VC_SERATAFILM_BGM || {};
       var w = bgm.hogwartsEventWindow;
-      if (w && w.enabled !== false && Number.isFinite(Number(w.startMs)) && Number.isFinite(Number(w.endMs))) {
+      if (w && w.enabled === false) return null;
+      if (w && Number.isFinite(Number(w.startMs)) && Number.isFinite(Number(w.endMs))) {
         return w;
       }
       var ev = eventCfg();
       w = ev.hogwartsEventWindow;
-      if (w && w.enabled !== false && Number.isFinite(Number(w.startMs)) && Number.isFinite(Number(w.endMs))) {
+      if (w && w.enabled === false) return null;
+      if (w && Number.isFinite(Number(w.startMs)) && Number.isFinite(Number(w.endMs))) {
         return w;
       }
-      if (String(ev.hogwartsThemeVideoUrl || "").trim()) {
-        return {
-          enabled: true,
-          startMs: Date.parse("2026-06-01T12:00:00+02:00"),
-          endMs: Date.parse("2026-09-01T12:00:00+02:00"),
-        };
-      }
+      /* No silent Hogwarts fallback from theme video URL when window is off. */
     } catch (eW) {}
     return null;
   }

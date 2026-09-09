@@ -437,9 +437,11 @@
             fetchPriority: "high",
           })
         : profileAvatarUrl
-          ? '<img class="vc-user-profile-avatar" src="' +
+          ? '<img class="vc-user-profile-avatar vc-avatar vc-avatar--pending" src="' +
             esc(profileAvatarUrl) +
-            '" alt="" width="120" height="120" loading="eager" fetchpriority="high" data-vc-avatar="1" onerror="this.onerror=null;this.src=\'https://cdn.discordapp.com/embed/avatars/0.png\'" />'
+            '" alt="" width="120" height="120" loading="eager" fetchpriority="high" data-vc-avatar="1" data-user-id="' +
+            esc(id.userId || id.id || "") +
+            '" />'
           : '<span class="vc-user-profile-avatar vc-user-profile-avatar--fallback"><i class="fa fa-user" aria-hidden="true"></i></span>';
 
     var html = '<section class="vc-user-profile-shell">';

@@ -68,6 +68,19 @@ function markNegativeCache(userId) {
   pruneMapByExpiry(websiteMemberNegativeCache);
 }
 
+function clearNegativeWebsiteMember(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
+  websiteMemberNegativeCache.delete(uid);
+}
+
+function clearWebsiteMemberCaches(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
+  websiteMemberResolveCache.delete(uid);
+  websiteMemberNegativeCache.delete(uid);
+}
+
 function isUnknownMemberError(err) {
   const code = Number(err?.code ?? err?.rawError?.code ?? 0);
   const msg = String(err?.message || err || "");
@@ -116,9 +129,10 @@ async function ensureWebsiteGuild(client, guildId, timeoutMs = 10_000) {
   return withTimeout(fetcher(), timeoutMs, "guild_fetch").catch(() => null);
 }
 
-function shouldMarkNegativeOnMemberTimeout(timeoutMs) {
-  const ms = Number(timeoutMs) || 0;
-    return ms > WEBSITE_MEMBER_SOFT_TIMEOUT_LOG_MS;
+function shouldMarkNegativeOnMemberTimeout(_timeoutMs) {
+  // staffFirstStamp1: Discord timeouts are transient. Poisoning the negative cache
+  // made Riprova/peer-switch fail for ~90s after the first slow resolve.
+  return false;
 }
 
 async function fetchMemberOnce(guild, uid, force, timeoutMs) {
@@ -158,14 +172,14 @@ async function fetchWebsiteGuildMember(guild, userId, options = {}) {
           return null;
         }
         if (!isMemberFetchTimeoutError(err)) throw err;
-        if (shouldMarkNegativeOnMemberTimeout(primaryTimeout)) markNegativeCache(uid);
+        if (!options.soft && shouldMarkNegativeOnMemberTimeout(primaryTimeout)) markNegativeCache(uid);
         logMemberFetchTimeout(uid, 1, primaryTimeout);
         if (doRetry) {
           const retryMs = Math.max(primaryTimeout, WEBSITE_MEMBER_FETCH_RETRY_TIMEOUT_MS);
           member = await fetchMemberOnce(guild, uid, false, retryMs).catch((err2) => {
             if (isUnknownMemberError(err2)) return null;
             if (isMemberFetchTimeoutError(err2)) {
-              if (shouldMarkNegativeOnMemberTimeout(retryMs)) markNegativeCache(uid);
+              if (!options.soft && shouldMarkNegativeOnMemberTimeout(retryMs)) markNegativeCache(uid);
               logMemberFetchTimeout(uid, 2, retryMs);
               return null;
             }
@@ -196,6 +210,8 @@ module.exports = {
   WEBSITE_MEMBER_NEGATIVE_CACHE_TTL_MS,
   readCachedWebsiteMember,
   writeCachedWebsiteMember,
+  clearNegativeWebsiteMember,
+  clearWebsiteMemberCaches,
   ensureWebsiteGuild,
   fetchWebsiteGuildMember,
   isUnknownMemberError,

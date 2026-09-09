@@ -167,10 +167,47 @@ function collectExemptEntityIds(collectionOrArray) {
   return out;
 }
 
+const AUTOMOD_EXEMPTABLE_CHANNEL_TYPES = new Set(
+  [
+    ChannelType.GuildText,
+    ChannelType.GuildVoice,
+    ChannelType.GuildCategory,
+    ChannelType.GuildAnnouncement,
+    ChannelType.GuildStageVoice,
+    ChannelType.GuildForum,
+    ChannelType.GuildMedia,
+  ].filter((t) => t != null),
+);
+
+function isDiscordAutomodExemptableChannel(channel) {
+  if (!channel) return false;
+  if (typeof channel.isThread === "function" && channel.isThread()) return false;
+  const t = Number(channel.type);
+  if (!Number.isFinite(t)) return false;
+  return AUTOMOD_EXEMPTABLE_CHANNEL_TYPES.has(t);
+}
+
+function isInvalidAutomodExemptChannelError(err) {
+  const msg = String(err?.message || err || "");
+  if (/INVALID_AUTO_MODERATION_CHANNEL_IN_EXEMPTIONS/i.test(msg)) return true;
+  if (/exempt_channels/i.test(msg) && /no longer exists/i.test(msg)) return true;
+  const details = err?.rawError?.errors || err?.rawError?.errors?.exempt_channels;
+  if (details && /INVALID_AUTO_MODERATION_CHANNEL_IN_EXEMPTIONS/i.test(JSON.stringify(details))) {
+    return true;
+  }
+  return false;
+}
+
 function filterGuildSnowflakeIds(guild, ids, kind = "channel") {
   const cache = kind === "role" ? guild?.roles?.cache : guild?.channels?.cache;
   if (!cache) return [];
-  return (Array.isArray(ids) ? ids : []).filter((id) => cache.has(String(id)));
+  return (Array.isArray(ids) ? ids : [])
+    .map((id) => String(id || "").trim())
+    .filter((id) => {
+      if (!cache.has(id)) return false;
+      if (kind !== "channel") return true;
+      return isDiscordAutomodExemptableChannel(cache.get(id));
+    });
 }
 
 function collectExemptRoleIds(guild) {
@@ -183,11 +220,13 @@ function collectTicketAutomodExemptChannelIds(guild) {
   const ids = new Set();
   if (!guild?.channels?.cache) return ids;
   for (const channel of guild.channels.cache.values()) {
+    if (!isDiscordAutomodExemptableChannel(channel)) continue;
     if (channel.type === ChannelType.GuildCategory && isTicketCategoryName(channel.name)) {
       ids.add(String(channel.id));
     }
   }
   for (const channel of guild.channels.cache.values()) {
+    if (!isDiscordAutomodExemptableChannel(channel)) continue;
     if (channel.type === ChannelType.GuildCategory) continue;
     if (isChannelInTicketCategory(channel) || isTicketChannelName(channel.name)) {
       ids.add(String(channel.id));
@@ -213,10 +252,12 @@ function collectStaffAutomodExemptChannelIds(guild) {
   const staffChatId = String(IDs.channels?.staffChat || "").trim();
   const staffCmdsId = String(IDs.channels?.staffCmds || "").trim();
   const ids = new Set();
-  if (staffChatId) ids.add(staffChatId);
-  if (staffCmdsId) ids.add(staffCmdsId);
+  if (staffChatId && guild?.channels?.cache?.has(staffChatId)) ids.add(staffChatId);
+  if (staffCmdsId && guild?.channels?.cache?.has(staffCmdsId)) ids.add(staffCmdsId);
   if (!guild?.channels?.cache) return [...ids];
   for (const channel of guild.channels.cache.values()) {
+    // AutoMod API rejects thread IDs in exempt_channels ("no longer exists").
+    if (typeof channel.isThread === "function" && channel.isThread()) continue;
     if (isStaffAutomodExemptChannel(channel, staffChatId, staffCmdsId)) {
       ids.add(String(channel.id));
     }
@@ -274,13 +315,28 @@ function prioritizeAutomodExemptChannelIds(guild, ids) {
   return out;
 }
 
-function collectExemptChannelIds(guild) {
+function collectExemptChannelIds(guild, options = {}) {
   if (!guild?.channels?.cache) return [];
-  return prioritizeAutomodExemptChannelIds(guild, [
-    ...collectTicketAutomodExemptChannelIds(guild),
+  const includeTickets = options.includeTickets !== false;
+  const ids = [
+    ...(includeTickets ? collectTicketAutomodExemptChannelIds(guild) : []),
     ...collectStaffAutomodExemptChannelIds(guild),
     ...collectDiscordAutomodExemptChannelIds(guild, guild?.client),
-  ]);
+  ];
+  return prioritizeAutomodExemptChannelIds(guild, ids);
+}
+
+function isHateSpeechAutomodRuleName(name) {
+  const n = String(name || "");
+  return n.includes("custom-words") || n.includes("slurs-preset");
+}
+
+function resolveExemptChannelsForSpec(guild, spec) {
+  /* ticketHateOnly1: hate/slur rules still apply in ticket categories; all other native rules exempt tickets */
+  if (isHateSpeechAutomodRuleName(spec?.name)) {
+    return collectExemptChannelIds(guild, { includeTickets: false });
+  }
+  return collectExemptChannelIds(guild, { includeTickets: true });
 }
 
 function shouldResyncAutomodForChannel(channel) {
@@ -524,13 +580,14 @@ function serializeSpecForSignature(spec) {
 }
 
 function buildAutomodDesiredSignaturePayload(guild, options = {}) {
-  const exemptChannels = [...collectExemptChannelIds(guild)].sort();
   const exemptRoles = [...filterGuildSnowflakeIds(guild, collectExemptRoleIds(guild), "role")].sort();
   const specs = buildDesiredRuleSpecs({ ...options, guild });
   return {
-    exemptChannels,
     exemptRoles,
-    specs: specs.map(serializeSpecForSignature),
+    specs: specs.map((spec) => ({
+      ...serializeSpecForSignature(spec),
+      exemptChannels: [...resolveExemptChannelsForSpec(guild, spec)].sort(),
+    })),
   };
 }
 
@@ -599,7 +656,6 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
     await guild.members.fetchMe().catch(() => null);
   }
   await guild.channels.fetch().catch(() => null);
-  const exemptChannels = collectExemptChannelIds(guild);
   const exemptRoles = filterGuildSnowflakeIds(guild, collectExemptRoleIds(guild), "role");
   const specs = buildDesiredRuleSpecs({ ...options, guild });
   const signaturePayload = buildAutomodDesiredSignaturePayload(guild, options);
@@ -611,18 +667,35 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
     signaturePayload,
   );
   if (!forceSync && !deployCheck.required && allAutomodSpecsPresent(allRules, specs)) {
-    return {
-      ok: true,
-      skipped: true,
-      guildId,
-      total: specs.length,
-      satisfied: specs.length,
-      managed: managed.length,
-      created: 0,
-      updated: 0,
-      removed: 0,
-      failed: [],
-    };
+    /* still verify per-rule ticket exemptions match hate-only intent */
+    let exemptionsMatch = true;
+    for (const spec of specs) {
+      const found = resolveExistingRuleForSpec(allRules, spec);
+      if (!found) {
+        exemptionsMatch = false;
+        break;
+      }
+      const want = [...resolveExemptChannelsForSpec(guild, spec)].sort();
+      const have = [...collectExemptEntityIds(found.exemptChannels)].sort();
+      if (stableSerialize(want) !== stableSerialize(have)) {
+        exemptionsMatch = false;
+        break;
+      }
+    }
+    if (exemptionsMatch) {
+      return {
+        ok: true,
+        skipped: true,
+        guildId,
+        total: specs.length,
+        satisfied: specs.length,
+        managed: managed.length,
+        created: 0,
+        updated: 0,
+        removed: 0,
+        failed: [],
+      };
+    }
   }
   const desiredNames = new Set(specs.map((s) => s.name));
   let removed = 0;
@@ -637,6 +710,7 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
   }
   for (const spec of specs) {
     const found = resolveExistingRuleForSpec(allRules, spec);
+    const exemptChannels = resolveExemptChannelsForSpec(guild, spec);
     const payload = {
       name: spec.name,
       eventType: spec.eventType,
@@ -648,15 +722,58 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
       exemptRoles,
       reason: "Vinili AutoMod sync",
     };
+    const applyRuleEdit = async (target, body) => {
+      try {
+        return await target.edit(body);
+      } catch (err) {
+        if (!isInvalidAutomodExemptChannelError(err) || !(body.exemptChannels || []).length) {
+          throw err;
+        }
+        global.logger?.warn?.(
+          "[discordAutomod] stale exempt_channels for",
+          spec.name,
+          "- retry with empty exemptions",
+        );
+        return target.edit({ ...body, exemptChannels: [], reason: `${body.reason} (cleared stale exempts)` });
+      }
+    };
+    const applyRuleCreate = async (body) => {
+      try {
+        return await guild.autoModerationRules.create(body);
+      } catch (err) {
+        if (!isInvalidAutomodExemptChannelError(err) || !(body.exemptChannels || []).length) {
+          throw err;
+        }
+        global.logger?.warn?.(
+          "[discordAutomod] stale exempt_channels for",
+          spec.name,
+          "- create retry with empty exemptions",
+        );
+        return guild.autoModerationRules.create({
+          ...body,
+          exemptChannels: [],
+          reason: `${body.reason} (cleared stale exempts)`,
+        });
+      }
+    };
     if (!found) {
-      let createdRule = await guild.autoModerationRules.create(payload).catch(() => null);
+      let createdRule = null;
+      let createErr = null;
+      try {
+        createdRule = await applyRuleCreate(payload);
+      } catch (err) {
+        createErr = err;
+      }
       if (!createdRule && payload.actions.length > 1) {
         const blockOnly = payload.actions.filter(
           (a) => Number(a.type) === Number(AutoModerationActionType.BlockMessage),
         );
-        createdRule = await guild.autoModerationRules
-          .create({ ...payload, actions: blockOnly })
-          .catch(() => null);
+        try {
+          createdRule = await applyRuleCreate({ ...payload, actions: blockOnly });
+          createErr = null;
+        } catch (err2) {
+          createErr = err2;
+        }
       }
       if (!createdRule) {
         const adopted = resolveExistingRuleForSpec(
@@ -664,7 +781,7 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
           spec,
         );
         if (adopted) {
-          const edited = await adopted.edit({
+          const edited = await applyRuleEdit(adopted, {
             name: payload.name,
             eventType: payload.eventType,
             triggerType: payload.triggerType,
@@ -683,30 +800,28 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
         }
         failed.push({
           name: spec.name,
-          error: "create_failed",
+          error: createErr?.message || "create_failed",
         });
-      } else {
-        created += 1;
+        continue;
       }
+      created += 1;
       continue;
     }
     if (rulePayloadMatches(found, spec, exemptChannels, exemptRoles)) continue;
-    const edited = await found
-      .edit({
-        name: payload.name,
-        eventType: payload.eventType,
-        triggerType: payload.triggerType,
-        triggerMetadata: payload.triggerMetadata,
-        actions: payload.actions,
-        enabled: payload.enabled,
-        exemptChannels: payload.exemptChannels,
-        exemptRoles: payload.exemptRoles,
-        reason: payload.reason,
-      })
-      .catch((err) => {
-        failed.push({ name: spec.name, error: err?.message || String(err) });
-        return null;
-      });
+    const edited = await applyRuleEdit(found, {
+      name: payload.name,
+      eventType: payload.eventType,
+      triggerType: payload.triggerType,
+      triggerMetadata: payload.triggerMetadata,
+      actions: payload.actions,
+      enabled: payload.enabled,
+      exemptChannels: payload.exemptChannels,
+      exemptRoles: payload.exemptRoles,
+      reason: payload.reason,
+    }).catch((err) => {
+      failed.push({ name: spec.name, error: err?.message || String(err) });
+      return null;
+    });
     if (edited) updated += 1;
   }
   const refreshed = await guild.autoModerationRules.fetch().catch(() => null);
@@ -858,4 +973,4 @@ function mapRuleNameToViolationKey(ruleName, matchedKeyword = "") {
   return { key: "word_blacklist", info: matched || "native automod" };
 }
 
-module.exports = { RULE_PREFIX, isDiscordNativeConfigEnabled, shouldSyncOnStartup, buildDesiredRuleSpecs, collectExemptChannelIds, collectTicketAutomodExemptChannelIds, shouldResyncAutomodForChannel, syncGuildDiscordAutomodRules, syncDiscordAutomodRulesForClient, scheduleDiscordAutomodRulesResync, resolveAutomodExecutionRule, mapRuleNameToViolationKey };
+module.exports = { RULE_PREFIX, isDiscordNativeConfigEnabled, shouldSyncOnStartup, buildDesiredRuleSpecs, collectExemptChannelIds, collectTicketAutomodExemptChannelIds, resolveExemptChannelsForSpec, isHateSpeechAutomodRuleName, shouldResyncAutomodForChannel, syncGuildDiscordAutomodRules, syncDiscordAutomodRulesForClient, scheduleDiscordAutomodRulesResync, resolveAutomodExecutionRule, mapRuleNameToViolationKey };

@@ -420,7 +420,7 @@
       return (
         '<img class="vc-px-emoji-img" src="' +
         esc(url) +
-        '" alt="" draggable="false" loading="lazy" />'
+        '" alt="" draggable="false" loading="eager" decoding="async" />'
       );
     }
     if (raw.startsWith("unicode:")) {
@@ -450,7 +450,7 @@
       parts.push(
         '<img class="vc-px-emoji-img vc-px-emoji-img--inline" src="' +
           esc(customEmojiImgUrl(m[3], m[1] === "a", 32)) +
-          '" alt="" draggable="false" loading="lazy" />',
+          '" alt="" draggable="false" loading="eager" decoding="async" />',
       );
       last = m.index + m[0].length;
     }
@@ -1174,13 +1174,34 @@
     state.roleCat = cat;
     var current = byKey[cat] || { options: [] };
     var selected = String(current.selected || "");
+    var selectedIds = Array.isArray(current.selectedIds)
+      ? current.selectedIds.map(function (x) {
+          return String(x || "");
+        }).filter(Boolean)
+      : selected && selected !== "remove"
+        ? [selected]
+        : [];
+    var multi = Boolean(current.multi) || cat === "mentions" || cat === "hobby";
     var catLabel = current.label || (cats.find(function (c) { return c.key === cat; }) || {}).label || "Ruoli";
     var selectedLabel = "Nessuna selezione";
     var options = Array.isArray(current.options) ? current.options : [];
-    for (var i = 0; i < options.length; i++) {
-      if (String(options[i].value) === selected && selected && selected !== "remove") {
-        selectedLabel = options[i].label || selected;
-        break;
+    if (multi && selectedIds.length) {
+      var labels = [];
+      for (var si = 0; si < selectedIds.length; si++) {
+        for (var oi = 0; oi < options.length; oi++) {
+          if (String(options[oi].value) === selectedIds[si]) {
+            labels.push(options[oi].label || selectedIds[si]);
+            break;
+          }
+        }
+      }
+      selectedLabel = labels.length ? labels.join(", ") : selectedIds.length + " selezionati";
+    } else {
+      for (var i = 0; i < options.length; i++) {
+        if (String(options[i].value) === selected && selected && selected !== "remove") {
+          selectedLabel = options[i].label || selected;
+          break;
+        }
       }
     }
     var catBtns = cats
@@ -1199,7 +1220,7 @@
     var rows = options
       .map(function (o) {
         var val = String(o.value || "");
-        var isSel = selected && selected === val;
+        var isSel = val !== "remove" && selectedIds.indexOf(val) >= 0;
         return (
           '<button type="button" class="vc-profile-extras__option' +
           (isSel ? " is-selected" : "") +
@@ -1214,6 +1235,11 @@
         );
       })
       .join("");
+    var hint = multi
+      ? "Tocca per aggiungere o togliere. Ping e Hobby: puoi sceglierne più di uno."
+      : cat.indexOf("colors") === 0
+        ? "Un solo colore tra Base, Livelli e Plus. Il tocco lo applica subito."
+        : "Il tocco applica subito il ruolo su Discord.";
     return layout(
       stageCard("fa-tags", selectedLabel, catLabel),
       blockBody(
@@ -1225,7 +1251,9 @@
           '<div class="vc-profile-extras__options vc-profile-extras__options--compact" role="listbox">' +
           (rows || '<p class="vc-cpf-empty">Nessuna opzione in questa categoria.</p>') +
           "</div></div>" +
-          '<p class="vc-profile-extras__hint">Il tocco applica subito il ruolo su Discord.</p>',
+          '<p class="vc-profile-extras__hint">' +
+          hint +
+          "</p>",
       ),
     );
   }
@@ -1438,6 +1466,11 @@
               }
             });
           } catch (ePos) {}
+          try {
+            if (typeof window.VcWakeDeferredMedia === "function") {
+              window.VcWakeDeferredMedia(selectPanel);
+            }
+          } catch (eWake) {}
         } else if (selectPanel) {
           clearPxSelectPanelPos(selectPanel);
         }

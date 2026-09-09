@@ -10,17 +10,17 @@ function staffSanctionRuleIntro(ruleKey) {
 
 const TOP_LEVEL_SECTION_META = [
   { id: "regolamento", label: "Regolamento", description: "Regole e sanzioni utenti", emoji: "<:rules:1443307208543703131>" },
-  { id: "regole_staff", label: "Regole staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
-  { id: "limiti", label: "Limiti settimanali", description: "Obiettivi di attività settimanale", emoji: "<:reportmessage:1443670575376765130>" },
-  { id: "compiti_fissi", label: "Compiti fissi", description: "Compiti fissi da svolgere ogni settimana", emoji: "<:VC_Quest:1482534879257165865>" },
+  { id: "regole_staff", label: "Staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
+  { id: "limiti", label: "Limiti", description: "Obiettivi di attività settimanale", emoji: "<:reportmessage:1443670575376765130>" },
+  { id: "compiti_fissi", label: "Compiti", description: "Compiti fissi da svolgere ogni settimana", emoji: "<:VC_Quest:1482534879257165865>" },
   { id: "pause", label: "Pause", description: "Come funzionano le pause staff", emoji: "<:Clock:1330530065133338685>" },
   { id: "lineeguida", label: "Linee guida", description: "Comportamento e buone pratiche", emoji: "<:VC_PinkQuestionMark:1471892611026391306>" },
   { id: "comandi", label: "Comandi", description: "Comandi utili per lo staff", emoji: "<:VC_Bot:1482526555174604964>" },
   { id: "valutazioni", label: "Valutazioni", description: "Positive, negative e automatiche", emoji: "<a:loading:1443934440614264924>" },
-  { id: "pex", label: "Guida Pex", description: "Promozioni e requisiti", emoji: "<a:VC_LevelUp:1482527020641419415>" },
-  { id: "warnstaff", label: "Warn staff", description: "Come funzionano i warn staff", emoji: "<:banhammer:1443651875441217639>" },
-  { id: "guidapartners", label: "Guida Partners", description: "Guida Partner Manager", emoji: "<:VC_PartnerManager:1494286911286808576>" },
-  { id: "guidamiddle", label: "Guida Middle", description: "Guida Senior Mod & Director", emoji: "<:VC_Staff:1494286904089247754>" },
+  { id: "pex", label: "Pex", description: "Promozioni e requisiti", emoji: "<a:VC_LevelUp:1482527020641419415>" },
+  { id: "warnstaff", label: "Warn", description: "Come funzionano i warn staff", emoji: "<:banhammer:1443651875441217639>" },
+  { id: "guidapartners", label: "Partners", description: "Guida Partner Manager", emoji: "<:VC_PartnerManager:1494286911286808576>" },
+  { id: "guidamiddle", label: "Middle", description: "Guida Senior Mod & Director", emoji: "<:VC_Staff:1494286904089247754>" },
 ];
 
 const NESTED_SECTION_META = [
@@ -240,7 +240,7 @@ const SECTION_BUILDERS = {
     IDs.roles.Manager +
     "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
     "<:VC_Attention:1482534443632558151> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
-    "> <:banhammer:1443651875441217639> Se l'<@&1442568894349840435> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer.",
+    "> <:banhammer:1443651875441217639> Se l'<@&1544831228690046976> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer.",
 
   lineeguida: () =>
     "Per avere un server attivo bisogna prima di tutto avere un legame con la community. Ecco alcuni consigli per instaurare dei discorsi con i nuovi utenti ma anche con quelli anziani.\n\n" +
@@ -296,7 +296,7 @@ const SECTION_BUILDERS = {
     "> Le **valutazioni positive** si possono **__scambiare__** per dei giorni in più di **pausa**.\n\n" +
     "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n\n" +
     "<a:questionexclaimanimated:1443660299994533960> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
-    "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione.\n\n" +
+    "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1544831228690046976> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione.\n\n" +
     "<a:VC_NewsExclamation:1471891662786527253> **__VALUTAZIONI AUTOMATICHE__**\n\n" +
     "> Ogni settimana si possono ottenere delle **valutazioni automatiche** in base a tre fattori:\n" +
     "<:VC_1:1482706338021642333> **Completamento dei limiti settimanali superandoli __almeno del doppio__**\n" +
@@ -337,7 +337,7 @@ const SECTION_BUILDERS = {
 
   warnstaff: () =>
     "<:banhammer:1443651875441217639> I **warn staff** vengono __assegnati__ dopo **3 valutazioni negative**. Raggiunti i `2` **warn staff** si verrà depexati al ruolo precedente. **__(Per i Mod sarà depex completo)__**\n\n" +
-    "> L'<@&1442568894349840435> può decidere di graziare qualcuno al secondo warn, ma in caso di **terzo warn** lo staffer verrà depexato **__completamente__**\n\n" +
+    "> L'<@&1544831228690046976> può decidere di graziare qualcuno al secondo warn, ma in caso di **terzo warn** lo staffer verrà depexato **__completamente__**\n\n" +
     "<:VC_Attention:1482534443632558151> I **warn staff** non possono essere __rimossi__. Il **reset** dei __warn staff__ avviene ogni **__6 mesi__**.",
 
   guidapartners: () => {

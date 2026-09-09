@@ -51,17 +51,19 @@
     { re: /^\/staff\/punti-tolti(?:\/|$)/i, require: "pmOrHighStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/user/" },
         { re: /^\/staff\/?$/i, require: "public" },
     { re: /^\/staff(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
+    { re: /^\/confessionale(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/dashboard(?:\/|$)/i, require: "highStaff", denyFallback: "/" },
     { re: /^\/seratafilm(?:\/|$)/i, require: "highStaff", loginUrl: "/seratafilm/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/candidature(?:\/|$)/i, require: "login", loginUrl: "/candidature/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/appelli(?:\/|$)/i, require: "login", loginUrl: "/appelli/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/(?:unban|unmute)(?:\/|$)/i, require: "login", loginUrl: "/appelli/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/user\/(?:personalizza|customize|custom)(?:\/|$)/i, require: "login", denyFallback: "/" },
+    { re: /^\/personalizza(?:\/|$)/i, require: "login", denyFallback: "/" },
     { re: /^\/notifications(?:\/|$)/i, require: "login", denyFallback: "/" },
     { re: /^\/dati(?:\/|$)/i, require: "login", denyFallback: "/" },
     { re: /^\/tickets(?:\/|$)/i, require: "login", mode: "soft" },
     { re: /^\/recensioni(?:\/|$)/i, require: "login", mode: "soft" },
-    { re: /^\/suggerimenti(?:\/|$)/i, require: "login", mode: "soft" },
+    { re: /^\/(?:feedback|suggerimenti)(?:\/|$)/i, require: "login", mode: "soft" },
   ];
 
   function cfg() {
@@ -676,7 +678,7 @@
 
   function admit(policy, perms) {
     if (hasCapability(perms, policy.require)) {
-      if (/^\/staff(?:\/|$)/i.test(pathName())) revealStaff(perms);
+      if (/^\/(?:staff|confessionale)(?:\/|$)/i.test(pathName())) revealStaff(perms);
       if (/^\/dashboard(?:\/|$)/i.test(pathName())) {
         window.__VC_DASHBOARD_ACCESS_OK = true;
         try {
@@ -711,7 +713,7 @@
 
     var token = getToken();
     var path = pathName();
-    var isStaffArea = /^\/staff(?:\/|$)/i.test(path);
+    var isStaffArea = /^\/(?:staff|confessionale)(?:\/|$)/i.test(path);
 
     if (need === "login") {
       if (token) {
@@ -1033,6 +1035,23 @@
       return denyRedirectUrl(matchPolicy());
     },
   };
+
+  /* authLogoutRoleGate1: se resti su path hard-gated dopo logout → loginUrl/deny */
+  function redirectAfterLogoutIfGated() {
+    try {
+      var policy = matchPolicy();
+      var need = String(policy.require || "public").toLowerCase();
+      if (need === "public") return;
+      if (String(policy.mode || "hard").toLowerCase() === "soft") return;
+      if (getToken()) return;
+      if (policy.loginUrl) navigateTo(loginRedirectUrl(policy));
+      else navigateTo(denyRedirectUrl(policy));
+    } catch (eOut) {}
+  }
+
+  window.addEventListener("vc:auth-logout", function () {
+    redirectAfterLogoutIfGated();
+  });
 
   function boot() {
     runGate();

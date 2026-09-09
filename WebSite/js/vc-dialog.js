@@ -1,9 +1,11 @@
+/* 20260908ticketModalScrollStay2 — site custom dialogs (confirm/alert/prompt/choose) */
 (function (global) {
   "use strict";
 
   var ROOT_ID = "vc-site-dialog";
   var pending = null;
   var keyHandler = null;
+  var dialogScrollY = 0;
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -11,6 +13,37 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function pageScrollY() {
+    try {
+      if (typeof window.__vcGetPinnedPageScrollY === "function") {
+        var pinned = Number(window.__vcGetPinnedPageScrollY()) || 0;
+        if (pinned > 0) return pinned;
+      }
+    } catch (ePin) {}
+    try {
+      return (
+        window.pageYOffset ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        (document.body && document.body.scrollTop) ||
+        0
+      );
+    } catch (eY) {
+      return 0;
+    }
+  }
+
+  function restoreDialogScroll() {
+    var y = Math.max(0, Number(dialogScrollY) || 0);
+    try {
+      window.scrollTo(0, y);
+      if (document.documentElement) document.documentElement.scrollTop = y;
+      if (document.body) document.body.scrollTop = y;
+    } catch (eScr) {}
+    try {
+      if (typeof window.__vcHoldPageScroll === "function") window.__vcHoldPageScroll(220);
+    } catch (eHold) {}
   }
 
   function defaultIcon(kind, danger) {
@@ -87,6 +120,21 @@
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
       else if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
     } catch (eUnpin) {}
+    /* ticketModalScrollStay2: after confirm, unpin/soft-lock can leave Y=0 before postAction */
+    restoreDialogScroll();
+    try {
+      requestAnimationFrame(function () {
+        restoreDialogScroll();
+        requestAnimationFrame(restoreDialogScroll);
+      });
+    } catch (eRaf) {
+      restoreDialogScroll();
+    }
+    try {
+      window.setTimeout(restoreDialogScroll, 0);
+      window.setTimeout(restoreDialogScroll, 48);
+      window.setTimeout(restoreDialogScroll, 120);
+    } catch (eT) {}
     var resolve = pending && pending.resolve;
     var kind = pending && pending.kind;
     pending = null;
@@ -129,6 +177,7 @@
     return new Promise(function (resolve) {
       if (pending) finish(kind === "confirm" ? false : null);
       pending = { resolve: resolve, kind: kind, multiline: multiline };
+      dialogScrollY = pageScrollY();
       var root = ensureRoot();
       var titleEl = document.getElementById("vc-dialog-title");
       var textEl = document.getElementById("vc-dialog-text");
@@ -254,7 +303,13 @@
             ? document.getElementById("vc-dialog-textarea")
             : document.getElementById("vc-dialog-input");
           if (focusEl && typeof focusEl.focus === "function") {
-            focusEl.focus();
+            try {
+              focusEl.focus({ preventScroll: true });
+            } catch (eFs) {
+              try {
+                focusEl.focus({ preventScroll: true });
+              } catch (eFs2) {}
+            }
             if (typeof focusEl.select === "function" && !multiline) focusEl.select();
             return;
           }
@@ -266,7 +321,15 @@
               ? '[data-vc-dialog="cancel"]'
               : '[data-vc-dialog="cancel"]',
         );
-        if (focusBtn && typeof focusBtn.focus === "function") focusBtn.focus();
+        if (focusBtn && typeof focusBtn.focus === "function") {
+          try {
+            focusBtn.focus({ preventScroll: true });
+          } catch (eFb) {
+            try {
+              focusBtn.focus({ preventScroll: true });
+            } catch (eFb2) {}
+          }
+        }
       });
     });
   }
@@ -296,4 +359,10 @@
     choose: chooseDialog,
     prompt: promptDialog,
   };
+
+  if (typeof global.__vcEnsureDialog !== "function") {
+    global.__vcEnsureDialog = function () {
+      return Promise.resolve(global.VcDialog);
+    };
+  }
 })(typeof window !== "undefined" ? window : globalThis);

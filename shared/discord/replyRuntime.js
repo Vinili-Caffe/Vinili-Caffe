@@ -487,7 +487,12 @@ function maybeCoercePlainNoticeEmbed(payload, source) {
 }
 
 function finalizeOutgoingPayload(payload, source) {
-  let next = maybeCoercePlainNoticeEmbed(payload, source);
+  let next = payload;
+  try {
+    const { applyEmergencyRoleRemapToOutgoingPayload } = require("../../Vinyls/Utils/Config/emergencyRoleIdRemap");
+    next = applyEmergencyRoleRemapToOutgoingPayload(next);
+  } catch (_) {}
+  next = maybeCoercePlainNoticeEmbed(next, source);
   next = maybeApplyPronounGender(next, resolveMessageMember(source) || resolveInteractionMember(source));
   next = maybeApplyDefaultFooter(next, source);
   next = maybeApplyTenantEmbedBranding(next, source);

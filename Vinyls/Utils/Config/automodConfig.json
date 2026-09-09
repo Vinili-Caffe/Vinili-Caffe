@@ -109,8 +109,9 @@
       "inviteLinksEnabled": true
     },
     "ticket": {
-      "exempt": true,
-      "heatMultiplier": 0.6,
+      "exempt": false,
+      "hateSpeechOnly": true,
+      "heatMultiplier": 1,
       "mentionsEnabled": false,
       "attachmentsEnabled": false,
       "inviteLinksEnabled": false

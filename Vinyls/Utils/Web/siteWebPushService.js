@@ -3,7 +3,7 @@ const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/co
 
 const DOC = SITE_DOCUMENT_TYPE.WEB_PUSH_SUBSCRIPTION;
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
-const PUSH_NOTIFICATION_ICON = "/images/vc-server-icon.png";
+const PUSH_NOTIFICATION_ICON = "/images/og-server-icon.gif?v=20260904brandGif1";
 
 let vapidConfigured = false;
 
@@ -299,22 +299,27 @@ async function sendWebPushToUser(userId, payload = {}) {
 
   let sent = 0;
   let failed = 0;
+  const targets = [];
   for (const sub of subs) {
-                if (isDismiss && (isApplePushSubscription(sub) || isDesktopPushSubscription(sub))) continue;
+    if (isDismiss && (isApplePushSubscription(sub) || isDesktopPushSubscription(sub))) continue;
     const endpoint = normalizeEndpoint(sub.pushEndpoint);
     const p256dh = normalizeKey(sub.pushP256dh);
     const auth = normalizeKey(sub.pushAuth, 256);
     if (!endpoint || !p256dh || !auth) continue;
+    targets.push({ sub, endpoint, p256dh, auth, mobile: isMobilePushSubscription(sub) || isApplePushSubscription(sub) });
+  }
+  /* phoneNotifFlyCard1: mobile/Apple prima + invii in parallelo (meno ritardo OS). */
+  targets.sort((a, b) => Number(b.mobile) - Number(a.mobile));
+
+  async function sendOne(target) {
+    const { endpoint, p256dh, auth } = target;
     try {
       await webpush.sendNotification(
-        {
-          endpoint,
-          keys: { p256dh, auth },
-        },
+        { endpoint, keys: { p256dh, auth } },
         data,
         pushOpts,
       );
-      sent += 1;
+      return { ok: true };
     } catch (err) {
       let retried = false;
       if (pushOpts.headers && Number(err?.statusCode) !== 404 && Number(err?.statusCode) !== 410) {
@@ -325,12 +330,9 @@ async function sendWebPushToUser(userId, payload = {}) {
             data,
             withoutTopic,
           );
-          sent += 1;
-          retried = true;
+          return { ok: true };
         } catch (_) {}
       }
-      if (retried) continue;
-      failed += 1;
       const status = Number(err?.statusCode) || 0;
       let host = "";
       try {
@@ -345,7 +347,14 @@ async function sendWebPushToUser(userId, payload = {}) {
           message: err?.body || err?.message || String(err),
         });
       }
+      return { ok: false };
     }
+  }
+
+  const results = await Promise.all(targets.map((t) => sendOne(t)));
+  for (const r of results) {
+    if (r && r.ok) sent += 1;
+    else failed += 1;
   }
   return { ok: true, sent, failed };
 }

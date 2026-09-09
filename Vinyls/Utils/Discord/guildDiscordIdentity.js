@@ -1,3 +1,8 @@
+/**
+ * Identità Discord allineata al sito:
+ * - Nome: nickname (server) → globalName → username
+ * - Avatar: foto server (GIF se a_) → avatar globale (GIF se a_) → default
+ */
 
 function resolveUserFromLike(userLike) {
   return userLike?.user || userLike || null;
@@ -8,25 +13,24 @@ function guildIconUrlFromCdn(guild, size = 256) {
   const guildId = String(guild?.id || "").trim();
   if (!icon || !/^\d{16,22}$/.test(guildId)) return null;
   const animated = icon.startsWith("a_");
-  const ext = animated ? "webp" : "png";
+  const ext = animated ? "gif" : "png";
   return `https://cdn.discordapp.com/icons/${guildId}/${icon}.${ext}?size=${size}`;
 }
 
 function guildIconUrl(guild, { size = 256 } = {}) {
   if (!guild) return null;
-    if (typeof guild.iconURL === "function") {
+  if (typeof guild.iconURL === "function") {
     try {
       if (!guild.icon) return null;
       const animated = String(guild.icon).startsWith("a_");
       const fromMethod =
         guild.iconURL({
           size,
-          extension: animated ? "webp" : "png",
+          extension: animated ? "gif" : "png",
           forceStatic: animated ? false : true,
         }) || null;
       if (fromMethod) return fromMethod;
-    } catch (_) {
-          }
+    } catch (_) {}
   }
   if (typeof guild.iconURL === "string" && /^https?:\/\//i.test(guild.iconURL)) {
     return guild.iconURL;
@@ -54,121 +58,71 @@ function discordDefaultAvatarUrl(userLike, { size = 256 } = {}) {
   return `https://cdn.discordapp.com/embed/avatars/${index}.png?size=${size}`;
 }
 
+function resolveGuildIdFromMemberLike(memberLike) {
+  const fromGuild = String(memberLike?.guild?.id || memberLike?.guildId || "").trim();
+  if (/^\d{16,22}$/.test(fromGuild)) return fromGuild;
+  try {
+    const IDs = require("../Config/ids");
+    const main = String(IDs?.guilds?.main || "").trim();
+    if (/^\d{16,22}$/.test(main)) return main;
+  } catch (_) {}
+  return "";
+}
+
+function resolveUserIdFromMemberLike(memberLike) {
+  const id = String(memberLike?.id || memberLike?.user?.id || memberLike?.userId || "").trim();
+  if (/^\d{16,22}$/.test(id)) return id;
+  return "";
+}
+
+function guildMemberServerAvatarCdnUrl(memberLike, { size = 256, forceStatic = false } = {}) {
+  const hash = String(memberLike?.avatar || "").trim();
+  if (!hash) return null;
+  const guildId = resolveGuildIdFromMemberLike(memberLike);
+  const userId = resolveUserIdFromMemberLike(memberLike);
+  if (!guildId || !userId) return null;
+  const animated = !forceStatic && hash.startsWith("a_");
+  const ext = animated ? "gif" : "png";
+  return `https://cdn.discordapp.com/guilds/${guildId}/users/${userId}/avatars/${hash}.${ext}?size=${size}`;
+}
+
 function guildMemberServerAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
-  if (!memberLike?.guild || memberLike.avatar == null || memberLike.avatar === "") return null;
+  if (memberLike?.avatar == null || memberLike.avatar === "") return null;
   const animated = String(memberLike.avatar).startsWith("a_");
   if (typeof memberLike.avatarURL === "function") {
-    return (
-      memberLike.avatarURL({
-        size,
-        extension: animated ? "gif" : "png",
-        forceStatic: false,
-      }) || null
-    );
+    try {
+      const fromMethod =
+        memberLike.avatarURL({
+          size,
+          extension: animated ? "gif" : "png",
+          forceStatic: false,
+        }) || null;
+      if (fromMethod && /\/guilds\/\d+\/users\//i.test(String(fromMethod))) return fromMethod;
+    } catch (_) {}
   }
-  if (typeof memberLike.displayAvatarURL === "function") {
-    return (
-      memberLike.displayAvatarURL({
-        size,
-        extension: animated ? "gif" : "png",
-        forceStatic: false,
-      }) || null
-    );
-  }
-  return null;
+  return guildMemberServerAvatarCdnUrl(memberLike, { size, forceStatic: false });
 }
 
 function userGlobalAvatarUrlDynamic(userLike, { size = 256 } = {}) {
   const user = resolveUserFromLike(userLike);
-  if (!user?.avatar || typeof user.displayAvatarURL !== "function") return null;
+  if (!user?.avatar) return null;
   const animated = String(user.avatar).startsWith("a_");
-  return (
-    user.displayAvatarURL({
-      size,
-      extension: animated ? "gif" : "webp",
-      forceStatic: false,
-    }) || null
-  );
-}
-
-function embedUserAvatarUrlDynamic(userLike, { size = 256 } = {}) {
-  const staticServer = guildMemberDisplayAvatarUrlStatic(userLike, { size });
-  if (staticServer) return staticServer;
-  const staticGlobal = userAvatarUrlStatic(userLike, { size });
-  if (staticGlobal) return staticGlobal;
-  const server = guildMemberServerAvatarUrlDynamic(userLike, { size });
-  if (server) return server;
-  const globalAv = userGlobalAvatarUrlDynamic(userLike, { size });
-  if (globalAv) return globalAv;
-  return discordDefaultAvatarUrl(userLike, { size });
-}
-
-async function remoteImageUrlLoads(url) {
-  const u = String(url || "").trim();
-  if (!/^https:\/\//i.test(u)) return false;
-  try {
-    let res = await fetch(u, { method: "HEAD", signal: AbortSignal.timeout(4000) });
-    if (res.status === 405 || res.status === 501 || res.status === 403) {
-      res = await fetch(u, {
-        method: "GET",
-        signal: AbortSignal.timeout(4000),
-        headers: { Range: "bytes=0-0" },
-      });
-    }
-    return res.ok;
-  } catch {
-    return false;
+  if (typeof user.displayAvatarURL === "function") {
+    try {
+      const fromMethod =
+        user.displayAvatarURL({
+          size,
+          extension: animated ? "gif" : "png",
+          forceStatic: false,
+        }) || null;
+      if (fromMethod) return fromMethod;
+    } catch (_) {}
   }
-}
-
-function embedThumbnailAvatarUrl(userLike, { size = 256 } = {}) {
-  const staticUrl = guildMemberDisplayAvatarUrlStatic(userLike, { size });
-  if (staticUrl) return staticUrl;
-  const user = resolveUserFromLike(userLike);
-  if (user?.displayAvatarURL) {
-    const forced = user.displayAvatarURL({ size, extension: "png", forceStatic: true });
-    if (forced) return forced;
-  }
-  return discordDefaultAvatarUrl(userLike, { size });
-}
-
-async function resolveEmbedUserAvatarUrl(userLike, { size = 256 } = {}) {
-  const candidates = [];
-  const staticUrl = guildMemberDisplayAvatarUrlStatic(userLike, { size });
-  if (staticUrl) candidates.push(staticUrl);
-  const user = resolveUserFromLike(userLike);
-  if (user?.displayAvatarURL) {
-    const forcedPng = user.displayAvatarURL({ size, extension: "png", forceStatic: true });
-    if (forcedPng) candidates.push(forcedPng);
-  }
-  const server = guildMemberServerAvatarUrlDynamic(userLike, { size });
-  const global = userGlobalAvatarUrlDynamic(userLike, { size });
-  const fallback = discordDefaultAvatarUrl(userLike, { size });
-  if (server) candidates.push(server);
-  if (global && global !== server) candidates.push(global);
-  candidates.push(fallback);
-  const seen = new Set();
-  for (const url of candidates) {
-    const u = String(url || "").trim();
-    if (!u || seen.has(u)) continue;
-    seen.add(u);
-    if (await remoteImageUrlLoads(u)) return u;
-  }
-  return fallback;
-}
-
-function userAvatarUrlDynamic(userLike, { size = 256 } = {}) {
-  return embedUserAvatarUrlDynamic(userLike, { size });
-}
-
-function guildMemberDisplayAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
-  return embedUserAvatarUrlDynamic(memberLike, { size });
-}
-
-function userAvatarUrlStatic(userLike, { size = 256 } = {}) {
-  const user = resolveUserFromLike(userLike);
-  if (!user || typeof user.displayAvatarURL !== "function") return null;
-  return user.displayAvatarURL({ size, extension: "png", forceStatic: true }) || null;
+  const uid = String(user.id || "").trim();
+  const hash = String(user.avatar || "").trim();
+  if (!/^\d{16,22}$/.test(uid) || !hash) return null;
+  const ext = animated ? "gif" : "png";
+  return `https://cdn.discordapp.com/avatars/${uid}/${hash}.${ext}?size=${size}`;
 }
 
 function isDiscordAvatarHashAnimated(hash) {
@@ -197,7 +151,10 @@ function normalizeDiscordCdnAvatarUrl(url, { size = 256, preferAnimated = false 
   return u;
 }
 
-function guildMemberDisplayAvatarUrlForSite(memberLike, { size = 128, preferAnimated = true } = {}) {
+function guildMemberDisplayAvatarUrlForSite(
+  memberLike,
+  { size = 128, preferAnimated = true, allowDefault = true } = {},
+) {
   if (preferAnimated) {
     const server = guildMemberServerAvatarUrlDynamic(memberLike, { size });
     if (server) return server;
@@ -208,37 +165,128 @@ function guildMemberDisplayAvatarUrlForSite(memberLike, { size = 128, preferAnim
   if (staticServer) return staticServer;
   const staticGlobal = userAvatarUrlStatic(memberLike, { size });
   if (staticGlobal) return staticGlobal;
+  if (!allowDefault) return null;
   return discordDefaultAvatarUrl(memberLike, { size });
 }
 
 function guildMemberDisplayAvatarUrlStatic(memberLike, { size = 256 } = {}) {
-  if (memberLike?.guild && memberLike.avatar != null && memberLike.avatar !== "") {
+  if (memberLike?.avatar != null && memberLike.avatar !== "") {
     if (typeof memberLike.avatarURL === "function") {
-      return memberLike.avatarURL({ size, extension: "png", forceStatic: true }) || null;
+      try {
+        const fromMethod =
+          memberLike.avatarURL({ size, extension: "png", forceStatic: true }) || null;
+        if (fromMethod && /\/guilds\/\d+\/users\//i.test(String(fromMethod))) return fromMethod;
+      } catch (_) {}
     }
-    if (typeof memberLike.displayAvatarURL === "function") {
-      return memberLike.displayAvatarURL({ size, extension: "png", forceStatic: true }) || null;
-    }
+    const cdn = guildMemberServerAvatarCdnUrl(memberLike, { size, forceStatic: true });
+    if (cdn) return cdn;
   }
   return userAvatarUrlStatic(memberLike, { size });
 }
 
+function userAvatarUrlStatic(userLike, { size = 256 } = {}) {
+  const user = resolveUserFromLike(userLike);
+  if (!user?.avatar) return null;
+  if (typeof user.displayAvatarURL === "function") {
+    try {
+      return user.displayAvatarURL({ size, extension: "png", forceStatic: true }) || null;
+    } catch (_) {}
+  }
+  const uid = String(user.id || "").trim();
+  const hash = String(user.avatar || "").trim();
+  if (!/^\d{16,22}$/.test(uid) || !hash) return null;
+  return `https://cdn.discordapp.com/avatars/${uid}/${hash}.png?size=${size}`;
+}
+
+/** Avatar preferito (site + bot embeds): server animato → globale animato → default. */
+function userAvatarUrlDynamic(userLike, { size = 256, allowDefault = true } = {}) {
+  return guildMemberDisplayAvatarUrlForSite(userLike, { size, preferAnimated: true, allowDefault });
+}
+
+function guildMemberDisplayAvatarUrlDynamic(memberLike, { size = 256, allowDefault = true } = {}) {
+  return guildMemberDisplayAvatarUrlForSite(memberLike, { size, preferAnimated: true, allowDefault });
+}
+
+/** Stesso ordine animato — usato ovunque (thumbnail/author embed inclusi). */
+function embedUserAvatarUrlDynamic(userLike, { size = 256 } = {}) {
+  return guildMemberDisplayAvatarUrlForSite(userLike, { size, preferAnimated: true });
+}
+
+function embedThumbnailAvatarUrl(userLike, { size = 256 } = {}) {
+  return guildMemberDisplayAvatarUrlForSite(userLike, { size, preferAnimated: true });
+}
+
+async function remoteImageUrlLoads(url) {
+  const u = String(url || "").trim();
+  if (!/^https:\/\//i.test(u)) return false;
+  try {
+    let res = await fetch(u, { method: "HEAD", signal: AbortSignal.timeout(4000) });
+    if (res.status === 405 || res.status === 501 || res.status === 403) {
+      res = await fetch(u, {
+        method: "GET",
+        signal: AbortSignal.timeout(4000),
+        headers: { Range: "bytes=0-0" },
+      });
+    }
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveEmbedUserAvatarUrl(userLike, { size = 256 } = {}) {
+  const candidates = [];
+  const server = guildMemberServerAvatarUrlDynamic(userLike, { size });
+  const global = userGlobalAvatarUrlDynamic(userLike, { size });
+  const fallback = discordDefaultAvatarUrl(userLike, { size });
+  if (server) candidates.push(server);
+  if (global && global !== server) candidates.push(global);
+  const staticServer = guildMemberDisplayAvatarUrlStatic(userLike, { size });
+  if (staticServer) candidates.push(staticServer);
+  const staticGlobal = userAvatarUrlStatic(userLike, { size });
+  if (staticGlobal) candidates.push(staticGlobal);
+  candidates.push(fallback);
+  const seen = new Set();
+  for (const url of candidates) {
+    const u = String(url || "").trim();
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    if (await remoteImageUrlLoads(u)) return u;
+  }
+  return fallback;
+}
+
+/** Handle Discord (@username) — non usare per label UI. */
 function accountUsername(userLike) {
   const user = resolveUserFromLike(userLike);
   return String(user?.username || "Utente").trim() || "Utente";
 }
 
+/**
+ * Nome primario come sul sito: nickname server → globalName → username.
+ */
 function memberDisplayName(memberLike, fallbackUser) {
+  const nick = String(memberLike?.nickname || "").trim();
+  if (nick) return nick;
   if (memberLike && memberLike.user && typeof memberLike.displayName === "string") {
     const dn = String(memberLike.displayName || "").trim();
     if (dn) return dn;
   }
-  const nick = String(memberLike?.nickname || "").trim();
-  if (nick) return nick;
   const user = resolveUserFromLike(memberLike) || resolveUserFromLike(fallbackUser);
-  const global = String(user?.globalName || "").trim();
+  const global = String(user?.globalName || user?.displayName || "").trim();
   if (global) return global;
   return accountUsername(user);
+}
+
+/**
+ * Label embed/UI: "Nickname (@username)" se diversi, altrimenti solo nickname/username.
+ */
+function memberLabelWithUsername(memberLike, fallbackUser) {
+  const primary = memberDisplayName(memberLike, fallbackUser);
+  const uname = accountUsername(memberLike || fallbackUser);
+  if (!primary) return uname || "Utente";
+  if (!uname || primary.toLowerCase() === uname.toLowerCase()) return primary;
+  return `${primary} (@${uname})`;
 }
 
 function guildFirstThumbnailUrl(guild, userLike, { size = 256 } = {}) {
@@ -262,5 +310,6 @@ module.exports = {
   guildMemberDisplayAvatarUrlStatic,
   accountUsername,
   memberDisplayName,
+  memberLabelWithUsername,
   guildFirstThumbnailUrl,
 };

@@ -1,28 +1,57 @@
 <!DOCTYPE html>
-<html lang="it">
+<html class="vc-site-polish" lang="it">
   <head>
+  <script id="vc-site-photo-bg-prime">(function(){try{window.__VC_SITE_PHOTO_BG=true;document.documentElement.classList.add("vc-site-photo-bg","vc-cine-static-bg","vc-home-cine-live","vc-home-motion-ready")}catch(e){}})();</script>
+  <link rel="stylesheet" id="vc-site-photo-bg-link" href="/css/vc-site-photo-bg.css?v=20260906gifNeverWebp1" />
+
     <meta charset="utf-8" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="refresh" content="0;url=/notifications/?view=staff" />
     <link rel="canonical" href="/notifications/?view=staff" />
     <title>Inbox Staff → Notifiche</title>
     <script>
       (function () {
         try {
-          var dest = "/notifications/?view=staff";
+          var params = new URLSearchParams(location.search || "");
+          var dest = new URL("/notifications/", location.origin);
+          dest.searchParams.set("view", "staff");
+          var tab = String(params.get("inbox") || params.get("tab") || "").trim().toLowerCase();
+          if (tab === "staff" || tab === "personal") tab = "";
+          if (tab) {
+            dest.searchParams.set("inbox", tab);
+            var scope = String(params.get("scope") || "").trim().toLowerCase();
+            dest.searchParams.set("scope", scope === "all" ? "all" : "pending");
+          }
+          var item = String(params.get("item") || "").trim();
+          if (item) dest.searchParams.set("item", item);
+          var filter = String(params.get("filter") || "").trim();
+          if (filter) dest.searchParams.set("filter", filter);
+          var week = String(params.get("week") || "").trim();
+          if (week) dest.searchParams.set("week", week);
+          var page = String(params.get("page") || "").trim();
+          if (page && page !== "1") dest.searchParams.set("page", page);
           var hash = String(location.hash || "");
-          location.replace(dest + hash);
+          location.replace(dest.pathname + dest.search + hash);
         } catch (e) {
           location.href = "/notifications/?view=staff";
         }
       })();
     </script>
-  </head>
-  <body>
+  <script src="/js/vc-home-cine.js?v=20260907cardHeroIcon1" defer></script>
+<link rel="stylesheet" href="/css/vc-image-lightbox.css?v=20260908imgLightbox2" id="vc-image-lightbox-css" />
+</head>
+  <body class="vc-body">
+    <div class="vc-home-cine" aria-hidden="true">
+      <img class="vc-home-cine__photo" src="/images/sfondo.gif?v=20260906gifNeverWebp1" alt="" decoding="async" loading="eager" draggable="false" />
+      <canvas class="vc-home-cine__canvas"></canvas>
+      <div class="vc-home-cine__veil"></div>
+      <div class="vc-home-cine__grain"></div>
+    </div>
+
     <p>
       L'inbox staff è ora in
       <a href="/notifications/?view=staff">Notifiche → Staff</a>.
     </p>
-  </body>
+<script src="/js/vc-image-lightbox.js?v=20260908imgLightbox2" defer data-vc-img-lightbox="1"></script>
+</body>
 </html>

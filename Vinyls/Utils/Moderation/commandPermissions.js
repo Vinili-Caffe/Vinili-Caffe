@@ -11,6 +11,9 @@ const { getGuildMemberCached } = require("../Interaction/interactionEntityCache"
 const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService");
 const { parseProfilePanelOwnerIdFromCustomId, resolveProfilePanelControl } = require("../Community/profilePanelControl");
 const {
+  STAFF_LADDER_KEYS_HIGH_TO_LOW,
+} = require("../Staff/staffRoleHierarchy");
+const {
   interactionHasResocontoButtonAccess,
   hasCandidatureReviewAccess,
   isResocontoInteraction,
@@ -502,6 +505,9 @@ function loadPermissions() {
     }
     const raw = fs.readFileSync(permissionsPath, "utf-8");
     const parsed = JSON.parse(raw) || {};
+    try {
+      require("../Config/emergencyRoleIdRemap").remapDeepRoleIdsInPlace(parsed);
+    } catch (_) {}
     const normalized = { slash: parsed.slash || {}, prefix: parsed.prefix || {}, channels: parsed.channels || {}, buttons: parsed.buttons || {}, selectMenus: parsed.selectMenus || {}, modals: parsed.modals || {}, };
     cache = {
       filePath: permissionsPath,
@@ -519,24 +525,38 @@ function resolveRoleReference(value) {
   if (value == null) return null;
   const raw = String(value).trim();
   if (!raw) return null;
-  if (/^\d{16,20}$/.test(raw)) return raw;
+  let resolved = null;
+  if (/^\d{16,22}$/.test(raw)) {
+    resolved = raw;
+  } else {
+    let key = raw;
+    if (key.startsWith("ids.roles.")) key = key.slice("ids.roles.".length);
+    else if (key.startsWith("roles.")) key = key.slice("roles.".length);
 
-  let key = raw;
-  if (key.startsWith("ids.roles.")) key = key.slice("ids.roles.".length);
-  else if (key.startsWith("roles.")) key = key.slice("roles.".length);
-
-  const idsCfg = typeof IDs !== "undefined" && IDs ? IDs : getIdsConfig();
-  const table = idsCfg?.roles;
-  if (!table || typeof table !== "object") return null;
-  if (table[key] != null && String(table[key]).trim() !== "") return String(table[key]);
-  const lower = String(key).toLowerCase();
-  for (const k of Object.keys(table)) {
-    if (String(k).toLowerCase() === lower) {
-      const v = table[k];
-      if (v != null && String(v).trim() !== "") return String(v);
+    const idsCfg = typeof IDs !== "undefined" && IDs ? IDs : getIdsConfig();
+    const table = idsCfg?.roles;
+    if (!table || typeof table !== "object") return null;
+    if (table[key] != null && String(table[key]).trim() !== "") resolved = String(table[key]);
+    else {
+      const lower = String(key).toLowerCase();
+      for (const k of Object.keys(table)) {
+        if (String(k).toLowerCase() === lower) {
+          const v = table[k];
+          if (v != null && String(v).trim() !== "") {
+            resolved = String(v);
+            break;
+          }
+        }
+      }
     }
   }
-  return null;
+  if (!resolved) return null;
+  try {
+    const { remapRoleIdForward } = require("../Config/emergencyRoleIdRemap");
+    return remapRoleIdForward(resolved) || resolved;
+  } catch {
+    return resolved;
+  }
 }
 
 function normalizeRoleList(roleIds) {
@@ -781,11 +801,54 @@ function memberRoleCacheLooksUsable(member) {
   return true;
 }
 
+/** Owner / Founder / Administrator always clear role gates. Higher ladder clears lower required ranks. */
+function memberSatisfiesRequiredRolesByStaffRank(member, roleIds) {
+  if (!member) return false;
+  const normalized = normalizeRoleList(roleIds);
+  if (!Array.isArray(normalized) || normalized.length === 0) return false;
+
+  const memberIds = collectMemberRoleIds(member);
+  const founderId = String(IDs.roles?.Founder || "").trim();
+  const isOwner = String(member.id || "") === String(member.guild?.ownerId || "");
+  let isAdmin = false;
+  try {
+    isAdmin = Boolean(member.permissions?.has?.(PermissionFlagsBits.Administrator));
+  } catch (_) {}
+  if (isOwner || isAdmin || (founderId && memberIds.has(founderId))) return true;
+
+  const ladderIds = STAFF_LADDER_KEYS_HIGH_TO_LOW.map((k) => String(IDs.roles?.[k] || "").trim()).filter(Boolean);
+  let memberRank = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < ladderIds.length; i += 1) {
+    if (memberIds.has(ladderIds[i])) {
+      memberRank = i;
+      break;
+    }
+  }
+  const highStaffId = String(IDs.roles?.HighStaff || "").trim();
+  if (memberRank === Number.POSITIVE_INFINITY && highStaffId && memberIds.has(highStaffId)) {
+    const directorIdx = ladderIds.indexOf(String(IDs.roles?.Director || "").trim());
+    memberRank = directorIdx >= 0 ? directorIdx : 3;
+  }
+  if (memberRank === Number.POSITIVE_INFINITY) return false;
+
+  for (const rid of normalized) {
+    const idx = ladderIds.indexOf(String(rid));
+    if (idx >= 0 && memberRank <= idx) return true;
+  }
+  return false;
+}
+
 function hasAnyRole(member, roleIds) {
   const normalized = normalizeRoleList(roleIds);
   if (!Array.isArray(normalized)) return false;
   if (normalized.length === 0) return false;
+  if (memberSatisfiesRequiredRolesByStaffRank(member, normalized)) return true;
   if (!memberRoleCacheLooksUsable(member)) return false;
+  try {
+    const { memberHasAnyRemappedRole } = require("../Config/emergencyRoleIdRemap");
+    if (memberHasAnyRemappedRole(member, normalized)) return true;
+  } catch {
+  }
   const memberRoleIds = collectMemberRoleIds(member);
   return normalized.some((roleId) => memberRoleIds.has(String(roleId)));
 }
@@ -2599,10 +2662,8 @@ function isSlashCommandAllowedInWebTicket({
 }
 
 function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "comando", customDescription = null, guild = null) {
-  let roles = normalizeRoleList(Array.isArray(requiredRoleIds) ? requiredRoleIds : []);
-  if (guild?.roles?.cache) {
-    roles = roles.filter((id) => guild.roles.cache.has(String(id)));
-  }
+  const roles = normalizeRoleList(Array.isArray(requiredRoleIds) ? requiredRoleIds : []);
+  void guild;
   const rolesText = roles.length
     ? roles.map((id) => `<@&${id}>`).join(", ")
     : "<:VC_Attention:1482534443632558151> Nessun ruolo configurato.";

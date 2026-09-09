@@ -8,7 +8,7 @@
   if (window.__VC_ACCESS_GATE_BOOT) return;
   window.__VC_ACCESS_GATE_BOOT = true;
   var s = document.createElement("script");
-  s.src = "/js/vc-access-gate.js?v=20260826androidScroll1";
+  s.src = "/js/vc-access-gate.js?v=20260907authLogoutRoleGate1";
   (document.head || document.documentElement).appendChild(s);
   if (!window.__vcPtrBooted) {
     try {

@@ -19,7 +19,9 @@
     lastSnapshot: "",
     lastAppliedSummarySig: "",
     lastProfileViewerForGrid: "\u0000",
-    lastFocusEl: null
+    lastFocusEl: null,
+    requestStatesByRoleId: {},
+    requestStatesLoading: false,
   };
   var liveRolesPollTimer = null;
   var LIVE_ROLES_POLL_MS = 60000;
@@ -78,6 +80,44 @@
     return String(request).replace(/\/+$/, "") + "/leave";
   }
 
+  function resolvedRequestStateApiUrl() {
+    var request = resolvedRequestApiUrl();
+    if (!request) return "/webhooks/site-roles/request-state";
+    if (/\/request\/?$/i.test(request)) return request.replace(/\/request\/?$/i, "/request-state");
+    return String(request).replace(/\/+$/, "") + "/request-state";
+  }
+
+  function formatCooldownShort(iso) {
+    var date = new Date(iso);
+    if (!Number.isFinite(date.getTime())) return "";
+    try {
+      return date.toLocaleString("it-IT", {
+        timeZone: "Europe/Rome",
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (e) {
+      return String(iso || "");
+    }
+  }
+
+  function requestStateForRole(roleId) {
+    var rid = String(roleId || "").trim();
+    if (!rid) return null;
+    var row = state.requestStatesByRoleId && state.requestStatesByRoleId[rid];
+    if (!row || typeof row !== "object") return null;
+    var status = String(row.status || "").trim().toLowerCase();
+    if (status === "pending") return row;
+    if (status === "cooldown") {
+      var untilMs = row.cooldownUntil ? new Date(row.cooldownUntil).getTime() : 0;
+      if (Number.isFinite(untilMs) && untilMs > Date.now()) return row;
+      return null;
+    }
+    return null;
+  }
+
   function authCfg() {
     return (typeof window !== "undefined" && window.__VC_AUTH) || {};
   }
@@ -97,8 +137,12 @@
       redirect_uri: redirect,
       response_type: "token",
       scope: "identify",
+      prompt: "none",
     });
     q.set("state", here || "/");
+    try {
+      sessionStorage.setItem("vc_oauth_attempted_none_v1", "1");
+    } catch (eNone) {}
     return "https://discord.com/oauth2/authorize?" + q.toString();
   }
 
@@ -215,17 +259,15 @@
     }
   }
 
-  function fallbackAvatarById(id) {
-    var raw = String(id || "").trim();
-    var index = 0;
-    if (/^\d+$/.test(raw)) {
-      try {
-        index = Number(BigInt(raw) % 6n);
-      } catch (e) {
-        index = 0;
+  function fallbackAvatarById() {
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
       }
-    }
-    return "https://cdn.discordapp.com/embed/avatars/" + index + ".png";
+    } catch (eFb) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
   function profileHref(userId) {
@@ -240,8 +282,7 @@
     var id = String(row.ownerId || "").trim();
     var av = String(row.ownerAvatar || "").trim();
     if (id && av) {
-      var ext = av.indexOf("a_") === 0 ? "gif" : "png";
-      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + "." + ext + "?size=128";
+      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + ".png?size=128";
     }
     return fallbackAvatarById(id);
   }
@@ -253,8 +294,7 @@
     var id = String(row.userId || "").trim();
     var av = String(row.avatar || "").trim();
     if (id && av) {
-      var ext = av.indexOf("a_") === 0 ? "gif" : "png";
-      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + "." + ext + "?size=128";
+      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + ".png?size=128";
     }
     return fallbackAvatarById(id);
   }
@@ -318,11 +358,40 @@
   }
 
   function setState(msg, isErr) {
+    var text = String(msg || "").trim();
     var el = byId("vc-roles-state");
-    if (!el) return;
-    el.textContent = msg || "";
-    el.className = "vc-user-leader-state" + (isErr ? " vc-user-leader-state--err" : "");
-    el.hidden = !msg;
+    // rolesToastFix1: niente banner in cima — toast in basso (come classifica).
+    if (el) {
+      el.textContent = "";
+      el.hidden = true;
+      el.className = "vc-user-leader-state";
+    }
+    if (!text) {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") window.VcSiteToast.hide();
+      } catch (eHide) {}
+      return;
+    }
+    function paintToast() {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+          window.VcSiteToast.show(text, Boolean(isErr), {
+            ms: isErr ? (/troppe richieste|impossibile caricare/i.test(text) ? 4200 : 3200) : 1800,
+          });
+          return true;
+        }
+      } catch (eToast) {}
+      return false;
+    }
+    if (paintToast()) return;
+    window.setTimeout(function () {
+      if (paintToast()) return;
+      if (el) {
+        el.textContent = text;
+        el.className = "vc-user-leader-state" + (isErr ? " vc-user-leader-state--err" : "");
+        el.hidden = false;
+      }
+    }, 120);
   }
 
   function syncInitialLoadingOverlay() {
@@ -365,7 +434,6 @@
     var total = byId("vc-roles-stat-total");
     var perm = byId("vc-roles-stat-perm");
     var members = byId("vc-roles-stat-members");
-    var sub = byId("vc-roles-sub");
     var countApi = typeof window !== "undefined" ? window.VCCountUp : null;
     var totalValue = Number(summary && summary.totalRoles) || 0;
     var permValue = Number(summary && summary.permanentRoles) || 0;
@@ -384,9 +452,6 @@
     if (members) {
       if (countApi && typeof countApi.set === "function") countApi.set(members, memberValue, "int");
       else members.textContent = formatIntIt(memberValue);
-    }
-    if (sub) {
-      sub.textContent = "Esplora i ruoli custom della community · " + formatIntIt(summary && summary.totalRoles) + " ruoli";
     }
   }
 
@@ -449,7 +514,7 @@
     var rid = esc(String(row.roleId || ""));
     if (viewerIsRoleOwner(row)) {
       return (
-        '<button type="button" class="vc-role-card-cta vc-role-card-cta--owner-self" disabled title="Ruolo che hai creato con <a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a>: non puoi richiederlo a te stesso">' +
+        '<button type="button" class="vc-role-card-cta vc-role-card-cta--owner-self" disabled aria-label="Ruolo creato da te: non puoi richiederlo a te stesso" title="Ruolo creato da te su /personalizza/ — non puoi richiederlo a te stesso">' +
         '<i class="fa fa-user" aria-hidden="true"></i> Il tuo ruolo</button>'
       );
     }
@@ -461,6 +526,32 @@
         rid +
         '" title="Rimuovi questo ruolo custom dal tuo account Discord">' +
         '<i class="fa fa-sign-out" aria-hidden="true"></i> Togliti</button>'
+      );
+    }
+    var reqState = requestStateForRole(row.roleId);
+    if (reqState && String(reqState.status || "").toLowerCase() === "pending") {
+      return (
+        '<button type="button" class="vc-role-card-cta vc-role-card-cta--pending" disabled data-role-id="' +
+        rid +
+        '" title="Hai già una richiesta in attesa di risposta dal proprietario">' +
+        '<i class="fa fa-hourglass-half" aria-hidden="true"></i> In attesa</button>'
+      );
+    }
+    if (reqState && String(reqState.status || "").toLowerCase() === "cooldown") {
+      var untilLabel = formatCooldownShort(reqState.cooldownUntil);
+      var title =
+        untilLabel
+          ? "Potrai richiedere di nuovo questo ruolo dal " + untilLabel
+          : "Hai già inviato una richiesta di recente per questo ruolo";
+      return (
+        '<button type="button" class="vc-role-card-cta vc-role-card-cta--cooldown" disabled data-role-id="' +
+        rid +
+        '" title="' +
+        esc(title) +
+        '">' +
+        '<i class="fa fa-clock-o" aria-hidden="true"></i> ' +
+        (untilLabel ? "Dal " + esc(untilLabel) : "In cooldown") +
+        "</button>"
       );
     }
     return (
@@ -490,7 +581,13 @@
       "</div>" +
       "</div>" +
       '<a class="vc-role-card-owner" href="' + esc(profileHref(row.ownerId)) + '">' +
-      '<img class="vc-role-card-owneravatar" src="' + esc(avatarUrl(row)) + '" alt="" width="28" height="28" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(row.ownerId)) + '\'" />' +
+      '<img class="vc-role-card-owneravatar" data-vc-avatar="1" data-user-id="' +
+      esc(String(row.ownerId || "").trim()) +
+      '" src="' +
+      esc(avatarUrl(row)) +
+      '" alt="" width="28" height="28" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
+      esc(fallbackAvatarById(row.ownerId)) +
+      '\'" />' +
       '<span class="vc-role-card-ownername">' + esc(ownerName) + "</span>" +
       "</a>" +
       '<div class="vc-role-card-meta">' +
@@ -540,7 +637,7 @@
     var parts = [];
     if (member && member.isOwner) {
       parts.push(
-        '<span class="vc-role-member-badge vc-role-member-badge--owner" title="Creatore del ruolo custom" aria-label="Creatore del ruolo custom">Owner</span>',
+        '<span class="vc-role-member-badge vc-role-member-badge--owner" title="Creatore di questo ruolo custom" aria-label="Creatore di questo ruolo custom">Owner ruolo</span>',
       );
     }
     var sb = Array.isArray(member && member.staffBadges) ? member.staffBadges : [];
@@ -568,7 +665,13 @@
     var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
     return (
       '<a class="vc-role-member" role="listitem" href="' + esc(profileHref(member.userId)) + '">' +
-      '<img class="vc-role-member-avatar" src="' + esc(memberAvatarUrl(member)) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(member.userId)) + '\'" />' +
+      '<img class="vc-role-member-avatar" data-vc-avatar="1" data-user-id="' +
+      esc(String(member.userId || "").trim()) +
+      '" src="' +
+      esc(memberAvatarUrl(member)) +
+      '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
+      esc(fallbackAvatarById(member.userId)) +
+      '\'" />' +
       '<div class="vc-role-member-copy">' +
       '<div class="vc-role-member-stack">' +
       '<span class="vc-role-member-name">' +
@@ -715,6 +818,21 @@
       setState("Hai già questo ruolo: non serve inviare una richiesta.", true);
       return;
     }
+    var reqState = requestStateForRole(row.roleId);
+    if (reqState && String(reqState.status || "").toLowerCase() === "pending") {
+      setState("Hai già una richiesta in attesa per questo ruolo.", true);
+      return;
+    }
+    if (reqState && String(reqState.status || "").toLowerCase() === "cooldown") {
+      var untilLabel = formatCooldownShort(reqState.cooldownUntil);
+      setState(
+        untilLabel
+          ? "Potrai richiedere di nuovo questo ruolo dal " + untilLabel + "."
+          : "Hai già inviato una richiesta di recente per questo ruolo.",
+        true,
+      );
+      return;
+    }
     state.activeRequestRoleId = String(row.roleId || "");
     state.requestAuthRequired = false;
     state.submittingRequest = false;
@@ -793,9 +911,20 @@
     var roleName = String(row.roleName || "questo ruolo").trim() || "questo ruolo";
     var ok = false;
     try {
-      ok = window.confirm(
-        "Vuoi toglierti il ruolo «" + roleName + "»?\n\nVerrà rimosso dal tuo account Discord sul server."
-      );
+      ok = await (typeof window.__vcEnsureDialog === "function"
+        ? window.__vcEnsureDialog()
+        : Promise.resolve(window.VcDialog)
+      ).then(function (D) {
+        if (!D || typeof D.confirm !== "function") return false;
+        return D.confirm({
+          title: "Rimuovere il ruolo?",
+          message: "Vuoi toglierti il ruolo «" + roleName + "»?\n\nVerrà rimosso dal tuo account Discord sul server.",
+          confirmLabel: "Rimuovi",
+          cancelLabel: "Annulla",
+          danger: true,
+          icon: "fa-user-times",
+        });
+      });
     } catch (e) {
       ok = false;
     }
@@ -900,8 +1029,20 @@
           ("Invio non riuscito (HTTP " + res.status + ")");
         throw new Error(fallbackMsg);
       }
+      var rid = String(state.activeRequestRoleId || "").trim();
+      if (rid) {
+        var next = Object.assign({}, state.requestStatesByRoleId || {});
+        next[rid] = {
+          status: "pending",
+          pendingExpiresAt: null,
+          cooldownUntil: data.cooldownUntil || null,
+        };
+        state.requestStatesByRoleId = next;
+      }
       setState("Richiesta inviata all'owner del ruolo tramite DM.", false);
       closeRequestModal();
+      renderGrid();
+      loadRequestStates({ silent: true });
     } catch (err) {
       setRequestState(err && err.message ? err.message : "Non sono riuscito a inviare la richiesta.", true);
     } finally {
@@ -1055,7 +1196,7 @@
         var card = target && target.closest ? target.closest(".vc-role-card") : null;
         if (!card) return;
 
-        if (target && target.closest && target.closest("button")) return;
+        if (target && target.closest && target.closest("button, a, .vc-role-card-owner")) return;
 
         var roleId = String(card.getAttribute("data-role-id") || "").trim();
         if (!roleId) return;
@@ -1113,6 +1254,46 @@
         }
       }
     });
+  }
+
+  async function loadRequestStates(stateOpts) {
+    var sOpts = stateOpts && typeof stateOpts === "object" ? stateOpts : {};
+    var token = getToken();
+    var stateApi = resolvedRequestStateApiUrl();
+    if (!token || !stateApi) {
+      if (Object.keys(state.requestStatesByRoleId || {}).length) {
+        state.requestStatesByRoleId = {};
+        if (!sOpts.skipRender) renderGrid();
+      }
+      return;
+    }
+    if (state.requestStatesLoading) return;
+    state.requestStatesLoading = true;
+    try {
+      var res = await fetchJsonWithTimeout(
+        stateApi,
+        {
+          headers: {
+            Accept: "application/json",
+            Authorization: "Bearer " + token,
+          },
+          cache: "no-store",
+          credentials: "omit",
+        },
+        12000,
+      );
+      var data = res && res.data;
+      if (!res || !res.ok || !data || data.ok !== true) return;
+      var next = data.byRoleId && typeof data.byRoleId === "object" ? data.byRoleId : {};
+      var prev = JSON.stringify(state.requestStatesByRoleId || {});
+      var nowJson = JSON.stringify(next || {});
+      state.requestStatesByRoleId = next || {};
+      if (prev !== nowJson && !sOpts.skipRender) renderGrid();
+    } catch (eReq) {
+      /* soft-fail */
+    } finally {
+      state.requestStatesLoading = false;
+    }
   }
 
     async function load(options) {
@@ -1178,7 +1359,7 @@
       var out = null;
       if (window.VcApiCache && opts.bypassCache !== true) {
         out = await window.VcApiCache.fetchWithCache(
-          window.VcApiCache.keyFor(api, { scope: "roles", v: "roles2" }),
+          window.VcApiCache.keyFor(api, { scope: "roles", v: "roles3" }),
           api,
           {
             ttlMs: 90000,
@@ -1195,16 +1376,32 @@
         );
         var body = out && (out.body || out.data);
         if (!body || body.ok !== true) {
-                    out = await fetchDirect();
+          out = await fetchDirect();
         }
       } else {
         out = await fetchDirect();
       }
-      applyRolesPayload(out && (out.body || out.data), false);
-    } catch (err) {
-      if (silent && Array.isArray(state.rows) && state.rows.length) {
-                return;
+      var payload = out && (out.body || out.data);
+      // fetchDirect wraps as { data }; cache as { body }
+      if (payload && payload.ok === true) {
+        applyRolesPayload(payload, false);
+      } else if (out && out.ok === true && out.data && out.data.ok === true) {
+        applyRolesPayload(out.data, false);
+      } else {
+        throw new Error((payload && payload.message) || "Risposta non valida");
       }
+    } catch (err) {
+      // Soft-fail: se abbiamo già ruoli (stale/onStale), non svuotare e non urlare errore fisso.
+      if (Array.isArray(state.rows) && state.rows.length) {
+        if (!silent) {
+          setState(
+            "Aggiornamento ruoli non riuscito: mostro l’ultimo elenco disponibile.",
+            true,
+          );
+        }
+        return;
+      }
+      if (silent) return;
       var timedOut = err && String(err.message || "").toLowerCase() === "timeout";
       setState(
         timedOut
@@ -1220,6 +1417,7 @@
       );
     } finally {
       if (!silent) setLoading(false);
+      loadRequestStates({ silent: true });
     }
   }
 
@@ -1273,6 +1471,11 @@
     if (!ev || !ev.persisted) return;
     syncInitialLoadingOverlay();
     load();
+  });
+
+  window.addEventListener("vc:site-api-refetch", function () {
+    if (!byId("vc-roles-grid")) return;
+    load({ silent: false });
   });
 
   document.addEventListener("visibilitychange", function () {

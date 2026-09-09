@@ -36,6 +36,18 @@
       member: "member",
     };
     if (aliases[s]) return aliases[s];
+    // Label compositi tipo "Senior Moderator & Staff" → prendi il grado ladder.
+    if (/\bstaff\b/.test(s)) {
+      var withoutStaff = s.replace(/\bstaff\b/g, " ").replace(/\s+/g, " ").trim();
+      if (withoutStaff && aliases[withoutStaff]) return aliases[withoutStaff];
+      if (withoutStaff === "senior moderator") return "senior moderator";
+      if (withoutStaff === "helper") return "helper";
+      if (withoutStaff === "moderator") return "moderator";
+      if (withoutStaff === "director") return "director";
+      if (withoutStaff === "admin") return "admin";
+      if (withoutStaff === "manager") return "manager";
+      if (withoutStaff === "founder") return "founder";
+    }
     if (s.charAt(s.length - 1) === "s" && aliases[s.slice(0, -1)]) return aliases[s.slice(0, -1)];
     return s;
   }
@@ -292,19 +304,35 @@
 
   function resolveProfileAvatarUrl(identity) {
     var id = identity || {};
+    try {
+      if (global.VcDiscordIdentity && typeof global.VcDiscordIdentity.pickAvatarUrl === "function") {
+        var picked = global.VcDiscordIdentity.pickAvatarUrl(id, 256);
+        if (picked) return picked;
+      }
+      if (global.VcDiscordAvatar && typeof global.VcDiscordAvatar.pickAvatarUrl === "function") {
+        var pickedAv = global.VcDiscordAvatar.pickAvatarUrl(id, 256);
+        if (pickedAv) return pickedAv;
+      }
+    } catch (ePick) {}
     var uid = String(id.userId || id.id || "").trim();
     var url = String(id.avatarUrl || "").trim();
     var isDefaultEmbed = /\/embed\/avatars\//.test(url);
+    var isGuild = /\/guilds\/\d+\/users\//i.test(url);
     try {
       if (global.VcDiscordAvatar && typeof global.VcDiscordAvatar.resolveUrl === "function") {
-        var resolved = global.VcDiscordAvatar.resolveUrl(url, 256, id.avatar, uid);
+        var hashHint = isGuild ? String(id.memberAvatar || "") : String(id.avatar || "");
+        var resolved = global.VcDiscordAvatar.resolveUrl(url, 256, hashHint, uid);
         if (resolved && (!isDefaultEmbed || !url)) return resolved;
       }
     } catch (eAnim) {}
     if (url && !isDefaultEmbed) return url;
     try {
       var sess = global.__VC_DISCORD_PROFILE;
-      if (sess && String(sess.id || "") === uid && sess.avatar) {
+      var server = global.__VC_SERVER_IDENTITY;
+      if (server && String(server.userId || "") === uid && server.avatarUrl) {
+        return String(server.avatarUrl);
+      }
+      if (!isGuild && sess && String(sess.id || "") === uid && sess.avatar) {
         var ext = String(sess.avatar).indexOf("a_") === 0 ? "gif" : "png";
         return "https://cdn.discordapp.com/avatars/" + uid + "/" + sess.avatar + "." + ext + "?size=256";
       }
@@ -368,17 +396,40 @@
     return false;
   }
 
+  function normalizePayloadUserIds(payload, expectedId) {
+    expectedId = String(expectedId || "").trim();
+    if (!payload || typeof payload !== "object") return "";
+    if (!payload.identity || typeof payload.identity !== "object") payload.identity = {};
+    var id = payload.identity;
+    var payloadId = String(id.userId || id.id || payload.targetUserId || "").trim();
+    // staffPeerFix2: stamp expected id when API/cache omitted identity.userId (empty HTML / mismatch).
+    if (expectedId && !payloadId) {
+      id.userId = expectedId;
+      payload.targetUserId = expectedId;
+      return expectedId;
+    }
+    if (expectedId && payloadId && expectedId !== payloadId) {
+      // Prefer explicit targetUserId when it matches the requested peer.
+      var tid = String(payload.targetUserId || "").trim();
+      if (tid && tid === expectedId) {
+        id.userId = expectedId;
+        return expectedId;
+      }
+      return "";
+    }
+    if (!payload.targetUserId && payloadId) payload.targetUserId = payloadId;
+    if (!id.userId && payloadId) id.userId = payloadId;
+    return payloadId || expectedId;
+  }
+
   function renderPayloadHtml(payload, opts) {
     opts = opts || {};
     if (!payload || !payload.ok) return "";
-        if (payload.prospect) return renderProspectPexHtml(payload);
     var expectedId = String(opts.expectedUserId || "").trim();
-    var payloadId = String(
-      (payload.identity && payload.identity.userId) || payload.targetUserId || "",
-    ).trim();
-    if (expectedId && payloadId && expectedId !== payloadId) {
-      return "";
-    }
+    var payloadId = normalizePayloadUserIds(payload, expectedId);
+    if (expectedId && !payloadId) return "";
+    if (expectedId && payloadId && expectedId !== payloadId) return "";
+        if (payload.prospect) return renderProspectPexHtml(payload);
         var role = payload.role || {};
     var badges = Array.isArray(role.badges) ? role.badges : [];
     var hasRole =
@@ -525,6 +576,13 @@
 
     var roleColor = String(role.color || "#d4a888").trim() || "#d4a888";
     var profileAvatarUrl = resolveProfileAvatarUrl(id);
+    var avatarHash = String(id.avatar || id.avatarHash || "").trim();
+    if (!avatarHash && profileAvatarUrl && !/\/guilds\//i.test(profileAvatarUrl)) {
+      try {
+        var hm = String(profileAvatarUrl).match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)\./i);
+        if (hm) avatarHash = hm[1];
+      } catch (eH) {}
+    }
     var avatarHtml =
       global.VCStaffTools && global.VCStaffTools.avatarImgHtml
         ? global.VCStaffTools.avatarImgHtml(profileAvatarUrl, id.userId || id.id, {
@@ -533,11 +591,14 @@
             className: "vc-user-profile-avatar",
             loading: "eager",
             fetchPriority: "high",
+            avatarHash: avatarHash,
           })
         : profileAvatarUrl
           ? '<img class="vc-user-profile-avatar" src="' +
             esc(profileAvatarUrl) +
-            '" alt="" width="120" height="120" loading="eager" fetchpriority="high" data-vc-avatar="1" onerror="this.onerror=null;this.src=\'https://cdn.discordapp.com/embed/avatars/0.png\'" />'
+            '" alt="" width="120" height="120" loading="eager" fetchpriority="high" data-vc-avatar="1" data-user-id="' +
+            esc(String(id.userId || id.id || "")) +
+            '" />'
           : '<span class="vc-user-profile-avatar vc-user-profile-avatar--fallback"><i class="fa fa-user" aria-hidden="true"></i></span>';
 
     var neighbors = (opts && opts.neighbors) || payload.neighbors || null;
@@ -1066,10 +1127,22 @@
   function renderProspectPexHtml(payload) {
     var id = payload.identity || {};
     var name = id.displayName || id.username || "Utente";
+    try {
+      if (global.VcDiscordIdentity && typeof global.VcDiscordIdentity.pickDisplayName === "function") {
+        name = global.VcDiscordIdentity.pickDisplayName(id, "Utente");
+      }
+    } catch (eDn) {}
     var username = String(id.username || "").trim();
     var uid = String(id.userId || id.id || payload.targetUserId || "").trim();
     var ring = "#a67c52";
     var profileAvatarUrl = resolveProfileAvatarUrl(id) || id.avatarUrl || "";
+    var avatarHash = String(id.avatar || id.avatarHash || "").trim();
+    if (!avatarHash && profileAvatarUrl && !/\/guilds\//i.test(profileAvatarUrl)) {
+      try {
+        var hm2 = String(profileAvatarUrl).match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)\./i);
+        if (hm2) avatarHash = hm2[1];
+      } catch (eH2) {}
+    }
     var avatarHtml =
       global.VCStaffTools && global.VCStaffTools.avatarImgHtml
         ? global.VCStaffTools.avatarImgHtml(profileAvatarUrl, uid, {
@@ -1078,11 +1151,14 @@
             className: "vc-user-profile-avatar",
             loading: "eager",
             fetchPriority: "high",
+            avatarHash: avatarHash,
           })
         : profileAvatarUrl
           ? '<img class="vc-user-profile-avatar" src="' +
             esc(profileAvatarUrl) +
-            '" alt="" width="120" height="120" loading="eager" fetchpriority="high" data-vc-avatar="1" onerror="this.onerror=null;this.src=\'https://cdn.discordapp.com/embed/avatars/0.png\'" />'
+            '" alt="" width="120" height="120" loading="eager" fetchpriority="high" data-vc-avatar="1" data-user-id="' +
+            esc(String(id.userId || id.id || "")) +
+            '" />'
           : '<span class="vc-user-profile-avatar vc-user-profile-avatar--fallback"><i class="fa fa-user" aria-hidden="true"></i></span>';
 
     return (
@@ -1374,20 +1450,39 @@
   }
 
   function dlgConfirm(opts) {
-    if (global.VcDialog && typeof global.VcDialog.confirm === "function") return global.VcDialog.confirm(opts);
-    return Promise.resolve(global.confirm(String((opts && opts.message) || "Confermi?")));
+    return ensureActionDialogs().then(function () {
+      if (global.VcDialog && typeof global.VcDialog.confirm === "function") return global.VcDialog.confirm(opts);
+      if (typeof global.__vcEnsureDialog === "function") {
+        return global.__vcEnsureDialog().then(function (D) {
+          return D && typeof D.confirm === "function" ? D.confirm(opts) : false;
+        });
+      }
+      return false;
+    });
   }
 
   function dlgPrompt(opts) {
-    if (global.VcDialog && typeof global.VcDialog.prompt === "function") return global.VcDialog.prompt(opts);
-    var raw = global.prompt(String((opts && (opts.message || opts.label)) || "Motivo"), "");
-    return Promise.resolve(raw == null ? null : String(raw));
+    return ensureActionDialogs().then(function () {
+      if (global.VcDialog && typeof global.VcDialog.prompt === "function") return global.VcDialog.prompt(opts);
+      if (typeof global.__vcEnsureDialog === "function") {
+        return global.__vcEnsureDialog().then(function (D) {
+          return D && typeof D.prompt === "function" ? D.prompt(opts) : null;
+        });
+      }
+      return null;
+    });
   }
 
   function dlgAlert(opts) {
-    if (global.VcDialog && typeof global.VcDialog.alert === "function") return global.VcDialog.alert(opts);
-    global.alert(String((opts && opts.message) || ""));
-    return Promise.resolve();
+    return ensureActionDialogs().then(function () {
+      if (global.VcDialog && typeof global.VcDialog.alert === "function") return global.VcDialog.alert(opts);
+      if (typeof global.__vcEnsureDialog === "function") {
+        return global.__vcEnsureDialog().then(function (D) {
+          return D && typeof D.alert === "function" ? D.alert(opts) : undefined;
+        });
+      }
+      return undefined;
+    });
   }
 
   function askReasonAndConfirm(opts) {
@@ -2365,6 +2460,15 @@
     if (!ul) return;
     var cur = String(currentUserId || "").trim();
     var list = Array.isArray(people) ? people : [];
+    // staffTabOrganico1: non sovrascrivere lista piena con [] mentre un fetch è in corso.
+    if (
+      !list.length &&
+      Array.isArray(dock.__vcStaffListLastPeople) &&
+      dock.__vcStaffListLastPeople.length
+    ) {
+      var fabBusy = dock.querySelector("[data-vc-staff-list-toggle]");
+      if (fabBusy && fabBusy.classList.contains("is-loading")) return;
+    }
     dock.__vcStaffListLastPeople = list;
     if (!list.length) {
       ul.innerHTML = '<li class="vc-staff-list-pop__empty">Nessuno in organico.</li>';
@@ -2377,6 +2481,11 @@
         var name = String((p && p.displayName) || id).trim() || id;
         var role = compactStaffListRoleLabel((p && p.roleLabel) || "");
         var avatar = String((p && p.avatarUrl) || "").trim();
+        try {
+          if (avatar && global.VcDiscordAvatar && typeof global.VcDiscordAvatar.preferStaticUrl === "function") {
+            avatar = global.VcDiscordAvatar.preferStaticUrl(avatar, 64) || avatar;
+          }
+        } catch (eAv) {}
         var isCur = id === cur;
         var chips = "";
         if (p && p.isNew) {
@@ -2394,7 +2503,9 @@
         var avHtml = avatar
           ? '<img src="' +
             esc(avatar) +
-            '" alt="" width="22" height="22" loading="lazy" decoding="async" onerror="this.onerror=null;this.remove()" />'
+            '" alt="" width="22" height="22" loading="eager" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1" data-user-id="' +
+            esc(id) +
+            '" onerror="this.onerror=null;this.remove()" />'
           : '<i class="fa fa-user" aria-hidden="true"></i>';
         return (
           '<li class="vc-staff-list-pop__item' +
@@ -2421,6 +2532,9 @@
         );
       })
       .join("");
+    try {
+      if (typeof global.VcWakeDeferredMedia === "function") global.VcWakeDeferredMedia(ul);
+    } catch (eWakeFill) {}
   }
 
   function setStaffListOpen(dock, open) {
@@ -2432,6 +2546,14 @@
       pop.hidden = false;
       dock.classList.add("is-open");
       btn.setAttribute("aria-expanded", "true");
+      try {
+        if (typeof global.VcWakeDeferredMedia === "function") {
+          global.VcWakeDeferredMedia(dock);
+          global.requestAnimationFrame(function () {
+            global.VcWakeDeferredMedia(dock);
+          });
+        }
+      } catch (eWake) {}
     } else {
       pop.hidden = true;
       dock.classList.remove("is-open");
@@ -2602,23 +2724,41 @@
   function bindStaffListPicker() {
       }
 
+  function peerDockHost() {
+    var doc = global.document;
+    return (
+      doc.querySelector("[data-vc-profile-staff-pane]") ||
+      doc.querySelector(".vc-user-profile-staff-pane") ||
+      doc.querySelector("#vc-user-profile-view .vc-user-profile-shell") ||
+      doc.getElementById("vc-user-profile-view") ||
+      null
+    );
+  }
+
   function unmountStaffPeerDock() {
     var dock = global.document.getElementById("vc-staff-peer-dock");
-    if (dock) dock.remove();
+    if (dock) {
+      try {
+        var host = dock.parentElement;
+        if (host && host.classList) host.classList.remove("vc-staff-peer-dock-host");
+      } catch (eHost) {}
+      dock.remove();
+    }
     try {
       global.document.documentElement.classList.remove("vc-staff-peer-dock-on");
     } catch (e) {}
   }
 
+  // staffPeerFix2: viewport-fixed near margins, under notif drawer (~10210+), never 10420.
   function pinPeerBtn(btn, side) {
     if (!btn) return;
-    var edge = "max(10px, env(safe-area-inset-" + side + ", 0px))";
+    var edge = "max(0.65rem, env(safe-area-inset-" + side + ", 0px))";
     btn.style.setProperty("position", "fixed", "important");
     btn.style.setProperty("bottom", "auto", "important");
     btn.style.setProperty("margin", "0", "important");
     btn.style.setProperty("top", "50%", "important");
     btn.style.setProperty("transform", "translateY(-50%)", "important");
-    btn.style.setProperty("z-index", "10420", "important");
+    btn.style.setProperty("z-index", "10090", "important");
     if (side === "left") {
       btn.style.setProperty("left", edge, "important");
       btn.style.setProperty("right", "auto", "important");
@@ -2640,6 +2780,7 @@
     dock.className = "vc-staff-peer-dock";
     dock.setAttribute("role", "navigation");
     dock.setAttribute("aria-label", "Navigazione profili staff");
+    dock.setAttribute("data-vc-staff-peer-fix", "2");
     dock.innerHTML =
       '<button type="button" class="vc-staff-peer-dock__btn vc-staff-peer-dock__btn--prev" data-vc-staff-peer="' +
       esc(prev) +
@@ -2688,17 +2829,19 @@
       }
     });
 
-        (global.document.body || global.document.documentElement).appendChild(dock);
+    (global.document.body || global.document.documentElement).appendChild(dock);
     pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--prev"), "left");
     pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--next"), "right");
     try {
       global.document.documentElement.classList.add("vc-staff-peer-dock-on");
     } catch (eOn) {}
-        dock.classList.add("is-in");
-    global.requestAnimationFrame(function () {
-      pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--prev"), "left");
-      pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--next"), "right");
-    });
+    dock.classList.add("is-in");
+    if (typeof global.requestAnimationFrame === "function") {
+      global.requestAnimationFrame(function () {
+        pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--prev"), "left");
+        pinPeerBtn(dock.querySelector(".vc-staff-peer-dock__btn--next"), "right");
+      });
+    }
     return dock;
   }
 
@@ -2821,10 +2964,79 @@
     }
   }
 
+  function finalizeStaffAvatars(root) {
+    if (!root || !root.querySelectorAll) return;
+    var imgs = root.querySelectorAll("img[data-vc-avatar], img.vc-avatar, .vc-staff-profile-identity__avatar-wrap img");
+    for (var i = 0; i < imgs.length; i += 1) {
+      var img = imgs[i];
+      try {
+        img.classList.add("vc-avatar");
+      } catch (eCls) {}
+      if (img.complete && img.naturalWidth > 0) {
+        try {
+          img.classList.add("vc-avatar--ready");
+          img.classList.remove("vc-avatar--pending");
+        } catch (eReady) {}
+        if (global.VcAvatarFallback && typeof global.VcAvatarFallback.markReady === "function") {
+          global.VcAvatarFallback.markReady(img);
+        }
+        continue;
+      }
+      if (global.VcDiscordAvatar && typeof global.VcDiscordAvatar.applyToImage === "function") {
+        try {
+          global.VcDiscordAvatar.applyToImage(img);
+        } catch (eApply) {}
+      }
+      if (img.complete && img.naturalWidth > 0) {
+        try {
+          img.classList.add("vc-avatar--ready");
+          img.classList.remove("vc-avatar--pending");
+        } catch (eReady2) {}
+        if (global.VcAvatarFallback && typeof global.VcAvatarFallback.markReady === "function") {
+          global.VcAvatarFallback.markReady(img);
+        }
+      }
+    }
+    if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
+      try {
+        global.VcAvatarFallback.scan();
+      } catch (eScan) {}
+    }
+  }
+
   function renderInto(root, payload, opts) {
     if (!root || !payload || !payload.ok) return false;
-    root.innerHTML = renderPayloadHtml(payload, opts);
+    // staffPeerFix2: ensure panel is still in the live document (community render may detach panes).
+    try {
+      if (root.isConnected === false) {
+        var live =
+          global.document.getElementById("vc-user-profile-staff-panel") ||
+          (global.document.querySelector &&
+            global.document.querySelector("#vc-user-profile-view #vc-user-profile-staff-panel"));
+        if (live) root = live;
+        else return false;
+      }
+    } catch (eLive) {}
+    var html = renderPayloadHtml(payload, opts);
+    // staffPeerEmpty1 / staffSwitchStuck1 / staffPeerFix2 / staffTabOrganico1: never treat empty as OK.
+    if (!String(html || "").trim()) return false;
+    root.innerHTML = html;
     root.hidden = false;
+    finalizeStaffAvatars(root);
+    try {
+      if (typeof global.requestAnimationFrame === "function") {
+        global.requestAnimationFrame(function () {
+          finalizeStaffAvatars(root);
+        });
+      } else {
+        global.setTimeout(function () {
+          finalizeStaffAvatars(root);
+        }, 0);
+      }
+      global.setTimeout(function () {
+        finalizeStaffAvatars(root);
+      }, 120);
+    } catch (eFin) {}
     return true;
   }
 

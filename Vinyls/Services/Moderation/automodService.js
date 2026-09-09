@@ -19,7 +19,7 @@ const { isMinigameFloodExemptChannel } = require("../Minigames/minigameService")
 const { loadAutomodScamConfig } = require("../../Utils/Moderation/automodScamConfig");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
+const { memberDisplayName } = require("../../Utils/Discord/guildDiscordIdentity");
 const USER_STATE = new Map();
 const ACTION_COOLDOWN = new Map();
 const ACTION_CHANNEL_LOG_COOLDOWN = new Map();
@@ -88,7 +88,7 @@ const AUTOMOD_HOT_SNAPSHOT_DEBOUNCE_MS = 2000;
 let automodHotSnapshotLoaded = false;
 let automodHotSnapshotTimer = null;
 const SHORTENER_HOSTS = new Set(["bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rebrand.ly", "tiny.cc", "shorturl.at", "goo.gl", "ow.ly", "buff.ly",]);
-const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, crossServerForwards: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, crossServerForward: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 100, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, attachmentHeatMultiplier: 0.12, attachmentClusterMax: 100, imageOnlyMaxCount: 30, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: true, heatMultiplier: 0.6, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["word_blacklist", "mention_everyone", "mention_hour_cap"], }, };
+const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, crossServerForwards: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, crossServerForward: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 100, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, attachmentHeatMultiplier: 0.12, attachmentClusterMax: 100, imageOnlyMaxCount: 30, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: false, hateSpeechOnly: true, heatMultiplier: 1, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, discordNative: { enabled: true, syncOnStartup: true, skipBotDetectionFor: ["word_blacklist", "mention_everyone", "mention_hour_cap"], }, };
 
 function deepMerge(base, override) {
   if (!override || typeof override !== "object") return base;
@@ -693,51 +693,9 @@ const SUSPICIOUS_ACCOUNT_STRONG_KEYS = new Set([
   "attachment_sticker",
 ]);
 
-const RACIST_WORD_PATTERNS = [/\bn[\W_]*[i1l!|][\W_]*g[\W_]*g[\W_]*([e3][\W_]*)?r\b/iu, /\bk[\W_]*i[\W_]*k[\W_]*e\b/iu, /\bc[\W_]*h[\W_]*i[\W_]*n[\W_]*k\b/iu, /\bw[\W_]*e[\W_]*t[\W_]*b[\W_]*a[\W_]*c[\W_]*k\b/iu, /\bp[\W_]*a[\W_]*k[\W_]*i\b/iu,];
-
-function parseWordArrayFile(filePath) {
-  try {
-    if (!fs.existsSync(filePath)) return [];
-    const raw = fs.readFileSync(filePath, "utf8");
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((x) => String(x || "").trim().toLowerCase())
-      .filter((x) => x.length >= 3);
-  } catch {
-    return [];
-  }
-}
-
-function loadCustomRacistWords() {
-  const singleFile = path.resolve(__dirname, "../../Utils/Config/automodRacistWords.json",);
-  const folderPath = path.resolve(__dirname, "../../Utils/Config/automodRacistWords",);
-
-  const all = new Set(parseWordArrayFile(singleFile));
-  try {
-    if (fs.existsSync(folderPath)) {
-      const entries = fs.readdirSync(folderPath, { withFileTypes: true }).filter((e) => e.isFile() && e.name.toLowerCase().endsWith(".json") && e.name.toLowerCase() !== "sources.json",).map((e) => path.join(folderPath, e.name));
-      for (const file of entries) {
-        for (const word of parseWordArrayFile(file)) all.add(word);
-      }
-    }
-  } catch (err) {
-    global.logger?.warn?.("[automod] ", err?.message || err);
-  }
-  return [...all];
-}
-
-const CUSTOM_RACIST_WORDS = loadCustomRacistWords();
-
-const LEET_MAP = new Map([["0", "o"], ["1", "i"], ["3", "e"], ["4", "a"], ["5", "s"], ["6", "g"], ["7", "t"], ["8", "b"], ["9", "g"], ["@", "a"], ["$", "s"], ["!", "i"], ["|", "i"],]);
-
-function toLeetNormalized(input) {
-  let out = "";
-  for (const ch of String(input || "")) {
-    out += LEET_MAP.get(ch) || ch;
-  }
-  return out;
-}
+const {
+  findHateSpeechMatch,
+} = require("../../Utils/Moderation/automodHateSpeechMatch");
 
 const WHITELISTED_WEBHOOK_IDS = new Set((Array.isArray(IDs.webhooks?.whitelist) ? IDs.webhooks.whitelist : []).filter(Boolean).map(String),);
 const VERIFIED_BOT_IDS = new Set(Object.values(IDs?.bots || {}).filter(Boolean).map(String),);
@@ -745,7 +703,7 @@ const TRUSTED_WEBHOOK_AUTHOR_IDS = new Set([IDs.bots?.DISBOARD, IDs.bots?.Discad
 const EXEMPT_CHANNEL_IDS = new Set([IDs.channels.staffChat, IDs.channels.staffCmds, IDs.channels.modLogs, IDs.channels.activityLogs, IDs.channels.midChat, IDs.channels.streamerChat].filter(Boolean).map(String),);
 const { isAutomodExemptChannel } = require("../../Utils/Moderation/automodChannelExemptions");
 const EXEMPT_CATEGORY_IDS = new Set(["1442569074310643845"]);
-const SPAM_WHITELIST_CATEGORY_IDS = new Set([IDs?.categories?.categoryGames, "1442569074310643845",].filter(Boolean).map(String),);
+const SPAM_WHITELIST_CATEGORY_IDS = new Set([].filter(Boolean).map(String),);
 const INVITE_WHITELIST_CHANNEL_IDS = new Set([IDs?.channels?.partnerships, "1442569193470824448",].filter(Boolean).map(String),);
 const MENTION_WHITELIST_CHANNEL_IDS = new Set([IDs?.channels?.partnerships, "1442569193470824448",].filter(Boolean).map(String),);
 const EVERYONE_WHITELIST_CHANNEL_IDS = new Set([IDs?.channels?.partnerships, "1442569193470824448",].filter(Boolean).map(String),);
@@ -2000,46 +1958,8 @@ async function hasBlacklistedDomain(content, preExtractedUrls = null) {
 
 function findBlacklistedWordMatch(content) {
   if (!TEXT_RULES.wordBlacklist.enabled) return null;
-  const text = String(content || "");
-  if (!text) return null;
-  const normalizedBase = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const normalized = toLeetNormalized(normalizedBase);
-  const normalizedTokens = normalized.split(/[^\p{L}\p{N}]+/gu).map((x) => String(x || "").trim()).filter(Boolean);
-  const tokenSet = new Set(normalizedTokens);
-
-  if (TEXT_RULES.wordBlacklist.useRacistList) {
-    for (let i = 0; i < RACIST_WORD_PATTERNS.length; i += 1) {
-      const re = RACIST_WORD_PATTERNS[i];
-      if (re.test(text) || re.test(normalized)) {
-        return {
-          source: "regex",
-          term: `pattern#${i + 1}`,
-        };
-      }
-    }
-    for (const term of CUSTOM_RACIST_WORDS) {
-      const normalizedTerm = toLeetNormalized(String(term || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(),);
-      if (!normalizedTerm) continue;
-
-      if (/\s/.test(normalizedTerm)) {
-        const padded = ` ${normalized} `;
-        const needle = ` ${normalizedTerm} `;
-        if (padded.includes(needle)) {
-          return {
-            source: "custom_phrase",
-            term,
-          };
-        }
-      } else if (tokenSet.has(normalizedTerm)) {
-        return {
-          source: "custom_token",
-          term,
-        };
-      }
-    }
-  }
-
-  return null;
+  if (TEXT_RULES.wordBlacklist.useRacistList === false) return null;
+  return findHateSpeechMatch(content);
 }
 
 function levenshteinDistance(a, b) {
@@ -2284,6 +2204,25 @@ async function detectViolations(message, state, profile) {
   const normalized = normalizeContent(content);
   const extractedUrls = extractUrls(moderationScanText);
   const violations = [];
+  const profileHeat = (value, factorKey = "regularMessage") => applyProfileHeat(applyHeatFactor(factorKey, value), profile);
+  /* ticketHateOnly1: in ticket categories only racist/homophobic slur filters apply */
+  if (profile?.hateSpeechOnly === true) {
+    const hateMatch = findBlacklistedWordMatch(moderationContent);
+    if (hateMatch) {
+      violations.push({
+        key: "word_blacklist",
+        heat: profileHeat(
+          percentToHeat(TEXT_RULES.wordBlacklist.heat),
+          "wordBlacklist",
+        ),
+        info:
+          hateMatch.term && hateMatch.source
+            ? `racist list (${hateMatch.source}: ${hateMatch.term})`
+            : "racist list",
+      });
+    }
+    return violations;
+  }
   const channelId = String(message.channelId || "");
   const parentChannelId = String(message.channel?.parentId || "");
   const statics = getSecurityStaticsSnapshot(String(message?.guild?.id || ""));
@@ -2307,7 +2246,6 @@ async function detectViolations(message, state, profile) {
   const hasMeaningfulTextPayload = String(moderationContent || "").trim().length >= 8;
   const attachmentListForCharRule = [...(message.attachments?.values?.() || [])];
   const imageAttachmentCountForCharRule = attachmentListForCharRule.filter((att) => isImageAttachment(att)).length;
-  const profileHeat = (value, factorKey = "regularMessage") => applyProfileHeat(applyHeatFactor(factorKey, value), profile);
   const legitConversation = looksLikeLegitConversation(moderationContent || content);
   if (
     TEXT_RULES.crossServerForward.enabled &&
@@ -2944,7 +2882,7 @@ function firstViolationLabel(violations = []) {
 }
 
 function buildAutomodChannelEmbed(message, action, violations, context = {}) {
-  const who = accountUsername(message.member || message.author);
+  const who = memberDisplayName(message.member || message.author);
   const sorted = pickSortedViolations(violations);
   const primary = sorted[0];
   const durationLabel = context.timeoutMs ? formatDurationShort(context.timeoutMs) : null;
@@ -2985,7 +2923,7 @@ function buildAutomodChannelEmbed(message, action, violations, context = {}) {
 }
 
 function buildAutomodStaffLogEmbed(message, action, violations, heatValue, context = {}) {
-  const whoLog = accountUsername(message.member || message.author);
+  const whoLog = memberDisplayName(message.member || message.author);
   const sorted = pickSortedViolations(violations);
   const violationDetail = sorted
     .slice(0, 6)

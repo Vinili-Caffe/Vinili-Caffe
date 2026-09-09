@@ -10,6 +10,9 @@ const {
 const RECIPIENT_CACHE_TTL_MS = 60_000;
 const recipientCache = new Map();
 
+/** Preferenze sito: kind `staff` → gruppo "Eventi staff" (staffKindGroup1). */
+const STAFF_KIND = "staff";
+
 function cacheGet(key) {
   const hit = recipientCache.get(key);
   if (!hit || hit.expiresAt <= Date.now()) return null;
@@ -99,7 +102,8 @@ async function notifyUsers(guild, userIds, payload, excludeIds = []) {
         userId,
         title: String(payload.title || "").trim().slice(0, 120),
         body: String(payload.body || "").trim().slice(0, 500),
-        kind: payload.kind || "mod",
+        kind: payload.kind || STAFF_KIND,
+        channel: payload.channel,
         openUrl: String(payload.openUrl || "").trim().slice(0, 400) || undefined,
         dedupeKey: String(payload.dedupeKey || "").trim().slice(0, 120) || undefined,
         dedupeWindowMs: payload.dedupeWindowMs ?? 86_400_000,
@@ -124,7 +128,7 @@ async function notifyPuntiToltiPending(opts = {}) {
     body:
       (reporterName ? `${reporterName} ha segnalato ` : "Nuova segnalazione per ") +
       `${pmName}${rule ? `: ${rule}` : ""}. Conferma o nega in Punti tolti PM.`,
-    kind: "mod",
+    kind: STAFF_KIND,
     openUrl: "/notifications/?view=staff&inbox=punti-tolti",
     dedupeKey: messageId ? `pt-pending:${messageId}` : `pt-pending:${pmUserId}:${Date.now()}`,
   }, [pmUserId]);
@@ -147,7 +151,9 @@ async function notifyPuntiToltiReviewed(opts = {}) {
       body: isConfirm
         ? `L'High Staff ha confermato la rimozione punti per ${pmName}.`
         : `L'High Staff ha negato la segnalazione punti per ${pmName}.`,
-      kind: "mod",
+      kind: STAFF_KIND,
+      /* notifCats3: Inbox → Punti tolti. */
+      channel: "inbox",
       openUrl: "/notifications/?view=staff&inbox=punti-tolti",
       dedupeKey: messageId ? `pt-review:${messageId}:${isConfirm ? "ok" : "no"}` : undefined,
     },
@@ -164,7 +170,9 @@ async function notifyPuntiToltiPointsRemoved(opts = {}) {
   return notifyUsers(guild, [pmUserId], {
     title: "Punto partnership rimosso",
     body: `${actorName} ha registrato una rimozione punti${rule ? `: ${rule}` : ""}.`,
-    kind: "mod",
+    kind: STAFF_KIND,
+    /* notifCats3: Inbox → Punti tolti (not Personali). */
+    channel: "inbox",
     openUrl: "/notifications/?view=staff&inbox=punti-tolti",
     dedupeKey: opts.dedupeKey || `pt-removed:${pmUserId}:${String(opts.sourceHint || Date.now())}`,
   });
@@ -183,9 +191,30 @@ async function notifyStaffValutazione(opts = {}) {
   return notifyUsers(guild, [staffUserId], {
     title: isPositive ? "Valutazione positiva" : "Valutazione negativa",
     body: `${actorName} ti ha dato una valutazione ${isPositive ? "positiva" : "negativa"}${sectionId ? ` #${sectionId}` : ""}${reason ? `: ${reason}` : ""}.`,
-    kind: "mod",
+    kind: STAFF_KIND,
     openUrl: "/staff/",
     dedupeKey: sectionId ? `val-${kind}:${staffUserId}:${sectionId}` : `val-${kind}:${staffUserId}:${Date.now()}`,
+  });
+}
+
+async function notifyStaffValutazioneRemoved(opts = {}) {
+  const guild = opts.guild;
+  const guildId = String(guild?.id || opts.guildId || "").trim();
+  const staffUserId = String(opts.staffUserId || "").trim();
+  if (!guild || !guildId || !/^\d{16,22}$/.test(staffUserId)) return false;
+  const kind = String(opts.kind || "negative").trim().toLowerCase() === "positive" ? "positive" : "negative";
+  const reason = String(opts.reason || "").trim().slice(0, 200);
+  const actorName = String(opts.actorName || "Staff").trim();
+  const sectionId = String(opts.sectionId || opts.removeId || "").trim();
+  const isPositive = kind === "positive";
+  return notifyUsers(guild, [staffUserId], {
+    title: isPositive ? "Valutazione positiva rimossa" : "Valutazione negativa rimossa",
+    body: `${actorName} ha rimosso una valutazione ${isPositive ? "positiva" : "negativa"}${sectionId ? ` #${sectionId}` : ""}${reason ? `: ${reason}` : ""}.`,
+    kind: STAFF_KIND,
+    openUrl: "/staff/",
+    dedupeKey: sectionId
+      ? `val-rm-${kind}:${staffUserId}:${sectionId}`
+      : `val-rm-${kind}:${staffUserId}:${Date.now()}`,
   });
 }
 
@@ -208,7 +237,7 @@ async function notifyStaffWarn(opts = {}) {
     body: isAutoFromNegatives
       ? `Hai ricevuto il warn #${warnCount} dopo 3 valutazioni negative.`
       : `${actorName} ti ha assegnato il warn #${warnCount}${reason ? `: ${reason}` : ""}.`,
-    kind: "mod",
+    kind: STAFF_KIND,
     openUrl: "/staff/",
     dedupeKey: `warn:${staffUserId}:${warnCount}`,
   });
@@ -223,7 +252,7 @@ async function notifyStaffWarn(opts = {}) {
         body: needsDepexDecision
           ? `${staffName} ha 2 warn staff: serve decidere se applicare un depex ora (Discord o Gestione).`
           : `${staffName} ha raggiunto ${warnCount} warn staff${isAutoFromNegatives ? " (da valutazioni negative)" : ""}.`,
-        kind: "mod",
+        kind: STAFF_KIND,
         openUrl: needsDepexDecision
           ? `/user/?id=${encodeURIComponent(staffUserId)}&tab=staff&manage=1`
           : "/staff/",
@@ -232,6 +261,61 @@ async function notifyStaffWarn(opts = {}) {
       [staffUserId],
     );
   }
+  return sent;
+}
+
+async function notifyStaffWarnRemoved(opts = {}) {
+  const guild = opts.guild;
+  const guildId = String(guild?.id || opts.guildId || "").trim();
+  const staffUserId = String(opts.staffUserId || "").trim();
+  if (!guild || !guildId || !/^\d{16,22}$/.test(staffUserId)) return false;
+  const removeId = String(opts.removeId || opts.warnId || "").trim();
+  const reason = String(opts.reason || "").trim().slice(0, 200);
+  const actorName = String(opts.actorName || "Staff").trim();
+  const warnCountAfter = Math.max(0, Math.floor(Number(opts.warnCountAfter) || 0));
+  return notifyUsers(guild, [staffUserId], {
+    title: removeId ? `Warn staff #${removeId} rimosso` : "Warn staff rimosso",
+    body: `${actorName} ha rimosso un warn staff${reason ? `: ${reason}` : ""}${
+      Number.isFinite(warnCountAfter) ? `. Ora ne hai ${warnCountAfter}.` : "."
+    }`,
+    kind: STAFF_KIND,
+    openUrl: "/staff/",
+    dedupeKey: removeId ? `warn-rm:${staffUserId}:${removeId}` : `warn-rm:${staffUserId}:${Date.now()}`,
+  });
+}
+
+async function notifyStaffWarnDepexDeferred(opts = {}) {
+  const guild = opts.guild;
+  const guildId = String(guild?.id || opts.guildId || "").trim();
+  const staffUserId = String(opts.staffUserId || "").trim();
+  if (!guild || !guildId || !/^\d{16,22}$/.test(staffUserId)) return 0;
+
+  const staffName = String(opts.staffName || staffUserId).trim();
+  const actorName = String(opts.actorName || "High Staff").trim();
+  const actorUserId = String(opts.actorUserId || "").trim();
+
+  let sent = 0;
+  sent += await notifyUsers(guild, [staffUserId], {
+    title: "Depex non applicato (2° warn)",
+    body: `${actorName} ha scelto di non applicare il depex ora. Al 3° warn staff scatterà il depex completo.`,
+    kind: STAFF_KIND,
+    openUrl: "/staff/",
+    dedupeKey: `warn-depex-no:${staffUserId}`,
+  });
+
+  const hs = await getHighStaffRecipientUserIds(guild);
+  sent += await notifyUsers(
+    guild,
+    hs,
+    {
+      title: `Depex deferito: ${staffName}`,
+      body: `${actorName}: nessun depex ora per ${staffName} (2 warn). Al 3° warn → depex completo.`,
+      kind: STAFF_KIND,
+      openUrl: `/user/?id=${encodeURIComponent(staffUserId)}&tab=staff&manage=1`,
+      dedupeKey: `warn-depex-no-hs:${staffUserId}`,
+    },
+    [staffUserId, actorUserId],
+  );
   return sent;
 }
 
@@ -258,7 +342,7 @@ async function notifyStaffPexDepex(opts = {}) {
   sent += await notifyUsers(guild, [targetUserId], {
     title: `${kindLabel} staff`,
     body: `${fromLabel} → ${toLabel}${reason ? `. ${reason}` : ""}`,
-    kind: kind === "pex" ? "success" : "mod",
+    kind: STAFF_KIND,
     openUrl: "/staff/",
     dedupeKey: `${dedupeKey}:target`,
   });
@@ -270,7 +354,7 @@ async function notifyStaffPexDepex(opts = {}) {
     {
       title: `${kindLabel}: ${targetName}`,
       body: `${actorName}: ${fromLabel} → ${toLabel}${reason ? `. ${reason}` : ""}`,
-      kind: "mod",
+      kind: STAFF_KIND,
       openUrl: `/staff/organico/?userId=${encodeURIComponent(targetUserId)}`,
       dedupeKey: `${dedupeKey}:team`,
     },
@@ -279,13 +363,57 @@ async function notifyStaffPexDepex(opts = {}) {
   return sent;
 }
 
+const RESOCONTO_ACTION_LABELS = Object.freeze({
+  nl: "Nessuna azione",
+  rc: "Richiamo",
+  vp: "Valutazione positiva",
+  vn: "Valutazione negativa",
+  px: "Pex",
+  dp: "Depex",
+  batch: "Azioni multiple",
+});
+
+async function notifyResocontoOutcome(opts = {}) {
+  const guild = opts.guild;
+  const guildId = String(guild?.id || opts.guildId || "").trim();
+  const staffUserId = String(opts.staffUserId || opts.targetUserId || "").trim();
+  if (!guild || !guildId || !/^\d{16,22}$/.test(staffUserId)) return false;
+
+  const actionKey = String(opts.actionKey || "").trim().toLowerCase();
+  // vp/vn/px/dp already have dedicated notifs; only cover gaps (nl/rc/batch/other)
+  if (["vp", "vn", "px", "dp"].includes(actionKey)) return false;
+
+  const actionLabel =
+    String(opts.actionLabel || "").trim() ||
+    RESOCONTO_ACTION_LABELS[actionKey] ||
+    (actionKey ? actionKey.toUpperCase() : "Esito resoconto");
+  const reason = String(opts.reason || opts.statusText || "").trim().slice(0, 200);
+  const actorName = String(opts.actorName || "Staff").trim();
+  const messageId = String(opts.messageId || "").trim();
+
+  return notifyUsers(guild, [staffUserId], {
+    title: `Resoconto: ${actionLabel}`,
+    body: `${actorName} ha chiuso il tuo resoconto con «${actionLabel}»${reason ? `: ${reason}` : ""}.`,
+    kind: STAFF_KIND,
+    openUrl: "/staff/",
+    dedupeKey: messageId
+      ? `resoconto-out:${messageId}:${actionKey || "x"}`
+      : `resoconto-out:${staffUserId}:${actionKey || "x"}:${Date.now()}`,
+  });
+}
+
 module.exports = {
+  STAFF_KIND,
   notifyPuntiToltiPending,
   notifyPuntiToltiReviewed,
   notifyPuntiToltiPointsRemoved,
   notifyStaffValutazione,
+  notifyStaffValutazioneRemoved,
   notifyStaffWarn,
+  notifyStaffWarnRemoved,
+  notifyStaffWarnDepexDeferred,
   notifyStaffPexDepex,
+  notifyResocontoOutcome,
   memberDisplayName,
   formatRoleLabel,
 };

@@ -1138,11 +1138,89 @@ function buildMiniHelpEmbed(query, entries, context = {}) {
     .setDescription(String(`${lines.join("\n")}${extra}`).slice(0, 4096));
 }
 
+/** Catalog for site wiki — same entries/filter as ,help for the given Discord roles. */
+function buildWikiHelpCatalog(client, roleIds = []) {
+  if (!client?.pcommands && !client?.commands) return { categories: [], commandCount: 0 };
+  const permissions = loadPermissions();
+  const allEntries = buildEntries(client, permissions);
+  const memberRoles = new Set(
+    (Array.isArray(roleIds) ? roleIds : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean),
+  );
+  const memberRoleId = String(IDs.roles?.Member || "").trim();
+  if (memberRoleId && !memberRoles.has(memberRoleId)) memberRoles.add(memberRoleId);
+
+  const visible = allEntries.filter((entry) => canMemberSeeEntry(entry, memberRoles));
+  const byCat = new Map();
+  for (const entry of visible) {
+    const key = String(entry?.category || "misc").toLowerCase();
+    if (!key || key === "misc") continue;
+    if (!byCat.has(key)) byCat.set(key, []);
+    byCat.get(key).push(entry);
+  }
+
+  const categories = [];
+  const pushCat = (key) => {
+    const list = byCat.get(key);
+    if (!list || !list.length) return;
+    list.sort((a, b) => String(a.invoke || "").localeCompare(String(b.invoke || ""), "it"));
+    const title = CATEGORY_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
+    categories.push({
+      id: key,
+      title,
+      commands: list.map((entry) => {
+        const invoke = String(entry.invoke || "").trim();
+        const description =
+          String(entry.description || "").trim() || "Nessuna descrizione disponibile.";
+        const aliases = Array.isArray(entry.aliases)
+          ? entry.aliases.map((a) => String(a || "").trim()).filter(Boolean)
+          : [];
+        const prefixBase = entry.prefixBase != null ? String(entry.prefixBase) : ",";
+        const aliasDisplay = aliases.map((a) =>
+          a.startsWith(",") || a.startsWith("+") || a.startsWith("/") ? a : `${prefixBase}${a}`,
+        );
+        const roles = Array.isArray(entry.roles) ? entry.roles.map(String) : [];
+        return {
+          invoke,
+          type: String(entry.type || "prefix"),
+          description,
+          aliases: aliasDisplay,
+          roles,
+          rolesCsv: roles.join(","),
+          usage: invoke,
+          example: invoke,
+          blurb: description.length > 160 ? `${description.slice(0, 159).trim()}…` : description,
+          search: `${invoke} ${description} ${title} ${aliasDisplay.join(" ")}`.toLowerCase(),
+          categoryTitle: title,
+        };
+      }),
+    });
+    byCat.delete(key);
+  };
+
+  for (const key of CATEGORY_ORDER) pushCat(key);
+  for (const key of Array.from(byCat.keys()).sort((a, b) => a.localeCompare(b, "it"))) {
+    pushCat(key);
+  }
+
+  return {
+    categories,
+    commandCount: categories.reduce((n, c) => n + (c.commands?.length || 0), 0),
+  };
+}
+
 module.exports = {
   name: "help",
   allowEmptyArgs: true,
   parseCoffeeHelpCustomId,
   handleCoffeeHelpNavInteraction,
+  buildEntries,
+  canMemberSeeEntry,
+  loadPermissions,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  buildWikiHelpCatalog,
   async execute(message, args, client) {
     if (!message.guild) return;
     if (!message.member && message.guild.members?.fetch) {

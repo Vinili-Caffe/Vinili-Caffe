@@ -1,6 +1,16 @@
 const DEFAULT_CUSTOM_ROLE_PING_DELAY_MS = 5 * 60 * 1000;
 const DEFAULT_TENANT_PING_MEMBER_THRESHOLD = 0;
 
+function remapPingRoleId(roleId) {
+  try {
+    const { remapRoleIdForward } = require("../Config/emergencyRoleIdRemap");
+    return remapRoleIdForward(roleId) || String(roleId || "").trim() || null;
+  } catch (_) {
+    const s = String(roleId || "").trim();
+    return /^\d{16,22}$/.test(s) ? s : null;
+  }
+}
+
 function parsePingDelayInput(raw) {
   const text = String(raw || "").trim().toLowerCase();
   if (!text) return null;
@@ -103,7 +113,7 @@ function resolvePingDelayDecision(lastAtValue, delayMs) {
 }
 
 function resolveCustomRolePingDecision(pings) {
-  const roleId = String(pings?.customRoleId || "").trim() || null;
+  const roleId = remapPingRoleId(pings?.customRoleId);
   if (!roleId) return { roleId: null, shouldPing: false, reason: "no_role" };
 
   const delayMs = resolveEffectiveCustomRoleDelayMs(pings);
@@ -157,7 +167,7 @@ function resolvePartnershipPublishPings({
   let customRoleDecision = { roleId: null, shouldPing: false, reason: "no_role" };
 
   if (legacy) {
-    const roleId = String(legacyPingRoleId || pings?.customRoleId || "").trim() || null;
+    const roleId = remapPingRoleId(legacyPingRoleId || pings?.customRoleId);
     customRoleDecision = {
       roleId,
       shouldPing: Boolean(roleId),

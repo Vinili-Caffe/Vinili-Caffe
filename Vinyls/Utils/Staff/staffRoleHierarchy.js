@@ -1,4 +1,8 @@
 const IDs = require("../Config/ids");
+const {
+  remapRoleIdForward,
+  memberHasAnyRemappedRole,
+} = require("../Config/emergencyRoleIdRemap");
 
 const STAFF_LADDER_KEYS_HIGH_TO_LOW = Object.freeze([
   "Founder",
@@ -11,25 +15,38 @@ const STAFF_LADDER_KEYS_HIGH_TO_LOW = Object.freeze([
 ]);
 
 function staffRoleId(key) {
-  return String(IDs.roles?.[key] || "").trim();
+  const raw = String(IDs.roles?.[key] || "").trim();
+  if (!raw) return "";
+  return remapRoleIdForward(raw) || raw;
 }
 
 function staffLadderRoleIds(keys = STAFF_LADDER_KEYS_HIGH_TO_LOW) {
   return keys.map(staffRoleId).filter(Boolean);
 }
 
+/** Remap-aware role check (post emergency role restore). */
+function memberHasRoleId(member, roleIdOrIds) {
+  return memberHasAnyRemappedRole(member, roleIdOrIds);
+}
+
+function memberHasConfiguredRole(member, roleKey) {
+  const id = staffRoleId(roleKey);
+  if (!id) return false;
+  return memberHasRoleId(member, id);
+}
+
 function getHighestStaffLadderRoleId(member, keys = STAFF_LADDER_KEYS_HIGH_TO_LOW) {
   if (!member?.roles?.cache) return null;
   for (const key of keys) {
     const id = staffRoleId(key);
-    if (id && member.roles.cache.has(id)) return id;
+    if (id && memberHasRoleId(member, id)) return id;
   }
   return null;
 }
 
 function memberHasAnyRoleKey(member, keys) {
   if (!member?.roles?.cache) return false;
-  return staffLadderRoleIds(keys).some((id) => member.roles.cache.has(id));
+  return staffLadderRoleIds(keys).some((id) => memberHasRoleId(member, id));
 }
 
 const STAFF_PROMOTION_ROLE_UP = Object.freeze({
@@ -75,6 +92,8 @@ module.exports = {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
   staffRoleId,
   staffLadderRoleIds,
+  memberHasRoleId,
+  memberHasConfiguredRole,
   getHighestStaffLadderRoleId,
   memberHasAnyRoleKey,
   memberIsHighStaffEligible,

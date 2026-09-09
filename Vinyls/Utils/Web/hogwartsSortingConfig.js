@@ -145,7 +145,7 @@ function resolveHogwartsEventConfig(client) {
     completionRoleRaw.split(/[,\s]+/).map((p) => p.trim()).find((p) => /^\d{17,22}$/.test(p)) ||
     "1507000390493798511";
   const finaleWinnerHouseBonusRoleRaw = String(
-    process.env.HOGWARTS_FINALE_WINNER_BONUS_ROLE_ID || raw.finaleWinnerHouseBonusRoleId || "1543350496792682517",
+    process.env.HOGWARTS_FINALE_WINNER_BONUS_ROLE_ID || raw.finaleWinnerHouseBonusRoleId || "1544830792168116234",
   ).trim();
   const finaleWinnerHouseBonusRoleId =
     finaleWinnerHouseBonusRoleRaw.split(/[,\s]+/).map((p) => p.trim()).find((p) => /^\d{17,22}$/.test(p)) || "";

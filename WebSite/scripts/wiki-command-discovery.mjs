@@ -9,6 +9,8 @@ import {
   isPrefixCommandVisibleOnWiki,
   isSlashOrContextVisibleOnWiki,
   isWikiEconomyCategoryVisible,
+  rolesCsvForPrefixCommand,
+  rolesCsvForSlashCommand,
   WIKI_ECONOMY_CATEGORY_ID,
 } from "./wiki-help-visibility.mjs";
 
@@ -329,6 +331,9 @@ function collectVinili() {
     wikiCtx.ids
       ? wikiCtx
       : null;
+  /* wikiRoleFilter1: bake ALL public cmds + rolesCsv; client filters guest=Member / login=roles */
+  const bakeAllForRoleFilter = true;
+  const permCtx = wikiCtx && wikiCtx.ids && wikiCtx.permissions ? wikiCtx : null;
 
   const cfg = JSON.parse(read(path.join(vinylsRoot, "config.json")));
   const prefix = String(cfg.prefix ?? "+");
@@ -348,7 +353,18 @@ function collectVinili() {
     const parsed = parseSlashFromSrc(src, folder);
     if (!parsed) continue;
     if (obsoleteSlashNames.has(String(parsed.name || "").trim().toLowerCase())) continue;
-    if (permFilter) {
+    let rolesCsv = "";
+    if (permCtx) {
+      const node = getCommandPermissionNode(permCtx.permissions.slash, parsed.name);
+      rolesCsv = rolesCsvForSlashCommand(node);
+      if (
+        !bakeAllForRoleFilter &&
+        permFilter &&
+        !isSlashOrContextVisibleOnWiki(node, permFilter.memberRoleSet, permFilter.ids)
+      ) {
+        continue;
+      }
+    } else if (permFilter) {
       const node = getCommandPermissionNode(permFilter.permissions.slash, parsed.name);
       if (!isSlashOrContextVisibleOnWiki(node, permFilter.memberRoleSet, permFilter.ids)) {
         continue;
@@ -371,13 +387,14 @@ function collectVinili() {
         usage: titleText,
         example: titleText,
         categoryTitle: cat.title,
+        rolesCsv,
       });
     } else {
       const hint =
         ctxDesc[parsed.name] ||
-        "Menu contestuale (tasto destro sul messaggio o sull’utente).";
+        "Menu contestuale (tasto destro sul messaggio o sull'utente).";
       const titleText = parsed.name;
-      const usage = `Discord: tasto destro sul messaggio o sull’utente → App → «${parsed.name}»`;
+      const usage = `Discord: tasto destro sul messaggio o sull'utente → App → «${parsed.name}»`;
       cat.commands.push({
         search: `${titleText} ${hint} ${cat.title} menu`.toLowerCase(),
         titleText,
@@ -386,6 +403,7 @@ function collectVinili() {
         usage,
         example: "Dal menu contestuale (tasto destro).",
         categoryTitle: cat.title,
+        rolesCsv,
       });
     }
   }
@@ -398,7 +416,24 @@ function collectVinili() {
     if (folderKey === "misc") continue;
     if (!wikiPublicCategory(folderKey)) continue;
     if (folderKey === WIKI_ECONOMY_CATEGORY_ID && !economyWikiVisible) continue;
-    if (permFilter) {
+    let rolesCsv = "";
+    if (permCtx) {
+      const nameKey = String(meta.name || "").trim().toLowerCase();
+      const permCfg = getPrefixPermissionConfig(permCtx.permissions, nameKey);
+      rolesCsv = rolesCsvForPrefixCommand(permCfg, meta.canonicalSubs, permCtx.ids);
+      if (
+        !bakeAllForRoleFilter &&
+        permFilter &&
+        !isPrefixCommandVisibleOnWiki(
+          permCfg,
+          meta.canonicalSubs,
+          permFilter.memberRoleSet,
+          permFilter.ids,
+        )
+      ) {
+        continue;
+      }
+    } else if (permFilter) {
       const nameKey = String(meta.name || "").trim().toLowerCase();
       const permCfg = getPrefixPermissionConfig(permFilter.permissions, nameKey);
       if (
@@ -431,6 +466,7 @@ function collectVinili() {
       usage,
       example: titleText,
       categoryTitle: cat.title,
+      rolesCsv,
     });
   }
 
@@ -566,13 +602,14 @@ function buildPaneInnerHtml(botAttrName, avatarUrlAttr, categories) {
 `;
     for (const cmd of cat.commands) {
       const searchAttr = escAttr(String(cmd.search || "").toLowerCase());
+      const rolesAttr = escAttr(String(cmd.rolesCsv || ""));
       const titleLine = escHtml(cmd.titleText);
       const blurb = escHtml(cmd.blurb);
       const desc = escHtml(cmd.description);
       const usage = escPre(cmd.usage);
       const example = escPre(cmd.example);
       const catPill = escHtml(cmd.categoryTitle);
-      html += `              <details class="vc-cmd-item" name="${itemName}" data-vc-cmd-search="${searchAttr}">
+      html += `              <details class="vc-cmd-item" name="${itemName}" data-vc-cmd-search="${searchAttr}" data-vc-cmd-roles="${rolesAttr}">
                 <summary class="vc-cmd-item-sum">
                   <div class="vc-cmd-item-sum-text">
                     <span class="vc-cmd-item-name">${titleLine}</span>

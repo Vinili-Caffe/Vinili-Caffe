@@ -53,9 +53,12 @@ plugins:
       # Persistito dopo device-login (non rifare OAuth a ogni restart).
       refreshToken: "1//098cQCzO4Ej4sCgYIARAAGAkSNwF-L9IrzaWojR_YL51oRTGLnMyNFZyu646jsr721EMlzKIZjuqXWw7obdRTehacEwP0tORhFRk"
     clients:
-      # TV+OAuth per playback; MUSIC solo metadata/search (playback false).
-      # WEB/MWEB = SABR senza URL → loadfailed.
+      # TV+OAuth = playback (metadata None → saltato su loadtracks URL).
+      # TVHTML5_SIMPLY = metadata+playback video (no OAuth) → loadtracks diretti.
+      # WEBEMBEDDED / ANDROID_VR = fallback metadata; MUSIC solo search (playback false).
+      # WEB/MWEB = SABR senza URL → loadfailed (playback false).
       - TV
+      - TVHTML5_SIMPLY
       - WEBEMBEDDED
       - ANDROID_VR
       - MUSIC

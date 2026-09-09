@@ -38,7 +38,11 @@ function isStaffCmdsMainChannel(channel) {
 
 function isPmCommandsThreadName(channel) {
   const name = String(channel?.name || "").trim().toLowerCase();
-  return name.includes("partner manager") || name.includes("comandi partner");
+  return (
+    name.includes("partner manager") ||
+    name.includes("comandi partner") ||
+    name.includes("comandi pm")
+  );
 }
 
 function isHighCommandsThreadName(channel) {

@@ -1,16 +1,22 @@
 const mongoose = require("mongoose");
+const fs = require("node:fs");
+const path = require("node:path");
+const crypto = require("node:crypto");
 const IDs = require("../Config/ids");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 
 const SG = SITE_DOCUMENT_TYPE.SUGGESTION;
 const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
+const { normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
 const { enqueueSiteInAppNotification, deleteSiteInAppNotifications } = require("./siteInAppNotificationsService");
+const { recordTenantBugReport } = require("../../Services/Partner/tenantObjectiveService");
 const {
   applyLiveAvatarToSuggestionLike,
   collectUserIdsFromSuggestionLikeDocs,
   prefetchGuildMembersForIds,
+  prefetchUsersForIds,
   resolveSiteAvatarUrl,
 } = require("./siteLiveAvatars");
 
@@ -19,7 +25,15 @@ const MAX_SUGGESTION_LEN = 2000;
 const MAX_COMMENT_LEN = 1200;
 const MAX_COMMENTS = 150;
 const LIST_LIMIT = 60;
+const LIST_COMMENT_CAP = 24;
+const MAX_IMAGES = 4; // suggestionsKindPhoto1
+const MAX_IMAGE_BYTES = 2.5 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
+const UPLOAD_ROOT = path.resolve(__dirname, "../../../Data/uploads/site-suggestions");
+const SUGGESTION_FILE_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
 const HIGH_STAFF_CACHE_TTL_MS = 2 * 60 * 1000;
+
+const { memberCanAccessStaffFeedbackBoard } = require("../Staff/staffGuideAccess");
 
 let highStaffCache = {
   guildId: "",
@@ -34,6 +48,96 @@ function displayNameForMember(member) {
 function memberCanModerateSuggestions(member) {
   if (!member || member.user?.bot) return false;
   return Boolean(HIGH_STAFF_ROLE_ID && member.roles?.cache?.has?.(HIGH_STAFF_ROLE_ID));
+}
+
+function normalizeSuggestionBoard(value) {
+  const b = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (b === "staff") return "staff";
+  return "community";
+}
+
+const SUGGESTION_TOPIC_TAGS = Object.freeze(["server", "staff", "sito", "bots", "eventi", "altro"]);
+
+function normalizeSuggestionTopicTag(value) {
+  const t = String(value || "")
+    .trim()
+    .toLowerCase();
+  return SUGGESTION_TOPIC_TAGS.includes(t) ? t : "";
+}
+
+/** Persist/API validation: required exact tag. Display fallback for legacy docs. */
+function suggestionTopicTagOf(doc, { forDisplay = false } = {}) {
+  const raw = doc && (doc.topicTag != null ? doc.topicTag : doc.tag != null ? doc.tag : doc.topic);
+  const n = normalizeSuggestionTopicTag(raw);
+  if (n) return n;
+  return forDisplay ? "altro" : "";
+}
+
+function validateSuggestionTopicTag(tag, kind) {
+  const normalized = normalizeSuggestionTopicTag(tag);
+  if (!normalized) {
+    return {
+      ok: false,
+      status: 400,
+      error: "invalid_tag",
+      message: "Scegli un argomento (Server, Staff, Sito, Bots, Eventi o Altro).",
+    };
+  }
+  if (kind === "bug" && normalized === "eventi") {
+    return {
+      ok: false,
+      status: 400,
+      error: "invalid_tag_for_kind",
+      message: "Il tag Eventi è disponibile solo per le idee, non per le segnalazioni bug.",
+    };
+  }
+  return { ok: true, tag: normalized };
+}
+
+function suggestionBoardOf(doc) {
+  return normalizeSuggestionBoard(doc && doc.suggestionBoard);
+}
+
+function boardListQuery(board) {
+  if (board === "staff") return { suggestionBoard: "staff" };
+  /* legacy docs without field = community */
+  return {
+    $or: [
+      { suggestionBoard: { $exists: false } },
+      { suggestionBoard: null },
+      { suggestionBoard: "" },
+      { suggestionBoard: "community" },
+    ],
+  };
+}
+
+function scrubDiscordDefaultAvatarUrl(url) {
+  const s = String(url || "").trim();
+  if (!s) return "";
+  if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(s)) return "";
+  return s;
+}
+
+function avatarHashFromDiscordUrl(url) {
+  const s = String(url || "").trim();
+  if (!s || /cdn\.discordapp\.com\/embed\/avatars\//i.test(s)) return "";
+  const guild = s.match(/\/guilds\/\d+\/users\/\d+\/avatars\/((?:a_)?[a-f0-9]+)/i);
+  if (guild) return String(guild[1] || "").trim();
+  const user = s.match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)/i);
+  return user ? String(user[1] || "").trim() : "";
+}
+
+function denyStaffBoardIfNeeded(member, doc) {
+  if (suggestionBoardOf(doc) !== "staff") return null;
+  if (memberCanAccessStaffFeedbackBoard(member)) return null;
+  return {
+    ok: false,
+    status: 403,
+    error: "forbidden",
+    message: "La bacheca Staff è riservata allo staff (Partner Manager esclusi).",
+  };
 }
 
 function sanitizeBody(value, maxLen) {
@@ -52,6 +156,148 @@ function sanitizeStaffReason(value) {
     .slice(0, 1000);
 }
 
+function normalizeSuggestionKind(value) {
+  const k = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (k === "bug" || k === "bugs" || k === "problema") return "bug";
+  if (k === "suggestion" || k === "suggerimento" || k === "suggerimenti" || k === "idea") return "suggestion";
+  return "";
+}
+
+function suggestionFileAccessSecret() {
+  return String(
+    process.env.VC_SITE_UPLOAD_FILE_SECRET ||
+      process.env.VC_SERATAFILM_FILM_SECRET ||
+      process.env.SITE_WEBHOOK_SECRET ||
+      process.env.DISCORD_TOKEN ||
+      "vinili-site-upload-file",
+  ).trim();
+}
+
+function createSuggestionFileAccessToken(suggestionId, fileName) {
+  const sid = String(suggestionId || "").trim();
+  const name = String(fileName || "").trim();
+  if (!sid || !name) return "";
+  const exp = Date.now() + SUGGESTION_FILE_TOKEN_TTL_MS;
+  const payload = `${sid}:${name}:${exp}`;
+  const sig = crypto.createHmac("sha256", suggestionFileAccessSecret()).update(payload).digest("base64url");
+  return Buffer.from(`${payload}:${sig}`).toString("base64url");
+}
+
+function verifySuggestionFileAccessToken(st, suggestionId, fileName) {
+  try {
+    const sid = String(suggestionId || "").trim();
+    const name = String(fileName || "").trim();
+    const raw = Buffer.from(String(st || ""), "base64url").toString("utf8");
+    const parts = raw.split(":");
+    if (parts.length !== 4) return false;
+    const [tokenSid, tokenName, expStr, sig] = parts;
+    if (tokenSid !== sid || tokenName !== name) return false;
+    const exp = Number(expStr);
+    if (!Number.isFinite(exp) || Date.now() > exp) return false;
+    const payload = `${tokenSid}:${tokenName}:${expStr}`;
+    const expect = crypto.createHmac("sha256", suggestionFileAccessSecret()).update(payload).digest("base64url");
+    return sig === expect;
+  } catch (_) {
+    return false;
+  }
+}
+
+function withSuggestionFileAccessToken(suggestionId, rawUrl) {
+  const url = String(rawUrl || "").trim();
+  if (!url || !url.includes("/webhooks/site-suggestions/files/")) return url;
+  const m = /\/files\/[^/]+\/([^/?#]+)/.exec(url);
+  if (!m) return url;
+  let fileName = "";
+  try {
+    fileName = decodeURIComponent(m[1]);
+  } catch (_) {
+    fileName = m[1];
+  }
+  const st = createSuggestionFileAccessToken(suggestionId, fileName);
+  if (!st) return url;
+  const base = url.split("?")[0];
+  return `${base}?st=${encodeURIComponent(st)}`;
+}
+
+function ensureSuggestionUploadDir(suggestionId) {
+  const dir = path.join(UPLOAD_ROOT, String(suggestionId));
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function extForMime(mime) {
+  const m = String(mime || "").toLowerCase();
+  if (m === "image/png") return "png";
+  if (m === "image/webp") return "webp";
+  if (m === "image/gif") return "gif";
+  return "jpg";
+}
+
+function parseDataUrlImage(raw) {
+  const s = String(raw || "").trim();
+  const m = /^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,([a-z0-9+/=\s]+)$/i.exec(s);
+  if (!m) return null;
+  let mime = String(m[1] || "").toLowerCase();
+  if (mime === "image/jpg") mime = "image/jpeg";
+  if (!ALLOWED_IMAGE_MIME.has(mime) && mime !== "image/jpeg") return null;
+  let buf;
+  try {
+    buf = Buffer.from(String(m[2] || "").replace(/\s+/g, ""), "base64");
+  } catch {
+    return null;
+  }
+  if (!buf.length || buf.length > MAX_IMAGE_BYTES) return null;
+  return { mime, buffer: buf };
+}
+
+function saveSuggestionImages(suggestionId, imagesInput) {
+  const list = Array.isArray(imagesInput) ? imagesInput : [];
+  const urls = [];
+  const dir = ensureSuggestionUploadDir(suggestionId);
+  let idx = 0;
+  for (const item of list.slice(0, MAX_IMAGES)) {
+    const parsed = parseDataUrlImage(item);
+    if (!parsed) continue;
+    idx += 1;
+    const name = `${String(idx).padStart(2, "0")}-${crypto.randomBytes(4).toString("hex")}.${extForMime(parsed.mime)}`;
+    fs.writeFileSync(path.join(dir, name), parsed.buffer);
+    urls.push(
+      `/webhooks/site-suggestions/files/${encodeURIComponent(String(suggestionId))}/${encodeURIComponent(name)}`,
+    );
+  }
+  return urls;
+}
+
+function deleteSuggestionFiles(suggestionId) {
+  const dir = path.join(UPLOAD_ROOT, String(suggestionId || "").trim());
+  if (!dir.startsWith(UPLOAD_ROOT)) return;
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+}
+
+function resolveStoredSuggestionFile(suggestionId, fileName) {
+  const id = String(suggestionId || "").trim();
+  const name = String(fileName || "").trim();
+  if (!id || !mongoose.isValidObjectId(id) || !/^[a-z0-9._-]+$/i.test(name)) return null;
+  const full = path.join(UPLOAD_ROOT, id, name);
+  if (!full.startsWith(path.join(UPLOAD_ROOT, id))) return null;
+  if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return null;
+  return full;
+}
+
+function mimeFromFileName(fileName) {
+  const ext = path.extname(String(fileName || "")).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  return "image/jpeg";
+}
+
 function clipNotifBody(text, maxLen) {
   const s = String(text || "")
     .replace(/\r\n/g, "\n")
@@ -64,8 +310,8 @@ function clipNotifBody(text, maxLen) {
 
 function suggestionNotifOpenUrl(suggestionId) {
   const id = String(suggestionId || "").trim();
-  if (!id || !mongoose.isValidObjectId(id)) return "/suggerimenti";
-  return `/suggerimenti#vc-suggestion-${id}`;
+  if (!id || !mongoose.isValidObjectId(id)) return "/feedback";
+  return `/feedback#vc-suggestion-${id}`;
 }
 
 async function getHighStaffUserIds(guild) {
@@ -102,14 +348,18 @@ async function notifyHighStaffNewSuggestion(guild, suggestion, authorName) {
     .trim();
   const bodyPreview = content.length > 220 ? `${content.slice(0, 219)}…` : content || "Nuovo suggerimento pubblicato.";
   const safeAuthor = String(authorName || "Un utente").trim() || "Un utente";
+  const kind = normalizeSuggestionKind(suggestion?.feedbackKind) || "suggestion";
+  const title = kind === "bug" ? "Nuova segnalazione bug sul sito" : "Nuovo suggerimento sul sito";
+  const label = kind === "bug" ? "una segnalazione bug" : "un suggerimento";
   await Promise.all(
     recipients.map((userId) =>
       enqueueSiteInAppNotification({
         guildId,
         userId,
-        title: "Nuovo suggerimento sul sito",
-        body: `${safeAuthor} ha inviato un suggerimento: ${bodyPreview}`,
+        title,
+        body: `${safeAuthor} ha inviato ${label}: ${bodyPreview}`,
         kind: "suggestion",
+        channel: "inbox",
         openUrl: suggestionNotifOpenUrl(sid),
         dedupeKey: `suggestion:new:${sid}`,
         dedupeWindowMs: 86_400_000,
@@ -140,7 +390,8 @@ async function notifySuggestionAuthor(guildId, authorUserId, payload) {
     title: String(payload.title || "").trim().slice(0, 120),
     body: String(payload.body || "").trim().slice(0, 500),
     kind: payload.kind || "suggestion",
-    openUrl: String(payload.openUrl || "/suggerimenti").trim().slice(0, 400),
+    channel: payload.channel || "personal",
+    openUrl: String(payload.openUrl || "/feedback").trim().slice(0, 400),
   };
   if (payload.dedupeKey != null && String(payload.dedupeKey).trim()) {
     opts.dedupeKey = String(payload.dedupeKey).trim().slice(0, 120);
@@ -151,6 +402,20 @@ async function notifySuggestionAuthor(guildId, authorUserId, payload) {
   } catch (e) {
     global.logger?.warn?.("[siteSuggestions] in-app notification:", e?.message || e);
   }
+}
+
+/** discussionParticipantsFanOut1 — owner + prior comment authors; exclude actor; Set-deduped. */
+function collectSuggestionDiscussionParticipantIds(doc, { excludeUserId } = {}) {
+  const ids = new Set();
+  const ownerId = String(doc?.userId || "").trim();
+  if (ownerId) ids.add(ownerId);
+  for (const c of Array.isArray(doc?.comments) ? doc.comments : []) {
+    const uid = String(c?.userId || "").trim();
+    if (uid) ids.add(uid);
+  }
+  const exclude = String(excludeUserId || "").trim();
+  if (exclude) ids.delete(exclude);
+  return [...ids];
 }
 
 async function resolveGuild(client) {
@@ -169,7 +434,8 @@ function serializeComment(c, viewerUserId) {
     id: String(c._id),
     userId: String(c.userId || ""),
     authorName: String(c.authorName || ""),
-    authorAvatarUrl: String(c.authorAvatarUrl || ""),
+    authorAvatarUrl: scrubDiscordDefaultAvatarUrl(String(c.authorAvatarUrl || "")),
+    authorAvatarHash: avatarHashFromDiscordUrl(c.authorAvatarUrl),
     content: String(c.content || ""),
     parentCommentId: pid && mongoose.isValidObjectId(pid) ? pid : null,
     createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : null,
@@ -181,20 +447,33 @@ function serializeComment(c, viewerUserId) {
   };
 }
 
-function serializeSuggestion(doc, viewerUserId) {
+function serializeSuggestion(doc, viewerUserId, opts = {}) {
   if (!doc) return null;
-  const comments = Array.isArray(doc.comments)
-    ? doc.comments.map((c) => serializeComment(c, viewerUserId)).filter(Boolean)
-    : [];
+  const leanList = Boolean(opts && opts.leanList);
+  const rawComments = Array.isArray(doc.comments) ? doc.comments : [];
+  const commentCount = rawComments.length;
+  const commentSlice = leanList
+    ? rawComments.slice(Math.max(0, commentCount - LIST_COMMENT_CAP))
+    : rawComments;
+  const comments = commentSlice.map((c) => serializeComment(c, viewerUserId)).filter(Boolean);
   const upList = Array.isArray(doc.upvoterUserIds) ? doc.upvoterUserIds.map((x) => String(x)) : [];
   const downList = Array.isArray(doc.downvoterUserIds) ? doc.downvoterUserIds.map((x) => String(x)) : [];
   const vid = String(viewerUserId || "").trim();
+  const images = Array.isArray(doc.imageUrls)
+    ? doc.imageUrls.map((u) => withSuggestionFileAccessToken(String(doc._id || ""), u)).filter(Boolean)
+    : [];
   return {
     id: String(doc._id),
     userId: String(doc.userId || ""),
     authorName: String(doc.authorName || ""),
-    authorAvatarUrl: String(doc.authorAvatarUrl || ""),
+    authorAvatarUrl: scrubDiscordDefaultAvatarUrl(String(doc.authorAvatarUrl || "")),
+    authorAvatarHash: avatarHashFromDiscordUrl(doc.authorAvatarUrl),
     content: String(doc.content || ""),
+    kind: normalizeSuggestionKind(doc.feedbackKind) || "suggestion",
+    tag: suggestionTopicTagOf(doc, { forDisplay: true }),
+    topic: suggestionTopicTagOf(doc, { forDisplay: true }),
+    board: suggestionBoardOf(doc),
+    imageUrls: images,
     status: String(doc.status || "pending"),
     staffReason: String(doc.staffReason || ""),
     staffUserId: doc.staffUserId ? String(doc.staffUserId) : null,
@@ -202,7 +481,7 @@ function serializeSuggestion(doc, viewerUserId) {
     createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
     updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
     comments,
-    commentCount: comments.length,
+    commentCount,
     upvoteCount: upList.length,
     downvoteCount: downList.length,
     upvotedByViewer: Boolean(vid && upList.includes(vid)),
@@ -216,37 +495,95 @@ async function getSiteSuggestions(client, payload = {}) {
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord non disponibile." };
   }
 
+  const board = normalizeSuggestionBoard(payload.board);
   let viewer = null;
+  let canAccessStaffBoard = false;
   const accessToken = String(payload.accessToken || "").trim();
-  if (accessToken) {
-    const resolved = await resolveWebsiteGuildMember(client, accessToken);
-    if (resolved.ok) {
-      viewer = {
-        id: resolved.userId,
-        name: displayNameForMember(resolved.member),
-        canModerateSuggestions: memberCanModerateSuggestions(resolved.member),
-      };
-    }
-  }
 
-  const viewerId = viewer && viewer.id ? String(viewer.id) : "";
-  const canModerate = Boolean(viewer && viewer.canModerateSuggestions);
-  const query = { docType: SG, guildId: guild.id };
-  if (!canModerate) {
-    if (viewerId) {
-      query.$or = [{ status: { $ne: "rejected" } }, { userId: viewerId }];
-    } else {
-      query.status = { $ne: "rejected" };
-    }
-  }
-
-  const docs = await SiteDocument.find(query)
+  // cinePolish1: public list query starts in parallel with Discord member resolve (no staff board probe).
+  const publicQuery = {
+    docType: SG,
+    guildId: guild.id,
+    ...boardListQuery(board),
+    status: { $ne: "rejected" },
+  };
+  const publicDocsP = SiteDocument.find(publicQuery)
     .sort({ updatedAt: -1, createdAt: -1 })
     .limit(LIST_LIMIT)
     .lean()
     .catch(() => []);
+  const viewerP = accessToken
+    ? resolveWebsiteGuildMember(client, accessToken).catch(() => null)
+    : Promise.resolve(null);
+  const [publicDocs, resolved] = await Promise.all([publicDocsP, viewerP]);
 
-  await prefetchGuildMembersForIds(guild, collectUserIdsFromSuggestionLikeDocs(docs));
+  if (resolved && resolved.ok) {
+    canAccessStaffBoard = memberCanAccessStaffFeedbackBoard(resolved.member);
+    viewer = {
+      id: resolved.userId,
+      name: displayNameForMember(resolved.member),
+      canModerateSuggestions: memberCanModerateSuggestions(resolved.member),
+      canAccessStaffBoard,
+    };
+  }
+
+  if (board === "staff" && !canAccessStaffBoard) {
+    return {
+      ok: false,
+      status: 403,
+      error: "forbidden",
+      message: "La bacheca Staff è riservata allo staff (Partner Manager esclusi).",
+      viewer,
+      board: "staff",
+    };
+  }
+
+  const viewerId = viewer && viewer.id ? String(viewer.id) : "";
+  const canModerate = Boolean(viewer && viewer.canModerateSuggestions);
+  let docs = Array.isArray(publicDocs) ? publicDocs : [];
+
+  if (canModerate) {
+    // Moderators also see rejected — refetch once with full board query.
+    docs = await SiteDocument.find({ docType: SG, guildId: guild.id, ...boardListQuery(board) })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(LIST_LIMIT)
+      .lean()
+      .catch(() => docs);
+  } else if (viewerId) {
+    // Own rejected rows (rare) — small parallel top-up, no second full board probe.
+    const ownRejected = await SiteDocument.find({
+      docType: SG,
+      guildId: guild.id,
+      ...boardListQuery(board),
+      userId: viewerId,
+      status: "rejected",
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(10)
+      .lean()
+      .catch(() => []);
+    if (Array.isArray(ownRejected) && ownRejected.length) {
+      const byId = new Map();
+      for (const d of [...docs, ...ownRejected]) {
+        const id = String(d && d._id ? d._id : "").trim();
+        if (id) byId.set(id, d);
+      }
+      docs = [...byId.values()]
+        .sort((a, b) => {
+          const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return tb - ta;
+        })
+        .slice(0, LIST_LIMIT);
+    }
+  }
+
+  const authorIds = collectUserIdsFromSuggestionLikeDocs(docs);
+  await prefetchGuildMembersForIds(guild, authorIds);
+  const missingMembers = authorIds
+    .map((id) => String(id || "").trim())
+    .filter((id) => id && !guild.members?.cache?.has?.(id));
+  await prefetchUsersForIds(client, missingMembers);
 
   const seenIds = new Set();
   const suggestions = [];
@@ -254,12 +591,37 @@ async function getSiteSuggestions(client, payload = {}) {
     const id = String(d && d._id ? d._id : "").trim();
     if (!id || seenIds.has(id)) continue;
     seenIds.add(id);
-    suggestions.push(applyLiveAvatarToSuggestionLike(serializeSuggestion(d, viewerId), guild, { size: 128 }));
+    const serialized = applyLiveAvatarToSuggestionLike(
+      serializeSuggestion(d, viewerId, { leanList: true }),
+      guild,
+      {
+        size: 128,
+        // feedbackAvatar1: static PNG CDN only; never Discord embed defaults (site coffee fallback).
+        preferAnimated: false,
+        allowDefault: false,
+        client,
+      },
+    );
+    if (serialized) {
+      serialized.authorAvatarUrl = scrubDiscordDefaultAvatarUrl(serialized.authorAvatarUrl);
+      serialized.authorAvatarHash =
+        avatarHashFromDiscordUrl(serialized.authorAvatarUrl) || String(serialized.authorAvatarHash || "").trim();
+      if (Array.isArray(serialized.comments)) {
+        serialized.comments = serialized.comments.map((c) => {
+          if (!c) return c;
+          c.authorAvatarUrl = scrubDiscordDefaultAvatarUrl(c.authorAvatarUrl);
+          c.authorAvatarHash = avatarHashFromDiscordUrl(c.authorAvatarUrl) || String(c.authorAvatarHash || "").trim();
+          return c;
+        });
+      }
+    }
+    suggestions.push(serialized);
   }
 
   return {
     ok: true,
     status: 200,
+    board,
     suggestions,
     viewer,
   };
@@ -270,20 +632,49 @@ async function createSiteSuggestion(client, payload = {}) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
 
+  const board = normalizeSuggestionBoard(payload.board);
+  if (board === "staff" && !memberCanAccessStaffFeedbackBoard(resolved.member)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "forbidden",
+      message: "La bacheca Staff è riservata allo staff (Partner Manager esclusi).",
+    };
+  }
+
+  const kind = normalizeSuggestionKind(payload.kind) || "suggestion";
+  if (!kind) {
+    return {
+      ok: false,
+      status: 400,
+      error: "invalid_kind",
+      message: "Scegli tra idea o segnalazione bug.",
+    };
+  }
+
+  const tagCheck = validateSuggestionTopicTag(payload.tag != null ? payload.tag : payload.topic, kind);
+  if (!tagCheck.ok) return tagCheck;
+  const topicTag = tagCheck.tag;
+
   const content = sanitizeBody(payload.content, MAX_SUGGESTION_LEN);
   if (content.length < 12) {
     return { ok: false, status: 400, error: "content_too_short", message: "Scrivi almeno 12 caratteri." };
   }
 
-    const duplicateWindowMs = 24 * 60 * 60 * 1000;
+  const duplicateWindowMs = 24 * 60 * 60 * 1000;
   const existingDup = await SiteDocument.findOne({
     docType: SG,
     guildId: resolved.guild.id,
     userId: resolved.userId,
     content,
-    $or: [
-      { status: "pending" },
-      { createdAt: { $gte: new Date(Date.now() - duplicateWindowMs) } },
+    $and: [
+      boardListQuery(board),
+      {
+        $or: [
+          { status: "pending" },
+          { createdAt: { $gte: new Date(Date.now() - duplicateWindowMs) } },
+        ],
+      },
     ],
   })
     .select({ _id: 1 })
@@ -299,16 +690,26 @@ async function createSiteSuggestion(client, payload = {}) {
     };
   }
 
+  const avatarRaw =
+    guildMemberDisplayAvatarUrlStatic(resolved.member, { size: 128 }) ||
+    guildMemberDisplayAvatarUrlDynamic(resolved.member, { size: 128, allowDefault: false }) ||
+    resolveSiteAvatarUrl(resolved.guild, resolved.userId, "", {
+      size: 128,
+      preferAnimated: false,
+      allowDefault: false,
+    });
+
   const doc = await SiteDocument.create({
     docType: SG,
     guildId: resolved.guild.id,
     userId: resolved.userId,
     authorName: displayNameForMember(resolved.member),
-    authorAvatarUrl:
-      guildMemberDisplayAvatarUrlStatic(resolved.member, { size: 128 }) ||
-      guildMemberDisplayAvatarUrlDynamic(resolved.member, { size: 128 }) ||
-      resolveSiteAvatarUrl(resolved.guild, resolved.userId, "", { size: 128 }),
+    authorAvatarUrl: scrubDiscordDefaultAvatarUrl(avatarRaw),
     content,
+    feedbackKind: kind,
+    topicTag,
+    suggestionBoard: board === "staff" ? "staff" : "community",
+    imageUrls: [],
     status: "pending",
     comments: [],
   }).catch(() => null);
@@ -317,13 +718,38 @@ async function createSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 500, error: "save_failed", message: "Non sono riuscito a salvare il suggerimento." };
   }
 
+  const imageUrls = saveSuggestionImages(String(doc._id), payload.images);
+  if (imageUrls.length) {
+    doc.imageUrls = imageUrls;
+    await doc.save().catch(() => null);
+  }
+
+  if (kind === "bug") {
+    const claimed = await SiteDocument.findOneAndUpdate(
+      {
+        docType: SG,
+        _id: doc._id,
+        guildId: resolved.guild.id,
+        $or: [{ missionRewardGrantedAt: null }, { missionRewardGrantedAt: { $exists: false } }],
+      },
+      { $set: { missionRewardGrantedAt: new Date() } },
+      { new: true },
+    )
+      .select("_id")
+      .lean()
+      .catch(() => null);
+    if (claimed) {
+      void recordTenantBugReport(client, resolved.guild.id, resolved.userId).catch(() => null);
+    }
+  }
+
   await notifyHighStaffNewSuggestion(resolved.guild, doc, displayNameForMember(resolved.member));
   broadcastSiteSuggestionsChanged();
   return {
     ok: true,
     status: 200,
     suggestion: serializeSuggestion(doc.toObject ? doc.toObject() : doc, resolved.userId),
-    message: "Suggerimento pubblicato.",
+    message: kind === "bug" ? "Segnalazione pubblicata." : "Suggerimento pubblicato.",
   };
 }
 
@@ -347,12 +773,16 @@ async function addSiteSuggestionComment(client, payload = {}) {
     _id: suggestionId,
     guildId: resolved.guild.id,
   })
-    .select("status comments userId")
+    .select("status comments userId suggestionBoard")
     .lean()
     .catch(() => null);
 
   if (!existing) {
     return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato." };
+  }
+  {
+    const denied = denyStaffBoardIfNeeded(resolved.member, existing);
+    if (denied) return denied;
   }
   if (String(existing.status || "") !== "pending") {
     return {
@@ -412,34 +842,44 @@ async function addSiteSuggestionComment(client, payload = {}) {
   }
 
   const ownerId = String(existing.userId || "").trim();
+  const actorId = String(resolved.userId || "").trim();
   const who = displayNameForMember(resolved.member);
+  const openUrl = suggestionNotifOpenUrl(suggestionId);
+  let parentAuthor = "";
   if (parentOid) {
     const parent = (Array.isArray(existing.comments) ? existing.comments : []).find((x) => String(x._id) === rawParent);
-    const parentAuthor = parent ? String(parent.userId || "").trim() : "";
-    if (parentAuthor && parentAuthor !== String(resolved.userId)) {
-      await notifySuggestionAuthor(resolved.guild.id, parentAuthor, {
-        title: "Risposta al tuo commento",
-        body: `${who} ha risposto al tuo commento: ${clipNotifBody(content, 320)}`,
-        kind: "suggestion",
-        openUrl: suggestionNotifOpenUrl(suggestionId),
-      });
-    }
-    if (ownerId && ownerId !== String(resolved.userId) && ownerId !== parentAuthor) {
-      await notifySuggestionAuthor(resolved.guild.id, ownerId, {
-        title: "Nuova risposta in discussione",
-        body: `${who} ha risposto a un commento sul tuo suggerimento.`,
-        kind: "suggestion",
-        openUrl: suggestionNotifOpenUrl(suggestionId),
-      });
-    }
-  } else if (ownerId && ownerId !== String(resolved.userId)) {
-    await notifySuggestionAuthor(resolved.guild.id, ownerId, {
-      title: "Nuovo commento al suggerimento",
-      body: `${who} ha commentato: ${clipNotifBody(content, 360)}`,
-      kind: "suggestion",
-      openUrl: suggestionNotifOpenUrl(suggestionId),
-    });
+    parentAuthor = parent ? String(parent.userId || "").trim() : "";
   }
+  // discussionParticipantsFanOut1 — notify every prior participant (owner + comment authors), not only parent/owner.
+  const participantIds = collectSuggestionDiscussionParticipantIds(existing, { excludeUserId: actorId });
+  await Promise.all(
+    participantIds.map((uid) => {
+      let title;
+      let body;
+      if (parentOid && uid === parentAuthor) {
+        title = "Risposta al tuo commento";
+        body = `${who} ha risposto al tuo commento: ${clipNotifBody(content, 320)}`;
+      } else if (!parentOid && uid === ownerId) {
+        title = "Nuovo commento al suggerimento";
+        body = `${who} ha commentato: ${clipNotifBody(content, 360)}`;
+      } else if (parentOid && uid === ownerId) {
+        title = "Nuova risposta in discussione";
+        body = `${who} ha risposto a un commento sul tuo suggerimento.`;
+      } else if (parentOid) {
+        title = "Nuova risposta in discussione";
+        body = `${who} ha risposto in una discussione a cui partecipi.`;
+      } else {
+        title = "Nuovo messaggio in discussione";
+        body = `${who} ha commentato in una discussione a cui partecipi: ${clipNotifBody(content, 280)}`;
+      }
+      return notifySuggestionAuthor(resolved.guild.id, uid, {
+        title,
+        body,
+        kind: "suggestion",
+        openUrl,
+      });
+    }),
+  );
 
   broadcastSiteSuggestionsChanged();
   return {
@@ -471,7 +911,7 @@ async function setSiteSuggestionVote(client, payload = {}) {
     guildId: resolved.guild.id,
     status: "pending",
   })
-    .select("upvoterUserIds downvoterUserIds userId")
+    .select("upvoterUserIds downvoterUserIds userId suggestionBoard")
     .lean()
     .catch(() => null);
 
@@ -482,6 +922,10 @@ async function setSiteSuggestionVote(client, payload = {}) {
       error: "vote_not_allowed",
       message: "Puoi votare solo su suggerimenti ancora in valutazione.",
     };
+  }
+  {
+    const denied = denyStaffBoardIfNeeded(resolved.member, fresh);
+    if (denied) return denied;
   }
 
   const uid = String(resolved.userId);
@@ -715,6 +1159,10 @@ async function staffSetSiteSuggestionDecision(client, payload = {}) {
   if (!prev) {
     return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato." };
   }
+  {
+    const denied = denyStaffBoardIfNeeded(resolved.member, prev);
+    if (denied) return denied;
+  }
 
   const set = { status: nextStatus, updatedAt: new Date() };
   if (nextStatus === "pending") {
@@ -805,6 +1253,7 @@ async function staffDeleteSiteSuggestion(client, payload = {}) {
   }
 
   await deleteSuggestionNotifications(resolved.guild.id, suggestionId);
+  deleteSuggestionFiles(suggestionId);
   broadcastSiteSuggestionsChanged();
   return { ok: true, status: 200, message: "Suggerimento eliminato definitivamente." };
 }
@@ -824,6 +1273,25 @@ async function updateOwnSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "content_too_short", message: "Scrivi almeno 12 caratteri." };
   }
 
+  const kindRaw = payload.kind != null ? normalizeSuggestionKind(payload.kind) : "";
+  const existingForKind = await SiteDocument.findOne({
+    docType: SG,
+    _id: suggestionId,
+    guildId: resolved.guild.id,
+    userId: resolved.userId,
+    status: "pending",
+  })
+    .select("feedbackKind")
+    .lean()
+    .catch(() => null);
+  const kind = kindRaw || normalizeSuggestionKind(existingForKind?.feedbackKind) || "suggestion";
+
+  const tagCheck = validateSuggestionTopicTag(payload.tag != null ? payload.tag : payload.topic, kind);
+  if (!tagCheck.ok) return tagCheck;
+
+  const $set = { content, updatedAt: new Date(), topicTag: tagCheck.tag };
+  if (kindRaw) $set.feedbackKind = kindRaw;
+
   const updated = await SiteDocument.findOneAndUpdate(
     {
       docType: SG,
@@ -832,7 +1300,7 @@ async function updateOwnSiteSuggestion(client, payload = {}) {
       userId: resolved.userId,
       status: "pending",
     },
-    { $set: { content, updatedAt: new Date() } },
+    { $set },
     { new: true },
   )
     .lean()
@@ -885,6 +1353,7 @@ async function deleteOwnSiteSuggestion(client, payload = {}) {
   }
 
   await deleteSuggestionNotifications(resolved.guild.id, suggestionId);
+  deleteSuggestionFiles(suggestionId);
   broadcastSiteSuggestionsChanged();
   return { ok: true, status: 200, message: "Suggerimento eliminato." };
 }
@@ -913,6 +1382,10 @@ async function updateSiteSuggestionComment(client, payload = {}) {
   }).catch(() => null);
   if (!doc) {
     return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato o discussione chiusa." };
+  }
+  {
+    const denied = denyStaffBoardIfNeeded(resolved.member, doc);
+    if (denied) return denied;
   }
 
   const arr = Array.isArray(doc.comments) ? doc.comments : [];
@@ -962,6 +1435,10 @@ async function deleteSiteSuggestionComment(client, payload = {}) {
   }).catch(() => null);
   if (!doc) {
     return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato o discussione chiusa." };
+  }
+  {
+    const denied = denyStaffBoardIfNeeded(resolved.member, doc);
+    if (denied) return denied;
   }
 
   const arr = Array.isArray(doc.comments) ? doc.comments : [];
@@ -1026,6 +1503,10 @@ async function setSiteSuggestionCommentVote(client, payload = {}) {
       message: "Puoi votare solo su suggerimenti ancora in valutazione.",
     };
   }
+  {
+    const denied = denyStaffBoardIfNeeded(resolved.member, doc);
+    if (denied) return denied;
+  }
 
   const arr = Array.isArray(doc.comments) ? doc.comments : [];
   const idx = arr.findIndex((c) => String(c._id) === commentId);
@@ -1075,6 +1556,61 @@ async function setSiteSuggestionCommentVote(client, payload = {}) {
   };
 }
 
+async function serveSiteSuggestionFile(client, req, res) {
+  const suggestionId = String(req.params?.suggestionId || "").trim();
+  const fileName = String(req.params?.fileName || "").trim();
+  const st = String(req.query?.st || "").trim();
+  let allowed = verifySuggestionFileAccessToken(st, suggestionId, fileName);
+  if (!allowed) {
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const resolved = await resolveWebsiteGuildMember(client, accessToken);
+    if (!resolved.ok) {
+      res.status(Number(resolved.status) || 401).json({
+        ok: false,
+        error: resolved.error || "unauthorized",
+        message: resolved.message || "Accesso negato.",
+      });
+      return;
+    }
+    const doc = await SiteDocument.findOne({
+      docType: SG,
+      _id: suggestionId,
+      guildId: resolved.guild.id,
+    })
+      .select({ userId: 1, suggestionBoard: 1 })
+      .lean();
+    if (!doc) {
+      res.status(404).json({ ok: false, error: "not_found" });
+      return;
+    }
+    const denied = denyStaffBoardIfNeeded(resolved.member, doc);
+    if (denied) {
+      res.status(denied.status).json(denied);
+      return;
+    }
+    const isOwner = String(doc.userId || "") === String(resolved.userId || "");
+    const isStaff = memberCanModerateSuggestions(resolved.member);
+    const canStaffBoard = suggestionBoardOf(doc) === "staff" && memberCanAccessStaffFeedbackBoard(resolved.member);
+    if (!isOwner && !isStaff && !canStaffBoard) {
+      res.status(403).json({ ok: false, error: "forbidden", message: "Accesso negato." });
+      return;
+    }
+    allowed = true;
+  }
+  if (!allowed) {
+    res.status(401).json({ ok: false, error: "unauthorized" });
+    return;
+  }
+  const full = resolveStoredSuggestionFile(suggestionId, fileName);
+  if (!full) {
+    res.status(404).json({ ok: false, error: "not_found" });
+    return;
+  }
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("Content-Type", mimeFromFileName(req.params?.fileName));
+  fs.createReadStream(full).pipe(res);
+}
+
 module.exports = {
   getSiteSuggestions,
   createSiteSuggestion,
@@ -1089,4 +1625,7 @@ module.exports = {
   staffRejectSiteSuggestion,
   staffSetSiteSuggestionDecision,
   staffDeleteSiteSuggestion,
+  serveSiteSuggestionFile,
+  MAX_IMAGES,
+  SUGGESTION_TOPIC_TAGS,
 };

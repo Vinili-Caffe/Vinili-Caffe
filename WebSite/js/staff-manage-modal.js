@@ -1,7 +1,7 @@
 (function (global) {
   "use strict";
 
-  var ASSET_VER = "20260830selfNeg1";
+  var ASSET_VER = "20260907customModal1";
   var scriptsLoaded = false;
   var scriptsLoading = null;
 
@@ -27,6 +27,11 @@
       global.VCStaffManagePanel.closeModal();
     }
   }
+
+  global.__vcCloseStaffManageSheet = closeManageSheet;
+  global.addEventListener("vc:auth-logout", function () {
+    closeManageSheet();
+  });
 
   function loadScript(src, attr) {
     return new Promise(function (resolve, reject) {

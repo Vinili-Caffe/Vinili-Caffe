@@ -16,7 +16,7 @@ const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissio
 const { ROLE_TRY_AGAIN, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { TENANT_EMBED_COLOR } = require("../MultiGuild/utils/tenantEmbedBranding");
-const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic, userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
 const { buildStaffGuideMenuRow, STAFF_GUIDE_MENU_ID, STAFF_GUIDE_SECTION_IDS } = require("../Utils/Staff/staffGuideMenuComponents");
@@ -175,6 +175,16 @@ async function handleStaffButtons(interaction) {
         embeds: [],
         components: [],
       }).catch((err) => { logButtonErr(err); return null; });
+      try {
+        const { notifyStaffWarnDepexDeferred, memberDisplayName } = require("../Utils/Web/siteStaffEventNotifications");
+        void notifyStaffWarnDepexDeferred({
+          guild,
+          staffUserId: userId,
+          staffName: memberDisplayName(member, targetUser, userId),
+          actorUserId: String(interaction.user.id),
+          actorName: memberDisplayName(interaction.member, interaction.user, interaction.user.id),
+        }).catch(() => 0);
+      } catch (_) {}
       return true;
     }
     if (!member) {
@@ -197,8 +207,7 @@ async function handleStaffButtons(interaction) {
       displayName: (freshMember?.displayName || targetUser?.globalName || targetUser?.username || "").trim() || null,
       username: String(targetUser?.username || "").trim() || null,
       avatarUrl:
-        (typeof freshMember?.displayAvatarURL === "function" && freshMember.displayAvatarURL({ size: 128 })) ||
-        (typeof targetUser?.displayAvatarURL === "function" && targetUser.displayAvatarURL({ size: 128 })) ||
+        userAvatarUrlDynamic(freshMember || targetUser, { size: 128 }) ||
         null,
     });
     await sendPexDepexLog(guild, "depex", targetUser, oldRoleId, newRoleId, "Depex da 2 warn staff (scelta High Staff).");
@@ -243,7 +252,7 @@ async function handleStaffButtons(interaction) {
       .setColor("#6f4e37")
       .setDescription(
         "<:banhammer:1443651875441217639> I **warn staff** vengono __assegnati__ dopo **3 valutazioni negative**. Raggiunti i `2` **warn staff** si verrà depexati al ruolo precedente. **__(Per i Mod sarà depex completo)__**\n\n" +
-        "> L'<@&1442568894349840435> può decidere di graziare qualcuno al secondo warn, ma in caso di **terzo warn** lo staffer verrà depexato **__completamente__**\n\n" +
+        "> L'<@&1544831228690046976> può decidere di graziare qualcuno al secondo warn, ma in caso di **terzo warn** lo staffer verrà depexato **__completamente__**\n\n" +
         "<:VC_Attention:1482534443632558151> I **warn staff** non possono essere __rimossi__. Il **reset** dei __warn staff__ avviene ogni **__6 mesi__**."
       );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
@@ -277,7 +286,7 @@ async function handleStaffButtons(interaction) {
       "> Le **valutazioni positive** si possono **__scambiare__** per dei giorni in più di **pausa**.\n\n" +
       "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n\n" +
       "<a:questionexclaimanimated:1443660299994533960> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
-      "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione.\n\n" +
+      "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1544831228690046976> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione.\n\n" +
       "<a:VC_NewsExclamation:1471891662786527253> **__VALUTAZIONI AUTOMATICHE__**\n\n" +
       "> Ogni settimana si possono ottenere delle **valutazioni automatiche** in base a tre fattori:\n" +
       "<:VC_1:1482706338021642333> **Completamento dei limiti settimanali superandoli __almeno del doppio__**\n" +
@@ -322,7 +331,7 @@ async function handleStaffButtons(interaction) {
       "<:VC_Dot:1482532364222595303> <@&" + IDs.roles.Admin + "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&" + IDs.roles.Manager + "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
       "<:VC_Attention:1482534443632558151> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
-      "> <:banhammer:1443651875441217639> Se l'<@&1442568894349840435> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer."
+      "> <:banhammer:1443651875441217639> Se l'<@&1544831228690046976> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer."
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -698,9 +707,10 @@ module.exports = {
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
       const values = Array.isArray(interaction.values) ? interaction.values : [];
-      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: PERSONALITY_MENTION_ROLE_IDS, personality_hobby: PERSONALITY_HOBBY_ROLE_IDS, personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
+      const categories = { personality_pronouns: ["1544830743296081960", "1544830740624183336", "1544830738556256256", "1544830736434069559",], personality_age: ["1544830751931899965", "1544830749268639744", "1544830746533957717", "1544830744914821181",], personality_region: ["1544830651033976872", "1544830648131395604", "1544830644516036611", "1544830642616012813",], personality_dm: ["1544830708340756621", "1544830706482413589", "1544830704477540393",], personality_relationship: ["1544830640971579462", "1544830638983614524",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: PERSONALITY_MENTION_ROLE_IDS, personality_hobby: PERSONALITY_HOBBY_ROLE_IDS, personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
       const colorMenuIds = ["personality_colors_1", "personality_colors_plus"];
-      const allColorRoleIds = colorMenuIds.flatMap((id) => categories[id] || []);
+      const colorUnlocksMod = require("../Utils/Community/personalityColorUnlocks");
+      const allColorRoleIds = colorUnlocksMod.getAllPersonalityChatColorRoleIds();
 
       const roleIds = categories[menuId];
       const rolesToRemove = colorMenuIds.includes(menuId) ? allColorRoleIds : roleIds;
@@ -711,7 +721,7 @@ module.exports = {
       const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, rolesToRemove || [], `menu=${menuId} (config)`);
 
       if (menuId === "personality_colors_plus" && values.length && !values.includes("remove")) {
-        const unlocks = require("../Utils/Community/personalityColorUnlocks");
+        const unlocks = colorUnlocksMod;
         const allowed = await unlocks.memberHasPlusColorFullEligibilityAsync(member);
         if (!allowed) {
           return interaction.reply({ content: ROLE_PLUS_FORBIDDEN, flags: PRIVATE_FLAG }).catch((err) => {
@@ -756,6 +766,10 @@ module.exports = {
         if (!isRemoveAction) {
           const partitioned = partitionRoleIdsByExisting(guild, values, `menu=${menuId} (selezione utente)`);
           valuesExisting = partitioned.existing;
+          // Colori: massimo 1 ruolo totale.
+          if (colorMenuIds.includes(menuId) && valuesExisting.length > 1) {
+            valuesExisting = valuesExisting.slice(0, 1);
+          }
         }
 
         let memberAfterDirectAdd = null;
@@ -1070,7 +1084,7 @@ module.exports = {
         "",
         "**Vuoi acquistare direttamente tutti i vantaggi permanenti e differenti dal VIP?**",
         "`5,00 €`✩",
-        "<:VC_Dot:1482532364222595303> Il ruolo <@&1442568916114346096> **permanente**",
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&1544830864565735515> **permanente**",
         "<:VC_Dot:1482532364222595303> Possibilità di allegare link e immagini in chat",
         "<:VC_Dot:1482532364222595303> Possibilità di usare le soundboard di altri server",
         "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
@@ -1084,7 +1098,7 @@ module.exports = {
       const vip = [
         "**Vuoi sostenere il server?** Acquista il VIP e riscatta tutti i vantaggi che hai sbloccato qui nel server! <a:VC_HeartsBlue:1468686100045369404>",
         "",
-        "ACQUISTA IL <@&1442568950805430312> <a:VC_HeartsPink:1468685897389052008>",
+        "ACQUISTA IL <@&1544830866616754257> <a:VC_HeartsPink:1468685897389052008>",
         "`10,00 €`✩",
         "",
         "<:sparkledred:1470064814502973591> Sbloccherai:",
@@ -1400,7 +1414,7 @@ module.exports = {
           {
             name: "`WEEKLY WINNERS`",
             value: [
-              "<@&1468674837957574757>/<@&1468674787399172208>",
+              "<@&1544830834849087630>/<@&1544830836686200992>",
               "Ottenibile arrivando primo per exp in messaggi o exp in vocale nella [classifica settimanale](<https://discord.com/channels/1329080093599076474/1470183921236049940>).",
               "९ Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Ruolo esclusivo per 7 giorni.",
@@ -1422,7 +1436,7 @@ module.exports = {
           {
             name: "`VOTER`",
             value: [
-              "<@&1468266342682722679>",
+              "<@&1544830805455544360>",
               "Ottenibile votando il server dalla [pagina Voti](<https://www.viniliecaffe.it/vote>) del sito (Discadia e Top.gg).",
               "<:VC_DoubleReply:1482532332509466797> EXP casuale da 100 a 250.",
               "<:VC_Reply:1482532158080942191> Ruolo esclusivo per 12 o 24 ore.",
@@ -1432,7 +1446,7 @@ module.exports = {
           {
             name: "`PROMOTER`",
             value: [
-              "<@&1469758545263198442>",
+              "<@&1544830824300417094>",
               "Ottenibile invitando 5 persone nel server, attraverso [custom link](<https://imgur.com/a/3wpDOVj>)",
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
               "<:VC_Reply:1482532158080942191> Permesso di cambiare il tuo nickname",
@@ -1442,7 +1456,7 @@ module.exports = {
           {
             name: "`PROPULSOR`",
             value: [
-              "<@&1474357579143577610>",
+              "<@&1544830827026849872>",
               "Ottenibile invitando 25 persone nel server, attraverso [custom link](<https://imgur.com/a/3wpDOVj>)",
               "९ Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Inviare emoji e adesivi esterni",
@@ -1453,7 +1467,7 @@ module.exports = {
           {
             name: "`CATALYST`",
             value: [
-              "<@&1474361806956007425>",
+              "<@&1544830828331270282>",
               "Ottenibile invitando 100 persone nel server, attraverso [custom link](<https://imgur.com/a/3wpDOVj>)",
               "९ Tutte le ricompense precedenti",
               "<:VC_Reply:1482532158080942191> Usare SoundBoard esterne nelle vocali",
@@ -1463,7 +1477,7 @@ module.exports = {
           {
             name: "`GUILDED`",
             value: [
-              "<@&1471955147692179497>",
+              "<@&1544830820181745704>",
               "Ottenibile mettendo una delle nostre guild tags",
               "९ Esclusività del ruolo.",
             ].join("\n"),
@@ -1472,7 +1486,7 @@ module.exports = {
           {
             name: "`VETERANO`",
             value: [
-              "<@&1469073503025103113>",
+              "<@&1544830800984412275>",
               "Ottenibile stando nel server per almeno 1 mese",
               "९ Esclusività del ruolo.",
             ].join("\n"),
@@ -1481,7 +1495,7 @@ module.exports = {
           {
             name: "`OG`",
             value: [
-              "<@&1469041493401534644>",
+              "<@&1544830802859393045>",
               "Ottenibile stando nel server per almeno 1 anno",
               "९ Esclusività del ruolo.",
             ].join("\n"),

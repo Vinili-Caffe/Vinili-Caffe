@@ -156,12 +156,18 @@ const globalSettingsSchema = new Schema(
     expMultiplier: { type: Number, default: 2 },
     expEventMultiplier: { type: Number, default: 1 },
     expEventMultiplierExpiresAt: { type: Date, default: null },
-        expEventStartAnnouncementsSent: { type: [String], default: [] },
+    expEventStartAnnouncementsSent: { type: [String], default: [] },
     expLockedChannelIds: { type: [String], default: [] },
     expIgnoredRoleIds: { type: [String], default: [] },
     expRoleMultipliers: { type: Schema.Types.Mixed, default: {} },
     modConfig: { type: modConfigEmbeddedSchema, default: () => ({}) },
     personalityPanels: { type: [personalityPanelEntrySchema], default: [] },
+    discordPanelRecipes: { type: Schema.Types.Mixed, default: null },
+    /** Throttle sweep/backfill persistenza stato Discord utente. */
+    userFullStateMaintenance: {
+      lastFullBackfillAt: { type: Date, default: null },
+      lastLightSweepAt: { type: Date, default: null },
+    },
     channelSnapshots: { type: [channelSnapshotEntrySchema], default: [] },
     skullboardPosts: { type: [skullboardPostEntrySchema], default: [] },
         staffRosterSnapshot: { type: Schema.Types.Mixed, default: null },
@@ -460,6 +466,14 @@ const activityUserProfileSchema = new Schema(
             currentStreak: { type: Number, default: 0 },
             bestStreak: { type: Number, default: 0 },
           },
+          monthlyTopReward: {
+            type: Schema.Types.Mixed,
+            default: null,
+          },
+          monthlyVoteTopReward: {
+            type: Schema.Types.Mixed,
+            default: null,
+          },
         },
       },
       supporterStatus: {
@@ -533,6 +547,13 @@ const activityUserProfileSchema = new Schema(
         customRoleEligibilityLostAt: { type: Date, default: null },
         expiresAt: { type: Date, default: null },
       },
+      /** Ruoli pannello personalità / colori / self-role (IDs Discord) — persistenza stabile. */
+      personalityRoleIds: { type: [String], default: [] },
+      /**
+       * Snapshot completo stato Discord ricreabile post-wipe:
+       * ruoli membro + fingerprint, custom role look (anche icona), custom voc + overwrites.
+       */
+      discordState: { type: Schema.Types.Mixed, default: null },
             contestPrizes: {
         disegniSecondPlaceUnlock: { type: Boolean, default: false },
         disegniSecondPlaceEventKey: { type: String, default: null },
@@ -706,6 +727,19 @@ const userLeaveBackupSchema = new Schema(
 userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
+/** Cronologia snapshot Discord utente (ultimo N per utente; no TTL — recovery wipe). */
+const userFullDiscordStateHistorySchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    capturedAt: { type: Date, required: true, default: Date.now, index: true },
+    source: { type: String, default: "unknown" },
+    state: { type: Schema.Types.Mixed, required: true },
+  },
+  { timestamps: true },
+);
+userFullDiscordStateHistorySchema.index({ guildId: 1, userId: 1, capturedAt: -1 });
+
 const activityGuildHourlySchema = new Schema(
   {
     guildId: { type: String, required: true },
@@ -719,9 +753,11 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   IN_APP_NOTIFICATION: "in_app_notification",
   ROLE_REQUEST_COOLDOWN: "role_request_cooldown",
   ROLE_REQUEST_PENDING: "role_request_pending",
+  ROLE_GRANT_PENDING: "role_grant_pending",
   REVIEW: "review",
   SUGGESTION: "suggestion",
   BOT_FEEDBACK: "bot_feedback",
+  CONFESSIONALE: "confessionale",
   PAYMENT: "payment",
   HOGWARTS_SORTING: "hogwarts_sorting",
   HOGWARTS_FORBIDDEN_BOOKS: "hogwarts_forbidden_books",
@@ -796,8 +832,8 @@ const siteDocumentSchema = new Schema(
     ownerId: { type: String, default: null, index: true },
     lastRequestedAt: { type: Date, default: null },
     cooldownUntil: { type: Date, default: null, index: true },
-        requestToken: { type: String, default: "", index: true },
-    expiresAt: { type: Date, default: null, index: true },
+        requestToken: { type: String, default: "" },
+    expiresAt: { type: Date, default: null },
     dmChannelId: { type: String, default: "", trim: true, maxlength: 32 },
     dmMessageId: { type: String, default: "", trim: true, maxlength: 32 },
     reason: { type: String, default: "", trim: true, maxlength: 500 },
@@ -818,6 +854,10 @@ const siteDocumentSchema = new Schema(
 
     status: { type: String, default: null, trim: true, maxlength: 24 },
         feedbackKind: { type: String, default: null, trim: true, maxlength: 24 },
+        /* community | staff — staff board is ladder-only (excludes PM-only) */
+        suggestionBoard: { type: String, default: null, trim: true, maxlength: 16 },
+        /* server | staff | sito | bots | eventi | altro — eventi only for ideas */
+        topicTag: { type: String, default: null, trim: true, maxlength: 16 },
         missionRewardGrantedAt: { type: Date, default: null },
         imageUrls: { type: [String], default: undefined },
     staffReason: { type: String, default: "", trim: true, maxlength: 1000 },
@@ -886,11 +926,23 @@ siteDocumentSchema.index(
 );
 siteDocumentSchema.index(
   { docType: 1, requestToken: 1 },
-  { unique: true, partialFilterExpression: { docType: SITE_DOC.ROLE_REQUEST_PENDING } },
+  {
+    unique: true,
+    name: "site_role_pending_token_unique",
+    partialFilterExpression: {
+      docType: { $in: [SITE_DOC.ROLE_REQUEST_PENDING, SITE_DOC.ROLE_GRANT_PENDING] },
+      requestToken: { $type: "string", $gt: "" },
+    },
+  },
 );
 siteDocumentSchema.index(
   { docType: 1, expiresAt: 1 },
-  { partialFilterExpression: { docType: SITE_DOC.ROLE_REQUEST_PENDING } },
+  {
+    name: "site_role_pending_expires",
+    partialFilterExpression: {
+      docType: { $in: [SITE_DOC.ROLE_REQUEST_PENDING, SITE_DOC.ROLE_GRANT_PENDING] },
+    },
+  },
 );
 siteDocumentSchema.index(
   { docType: 1, requestToken: 1 },
@@ -1521,6 +1573,9 @@ const RepostPrivacy = buildProfileSubdocModel({
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
+const UserFullDiscordStateHistory =
+  models.UserFullDiscordStateHistory ||
+  model("UserFullDiscordStateHistory", userFullDiscordStateHistorySchema, "userfulldiscordstatehistories");
 const SiteDocument = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
@@ -1543,6 +1598,7 @@ module.exports = {
   QuotePrivacy,
   RepostPrivacy,
   UserLeaveBackup,
+  UserFullDiscordStateHistory,
   SiteDocument,
   SITE_DOCUMENT_TYPE,
 };

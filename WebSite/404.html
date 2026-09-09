@@ -1,6 +1,9 @@
 <!DOCTYPE html>
-<html lang="it">
+<html class="vc-site-polish" lang="it">
   <head>
+  <script id="vc-site-photo-bg-prime">(function(){try{window.__VC_SITE_PHOTO_BG=true;document.documentElement.classList.add("vc-site-photo-bg","vc-cine-static-bg","vc-home-cine-live","vc-home-motion-ready")}catch(e){}})();</script>
+  <link rel="stylesheet" id="vc-site-photo-bg-link" href="/css/vc-site-photo-bg.css?v=20260906gifNeverWebp1" />
+
 <style id="vc-fa-noflash-css">html:not(.vc-fa-ready) .fa{visibility:hidden!important;opacity:0!important}html:not(.vc-fa-ready) .fa:before{content:""!important}html.vc-fa-ready .fa{visibility:visible!important;opacity:1!important}</style>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
@@ -13,10 +16,9 @@
 <link rel="preload" as="font" type="font/woff2" href="/css/font-awesome/fonts/fontawesome-webfont.woff2?v=4.7.0" crossorigin />
 <link rel="stylesheet" href="/css/font-awesome/css/font-awesome.min.css?v=20260831faLocal1" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="/css/tw-build.css?v={{BUILD_ASSET_VERSION}}" />
-    <link rel="preload" as="style" href="/css/vc-landing-core.css?v=20260831cssSplitFix1" />
-    <link rel="stylesheet" href="/css/vc-landing-core.css?v=20260831cssSplitFix1" />
-    <link rel="stylesheet" href="/css/vc-landing-ext.css?v=20260902promoCandMobileFix1" media="print" onload="this.media='all'" />
-    <noscript><link rel="stylesheet" href="/css/vc-landing-ext.css?v=20260902promoCandMobileFix1" /></noscript><link rel="icon" href="{{GUILD_ICON_URL}}" />
+    <link rel="preload" as="style" href="/css/vc-landing-core.css?v=20260907heroIconBg1" />
+    <link rel="stylesheet" href="/css/vc-landing-core.css?v=20260907heroIconBg1" />
+    <link rel="stylesheet" href="/css/vc-landing-ext.css?v=20260907heroIconBg1" /><link rel="icon" href="{{GUILD_ICON_URL}}" />
     <style>
       .vc-404-card {
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -36,14 +38,24 @@
       }
     </style>
 <script src="/js/vc-site-toast.js?v=20260825siteToast1"></script>
-    </head>
+      <link rel="stylesheet" id="vc-avatar-css" href="/css/vc-avatar.css?v=20260907avatarGlow1" />
+<script src="/js/vc-home-cine.js?v=20260907cardHeroIcon1" defer></script>
+<link rel="stylesheet" href="/css/vc-image-lightbox.css?v=20260908imgLightbox2" id="vc-image-lightbox-css" />
+</head>
   <body class="vc-body relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-home-cine" aria-hidden="true">
+      <img class="vc-home-cine__photo" src="/images/sfondo.gif?v=20260906gifNeverWebp1" alt="" decoding="async" loading="eager" draggable="false" />
+      <canvas class="vc-home-cine__canvas"></canvas>
+      <div class="vc-home-cine__veil"></div>
+      <div class="vc-home-cine__grain"></div>
+    </div>
+
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
       <div class="vc-nav-shell rounded-2xl mx-auto flex items-center justify-between gap-3 border border-white/[0.08] bg-[#140f0c] px-4 py-3 sm:px-5">
         <div class="flex min-w-0 items-center gap-2.5">
-          <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="{{GUILD_ICON_URL}}" width="40" height="40" class="vc-header-logo-img" alt="" /></a>
+          <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img src="https://www.viniliecaffe.it/images/og-server-icon.gif?v=20260907cinePolish1" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async" /></a>
           <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white sm:text-xs" href="{{SITE_URL}}">{{SITE_NAME}}</a>
         </div>
       </div>
@@ -72,5 +84,8 @@
       </main>
     </noscript>
     <script src="/js/vc-smart-404.js?v={{BUILD_ASSET_VERSION}}" defer></script>
-  </body>
+  <script src="/js/vc-discord-avatar.js?v=20260906avatarHub1" defer></script>
+<script src="/js/vc-avatar-fallback.js?v=20260906avatarHub1" defer></script>
+<script src="/js/vc-image-lightbox.js?v=20260908imgLightbox2" defer data-vc-img-lightbox="1"></script>
+</body>
 </html>

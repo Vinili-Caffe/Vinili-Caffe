@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 
 const require = createRequire(import.meta.url);
 import { buildWikiCommandPanesInnerHtml } from "./wiki-command-discovery.mjs";
-import { loadGaleoniEconomyUnlockMs } from "./wiki-help-visibility.mjs";
+import { loadGaleoniEconomyUnlockMs, isWikiEconomyCategoryVisible } from "./wiki-help-visibility.mjs";
 import { minifyHtmlFilesInDist, obfuscateProjectJsInDist } from "./minify-obfuscate-dist.mjs";
 import { fetchStaffListStatusFlags } from "./staff-list-status.mjs";
 import { fetchCommunityPulse } from "./live-community-pulse.mjs";
@@ -408,21 +408,9 @@ function ensureTicketsInRichiesteChrome(html) {
 }
 
 function replaceLegacyFooter(html) {
-    if (
-    html.includes("vc-hw-page") ||
-    html.includes("vc-seratafilm-page") ||
-    html.includes("vc-seratafilm") ||
-    html.includes("vc-dashboard-transcript-page") ||
-    html.includes('data-i18n="status.title"') ||
-    html.includes("seratafilm/accesso-richiesto") ||
-    /Serata Film/i.test(html)
-  ) {
-    return html;
-  }
-  const simpleTpl = buildSimpleFooterTemplate();
-  let out = html;
-    out = out.replace(/<footer\b[^>]*\bvc-premium-footer\b[^>]*>[\s\S]*?<\/footer>/gi, simpleTpl);
-  return out;
+  // Keep premium footer on public pages (same as homepage). Dashboard/special
+  // pages use their own templates and are not rewritten here.
+  return html;
 }
 
 function applyPlaceholderMap(html, map) {
@@ -522,10 +510,12 @@ function ensureDiscordShareMeta(html, map) {
     `$1${ogImage}$3`,
   );
 
+  const twCard = "summary";
+
   if (!/<meta\s+property=["']og:image["']/i.test(out)) {
     out = out.replace(
       /<\/head>/i,
-      `    <meta property="og:image" content="${ogImage}" />\n    <meta property="og:image:secure_url" content="${ogImage}" />\n    <meta property="og:image:type" content="${ogType}" />\n    <meta property="og:image:width" content="${ogW}" />\n    <meta property="og:image:height" content="${ogH}" />\n    <meta name="twitter:card" content="summary" />\n    <meta name="twitter:image" content="${ogImage}" />\n  </head>`,
+      `    <meta property="og:image" content="${ogImage}" />\n    <meta property="og:image:secure_url" content="${ogImage}" />\n    <meta property="og:image:type" content="${ogType}" />\n    <meta property="og:image:width" content="${ogW}" />\n    <meta property="og:image:height" content="${ogH}" />\n    <meta name="twitter:card" content="${twCard}" />\n    <meta name="twitter:image" content="${ogImage}" />\n  </head>`,
     );
   }
 
@@ -551,7 +541,7 @@ function ensureDiscordShareMeta(html, map) {
   }
   out = out.replace(
     /(<meta\s+name=["']twitter:card["']\s+content=["'])([^"']+)(["']\s*\/?>)/gi,
-    `$1summary$3`,
+    `$1${twCard}$3`,
   );
       const browserTheme = theme || "#140f0c";
   out = out.replace(/\s*<meta[^>]+name=["']theme-color["'][^>]*>/gi, "");
@@ -561,7 +551,7 @@ function ensureDiscordShareMeta(html, map) {
   );
   if (!/name=["']twitter:card["']/i.test(out)) {
     injectAfterOgImage(
-      `<meta name="twitter:card" content="summary" />\n    <meta name="twitter:image" content="${ogImage}" />`,
+      `<meta name="twitter:card" content="${twCard}" />\n    <meta name="twitter:image" content="${ogImage}" />`,
     );
   }
     if (!/property=["']og:image:secure_url["']/i.test(out)) {
@@ -690,12 +680,12 @@ function guildBannerCdnUrl(guildId, bannerHash) {
   return `https://cdn.discordapp.com/banners/${gid}/${h}.${ext}?size=2048`;
 }
 
-function guildIconCdnUrl(guildId, iconHash, size = 256) {
+function guildIconCdnUrl(guildId, iconHash, size = 512) {
   const gid = String(guildId || "").trim();
   const h = String(iconHash || "").trim();
   if (!gid || !h) return "";
   const ext = h.startsWith("a_") ? "gif" : "png";
-  const s = Math.max(16, Math.min(4096, Number(size) || 256));
+  const s = Math.max(16, Math.min(4096, Number(size) || 512));
   return `https://cdn.discordapp.com/icons/${gid}/${h}.${ext}?size=${s}`;
 }
 
@@ -711,13 +701,25 @@ function absUrlForMetadata(siteUrl, pathOrUrl) {
 function forceStaticOgImageUrl(url) {
   const raw = String(url || "").trim();
   if (!raw) return "";
-  if (/cdn\.discordapp\.com\/(?:banners|icons)\/[^/]+\/a_[^/?#]+\.gif/i.test(raw)) {
-    return "";
+  // Keep first-party GIFs (animated server logo). Only convert Discord CDN animated GIFs → PNG
+  // because CDN sends x-robots-tag: noimageindex and is unreliable for embeds.
+  if (/viniliecaffe\.it\/images\/.*\.gif(\?|$)/i.test(raw)) {
+    try {
+      return new URL(raw).toString();
+    } catch {
+      return raw;
+    }
   }
+  // Discord OG crawlers: convert animated CDN GIFs → PNG for CDN fallbacks only.
+  const gifToPng = raw.replace(
+    /^(https:\/\/cdn\.discordapp\.com\/(?:banners|icons)\/[^/]+\/a_[^/?#.]+)\.gif(\?[^#]*)?/i,
+    (_, base, qs) => `${base}.png${qs || "?size=512"}`,
+  );
+  const out = gifToPng !== raw ? gifToPng : raw;
   try {
-    return new URL(raw).toString();
+    return new URL(out).toString();
   } catch {
-    return raw;
+    return out;
   }
 }
 
@@ -944,7 +946,7 @@ async function fetchGuildMembersUpTo(guildId, botToken, maxTotal) {
   return all;
 }
 
-const STAFF_DEL_MESE_ROLE_ID = "1442568895251611924";
+const STAFF_DEL_MESE_ROLE_ID = "1544831233404575835";
 
 function memberIsStaffDelMese(m) {
   return memberRoleIds(m).includes(STAFF_DEL_MESE_ROLE_ID);
@@ -1371,6 +1373,7 @@ function collectDistHtmlRoutes(distDir) {
 const ROBOTS_DISALLOW_PREFIXES = [
   "/dashboard",
   "/staff",
+  "/confessionale",
   "/seratafilm/accesso-richiesto",
   "/candidature/accesso-richiesto",
   "/appelli/accesso-richiesto",
@@ -2277,7 +2280,7 @@ async function buildStaffListBlock(cfg, guildId) {
   const rawEx = b.excludeFromStaffListRoleIds;
   const excludeRoleIds = new Set(
     rawEx === undefined
-      ? ["1442568905582317740"]
+      ? ["1544831242510270464"]
       : (Array.isArray(rawEx) ? rawEx : []).map((x) => String(x).trim()).filter(Boolean),
   );
 
@@ -2338,7 +2341,7 @@ async function buildStaffListBlock(cfg, guildId) {
     : [];
   const showEachRole = b.staffListShowEachRole === true;
   const showEmptyRoles = b.showEmptyStaffRoles !== false;
-  const pmRoleId = String(b.partnerManagerRoleId || "1442568905582317740").trim();
+  const pmRoleId = String(b.partnerManagerRoleId || "1544831242510270464").trim();
   const communityManagerRoleId = String(b.communityManagerRoleId || "1494089487863644330").trim();
 
   function resolveRoleLabel(roleId, fallbackLabel) {
@@ -2584,7 +2587,7 @@ async function buildStaffListBlock(cfg, guildId) {
     appendRoleGroupIfMissing(communityManagerRoleId, communityManagerRoleLabel);
   }
   const serverBoosterRoleId = String(b.serverBoosterRoleId || "1329497467481493607").trim();
-  const doubleBoosterRoleId = String(b.doubleBoosterRoleId || "1494996567214788818").trim();
+  const doubleBoosterRoleId = String(b.doubleBoosterRoleId || "1544830850552823849").trim();
   const boosterRoleIds = new Set([serverBoosterRoleId, doubleBoosterRoleId].filter(Boolean));
   for (const [rid, meta] of roleMetas.entries()) {
     const name = String(meta?.name || "")
@@ -2838,7 +2841,7 @@ async function main() {
       }
     }
     if (wantIcon) {
-      const iconUrl = guildIconCdnUrl(snap.guildId, snap.icon, 256);
+      const iconUrl = guildIconCdnUrl(snap.guildId, snap.icon, 512);
       if (iconUrl) guildIconUrl = iconUrl;
       else console.warn("[build-site] Nessuna icon guild nell’invite; uso fallback locale.");
     }
@@ -2967,11 +2970,20 @@ async function main() {
     );
   }
 
-  const siteOgFallback = "/og.gif?v=oggif1";
-  const ogImageOverride = String(cfg.openGraphImageUrl ?? "").trim() || siteOgFallback;
+  // Prefer first-party square animated logo for Discord thumbnail embeds
+  // (Discord CDN icons send x-robots-tag: noimageindex; wide banners force large card).
+  const siteOgFallback =
+    String(cfg.openGraphImageUrl ?? "").trim() ||
+    absUrlForMetadata(siteUrlTrim, "images/og-server-icon.gif") ||
+    absUrlForMetadata(siteUrlTrim, "images/pwa-icon-512-v6.png") ||
+    absUrlForMetadata(siteUrlTrim, "images/vc-server-icon.png") ||
+    (snap?.guildId && snap?.icon ? guildIconCdnUrl(snap.guildId, snap.icon, 512) : "") ||
+    guildIconUrl ||
+    "";
+  const ogImageOverride = String(cfg.openGraphImageUrl ?? "").trim();
   const ogIconLarge =
     snap?.guildId && snap?.icon && wantIcon ? guildIconCdnUrl(snap.guildId, snap.icon, 1024) : guildIconUrl;
-    const ogCandidates = [ogImageOverride, siteOgFallback, ogIconLarge, guildIconUrl, guildBannerUrl];
+  const ogCandidates = [ogImageOverride, siteOgFallback, ogIconLarge, guildIconUrl];
   let ogImageUrl = "";
   for (const cand of ogCandidates) {
     const abs = forceStaticOgImageUrl(absUrlForMetadata(siteUrlTrim, cand));
@@ -2981,10 +2993,10 @@ async function main() {
     }
   }
   if (!ogImageUrl) {
-    ogImageUrl = absUrlForMetadata(siteUrlTrim, siteOgFallback);
+    ogImageUrl = forceStaticOgImageUrl(absUrlForMetadata(siteUrlTrim, siteOgFallback)) || siteOgFallback;
   }
-  let ogImageWidth = "128";
-  let ogImageHeight = "128";
+  let ogImageWidth = "512";
+  let ogImageHeight = "512";
   const w = Number(cfg.openGraphImageWidth);
   const h = Number(cfg.openGraphImageHeight);
   if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
@@ -3032,7 +3044,7 @@ async function main() {
     return `${base}?tipo=unmute`;
   })();
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
-  const richiesteSuggerimentiUrl = defaultLegalPath("suggerimenti");
+  const richiesteSuggerimentiUrl = defaultLegalPath("feedback");
   const donationsPageUrl = defaultLegalPath("donazioni");
   const perksPageUrl = defaultLegalPath("perks");
   const votePageUrl = defaultLegalPath("vote");
@@ -3041,7 +3053,7 @@ async function main() {
     "https://discadia.com/vote/viniliecaffe/";
   const topggVoteUrlResolved =
     String(cfg.topggVoteUrl ?? "").trim() ||
-    "https://top.gg/discord/servers/832911595289169920";
+    "https://top.gg/discord/servers/832911595289169920/vote";
   const paypalDonationsUrlResolved =
     String(cfg.donationsUrl ?? "").trim() || discordInviteResolved || "#";
 
@@ -3086,7 +3098,16 @@ async function main() {
   const wikiViniliAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiViniliAvatarRaw);
   const wikiCaffeAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiCaffeAvatarRaw);
 
-  const wikiEconomyUnlockMs = loadGaleoniEconomyUnlockMs(path.join(ROOT, "..", "Vinyls"));
+  const wikiVinylsRoot = path.join(ROOT, "..", "Vinyls");
+  const wikiEconomyUnlockMs = loadGaleoniEconomyUnlockMs(wikiVinylsRoot);
+  const wikiEconomyVisible = isWikiEconomyCategoryVisible(wikiVinylsRoot);
+  let wikiMemberRoleId = "";
+  let wikiVipRoleId = "";
+  try {
+    const idsMod = require(path.join(wikiVinylsRoot, "Utils", "Config", "ids.js"));
+    wikiMemberRoleId = String(idsMod?.roles?.Member || "").trim();
+    wikiVipRoleId = String(idsMod?.roles?.VIP || "").trim();
+  } catch (eIds) {}
   const WIKI_CMD_PANES_HTML = buildWikiCommandPanesInnerHtml({
     avatarProdUrl: wikiViniliAvatarUrl,
     avatarTestUrl: wikiCaffeAvatarUrl,
@@ -3849,7 +3870,7 @@ async function main() {
     : "/webhooks/site-custom-profile";
   const customProfileApiLocalResolved = "";
   const reviewsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/recensioni` : "/recensioni";
-  const suggestionsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/suggerimenti` : "/suggerimenti";
+  const suggestionsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/feedback` : "/feedback";
   const ticketsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/tickets` : "/tickets";
   const supportoPageUrl = ticketsPageUrl;
   const staffTicketPageUrl = ticketsPageUrl;
@@ -4157,7 +4178,7 @@ async function main() {
     USER_OG_URL: escAttr(userPageUrl),
     RUOLI_PAGE_TITLE: `${siteName} | Ruoli Personalizzati`,
     RUOLI_META_DESCRIPTION: escAttr(
-      `Tutti i ruoli personalizzati creati con <a href="/personalizza/" class="vc-sponsor-code">profilo sul sito</a> nella community Discord ${siteName}.`,
+      `Tutti i ruoli personalizzati creati dal profilo sul sito nella community Discord ${siteName}.`,
     ),
     RUOLI_OG_TITLE: escAttr(`${siteName} | Ruoli Personalizzati`),
     RUOLI_OG_URL: escAttr(ruoliPageUrl),
@@ -4195,11 +4216,11 @@ async function main() {
     ),
     BOT_REVIEWS_OG_TITLE: escAttr(`${siteName} | Recensioni`),
     BOT_REVIEWS_OG_URL: escAttr(botReviewsPageUrl),
-    SUGGESTIONS_PAGE_TITLE: `${siteName} | Suggerimenti`,
+    SUGGESTIONS_PAGE_TITLE: `${siteName} | Feedback`,
     SUGGESTIONS_META_DESCRIPTION: escAttr(
-      `Suggerimenti per ${siteName}: proponi idee, commenta le proposte e segui le decisioni dell'High Staff.`,
+      `Feedback per ${siteName}: proponi idee, segnala problemi, commenta e segui le decisioni dell'High Staff.`,
     ),
-    SUGGESTIONS_OG_TITLE: escAttr(`${siteName} | Suggerimenti`),
+    SUGGESTIONS_OG_TITLE: escAttr(`${siteName} | Feedback`),
     SUGGESTIONS_OG_URL: escAttr(suggestionsPageUrl),
     DASHBOARD_PAGE_TITLE: `${siteName} | Dashboard`,
     DASHBOARD_META_DESCRIPTION: escAttr(`Dashboard bot di ${siteName}.`),
@@ -4297,6 +4318,9 @@ async function main() {
       wikiEconomyUnlockMs != null && Number.isFinite(Number(wikiEconomyUnlockMs))
         ? String(Math.floor(Number(wikiEconomyUnlockMs)))
         : "null",
+    WIKI_ECONOMY_VISIBLE: wikiEconomyVisible ? "true" : "false",
+    WIKI_MEMBER_ROLE_ID: escAttr(wikiMemberRoleId || ""),
+    WIKI_VIP_ROLE_ID: escAttr(wikiVipRoleId || ""),
   };
 
   html = applyPlaceholderMap(html, map);
@@ -4454,14 +4478,21 @@ async function main() {
     console.warn("[build-site] Manca recensioni/index.html (saltato placeholder).");
   }
 
-  const suggestionsIndexPath = path.join(DIST, "suggerimenti", "index.html");
+  const suggestionsIndexPath = path.join(DIST, "feedback", "index.html");
   if (fs.existsSync(suggestionsIndexPath)) {
     let suggestionsHtml = fs.readFileSync(suggestionsIndexPath, "utf8");
     suggestionsHtml = applyPlaceholderMap(suggestionsHtml, map);
-    warnLeftoverPlaceholders(suggestionsHtml, "suggerimenti/index.html");
+    warnLeftoverPlaceholders(suggestionsHtml, "feedback/index.html");
     fs.writeFileSync(suggestionsIndexPath, suggestionsHtml, "utf8");
   } else {
-    console.warn("[build-site] Manca suggerimenti/index.html (saltato placeholder).");
+    console.warn("[build-site] Manca feedback/index.html (saltato placeholder).");
+  }
+  const suggestionsLegacyPath = path.join(DIST, "suggerimenti", "index.html");
+  if (fs.existsSync(suggestionsLegacyPath)) {
+    let legacyHtml = fs.readFileSync(suggestionsLegacyPath, "utf8");
+    legacyHtml = applyPlaceholderMap(legacyHtml, map);
+    warnLeftoverPlaceholders(legacyHtml, "suggerimenti/index.html");
+    fs.writeFileSync(suggestionsLegacyPath, legacyHtml, "utf8");
   }
 
   const ticketsIndexPath = path.join(DIST, "tickets", "index.html");

@@ -1,7 +1,25 @@
+/* homeNavBgFix1 + phoneNavCore2 + gpuLoadFix1 + cineFxUnify1 + cineExtWaitFix1 + mobileRevealFix1 + cineNoFlash1 + photoBg1 + cineNoFlash2 */
 (function () {
   try {
     var root = document.documentElement;
     if (!root) return;
+
+    /* photoBg1 trial: disable canvas cine, use static photo bg (set false to restore). */
+    var SITE_PHOTO_BG =
+      typeof window.__VC_SITE_PHOTO_BG === "boolean" ? window.__VC_SITE_PHOTO_BG : true;
+    window.__VC_SITE_PHOTO_BG = SITE_PHOTO_BG;
+    if (SITE_PHOTO_BG) {
+      try {
+        root.classList.add("vc-site-photo-bg", "vc-cine-static-bg", "vc-home-cine-live", "vc-home-motion-ready");
+        if (!document.getElementById("vc-site-photo-bg-link")) {
+          var photoLink = document.createElement("link");
+          photoLink.id = "vc-site-photo-bg-link";
+          photoLink.rel = "stylesheet";
+          photoLink.href = "/css/vc-site-photo-bg.css?v=20260906gifNeverWebp1";
+          (document.head || root).appendChild(photoLink);
+        }
+      } catch (ePhotoBoot) {}
+    }
 
     var mobileNavCritical =
       "@media (max-width:1199.98px){" +
@@ -61,22 +79,52 @@
       } catch (ePhoneBg) {}
     }
 
+    // Gate duro: niente flash layout piatto (CSS senza cine) finché non c'è vc-page-cine-ready.
+    var cineGate =
+      "html.vc-site-polish:not(.vc-page-cine-ready) body.vc-body>main," +
+      "html.vc-site-polish:not(.vc-page-cine-ready) body.vc-body>footer," +
+      "html.vc-site-polish:not(.vc-page-cine-ready) body.vc-body>header{" +
+      "opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
+      "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main," +
+      "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer," +
+      "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header{" +
+      "opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
+      /* Safety: se qualcosa rivela troppo presto, hero card non deve apparire "pre-cine". */ +
+      "html.vc-page-cine-boot .vc-support-page-hero," +
+      "html.vc-page-cine-boot .vc-wiki-hero-card," +
+      "html.vc-page-cine-boot .vc-regole-hero-card," +
+      "html.vc-page-cine-boot .vc-notify-hero{" +
+      "border:none!important;background:transparent!important;box-shadow:none!important;" +
+      "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}";
+    if (!document.getElementById("vc-cine-noflash-gate-css")) {
+      var gateEl = document.createElement("style");
+      gateEl.id = "vc-cine-noflash-gate-css";
+      gateEl.textContent = cineGate;
+      (document.head || root).appendChild(gateEl);
+    } else {
+      try {
+        var existingGate = document.getElementById("vc-cine-noflash-gate-css");
+        if (existingGate && existingGate.textContent.indexOf("vc-wiki-hero-card") < 0) {
+          existingGate.textContent +=
+            "html.vc-page-cine-boot .vc-support-page-hero,html.vc-page-cine-boot .vc-wiki-hero-card," +
+            "html.vc-page-cine-boot .vc-regole-hero-card,html.vc-page-cine-boot .vc-notify-hero{" +
+            "border:none!important;background:transparent!important;box-shadow:none!important;" +
+            "backdrop-filter:none!important;-webkit-backdrop-filter:none!important}";
+        }
+      } catch (eGateUp) {}
+    }
+
     var navGuard =
       "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>main," +
-      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>footer{" +
+      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>footer," +
+      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>header{" +
       "opacity:0!important;visibility:hidden!important;pointer-events:none!important}" +
-      (phone || desktop
-        ? ""
-        : "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body>header{" +
-          "opacity:0!important;visibility:hidden!important;pointer-events:none!important}") +
       "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) #vc-mobile-nav-drawer," +
       "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) .vc-mobile-nav-drawer{" +
       "display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}" +
-      (phone || desktop
-        ? ""
-        : "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header nav.vc-header-snav," +
-          "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header #header-quick-actions{" +
-          "display:none!important}");
+      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header nav.vc-header-snav," +
+      "html:not(.vc-core-styles-ready):not(.vc-home-styles-ready) body.vc-body header #header-quick-actions{" +
+      "display:none!important}";
     if (!document.getElementById("vc-nav-boot-guard-css")) {
       var guardEl = document.createElement("style");
       guardEl.id = "vc-nav-boot-guard-css";
@@ -84,13 +132,12 @@
       (document.head || document.documentElement).appendChild(guardEl);
     }
 
+    // Telefono: sfondo cine static ok, main/footer restano dietro al gate.
     if (phone && !document.getElementById("vc-phone-nav-fast-css")) {
       var phoneNav = document.createElement("style");
       phoneNav.id = "vc-phone-nav-fast-css";
       phoneNav.textContent =
         "@media (max-width:639.98px),(pointer:coarse){" +
-        "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header{" +
-        "opacity:1!important;visibility:visible!important;pointer-events:auto!important}" +
         "html.vc-site-polish.vc-cine-static-bg .vc-home-cine::before{" +
         "opacity:1!important;visibility:visible!important}" +
         "html.vc-site-polish.vc-cine-static-bg .vc-home-cine__veil{opacity:.88!important}" +
@@ -102,21 +149,11 @@
       (document.head || root).appendChild(phoneNav);
     }
 
-    if (desktop && !document.getElementById("vc-desktop-nav-fast-css")) {
-      var desktopNav = document.createElement("style");
-      desktopNav.id = "vc-desktop-nav-fast-css";
-      desktopNav.textContent =
-        "@media (min-width:1200px),(hover:hover) and (pointer:fine){" +
-        "html.vc-core-styles-ready.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>header," +
-        "html.vc-core-styles-ready.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>main," +
-        "html.vc-core-styles-ready.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready) body.vc-body>footer{" +
-        "opacity:1!important;visibility:visible!important;pointer-events:auto!important}" +
-        "html.vc-core-styles-ready body.vc-body header nav.vc-header-snav," +
-        "html.vc-core-styles-ready body.vc-body header #header-quick-actions{" +
-        "display:flex!important;visibility:visible!important}" +
-        "}";
-      (document.head || root).appendChild(desktopNav);
-    }
+    // Rimuovi eventuale CSS early-reveal desktop già iniettato da cache/vecchio boot.
+    try {
+      var oldDesk = document.getElementById("vc-desktop-nav-fast-css");
+      if (oldDesk && oldDesk.parentNode) oldDesk.parentNode.removeChild(oldDesk);
+    } catch (eOldDesk) {}
 
     function isVcBundleStylesheet(href) {
       return (
@@ -128,7 +165,12 @@
     }
 
     function isCoreRevealStylesheet(href) {
-      return href.indexOf("vc-landing-core.css") !== -1 || href.indexOf("tw-build.css") !== -1;
+      return (
+        href.indexOf("vc-landing-core.css") !== -1 ||
+        href.indexOf("vc-landing-ext.css") !== -1 ||
+        href.indexOf("tw-build.css") !== -1 ||
+        href.indexOf("vc-site-photo-bg.css") !== -1
+      );
     }
 
     function sheetHasRules(link) {
@@ -163,12 +205,7 @@
       try {
         root.classList.add("vc-core-styles-ready");
       } catch (e5) {}
-      if (desktop && root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) {
-        try {
-          markStylesReadyOnly();
-          revealExcluded();
-        } catch (eDeskReveal) {}
-      }
+      // cineNoFlash1: NON rivelare la pagina solo perché il CSS core è pronto.
     }
 
     function waitCoreStyles(n) {
@@ -199,9 +236,23 @@
 
     function revealExcluded() {
       try {
-        root.classList.add("vc-page-cine-ready", "vc-styles-ready", "vc-core-styles-ready", "vc-home-motion-ready", "vc-home-styles-ready");
+        root.classList.add(
+          "vc-page-cine-ready",
+          "vc-styles-ready",
+          "vc-core-styles-ready",
+          "vc-home-motion-ready",
+          "vc-home-styles-ready",
+        );
         root.classList.remove("vc-page-cine-boot");
       } catch (eRev) {}
+    }
+
+    function hasCineLayout() {
+      try {
+        return Boolean(document.body && document.body.classList.contains("vc-page-cine-layout"));
+      } catch (eLay) {
+        return false;
+      }
     }
 
     function ensureHomeCineScript() {
@@ -209,7 +260,7 @@
         if (typeof window.__vcPageHeroLayout === "function") return;
         if (document.querySelector('script[src*="vc-home-cine"]')) return;
         var s = document.createElement("script");
-        s.src = "/js/vc-home-cine.js?v=20260901mobileRevealFix1";
+        s.src = "/js/vc-home-cine.js?v=20260906sponsorRefundInHero1";
         s.async = false;
         (document.head || root).appendChild(s);
       } catch (eHc) {}
@@ -218,16 +269,34 @@
     function armRevealFailsafe(ms) {
       window.setTimeout(function () {
         if (!root.classList.contains("vc-page-cine-boot") || root.classList.contains("vc-page-cine-ready")) return;
-        revealExcluded();
         try {
           if (typeof window.__vcPageHeroLayout === "function") {
             window.__vcPageHeroLayout({ force: true });
           }
         } catch (eLay) {}
-      }, Math.max(desktop ? 900 : 1200, Number(ms) || 4000));
+        // cineNoFlash2: non rivelare il layout piatto.
+        if (hasCineLayout() || root.classList.contains("vc-page-cine-ready")) {
+          revealExcluded();
+        }
+      }, Math.max(desktop ? 2200 : 3200, Number(ms) || 5000));
+    }
+
+    function promoteDeferredStylesheets() {
+      try {
+        var links = document.querySelectorAll('link[rel="stylesheet"][media="print"]');
+        for (var i = 0; i < links.length; i += 1) {
+          var href = String(links[i].getAttribute("href") || links[i].href || "");
+          if (!isVcBundleStylesheet(href) && href.indexOf("vc-site-photo-bg.css") === -1) continue;
+          try {
+            links[i].media = "all";
+            links[i].setAttribute("media", "all");
+          } catch (eMedia) {}
+        }
+      } catch (ePromo) {}
     }
 
     function waitForStylesheets(done) {
+      promoteDeferredStylesheets();
       var pending = 0;
       var finished = false;
       function finish(force) {
@@ -239,11 +308,8 @@
       var links = document.querySelectorAll('link[rel="stylesheet"]');
       for (var i = 0; i < links.length; i += 1) {
         var href = String(links[i].getAttribute("href") || links[i].href || "");
-        if (desktop) {
-          if (!isCoreRevealStylesheet(href)) continue;
-        } else if (!isVcBundleStylesheet(href)) {
-          continue;
-        }
+        // cineNoFlash2: aspetta core + ext + photo-bg anche su desktop.
+        if (!isCoreRevealStylesheet(href)) continue;
         if (sheetHasRules(links[i])) continue;
         pending += 1;
         (function (link) {
@@ -260,7 +326,7 @@
       if (pending <= 0) finish(false);
       window.setTimeout(function () {
         finish(true);
-      }, desktop ? 900 : phone ? 3200 : 5200);
+      }, desktop ? 1600 : phone ? 3200 : 5200);
     }
 
     function tryApplyLayout() {
@@ -268,18 +334,17 @@
       try {
         window.__vcPageHeroLayout({ force: true });
       } catch (eLay) {}
-      return root.classList.contains("vc-page-cine-ready") || document.body.classList.contains("vc-page-cine-layout");
+      return root.classList.contains("vc-page-cine-ready") || hasCineLayout();
     }
 
     function waitForLayoutAndReveal(n) {
       n = n || 0;
-      if (tryApplyLayout()) return;
-      if (root.classList.contains("vc-page-cine-ready")) return;
-      if (desktop && n >= 8) {
+      if (tryApplyLayout()) {
         revealExcluded();
         return;
       }
-      if (n >= 100) {
+      if (root.classList.contains("vc-page-cine-ready")) return;
+      if (n >= 120) {
         try {
           if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
             window.__vcEnsureCommunityPageCineLayout();
@@ -300,15 +365,7 @@
         return;
       }
       ensureHomeCineScript();
-      armRevealFailsafe(desktop ? 1600 : phone ? 3200 : 6500);
-      if (desktop && coreStylesReady()) {
-        markStylesReadyOnly();
-        revealExcluded();
-        window.setTimeout(function () {
-          tryApplyLayout();
-        }, 0);
-        return;
-      }
+      armRevealFailsafe(desktop ? 2800 : phone ? 4000 : 6500);
       waitForStylesheets(function () {
         markStylesReadyOnly();
         waitForLayoutAndReveal(0);
@@ -350,6 +407,7 @@
     if (anti) anti.textContent = "html,body{background:#100c09!important;color-scheme:dark}";
 
     window.__VC_PAGE_CINE_BOOT_RAN = true;
+    window.__VC_PAGE_CINE_BOOT_VER = "cineNoFlash1";
     if (!document.getElementById("vc-anti-fouc-css")) {
       var s = document.createElement("style");
       s.id = "vc-anti-fouc-css";
@@ -387,12 +445,13 @@
     if (!root.classList.contains("vc-page-cine-boot")) {
       root.classList.add("vc-page-cine-boot");
       ensureHomeCineScript();
-      armRevealFailsafe(desktop ? 1600 : phone ? 3200 : 6500);
+      armRevealFailsafe(desktop ? 2800 : phone ? 4000 : 6500);
       if (!document.getElementById("vc-page-cine-boot-css")) {
         var inline = document.createElement("style");
         inline.id = "vc-page-cine-boot-css";
         inline.textContent =
           "html.vc-site-polish.vc-page-cine-boot,html.vc-site-polish.vc-page-cine-boot body{background:#100c09!important}" +
+          cineGate +
           "html.vc-site-polish:not(.vc-cine-static-bg) .vc-home-cine::before{opacity:0!important;visibility:hidden!important;animation:none!important}";
         (document.head || root).appendChild(inline);
       }
@@ -416,8 +475,19 @@
             window.__vcPageHeroLayout({ force: true });
           } catch (eLate) {}
         }
-        revealExcluded();
+        // cineNoFlash2: ultimo failsafe — forza layout, poi rivela solo se cine o timeout estremo.
+        if (hasCineLayout()) {
+          revealExcluded();
+        } else {
+          try {
+            if (typeof window.__vcPageHeroLayout === "function") {
+              window.__vcPageHeroLayout({ force: true });
+            }
+          } catch (eLate2) {}
+          if (hasCineLayout()) revealExcluded();
+          else revealExcluded(); // better visible late than stuck forever
+        }
       }
-    }, desktop ? 1800 : phone ? 4500 : 6000);
+    }, desktop ? 4200 : phone ? 6500 : 8000);
   } catch (e) {}
 })();

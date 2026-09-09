@@ -165,7 +165,32 @@
     tryStaffPreviewUnlock();
   }
 
+  function lockStaffPreviewAfterLogout() {
+    try {
+      window.__VC_HOGWARTS_STAFF_PREVIEW = false;
+    } catch (e0) {}
+    if (!previewMode()) return;
+    setStaffPreviewNavVisible(false);
+    try {
+      document.body.classList.add("vc-hw-preview-locked");
+    } catch (e1) {}
+    try {
+      window.location.replace("/");
+    } catch (e2) {
+      window.location.href = "/";
+    }
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
-  window.addEventListener("vc-discord-profile", tryStaffPreviewUnlock);
+  window.addEventListener("vc-discord-profile", function () {
+    if (!getToken()) {
+      if (previewMode()) lockStaffPreviewAfterLogout();
+      return;
+    }
+    tryStaffPreviewUnlock();
+  });
+  window.addEventListener("vc:auth-logout", function () {
+    if (previewMode()) lockStaffPreviewAfterLogout();
+  });
 })();

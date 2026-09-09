@@ -21,7 +21,8 @@ const APPLY_PEX_PREFIX = "apply_pex";
 const APPLY_PEX_MODAL_PREFIX = "apply_pex_modal";
 const APPLY_REJECT_PREFIX = "apply_reject";
 const APPLY_PEX_REASON_INPUT_ID = "apply_pex_reason";
-const VISIONE_MODULI_AUTO_PEX_REASON = "Candidatura accettata";
+const VISIONE_MODULI_AUTO_PEX_REASON = "Candidatura accettata.";
+const WEB_ACCEPT_PEX_REASON = "Candidatura accettata.";
 const STATE_TTL_MS = 30 * 60 * 1000;
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const APPLICATION_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
@@ -34,12 +35,36 @@ const MEMBER_ROLE_ID = IDs.roles.Member;
 const HELPER_ROLE_ID = IDs.roles.Helper;
 const PARTNER_MANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const HELPER_REAPPLY_BLOCK_ROLE_IDS = [IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder].filter(Boolean);
+/** Priorità (alto → basso) per messaggio “Sei già un …” quando manca position Discord. */
+const HELPER_BLOCK_ROLE_PRIORITY_IDS = [
+  IDs.roles.Founder,
+  IDs.roles.Manager,
+  IDs.roles.Admin,
+  IDs.roles.Director,
+  IDs.roles.SeniorModerator,
+  IDs.roles.HighStaff,
+  IDs.roles.Mod,
+  IDs.roles.Helper,
+  IDs.roles.Staff,
+].filter(Boolean);
+const HELPER_BLOCK_ROLE_FALLBACK_LABEL = {
+  [String(IDs.roles.Founder || "")]: "Founder",
+  [String(IDs.roles.Manager || "")]: "Manager",
+  [String(IDs.roles.Admin || "")]: "Admin",
+  [String(IDs.roles.Director || "")]: "Director",
+  [String(IDs.roles.SeniorModerator || "")]: "Senior Moderator",
+  [String(IDs.roles.HighStaff || "")]: "High Staff",
+  [String(IDs.roles.Mod || "")]: "Mod",
+  [String(IDs.roles.Helper || "")]: "Helper",
+  [String(IDs.roles.Staff || "")]: "Staff",
+  [String(IDs.roles.PartnerManager || "")]: "Partner Manager",
+};
 const pendingApplications = new Map();
 const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;
 let countersLoaded = false;
 let draftsLoaded = false;
-const WEBSITE_AUTH_TIMEOUT_MS = 10000;
+const WEBSITE_AUTH_TIMEOUT_MS = 2800; // mobileApisFast2: was 10s — hung candidature/appelli on phones
 const {
   readCachedWebsiteMember,
   writeCachedWebsiteMember,
@@ -73,10 +98,15 @@ async function fetchDiscordMe(accessToken) {
   }
 }
 
-async function fetchOAuthGuildMemberJson(accessToken, guildId, timeoutMs = 2500) {
+/**
+ * @returns {Promise<{ json: object|null, status: number|null, notInGuild: boolean, unreachable: boolean }>}
+ */
+async function fetchOAuthGuildMemberResult(accessToken, guildId, timeoutMs = 2500) {
   const token = String(accessToken || "").trim();
   const gid = String(guildId || "").trim();
-  if (!token || !gid) return null;
+  if (!token || !gid) {
+    return { json: null, status: null, notInGuild: false, unreachable: true };
+  }
   const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
   const timer = setTimeout(() => {
     try {
@@ -91,13 +121,24 @@ async function fetchOAuthGuildMemberJson(accessToken, guildId, timeoutMs = 2500)
       },
       signal: ctrl ? ctrl.signal : undefined,
     });
-    if (!res.ok) return null;
-    return await res.json().catch(() => null);
+    if (res.status === 404) {
+      return { json: null, status: 404, notInGuild: true, unreachable: false };
+    }
+    if (!res.ok) {
+      return { json: null, status: res.status, notInGuild: false, unreachable: res.status >= 500 };
+    }
+    const json = await res.json().catch(() => null);
+    return { json: json || null, status: res.status, notInGuild: false, unreachable: !json };
   } catch (_) {
-    return null;
+    return { json: null, status: null, notInGuild: false, unreachable: true };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchOAuthGuildMemberJson(accessToken, guildId, timeoutMs = 2500) {
+  const r = await fetchOAuthGuildMemberResult(accessToken, guildId, timeoutMs);
+  return r.json;
 }
 
 function synthMemberFromOAuth(guild, meJson, oauthMember) {
@@ -399,6 +440,67 @@ function getHighestRoleId(interaction, roleIds) {
   if (!cache || !Array.isArray(roleIds) || roleIds.length === 0) return null;
   const roles = roleIds.map((id) => cache.get(id)).filter(Boolean).sort((a, b) => Number(b.position || 0) - Number(a.position || 0));
   return roles[0]?.id || null;
+}
+
+function memberHasRoleId(member, roleId) {
+  const id = String(roleId || "").trim();
+  if (!id) return false;
+  const cache = member?.roles?.cache;
+  if (!cache || typeof cache.has !== "function") return false;
+  return cache.has(id);
+}
+
+function resolveHighestBlockingRoleId(member, roleIds) {
+  const ids = (Array.isArray(roleIds) ? roleIds : []).map((x) => String(x || "").trim()).filter(Boolean);
+  if (!ids.length || !member) return null;
+  const owned = ids.filter((id) => memberHasRoleId(member, id));
+  if (!owned.length) return null;
+
+  const guildRoles = member?.guild?.roles?.cache;
+  if (guildRoles && typeof guildRoles.get === "function") {
+    const ranked = owned
+      .map((id) => guildRoles.get(id))
+      .filter(Boolean)
+      .sort((a, b) => Number(b.position || 0) - Number(a.position || 0));
+    if (ranked[0]?.id) return String(ranked[0].id);
+  }
+
+  const cache = member?.roles?.cache;
+  if (cache && typeof cache.get === "function") {
+    const ranked = owned
+      .map((id) => cache.get(id))
+      .filter(Boolean)
+      .sort((a, b) => Number(b.position || 0) - Number(a.position || 0));
+    if (ranked[0]?.id) return String(ranked[0].id);
+  }
+
+  for (const id of HELPER_BLOCK_ROLE_PRIORITY_IDS) {
+    if (owned.includes(String(id))) return String(id);
+  }
+  return owned[0] || null;
+}
+
+function labelForStaffRoleId(roleId, member) {
+  const id = String(roleId || "").trim();
+  if (!id) return "Staff";
+  const fromGuild = member?.guild?.roles?.cache?.get?.(id);
+  const fromMember = member?.roles?.cache?.get?.(id);
+  const raw = String(fromGuild?.name || fromMember?.name || HELPER_BLOCK_ROLE_FALLBACK_LABEL[id] || "Staff").trim();
+  return (
+    raw
+      .replace(/<a?:[\w~]+:\d+>/g, "")
+      .replace(/<[@#&!]?\d+>/g, "")
+      .replace(/[*_`~|]+/g, "")
+      .replace(/\s+/g, " ")
+      .trim() ||
+    HELPER_BLOCK_ROLE_FALLBACK_LABEL[id] ||
+    "Staff"
+  );
+}
+
+function alreadyRoleMessage(label) {
+  const name = String(label || "").trim() || "Staff";
+  return `Sei già un ${name}.`;
 }
 
 function hasMemberRole(interaction) {
@@ -995,10 +1097,27 @@ async function checkMemberCandidatureEligibility(member, type) {
   }
   const targetRoleId = getTargetRoleIdByType(type);
   if (targetRoleId && hasAnyRoleMember(member, [targetRoleId])) {
-    return { ok: false, code: "already_role", message: "Sei già un Partner Manager." };
+    const label = labelForStaffRoleId(targetRoleId, member);
+    return {
+      ok: false,
+      code: "already_role",
+      roleId: String(targetRoleId),
+      roleLabel: label,
+      message: alreadyRoleMessage(label),
+    };
   }
   if (type === "helper" && hasAnyRoleMember(member, HELPER_REAPPLY_BLOCK_ROLE_IDS)) {
-    return { ok: false, code: "helper_blocked", message: "Sei già un membro dello Staff." };
+    const blockingId =
+      resolveHighestBlockingRoleId(member, HELPER_REAPPLY_BLOCK_ROLE_IDS) ||
+      String(HELPER_ROLE_ID || IDs.roles.Staff || "").trim();
+    const label = labelForStaffRoleId(blockingId, member);
+    return {
+      ok: false,
+      code: "helper_blocked",
+      roleId: blockingId || null,
+      roleLabel: label,
+      message: alreadyRoleMessage(label),
+    };
   }
   const until = await getCooldownUntil(member.user.id, type);
   if (until) {
@@ -1023,7 +1142,9 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
   }
 
-    const oauthPromise = fetchOAuthGuildMemberJson(token, guildId, 3500);
+  // Prefer OAuth guild-member (roles) — Discord bot member fetch often times out under load.
+  // mobileApisFast2: keep OAuth budget short (phones + CGNAT retries).
+  const oauthPromise = fetchOAuthGuildMemberResult(token, guildId, 2800);
   let meJson;
   try {
     const meRes = await fetchDiscordMe(token);
@@ -1038,7 +1159,7 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     meJson = await meRes.json();
   } catch (err) {
     global.logger?.warn?.("[candidature-site] Discord /users/@me timeout/unreachable:", err?.message || err);
-    return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord." };
+    return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord. Riprova tra poco." };
   }
 
   const userId = String(meJson?.id || "").trim();
@@ -1046,7 +1167,17 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
   }
 
-    const guild = await ensureWebsiteGuild(client, guildId, 2500);
+  const notInGuildPayload = {
+    ok: false,
+    status: 403,
+    error: "not_in_guild",
+    message: "Non sei nel server Discord: entra prima con lo stesso account con cui hai fatto login.",
+    userId,
+  };
+
+  const guildPromise = ensureWebsiteGuild(client, guildId, 4000);
+  let oauth = await oauthPromise;
+  const guild = await guildPromise;
 
   let member = null;
   if (guild) {
@@ -1055,25 +1186,17 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     member = readCachedWebsiteMember(userId) || null;
   }
 
-    if (!member) {
-    const oauthJson = await oauthPromise;
-    if (oauthJson) {
-      member = synthMemberFromOAuth(guild, meJson, oauthJson);
-    }
+  if (!member && oauth.json) {
+    member = synthMemberFromOAuth(guild, meJson, oauth.json);
   }
 
-    if (!member && guild) {
+  // mobileStaffFast1: one short bot fetch max — second 6s retry killed phones (appelli/staff/candidature).
+  if (!member && guild && !oauth.notInGuild) {
     try {
-      member = await fetchWebsiteGuildMember(guild, userId, { timeoutMs: 1400, retry: false });
+      member = await fetchWebsiteGuildMember(guild, userId, { timeoutMs: 2200, retry: false });
     } catch (err) {
       if (isUnknownMemberError(err)) {
-        return {
-          ok: false,
-          status: 403,
-          error: "not_in_guild",
-          message: "Non sei nel server Discord: entra prima con lo stesso account con cui hai fatto login.",
-          userId,
-        };
+        return notInGuildPayload;
       }
       const msg = String(err?.message || err || "");
       if (!/member_fetch_timeout/i.test(msg)) {
@@ -1083,18 +1206,19 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     }
   }
 
-  if (!member) {
-    const oauthJson = await oauthPromise;
-    if (oauthJson) member = synthMemberFromOAuth(guild, meJson, oauthJson);
+  if (!member && oauth.json) {
+    member = synthMemberFromOAuth(guild, meJson, oauth.json);
   }
 
-  if (!member && guild) {
-    try {
-      await new Promise((r) => setTimeout(r, 250));
-      member = await fetchWebsiteGuildMember(guild, userId, { timeoutMs: 1800, retry: false });
-    } catch (_) {
-      member = null;
+  if (!member && !oauth.notInGuild && !oauth.unreachable) {
+    oauth = await fetchOAuthGuildMemberResult(token, guildId, 1800);
+    if (oauth.json) {
+      member = synthMemberFromOAuth(guild, meJson, oauth.json);
     }
+  }
+
+  if (!member && oauth.notInGuild) {
+    return notInGuildPayload;
   }
 
   if (!member) {
@@ -1138,6 +1262,8 @@ async function getCandidatureEligibilitySummary(client, accessToken) {
           eligible: false,
           code: e.code,
           message: e.message,
+          ...(e.roleId ? { roleId: e.roleId } : {}),
+          ...(e.roleLabel ? { roleLabel: e.roleLabel } : {}),
           ...(e.until ? { cooldown_until_ms: e.until } : {}),
         };
 
@@ -1302,15 +1428,21 @@ async function completeCandidatePexAfterRole(guild, member, type, reason, source
   try {
     const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
     const label = type === "partnermanager" ? "Partner Manager" : "Helper";
+    const msgId = String(sourceMessage?.id || "");
+    const openUrl = msgId
+      ? `/candidature/?chat=${encodeURIComponent(`candidature:${msgId}`)}`
+      : "/candidature/";
     await enqueueSiteInAppNotification({
       guildId: guild.id,
       userId: member.id,
       title: recovery ? "Candidatura accettata (recupero)" : "Candidatura accettata",
       body: `La tua candidatura è stata accettata: ora hai accesso come ${label}. Controlla i messaggi di benvenuto inviati nello staff.`,
-      kind: "mod",
-      openUrl: "/candidature",
-      dedupeKey: `cand-pex-${type}-${member.id}-${String(sourceMessage?.id || "")}${recovery ? "-recovery" : ""}`,
+      kind: "workflow_decision",
+      channel: "personal",
+      openUrl,
+      dedupeKey: `cand-pex-${type}-${member.id}-${msgId}${recovery ? "-recovery" : ""}`,
       dedupeWindowMs: 86_400_000,
+      replaceDedupe: true,
     });
   } catch (_) {}
 }
@@ -1614,15 +1746,20 @@ async function handleCandidatureApplicationInteraction(interaction) {
         try {
           const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
           const label = rejType === "partnermanager" ? "Partner Manager" : "Helper";
+          const openUrl = rejMessageId
+            ? `/candidature/?chat=${encodeURIComponent(`candidature:${rejMessageId}`)}`
+            : "/candidature/";
           await enqueueSiteInAppNotification({
             guildId: interaction.guild.id,
             userId: rejUid,
             title: "Candidatura rifiutata",
             body: `La tua candidatura per ${label} non è stata accettata. Puoi inviare una nuova richiesta dopo il cooldown indicato sul sito.`,
-            kind: "mod",
-            openUrl: "/candidature",
+            kind: "workflow_decision",
+            channel: "personal",
+            openUrl,
             dedupeKey: `cand-rej-${rejType}-${rejUid}-${rejMessageId}`,
             dedupeWindowMs: 86_400_000,
+            replaceDedupe: true,
           });
         } catch (_) {}
       }
@@ -1901,15 +2038,21 @@ async function webRejectCandidateApplication(guild, actorMember, messageId, type
     try {
       const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
       const label = rejType === "partnermanager" ? "Partner Manager" : "Helper";
+      const mid = String(messageId || "");
+      const openUrl = mid
+        ? `/candidature/?chat=${encodeURIComponent(`candidature:${mid}`)}`
+        : "/candidature/";
       await enqueueSiteInAppNotification({
         guildId: guild.id,
         userId: rejUid,
         title: "Candidatura rifiutata",
         body: `La tua candidatura per ${label} non è stata accettata. Puoi inviare una nuova richiesta dopo il cooldown indicato sul sito.`,
-        kind: "mod",
-        openUrl: "/candidature",
+        kind: "workflow_decision",
+        channel: "personal",
+        openUrl,
         dedupeKey: `cand-rej-${rejType}-${rejUid}-${messageId}`,
         dedupeWindowMs: 86_400_000,
+        replaceDedupe: true,
       });
     } catch (_) {}
   }
@@ -1920,10 +2063,7 @@ async function webAcceptCandidateApplication(guild, actorMember, messageId, type
   if (!memberHasCandidatureReviewAccess(actorMember, guild)) {
     return { ok: false, status: 403, message: "Non hai i permessi per accettare candidature." };
   }
-  const trimmedReason = String(reason || "").trim();
-  if (trimmedReason.length < 3) {
-    return { ok: false, status: 400, message: "Inserisci un motivo valido (min. 3 caratteri)." };
-  }
+  const trimmedReason = String(reason || "").trim() || WEB_ACCEPT_PEX_REASON;
   const decidedBy = String(actorMember?.id || "");
   const decidedByName = String(
     actorMember?.displayName || actorMember?.user?.globalName || actorMember?.user?.username || "",

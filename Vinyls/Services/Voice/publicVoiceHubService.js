@@ -138,10 +138,51 @@ async function botCanManageVoiceHubs(guild) {
   }
 }
 
+function channelCategorySortPosition(ch) {
+  if (!ch) return -1;
+  const raw = Number(ch.rawPosition);
+  if (Number.isFinite(raw)) return raw;
+  const pos = Number(ch.position);
+  return Number.isFinite(pos) ? pos : -1;
+}
+
 function listCategoryChannelsSorted(guild, parentId) {
   return [...guild.channels.cache.values()]
     .filter((ch) => String(ch.parentId || "") === String(parentId || ""))
     .sort((a, b) => a.rawPosition - b.rawPosition || String(a.id).localeCompare(String(b.id)));
+}
+
+/** Coda del gruppo hub (hub + spawn dello stesso tipo), come le stanze sotto l'hub. */
+function resolveHubSpawnCreatePosition(guild, hubChannel, client) {
+  const hubKey = resolveHubGroupKey(hubChannel);
+  if (!hubKey) return null;
+  const group = listHubGroupChannels(guild, hubChannel);
+  let tailPos = channelCategorySortPosition(hubChannel);
+  for (const ch of group) {
+    const pos = channelCategorySortPosition(ch);
+    if (pos > tailPos) tailPos = pos;
+  }
+  return tailPos >= 0 ? tailPos + 1 : null;
+}
+
+async function applyHubSpawnCreatePosition(voiceChannel, position, reason) {
+  if (!voiceChannel || position === undefined || position === null) return;
+  const target = Number(position);
+  if (!Number.isFinite(target)) return;
+  const ok = await voiceChannel
+    .setPosition(target, { reason: reason || "Vocale hub spawn in coda gruppo" })
+    .then(() => true)
+    .catch((err) => {
+      global.logger?.warn?.("[publicVoiceHub] setPosition failed:", err?.message || err);
+      return false;
+    });
+  if (!ok && voiceChannel.guild?.channels?.setPositions) {
+    await voiceChannel.guild.channels
+      .setPositions([{ channel: voiceChannel.id, position: target }])
+      .catch((err) => {
+        global.logger?.warn?.("[publicVoiceHub] setPositions failed:", err?.message || err);
+      });
+  }
 }
 
 function listHubGroupChannels(guild, hubChannel) {
@@ -184,20 +225,18 @@ function resolveInsertSlot(hubChannel, guild, client) {
 
   const prev = siblings[insertAt - 1];
   if (!prev) return null;
-  const prevPos = Number(prev.rawPosition);
-  if (!Number.isFinite(prevPos)) return null;
-
-  if (insertAt < siblings.length) {
-    const next = siblings[insertAt];
-    const nextPos = Number(next.rawPosition);
-    if (Number.isFinite(nextPos) && nextPos > prevPos + 1) return prevPos + 1;
-    if (Number.isFinite(nextPos)) return nextPos;
-  }
+  const prevPos = channelCategorySortPosition(prev);
+  if (prevPos < 0) return null;
+  // Sempre subito sotto l'ultimo canale del gruppo (hub o spawn precedente).
   return prevPos + 1;
 }
 
 function resolveInsertPosition(hubChannel, guild, client) {
-  return resolveInsertSlot(hubChannel, guild, client);
+  // Preferisci lo slot per indice fratelli (subito dopo l'ultimo spawn del gruppo),
+  // non solo rawPosition+1 (con buchi Discord finiva sotto l'hub sbagliato).
+  const bySlot = resolveInsertSlot(hubChannel, guild, client);
+  if (bySlot != null) return bySlot;
+  return resolveHubSpawnCreatePosition(guild, hubChannel, client);
 }
 
 async function refreshParentChannelsCache(guild, parentId, client, options = {}) {
@@ -633,23 +672,24 @@ async function ensureHubLobbySpeakDenied(hubChannel, guild) {
   if (!hubChannel?.permissionOverwrites || !hubChannel.manageable) return;
   for (const roleId of hubLobbyRoleIds(guild)) {
     const existing = hubChannel.permissionOverwrites.cache.get(roleId);
-    if (hubOverwriteSpeakDenied(existing)) continue;
     const patch = {
       Speak: false,
       UseVAD: false,
       Stream: false,
+      UseEmbeddedActivities: false,
+      UseExternalApps: false,
+      Connect: true,
+      ViewChannel: true,
     };
     if (existing) {
+      // Anche se Speak è già negato, forza Connect/View (lobby join).
       await hubChannel.permissionOverwrites.edit(roleId, patch).catch((err) => {
         global.logger?.warn?.("[publicVoiceHub] hub speak deny edit failed:", hubChannel.id, roleId, err?.message || err);
       });
       continue;
     }
     await hubChannel.permissionOverwrites
-      .create(roleId, {
-        type: OverwriteType.Role,
-        deny: HUB_LOBBY_SPEAK_FLAGS,
-      })
+      .create(roleId, { type: OverwriteType.Role, ...patch })
       .catch((err) => {
         global.logger?.warn?.("[publicVoiceHub] hub speak deny create failed:", hubChannel.id, roleId, err?.message || err);
       });
@@ -813,6 +853,18 @@ function countHumanMembers(channel) {
     n += 1;
   }
   return n;
+}
+
+function hasBotMemberInChannel(channel) {
+  const guild = channel?.guild;
+  const channelId = String(channel?.id || "");
+  if (!guild?.voiceStates?.cache || !channelId) return false;
+  for (const vs of guild.voiceStates.cache.values()) {
+    if (String(vs.channelId || "") !== channelId) continue;
+    const { member, user } = resolveVoiceStateUser(guild, vs);
+    if (user?.bot || member?.user?.bot) return true;
+  }
+  return false;
 }
 
 async function countHumanMembersResolved(channel) {
@@ -981,14 +1033,24 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
 
   try {
     await withHubCreateLock(joinedId, async () => {
+      // Fast path: niente force-fetch prima del create (rallentava e abortiva penta–octa).
       await refreshParentChannelsCache(guild, hub.parentId, client, { force: false });
       const freshHub = guild.channels.cache.get(joinedId) || hub;
+      const groupKey = resolveHubGroupKey(freshHub);
       const group = listHubGroupChannels(guild, freshHub);
       const nextIndex = nextSpawnSuffixIndex(group, joinedId);
       const spawnName = `${resolveHubSpawnBaseName(freshHub)}${toSuperscriptNumber(nextIndex, MIN_SUFFIX_DIGITS)}`;
-      const position = resolveInsertSlot(freshHub, guild, client);
+      const position = resolveInsertPosition(freshHub, guild, client);
 
-      if (!memberStillInVoiceChannel(member, joinedId, guild)) return;
+      if (!memberStillInVoiceChannel(member, joinedId, guild)) {
+        global.logger?.info?.(
+          "[publicVoiceHub] skip create, user left lobby:",
+          uid,
+          freshHub?.name || joinedId,
+          groupKey,
+        );
+        return;
+      }
 
       const createOptions = {
         name: spawnName,
@@ -999,32 +1061,62 @@ async function handlePublicVoiceHubJoin(oldState, newState, client) {
         permissionOverwrites: buildSpawnPermissionOverwrites(freshHub, guild),
         reason: `Vocale hub ${freshHub.name}`,
       };
-      if (Number.isFinite(position)) createOptions.position = position;
+      // Crea senza position (Discord la mette in coda categoria), poi setPosition sul gruppo.
+      // Evita insert "sotto l'hub" sbagliato quando rawPosition ha buchi.
 
       const created = await guild.channels.create(createOptions).catch((err) => {
-        global.logger?.warn?.("[publicVoiceHub] create failed:", err?.message || err);
+        global.logger?.warn?.(
+          "[publicVoiceHub] create failed:",
+          freshHub?.name || joinedId,
+          groupKey,
+          err?.message || err,
+        );
         return null;
       });
       if (!created) return;
 
       rememberSpawnedChannel(created.id, joinedId);
 
-      const freshMember = await resolveGuildMemberVoiceState(guild, member, uid);
+      // Muovi subito l'utente; posizione/reorder in follow-up.
+      let freshMember = await resolveGuildMemberVoiceState(guild, member, uid);
       if (!memberStillInVoiceChannel(freshMember, joinedId, guild)) {
-        await cleanupUnusedSpawnedChannel(created, "Utente non più in lobby hub");
-        return;
+        // Se già finito nello spawn (race), ok; altrimenti cleanup.
+        if (!memberStillInVoiceChannel(freshMember, created.id, guild)) {
+          await cleanupUnusedSpawnedChannel(created, "Utente non più in lobby hub");
+          return;
+        }
+      } else {
+        let moved = false;
+        for (let attempt = 0; attempt < 2 && !moved; attempt += 1) {
+          freshMember = await resolveGuildMemberVoiceState(guild, freshMember || member, uid);
+          if (!memberStillInVoiceChannel(freshMember, joinedId, guild)) break;
+          moved = await freshMember.voice
+            .setChannel(created)
+            .then(() => true)
+            .catch((err) => {
+              if (!isUserDisconnectedVoiceError(err)) {
+                global.logger?.warn?.(
+                  "[publicVoiceHub] move failed:",
+                  freshHub?.name || joinedId,
+                  attempt,
+                  err?.message || err,
+                );
+              }
+              return false;
+            });
+          if (!moved) await pauseMs(200);
+        }
+        if (!moved && !memberStillInVoiceChannel(freshMember, created.id, guild)) {
+          await cleanupUnusedSpawnedChannel(created, "Move utente fallito");
+          return;
+        }
       }
 
-      const moved = await freshMember.voice.setChannel(created).then(() => true).catch((err) => {
-        if (!isUserDisconnectedVoiceError(err)) {
-          global.logger?.warn?.("[publicVoiceHub] move failed:", err?.message || err);
-        }
-        return false;
-      });
-      if (!moved) {
-        await cleanupUnusedSpawnedChannel(created, "Move utente fallito");
-        return;
-      }
+      await applyHubSpawnCreatePosition(
+        created,
+        position,
+        `Vocale hub ${freshHub.name} spawn ${spawnName}`,
+      ).catch(() => null);
 
       scheduleHubSpawnFollowUp(guild, client, freshHub, created.id);
     });
@@ -1048,6 +1140,7 @@ async function handlePublicVoiceHubEmpty(oldState, newState, client) {
   if (!channel?.isVoiceBased?.() || !isSpawnedHubChannel(channel, client)) return;
 
   if ((await countHumanMembersResolved(channel)) > 0) return;
+  if (hasBotMemberInChannel(channel)) return;
   scheduleSpawnedChannelDelete(channel, client);
 }
 
@@ -1066,6 +1159,7 @@ async function sweepEmptySpawnedHubChannels(client) {
       if (!isHubGroupSpawnChannel(ch, hub, client)) continue;
       rememberSpawnedChannel(ch.id, hubId);
       if ((await countHumanMembersResolved(ch)) > 0) continue;
+      if (hasBotMemberInChannel(ch)) continue;
       scheduleSpawnedChannelDelete(ch, client);
       queued += 1;
     }
