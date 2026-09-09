@@ -390,7 +390,14 @@
     try {
       if (window.__VC_CHROME_SYNC) {
         window.__VC_CHROME_SYNC.setMediaSession({
-          title: "Musica Serata Film",
+          title: (function () {
+            try {
+              var c = window.__VC_SERATAFILM_BGM || {};
+              return String(c.playerLabel || c.label || "").trim() || "Musica Serata Film";
+            } catch (eT) {
+              return "Musica Serata Film";
+            }
+          })(),
           artist: "Vinili & Caffè",
           album: "Serata Film",
           playing: playing,
@@ -458,7 +465,16 @@
     meta.className = "vc-bgm-player__meta";
     var label = document.createElement("span");
     label.className = "vc-bgm-player__label";
-    label.textContent = "Musica Serata Film";
+    label.textContent =
+      (function () {
+        try {
+          var c = window.__VC_SERATAFILM_BGM || {};
+          var lab = String(c.playerLabel || c.label || "").trim();
+          return lab || "Musica Serata Film";
+        } catch (eLab) {
+          return "Musica Serata Film";
+        }
+      })();
 
     var seekRow = document.createElement("div");
     seekRow.className = "vc-bgm-player__seek-row";

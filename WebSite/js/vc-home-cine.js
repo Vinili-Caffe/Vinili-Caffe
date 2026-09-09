@@ -67,8 +67,29 @@
     );
   }
 
+  function isLockedCustomPhoto(photo) {
+    try {
+      if (!photo) return false;
+      if (photo.getAttribute("data-vc-cine-photo-lock") === "1") return true;
+      if (photo.dataset && photo.dataset.vcCinePhotoLock === "1") return true;
+      if (document.body && document.body.classList.contains("vc-confessionale-page")) {
+        var src = String(photo.getAttribute("src") || "");
+        if (/Confessionale-GF/i.test(src)) return true;
+      }
+    } catch (eLock) {}
+    return false;
+  }
+
   function syncOneGifPhoto(photo) {
     if (!photo) return;
+    if (isLockedCustomPhoto(photo)) {
+      try {
+        photo.style.removeProperty("display");
+        photo.style.removeProperty("visibility");
+        photo.style.removeProperty("opacity");
+      } catch (eShowLock) {}
+      return;
+    }
     var anim = sitePhotoBgAnimSrc();
     var hardHide = Boolean(document.hidden);
     if (hardHide) {
@@ -190,6 +211,7 @@
         if (document.hidden) return;
         var photos = document.querySelectorAll(".vc-home-cine__photo");
         for (var wi = 0; wi < photos.length; wi += 1) {
+          if (isLockedCustomPhoto(photos[wi])) continue;
           var src = photos[wi].getAttribute("src") || "";
           if (!src || isForbiddenStillSrc(src) || src.indexOf("sfondo") === -1 || src.indexOf(".gif") === -1) {
             photos[wi].dataset.vcGifKick = "";

@@ -454,12 +454,18 @@
     if (!gridRoot) return;
     if (isEventDedicatedNavPage()) return;
     try {
-      if (gridRoot.querySelector('a[href*="/staff/guida"]')) return;
+      if (
+        gridRoot.querySelector('a[href*="/staff/guida"]') &&
+        gridRoot.querySelector('a[href*="/confessionale"]')
+      ) {
+        return;
+      }
     } catch (eDup) {}
     var rows = sourceDetails
       ? sourceDetails.querySelectorAll(".vc-snav-panel .vc-snav-row, a.vc-snav-row")
       : [];
     var guideRow = null;
+    var confRow = null;
     var r;
     for (r = 0; r < rows.length; r += 1) {
       var row = rows[r];
@@ -476,14 +482,25 @@
       } catch (eLab) {}
       if (!lab) lab = String(row.textContent || "").trim();
       if (isStaffOnlyNavHref(href) || isStaffOnlyNavLabel(lab)) continue;
-      if (isStaffGuideHref(href) || isStaffGuideLabel(lab)) {
+      var labNorm = lab.replace(/\s+/g, " ").trim().toLowerCase();
+      if (!guideRow && (isStaffGuideHref(href) || isStaffGuideLabel(lab))) {
         guideRow = row;
-        break;
+        continue;
+      }
+      if (
+        !confRow &&
+        (String(href).toLowerCase().indexOf("/confessionale") >= 0 ||
+          labNorm === "confessionale" ||
+          labNorm === "il confessionale")
+      ) {
+        confRow = row;
       }
     }
-    var tile = null;
-    if (guideRow) tile = createTileFromRow(guideRow);
-    if (!tile && isStaffNavAllowed()) {
+    var tiles = [];
+    if (guideRow) {
+      var guideTile = createTileFromRow(guideRow);
+      if (guideTile) tiles.push(guideTile);
+    } else if (isStaffNavAllowed() && !gridRoot.querySelector('a[href*="/staff/guida"]')) {
       var a = document.createElement("a");
       a.className = "vc-mobile-nav-tile";
       a.href = "/staff/guida/";
@@ -494,9 +511,40 @@
       a.addEventListener("click", function () {
         closeDrawer();
       });
-      tile = a;
+      tiles.push(a);
     }
-    if (!tile) return;
+    if (confRow) {
+      var confTile = createTileFromRow(confRow);
+      if (confTile) tiles.push(confTile);
+    } else if (isStaffNavAllowed() && !gridRoot.querySelector('a[href*="/confessionale"]')) {
+      var c = document.createElement("a");
+      c.className = "vc-mobile-nav-tile";
+      c.href = "/confessionale/";
+      c.setAttribute("data-vc-mobile-staff-confessionale", "1");
+      c.innerHTML =
+        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
+        '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
+      c.addEventListener("click", function () {
+        closeDrawer();
+      });
+      tiles.push(c);
+    }
+    if (!tiles.length) return;
+    var existingSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
+    if (existingSec) {
+      var existingGrid = existingSec.querySelector(".vc-mobile-nav-grid") || existingSec;
+      for (var ti = 0; ti < tiles.length; ti += 1) {
+        var hrefT = String(tiles[ti].getAttribute("href") || "").toLowerCase();
+        if (hrefT.indexOf("/staff/guida") >= 0 && existingSec.querySelector('a[href*="/staff/guida"]')) {
+          continue;
+        }
+        if (hrefT.indexOf("/confessionale") >= 0 && existingSec.querySelector('a[href*="/confessionale"]')) {
+          continue;
+        }
+        existingGrid.appendChild(tiles[ti]);
+      }
+      return;
+    }
     var sec = document.createElement("section");
     sec.className = "vc-mobile-nav-section vc-mobile-nav-section--staff-guide";
     var h = document.createElement("h3");
@@ -504,7 +552,7 @@
     h.textContent = "STAFF";
     var g = document.createElement("div");
     g.className = "vc-mobile-nav-grid";
-    g.appendChild(tile);
+    for (var i = 0; i < tiles.length; i += 1) g.appendChild(tiles[i]);
     sec.appendChild(h);
     sec.appendChild(g);
     gridRoot.appendChild(sec);

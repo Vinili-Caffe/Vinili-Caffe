@@ -28,7 +28,15 @@ html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-boot:not(.vc-page
   pointer-events: none !important;
 }
 
-/* Photo background: confessional booth */
+/* Photo background: confessional booth (locked — do not let site GIF override) */
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
+  background-color: #100c09;
+  background-image: url("/images/Confessionale-GF.jpg?v=20260909confessionale2") !important;
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+}
+
 .vc-confessionale-page .vc-home-cine__photo {
   object-fit: cover;
   object-position: center center;
@@ -343,7 +351,7 @@ html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-boot:not(.vc-page
   background: rgba(60, 16, 18, 0.45);
 }
 
-/* Ambient BGM hint (shared seratafilm youtube boot) */
+/* Ambient BGM hint + player */
 .vc-confessionale-page .vc-seratafilm-bgm-hint {
   position: fixed;
   left: 50%;
@@ -366,4 +374,23 @@ html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-boot:not(.vc-page
 .vc-confessionale-page .vc-seratafilm-bgm-hint--hide {
   opacity: 0;
   transition: opacity 0.35s ease;
+}
+
+.vc-confessionale-page .vc-bgm-player--confessionale {
+  --vc-bgm-accent: #f0d090;
+  border-color: rgba(240, 208, 144, 0.4);
+  background: rgba(20, 10, 10, 0.88);
+}
+.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__label {
+  color: #f0d090;
+}
+.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__toggle {
+  color: #f0d090;
+}
+#vc-confessionale-bgm-audio {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
 }

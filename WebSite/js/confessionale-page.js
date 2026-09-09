@@ -1,5 +1,5 @@
 (function () {
-  var VER = "20260909confessionale1";
+  var VER = "20260909confessionale2";
   var MAX = 1500;
   var SESSION_CURTAIN_KEY = "vc_confessionale_curtain_done_v1";
   var apiCfg = window.__VC_CONFESSIONALE || {};
@@ -322,23 +322,6 @@
     }
 
     bootCurtainWhenReady();
-
-    function bootBgm() {
-      try {
-        if (typeof window.__vcSeratafilmYoutubeSetupIfConfigured === "function") {
-          window.__vcSeratafilmYoutubeSetupIfConfigured();
-          return true;
-        }
-      } catch (e) {}
-      return false;
-    }
-    if (!bootBgm()) {
-      var nBgm = 0;
-      var tBgm = window.setInterval(function () {
-        nBgm += 1;
-        if (bootBgm() || nBgm > 80) window.clearInterval(tBgm);
-      }, 80);
-    }
   }
 
   if (document.readyState === "loading") {

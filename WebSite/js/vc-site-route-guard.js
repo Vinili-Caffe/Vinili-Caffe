@@ -17,6 +17,7 @@
     "/user/personalizza": "/personalizza/",
     "/user/customize": "/personalizza/?target=rank",
     "/user/custom": "/personalizza/?target=primary",
+  };
 
   function normPath(pathname) {
     var p = String(pathname || "/").split("?")[0].split("#")[0];

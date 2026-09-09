@@ -4660,6 +4660,24 @@ async function main() {
     fs.writeFileSync(seratafilmAccessoPath, seratafilmAccessoHtml, "utf8");
   }
 
+  const confessionaleIndexPath = path.join(DIST, "confessionale", "index.html");
+  if (fs.existsSync(confessionaleIndexPath)) {
+    let confessionaleHtml = fs.readFileSync(confessionaleIndexPath, "utf8");
+    confessionaleHtml = applyPlaceholderMap(confessionaleHtml, map);
+    warnLeftoverPlaceholders(confessionaleHtml, "confessionale/index.html");
+    fs.writeFileSync(confessionaleIndexPath, confessionaleHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca confessionale/index.html (saltato placeholder).");
+  }
+
+  const notFoundPath = path.join(DIST, "404.html");
+  if (fs.existsSync(notFoundPath)) {
+    let notFoundHtml = fs.readFileSync(notFoundPath, "utf8");
+    notFoundHtml = applyPlaceholderMap(notFoundHtml, map);
+    warnLeftoverPlaceholders(notFoundHtml, "404.html");
+    fs.writeFileSync(notFoundPath, notFoundHtml, "utf8");
+  }
+
   const staffPageRels = [
     "staff/index.html",
     "staff/pause/index.html",

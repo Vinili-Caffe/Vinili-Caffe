@@ -59,7 +59,7 @@
   function mergePrefs(base, incoming) {
     var out = Object.assign({}, base || {});
     var inc = incoming || {};
-    var nested = ["kickPip", "hogwartsBgm", "seratafilmBgm", "typeSfx"];
+    var nested = ["kickPip", "hogwartsBgm", "seratafilmBgm", "confessionaleBgm", "typeSfx"];
     Object.keys(inc).forEach(function (key) {
       if (nested.indexOf(key) >= 0 && inc[key] && typeof inc[key] === "object") {
         out[key] = Object.assign({}, out[key] || {}, inc[key]);
