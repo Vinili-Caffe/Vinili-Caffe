@@ -284,10 +284,15 @@
   var currentUser = null;
   var lastEligibility = null;
 
-  async function refreshEligibility() {
+  async function refreshEligibility(attempt) {
+    var tryN = Number(attempt) || 0;
     var token = getToken();
     var url = eligibilityApiUrl();
-    if (!token || !url) {
+    if (!token) {
+      redirectToAccessRequired();
+      return null;
+    }
+    if (!url) {
       setStatus(t("unban.checkError"), false);
       toggleForm(false);
       return null;
@@ -295,18 +300,33 @@
     var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
     var timer = null;
     try {
-      if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eA) {} }, 12000);
-      var res = await fetch(url, {
+      if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eA) {} }, 15000);
+      /* unbanElig1: never accept cached 304/empty JSON — was showing fake checkError */
+      var fetchUrl = url + (url.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
+      var res = await fetch(fetchUrl, {
         method: "GET",
-        headers: { Authorization: "Bearer " + token },
+        headers: {
+          Authorization: "Bearer " + token,
+          Accept: "application/json",
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+        cache: "no-store",
         signal: ctrl ? ctrl.signal : undefined,
       });
       var data = {};
       try {
         data = await res.json();
       } catch (e) {}
+      if (res.status === 401 || data.error === "invalid_token" || data.error === "missing_token") {
+        redirectToAccessRequired();
+        return null;
+      }
       if (!res.ok || !data.ok) {
-        setStatus(t("unban.checkError"), false);
+        if (tryN < 1) {
+          return refreshEligibility(tryN + 1);
+        }
+        setStatus(String(data.message || data.error || t("unban.checkError")), false);
         toggleForm(false);
         return null;
       }
@@ -325,6 +345,9 @@
       toggleForm(true);
       return data;
     } catch (e2) {
+      if (tryN < 1) {
+        return refreshEligibility(tryN + 1);
+      }
       setStatus(t("unban.checkError"), false);
       toggleForm(false);
       return null;

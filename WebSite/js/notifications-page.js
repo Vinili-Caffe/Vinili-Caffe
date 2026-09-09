@@ -916,7 +916,7 @@
     { id: "community", label: "Community", ico: "fa-users" },
     { id: "system", label: "Sistema", ico: "fa-bell-o" },
   ];
-  /* notifTrash1: trash inside unified category header row (right of count, before chev). */
+  /* notifCatBarFix1: count+trash+chev on the right; head = ico+label only. */
   function buildNotifCategoryBarPage(opts) {
     var bar = document.createElement("div");
     bar.className = "vc-notif-cat-bar vc-notif-bell-inbox__link";
@@ -926,9 +926,12 @@
       (opts.headClass || "vc-notify-cat-head vc-notif-bell-inbox__toggle") +
       " vc-notif-cat-toggle-inner";
     head.setAttribute("aria-expanded", opts.expanded ? "true" : "false");
-    head.innerHTML = opts.headHtml;
+    head.innerHTML = opts.headHtml || "";
     var actions = document.createElement("span");
     actions.className = "vc-notif-cat-head__actions";
+    if (opts.countHtml) {
+      actions.insertAdjacentHTML("beforeend", opts.countHtml);
+    }
     var clearBtn = null;
     if (typeof opts.onClear === "function") {
       clearBtn = document.createElement("button");
@@ -1670,7 +1673,9 @@
           cat.ico +
           '"></i></span><span class="vc-notify-cat-head__label vc-notif-bell-inbox__label">' +
           cat.label +
-          '</span><span class="vc-notify-cat-head__count vc-notif-bell-inbox__count">' +
+          "</span>",
+        countHtml:
+          '<span class="vc-notify-cat-head__count vc-notif-bell-inbox__count">' +
           String(items.length) +
           "</span>",
         clearAriaLabel: "Elimina tutte in " + cat.label,

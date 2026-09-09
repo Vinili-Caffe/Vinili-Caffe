@@ -406,6 +406,153 @@
     }
   }
 
+  function coffeeAvatarFallbackUrl() {
+    /* reviewsAvatarSilhouette1: site silhouette — never Discord embed / broken img flash */
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        return window.VcDiscordAvatar.siteFallbackAvatarUrl();
+      }
+    } catch (eCoffee) {}
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="vcRvAv" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#vcRvAv)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function isDiscordDefaultAvatarUrl(url) {
+    return /cdn\.discordapp\.com\/embed\/avatars\//i.test(String(url || ""));
+  }
+
+  function isCoffeeAvatarUrl(url) {
+    var u = String(url || "").trim();
+    return !u || /^data:image\/svg\+xml/i.test(u);
+  }
+
+  function normalizeReviewAvatarCdn(url, size, userId) {
+    var src = String(url || "").trim();
+    var uid = String(userId || "").trim();
+    if (isDiscordDefaultAvatarUrl(src) || isCoffeeAvatarUrl(src)) return "";
+    var hash = "";
+    var guildId = "";
+    try {
+      var guildMatch = src.match(/\/guilds\/(\d+)\/users\/(\d+)\/avatars\/((?:a_)?[a-f0-9]+)/i);
+      if (guildMatch) {
+        guildId = String(guildMatch[1] || "").trim();
+        uid = uid || String(guildMatch[2] || "").trim();
+        hash = String(guildMatch[3] || "").trim();
+      } else {
+        var userMatch = src.match(/\/avatars\/(\d+)\/((?:a_)?[a-f0-9]+)/i);
+        if (userMatch) {
+          uid = uid || String(userMatch[1] || "").trim();
+          hash = String(userMatch[2] || "").trim();
+        }
+      }
+    } catch (eParse) {}
+    var sz = Math.max(16, Number(size) || 40);
+    var rebuilt = "";
+    try {
+      if (window.VcDiscordAvatar) {
+        if (guildId && uid && hash && typeof window.VcDiscordAvatar.buildGuildFromParts === "function") {
+          rebuilt = window.VcDiscordAvatar.buildGuildFromParts(guildId, uid, hash, sz) || "";
+        } else if (uid && hash && typeof window.VcDiscordAvatar.buildFromParts === "function") {
+          rebuilt = window.VcDiscordAvatar.buildFromParts(uid, hash, sz) || "";
+        }
+        if (rebuilt && typeof window.VcDiscordAvatar.preferStaticUrl === "function") {
+          rebuilt = window.VcDiscordAvatar.preferStaticUrl(rebuilt, sz) || rebuilt;
+        }
+      }
+    } catch (eBuild) {}
+    if (!rebuilt && uid && hash) {
+      rebuilt = "https://cdn.discordapp.com/avatars/" + uid + "/" + hash + ".png?size=" + sz;
+    }
+    if (!rebuilt && src && /^https:\/\/cdn\.discordapp\.com\/(?:avatars|guilds)\//i.test(src) && !isDiscordDefaultAvatarUrl(src)) {
+      rebuilt = src.replace(/\.(gif|webp|jpe?g)(\?|#|$)/i, ".png$2");
+    }
+    if (!rebuilt || isDiscordDefaultAvatarUrl(rebuilt)) return "";
+    return rebuilt;
+  }
+
+  function reviewAvatarHtml(url, userId) {
+    var coffee = coffeeAvatarFallbackUrl();
+    var cdn = normalizeReviewAvatarCdn(url, 40, userId);
+    var uid = String(userId || "").trim();
+    /* Always paint silhouette first; hydrate CDN only after successful preload (no broken flash). */
+    return (
+      '<img class="vc-reviews-card__avatar vc-avatar vc-avatar--ready vc-avatar-fallback-img" src="' +
+      esc(coffee) +
+      '" alt="" width="40" height="40" loading="eager" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1" data-vc-avatar-fallback="1" data-vc-reviews-avatar="1"' +
+      (uid ? ' data-user-id="' + esc(uid) + '"' : "") +
+      (cdn ? ' data-vc-avatar-cdn-url="' + esc(cdn) + '"' : "") +
+      " />"
+    );
+  }
+
+  function paintReviewCoffeeAvatar(img) {
+    if (!img || img.tagName !== "IMG") return;
+    var coffee = coffeeAvatarFallbackUrl();
+    try {
+      img.removeAttribute("srcset");
+      img.removeAttribute("data-vc-avatar-cdn-url");
+      if (String(img.getAttribute("src") || "") !== coffee) {
+        img.src = coffee;
+        img.setAttribute("src", coffee);
+      }
+      img.classList.add("vc-avatar", "vc-avatar--ready", "vc-avatar-fallback-img");
+      img.classList.remove("vc-avatar--pending");
+      img.setAttribute("data-vc-avatar-fallback", "1");
+      img.dataset.vcAvatarOk = "1";
+      img.dataset.vcAvatarFallbackFinal = "1";
+    } catch (ePaint) {}
+  }
+
+  function hydrateReviewAvatar(img) {
+    if (!img || img.tagName !== "IMG") return;
+    if (img.getAttribute("data-vc-reviews-avatar") !== "1") return;
+    if (img.dataset.vcReviewsAvatarHydrated === "1") return;
+    var cdn = String(img.getAttribute("data-vc-avatar-cdn-url") || "").trim();
+    if (!cdn || isDiscordDefaultAvatarUrl(cdn) || isCoffeeAvatarUrl(cdn)) {
+      img.dataset.vcReviewsAvatarHydrated = "1";
+      paintReviewCoffeeAvatar(img);
+      return;
+    }
+    img.dataset.vcReviewsAvatarHydrated = "1";
+    var probe = new Image();
+    probe.decoding = "async";
+    probe.onload = function () {
+      try {
+        if (!img.isConnected) return;
+        img.removeAttribute("data-vc-avatar-fallback");
+        img.src = cdn;
+        img.setAttribute("src", cdn);
+        img.classList.add("vc-avatar", "vc-avatar--ready");
+        img.classList.remove("vc-avatar--pending", "vc-avatar-fallback-img");
+        img.dataset.vcAvatarOk = "1";
+        delete img.dataset.vcAvatarFallbackFinal;
+      } catch (eOk) {}
+    };
+    probe.onerror = function () {
+      paintReviewCoffeeAvatar(img);
+    };
+    try {
+      probe.referrerPolicy = "no-referrer";
+    } catch (eRef) {}
+    probe.src = cdn;
+  }
+
+  function scanReviewAvatars(root) {
+    var base = root && root.querySelectorAll ? root : document;
+    try {
+      var imgs = base.querySelectorAll
+        ? base.querySelectorAll("img[data-vc-reviews-avatar], .vc-reviews-card__avatar[data-vc-avatar]")
+        : [];
+      for (var i = 0; i < imgs.length; i += 1) {
+        var img = imgs[i];
+        var cur = String(img.getAttribute("src") || img.src || "").trim();
+        if (isDiscordDefaultAvatarUrl(cur)) paintReviewCoffeeAvatar(img);
+        hydrateReviewAvatar(img);
+      }
+    } catch (eScan) {}
+  }
+
   function reviewCardMarkup(review) {
     var viewer = state.payload && state.payload.viewer;
     var tokenOk = Boolean(getToken());
@@ -425,13 +572,7 @@
       '">' +
       '<div class="vc-reviews-card__head">' +
       '<div class="vc-reviews-card__author">' +
-      (review.authorAvatarUrl
-        ? '<img class="vc-reviews-card__avatar vc-avatar vc-avatar--ready" src="' +
-          esc(review.authorAvatarUrl) +
-          '" alt="" width="40" height="40" loading="eager" decoding="async" fetchpriority="high" referrerpolicy="no-referrer" data-vc-avatar="1" data-vc-avatar-static="1"' +
-          (review.userId ? ' data-user-id="' + esc(review.userId) + '"' : "") +
-          " />"
-        : '<span class="vc-reviews-card__avatar vc-reviews-card__avatar--fallback"><i class="fa fa-user"></i></span>') +
+      reviewAvatarHtml(review.authorAvatarUrl, review.userId) +
       '<div><strong>' +
       esc(review.authorName || "Utente") +
       "</strong>" +
@@ -932,6 +1073,7 @@
     var mode = n === 1 ? " is-solo" : n === 2 ? " is-duo" : " is-trio";
     if (key === state.stageKey && root.querySelector(".vc-reviews-stage__card")) {
       root.className = "vc-reviews-stage__track" + mode;
+      scanReviewAvatars(root);
       renderStageDots(n, idx);
       if (prevBtn) prevBtn.disabled = n <= 1;
       if (nextBtn) nextBtn.disabled = n <= 1;
@@ -953,6 +1095,7 @@
         return reviewCardMarkupForStage(slot.review, pos, slot.offset);
       })
       .join("");
+    scanReviewAvatars(root);
     renderStageDots(n, idx);
     if (prevBtn) prevBtn.disabled = n <= 1;
     if (nextBtn) nextBtn.disabled = n <= 1;

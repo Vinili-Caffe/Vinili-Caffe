@@ -16,6 +16,7 @@
   var fetchInFlight = false;
   var ERROR_TOAST_GAP_MS = isTouch ? 90000 : 12000;
   var firstLoadRetryDone = false;
+  var pendingErrorToastTimer = null;
 
   function byId(id) {
     return document.getElementById(id);
@@ -292,13 +293,32 @@
     renderMore();
   }
 
-  /* voteLoadToast2: soft/poll failures stay silent; toast only on hard first fail */
+  function clearPendingVoteErrorToast() {
+    if (pendingErrorToastTimer) {
+      window.clearTimeout(pendingErrorToastTimer);
+      pendingErrorToastTimer = null;
+    }
+  }
+
+  /* voteLoadToast3: niente toast sul primo fail se arriva un retry/poll ok subito dopo */
   function renderVoteError(message, opts) {
     opts = opts || {};
     var msg = message || t("vote.loadError");
     var soft = opts.soft === true || hasLoadedOk || allRows.length > 0;
-    if (!soft) showVoteToast(msg, true);
-    if (soft) return;
+    if (soft) {
+      clearPendingVoteErrorToast();
+      return;
+    }
+    /* Prima del retry / secondo tentativo: silenzioso (evita flash toast → dati ok). */
+    if (!hasLoadedOk && !firstLoadRetryDone) {
+      return;
+    }
+    clearPendingVoteErrorToast();
+    pendingErrorToastTimer = window.setTimeout(function () {
+      pendingErrorToastTimer = null;
+      if (hasLoadedOk || allRows.length > 0) return;
+      showVoteToast(msg, true);
+    }, 900);
     var top3 = byId("vc-vote-top3");
     var chip = byId("vc-vote-top-chip");
     if (chip) chip.textContent = t("vote.notAvailable");
@@ -403,6 +423,7 @@
       if (out && (out.blocked || out.status === 429)) {
         if (body && body.ok === true) {
           try {
+            clearPendingVoteErrorToast();
             renderStats(body.stats || {}, body.personal || {});
             renderTop(Array.isArray(body.rows) ? body.rows : []);
             hasLoadedOk = true;
@@ -415,10 +436,11 @@
         return;
       }
       if (!body || body.ok !== true) {
-        if (!hasLoadedOk) renderVoteError(t("vote.loadError"), { soft: false });
+        if (!hasLoadedOk) renderVoteError(t("vote.loadError"), { soft: softFail });
         return;
       }
       try {
+        clearPendingVoteErrorToast();
         renderStats(body.stats || {}, body.personal || {});
         renderTop(Array.isArray(body.rows) ? body.rows : []);
         hasLoadedOk = true;
@@ -444,23 +466,25 @@
         },
       })
         .then(function (out) {
-          applyOut(out);
-          /* First load hard-fail on phone: one silent retry (same as suggestions). */
-          if (
-            force &&
-            !hasLoadedOk &&
-            !firstLoadRetryDone &&
-            out &&
-            !out.ok &&
-            (out.timedOut || out.networkError || out.status === 408 || out.status === 0)
-          ) {
+          var okBody = out && out.ok && out.body && out.body.ok === true;
+          /* Primo fail: ritenta in silenzio; toast solo se fallisce anche il 2°. */
+          if (force && !hasLoadedOk && !firstLoadRetryDone && !okBody) {
             firstLoadRetryDone = true;
             window.setTimeout(function () {
               fetchVotes({ force: true });
             }, isTouch ? 600 : 350);
+            return;
           }
+          applyOut(out);
         })
         .catch(function () {
+          if (force && !hasLoadedOk && !firstLoadRetryDone) {
+            firstLoadRetryDone = true;
+            window.setTimeout(function () {
+              fetchVotes({ force: true });
+            }, isTouch ? 600 : 350);
+            return;
+          }
           renderVoteError(t("vote.loadError"), { soft: hasLoadedOk || allRows.length > 0 });
         })
         .then(done, done);
@@ -473,8 +497,25 @@
           return { ok: r.ok, status: r.status, body: body };
         });
       })
-      .then(applyOut)
+      .then(function (out) {
+        var okBody = out && out.ok && out.body && out.body.ok === true;
+        if (force && !hasLoadedOk && !firstLoadRetryDone && !okBody) {
+          firstLoadRetryDone = true;
+          window.setTimeout(function () {
+            fetchVotes({ force: true });
+          }, isTouch ? 600 : 350);
+          return;
+        }
+        applyOut(out);
+      })
       .catch(function () {
+        if (force && !hasLoadedOk && !firstLoadRetryDone) {
+          firstLoadRetryDone = true;
+          window.setTimeout(function () {
+            fetchVotes({ force: true });
+          }, isTouch ? 600 : 350);
+          return;
+        }
         renderVoteError(t("vote.loadError"), { soft: hasLoadedOk || allRows.length > 0 });
       })
       .then(done, done);

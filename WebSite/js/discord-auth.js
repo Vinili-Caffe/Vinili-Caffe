@@ -1540,7 +1540,7 @@
     window.__vcStaffSiteNavRequested = true;
     try {
       var s = document.createElement("script");
-      s.src = "/js/staff-site-nav.js?v=20260909staffFooter1";
+      s.src = "/js/staff-site-nav.js?v=20260909staffFooter2";
             s.async = false;
       s.setAttribute("data-vc-staff-site-nav", "1");
       (document.head || document.documentElement).appendChild(s);

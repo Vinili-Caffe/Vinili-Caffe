@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  /* staffFooter1: Area staff nav = Guida + Confessionale; footer staff col = tool set */
+  /* staffFooter2: Area staff nav = Guida + Confessionale; footer Staff = 5ª colonna accanto a Richieste */
 
   function perms() {
     return (window.__VC_STAFF_PERMS && typeof window.__VC_STAFF_PERMS === "object" && window.__VC_STAFF_PERMS) || {};
@@ -260,12 +260,38 @@
     ];
   }
 
+  function ensureStaffFooterColCss() {
+    try {
+      if (document.getElementById("vc-staff-footer-col-css")) return;
+      var s = document.createElement("style");
+      s.id = "vc-staff-footer-col-css";
+      s.textContent =
+        "@media (min-width:768px){" +
+        "footer.vc-premium-footer .vc-premium-footer__navcols--with-staff," +
+        "html body.vc-body>footer.vc-premium-footer .vc-premium-footer__navcols--with-staff," +
+        "html body.vc-body>footer.vc-premium-footer .vc-premium-footer__navcols:has([data-vc-footer-staff='1']){" +
+        "grid-template-columns:repeat(5,minmax(0,1fr))!important;" +
+        "gap:clamp(1rem,1.6vw,1.75rem)!important}" +
+        "}" +
+        "@media (min-width:1024px){" +
+        "html body.vc-body>footer.vc-premium-footer .vc-premium-footer__grid:has(.vc-premium-footer__navcols--with-staff)," +
+        "html body.vc-body>footer.vc-premium-footer .vc-premium-footer__grid:has([data-vc-footer-staff='1']){" +
+        "grid-template-columns:minmax(15rem,1.15fr) minmax(0,1.35fr)!important}" +
+        "}";
+      document.head.appendChild(s);
+    } catch (eCss) {}
+  }
+
   function removeStaffFooterColumns() {
     try {
       var nodes = document.querySelectorAll('[data-vc-footer-staff="1"]');
       for (var i = 0; i < nodes.length; i++) {
         var el = nodes[i];
         if (el && el.parentNode) el.parentNode.removeChild(el);
+      }
+      var cols = document.querySelectorAll(".vc-premium-footer__navcols--with-staff");
+      for (var j = 0; j < cols.length; j++) {
+        cols[j].classList.remove("vc-premium-footer__navcols--with-staff");
       }
     } catch (eRm) {}
   }
@@ -276,6 +302,7 @@
         removeStaffFooterColumns();
         return;
       }
+      ensureStaffFooterColCss();
       var footers = document.querySelectorAll("footer.vc-premium-footer");
       if (!footers || !footers.length) return;
       var links = staffFooterToolLinks();
@@ -297,9 +324,11 @@
         "</ul></nav>";
       for (var f = 0; f < footers.length; f++) {
         var footer = footers[f];
-        if (!footer || footer.querySelector('[data-vc-footer-staff="1"]')) continue;
+        if (!footer) continue;
         var navcols = footer.querySelector(".vc-premium-footer__navcols");
         if (!navcols) continue;
+        navcols.classList.add("vc-premium-footer__navcols--with-staff");
+        if (footer.querySelector('[data-vc-footer-staff="1"]')) continue;
         navcols.insertAdjacentHTML("beforeend", colHtml);
       }
     } catch (eFoot) {}

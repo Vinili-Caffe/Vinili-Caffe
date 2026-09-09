@@ -43503,8 +43503,12 @@ body.vc-body--home .vc-home-storycard:hover::after {
     display: block;
     width: 100%;
     text-align: center;
-    letter-spacing: 0.12em;
-    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    font-size: 0.84rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    transform: translateY(0.45rem);
+    margin-bottom: -0.45rem;
   }
   body.vc-body--home .vc-home-highlight-card:hover,
   body.vc-body--home .vc-home-linkpanel:hover,
@@ -47765,11 +47769,15 @@ body.vc-page-cine-layout > .vc-home-scrollcue .vc-home-scrollcue__chev span:nth-
 
   body.vc-page-cine-layout > .vc-home-scrollcue .vc-home-scrollcue__label,
   body.vc-page-cine-layout .vc-page-cine-hero > .vc-home-scrollcue .vc-home-scrollcue__label {
-    display: block;
-    width: 100%;
-    text-align: center;
-    letter-spacing: 0.12em;
-    font-size: 0.78rem;
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    letter-spacing: 0.16em !important;
+    font-size: 0.84rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    transform: translateY(0.45rem) !important;
+    margin-bottom: -0.45rem !important;
   }
 }
 

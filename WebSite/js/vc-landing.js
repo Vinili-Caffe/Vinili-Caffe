@@ -4047,7 +4047,7 @@
       } catch (eR) {}
     }
   }
-  /* notifTrash1: trash inside unified category header row (right of count, before chev). */
+  /* notifCatBarFix1: count+trash+chev on the right; toggle = ico+label only. */
   function buildNotifCategoryBar(opts) {
     var bar = document.createElement("div");
     bar.className = "vc-notif-cat-bar vc-notif-bell-inbox__link";
@@ -4058,9 +4058,12 @@
       " vc-notif-cat-toggle-inner";
     toggle.setAttribute("aria-expanded", opts.expanded ? "true" : "false");
     if (opts.ariaControls) toggle.setAttribute("aria-controls", opts.ariaControls);
-    toggle.innerHTML = opts.toggleHtml;
+    toggle.innerHTML = opts.toggleHtml || "";
     var actions = document.createElement("span");
     actions.className = "vc-notif-cat-head__actions";
+    if (opts.countHtml) {
+      actions.insertAdjacentHTML("beforeend", opts.countHtml);
+    }
     var clearBtn = null;
     if (typeof opts.onClear === "function") {
       clearBtn = document.createElement("button");
@@ -4374,7 +4377,8 @@
           '"></i></span>' +
           '<span class="vc-notif-cat-label vc-notif-bell-inbox__label">' +
           escBellHtml(g.label) +
-          "</span>" +
+          "</span>",
+        countHtml:
           '<span class="vc-notif-cat-count vc-notif-bell-inbox__count">' +
           String(g.items.length) +
           (unreadCat ? " · " + unreadCat : "") +
@@ -8479,7 +8483,8 @@
           '"></i></span>' +
           '<span class="vc-notif-bell-inbox__label">' +
           escBellHtml(cat.label) +
-          "</span>" +
+          "</span>",
+        countHtml:
           '<span class="vc-notif-bell-inbox__count">' +
           String(items.length) +
           (unreadA ? " · " + unreadA : "") +
@@ -8548,7 +8553,8 @@
           '"></i></span>' +
           '<span class="vc-notif-bell-inbox__label">' +
           escBellHtml(row.label) +
-          "</span>" +
+          "</span>",
+        countHtml:
           '<span class="vc-notif-bell-inbox__count">' +
           (count > 99 ? "99+" : String(count)) +
           "</span>",

@@ -773,9 +773,10 @@
       cue.style.setProperty("right", "0", "important");
       cue.style.setProperty(
         "bottom",
-        "env(safe-area-inset-bottom, 0px)",
+        "max(0.2rem, env(safe-area-inset-bottom, 0px))",
         "important"
       );
+      cue.style.setProperty("gap", "0.7rem", "important");
       cue.style.setProperty("margin-top", "0", "important");
       cue.style.setProperty("margin-bottom", "0", "important");
       cue.style.setProperty("margin-left", "auto", "important");

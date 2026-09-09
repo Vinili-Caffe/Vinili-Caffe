@@ -56,6 +56,8 @@ function mountSiteWebhookRoutes(app, client, deps) {
     });
     app.get("/webhooks/site-unban/eligibility", async (req, res) => {
       try {
+        res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        res.set("Pragma", "no-cache");
         const accessToken = normalizeHeaderSecret(req.headers.authorization);
         if (!accessToken) {
           return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
@@ -87,6 +89,8 @@ function mountSiteWebhookRoutes(app, client, deps) {
     });
     app.get("/webhooks/site-unmute/eligibility", async (req, res) => {
       try {
+        res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+        res.set("Pragma", "no-cache");
         const accessToken = normalizeHeaderSecret(req.headers.authorization);
         if (!accessToken) {
           return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });

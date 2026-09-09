@@ -1,14 +1,18 @@
 (function () {
-  var VER = "20260909confessionale6";
+  var VER = "20260909confessionale8";
   var MAX = 1500;
   /* Intro a ogni visita (niente skip session). Solo ?skipIntro=1 salta. */
   var CURTAIN_OPEN_MS = 3500;
-  var SMOKE_AUTO_MS = 0;
+  /* Anti ghost-click: smoke dismissibile solo dopo questo delay. Mai auto-close. */
+  var SMOKE_ARM_MS = 750;
   var apiCfg = window.__VC_CONFESSIONALE || {};
   var canModerate = false;
   var loadedOnce = false;
   var curtainDone = false;
-  var smokeTimer = null;
+  var smokeArmed = false;
+  var smokeArmTimer = null;
+  var curtainOpenTimer = null;
+  var scrollLockBound = false;
 
   function byId(id) {
     return document.getElementById(id);
@@ -250,24 +254,85 @@
     smoke.setAttribute("aria-hidden", "true");
   }
 
-  function clearSmokeTimer() {
-    if (smokeTimer) {
-      window.clearTimeout(smokeTimer);
-      smokeTimer = null;
+  function clearSmokeArmTimer() {
+    if (smokeArmTimer) {
+      window.clearTimeout(smokeArmTimer);
+      smokeArmTimer = null;
     }
+  }
+
+  function clearCurtainOpenTimer() {
+    if (curtainOpenTimer) {
+      window.clearTimeout(curtainOpenTimer);
+      curtainOpenTimer = null;
+    }
+  }
+
+  function onIntroScrollBlock(ev) {
+    try {
+      if (!document.documentElement.classList.contains("vc-confessionale-intro-active")) return;
+      if (document.documentElement.classList.contains("vc-confessionale-curtain-done")) return;
+      ev.preventDefault();
+    } catch (eBlock) {}
+  }
+
+  function lockIntroScroll() {
+    try {
+      document.documentElement.classList.add("vc-confessionale-intro-active");
+      document.documentElement.classList.remove("vc-confessionale-curtain-done");
+      document.documentElement.style.overflow = "hidden";
+      if (document.body) {
+        document.body.style.overflow = "hidden";
+        document.body.style.touchAction = "none";
+      }
+    } catch (eL) {}
+    if (scrollLockBound) return;
+    scrollLockBound = true;
+    try {
+      window.addEventListener("wheel", onIntroScrollBlock, { passive: false, capture: true });
+      window.addEventListener("touchmove", onIntroScrollBlock, { passive: false, capture: true });
+    } catch (eBind) {}
+  }
+
+  function unlockIntroScroll() {
+    try {
+      document.documentElement.style.overflow = "";
+      if (document.body) {
+        document.body.style.overflow = "";
+        document.body.style.touchAction = "";
+      }
+    } catch (eU) {}
+    if (!scrollLockBound) return;
+    scrollLockBound = false;
+    try {
+      window.removeEventListener("wheel", onIntroScrollBlock, true);
+      window.removeEventListener("touchmove", onIntroScrollBlock, true);
+    } catch (eUn) {}
+  }
+
+  function kickBgmFromGesture() {
+    try {
+      if (typeof window.__vcConfessionaleBgmUnlock === "function") {
+        window.__vcConfessionaleBgmUnlock();
+      }
+    } catch (eKick) {}
   }
 
   function markSequenceDone() {
     if (curtainDone) return;
     curtainDone = true;
-    clearSmokeTimer();
+    smokeArmed = false;
+    clearSmokeArmTimer();
+    clearCurtainOpenTimer();
     hideCurtainEl();
     hideSmokeEl();
+    unlockIntroScroll();
     try {
       document.documentElement.classList.remove("vc-confessionale-intro-active");
       document.documentElement.classList.add("vc-confessionale-curtain-done");
       document.body.classList.add("vc-confessionale-curtain-done");
     } catch (e2) {}
+    kickBgmFromGesture();
     try {
       window.dispatchEvent(new CustomEvent("vc:confessionale-curtain-done"));
     } catch (e3) {}
@@ -286,39 +351,48 @@
       markSequenceDone();
       return false;
     }
-    try {
-      document.documentElement.classList.add("vc-confessionale-intro-active");
-      document.documentElement.classList.remove("vc-confessionale-curtain-done");
-    } catch (ePrime) {}
+    lockIntroScroll();
     var el = byId("vc-confessionale-curtain");
     if (el) {
       el.hidden = false;
       el.removeAttribute("hidden");
       el.setAttribute("aria-hidden", "false");
       el.classList.remove("is-done", "is-open");
+      try {
+        if (el.parentNode !== document.body) document.body.appendChild(el);
+      } catch (eMove) {}
+    }
+    var smoke = byId("vc-confessionale-smoke");
+    if (smoke) {
+      try {
+        if (smoke.parentNode !== document.body) document.body.appendChild(smoke);
+      } catch (eMove2) {}
     }
     return true;
   }
 
   function showSmokeBeat() {
+    clearCurtainOpenTimer();
     hideCurtainEl();
     var smoke = byId("vc-confessionale-smoke");
     if (!smoke) {
       markSequenceDone();
       return;
     }
+    smokeArmed = false;
+    clearSmokeArmTimer();
     smoke.hidden = false;
     smoke.removeAttribute("hidden");
     smoke.setAttribute("aria-hidden", "false");
     smoke.classList.remove("is-done");
-    void smoke.offsetWidth;
-    requestAnimationFrame(function () {
-      smoke.classList.add("is-visible");
-    });
-    clearSmokeTimer();
-    if (SMOKE_AUTO_MS > 0) {
-      smokeTimer = window.setTimeout(markSequenceDone, SMOKE_AUTO_MS);
-    }
+    /* Backdrop opaco subito: niente flash della pagina sotto. */
+    smoke.classList.add("is-visible", "is-armed-pending");
+    smokeArmTimer = window.setTimeout(function () {
+      smokeArmed = true;
+      smoke.classList.remove("is-armed-pending");
+      smoke.classList.add("is-armed");
+      smokeArmTimer = null;
+    }, SMOKE_ARM_MS);
   }
 
   function openCurtain() {
@@ -337,7 +411,9 @@
     requestAnimationFrame(function () {
       el.classList.add("is-open");
     });
-    window.setTimeout(function () {
+    clearCurtainOpenTimer();
+    curtainOpenTimer = window.setTimeout(function () {
+      curtainOpenTimer = null;
       if (curtainDone) return;
       showSmokeBeat();
     }, CURTAIN_OPEN_MS);
@@ -377,28 +453,79 @@
       });
     }
     if (skip) {
-      skip.addEventListener("click", function () {
+      skip.addEventListener("click", function (ev) {
+        if (ev) {
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (eSk) {}
+        }
+        kickBgmFromGesture();
         var el = byId("vc-confessionale-curtain");
         if (el) el.classList.add("is-open");
         showSmokeBeat();
       });
     }
+    var curtainRoot = byId("vc-confessionale-curtain");
+    if (curtainRoot) {
+      curtainRoot.addEventListener(
+        "pointerdown",
+        function () {
+          kickBgmFromGesture();
+        },
+        true,
+      );
+    }
+    if (smokeRoot) {
+      smokeRoot.addEventListener(
+        "pointerdown",
+        function () {
+          kickBgmFromGesture();
+        },
+        true,
+      );
+    }
     function onSmokeContinue(ev) {
+      if (!smokeArmed) {
+        if (ev) {
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (eBlock) {}
+        }
+        kickBgmFromGesture();
+        return;
+      }
       if (ev) {
         try {
           ev.preventDefault();
           ev.stopPropagation();
         } catch (e0) {}
       }
+      kickBgmFromGesture();
       markSequenceDone();
     }
     if (smokeContinue) smokeContinue.addEventListener("click", onSmokeContinue);
-    if (smokeRoot) smokeRoot.addEventListener("click", onSmokeContinue);
+    /* Solo il bottone (non tutto lo smoke): evita dismiss accidentali / ghost-click. */
+    if (smokeRoot) {
+      smokeRoot.addEventListener("click", function (ev) {
+        var t = ev && ev.target;
+        if (t && t.closest && t.closest("#vc-confessionale-smoke-continue")) return;
+        if (ev) {
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (eIgn) {}
+        }
+      });
+    }
 
+    if (!introAlreadyDone()) lockIntroScroll();
     bootCurtainWhenReady();
   }
 
   if (!introAlreadyDone()) {
+    lockIntroScroll();
     primeIntroOverlay();
   }
 

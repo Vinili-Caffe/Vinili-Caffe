@@ -40,7 +40,7 @@ html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-c
 /* Photo background: confessional booth (locked — do not let site GIF override) */
 html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
   background-color: #100c09;
-  background-image: url("/images/Confessionale-GF.jpg?v=20260909confessionale6") !important;
+  background-image: url("/images/Confessionale-GF.jpg?v=20260909confessionale8") !important;
   background-size: cover !important;
   background-position: center center !important;
   background-repeat: no-repeat !important;
@@ -58,14 +58,61 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
     linear-gradient(180deg, rgba(12, 6, 6, 0.35) 0%, rgba(10, 6, 6, 0.55) 100%);
 }
 
-/* Curtain overlay */
+/* Nascondi chrome/player sotto l'intro fullscreen */
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-confessionale-page > header,
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) #vc-confessionale-music-player,
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) .vc-bgm-player--confessionale,
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) .vc-seratafilm-bgm-hint,
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) #vc-staff-loading,
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) #header-quick-actions,
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) #vc-mobile-nav-drawer {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Lock scroll durante intro — batte vc-page-cine-boot overflow:auto !important */
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done),
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body,
+html.vc-confessionale-route.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done),
+html.vc-confessionale-route.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-body,
+html.vc-site-polish.vc-page-cine-boot.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done),
+html.vc-site-polish.vc-page-cine-boot.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+  height: 100% !important;
+  max-height: 100dvh !important;
+  position: relative !important;
+}
+
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-confessionale-page {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+}
+
+/* Curtain overlay — sopra tutto lo chrome staff (fullscreen reale) */
 .vc-confessionale-curtain {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  pointer-events: auto;
-  overflow: hidden;
-  background: #080504;
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  width: 100dvw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  z-index: 2147482500 !important;
+  pointer-events: auto !important;
+  overflow: hidden !important;
+  background: #080504 !important;
+  transform: none !important;
+  filter: none !important;
 }
 
 html.vc-confessionale-curtain-done .vc-confessionale-curtain {
@@ -167,19 +214,30 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   background: rgba(40, 16, 16, 0.88);
 }
 
-/* Smoke beat after curtains */
+/* Smoke beat after curtains — fullscreen opaco subito (niente flash pagina) */
 .vc-confessionale-smoke {
-  position: fixed;
-  inset: 0;
-  z-index: 85;
-  display: flex;
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  width: 100dvw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  z-index: 2147482600 !important;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  pointer-events: auto;
-  background:
-    linear-gradient(180deg, rgba(6, 3, 3, 0.98) 0%, rgba(8, 4, 4, 0.96) 100%);
-  opacity: 0;
-  transition: opacity 0.9s ease;
+  pointer-events: auto !important;
+  background: #060303 !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
 }
 
 .vc-confessionale-smoke::before {
@@ -187,7 +245,7 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   position: absolute;
   inset: 0;
   background: #060303;
-  opacity: 0.94;
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -199,6 +257,17 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
 .vc-confessionale-smoke.is-done {
   display: none !important;
   pointer-events: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Durante arm pending ignora tap (anti ghost-click da Salta / fine tenda) */
+.vc-confessionale-smoke.is-armed-pending,
+.vc-confessionale-smoke.is-armed-pending * {
+  cursor: default;
+}
+.vc-confessionale-smoke.is-armed-pending .vc-confessionale-smoke__card {
+  pointer-events: none;
 }
 
 .vc-confessionale-smoke__fog {
