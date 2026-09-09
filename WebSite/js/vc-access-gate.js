@@ -51,7 +51,7 @@
     { re: /^\/staff\/punti-tolti(?:\/|$)/i, require: "pmOrHighStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/user/" },
         { re: /^\/staff\/?$/i, require: "public" },
     { re: /^\/staff(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
-    { re: /^\/confessionale(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
+    { re: /^\/confessionale(?:\/|$)/i, require: "public" },
     { re: /^\/dashboard(?:\/|$)/i, require: "highStaff", denyFallback: "/" },
     { re: /^\/seratafilm(?:\/|$)/i, require: "highStaff", loginUrl: "/seratafilm/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/candidature(?:\/|$)/i, require: "login", loginUrl: "/candidature/accesso-richiesto/", denyFallback: "/" },
@@ -678,7 +678,7 @@
 
   function admit(policy, perms) {
     if (hasCapability(perms, policy.require)) {
-      if (/^\/(?:staff|confessionale)(?:\/|$)/i.test(pathName())) revealStaff(perms);
+      if (/^\/staff(?:\/|$)/i.test(pathName())) revealStaff(perms);
       if (/^\/dashboard(?:\/|$)/i.test(pathName())) {
         window.__VC_DASHBOARD_ACCESS_OK = true;
         try {
@@ -713,7 +713,7 @@
 
     var token = getToken();
     var path = pathName();
-    var isStaffArea = /^\/(?:staff|confessionale)(?:\/|$)/i.test(path);
+    var isStaffArea = /^\/staff(?:\/|$)/i.test(path);
 
     if (need === "login") {
       if (token) {

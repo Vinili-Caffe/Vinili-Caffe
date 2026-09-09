@@ -594,7 +594,8 @@
       p === "/staff/gestione" ||
       p === "/staff/organico" ||
       p === "/staff/punti-tolti" ||
-      p === "/staff/ticket"
+      p === "/staff/ticket" ||
+      p === "/staff/confessionale"
     ) {
       return true;
     }
@@ -622,7 +623,8 @@
       p === "/staff/organico" ||
       p === "/staff/punti-tolti" ||
       p === "/staff/inbox" ||
-      p === "/staff/ticket"
+      p === "/staff/ticket" ||
+      p === "/staff/confessionale"
     ) {
       return true;
     }

@@ -1,5 +1,6 @@
 (function () {
   "use strict";
+  /* confessionale4: Area staff = Guida + Confessionale (/staff/confessionale/) */
 
   function perms() {
     return (window.__VC_STAFF_PERMS && typeof window.__VC_STAFF_PERMS === "object" && window.__VC_STAFF_PERMS) || {};
@@ -103,7 +104,14 @@
     var h = String(href || "").replace(/\/+$/, "") || "/";
     if (h === "/staff") return p === "/staff";
     if (h === "/seratafilm") return p === "/seratafilm" || p.indexOf("/seratafilm/") === 0;
-    if (h === "/confessionale") return p === "/confessionale" || p.indexOf("/confessionale/") === 0;
+    if (h === "/staff/confessionale" || h === "/confessionale") {
+      return (
+        p === "/staff/confessionale" ||
+        p.indexOf("/staff/confessionale/") === 0 ||
+        p === "/confessionale" ||
+        p.indexOf("/confessionale/") === 0
+      );
+    }
     return p === h || p.indexOf(h + "/") === 0;
   }
 
@@ -156,9 +164,8 @@
   }
 
   function isConfessionaleNavHref(href) {
-    return String(href || "")
-      .toLowerCase()
-      .indexOf("/confessionale") >= 0;
+    var h = String(href || "").toLowerCase();
+    return h.indexOf("/staff/confessionale") >= 0 || h.indexOf("/confessionale") >= 0;
   }
 
   function isConfessionaleNavLabel(label) {
@@ -222,6 +229,9 @@
               if (a.parentNode) a.parentNode.removeChild(a);
             } else {
               keptConf = true;
+              try {
+                a.setAttribute("href", "/staff/confessionale/");
+              } catch (eHref) {}
             }
             continue;
           }
@@ -232,7 +242,7 @@
           keptGuide = true;
         }
         if (!keptConf && panel) {
-          panel.insertAdjacentHTML("beforeend", row("/confessionale/", "comments", "Confessionale", true));
+          panel.insertAdjacentHTML("beforeend", row("/staff/confessionale/", "comments", "Confessionale", true));
         }
       }
     } catch (eEnforce) {}
@@ -327,7 +337,7 @@
       '<summary class="vc-snav-summary"><span>Area staff</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>' +
       '<div class="vc-snav-panel">' +
       row("/staff/guida/", "book", "Guida", true) +
-      row("/confessionale/", "comments", "Confessionale", true) +
+      row("/staff/confessionale/", "comments", "Confessionale", true) +
       "</div></details>";
 
     var existing = header.querySelector("[data-vc-staff-tools-nav]");
@@ -726,10 +736,10 @@
             }
             if (!hasConf) {
               guideItems.push({
-                href: "/confessionale/",
+                href: "/staff/confessionale/",
                 label: "Confessionale",
                 icon: "fa-comments",
-                active: isActive("/confessionale/"),
+                active: isActive("/staff/confessionale/"),
               });
             }
             addSection("Staff", guideItems);
@@ -798,10 +808,10 @@
               active: isActive("/staff/guida/"),
             },
             {
-              href: "/confessionale/",
+              href: "/staff/confessionale/",
               label: "Confessionale",
               icon: "fa-comments",
-              active: isActive("/confessionale/"),
+              active: isActive("/staff/confessionale/"),
             },
           ]);
         }

@@ -264,7 +264,8 @@
       p === "/staff/pause" ||
       p === "/staff/gestione" ||
       p === "/staff/organico" ||
-      p === "/staff/punti-tolti"
+      p === "/staff/punti-tolti" ||
+      p === "/staff/confessionale"
     ) {
       return true;
     }

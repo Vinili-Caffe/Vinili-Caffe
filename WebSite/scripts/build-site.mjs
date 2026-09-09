@@ -664,6 +664,30 @@ function assertDistHasNoTemplatePlaceholders(distDir) {
   }
 }
 
+/** Prod deploy: hard-coded apiUrlLocal http://127.0.0.1:3042/... must not ship. */
+function stripLocalhostApiUrlLocalsInDist(distDir) {
+  const re = /apiUrlLocal\s*:\s*"https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?[^"]*"/gi;
+  let n = 0;
+  function walk(dir) {
+    for (const name of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, name.name);
+      if (name.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      const next = html.replace(re, 'apiUrlLocal: ""');
+      if (next !== html) {
+        fs.writeFileSync(p, next, "utf8");
+        n += 1;
+      }
+    }
+  }
+  walk(distDir);
+  if (n) console.log(`[build-site] apiUrlLocal localhost svuotati in ${n} HTML (prod).`);
+}
+
 function inviteCodeFromConfig(cfg) {
   const explicit = String(cfg.discordInviteCode || "").trim();
   if (explicit) return explicit;
@@ -4666,8 +4690,16 @@ async function main() {
     confessionaleHtml = applyPlaceholderMap(confessionaleHtml, map);
     warnLeftoverPlaceholders(confessionaleHtml, "confessionale/index.html");
     fs.writeFileSync(confessionaleIndexPath, confessionaleHtml, "utf8");
+  }
+
+  const confessionaleStaffIndexPath = path.join(DIST, "staff", "confessionale", "index.html");
+  if (fs.existsSync(confessionaleStaffIndexPath)) {
+    let confessionaleStaffHtml = fs.readFileSync(confessionaleStaffIndexPath, "utf8");
+    confessionaleStaffHtml = applyPlaceholderMap(confessionaleStaffHtml, map);
+    warnLeftoverPlaceholders(confessionaleStaffHtml, "staff/confessionale/index.html");
+    fs.writeFileSync(confessionaleStaffIndexPath, confessionaleStaffHtml, "utf8");
   } else {
-    console.warn("[build-site] Manca confessionale/index.html (saltato placeholder).");
+    console.warn("[build-site] Manca staff/confessionale/index.html (saltato placeholder).");
   }
 
   const notFoundPath = path.join(DIST, "404.html");
@@ -4688,6 +4720,7 @@ async function main() {
     "staff/gestione/index.html",
     "staff/organico/index.html",
     "staff/inbox/index.html",
+    "staff/confessionale/index.html",
   ];
   for (const rel of staffPageRels) {
     const staffPath = path.join(DIST, rel);
@@ -4781,6 +4814,8 @@ async function main() {
   } else {
     console.log("[build-site] Offuscamento/minify client disattivato (siteBuild.obfuscateClientAssets: false).");
   }
+
+  if (prodSiteBuild) stripLocalhostApiUrlLocalsInDist(DIST);
 
   assertDistHasNoTemplatePlaceholders(DIST);
 

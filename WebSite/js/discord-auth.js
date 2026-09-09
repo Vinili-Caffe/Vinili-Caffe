@@ -1540,7 +1540,7 @@
     window.__vcStaffSiteNavRequested = true;
     try {
       var s = document.createElement("script");
-      s.src = "/js/staff-site-nav.js?v=20260907authLogoutRoleGate1";
+      s.src = "/js/staff-site-nav.js?v=20260909confessionale4";
             s.async = false;
       s.setAttribute("data-vc-staff-site-nav", "1");
       (document.head || document.documentElement).appendChild(s);
@@ -1710,7 +1710,6 @@
       var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
       if (p === "/staff/profilo" || p.indexOf("/staff/profilo/") === 0) return false;
       if (p === "/staff/accesso-richiesto" || p.indexOf("/staff/accesso-richiesto/") === 0) return false;
-      if (p === "/confessionale" || p.indexOf("/confessionale/") === 0) return true;
       return p === "/staff" || p.indexOf("/staff/") === 0;
     } catch (e) {
       return false;

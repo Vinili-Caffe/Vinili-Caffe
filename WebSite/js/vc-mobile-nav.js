@@ -519,7 +519,7 @@
     } else if (isStaffNavAllowed() && !gridRoot.querySelector('a[href*="/confessionale"]')) {
       var c = document.createElement("a");
       c.className = "vc-mobile-nav-tile";
-      c.href = "/confessionale/";
+      c.href = "/staff/confessionale/";
       c.setAttribute("data-vc-mobile-staff-confessionale", "1");
       c.innerHTML =
         '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +

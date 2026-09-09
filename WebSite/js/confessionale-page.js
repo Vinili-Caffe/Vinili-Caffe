@@ -1,11 +1,14 @@
 (function () {
-  var VER = "20260909confessionale2";
+  var VER = "20260909confessionale3";
   var MAX = 1500;
   var SESSION_CURTAIN_KEY = "vc_confessionale_curtain_done_v1";
+  var CURTAIN_OPEN_MS = 3500;
+  var SMOKE_AUTO_MS = 5200;
   var apiCfg = window.__VC_CONFESSIONALE || {};
   var canModerate = false;
   var loadedOnce = false;
   var curtainDone = false;
+  var smokeTimer = null;
 
   function byId(id) {
     return document.getElementById(id);
@@ -230,17 +233,39 @@
     c.textContent = String(Math.min(n, MAX));
   }
 
-  function markCurtainDone() {
+  function hideCurtainEl() {
+    var el = byId("vc-confessionale-curtain");
+    if (!el) return;
+    el.classList.add("is-done");
+    el.hidden = true;
+    el.setAttribute("aria-hidden", "true");
+  }
+
+  function hideSmokeEl() {
+    var smoke = byId("vc-confessionale-smoke");
+    if (!smoke) return;
+    smoke.classList.remove("is-visible");
+    smoke.classList.add("is-done");
+    smoke.hidden = true;
+    smoke.setAttribute("aria-hidden", "true");
+  }
+
+  function clearSmokeTimer() {
+    if (smokeTimer) {
+      window.clearTimeout(smokeTimer);
+      smokeTimer = null;
+    }
+  }
+
+  function markSequenceDone() {
+    if (curtainDone) return;
     curtainDone = true;
+    clearSmokeTimer();
     try {
       sessionStorage.setItem(SESSION_CURTAIN_KEY, "1");
     } catch (e) {}
-    var el = byId("vc-confessionale-curtain");
-    if (el) {
-      el.classList.add("is-done");
-      el.hidden = true;
-      el.setAttribute("aria-hidden", "true");
-    }
+    hideCurtainEl();
+    hideSmokeEl();
     try {
       document.documentElement.classList.add("vc-confessionale-curtain-done");
       document.body.classList.add("vc-confessionale-curtain-done");
@@ -250,15 +275,34 @@
     } catch (e3) {}
   }
 
+  function showSmokeBeat() {
+    hideCurtainEl();
+    var smoke = byId("vc-confessionale-smoke");
+    if (!smoke) {
+      markSequenceDone();
+      return;
+    }
+    smoke.hidden = false;
+    smoke.removeAttribute("hidden");
+    smoke.setAttribute("aria-hidden", "false");
+    smoke.classList.remove("is-done");
+    void smoke.offsetWidth;
+    requestAnimationFrame(function () {
+      smoke.classList.add("is-visible");
+    });
+    clearSmokeTimer();
+    smokeTimer = window.setTimeout(markSequenceDone, SMOKE_AUTO_MS);
+  }
+
   function openCurtain() {
     var el = byId("vc-confessionale-curtain");
     if (!el || curtainDone) {
-      markCurtainDone();
+      markSequenceDone();
       return;
     }
     try {
       if (sessionStorage.getItem(SESSION_CURTAIN_KEY) === "1") {
-        markCurtainDone();
+        markSequenceDone();
         return;
       }
     } catch (eS) {}
@@ -266,12 +310,15 @@
     el.hidden = false;
     el.removeAttribute("hidden");
     el.setAttribute("aria-hidden", "false");
-    // force reflow then open
+    el.classList.remove("is-done", "is-open");
     void el.offsetWidth;
     requestAnimationFrame(function () {
       el.classList.add("is-open");
     });
-    window.setTimeout(markCurtainDone, 1450);
+    window.setTimeout(function () {
+      if (curtainDone) return;
+      showSmokeBeat();
+    }, CURTAIN_OPEN_MS);
   }
 
   function bootCurtainWhenReady() {
@@ -298,6 +345,8 @@
     var ta = byId("vc-conf-text");
     var list = byId("vc-conf-list");
     var skip = byId("vc-confessionale-curtain-skip");
+    var smokeContinue = byId("vc-confessionale-smoke-continue");
+    var smokeRoot = byId("vc-confessionale-smoke");
 
     if (writeTab) writeTab.addEventListener("click", function () { switchTab("write"); });
     if (readTab) readTab.addEventListener("click", function () { switchTab("read"); });
@@ -317,9 +366,20 @@
       skip.addEventListener("click", function () {
         var el = byId("vc-confessionale-curtain");
         if (el) el.classList.add("is-open");
-        markCurtainDone();
+        markSequenceDone();
       });
     }
+    function onSmokeContinue(ev) {
+      if (ev) {
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (e0) {}
+      }
+      markSequenceDone();
+    }
+    if (smokeContinue) smokeContinue.addEventListener("click", onSmokeContinue);
+    if (smokeRoot) smokeRoot.addEventListener("click", onSmokeContinue);
 
     bootCurtainWhenReady();
   }

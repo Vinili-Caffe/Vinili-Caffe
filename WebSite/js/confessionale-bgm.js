@@ -1,5 +1,5 @@
 (function () {
-  var VER = "20260909confessionale2";
+  var VER = "20260909confessionale3";
   var VOL_PREF_KEY = "vc_confessionale_bgm_volume_v1";
   var MUTE_PREF_KEY = "vc_confessionale_bgm_muted_v1";
   var audio = null;
@@ -18,7 +18,7 @@
 
   function cfg() {
     try {
-      return window.__VC_CONFESSIONALE_BGM || window.__VC_SERATAFILM_BGM || {};
+      return window.__VC_CONFESSIONALE_BGM || {};
     } catch (e) {
       return {};
     }
@@ -259,7 +259,17 @@
     volRange = range;
 
     try {
-      if (window.__VC_CHROME_SYNC) window.__VC_CHROME_SYNC.bindExpandablePlayer(wrap, btn);
+      if (window.__VC_CHROME_SYNC) {
+        window.__VC_CHROME_SYNC.bindExpandablePlayer(wrap, btn);
+      } else {
+        window.setTimeout(function () {
+          try {
+            if (window.__VC_CHROME_SYNC && playerEl) {
+              window.__VC_CHROME_SYNC.bindExpandablePlayer(playerEl, toggleBtn);
+            }
+          } catch (eRetry) {}
+        }, 400);
+      }
     } catch (eEx) {}
 
     btn.addEventListener("click", function (ev) {
@@ -350,11 +360,47 @@
     }
   }
 
+  var playerBooted = false;
+
   function bootWhenReady() {
     if (!document.body || !document.body.classList.contains("vc-confessionale-page")) return false;
     if (!document.documentElement.classList.contains("vc-staff-app-revealed")) return false;
     readVolumePrefs();
     ensurePlayer();
+    var introDone =
+      document.documentElement.classList.contains("vc-confessionale-curtain-done") ||
+      document.body.classList.contains("vc-confessionale-curtain-done");
+    if (!introDone) {
+      /* Warm muted autoplay during curtain/smoke so unmute can follow the continue tap */
+      if (!playerBooted && !audio) {
+        try {
+          if (localStorage.getItem(MUTE_PREF_KEY) === "1") {
+            mutedByUser = true;
+            ensureAudio();
+            updateUi();
+            playerBooted = true;
+            return false;
+          }
+        } catch (ePref0) {}
+        var a = ensureAudio();
+        a.muted = true;
+        a.volume = 0;
+        var p = a.play();
+        if (p && typeof p.then === "function") {
+          p.then(function () {
+            started = true;
+            updateUi();
+          }).catch(function () {});
+        }
+        armUnlockGesture();
+      }
+      return false;
+    }
+    if (playerBooted && started && !mutedByUser && audio && !audio.paused && !audio.muted) {
+      updateUi();
+      return true;
+    }
+    playerBooted = true;
     try {
       if (localStorage.getItem(MUTE_PREF_KEY) === "1") {
         mutedByUser = true;
@@ -363,6 +409,13 @@
         return true;
       }
     } catch (ePref) {}
+    if (started && audio && !audio.paused) {
+      applyAudible().catch(function () {
+        ensureHint("Tocca per attivare l’audio");
+        armUnlockGesture();
+      });
+      return true;
+    }
     tryMutedAutoplayThenAudible();
     return true;
   }

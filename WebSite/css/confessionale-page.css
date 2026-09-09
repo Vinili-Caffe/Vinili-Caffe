@@ -1,4 +1,4 @@
-/* Confessionale staff page — cine + red/gold accents + curtain */
+/* Confessionale staff page — cine + red/gold accents + curtain + smoke beat */
 
 .vc-confessionale-page {
   --vc-conf-gold: #d4a574;
@@ -28,10 +28,18 @@ html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-boot:not(.vc-page
   pointer-events: none !important;
 }
 
+/* Keep page covered until intro sequence finishes */
+html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-confessionale-page > main,
+html.vc-confessionale-route:not(.vc-confessionale-curtain-done) body.vc-confessionale-page > footer {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 /* Photo background: confessional booth (locked — do not let site GIF override) */
 html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
   background-color: #100c09;
-  background-image: url("/images/Confessionale-GF.jpg?v=20260909confessionale2") !important;
+  background-image: url("/images/Confessionale-GF.jpg?v=20260909confessionale3") !important;
   background-size: cover !important;
   background-position: center center !important;
   background-repeat: no-repeat !important;
@@ -79,7 +87,7 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
     ),
     linear-gradient(180deg, #8b2030 0%, #4a1014 45%, #2a0a0e 100%);
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.55), 0 0 30px rgba(0, 0, 0, 0.4);
-  transition: transform 1.35s cubic-bezier(0.22, 0.82, 0.2, 1);
+  transition: transform 3.4s cubic-bezier(0.22, 0.72, 0.18, 1);
   will-change: transform;
 }
 
@@ -149,6 +157,105 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
 
 .vc-confessionale-curtain__skip:hover {
   background: rgba(40, 16, 16, 0.88);
+}
+
+/* Smoke beat after curtains */
+.vc-confessionale-smoke {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: rgba(6, 3, 3, 0.55);
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.vc-confessionale-smoke.is-visible {
+  opacity: 1;
+}
+
+.vc-confessionale-smoke[hidden],
+.vc-confessionale-smoke.is-done {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+.vc-confessionale-smoke__fog {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 45% 35% at 30% 55%, rgba(180, 180, 190, 0.28), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 70% 45%, rgba(160, 155, 165, 0.22), transparent 72%),
+    radial-gradient(ellipse 60% 50% at 50% 60%, rgba(120, 110, 110, 0.35), transparent 75%);
+  filter: blur(28px);
+  animation: vc-conf-smoke-drift 7s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.vc-confessionale-smoke__fog--2 {
+  animation-duration: 9.5s;
+  animation-direction: alternate-reverse;
+  opacity: 0.85;
+  background:
+    radial-gradient(ellipse 40% 45% at 55% 40%, rgba(200, 190, 180, 0.2), transparent 68%),
+    radial-gradient(ellipse 55% 35% at 25% 65%, rgba(140, 120, 120, 0.25), transparent 70%);
+}
+
+@keyframes vc-conf-smoke-drift {
+  from { transform: translate3d(-2%, 1%, 0) scale(1); }
+  to { transform: translate3d(3%, -2%, 0) scale(1.08); }
+}
+
+.vc-confessionale-smoke__card {
+  position: relative;
+  z-index: 2;
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  max-width: min(22rem, calc(100vw - 2rem));
+  padding: 1.6rem 1.4rem 1.35rem;
+  border-radius: 1.4rem;
+  border: 1px solid rgba(240, 208, 144, 0.42);
+  background: linear-gradient(165deg, rgba(36, 14, 16, 0.92), rgba(12, 7, 8, 0.94));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  color: #f0d090;
+  cursor: pointer;
+  text-align: center;
+  transform: translateY(0.6rem) scale(0.96);
+  opacity: 0;
+  transition: opacity 0.7s ease 0.15s, transform 0.7s ease 0.15s;
+}
+
+.vc-confessionale-smoke.is-visible .vc-confessionale-smoke__card {
+  opacity: 1;
+  transform: none;
+}
+
+.vc-confessionale-smoke__face {
+  display: block;
+  filter: drop-shadow(0 0 18px rgba(240, 208, 144, 0.28));
+}
+
+.vc-confessionale-smoke__text {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.15rem, 3.4vw, 1.55rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  color: #f8e7c8;
+}
+
+.vc-confessionale-smoke__hint {
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(240, 208, 144, 0.72);
 }
 
 /* Hero accents */
@@ -351,7 +458,7 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
   background: rgba(60, 16, 18, 0.45);
 }
 
-/* Ambient BGM hint + player */
+/* Ambient BGM hint + player (seratafilm family) */
 .vc-confessionale-page .vc-seratafilm-bgm-hint {
   position: fixed;
   left: 50%;
@@ -376,17 +483,199 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
   transition: opacity 0.35s ease;
 }
 
-.vc-confessionale-page .vc-bgm-player--confessionale {
-  --vc-bgm-accent: #f0d090;
-  border-color: rgba(240, 208, 144, 0.4);
-  background: rgba(20, 10, 10, 0.88);
-}
-.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__label {
+body.vc-confessionale-page .vc-bgm-player.vc-bgm-player--confessionale {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  z-index: 10035;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  max-width: none;
+  width: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   color: #f0d090;
 }
-.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__toggle {
-  color: #f0d090;
+
+body.vc-confessionale-page .vc-bgm-player.vc-bgm-player--confessionale[hidden] {
+  display: none !important;
 }
+
+body.vc-confessionale-page .vc-bgm-player--confessionale::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  width: 3.2rem;
+  height: 0.85rem;
+  pointer-events: auto;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__toggle {
+  width: 3.05rem;
+  height: 3.05rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(240, 208, 144, 0.42);
+  background: linear-gradient(155deg, rgba(42, 16, 18, 0.96), rgba(16, 8, 8, 0.94));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #f0d090;
+  cursor: pointer;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__toggle .fa {
+  font-size: 1.05rem;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__meta {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.6rem);
+  left: auto;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: min(16.75rem, calc(100vw - 1.5rem));
+  max-width: min(16.75rem, calc(100vw - 1.5rem));
+  min-width: 0;
+  margin: 0;
+  padding: 0.72rem 0.8rem 0.8rem;
+  opacity: 0;
+  overflow: visible;
+  pointer-events: none;
+  transform: translate3d(0, 0.45rem, 0) scale(0.96);
+  transform-origin: bottom right;
+  border-radius: 1.05rem;
+  border: 1px solid rgba(240, 208, 144, 0.38);
+  background: linear-gradient(155deg, rgba(42, 16, 18, 0.97), rgba(14, 7, 8, 0.96));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  color: #f0d090;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__meta::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.75rem;
+  height: 0.75rem;
+  pointer-events: auto;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player__meta {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player__meta *,
+body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player__range {
+  pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body.vc-confessionale-page .vc-bgm-player--confessionale:hover .vc-bgm-player__meta,
+  body.vc-confessionale-page .vc-bgm-player--confessionale:focus-within .vc-bgm-player__meta {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+  body.vc-confessionale-page .vc-bgm-player--confessionale:hover .vc-bgm-player__meta *,
+  body.vc-confessionale-page .vc-bgm-player--confessionale:focus-within .vc-bgm-player__meta *,
+  body.vc-confessionale-page .vc-bgm-player--confessionale:hover .vc-bgm-player__range,
+  body.vc-confessionale-page .vc-bgm-player--confessionale:focus-within .vc-bgm-player__range {
+    pointer-events: auto;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  body.vc-confessionale-page .vc-bgm-player--confessionale:not(.is-open):hover .vc-bgm-player__meta,
+  body.vc-confessionale-page .vc-bgm-player--confessionale:not(.is-open):focus-within .vc-bgm-player__meta {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(0, 0.45rem, 0) scale(0.96);
+  }
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__label {
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(240, 208, 144, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__slider-row > .fa {
+  font-size: 0.68rem;
+  opacity: 0.72;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__range {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 1.1rem;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__range::-webkit-slider-runnable-track {
+  height: 0.28rem;
+  border-radius: 999px;
+  background: rgba(240, 208, 144, 0.22);
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: -0.28rem;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 10, 6, 0.55);
+  background: linear-gradient(160deg, #f0d7b0, #d4a878);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__range::-moz-range-track {
+  height: 0.28rem;
+  border-radius: 999px;
+  background: rgba(240, 208, 144, 0.22);
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__range::-moz-range-thumb {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 10, 6, 0.55);
+  background: linear-gradient(160deg, #f0d7b0, #d4a878);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
 #vc-confessionale-bgm-audio {
   position: absolute;
   width: 0;
