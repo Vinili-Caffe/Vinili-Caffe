@@ -608,15 +608,17 @@
     }
     var preferStatic = Boolean(a.staticAvatar);
     try {
-      // avatarAnimRestore1: GIF se hash a_; static solo se attrs.staticAvatar.
       if (preferStatic && window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferStaticUrl === "function") {
         src = window.VcDiscordAvatar.preferStaticUrl(src, Math.max(w, h)) || src;
       } else if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.resolveUrl === "function") {
         src = window.VcDiscordAvatar.resolveUrl(src, Math.max(w, h), isGuild ? "" : hashHint, uid) || src;
-      } else if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferAnimatedUrl === "function") {
-        src = window.VcDiscordAvatar.preferAnimatedUrl(src, Math.max(w, h), isGuild ? "" : hashHint) || src;
       }
     } catch (eAnim) {}
+    var hasCdn = /^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(src) && !/embed\/avatars/i.test(src);
+    cls = cls.replace(/\bvc-avatar--pending\b/g, " ").replace(/\bvc-avatar--ready\b/g, " ").replace(/\bvc-avatar-fallback-img\b/g, " ").replace(/\s+/g, " ").trim();
+    if (hasCdn) cls += " vc-avatar--pending";
+    else cls += " vc-avatar--ready vc-avatar-fallback-img";
+    if (!hasCdn) src = defaultAvatarUrl(uid);
     return (
       '<img class="' +
       esc(cls) +
@@ -629,6 +631,7 @@
       '" loading="' +
       esc(loading) +
       '" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1"' +
+      (hasCdn ? "" : ' data-vc-avatar-fallback="1"') +
       (fetchPriority ? ' fetchpriority="' + esc(fetchPriority) + '"' : "") +
       (uid ? ' data-user-id="' + esc(uid) + '"' : "") +
       (!isGuild && hashHint ? ' data-avatar-hash="' + esc(hashHint) + '"' : "") +

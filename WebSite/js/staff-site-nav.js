@@ -881,12 +881,14 @@
     }
 
     try {
-      if (!isEventDedicatedNavPage() && !gridRoot.querySelector('a[href*="/staff/guida"]')) {
+      if (!isEventDedicatedNavPage()) {
         var staffOk =
           window.__VC_STAFF_MENU_ALLOWED === true ||
           Boolean(perms().ok) ||
           Boolean(document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
-        if (staffOk) {
+        var hasGuide = Boolean(gridRoot.querySelector('a[href*="/staff/guida"]'));
+        var hasConf = Boolean(gridRoot.querySelector('a[href*="/confessionale"]'));
+        if (!hasGuide && staffOk) {
           addSection("Staff", [
             {
               href: "/staff/guida/",
@@ -901,6 +903,25 @@
               active: isActive("/staff/confessionale/"),
             },
           ]);
+        } else if (hasGuide && !hasConf) {
+          var guideLink = gridRoot.querySelector('a[href*="/staff/guida"]');
+          var guideGrid = guideLink && guideLink.closest ? guideLink.closest(".vc-mobile-nav-grid") : null;
+          if (guideGrid) {
+            var confA = document.createElement("a");
+            confA.className = "vc-mobile-nav-tile";
+            confA.href = "/staff/confessionale/";
+            confA.innerHTML =
+              '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
+              '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
+            if (isActive("/staff/confessionale/")) {
+              confA.classList.add("is-active");
+              confA.setAttribute("aria-current", "page");
+            }
+            confA.addEventListener("click", function () {
+              setStaffDrawerOpen(false);
+            });
+            guideGrid.appendChild(confA);
+          }
         }
       }
     } catch (eGuide) {}
@@ -1140,6 +1161,33 @@
       } catch (eRebuild) {}
             var grid = document.getElementById("vc-mobile-nav-drawer-grid");
       if (!grid || !grid.children.length) fillStaffDrawerFromNav();
+      try {
+        grid = document.getElementById("vc-mobile-nav-drawer-grid");
+        if (
+          grid &&
+          !grid.querySelector('a[href*="/confessionale"]') &&
+          grid.querySelector('a[href*="/staff/guida"]')
+        ) {
+          var guideLink = grid.querySelector('a[href*="/staff/guida"]');
+          var guideGrid = guideLink && guideLink.closest ? guideLink.closest(".vc-mobile-nav-grid") : null;
+          if (guideGrid) {
+            var confA = document.createElement("a");
+            confA.className = "vc-mobile-nav-tile";
+            confA.href = "/staff/confessionale/";
+            confA.innerHTML =
+              '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
+              '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
+            if (isActive("/staff/confessionale/")) {
+              confA.classList.add("is-active");
+              confA.setAttribute("aria-current", "page");
+            }
+            confA.addEventListener("click", function () {
+              setStaffDrawerOpen(false);
+            });
+            guideGrid.appendChild(confA);
+          }
+        }
+      } catch (eConfFix) {}
       syncStaffDrawerFooter();
 
       drawer.classList.add("vc-mobile-nav-drawer--open");

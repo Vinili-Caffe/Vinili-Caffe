@@ -4302,7 +4302,6 @@
           headers: {
             Authorization: "Bearer " + token,
             Accept: "application/json",
-            "Cache-Control": "no-cache",
           },
           cache: "no-store",
         });

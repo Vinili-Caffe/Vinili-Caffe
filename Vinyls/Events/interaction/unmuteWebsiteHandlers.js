@@ -17,7 +17,9 @@ const {
 const {
   ensureWebsiteGuild,
   fetchWebsiteGuildMember,
+  isOnNegativeCache,
 } = require("../../Utils/Web/websiteGuildMemberFetch");
+const { fetchDiscordOAuthMe } = require("../../Utils/Web/discordOauthMe");
 
 const UNMUTE_VISIONE_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>"];
 const UNMUTE_PENDING_COLOR = TENANT_EMBED_COLOR;
@@ -97,23 +99,16 @@ async function resolveWebsiteMutedUser(client, accessToken) {
   const token = String(accessToken || "").trim();
   if (!token) return { ok: false, status: 401, error: "missing_token", message: "Token mancante." };
 
-  let meJson;
-  try {
-    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!meRes.ok) {
-      return {
-        ok: false,
-        status: 401,
-        error: "invalid_token",
-        message: "Sessione Discord non valida o scaduta: effettua di nuovo il login.",
-      };
-    }
-    meJson = await meRes.json();
-  } catch {
-    return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord." };
+  const meOut = await fetchDiscordOAuthMe(token, { timeoutMs: 8000 });
+  if (!meOut.ok) {
+    return {
+      ok: false,
+      status: Number(meOut.status) || 502,
+      error: meOut.error || "discord_unreachable",
+      message: meOut.message || "Impossibile contattare Discord.",
+    };
   }
+  const meJson = meOut.me;
 
   const userId = String(meJson?.id || "").trim();
   if (!/^\d{17,20}$/.test(userId)) {
@@ -137,9 +132,24 @@ async function resolveWebsiteMutedUser(client, accessToken) {
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
   }
 
+  /* unmuteElig2: soft member lookup — full 12s+18s retry blew past the browser 15s abort
+     and surfaced the generic "Impossibile verificare lo stato unmute" on mobile. */
   let member = guild.members?.cache?.get(userId) || null;
   if (!member) {
-    member = await fetchWebsiteGuildMember(guild, userId).catch(() => null);
+    const knownAbsent = isOnNegativeCache(userId);
+    member = await fetchWebsiteGuildMember(guild, userId, {
+      timeoutMs: 7000,
+      retry: false,
+      soft: true,
+    }).catch(() => null);
+    if (!member && !knownAbsent && !isOnNegativeCache(userId)) {
+      return {
+        ok: false,
+        status: 503,
+        error: "member_lookup_timeout",
+        message: "Verifica mute temporaneamente non disponibile. Riprova tra poco.",
+      };
+    }
   }
 
   const isMuted = memberIsMuted(member);

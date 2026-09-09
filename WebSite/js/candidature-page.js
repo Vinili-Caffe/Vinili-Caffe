@@ -775,13 +775,19 @@
     if (sub) sub.disabled = false;
   }
 
-  function isTransientCandidatureError(status, data) {
+  function isTransientCandidatureError(status, data, emptyBody) {
     var err = data && data.error ? String(data.error) : "";
-    if (status === 503 || status === 502 || status === 429) return true;
+    if (emptyBody) return true;
+    if (status === 0 || status === 408 || status === 425 || status === 429) return true;
+    if (status === 503 || status === 502 || status === 504) return true;
     return (
       err === "member_fetch_failed" ||
       err === "discord_unreachable" ||
-      err === "guild_unavailable"
+      err === "guild_unavailable" ||
+      err === "member_lookup_timeout" ||
+      err === "upstream" ||
+      err === "timeout" ||
+      err === "internal"
     );
   }
 
@@ -791,7 +797,11 @@
     });
   }
 
-  async function refreshEligibility() {
+  var eligSeq = 0;
+  var eligInflight = null;
+
+  async function refreshEligibility(attempt) {
+    var tryN = Number(attempt) || 0;
     var url = eligibilityApiUrl();
     var token = getToken();
     if (!url || !currentUser || !token) {
@@ -799,42 +809,82 @@
       syncEligibilityToDom();
       return;
     }
-    eligibilityState = { loading: true, data: null };
-    syncEligibilityToDom();
-    var attempt = 0;
-    var maxAttempts = 3;
-    while (attempt < maxAttempts) {
-      attempt += 1;
+    if (tryN === 0 && eligInflight) return eligInflight;
+    var mySeq = tryN === 0 ? ++eligSeq : eligSeq;
+    if (tryN === 0) {
+      eligibilityState = { loading: true, data: null };
+      syncEligibilityToDom();
+    }
+    var run = (async function () {
+      var maxAttempts = 4;
+      var coarse = false;
       try {
-        var res = await fetch(url, {
+        coarse =
+          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+          Number(navigator.maxTouchPoints || 0) > 0;
+      } catch (eC) {}
+      var timeoutMs = coarse ? 28000 : 20000;
+      var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+      var timer = null;
+      try {
+        if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eA) {} }, timeoutMs);
+        var fetchUrl = url + (url.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
+        var res = await fetch(fetchUrl, {
           method: "GET",
-          headers: { Authorization: "Bearer " + token },
+          headers: {
+            Authorization: "Bearer " + token,
+            Accept: "application/json",
+          },
+          cache: "no-store",
+          signal: ctrl ? ctrl.signal : undefined,
         });
         var data = {};
+        var rawText = "";
         try {
-          data = await res.json();
+          rawText = await res.text();
+          data = rawText && String(rawText).trim() ? JSON.parse(rawText) : {};
         } catch (e2) {
           data = {};
         }
-        if (res.ok && data && data.ok === true) {
+        if (mySeq !== eligSeq) return;
+        var emptyBody = !String(rawText || "").trim();
+        if (res.ok && data && data.ok === true && !emptyBody) {
           eligibilityState = { loading: false, data: data };
-          break;
+          syncEligibilityToDom();
+          return;
         }
-        if (attempt < maxAttempts && isTransientCandidatureError(res.status, data)) {
-          await sleepMs(450 * attempt);
-          continue;
+        if (res.status === 401) {
+          eligibilityState = { loading: false, data: null };
+          syncEligibilityToDom();
+          return;
+        }
+        if (tryN < maxAttempts - 1 && isTransientCandidatureError(res.status, data, emptyBody)) {
+          await sleepMs(450 + tryN * 500);
+          if (mySeq !== eligSeq) return;
+          return refreshEligibility(tryN + 1);
         }
         eligibilityState = { loading: false, data: null };
-        break;
+        syncEligibilityToDom();
       } catch (e) {
-        if (attempt < maxAttempts) {
-          await sleepMs(450 * attempt);
-          continue;
+        if (mySeq !== eligSeq) return;
+        if (tryN < maxAttempts - 1) {
+          await sleepMs(500 + tryN * 550);
+          if (mySeq !== eligSeq) return;
+          return refreshEligibility(tryN + 1);
         }
         eligibilityState = { loading: false, data: null };
+        syncEligibilityToDom();
+      } finally {
+        if (timer) clearTimeout(timer);
       }
+    })();
+    if (tryN === 0) {
+      eligInflight = run.finally(function () {
+        if (eligInflight === run) eligInflight = null;
+      });
+      return eligInflight;
     }
-    syncEligibilityToDom();
+    return run;
   }
 
   function clientSubmitBlockMessage() {

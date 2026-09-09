@@ -1095,7 +1095,26 @@
         return reviewCardMarkupForStage(slot.review, pos, slot.offset);
       })
       .join("");
+    /* reviewsStageSpread2: no home-rise/fx on stage cards — fights absolute transforms */
+    function stripStageFx(rootEl) {
+      try {
+        var staged = (rootEl || root).querySelectorAll(".vc-reviews-stage__card");
+        for (var si = 0; si < staged.length; si += 1) {
+          staged[si].classList.remove("vc-home-rise", "is-in", "vc-fx-card", "vc-home-panel");
+        }
+      } catch (eStrip) {}
+    }
+    stripStageFx(root);
     scanReviewAvatars(root);
+    window.requestAnimationFrame(function () {
+      stripStageFx(root);
+      window.setTimeout(function () {
+        stripStageFx(root);
+      }, 120);
+      window.setTimeout(function () {
+        stripStageFx(root);
+      }, 400);
+    });
     renderStageDots(n, idx);
     if (prevBtn) prevBtn.disabled = n <= 1;
     if (nextBtn) nextBtn.disabled = n <= 1;
@@ -1646,16 +1665,23 @@
   function parseJsonResponse(response) {
     return response.text().then(function (text) {
       var raw = String(text || "").trim();
-      if (!raw) {
+      var ct = "";
+      try {
+        ct = String((response.headers && response.headers.get("content-type")) || "").toLowerCase();
+      } catch (eCt) {
+        ct = "";
+      }
+      var looksJson = ct.indexOf("json") !== -1 || (raw.charAt(0) === "{" || raw.charAt(0) === "[");
+      if (!raw || !looksJson) {
         throw new Error(
-          t("reviews.apiUnavailable", "Servizio temporaneamente non disponibile. Riprova tra poco.")
+          t("reviews.apiUnavailable", "Servizio temporaneamente non disponibile. Riprova tra poco."),
         );
       }
       try {
         return JSON.parse(raw);
       } catch (e) {
         throw new Error(
-          t("reviews.apiUnavailable", "Servizio temporaneamente non disponibile. Riprova tra poco.")
+          t("reviews.apiUnavailable", "Servizio temporaneamente non disponibile. Riprova tra poco."),
         );
       }
     });

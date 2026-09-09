@@ -307,7 +307,7 @@
       "#vc-page-content .vc-wiki-cmd-shell",
       "#vc-page-content .vc-faq-group",
       "#vc-page-content .vc-reviews-formcard",
-      "#vc-page-content .vc-reviews-card",
+      "#vc-page-content .vc-reviews-card:not(.vc-reviews-stage__card)",
       "#vc-page-content .vc-perks-card",
       "#vc-page-content .vc-legal-card",
       "#vc-page-content .vc-sponsor-embed",
@@ -1957,7 +1957,7 @@
       }
       if ((el.offsetHeight || 0) > 0 && (el.offsetHeight || 0) < 48) continue;
       var innerCards = el.querySelectorAll(
-        ":scope > .vc-faq-group, :scope > .vc-faq-item, :scope > .vc-regole-card, :scope > .vc-role-card, :scope > .vc-reviews-card, :scope > .vc-reviews-formcard, :scope > .vc-page-cine-card, :scope > .vc-perks-card, :scope > .vc-legal-card, :scope > .vc-staff-block, :scope > section, :scope > article"
+        ":scope > .vc-faq-group, :scope > .vc-faq-item, :scope > .vc-regole-card, :scope > .vc-role-card, :scope > .vc-reviews-card:not(.vc-reviews-stage__card), :scope > .vc-reviews-formcard, :scope > .vc-page-cine-card, :scope > .vc-perks-card, :scope > .vc-legal-card, :scope > .vc-staff-block, :scope > section, :scope > article"
       );
       if (innerCards.length >= 2) {
         for (var j = 0; j < innerCards.length && list.length < 24; j++) {

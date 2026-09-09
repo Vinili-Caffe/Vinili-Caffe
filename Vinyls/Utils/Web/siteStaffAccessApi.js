@@ -299,6 +299,7 @@ async function handleSiteStaffAccessGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
     if (!accessToken) {
+      res.setHeader("Cache-Control", "private, no-store");
       return res.status(401).json({
         ok: false,
         error: "missing_token",

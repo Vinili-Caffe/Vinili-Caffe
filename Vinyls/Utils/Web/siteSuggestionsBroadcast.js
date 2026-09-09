@@ -107,6 +107,16 @@ function broadcastSiteReviewsChanged() {
   notifyExternalSiteRealtime(payload);
 }
 
+function broadcastSiteConfessionaleChanged(action = "") {
+  const payload = {
+    type: "confessionale_changed",
+    action: String(action || "").trim().toLowerCase() || "changed",
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
 function broadcastSiteStaffPausesChanged() {
   const payload = { type: "staff_pauses_changed", at: new Date().toISOString() };
   try {
@@ -142,6 +152,7 @@ module.exports = {
   broadcastSiteSuggestionsChanged,
   broadcastSiteNotificationsChanged,
   broadcastSiteReviewsChanged,
+  broadcastSiteConfessionaleChanged,
   broadcastSiteStaffPausesChanged,
   broadcastSiteStaffWorkflowChanged,
   broadcastSiteWebTicketsEvent,

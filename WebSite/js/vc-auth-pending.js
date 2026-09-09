@@ -141,12 +141,14 @@
   }
 
   function pendingShellHtml() {
+    var coffee = avatarUrl(null);
     return (
       '<div class="discord-login-row vc-auth-pending-shell" aria-busy="true" title="Verifica sessione…">' +
       '<span class="discord-avatar-clip">' +
-      '<span class="discord-avatar-img discord-avatar-img--fallback" aria-hidden="true">' +
-      '<span class="vc-ui-spinner" aria-hidden="true"></span>' +
-      "</span></span></div>"
+      '<img class="discord-avatar-img vc-avatar vc-avatar--ready vc-avatar-fallback-img" data-vc-avatar="1" data-vc-avatar-fallback="1" src="' +
+      escAttr(coffee) +
+      '" alt="" width="38" height="38" decoding="async" aria-hidden="true" />' +
+      "</span></div>"
     );
   }
 
@@ -174,19 +176,30 @@
     } catch (eServerAv) {}
     if (!img) img = avatarUrl(user);
     var label = escAttr(name);
-    var guildImg = /\/guilds\/\d+\/users\//i.test(img);
-    var avatarVisual = img
-      ? '<img class="discord-avatar-img" data-vc-avatar="1"' +
-        (guildImg ? ' data-vc-guild-avatar="1"' : "") +
-        (!guildImg && user && user.avatar ? ' data-avatar-hash="' + escAttr(String(user.avatar)) + '"' : "") +
-        ' src="' +
-        escAttr(img) +
+    var avatarVisual = "";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.imgHtml === "function") {
+        avatarVisual = window.VcDiscordAvatar.imgHtml({
+          url: img,
+          userId: user && user.id,
+          avatarHash: user && user.avatar,
+          size: 38,
+          className: "discord-avatar-img vc-avatar",
+          loading: "eager",
+          fetchPriority: "high",
+          alt: "",
+        }).replace(' alt=""', ' alt="" aria-label="' + label + '"');
+      }
+    } catch (eHub) {}
+    if (!avatarVisual) {
+      var coffee = avatarUrl(null);
+      avatarVisual =
+        '<img class="discord-avatar-img vc-avatar vc-avatar--ready vc-avatar-fallback-img" data-vc-avatar="1" data-vc-avatar-fallback="1" src="' +
+        escAttr(coffee) +
         '" alt="" width="38" height="38" decoding="async" aria-label="' +
         label +
-        '">'
-      : '<span class="discord-avatar-img discord-avatar-img--fallback" aria-label="' +
-        label +
-        '"><i class="fa fa-user" aria-hidden="true"></i></span>';
+        '" />';
+    }
     return (
       '<div class="discord-login-row discord-login-row--profile vc-auth-early-shell" aria-busy="true">' +
       '<div class="discord-account-menu">' +

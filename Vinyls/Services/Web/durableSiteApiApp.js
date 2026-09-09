@@ -352,7 +352,7 @@ async function main() {
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, Access-Control-Request-Private-Network",
+      "Content-Type, Authorization, Accept, Cache-Control, Pragma, Access-Control-Request-Private-Network",
     );
     if (allowOrigin) res.setHeader("Access-Control-Allow-Private-Network", "true");
     if (req.method === "OPTIONS") {

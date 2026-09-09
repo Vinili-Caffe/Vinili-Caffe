@@ -97,8 +97,143 @@
   /** Site-themed silhouette (coffee gradient) — unique fallback for missing/broken avatars. */
   function siteFallbackAvatarUrl() {
     var svg =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="vcCoffeeAv" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#vcCoffeeAv)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
     return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function isCoffeeFallbackUrl(url) {
+    var u = String(url || "").trim();
+    return !u || /^data:image\/svg\+xml/i.test(u);
+  }
+
+  function sanitizeCdnAvatarUrl(url) {
+    var src = String(url || "").trim();
+    if (!src || isDiscordEmbedDefaultUrl(src) || isCoffeeFallbackUrl(src)) return "";
+    if (!/^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\//i.test(src)) return "";
+    return src;
+  }
+
+  /**
+   * avatarSilhouette1: paint coffee silhouette first; hydrate CDN only after preload OK.
+   * Avoids empty pending flash and Discord embed default flash.
+   */
+  function hydrateCdnFromAttr(img) {
+    if (!img || img.tagName !== "IMG") return false;
+    var cdn = sanitizeCdnAvatarUrl(img.getAttribute("data-vc-avatar-cdn-url"));
+    if (!cdn) {
+      try {
+        img.removeAttribute("data-vc-avatar-cdn-url");
+      } catch (eRm) {}
+      return false;
+    }
+    /* avatarReal1: metti subito il CDN come src (silhouette CSS sotto se pending). */
+    try {
+      img.removeAttribute("srcset");
+      img.src = cdn;
+      img.setAttribute("src", cdn);
+      img.removeAttribute("data-vc-avatar-cdn-url");
+      img.removeAttribute("data-vc-avatar-fallback");
+      img.classList.add("vc-avatar", "vc-avatar--pending");
+      img.classList.remove("vc-avatar-fallback-img", "vc-avatar--ready");
+      delete img.dataset.vcAvatarFallbackFinal;
+      delete img.dataset.vcAvatarHydrating;
+    } catch (eSet) {}
+    return true;
+  }
+
+  function paintSilhouette(img, keepCdnAttr) {
+    if (!img || img.tagName !== "IMG") return;
+    var coffee = siteFallbackAvatarUrl();
+    var cur = String(img.getAttribute("src") || "").trim();
+    if (!keepCdnAttr) {
+      try {
+        img.removeAttribute("data-vc-avatar-cdn-url");
+      } catch (eK) {}
+    }
+    if (cur !== coffee) {
+      img.removeAttribute("srcset");
+      img.src = coffee;
+      img.setAttribute("src", coffee);
+    }
+    try {
+      img.classList.add("vc-avatar", "vc-avatar--ready", "vc-avatar-fallback-img");
+      img.classList.remove("vc-avatar--pending");
+      img.setAttribute("data-vc-avatar", "1");
+      img.setAttribute("data-vc-avatar-fallback", "1");
+      img.dataset.vcAvatarOk = "1";
+      if (keepCdnAttr) {
+        try {
+          delete img.dataset.vcAvatarFallbackFinal;
+        } catch (eF) {}
+      } else {
+        img.dataset.vcAvatarFallbackFinal = "1";
+      }
+    } catch (eP) {}
+  }
+
+  /** Normalize avatar img: empty/embed → silhouette; legacy cdn-url → hydrate; never replace a good CDN. */
+  function ensureSilhouetteFirst(img) {
+    if (!isAvatarImage(img)) return false;
+    try {
+      if (img.classList && img.classList.contains("vc-header-logo-img")) return false;
+    } catch (eL) {}
+    var cur = String(img.getAttribute("src") || "").trim();
+    var existingCdn = sanitizeCdnAvatarUrl(img.getAttribute("data-vc-avatar-cdn-url"));
+    /* Already showing a real Discord avatar — leave it. */
+    if (sanitizeCdnAvatarUrl(cur) && img.naturalWidth > 0) {
+      try {
+        img.classList.add("vc-avatar", "vc-avatar--ready");
+        img.classList.remove("vc-avatar--pending", "vc-avatar-fallback-img");
+        img.dataset.vcAvatarOk = "1";
+        img.removeAttribute("data-vc-avatar-fallback");
+      } catch (eOk) {}
+      return false;
+    }
+    if (sanitizeCdnAvatarUrl(cur) && !img.classList.contains("vc-avatar--pending")) {
+      /* CDN in src, still loading — keep CDN, don't demote to coffee. */
+      try {
+        img.classList.add("vc-avatar", "vc-avatar--pending");
+      } catch (eP) {}
+      return false;
+    }
+    if (isDiscordEmbedDefaultUrl(cur) || !cur) {
+      if (existingCdn) {
+        img.removeAttribute("srcset");
+        img.src = existingCdn;
+        img.setAttribute("src", existingCdn);
+        img.classList.add("vc-avatar", "vc-avatar--pending");
+        img.classList.remove("vc-avatar-fallback-img");
+        img.removeAttribute("data-vc-avatar-fallback");
+        return true;
+      }
+      paintSilhouette(img, false);
+      return true;
+    }
+    if (existingCdn && (isCoffeeFallbackUrl(cur) || img.getAttribute("data-vc-avatar-fallback") === "1")) {
+      /* Legacy markup: coffee + cdn-url → swap to CDN src. */
+      img.removeAttribute("srcset");
+      img.src = existingCdn;
+      img.setAttribute("src", existingCdn);
+      img.classList.add("vc-avatar", "vc-avatar--pending");
+      img.classList.remove("vc-avatar-fallback-img", "vc-avatar--ready");
+      img.removeAttribute("data-vc-avatar-fallback");
+      img.removeAttribute("data-vc-avatar-cdn-url");
+      return true;
+    }
+    return false;
+  }
+
+  function hydrateAllCdnAttrs(root) {
+    var base = root && root.querySelectorAll ? root : document;
+    var imgs = base.querySelectorAll("img[data-vc-avatar-cdn-url]");
+    for (var i = 0; i < imgs.length; i += 1) {
+      try {
+        ensureSilhouetteFirst(imgs[i]);
+      } catch (e1) {}
+      try {
+        hydrateCdnFromAttr(imgs[i]);
+      } catch (e2) {}
+    }
   }
 
   function buildFromUser(user, size) {
@@ -116,9 +251,8 @@
   }
 
   /**
-   * Central img markup for users/bots (site-wide).
-   * Always emits a valid Discord CDN src (never empty) + circle class + anti-flash pending.
-   * opts: { url, userId, avatarHash, guildId, memberAvatar, size, className, loading, fetchPriority, staticAvatar, alt }
+   * avatarReal1: se c'è CDN → src CDN (pending + bg silhouette CSS anti-flash).
+   * Silhouette solo se manca l'avatar. Hydrate resta per markup legacy con data-vc-avatar-cdn-url.
    */
   function imgHtml(opts) {
     var a = opts && typeof opts === "object" ? opts : {};
@@ -126,7 +260,6 @@
     var size = Math.max(16, Number(a.size || a.width || a.height || 40) || 40);
     var cls = String(a.className || a.class || "vc-avatar").trim() || "vc-avatar";
     if (!/\bvc-avatar\b/.test(cls)) cls += " vc-avatar";
-    if (!/\bvc-avatar--pending\b/.test(cls)) cls += " vc-avatar--pending";
     var loading = a.loading != null ? String(a.loading) : "lazy";
     var fetchPriority = a.fetchPriority ? String(a.fetchPriority) : "";
     var alt = a.alt != null ? String(a.alt) : "";
@@ -142,25 +275,40 @@
       },
       size,
     );
-    if (!src || isDiscordEmbedDefaultUrl(src)) src = siteFallbackAvatarUrl();
-    var isGuild = isGuildMemberAvatarPath(src);
-    var hashHint = String(a.avatarHash || a.avatar || a.hash || "").trim();
-    if (!hashHint && !isGuild) {
+    var cdn = sanitizeCdnAvatarUrl(src);
+    if (cdn) {
+      var isGuild = isGuildMemberAvatarPath(cdn);
+      var hashHint = String(a.avatarHash || a.avatar || a.hash || "").trim();
+      if (!hashHint && !isGuild) {
+        try {
+          var m = cdn.match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)/i);
+          if (m) hashHint = String(m[1] || "").trim();
+        } catch (eHash) {}
+      }
       try {
-        var m = src.match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)/i);
-        if (m) hashHint = String(m[1] || "").trim();
-      } catch (eHash) {}
+        if (a.staticAvatar) cdn = preferStaticUrl(cdn, size) || cdn;
+        else cdn = resolveUrl(cdn, size, isGuild ? "" : hashHint, uid) || cdn;
+      } catch (eRes) {}
+      cdn = sanitizeCdnAvatarUrl(cdn);
     }
-    var preferStatic = Boolean(a.staticAvatar);
-    try {
-      if (preferStatic) src = preferStaticUrl(src, size) || src;
-      else src = resolveUrl(src, size, isGuild ? "" : hashHint, uid) || src;
-    } catch (eRes) {}
+    var coffee = siteFallbackAvatarUrl();
+    var outSrc = cdn || coffee;
+    var isGuildOut = cdn ? isGuildMemberAvatarPath(cdn) : false;
+    var hashOut = String(a.avatarHash || a.avatar || a.hash || "").trim();
+    if (!hashOut && cdn && !isGuildOut) {
+      try {
+        var m2 = cdn.match(/\/avatars\/\d+\/((?:a_)?[a-f0-9]+)/i);
+        if (m2) hashOut = String(m2[1] || "").trim();
+      } catch (eH2) {}
+    }
+    cls = cls.replace(/\bvc-avatar--pending\b/g, " ").replace(/\bvc-avatar--ready\b/g, " ").replace(/\bvc-avatar-fallback-img\b/g, " ").replace(/\s+/g, " ").trim();
+    if (cdn) cls += " vc-avatar--pending";
+    else cls += " vc-avatar--ready vc-avatar-fallback-img";
     return (
       '<img class="' +
       escAttr(cls) +
       '" src="' +
-      escAttr(src) +
+      escAttr(outSrc) +
       '" alt="' +
       escAttr(alt) +
       '" width="' +
@@ -170,11 +318,12 @@
       '" loading="' +
       escAttr(loading) +
       '" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1"' +
+      (cdn ? "" : ' data-vc-avatar-fallback="1"') +
       (fetchPriority ? ' fetchpriority="' + escAttr(fetchPriority) + '"' : "") +
       (uid ? ' data-user-id="' + escAttr(uid) + '"' : "") +
-      (!isGuild && hashHint ? ' data-avatar-hash="' + escAttr(hashHint) + '"' : "") +
-      (isGuild ? ' data-vc-guild-avatar="1"' : "") +
-      (preferStatic ? ' data-vc-avatar-static="1"' : "") +
+      (!isGuildOut && hashOut ? ' data-avatar-hash="' + escAttr(hashOut) + '"' : "") +
+      (isGuildOut ? ' data-vc-guild-avatar="1"' : "") +
+      (a.staticAvatar ? ' data-vc-avatar-static="1"' : "") +
       " />"
     );
   }
@@ -531,8 +680,17 @@
     var imgs = base.querySelectorAll ? base.querySelectorAll("img") : [];
     var n = 0;
     for (var i = 0; i < imgs.length; i += 1) {
+      try {
+        ensureSilhouetteFirst(imgs[i]);
+      } catch (eSil) {}
       if (applyToImage(imgs[i])) n += 1;
+      try {
+        hydrateCdnFromAttr(imgs[i]);
+      } catch (eHyd) {}
     }
+    try {
+      hydrateAllCdnAttrs(base);
+    } catch (eAll) {}
     return n;
   }
 
@@ -558,6 +716,10 @@
     applyToImage: applyToImage,
     restartAnimation: restartAnimation,
     scan: scan,
+    hydrateCdnFromAttr: hydrateCdnFromAttr,
+    hydrateAllCdnAttrs: hydrateAllCdnAttrs,
+    ensureSilhouetteFirst: ensureSilhouetteFirst,
+    paintSilhouette: paintSilhouette,
   };
 
   window.VcDiscordAvatar = api;
@@ -571,30 +733,28 @@
     scan(document);
     if (typeof MutationObserver !== "function") return;
     var timer = 0;
-    var obs = new MutationObserver(function (mutations) {
+    var dirty = false;
+    function flush() {
+      timer = 0;
+      if (!dirty) return;
+      dirty = false;
+      try {
+        scan(document);
+      } catch (eSc) {}
+      try {
+        hydrateAllCdnAttrs(document);
+      } catch (eHy) {}
+    }
+    var obs = new MutationObserver(function () {
+      dirty = true;
       if (timer) return;
-      timer = window.setTimeout(function () {
-        timer = 0;
-        for (var i = 0; i < mutations.length; i += 1) {
-          var m = mutations[i];
-          if (m.type === "attributes" && m.target && m.target.tagName === "IMG") {
-            applyToImage(m.target, { force: true });
-            continue;
-          }
-          for (var j = 0; j < (m.addedNodes || []).length; j += 1) {
-            var node = m.addedNodes[j];
-            if (!node || node.nodeType !== 1) continue;
-            if (node.tagName === "IMG") applyToImage(node);
-            else scan(node);
-          }
-        }
-      }, 48);
+      timer = window.setTimeout(flush, 40);
     });
     obs.observe(document.documentElement, {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ["src"],
+      attributeFilter: ["src", "class", "data-vc-avatar-cdn-url", "data-vc-avatar"],
     });
   }
 

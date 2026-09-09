@@ -10,6 +10,7 @@ const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore
 const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { resolveSubmissionChannel } = require("./candidatureApplicationHandlers");
 const { TENANT_EMBED_COLOR } = require("../../MultiGuild/utils/tenantEmbedBranding");
+const { fetchDiscordOAuthMe } = require("../../Utils/Web/discordOauthMe");
 const UNBAN_VISIONE_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
 const UNBAN_PENDING_COLOR = TENANT_EMBED_COLOR;
 const UNBAN_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
@@ -80,18 +81,16 @@ async function resolveWebsiteUser(client, accessToken) {
   const token = String(accessToken || "").trim();
   if (!token) return { ok: false, status: 401, error: "missing_token", message: "Token mancante." };
 
-  let meJson;
-  try {
-    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!meRes.ok) {
-      return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
-    }
-    meJson = await meRes.json();
-  } catch {
-    return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord." };
+  const meOut = await fetchDiscordOAuthMe(token, { timeoutMs: 8000 });
+  if (!meOut.ok) {
+    return {
+      ok: false,
+      status: Number(meOut.status) || 502,
+      error: meOut.error || "discord_unreachable",
+      message: meOut.message || "Impossibile contattare Discord.",
+    };
   }
+  const meJson = meOut.me;
 
   const userId = String(meJson?.id || "").trim();
   if (!/^\d{17,20}$/.test(userId)) {

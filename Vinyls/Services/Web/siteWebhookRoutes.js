@@ -17,6 +17,34 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const captureSitePaymentOrder = deps.captureSitePaymentOrder;
   const handleSitePayPalWebhook = deps.handleSitePayPalWebhook;
 
+  /* staffApiPhoneNoStore1: Safari/mobile 304+ETag su /webhooks/site-staff* spezza JSON */
+  app.use("/webhooks/site-staff", function staffApiNoStore(req, res, next) {
+    res.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    try {
+      res.removeHeader("ETag");
+    } catch (e0) {}
+    const prevJson = res.json.bind(res);
+    res.json = function staffNoStoreJson(body) {
+      try {
+        res.removeHeader("ETag");
+        res.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
+      } catch (e1) {}
+      return prevJson(body);
+    };
+    return next();
+  });
+  app.use("/webhooks/site-notifications", function notifApiNoStore(req, res, next) {
+    res.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    try {
+      res.removeHeader("ETag");
+    } catch (e0) {}
+    return next();
+  });
+
   if (isCandidatureWebsiteApiEnabled()) {
     app.use(siteCandidatureCorsMiddleware);
     const { submitCandidatureWebsite, getCandidatureEligibilitySummary } = require("../../Events/interaction/candidatureApplicationHandlers");
@@ -184,6 +212,7 @@ function mountSiteWebhookRoutes(app, client, deps) {
   const {
     handleSiteConfessionaleGet,
     handleSiteConfessionalePost,
+    handleSiteConfessionaleCommentPost,
     handleSiteConfessionaleDeletePost,
   } = require("../../Utils/Web/siteConfessionaleApi");
   const { handleSiteStaffPauseGet, handleSiteStaffPausePost } = require("../../Utils/Web/siteStaffPauseApi");
@@ -304,6 +333,9 @@ function mountSiteWebhookRoutes(app, client, deps) {
   app.get("/webhooks/site-staff-access", (req, res) => handleSiteStaffAccessGet(client, req, res));
   app.get("/webhooks/site-confessionale", (req, res) => handleSiteConfessionaleGet(client, req, res));
   app.post("/webhooks/site-confessionale", (req, res) => handleSiteConfessionalePost(client, req, res));
+  app.post("/webhooks/site-confessionale/:id/comments", (req, res) =>
+    handleSiteConfessionaleCommentPost(client, req, res),
+  );
   app.post("/webhooks/site-confessionale/:id/delete", (req, res) =>
     handleSiteConfessionaleDeletePost(client, req, res),
   );

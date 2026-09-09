@@ -4028,7 +4028,7 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   transform: rotate(45deg) translateY(-1px);
   transform-origin: 60% 60%;
   opacity: 0.72;
-  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.16s ease;
 }
 .vc-stat-cell--staff-open .vc-stat-staff-chev,
 .vc-stat-cell--boost-open .vc-stat-staff-chev,
@@ -4046,15 +4046,15 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   visibility: hidden;
   pointer-events: none;
   transition:
-    grid-template-rows 0.52s cubic-bezier(0.22, 1, 0.36, 1),
-    visibility 0s linear 0.5s;
+    grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 0.26s;
 }
 #stats.is-roster-open .vc-home-staff-roster {
   grid-template-rows: 1fr;
   visibility: visible;
   pointer-events: auto;
   transition:
-    grid-template-rows 0.52s cubic-bezier(0.22, 1, 0.36, 1),
+    grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1),
     visibility 0s linear 0s;
 }
 .vc-home-staff-roster__clip {
@@ -4066,17 +4066,15 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   margin-top: 1.2rem;
   border-top: 1px solid rgba(var(--vc-sand-rgb), 0.18);
   opacity: 0;
-  transform: translateY(-14px);
-  filter: blur(6px);
+  transform: translateY(-6px);
+  /* liveStatsSnap1: no filter:blur — was tanking tab switches with 20+ avatars */
   transition:
-    opacity 0.38s ease 0.06s,
-    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.04s,
-    filter 0.42s ease 0.04s;
+    opacity 0.16s ease,
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 #stats.is-roster-open .vc-home-staff-roster__inner {
   opacity: 1;
   transform: translateY(0);
-  filter: blur(0);
 }
 .vc-home-staff-roster__head {
   display: flex;
@@ -4121,17 +4119,18 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
     linear-gradient(165deg, rgba(40, 27, 20, 0.55), rgba(16, 11, 8, 0.32));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
+/* liveStatsCascade1: snappier open + cascade groups → people */
 #stats.is-roster-open .vc-home-staff-roster__group {
-  animation: vcHomeStaffGroupIn 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: vcHomeStaffGroupIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-#stats.is-roster-open .vc-home-staff-roster__group:nth-child(1) { animation-delay: 0.06s; }
-#stats.is-roster-open .vc-home-staff-roster__group:nth-child(2) { animation-delay: 0.11s; }
-#stats.is-roster-open .vc-home-staff-roster__group:nth-child(3) { animation-delay: 0.16s; }
-#stats.is-roster-open .vc-home-staff-roster__group:nth-child(4) { animation-delay: 0.21s; }
-#stats.is-roster-open .vc-home-staff-roster__group:nth-child(5) { animation-delay: 0.26s; }
-#stats.is-roster-open .vc-home-staff-roster__group:nth-child(6) { animation-delay: 0.31s; }
-#stats.is-roster-open .vc-home-staff-roster__group:nth-child(7) { animation-delay: 0.36s; }
-#stats.is-roster-open .vc-home-staff-roster__group:nth-child(8) { animation-delay: 0.41s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(1) { animation-delay: 0.02s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(2) { animation-delay: 0.05s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(3) { animation-delay: 0.08s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(4) { animation-delay: 0.11s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(5) { animation-delay: 0.14s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(6) { animation-delay: 0.17s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(7) { animation-delay: 0.2s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(8) { animation-delay: 0.23s; }
 @keyframes vcHomeStaffGroupIn {
   from {
     opacity: 0;
@@ -4141,6 +4140,53 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
     opacity: 1;
     transform: translateY(0);
   }
+}
+@keyframes vcHomeStaffPersonIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+#stats.is-roster-open .vc-home-staff-roster__list > li {
+  animation: vcHomeStaffPersonIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(1) .vc-home-staff-roster__list > li:nth-child(1) { animation-delay: 0.04s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(1) .vc-home-staff-roster__list > li:nth-child(2) { animation-delay: 0.07s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(1) .vc-home-staff-roster__list > li:nth-child(3) { animation-delay: 0.1s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(1) .vc-home-staff-roster__list > li:nth-child(4) { animation-delay: 0.13s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(1) .vc-home-staff-roster__list > li:nth-child(5) { animation-delay: 0.16s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(1) .vc-home-staff-roster__list > li:nth-child(n+6) { animation-delay: 0.19s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(2) .vc-home-staff-roster__list > li:nth-child(1) { animation-delay: 0.07s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(2) .vc-home-staff-roster__list > li:nth-child(2) { animation-delay: 0.1s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(2) .vc-home-staff-roster__list > li:nth-child(3) { animation-delay: 0.13s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(2) .vc-home-staff-roster__list > li:nth-child(4) { animation-delay: 0.16s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(2) .vc-home-staff-roster__list > li:nth-child(n+5) { animation-delay: 0.19s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(3) .vc-home-staff-roster__list > li:nth-child(1) { animation-delay: 0.1s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(3) .vc-home-staff-roster__list > li:nth-child(2) { animation-delay: 0.13s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(3) .vc-home-staff-roster__list > li:nth-child(3) { animation-delay: 0.16s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(3) .vc-home-staff-roster__list > li:nth-child(n+4) { animation-delay: 0.19s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(n+4) .vc-home-staff-roster__list > li:nth-child(1) { animation-delay: 0.13s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(n+4) .vc-home-staff-roster__list > li:nth-child(2) { animation-delay: 0.16s; }
+#stats.is-roster-open .vc-home-staff-roster__group:nth-child(n+4) .vc-home-staff-roster__list > li:nth-child(n+3) { animation-delay: 0.19s; }
+@media (prefers-reduced-motion: reduce) {
+  #stats.is-roster-open .vc-home-staff-roster__group,
+  #stats.is-roster-open .vc-home-staff-roster__list > li {
+    animation: none !important;
+  }
+}
+/* liveStatsSnap1: cambio tab = swap istantaneo, niente cascade su ogni persona */
+#stats.is-roster-swap .vc-home-staff-roster__inner,
+#stats.is-roster-swap .vc-home-staff-roster__group,
+#stats.is-roster-swap .vc-home-staff-roster__list > li {
+  animation: none !important;
+  transition: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
 }
 .vc-home-staff-roster__group-title {
   margin: 0 0 0.65rem;
@@ -4271,7 +4317,7 @@ a.vc-home-staff-roster__person:focus-visible {
   max-width: none;
   overflow: visible;
   will-change: transform;
-  animation: none;
+  animation: vc-roster-name-marquee var(--vc-marquee-duration, 12s) linear infinite;
   pointer-events: none;
 }
 .vc-marquee.is-marquee .vc-marquee__text {
@@ -4288,8 +4334,12 @@ a.vc-home-staff-roster__person:focus-visible {
 }
 @media (prefers-reduced-motion: reduce) {
   .vc-marquee.is-marquee {
-    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 86%, transparent 100%);
-    mask-image: linear-gradient(90deg, #000 0%, #000 86%, transparent 100%);
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .vc-marquee.is-marquee .vc-marquee__track {
+    animation: none !important;
+    transform: none !important;
   }
 }
 .vc-home-staff-roster__person .vc-staff-member-chip__badges {
@@ -4320,7 +4370,7 @@ a.vc-home-staff-roster__person:focus-visible {
   color: rgba(255, 247, 236, 0.96);
   border: 1px solid rgba(245, 214, 183, 0.38);
   background: linear-gradient(135deg, rgba(180, 83, 9, 0.38), rgba(217, 119, 6, 0.22));
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.16);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.1);
 }
 @media (max-width: 639.98px) {
   .vc-home-staff-roster__head {
@@ -5308,7 +5358,7 @@ body.vc-body > footer p {
 }
 .vc-social-preview {
   position: fixed;
-  z-index: 120;
+  z-index: 260;
   width: min(22rem, calc(100vw - 1.5rem));
   pointer-events: none;
   opacity: 0;

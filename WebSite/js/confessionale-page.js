@@ -1,13 +1,17 @@
 (function () {
-  var VER = "20260909confessionale8";
+  var VER = "20260909confessionaleRealtime1";
   var MAX = 1500;
   /* Intro a ogni visita (niente skip session). Solo ?skipIntro=1 salta. */
-  var CURTAIN_OPEN_MS = 3500;
+  var CURTAIN_OPEN_MS = 2000;
   /* Anti ghost-click: smoke dismissibile solo dopo questo delay. Mai auto-close. */
-  var SMOKE_ARM_MS = 750;
+  var SMOKE_ARM_MS = 650;
   var apiCfg = window.__VC_CONFESSIONALE || {};
   var canModerate = false;
   var loadedOnce = false;
+  var listFingerprint = "";
+  var confWs = null;
+  var confWsReconnectTimer = null;
+  var livePollTimer = null;
   var curtainDone = false;
   var smokeArmed = false;
   var smokeArmTimer = null;
@@ -47,10 +51,161 @@
     } catch (e) {}
   }
 
-  function setFeedback(el, text, isError) {
-    if (!el) return;
-    el.textContent = text || "";
-    el.classList.toggle("is-error", Boolean(isError));
+  function clearInlineFeedback() {
+    var fb = byId("vc-conf-feedback");
+    if (!fb) return;
+    fb.textContent = "";
+    fb.classList.remove("is-error");
+    fb.hidden = true;
+  }
+
+  function isReadTabActive() {
+    var readPanel = byId("vc-conf-panel-read");
+    return Boolean(readPanel && !readPanel.hidden);
+  }
+
+  function isTypingInCommentField() {
+    var a = document.activeElement;
+    if (!a || !a.id) return false;
+    return String(a.id).indexOf("vc-conf-c-") === 0 || String(a.id) === "vc-conf-text";
+  }
+
+  function captureCommentDrafts() {
+    var map = {};
+    var root = byId("vc-conf-list");
+    if (!root) return map;
+    var nodes = root.querySelectorAll("textarea[id^='vc-conf-c-']");
+    for (var i = 0; i < nodes.length; i += 1) {
+      var el = nodes[i];
+      var id = String(el.id || "");
+      var val = String(el.value || "");
+      if (id && val) map[id] = val;
+    }
+    return map;
+  }
+
+  function restoreCommentDrafts(map) {
+    if (!map) return;
+    for (var id in map) {
+      if (!Object.prototype.hasOwnProperty.call(map, id)) continue;
+      var el = byId(id);
+      if (el) el.value = map[id];
+    }
+  }
+
+  function itemsFingerprint(items) {
+    try {
+      return JSON.stringify(
+        (Array.isArray(items) ? items : []).map(function (it) {
+          return {
+            id: it && it.id,
+            comments: it && it.commentCount,
+            body: it && it.content,
+            mine: it && it.isMine,
+          };
+        }),
+      );
+    } catch (e) {
+      return String(Date.now());
+    }
+  }
+
+  function realtimeWsUrl() {
+    var explicit = String(apiCfg.wsUrl || "").trim();
+    if (explicit && !/\{\{/.test(explicit)) return explicit;
+    var api = apiUrl();
+    if (!api || typeof URL === "undefined") return "";
+    try {
+      var u = new URL(api, window.location.origin);
+      u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+      var path = String(u.pathname || "").replace(/\/$/, "");
+      var dir = path.replace(/\/[^/]+$/, "");
+      u.pathname = (dir || "") + "/site-realtime-ws";
+      u.search = "";
+      u.hash = "";
+      return u.href;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function stopLivePoll() {
+    if (!livePollTimer) return;
+    clearInterval(livePollTimer);
+    livePollTimer = null;
+  }
+
+  function startLivePoll() {
+    stopLivePoll();
+    if (confWs && confWs.readyState === 1) return;
+    livePollTimer = setInterval(function () {
+      if (document.visibilityState === "hidden") return;
+      if (!isReadTabActive()) return;
+      void refreshListQuiet();
+    }, 20000);
+  }
+
+  function disconnectConfWs() {
+    if (confWsReconnectTimer) {
+      clearTimeout(confWsReconnectTimer);
+      confWsReconnectTimer = null;
+    }
+    try {
+      if (confWs) {
+        confWs.onclose = null;
+        confWs.close();
+      }
+    } catch (e2) {}
+    confWs = null;
+  }
+
+  function scheduleConfWsReconnect() {
+    if (confWsReconnectTimer) return;
+    confWsReconnectTimer = setTimeout(function () {
+      confWsReconnectTimer = null;
+      connectConfWs();
+    }, 8000);
+  }
+
+  function connectConfWs() {
+    if (typeof WebSocket === "undefined") {
+      startLivePoll();
+      return;
+    }
+    var url = realtimeWsUrl();
+    if (!url) {
+      startLivePoll();
+      return;
+    }
+    disconnectConfWs();
+    try {
+      var ws = new WebSocket(url);
+      confWs = ws;
+      ws.onopen = function () {
+        stopLivePoll();
+      };
+      ws.onmessage = function (ev) {
+        try {
+          var data = JSON.parse(String(ev.data || "{}"));
+          if (data.type === "confessionale_changed" || data.type === "realtime_hello") {
+            void refreshListQuiet();
+          }
+        } catch (e3) {}
+      };
+      ws.onclose = function () {
+        confWs = null;
+        startLivePoll();
+        scheduleConfWsReconnect();
+      };
+      ws.onerror = function () {
+        try {
+          ws.close();
+        } catch (e4) {}
+      };
+    } catch (e5) {
+      confWs = null;
+      startLivePoll();
+    }
   }
 
   function escapeHtml(s) {
@@ -77,7 +232,8 @@
     }
   }
 
-  function fetchJson(method, path, body) {
+  function fetchJson(method, path, body, attempt) {
+    var tryN = Number(attempt) || 0;
     var t = token();
     var opts = {
       method: method || "GET",
@@ -87,21 +243,64 @@
       },
       mode: "cors",
       credentials: "omit",
+      cache: "no-store",
     };
     if (body != null) {
       opts.headers["Content-Type"] = "application/json";
       opts.body = JSON.stringify(body);
     }
-    return fetch(path, opts).then(function (res) {
-      return res
-        .json()
-        .catch(function () {
-          return {};
-        })
-        .then(function (data) {
-          return { res: res, data: data || {} };
-        });
-    });
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = null;
+    if (ctrl) {
+      opts.signal = ctrl.signal;
+      timer = setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (eA) {}
+      }, 20000);
+    }
+    return fetch(path, opts)
+      .then(function (res) {
+        return res
+          .text()
+          .then(function (raw) {
+            var data = {};
+            try {
+              data = raw && String(raw).trim() ? JSON.parse(raw) : {};
+            } catch (eJ) {
+              data = {};
+            }
+            var empty = !String(raw || "").trim();
+            var shouldRetry =
+              tryN < 2 &&
+              (empty ||
+                res.status === 0 ||
+                res.status === 429 ||
+                res.status >= 500 ||
+                (res.ok && data && data.ok == null && !Object.keys(data).length));
+            if (shouldRetry) {
+              return new Promise(function (resolve) {
+                setTimeout(resolve, 400 + tryN * 450);
+              }).then(function () {
+                return fetchJson(method, path, body, tryN + 1);
+              });
+            }
+            return { res: res, data: data || {} };
+          });
+      })
+      .catch(function (err) {
+        if (tryN < 2) {
+          return new Promise(function (resolve) {
+            setTimeout(resolve, 450 + tryN * 500);
+          }).then(function () {
+            return fetchJson(method, path, body, tryN + 1);
+          });
+        }
+        throw err;
+      })
+      .finally(function () {
+        if (timer) clearTimeout(timer);
+      });
   }
 
   function switchTab(name) {
@@ -110,101 +309,250 @@
     var writePanel = byId("vc-conf-panel-write");
     var readPanel = byId("vc-conf-panel-read");
     var isRead = name === "read";
-    if (writeTab) writeTab.classList.toggle("is-active", !isRead);
-    if (readTab) readTab.classList.toggle("is-active", isRead);
-    if (writeTab) writeTab.setAttribute("aria-selected", String(!isRead));
-    if (readTab) readTab.setAttribute("aria-selected", String(isRead));
+    if (writeTab) {
+      writeTab.classList.toggle("is-active", !isRead);
+      writeTab.classList.toggle("vc-confessionale-tab--on", !isRead);
+      writeTab.setAttribute("aria-selected", String(!isRead));
+    }
+    if (readTab) {
+      readTab.classList.toggle("is-active", isRead);
+      readTab.classList.toggle("vc-confessionale-tab--on", isRead);
+      readTab.setAttribute("aria-selected", String(isRead));
+    }
     if (writePanel) writePanel.hidden = isRead;
     if (readPanel) readPanel.hidden = !isRead;
     if (isRead) loadList(false);
   }
 
-  function renderList(items) {
+  function cardHtml(it) {
+    var id = String(it.id || "");
+    var when = formatWhen(it.createdAt);
+    var comments = Array.isArray(it.comments) ? it.comments : [];
+    var html =
+      '<article class="vc-reviews-card vc-confessionale-card" id="vc-conf-card-' +
+      escapeHtml(id) +
+      '" data-id="' +
+      escapeHtml(id) +
+      '">' +
+      '<div class="vc-reviews-card__head">' +
+      '<span class="vc-reviews-card__avatar vc-confessionale-card__avatar" aria-hidden="true"><i class="fa fa-user-secret"></i></span>' +
+      '<div class="vc-reviews-card__meta">' +
+      '<p class="vc-reviews-card__author">Anonimo</p>' +
+      '<p class="vc-reviews-card__date">' +
+      escapeHtml(when || "ora sconosciuta") +
+      " · Confessione</p>" +
+      "</div></div>" +
+      '<p class="vc-reviews-card__body" style="white-space:pre-wrap">' +
+      escapeHtml(it.content || "") +
+      "</p>";
+
+    html += '<div class="vc-confessionale-discuss">';
+    html +=
+      '<p class="vc-confessionale-discuss__title"><i class="fa fa-comments-o" aria-hidden="true"></i> Discussione' +
+      (comments.length ? " · " + comments.length : "") +
+      "</p>";
+    if (comments.length) {
+      html += '<div class="vc-suggestions-comments vc-confessionale-comments">';
+      for (var c = 0; c < comments.length; c += 1) {
+        var cm = comments[c] || {};
+        html +=
+          '<div class="vc-suggestions-comment vc-confessionale-comment">' +
+          (cm.authorAvatarUrl
+            ? '<img class="vc-confessionale-comment__avatar" src="' +
+              escapeHtml(cm.authorAvatarUrl) +
+              '" alt="" width="28" height="28" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-vc-avatar="1" />'
+            : '<span class="vc-confessionale-comment__avatar" aria-hidden="true"></span>') +
+          '<div class="vc-confessionale-comment__body">' +
+          "<strong>" +
+          escapeHtml(cm.authorName || "Staff") +
+          "</strong>" +
+          (cm.createdAt
+            ? '<span class="vc-confessionale-comment__when">' + escapeHtml(formatWhen(cm.createdAt)) + "</span>"
+            : "") +
+          '<p style="white-space:pre-wrap;margin:.25rem 0 0">' +
+          escapeHtml(cm.content || "") +
+          "</p></div></div>";
+      }
+      html += "</div>";
+    } else {
+      html += '<p class="vc-confessionale-discuss__empty">Nessun commento ancora. Apri la discussione.</p>';
+    }
+
+    html +=
+      '<div class="vc-reviews-field vc-confessionale-comment-form">' +
+      '<label class="sr-only" for="vc-conf-c-' +
+      escapeHtml(id) +
+      '">Commento</label>' +
+      '<textarea id="vc-conf-c-' +
+      escapeHtml(id) +
+      '" class="vc-reviews-textarea vc-confessionale-comment-input" rows="2" maxlength="1200" placeholder="Scrivi un commento alla discussione&hellip;"></textarea>' +
+      '<button type="button" class="vc-reviews-submit vc-confessionale-comment-btn" data-conf-comment="' +
+      escapeHtml(id) +
+      '">Invia commento</button></div>';
+    html += "</div>";
+
+    if (canModerate && !it.isMine) {
+      html +=
+        '<div class="vc-confessionale-card__mod">' +
+        '<button type="button" class="vc-confessionale-item__del" data-conf-del="' +
+        escapeHtml(id) +
+        '">Archivia</button></div>';
+    }
+
+    html += "</article>";
+    return html;
+  }
+
+  function renderList(items, opts) {
     var root = byId("vc-conf-list");
     if (!root) return;
     var list = Array.isArray(items) ? items : [];
+    var drafts = opts && opts.preserveDrafts ? captureCommentDrafts() : {};
+    var activeId = "";
+    try {
+      if (document.activeElement && document.activeElement.id) {
+        activeId = String(document.activeElement.id || "");
+      }
+    } catch (eA) {}
     if (!list.length) {
-      root.innerHTML = '<p class="vc-confessionale-empty">Nessun messaggio per ora. Sii il primo a scrivere nel confessionale.</p>';
+      root.innerHTML =
+        '<div class="vc-reviews-empty"><p class="vc-reviews-empty__title">Nessun messaggio</p><p class="vc-reviews-empty__text">Sii il primo a scrivere nel confessionale.</p></div>';
+      listFingerprint = itemsFingerprint([]);
       return;
     }
     var html = "";
-    for (var i = 0; i < list.length; i += 1) {
-      var it = list[i] || {};
-      var id = String(it.id || "");
-      var when = formatWhen(it.createdAt);
-      html +=
-        '<article class="vc-confessionale-item" data-id="' +
-        escapeHtml(id) +
-        '">' +
-        '<div class="vc-confessionale-item__head">' +
-        '<span class="vc-confessionale-item__when">' +
-        escapeHtml(when || "Anonimo") +
-        "</span>" +
-        (canModerate
-          ? '<button type="button" class="vc-confessionale-item__del" data-conf-del="' +
-            escapeHtml(id) +
-            '">Archivia</button>'
-          : "") +
-        "</div>" +
-        '<p class="vc-confessionale-item__body">' +
-        escapeHtml(it.content || "") +
-        "</p>" +
-        "</article>";
-    }
+    for (var i = 0; i < list.length; i += 1) html += cardHtml(list[i] || {});
     root.innerHTML = html;
+    restoreCommentDrafts(drafts);
+    if (activeId) {
+      var focusEl = byId(activeId);
+      if (focusEl && typeof focusEl.focus === "function") {
+        try {
+          focusEl.focus({ preventScroll: true });
+        } catch (eF) {
+          try {
+            focusEl.focus();
+          } catch (eF2) {}
+        }
+      }
+    }
+    listFingerprint = itemsFingerprint(list);
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.scan === "function") {
+        window.VcDiscordAvatar.scan(root);
+      }
+    } catch (eScan) {}
+  }
+
+  function applyListPayload(data, opts) {
+    canModerate = Boolean(data && data.canModerate);
+    loadedOnce = true;
+    renderList((data && data.items) || [], opts || {});
   }
 
   function loadList(force) {
     if (loadedOnce && !force) return;
     var root = byId("vc-conf-list");
-    if (root) root.innerHTML = '<p class="vc-confessionale-empty">Caricamento…</p>';
+    if (root && !loadedOnce) {
+      root.innerHTML =
+        '<div class="vc-reviews-empty"><p class="vc-reviews-empty__title">Caricamento…</p></div>';
+    }
     fetchJson("GET", apiUrl())
       .then(function (out) {
         if (!out.res.ok || !out.data.ok) {
-          if (root) {
+          if (root && !loadedOnce) {
             root.innerHTML =
-              '<p class="vc-confessionale-empty">' +
+              '<div class="vc-reviews-empty"><p class="vc-reviews-empty__title">' +
               escapeHtml(out.data.message || "Impossibile caricare i messaggi.") +
-              "</p>";
+              "</p></div>";
           }
           return;
         }
-        canModerate = Boolean(out.data.canModerate);
-        loadedOnce = true;
-        renderList(out.data.items);
+        applyListPayload(out.data, { preserveDrafts: Boolean(loadedOnce) });
       })
       .catch(function () {
-        if (root) root.innerHTML = '<p class="vc-confessionale-empty">Errore di rete.</p>';
+        if (root && !loadedOnce) {
+          root.innerHTML =
+            '<div class="vc-reviews-empty"><p class="vc-reviews-empty__title">Errore di rete.</p></div>';
+        }
+      });
+  }
+
+  function refreshListQuiet(force) {
+    if (!force && !isReadTabActive()) return Promise.resolve();
+    if (!force && isTypingInCommentField()) return Promise.resolve();
+    return fetchJson("GET", apiUrl())
+      .then(function (out) {
+        if (!out.res.ok || !out.data.ok) return;
+        var nextFp = itemsFingerprint(out.data.items);
+        if (nextFp && nextFp === listFingerprint) {
+          canModerate = Boolean(out.data.canModerate);
+          loadedOnce = true;
+          return;
+        }
+        applyListPayload(out.data, { preserveDrafts: true });
+      })
+      .catch(function () {});
+  }
+
+  function submitComment(id) {
+    if (!id) return;
+    var ta = byId("vc-conf-c-" + id);
+    var content = ta ? String(ta.value || "").trim() : "";
+    if (content.length < 2) {
+      toast("Scrivi almeno 2 caratteri", "error");
+      return;
+    }
+    var path = apiUrl().replace(/\/+$/, "") + "/" + encodeURIComponent(id) + "/comments";
+    fetchJson("POST", path, { content: content })
+      .then(function (out) {
+        if (!out.res.ok || !out.data.ok) {
+          var st = out.res && out.res.status ? Number(out.res.status) : 0;
+          toast(
+            out.data.message ||
+              (st === 404
+                ? "Endpoint commenti non trovato (riprova dopo aggiornamento)."
+                : st
+                  ? "Commento non inviato (" + st + ")"
+                  : "Commento non inviato"),
+            "error",
+          );
+          return;
+        }
+        toast(out.data.message || "Commento pubblicato", "success");
+        if (ta) ta.value = "";
+        void refreshListQuiet(true);
+      })
+      .catch(function () {
+        toast("Errore di rete", "error");
       });
   }
 
   function submitMessage(e) {
     if (e && e.preventDefault) e.preventDefault();
+    clearInlineFeedback();
     var ta = byId("vc-conf-text");
-    var fb = byId("vc-conf-feedback");
     var btn = byId("vc-conf-submit");
     var content = ta ? String(ta.value || "").trim() : "";
     if (content.length < 8) {
-      setFeedback(fb, "Scrivi almeno 8 caratteri.", true);
+      toast("Scrivi almeno 8 caratteri.", "error");
       return;
     }
     if (btn) btn.disabled = true;
-    setFeedback(fb, "Invio in corso…", false);
+    toast("Invio in corso…", "info");
     fetchJson("POST", apiUrl(), { content: content })
       .then(function (out) {
         if (!out.res.ok || !out.data.ok) {
-          setFeedback(fb, out.data.message || "Invio non riuscito.", true);
-          toast(out.data.message || "Invio non riuscito", "error");
+          toast(out.data.message || "Invio non riuscito.", "error");
           return;
         }
         if (ta) ta.value = "";
         syncCounter();
-        setFeedback(fb, "Inviato in anonimo. Nessuno sa chi sei.", false);
-        toast("Messaggio anonimo inviato", "success");
-        loadedOnce = false;
+        toast(out.data.message || "Messaggio inviato in anonimo.", "success");
+        void refreshListQuiet(true);
       })
       .catch(function () {
-        setFeedback(fb, "Errore di rete.", true);
+        toast("Errore di rete.", "error");
       })
       .finally(function () {
         if (btn) btn.disabled = false;
@@ -213,6 +561,11 @@
 
   function deleteItem(id) {
     if (!id || !canModerate) return;
+    var card = byId("vc-conf-card-" + id);
+    if (card && card.querySelector && !card.querySelector("[data-conf-del]")) {
+      toast("Non puoi archiviare la tua stessa confessione.", "error");
+      return;
+    }
     var path = apiUrl().replace(/\/+$/, "") + "/" + encodeURIComponent(id) + "/delete";
     fetchJson("POST", path, {})
       .then(function (out) {
@@ -221,8 +574,7 @@
           return;
         }
         toast("Messaggio archiviato", "success");
-        loadedOnce = false;
-        loadList(true);
+        void refreshListQuiet(true);
       })
       .catch(function () {
         toast("Errore di rete", "error");
@@ -316,6 +668,31 @@
         window.__vcConfessionaleBgmUnlock();
       }
     } catch (eKick) {}
+    try {
+      if (typeof window.__vcConfessionaleBgmForcePlay === "function") {
+        window.__vcConfessionaleBgmForcePlay();
+      }
+    } catch (eForce) {}
+  }
+
+  function ensureSmokeEmoji() {
+    var face = document.querySelector("#vc-confessionale-smoke img.vc-confessionale-smoke__face, #vc-confessionale-smoke [data-vc-smoke-emoji]");
+    if (!face || face.tagName !== "IMG") return;
+    var src = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/1f92b.png";
+    face.addEventListener(
+      "error",
+      function () {
+        try {
+          if (face.dataset.vcSmokeEmojiRetry === "1") return;
+          face.dataset.vcSmokeEmojiRetry = "1";
+          face.src = "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f92b.png";
+        } catch (eR) {}
+      },
+      { once: true },
+    );
+    if (!String(face.getAttribute("src") || "").trim()) {
+      face.src = src;
+    }
   }
 
   function markSequenceDone() {
@@ -379,6 +756,7 @@
       markSequenceDone();
       return;
     }
+    ensureSmokeEmoji();
     smokeArmed = false;
     clearSmokeArmTimer();
     smoke.hidden = false;
@@ -429,6 +807,7 @@
   }
 
   function bind() {
+    ensureSmokeEmoji();
     var writeTab = byId("vc-conf-tab-write");
     var readTab = byId("vc-conf-tab-read");
     var form = byId("vc-conf-form");
@@ -447,9 +826,17 @@
     }
     if (list) {
       list.addEventListener("click", function (ev) {
-        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-conf-del]") : null;
-        if (!btn) return;
-        deleteItem(String(btn.getAttribute("data-conf-del") || ""));
+        var t = ev.target;
+        if (!t || !t.closest) return;
+        var delBtn = t.closest("[data-conf-del]");
+        if (delBtn) {
+          deleteItem(String(delBtn.getAttribute("data-conf-del") || ""));
+          return;
+        }
+        var cBtn = t.closest("[data-conf-comment]");
+        if (cBtn) {
+          submitComment(String(cBtn.getAttribute("data-conf-comment") || ""));
+        }
       });
     }
     if (skip) {
@@ -522,6 +909,8 @@
 
     if (!introAlreadyDone()) lockIntroScroll();
     bootCurtainWhenReady();
+    clearInlineFeedback();
+    connectConfWs();
   }
 
   if (!introAlreadyDone()) {
@@ -534,6 +923,17 @@
   } else {
     bind();
   }
+
+  window.addEventListener("beforeunload", disconnectConfWs);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && isReadTabActive()) {
+      void refreshListQuiet();
+    }
+  });
+  window.addEventListener("vc:site-api-refetch", function () {
+    if (!byId("vc-conf-list")) return;
+    void refreshListQuiet();
+  });
 
   window.__vcConfessionaleVer = VER;
 })();

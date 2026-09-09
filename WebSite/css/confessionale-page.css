@@ -133,17 +133,23 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   bottom: 0;
   width: 52%;
   background:
-    repeating-linear-gradient(
-      90deg,
-      #4a1014 0px,
-      #6b1a1f 8px,
-      #3a0e12 16px,
-      #7a2228 24px
-    ),
+    linear-gradient(90deg, #4a1014 0%, #6b1a1f 35%, #3a0e12 70%, #7a2228 100%),
     linear-gradient(180deg, #8b2030 0%, #4a1014 45%, #2a0a0e 100%);
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.55), 0 0 30px rgba(0, 0, 0, 0.4);
-  transition: transform 3.4s cubic-bezier(0.22, 0.72, 0.18, 1);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.45);
+  transition: transform 2.4s cubic-bezier(0.22, 0.72, 0.18, 1);
   will-change: transform;
+  contain: layout paint;
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse) {
+  .vc-confessionale-curtain__panel {
+    transition-duration: 1.6s;
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4);
+  }
+  .vc-confessionale-curtain__panel::before,
+  .vc-confessionale-curtain__panel::after {
+    display: none;
+  }
 }
 
 .vc-confessionale-curtain__panel--left {
@@ -272,28 +278,45 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
 
 .vc-confessionale-smoke__fog {
   position: absolute;
-  inset: -20%;
+  inset: -8%;
   background:
-    radial-gradient(ellipse 45% 35% at 30% 55%, rgba(180, 180, 190, 0.28), transparent 70%),
-    radial-gradient(ellipse 50% 40% at 70% 45%, rgba(160, 155, 165, 0.22), transparent 72%),
-    radial-gradient(ellipse 60% 50% at 50% 60%, rgba(120, 110, 110, 0.35), transparent 75%);
-  filter: blur(28px);
-  animation: vc-conf-smoke-drift 7s ease-in-out infinite alternate;
+    radial-gradient(ellipse 45% 35% at 30% 55%, rgba(180, 180, 190, 0.22), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 70% 45%, rgba(160, 155, 165, 0.16), transparent 72%),
+    radial-gradient(ellipse 60% 50% at 50% 60%, rgba(120, 110, 110, 0.28), transparent 75%);
+  /* confessionalePerf4: niente filtro blur pesante — lagga tantissimo su telefono */
+  filter: none;
+  opacity: 0.95;
+  animation: vc-conf-smoke-drift 10s ease-in-out infinite alternate;
   pointer-events: none;
+  will-change: transform;
+  contain: strict;
+  transform: translateZ(0);
 }
 
 .vc-confessionale-smoke__fog--2 {
-  animation-duration: 9.5s;
+  animation-duration: 13s;
   animation-direction: alternate-reverse;
-  opacity: 0.85;
+  opacity: 0.75;
   background:
-    radial-gradient(ellipse 40% 45% at 55% 40%, rgba(200, 190, 180, 0.2), transparent 68%),
-    radial-gradient(ellipse 55% 35% at 25% 65%, rgba(140, 120, 120, 0.25), transparent 70%);
+    radial-gradient(ellipse 40% 45% at 55% 40%, rgba(200, 190, 180, 0.16), transparent 68%),
+    radial-gradient(ellipse 55% 35% at 25% 65%, rgba(140, 120, 120, 0.18), transparent 70%);
 }
 
 @keyframes vc-conf-smoke-drift {
-  from { transform: translate3d(-2%, 1%, 0) scale(1); }
-  to { transform: translate3d(3%, -2%, 0) scale(1.08); }
+  from { transform: translate3d(-1.5%, 0.8%, 0) scale(1); }
+  to { transform: translate3d(2%, -1.2%, 0) scale(1.04); }
+}
+
+@media (max-width: 720px), (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .vc-confessionale-smoke__fog,
+  .vc-confessionale-smoke__fog--2 {
+    animation: none !important;
+    will-change: auto;
+    opacity: 0.7;
+  }
+  .vc-confessionale-smoke__fog--2 {
+    opacity: 0.45;
+  }
 }
 
 .vc-confessionale-smoke__card {
@@ -315,7 +338,7 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   text-align: center;
   transform: translateY(0.6rem) scale(0.96);
   opacity: 0;
-  transition: opacity 0.7s ease 0.15s, transform 0.7s ease 0.15s;
+  transition: opacity 0.45s ease 0.05s, transform 0.45s ease 0.05s;
 }
 
 .vc-confessionale-smoke.is-visible .vc-confessionale-smoke__card {
@@ -325,10 +348,16 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
 
 .vc-confessionale-smoke__face {
   display: block;
-  font-size: clamp(3.6rem, 12vw, 5rem);
-  line-height: 1;
-  filter: drop-shadow(0 0 18px rgba(240, 208, 144, 0.28));
+  width: 4.5rem;
+  height: 4.5rem;
+  max-width: 22vw;
+  max-height: 22vw;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(240, 208, 144, 0.22));
   user-select: none;
+  pointer-events: none;
+  background: transparent;
+  opacity: 1;
 }
 
 .vc-confessionale-smoke__text {
@@ -365,14 +394,210 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
 
 /* Board */
 .vc-confessionale-board {
-  margin-top: 1.25rem;
+  margin-top: 0;
+}
+
+/* Switcher stile appelli/candidature */
+.vc-confessionale-page .vc-confessionale-switch {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.vc-confessionale-page .vc-role-seg-switch__seg {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.2rem !important;
+  width: min(100%, 22rem) !important;
+  margin: 0 auto !important;
+  padding: 0.22rem !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: #100c09 !important;
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  box-sizing: border-box !important;
+}
+
+.vc-confessionale-page .vc-role-seg-switch__btn,
+.vc-confessionale-page .vc-confessionale-tab {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.42rem !important;
+  margin: 0 !important;
+  padding: 0.42rem 0.85rem !important;
+  border-radius: 999px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  line-height: 1.15 !important;
+  color: rgba(247, 236, 223, 0.78) !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.vc-confessionale-page .vc-role-seg-switch__btn .fa,
+.vc-confessionale-page .vc-confessionale-tab .fa {
+  font-size: 0.78rem !important;
+  opacity: 0.9 !important;
+}
+
+.vc-confessionale-page .vc-role-seg-switch__btn:hover,
+.vc-confessionale-page .vc-confessionale-tab:hover {
+  background: rgba(212, 168, 136, 0.1) !important;
+  color: rgba(247, 236, 223, 0.95) !important;
+  box-shadow: none !important;
+}
+
+.vc-confessionale-page .vc-confessionale-tab.is-active,
+.vc-confessionale-page .vc-confessionale-tab.vc-confessionale-tab--on {
+  background: linear-gradient(180deg, rgba(122, 84, 58, 0.96), rgba(78, 54, 38, 0.94)) !important;
+  color: #f7ecdf !important;
+  border-color: rgba(212, 168, 136, 0.28) !important;
+  box-shadow: 0 3px 12px rgba(111, 78, 55, 0.28) !important;
+}
+
+.vc-confessionale-page .vc-confessionale-anon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 168, 136, 0.28);
+  background: rgba(16, 12, 9, 0.72);
+  color: rgba(240, 208, 144, 0.92);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vc-confessionale-page .vc-confessionale-panel[hidden] {
+  display: none !important;
+}
+
+.vc-confessionale-page .vc-confessionale-note--read {
+  text-align: center;
+  max-width: 40rem;
+  margin: 0 auto 1.15rem;
+}
+
+.vc-confessionale-page .vc-confessionale-feed {
+  margin-top: 0.25rem;
+}
+
+.vc-confessionale-page .vc-confessionale-card__avatar {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: rgba(122, 84, 58, 0.35);
+  border: 1px solid rgba(212, 168, 136, 0.28);
+  color: #f0d090;
+  font-size: 1rem;
+}
+
+.vc-confessionale-page .vc-confessionale-discuss {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.vc-confessionale-page .vc-confessionale-discuss__title {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(232, 201, 168, 0.88);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.vc-confessionale-page .vc-confessionale-discuss__empty {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  color: rgba(232, 220, 210, 0.62);
+}
+
+.vc-confessionale-page .vc-confessionale-comment {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin: 0.45rem 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.vc-confessionale-page .vc-confessionale-comment__avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vc-confessionale-page .vc-confessionale-comment__body {
+  min-width: 0;
+  flex: 1;
+  font-size: 0.88rem;
+  color: rgba(247, 236, 223, 0.92);
+}
+
+.vc-confessionale-page .vc-confessionale-comment__when {
+  margin-left: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(232, 220, 210, 0.55);
+}
+
+.vc-confessionale-page .vc-confessionale-comment-form {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.vc-confessionale-page .vc-confessionale-comment-input {
+  width: 100%;
+  min-height: 3.2rem;
+  resize: vertical;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(212, 165, 116, 0.28);
+  background: rgba(12, 8, 8, 0.55);
+  color: #f5ebe3;
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+}
+
+.vc-confessionale-page .vc-confessionale-comment-btn {
+  justify-self: start;
+}
+
+.vc-confessionale-page .vc-confessionale-card__mod {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .vc-confessionale-tabs {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
+  display: none;
 }
 
 .vc-confessionale-tab {
@@ -598,6 +823,10 @@ body.vc-confessionale-page .vc-bgm-player.vc-bgm-player--confessionale[hidden] {
   display: none !important;
 }
 
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__expand {
+  display: none;
+}
+
 body.vc-confessionale-page .vc-bgm-player--confessionale::after {
   content: "";
   position: absolute;
@@ -621,6 +850,15 @@ body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__toggle 
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   color: #f0d090;
   cursor: pointer;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__toggle.is-muted,
+body.vc-confessionale-page .vc-bgm-player--confessionale.is-muted .vc-bgm-player__toggle {
+  color: rgba(240, 208, 144, 0.55);
+  border-color: rgba(168, 120, 98, 0.4);
 }
 
 body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__toggle .fa {
@@ -690,12 +928,113 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
   }
 }
 
-@media (hover: none), (pointer: coarse) {
-  body.vc-confessionale-page .vc-bgm-player--confessionale:not(.is-open):hover .vc-bgm-player__meta,
-  body.vc-confessionale-page .vc-bgm-player--confessionale:not(.is-open):focus-within .vc-bgm-player__meta {
-    opacity: 0;
-    pointer-events: none;
-    transform: translate3d(0, 0.45rem, 0) scale(0.96);
+/* Mobile + touch: chiuso = solo bottone. Aperto = CARD verticale (meta sopra, mute sotto). */
+@media (max-width: 900px), (hover: none), (pointer: coarse) {
+  html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale,
+  html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale:hover,
+  html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale:focus-within,
+  html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale.is-open {
+    display: inline-flex !important;
+    flex-direction: column-reverse !important;
+    align-items: flex-end !important;
+    justify-content: flex-end !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    max-width: min(16.75rem, calc(100vw - 1.5rem)) !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player.vc-bgm-player--confessionale.is-open {
+    align-items: stretch !important;
+    gap: 0.55rem !important;
+    padding: 0.65rem 0.7rem 0.7rem !important;
+    border: 1px solid rgba(240, 208, 144, 0.38) !important;
+    border-radius: 1.15rem !important;
+    background: linear-gradient(155deg, rgba(42, 16, 18, 0.97), rgba(14, 7, 8, 0.96)) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55) !important;
+    max-width: min(16.75rem, calc(100vw - 1.5rem)) !important;
+    width: min(16.75rem, calc(100vw - 1.5rem)) !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.vc-bgm-player--confessionale::after {
+    display: none !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player .vc-bgm-player__expand {
+    display: none !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__toggle,
+  html body.vc-confessionale-page #vc-confessionale-music-player .vc-bgm-player__toggle {
+    align-self: flex-end;
+    order: 1 !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player .vc-bgm-player__meta {
+    order: 2 !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player:not(.is-open) .vc-bgm-player__meta,
+  html body.vc-confessionale-page #vc-confessionale-music-player:not(.is-open):hover .vc-bgm-player__meta,
+  html body.vc-confessionale-page #vc-confessionale-music-player:not(.is-open):focus-within .vc-bgm-player__meta {
+    position: absolute !important;
+    right: 0 !important;
+    bottom: 100% !important;
+    left: auto !important;
+    width: 0 !important;
+    max-width: 0 !important;
+    min-width: 0 !important;
+    max-height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    transform: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__meta,
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open:hover .vc-bgm-player__meta,
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open:focus-within .vc-bgm-player__meta,
+  html body.vc-confessionale-page .vc-bgm-player.is-open#vc-confessionale-music-player .vc-bgm-player__meta {
+    position: static !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    max-height: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player .vc-bgm-player__meta::before {
+    display: none !important;
+  }
+
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__meta *,
+  html body.vc-confessionale-page #vc-confessionale-music-player.is-open .vc-bgm-player__range {
+    pointer-events: auto !important;
   }
 }
 

@@ -117,16 +117,34 @@
   }
 
   function fetchMe(token) {
+    if (window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) {
+      return Promise.resolve(window.__VC_DISCORD_PROFILE);
+    }
+    var coarse = false;
+    try {
+      coarse =
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        Number(navigator.maxTouchPoints || 0) > 0;
+    } catch (eC) {}
+    var ms = coarse ? 16000 : 10000;
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = null;
+    if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eT) {} }, ms);
     return fetch("https://discord.com/api/v10/users/@me", {
       headers: { Authorization: "Bearer " + token },
-    }).then(function (r) {
-      if (!r.ok) {
-        var err = new Error(String(r.status));
-        err.status = r.status;
-        throw err;
-      }
-      return r.json();
-    });
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then(function (r) {
+        if (!r.ok) {
+          var err = new Error(String(r.status));
+          err.status = r.status;
+          throw err;
+        }
+        return r.json();
+      })
+      .finally(function () {
+        if (timer) clearTimeout(timer);
+      });
   }
 
   function cfgUnmute() {
@@ -193,7 +211,14 @@
     if (title.indexOf(t("unmute.alreadySubmitted").split("{")[0]) === 0) {
       return { tone: "warn", icon: "fa-clock-o", lead: t("unmute.alreadySubmittedLead") };
     }
-    if (title === t("unmute.checkError") || !ok) {
+    if (title === t("unmute.checkPending", "Verifica in corso…")) {
+      return {
+        tone: "warn",
+        icon: "fa-spinner fa-spin",
+        lead: t("unmute.checkPendingLead", "Attendere: Discord o la rete possono essere lenti."),
+      };
+    }
+    if (title === t("unmute.checkError") || title === t("unmute.checkSlow", "Rete lenta o Discord occupato. Riprova tra poco.") || !ok) {
       return { tone: "warn", icon: "fa-exclamation", lead: t("unmute.checkErrorLead") };
     }
     return { tone: ok ? "ok" : "warn", icon: ok ? "fa-check" : "fa-exclamation", lead: "" };
@@ -283,77 +308,162 @@
 
   var currentUser = null;
   var lastEligibility = null;
+  var eligSeq = 0;
+  var eligInflight = null;
+  var eligVisTimer = null;
+  var MAX_ELIG_TRIES = 4;
+
+  function sleep(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  function isCoarseUi() {
+    try {
+      return (
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        Number(navigator.maxTouchPoints || 0) > 0
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function eligTimeoutMs() {
+    return isCoarseUi() ? 28000 : 20000;
+  }
+
+  function isTransientEligFailure(status, data, emptyBody) {
+    var err = data && data.error != null ? String(data.error) : "";
+    if (emptyBody) return true;
+    if (status === 0 || status === 408 || status === 425 || status === 429) return true;
+    if (status === 502 || status === 503 || status === 504) return true;
+    return (
+      err === "discord_unreachable" ||
+      err === "guild_unavailable" ||
+      err === "member_lookup_timeout" ||
+      err === "member_fetch_failed" ||
+      err === "upstream" ||
+      err === "timeout" ||
+      err === "internal"
+    );
+  }
+
+  function scheduleEligRefresh(delayMs) {
+    if (eligVisTimer) clearTimeout(eligVisTimer);
+    eligVisTimer = setTimeout(function () {
+      eligVisTimer = null;
+      if (getToken() && currentUser) refreshEligibility();
+    }, Math.max(400, Number(delayMs) || 1500));
+  }
 
   async function refreshEligibility(attempt) {
     var tryN = Number(attempt) || 0;
-    var token = getToken();
-    var url = eligibilityApiUrl();
-    if (!token) {
-      redirectToAccessRequired();
-      return null;
-    }
-    if (!url) {
-      setStatus(t("unmute.checkError"), false);
-      toggleForm(false);
-      return null;
-    }
-    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
-    var timer = null;
-    try {
-      if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eA) {} }, 15000);
-      /* unbanElig1: never accept cached 304/empty JSON — was showing fake checkError */
-      var fetchUrl = url + (url.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
-      var res = await fetch(fetchUrl, {
-        method: "GET",
-        headers: {
-          Authorization: "Bearer " + token,
-          Accept: "application/json",
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-        cache: "no-store",
-        signal: ctrl ? ctrl.signal : undefined,
-      });
-      var data = {};
-      try {
-        data = await res.json();
-      } catch (e) {}
-      if (res.status === 401 || data.error === "invalid_token" || data.error === "missing_token") {
+    if (tryN === 0 && eligInflight) return eligInflight;
+    var mySeq = tryN === 0 ? ++eligSeq : eligSeq;
+    var run = (async function () {
+      var token = getToken();
+      var url = eligibilityApiUrl();
+      if (!token) {
         redirectToAccessRequired();
         return null;
       }
-      if (!res.ok || !data.ok) {
-        if (tryN < 1) {
-          return refreshEligibility(tryN + 1);
-        }
-        setStatus(String(data.message || data.error || t("unmute.checkError")), false);
+      if (!url) {
+        if (mySeq !== eligSeq) return null;
+        setStatus(t("unmute.checkError"), false);
         toggleForm(false);
         return null;
       }
-      lastEligibility = data;
-      if (!data.is_muted) {
-        setStatus(t("unmute.notMuted"), true);
+      if (tryN === 0) {
+        setStatus(t("unmute.checkPending", "Verifica in corso…"), false);
         toggleForm(false);
-        return data;
       }
-      if (data.cooldown_until_ms) {
-        setStatus(t("unmute.alreadySubmitted", { date: formatUntil(data.cooldown_until_ms) }), false);
+      var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+      var timer = null;
+      try {
+        /* apiFalseErr1: touch budget lungo; empty/502/Discord = soft retry */
+        if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eA) {} }, eligTimeoutMs());
+        var fetchUrl = url + (url.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
+        var res = await fetch(fetchUrl, {
+          method: "GET",
+          headers: {
+            Authorization: "Bearer " + token,
+            Accept: "application/json",
+          },
+          cache: "no-store",
+          signal: ctrl ? ctrl.signal : undefined,
+        });
+        var data = {};
+        var rawText = "";
+        try {
+          rawText = await res.text();
+          data = rawText && String(rawText).trim() ? JSON.parse(rawText) : {};
+        } catch (e) {
+          data = {};
+        }
+        if (mySeq !== eligSeq) return null;
+        if (res.status === 401 || data.error === "invalid_token" || data.error === "missing_token") {
+          redirectToAccessRequired();
+          return null;
+        }
+        var emptyBody = !String(rawText || "").trim();
+        var parsedOk = data && data.ok === true;
+        if (!res.ok || !parsedOk || emptyBody) {
+          var transient = isTransientEligFailure(res.status, data, emptyBody);
+          if (transient && tryN < MAX_ELIG_TRIES - 1) {
+            setStatus(t("unmute.checkPending", "Verifica in corso…"), false);
+            await sleep(450 + tryN * 500);
+            if (mySeq !== eligSeq) return null;
+            return refreshEligibility(tryN + 1);
+          }
+          if (transient) {
+            setStatus(t("unmute.checkSlow", "Rete lenta o Discord occupato. Riprova tra poco."), false);
+            toggleForm(false);
+            return null;
+          }
+          var detail = String(data.message || data.error || "").trim();
+          if (!detail && res.status) detail = "Errore HTTP " + res.status;
+          setStatus(detail || t("unmute.checkError"), false);
+          toggleForm(false);
+          return null;
+        }
+        lastEligibility = data;
+        if (!data.is_muted) {
+          setStatus(t("unmute.notMuted"), true);
+          toggleForm(false);
+          return data;
+        }
+        if (data.cooldown_until_ms) {
+          setStatus(t("unmute.alreadySubmitted", { date: formatUntil(data.cooldown_until_ms) }), false);
+          toggleForm(false);
+          return data;
+        }
+        setStatus(t("unmute.canSubmit"), true);
+        toggleForm(true);
+        return data;
+      } catch (e2) {
+        if (mySeq !== eligSeq) return null;
+        if (tryN < MAX_ELIG_TRIES - 1) {
+          setStatus(t("unmute.checkPending", "Verifica in corso…"), false);
+          await sleep(500 + tryN * 550);
+          if (mySeq !== eligSeq) return null;
+          return refreshEligibility(tryN + 1);
+        }
+        setStatus(t("unmute.checkSlow", "Rete lenta o Discord occupato. Riprova tra poco."), false);
         toggleForm(false);
-        return data;
+        return null;
+      } finally {
+        if (timer) clearTimeout(timer);
       }
-      setStatus(t("unmute.canSubmit"), true);
-      toggleForm(true);
-      return data;
-    } catch (e2) {
-      if (tryN < 1) {
-        return refreshEligibility(tryN + 1);
-      }
-      setStatus(t("unmute.checkError"), false);
-      toggleForm(false);
-      return null;
-    } finally {
-      if (timer) clearTimeout(timer);
+    })();
+    if (tryN === 0) {
+      eligInflight = run.finally(function () {
+        if (eligInflight === run) eligInflight = null;
+      });
+      return eligInflight;
     }
+    return run;
   }
 
   function notify(message, opts) {
@@ -479,6 +589,14 @@
       var tipo = ev && ev.detail && ev.detail.tipo;
       if (tipo && tipo !== "unmute") return;
       replayUnmuteFx();
+      if (getToken() && currentUser) scheduleEligRefresh(600);
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState !== "visible") return;
+      if (getToken() && currentUser) scheduleEligRefresh(1500);
+    });
+    window.addEventListener("pageshow", function (ev) {
+      if (ev && ev.persisted && getToken() && currentUser) scheduleEligRefresh(800);
     });
     document.addEventListener("vc:page-cine-ready", replayUnmuteFx);
     var sub = byId("unmute-submit");
@@ -498,7 +616,7 @@
         if (!getToken()) redirectToAccessRequired();
         return;
       }
-      refreshEligibility();
+      scheduleEligRefresh(200);
     });
 
     if (oauthHashPending()) {
@@ -510,21 +628,33 @@
       redirectToAccessRequired();
       return;
     }
-    fetchMe(accessToken)
-      .then(function (u) {
-        currentUser = u;
-        var welcome = byId("unmute-welcome");
-        if (welcome && currentUser) {
-          setShuffleText(welcome, t("unmute.welcomeBack", { name: String(currentUser.username || t("unmute.userFallback")) }));
-        }
-        refreshEligibility();
-      })
-      .catch(function (err) {
-        var status = err && err.status;
-        if (status === 401 || !getToken()) {
-          redirectToAccessRequired();
-        }
-      });
+    setStatus(t("unmute.checkPending", "Verifica in corso…"), false);
+    function bootMe(n) {
+      return fetchMe(accessToken)
+        .then(function (u) {
+          currentUser = u;
+          var welcome = byId("unmute-welcome");
+          if (welcome && currentUser) {
+            setShuffleText(welcome, t("unmute.welcomeBack", { name: String(currentUser.username || t("unmute.userFallback")) }));
+          }
+          refreshEligibility();
+        })
+        .catch(function (err) {
+          var status = err && err.status;
+          if (status === 401 || !getToken()) {
+            redirectToAccessRequired();
+            return;
+          }
+          if (n < 2) {
+            return sleep(600 + n * 500).then(function () {
+              return bootMe(n + 1);
+            });
+          }
+          setStatus(t("unmute.checkSlow", "Rete lenta o Discord occupato. Riprova tra poco."), false);
+          toggleForm(false);
+        });
+    }
+    bootMe(0);
   }
 
   function bindUnmuteDraftFields() {

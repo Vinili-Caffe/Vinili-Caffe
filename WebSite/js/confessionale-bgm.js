@@ -1,5 +1,5 @@
 (function () {
-  var VER = "20260909confessionale8";
+  var VER = "20260909confessionalePerf4";
   var VOL_PREF_KEY = "vc_confessionale_bgm_volume_v1";
   var MUTE_PREF_KEY = "vc_confessionale_bgm_muted_v1";
   var audio = null;
@@ -15,6 +15,7 @@
   var labelEl = null;
   var volRange = null;
   var HINT_AUTO_HIDE_MS = 5200;
+  var audioEventsBound = false;
 
   function cfg() {
     try {
@@ -45,27 +46,39 @@
   function readVolumePrefs() {
     var c = cfg();
     var cfgVol = Math.min(1, Math.max(0.02, Number(c.baseVolume) || 0.34));
+    var got = false;
     try {
       var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
       if (sync && sync.confessionaleBgm && Number.isFinite(Number(sync.confessionaleBgm.volume))) {
         userVol = Math.min(1, Math.max(0, Number(sync.confessionaleBgm.volume)));
         baseVol = userVol;
-        return;
+        got = true;
       }
     } catch (eSy) {}
-    try {
-      var raw = localStorage.getItem(VOL_PREF_KEY);
-      if (raw != null && raw !== "") {
-        var n = Number(raw);
-        if (Number.isFinite(n)) {
-          userVol = Math.min(1, Math.max(0, n > 1 ? n / 100 : n));
-          baseVol = userVol;
-          return;
+    if (!got) {
+      try {
+        var raw = localStorage.getItem(VOL_PREF_KEY);
+        if (raw != null && raw !== "") {
+          var n = Number(raw);
+          if (Number.isFinite(n)) {
+            userVol = Math.min(1, Math.max(0, n > 1 ? n / 100 : n));
+            baseVol = userVol;
+            got = true;
+          }
         }
+      } catch (eLs) {}
+    }
+    if (!got) {
+      userVol = cfgVol;
+      baseVol = cfgVol;
+    }
+    /* Volume 0 senza mute esplicito = stato stale: riparti dal default. */
+    try {
+      if (localStorage.getItem(MUTE_PREF_KEY) !== "1" && userVol < 0.02) {
+        userVol = cfgVol;
+        baseVol = cfgVol;
       }
-    } catch (eLs) {}
-    userVol = cfgVol;
-    baseVol = cfgVol;
+    } catch (eZ) {}
   }
 
   function persistVolume(vol) {
@@ -153,13 +166,57 @@
     if (!audio.getAttribute("src") && !audio.src) {
       audio.src = trackUrl();
     }
-    audio.volume = Math.max(0, Math.min(1, baseVol));
+    try {
+      var alreadyAudible =
+        !audio.paused && !audio.muted && Number(audio.volume) > 0.001;
+      if (alreadyAudible) {
+        userVol = Math.min(1, Math.max(0, Number(audio.volume)));
+        baseVol = userVol;
+        started = true;
+        mutedByUser = false;
+      } else if (!(Number(audio.volume) > 0.001) || audio.muted) {
+        audio.muted = false;
+        audio.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
+      }
+    } catch (eSync) {
+      try {
+        audio.volume = Math.max(0, Math.min(1, baseVol));
+      } catch (eV2) {}
+    }
     window.__VC_CONFESSIONALE_BGM_AUDIO = audio;
+    bindAudioUiEvents(audio);
     return audio;
   }
 
+  function isAudibleNow() {
+    if (!audio) return false;
+    try {
+      if (audio.paused) return false;
+      if (audio.muted) return false;
+      if (!(Number(audio.volume) > 0.001)) return false;
+      return true;
+    } catch (eA) {
+      return false;
+    }
+  }
+
   function updateUi() {
-    var playing = started && !mutedByUser && audio && !audio.paused;
+    /* confessionalePlayer3: icona/slider seguono l'audio reale (anche dopo autoplay/prime). */
+    var playing = isAudibleNow();
+    if (playing) {
+      started = true;
+      mutedByUser = false;
+      try {
+        var av = Number(audio.volume);
+        if (Number.isFinite(av) && av > 0.001) {
+          userVol = Math.min(1, Math.max(0, av));
+          baseVol = userVol;
+        }
+      } catch (eV) {}
+      try {
+        localStorage.removeItem(MUTE_PREF_KEY);
+      } catch (eR) {}
+    }
     if (toggleBtn) {
       toggleBtn.classList.toggle("is-muted", !playing);
       toggleBtn.setAttribute(
@@ -172,6 +229,38 @@
     if (playerEl) playerEl.classList.toggle("is-muted", !playing);
     if (labelEl) labelEl.textContent = playerLabel();
     if (volRange) volRange.value = String(Math.round(userVol * 100));
+  }
+
+  function bindAudioUiEvents(a) {
+    if (!a || audioEventsBound) return;
+    audioEventsBound = true;
+    function sync() {
+      updateUi();
+    }
+    a.addEventListener("play", sync);
+    a.addEventListener("playing", sync);
+    a.addEventListener("pause", sync);
+    a.addEventListener("volumechange", sync);
+  }
+
+  function setPlayerOpen(open) {
+    if (!playerEl) return;
+    try {
+      playerEl.classList.toggle("is-open", Boolean(open));
+      playerEl.setAttribute("aria-expanded", open ? "true" : "false");
+    } catch (eO) {}
+  }
+
+  function isCoarseUi() {
+    try {
+      return window.matchMedia("(hover: none), (pointer: coarse)").matches;
+    } catch (eM) {
+      return false;
+    }
+  }
+
+  function isPlayerOpen() {
+    return Boolean(playerEl && playerEl.classList.contains("is-open"));
   }
 
   function applyAudible() {
@@ -200,10 +289,20 @@
 
   function stopAudible() {
     mutedByUser = true;
-    if (!audio) return;
-    try {
-      audio.pause();
-    } catch (eP) {}
+    if (typeof detachUnlock === "function") {
+      try {
+        detachUnlock();
+      } catch (eD) {}
+      detachUnlock = null;
+    }
+    if (audio) {
+      try {
+        audio.pause();
+      } catch (eP) {}
+      try {
+        audio.muted = true;
+      } catch (eM0) {}
+    }
     try {
       localStorage.setItem(MUTE_PREF_KEY, "1");
     } catch (eM) {}
@@ -211,6 +310,7 @@
   }
 
   function startAudibleFromGesture() {
+    if (mutedByUser) return Promise.resolve();
     try {
       localStorage.removeItem(MUTE_PREF_KEY);
     } catch (eR) {}
@@ -272,40 +372,75 @@
     labelEl = label;
     volRange = range;
 
-    try {
-      if (window.__VC_CHROME_SYNC) {
-        window.__VC_CHROME_SYNC.bindExpandablePlayer(wrap, btn);
-      } else {
-        window.setTimeout(function () {
-          try {
-            if (window.__VC_CHROME_SYNC && playerEl) {
-              window.__VC_CHROME_SYNC.bindExpandablePlayer(playerEl, toggleBtn);
-            }
-          } catch (eRetry) {}
-        }, 400);
-      }
-    } catch (eEx) {}
+    /* confessionalePlayer3: niente freccetta.
+       Mobile: 1° tap apre card verticale, 2° tap sul mute = mute/unmute, tap fuori = chiude.
+       Desktop: hover volume, click = mute/unmute. */
+    setPlayerOpen(false);
 
-    btn.addEventListener("click", function (ev) {
-      if (ev) {
-        try {
-          ev.preventDefault();
-          ev.stopPropagation();
-        } catch (e0) {}
-      }
-      if (started && !mutedByUser && audio && !audio.paused) {
-        stopAudible();
-        return;
-      }
-      startAudibleFromGesture();
-    });
+    document.addEventListener(
+      "pointerdown",
+      function (ev) {
+        if (!isPlayerOpen()) return;
+        var t = ev && ev.target;
+        if (t && playerEl.contains(t)) return;
+        setPlayerOpen(false);
+      },
+      true,
+    );
+
+    btn.addEventListener(
+      "click",
+      function (ev) {
+        if (ev) {
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
+          } catch (e0) {}
+        }
+        if (isCoarseUi() && !isPlayerOpen()) {
+          setPlayerOpen(true);
+          if (!isAudibleNow() && !mutedByUser) {
+            startAudibleFromGesture();
+          } else {
+            updateUi();
+          }
+          return;
+        }
+        var audible = isAudibleNow();
+        if (audible) {
+          stopAudible();
+          return;
+        }
+        mutedByUser = false;
+        startAudibleFromGesture();
+      },
+      true,
+    );
 
     function onVolInput() {
       var pct = Number(range.value);
       if (!Number.isFinite(pct)) return;
       persistVolume(pct / 100);
-      if (audio && !audio.muted) audio.volume = baseVol;
-      updateUi();
+      if (audio) {
+        try {
+          audio.muted = false;
+          audio.volume = baseVol;
+        } catch (eVol) {}
+      }
+      if (pct <= 0) {
+        stopAudible();
+        return;
+      }
+      mutedByUser = false;
+      try {
+        localStorage.removeItem(MUTE_PREF_KEY);
+      } catch (eR2) {}
+      if (audio && audio.paused) {
+        startAudibleFromGesture();
+      } else {
+        updateUi();
+      }
     }
     range.addEventListener("input", onVolInput);
     range.addEventListener("change", onVolInput);
@@ -314,7 +449,23 @@
 
   function armUnlockGesture() {
     if (detachUnlock) return;
-    function onUnlock() {
+    if (mutedByUser) return;
+    function onUnlock(ev) {
+      if (mutedByUser) return;
+      try {
+        if (localStorage.getItem(MUTE_PREF_KEY) === "1") {
+          mutedByUser = true;
+          return;
+        }
+      } catch (ePref) {}
+      try {
+        var t = ev && ev.target;
+        if (t && t.closest) {
+          if (t.closest("#vc-confessionale-music-player, .vc-bgm-player--confessionale, .vc-bgm-player__toggle")) {
+            return;
+          }
+        }
+      } catch (eT) {}
       startAudibleFromGesture();
     }
     detachUnlock = function () {
@@ -334,6 +485,10 @@
     function okAudible() {
       started = true;
       mutedByUser = false;
+      try {
+        a.muted = false;
+        a.volume = Math.max(0, Math.min(1, baseVol));
+      } catch (eU) {}
       hideHint();
       updateUi();
       if (typeof detachUnlock === "function") {
@@ -342,14 +497,15 @@
       }
     }
     function fallbackMutedPrime() {
+      /* muted=true ma volume resta baseVol: evita UI a 0 e slider a sinistra. */
       a.muted = true;
-      a.volume = 0;
+      a.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
       var p = a.play();
       function afterMutedPlay() {
         started = true;
         a.loop = true;
         a.muted = false;
-        a.volume = Math.max(0, Math.min(1, baseVol));
+        a.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
         var p2 = a.play();
         if (p2 && typeof p2.then === "function") {
           p2
@@ -386,12 +542,56 @@
   var playerBooted = false;
 
   function unlockFromUserGesture() {
+    if (mutedByUser) return Promise.resolve();
+    try {
+      if (localStorage.getItem(MUTE_PREF_KEY) === "1") {
+        mutedByUser = true;
+        updateUi();
+        return Promise.resolve();
+      }
+    } catch (ePref) {}
     try {
       localStorage.removeItem(MUTE_PREF_KEY);
     } catch (eR) {}
     mutedByUser = false;
     if (document.body) ensurePlayer();
     return startAudibleFromGesture();
+  }
+
+  function forcePlayFromGesture() {
+    mutedByUser = false;
+    try {
+      localStorage.removeItem(MUTE_PREF_KEY);
+    } catch (eR) {}
+    if (document.body) ensurePlayer();
+    var a = ensureAudio();
+    try {
+      a.muted = false;
+      a.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
+    } catch (eV) {}
+    var p = a.play();
+    if (p && typeof p.then === "function") {
+      return p
+        .then(function () {
+          started = true;
+          mutedByUser = false;
+          hideHint();
+          updateUi();
+          if (typeof detachUnlock === "function") {
+            detachUnlock();
+            detachUnlock = null;
+          }
+        })
+        .catch(function () {
+          return applyAudible().catch(function () {
+            ensureHint("Tocca il player per attivare l’audio");
+            armUnlockGesture();
+          });
+        });
+    }
+    started = true;
+    updateUi();
+    return Promise.resolve();
   }
 
   function bootWhenReady() {
@@ -416,6 +616,9 @@
       if (!mutedByUser) {
         tryMutedAutoplayThenAudible();
         armUnlockGesture();
+        window.setTimeout(updateUi, 120);
+        window.setTimeout(updateUi, 450);
+        window.setTimeout(updateUi, 1200);
       }
     }
 
@@ -457,7 +660,10 @@
     });
     window.addEventListener("vc:confessionale-curtain-done", function () {
       window.setTimeout(function () {
-        if (!mutedByUser) unlockFromUserGesture();
+        if (!mutedByUser) {
+          forcePlayFromGesture();
+          unlockFromUserGesture();
+        }
         tick();
       }, 20);
     });
@@ -488,6 +694,8 @@
           .then(function () {
             started = true;
             mutedByUser = false;
+            if (document.body) ensurePlayer();
+            updateUi();
           })
           .catch(function () {});
       }
@@ -497,4 +705,5 @@
   window.__vcConfessionaleBgmVer = VER;
   window.__vcConfessionaleBgmSetup = setup;
   window.__vcConfessionaleBgmUnlock = unlockFromUserGesture;
+  window.__vcConfessionaleBgmForcePlay = forcePlayFromGesture;
 })();

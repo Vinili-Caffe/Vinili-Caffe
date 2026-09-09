@@ -450,6 +450,34 @@
     return false;
   }
 
+  function ensureMobileConfessionaleTile(gridRoot) {
+    if (!gridRoot || isEventDedicatedNavPage()) return;
+    try {
+      if (gridRoot.querySelector('a[href*="/confessionale"]')) return;
+      var guideLink = gridRoot.querySelector('a[href*="/staff/guida"]');
+      if (!guideLink && !isStaffNavAllowed()) return;
+      var guideGrid =
+        (guideLink && guideLink.closest && guideLink.closest(".vc-mobile-nav-grid")) ||
+        null;
+      if (!guideGrid) {
+        var staffSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
+        guideGrid = staffSec ? staffSec.querySelector(".vc-mobile-nav-grid") || staffSec : null;
+      }
+      if (!guideGrid) return;
+      var c = document.createElement("a");
+      c.className = "vc-mobile-nav-tile";
+      c.href = "/staff/confessionale/";
+      c.setAttribute("data-vc-mobile-staff-confessionale", "1");
+      c.innerHTML =
+        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
+        '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
+      c.addEventListener("click", function () {
+        closeDrawer();
+      });
+      guideGrid.appendChild(c);
+    } catch (eConf) {}
+  }
+
   function appendStaffGuideSection(gridRoot, sourceDetails) {
     if (!gridRoot) return;
     if (isEventDedicatedNavPage()) return;
@@ -458,6 +486,10 @@
         gridRoot.querySelector('a[href*="/staff/guida"]') &&
         gridRoot.querySelector('a[href*="/confessionale"]')
       ) {
+        return;
+      }
+      if (gridRoot.querySelector('a[href*="/staff/guida"]')) {
+        ensureMobileConfessionaleTile(gridRoot);
         return;
       }
     } catch (eDup) {}
@@ -934,6 +966,7 @@
           gridRoot,
           document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"),
         );
+        ensureMobileConfessionaleTile(gridRoot);
       } catch (eStaff) {}
       return;
     }
@@ -963,6 +996,7 @@
     }
 
     appendStaffGuideSection(gridRoot, document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
+    ensureMobileConfessionaleTile(gridRoot);
   }
 
   function stripDrawerBrandMarquee(root) {

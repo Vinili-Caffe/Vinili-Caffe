@@ -115,13 +115,12 @@
     if (global.VcApiCache && typeof global.VcApiCache.isWebhookBlocked === "function") {
       if (global.VcApiCache.isWebhookBlocked()) return;
     }
-    hydratedServer = true;
     var cacheKey =
       global.VcApiCache && typeof global.VcApiCache.keyFor === "function"
         ? global.VcApiCache.keyFor(API, { scope: "chrome", auth: token })
         : "";
     function applyData(data) {
-      if (!data || data.ok !== true || !data.prefs) return;
+      if (!data || data.ok !== true || !data.prefs) return false;
       var local = readMirror();
       var remoteAt = Number(data.prefs.updatedAt) || 0;
       var localAt = Number(local.updatedAt) || 0;
@@ -131,6 +130,10 @@
       } else {
         pushServer(local);
       }
+      return true;
+    }
+    function markHydratedOk() {
+      hydratedServer = true;
     }
     if (global.VcApiCache && typeof global.VcApiCache.fetchWithCache === "function" && cacheKey) {
       global.VcApiCache
@@ -145,7 +148,7 @@
           },
         })
         .then(function (payload) {
-          applyData(payload && payload.body ? payload.body : null);
+          if (applyData(payload && payload.body ? payload.body : null)) markHydratedOk();
         })
         .catch(function () {});
       return;
@@ -157,7 +160,6 @@
     })
       .then(function (r) {
         if (r && r.status === 429) {
-          hydratedServer = false;
           try {
             if (global.VcApiCache && typeof global.VcApiCache.noteWebhook429 === "function") {
               global.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), API);
@@ -165,12 +167,16 @@
           } catch (e429) {}
           return null;
         }
-        return r.json().catch(function () {
-          return {};
+        return r.text().then(function (raw) {
+          try {
+            return raw && String(raw).trim() ? JSON.parse(raw) : null;
+          } catch (eJ) {
+            return null;
+          }
         });
       })
       .then(function (data) {
-        if (data) applyData(data);
+        if (data && applyData(data)) markHydratedOk();
       })
       .catch(function () {});
   }
@@ -234,6 +240,7 @@
           return false;
         }
       }
+      if (shell.classList.contains("vc-bgm-player--confessionale")) return;
       if (toggleBtn) {
         toggleBtn.addEventListener(
           "click",

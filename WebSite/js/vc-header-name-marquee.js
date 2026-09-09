@@ -432,8 +432,13 @@
     var scope = root && root.querySelectorAll ? root : document;
     var out = [];
     var seen = typeof WeakSet === "function" ? new WeakSet() : null;
+    function isRosterNameMarquee(el) {
+      return !!(el && el.closest && el.closest("#vc-home-staff-roster"));
+    }
+
     function add(el) {
       if (!el || !el.classList) return;
+      if (isRosterNameMarquee(el)) return;
       if (seen) {
         if (seen.has(el)) return;
         seen.add(el);
@@ -467,6 +472,7 @@
   }
 
   function syncOne(el) {
+    if (el && el.closest && el.closest("#vc-home-staff-roster")) return;
     var parts = ensureStructure(el);
     if (!parts || !parts.track || !parts.text) return;
     var trackEl = parts.track;
@@ -603,7 +609,7 @@
         var ro = new ResizeObserver(function () {
           schedule(document);
         });
-        var hosts = document.querySelectorAll("#vc-home-staff-roster, [data-vc-marquee]");
+        var hosts = document.querySelectorAll("[data-vc-marquee]");
         for (var i = 0; i < hosts.length; i += 1) ro.observe(hosts[i]);
         window.__vcNameMarqueeRo = ro;
       }

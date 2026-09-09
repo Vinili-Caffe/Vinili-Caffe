@@ -9,10 +9,10 @@
   var STAFF_CACHE_LOCAL_STALE_MS = 86400000;
   var DASH_CACHE_KEY = "vc_dash_access_ok_v1";
   var DASH_CACHE_TTL_MS = 120000;
-  var FETCH_TIMEOUT_MS = 12000;
-  var FAILSAFE_MS = 12000;
-  var SERATAFILM_FETCH_TIMEOUT_MS = 8000;
-  var SERATAFILM_FAILSAFE_MS = 10000;
+  var FETCH_TIMEOUT_MS = 14000;
+  var FAILSAFE_MS = 22000;
+  var SERATAFILM_FETCH_TIMEOUT_MS = 10000;
+  var SERATAFILM_FAILSAFE_MS = 16000;
   var STAFF_VERIFY_ATTEMPTS = 3;
   var STAFF_TOKEN_WAIT_MS = 6000;
 
@@ -837,9 +837,15 @@
     function onFailsafe() {
       if (settled) return;
       failsafeStage += 1;
-      if (failsafeStage === 1) {
+      /* apiFalseErr1: non mostrare deny mentre i retry sono ancora vivi */
+      if (failsafeStage <= 2) {
         setStaffLoadingHint("Verifica lenta, ancora in corso\u2026");
-        scheduleFailsafe(Math.max(12000, Math.floor(failsafeMs * 0.65)));
+        scheduleFailsafe(Math.max(16000, Math.floor(failsafeMs * 0.85)));
+        return;
+      }
+      if (failsafeStage === 3) {
+        setStaffLoadingHint("Ancora in verifica\u2026 se resta fermo tocca Riprova.");
+        scheduleFailsafe(Math.max(18000, failsafeMs));
         return;
       }
       if (isStaffArea) {

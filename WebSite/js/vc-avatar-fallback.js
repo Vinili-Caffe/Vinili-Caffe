@@ -119,8 +119,31 @@
       }
     } catch (eSvg) {}
     var svg =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="vcCoffeeAvFb" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#vcCoffeeAvFb)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>';
     return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function paintCoffeeNow(img, cdnKeep) {
+    if (!img || img.tagName !== "IMG") return;
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.paintSilhouette === "function") {
+        window.VcDiscordAvatar.paintSilhouette(img, Boolean(cdnKeep));
+        if (cdnKeep && cdnKeep !== true) {
+          img.setAttribute("data-vc-avatar-cdn-url", String(cdnKeep));
+          if (typeof window.VcDiscordAvatar.hydrateCdnFromAttr === "function") {
+            window.VcDiscordAvatar.hydrateCdnFromAttr(img);
+          }
+        }
+        return;
+      }
+    } catch (ePaint) {}
+    var coffee = svgFallbackDataUri();
+    img.removeAttribute("srcset");
+    img.src = coffee;
+    img.setAttribute("src", coffee);
+    markReady(img);
+    img.classList.add("vc-avatar-fallback-img");
+    img.setAttribute("data-vc-avatar-fallback", "1");
   }
 
   function staticPngFromDiscordAvatar(src) {
@@ -221,16 +244,11 @@
 
     var current = String(img.getAttribute("src") || "");
 
-    // avatarSiteFb1: Discord embed defaults → site SVG immediately (no mixed styles).
-    if (/\/embed\/avatars\//i.test(current)) {
+    // avatarSilhouette1: empty / Discord embed → silhouette caffè subito (mai flash).
+    if (!current || /\/embed\/avatars\//i.test(current)) {
       img.dataset[FINAL_MARK] = "1";
       img.dataset[FALLBACK_MARK] = "3";
-      img.classList.add("vc-avatar-fallback-img");
-      try {
-        img.removeAttribute("data-avatar-hash");
-      } catch (eHashEmb) {}
-      setSrcOnce(img, svgFallbackDataUri());
-      markReady(img);
+      paintCoffeeNow(img, false);
       return;
     }
 
@@ -246,22 +264,17 @@
         setSrcOnce(img, restore);
         return;
       }
-      // Broken after a successful paint: keep last good non-embed if possible.
-      // avatarNoFlashDemote1: non scendere a embed default (flash utente → fallback brutto).
-      if (/\/embed\/avatars\//i.test(current) || /^data:/i.test(current)) {
+      if (/\/embed\/avatars\//i.test(current) || /^data:/i.test(current) || img.naturalWidth === 0) {
         img.dataset[FINAL_MARK] = "1";
         img.dataset[FALLBACK_MARK] = "3";
-        img.classList.add("vc-avatar-fallback-img");
-        try {
-          img.removeAttribute("data-avatar-hash");
-        } catch (eHash) {}
-        setSrcOnce(img, svgFallbackDataUri());
+        paintCoffeeNow(img, false);
       }
       return;
     }
 
     if (img.naturalWidth > 0 && !/\/embed\/avatars\//i.test(current) && !/^data:/i.test(current)) {
       img.dataset.vcAvatarOk = "1";
+      markReady(img);
       return;
     }
 
@@ -272,33 +285,20 @@
       img.dataset[FALLBACK_MARK] !== "3" &&
       img.dataset.vcAvatarRetry !== "1"
     ) {
-      // Su mobile le GIF Discord spesso superano 1s: non demote troppo presto.
+      /* avatarReal1: NON sostituire il CDN con silhouette mentre carica — aspetta. */
       img.dataset.vcAvatarRetry = "1";
-      var softMs = 3200;
+      var softMs = 2800;
       try {
-        if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) softMs = 5500;
+        if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) softMs = 4500;
       } catch (eSoft) {}
       window.setTimeout(function () {
         if (!img || !img.isConnected) return;
-        if (img.naturalWidth > 0 || img.dataset.vcAvatarOk === "1") {
+        if (img.naturalWidth > 0) {
           img.dataset.vcAvatarOk = "1";
           try {
             delete img.dataset.vcAvatarRetry;
           } catch (eClr) {}
           markReady(img);
-          return;
-        }
-        // Ancora in download: aspetta un altro giro prima del PNG fallback.
-        if (!img.complete) {
-          window.setTimeout(function () {
-            if (!img || !img.isConnected) return;
-            if (img.naturalWidth > 0 || img.dataset.vcAvatarOk === "1") {
-              img.dataset.vcAvatarOk = "1";
-              markReady(img);
-              return;
-            }
-            applyFallback(img);
-          }, softMs);
           return;
         }
         applyFallback(img);
@@ -312,14 +312,13 @@
     if (stage < 1) {
       if (!isGuildAvatar) {
         var png = staticPngFromDiscordAvatar(current);
-        if (png && png !== current) {
+        if (png && png !== current && !/^data:/i.test(current)) {
           img.dataset[FALLBACK_MARK] = "1";
           img.classList.add("vc-avatar-fallback-img");
           setSrcOnce(img, png);
           return;
         }
       } else {
-        // Guild avatar morto → prova avatar utente globale da data-avatar-hash / sessione.
         var uidGuild = userIdFromImage(img);
         var userHash = String(img.getAttribute("data-avatar-hash") || "").trim();
         if (!userHash) {
@@ -331,14 +330,11 @@
           } catch (eS) {}
         }
         if (uidGuild && userHash && !/\/guilds\//i.test(userHash)) {
-          // Mantieni animazione se hash a_; PNG solo se hash statico.
           var ext = /^a_/i.test(userHash) ? "gif" : "png";
           var userUrl =
             "https://cdn.discordapp.com/avatars/" + uidGuild + "/" + userHash + "." + ext + "?size=256";
           img.dataset[FALLBACK_MARK] = "1";
-          img.classList.add("vc-avatar-fallback-img");
-          img.removeAttribute("data-vc-guild-avatar");
-          setSrcOnce(img, userUrl);
+          paintCoffeeNow(img, userUrl);
           return;
         }
       }
@@ -346,36 +342,19 @@
     }
 
     if (stage < 2) {
-      // avatarKeepAnim1: se GIF rotta, prova PNG stesso hash (poi stop). Mai embed Discord.
       var png2 = staticPngFromDiscordAvatar(current);
-      if (png2 && png2 !== current && img.dataset.vcAvatarPngRetry !== "1") {
+      if (png2 && png2 !== current && img.dataset.vcAvatarPngRetry !== "1" && !/^data:/i.test(current)) {
         img.dataset.vcAvatarPngRetry = "1";
         img.dataset[FALLBACK_MARK] = "1";
         setSrcOnce(img, png2);
         return;
       }
-      var uidKeep = userIdFromImage(img);
-      var hashKeep = String(img.getAttribute("data-avatar-hash") || "").trim();
-      if (uidKeep && hashKeep && /^a_/i.test(hashKeep) && img.dataset.vcAvatarGifRetry !== "1") {
-        img.dataset.vcAvatarGifRetry = "1";
-        img.dataset[FALLBACK_MARK] = "1";
-        setSrcOnce(
-          img,
-          "https://cdn.discordapp.com/avatars/" + uidKeep + "/" + hashKeep + ".gif?size=256",
-        );
-        return;
-      }
-      // avatarSiteFb1: niente embed colorati Discord — vai al silhouette sito.
       img.dataset[FALLBACK_MARK] = "2";
     }
 
     img.dataset[FINAL_MARK] = "1";
     img.dataset[FALLBACK_MARK] = "3";
-    img.classList.add("vc-avatar-fallback-img");
-    try {
-      img.removeAttribute("data-avatar-hash");
-    } catch (eClrHash2) {}
-    setSrcOnce(img, svgFallbackDataUri());
+    paintCoffeeNow(img, false);
   }
 
   function scanExisting() {
@@ -385,18 +364,31 @@
       try {
         img.classList.add("vc-avatar");
       } catch (eCls) {}
-      if (img.complete && img.naturalWidth > 0) {
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.ensureSilhouetteFirst === "function") {
+          window.VcDiscordAvatar.ensureSilhouetteFirst(img);
+        }
+      } catch (eSil) {}
+      var src0 = String(img.getAttribute("src") || "").trim();
+      if (!src0 || /\/embed\/avatars\//i.test(src0)) {
+        paintCoffeeNow(img, false);
+        return;
+      }
+      if (img.complete && img.naturalWidth > 0 && !/^data:/i.test(src0)) {
         markAvatarOk(img);
         return;
       }
-      // avatarNoFlashDemote1: non rimettere pending su avatar già ready
       try {
         if (img.classList && img.classList.contains("vc-avatar--ready") && img.dataset.vcAvatarOk === "1") {
           return;
         }
       } catch (eReady) {}
+      if (/cdn\.discordapp\.com|media\.discordapp\.net/i.test(src0) && img.classList.contains("vc-avatar--pending")) {
+        /* Keep CDN pending — coffee bg CSS covers flash; don't demote. */
+        return;
+      }
       markPending(img);
-      if (img.complete && img.naturalWidth === 0 && String(img.getAttribute("src") || "")) {
+      if (img.complete && img.naturalWidth === 0 && src0) {
         applyFallback(img);
       }
     });

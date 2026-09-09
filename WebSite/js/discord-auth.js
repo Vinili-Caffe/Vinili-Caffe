@@ -1000,14 +1000,6 @@
     var px = Math.max(16, Math.floor(Number(size) || 38));
     var img = avatarUrl(user);
     var labelEsc = escAttr(label);
-    var hash = user && user.avatar ? escAttr(String(user.avatar)) : "";
-    if (!img) {
-      return (
-        '<span class="discord-avatar-img discord-avatar-img--fallback" aria-label="' +
-        labelEsc +
-        '"><i class="fa fa-user" aria-hidden="true"></i></span>'
-      );
-    }
     try {
       if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.imgHtml === "function") {
         return window.VcDiscordAvatar.imgHtml({
@@ -1022,12 +1014,31 @@
         }).replace(' alt=""', ' alt="" aria-label="' + labelEsc + '"');
       }
     } catch (eHub) {}
+    var hash = user && user.avatar ? escAttr(String(user.avatar)) : "";
+    var coffee = "";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        coffee = window.VcDiscordAvatar.siteFallbackAvatarUrl();
+      }
+    } catch (eC) {}
+    if (!coffee) {
+      coffee =
+        "data:image/svg+xml;charset=utf-8," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="vcCoffeeAvAuth" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#vcCoffeeAvAuth)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>',
+        );
+    }
+    var out = img && !/embed\/avatars/i.test(img) ? img : coffee;
+    var hasCdn = out !== coffee;
     return (
-      '<img class="discord-avatar-img vc-avatar vc-avatar--pending" data-vc-avatar="1"' +
+      '<img class="discord-avatar-img vc-avatar ' +
+      (hasCdn ? "vc-avatar--pending" : "vc-avatar--ready vc-avatar-fallback-img") +
+      '" data-vc-avatar="1"' +
+      (hasCdn ? "" : ' data-vc-avatar-fallback="1"') +
       (hash ? ' data-avatar-hash="' + hash + '"' : "") +
       (user && user.id ? ' data-user-id="' + escAttr(String(user.id)) + '"' : "") +
       ' src="' +
-      escAttr(img) +
+      escAttr(out) +
       '" alt="" width="' +
       px +
       '" height="' +
@@ -2181,14 +2192,28 @@
         }
       } catch (eCache) {}
     }
+    var coffeePending = "";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
+        coffeePending = window.VcDiscordAvatar.siteFallbackAvatarUrl();
+      }
+    } catch (eCp) {}
+    if (!coffeePending) {
+      coffeePending =
+        "data:image/svg+xml;charset=utf-8," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="vcCoffeePend" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#6f4e37"/><stop offset="1" stop-color="#2a1712"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#vcCoffeePend)"/><circle cx="48" cy="36" r="17" fill="#f4dcc2" opacity=".92"/><path d="M20 82c4-18 16-28 28-28s24 10 28 28" fill="#f4dcc2" opacity=".92"/></svg>',
+        );
+    }
     state.innerHTML =
       '<div class="discord-login-row vc-auth-pending-shell" aria-busy="true" title="' +
       escAttr(i18n("auth.sessionChecking", "Verifica sessione…")) +
       '">' +
       '<span class="discord-avatar-clip">' +
-      '<span class="discord-avatar-img discord-avatar-img--fallback" aria-hidden="true">' +
-      '<span class="vc-ui-spinner" aria-hidden="true"></span>' +
-      "</span></span></div>";
+      '<img class="discord-avatar-img vc-avatar vc-avatar--ready vc-avatar-fallback-img" data-vc-avatar="1" data-vc-avatar-fallback="1" src="' +
+      escAttr(coffeePending) +
+      '" alt="" width="38" height="38" decoding="async" aria-hidden="true" />' +
+      "</span></div>";
   }
 
   function postOAuthAccessoRedirectPath() {
@@ -2752,7 +2777,7 @@
         renderAuthPendingShell();
         setTimeout(function () {
           if (!getToken() || window.__VC_DISCORD_PROFILE) return;
-          fetchMe(t, 5000)
+          fetchMe(t)
             .then(function (user) {
               writeCachedDiscordMe(t, user);
               renderLoggedIn(user);

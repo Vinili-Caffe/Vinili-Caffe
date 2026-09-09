@@ -1505,10 +1505,25 @@
     var ph = preview.offsetHeight || 96;
     var left = rect.left + rect.width / 2 - pw / 2;
     var top = rect.top - ph - 12;
+    var preferBelow = false;
+    /* socialPreviewNav1: logo in navbar — always place BELOW the whole nav shell (never under the pill). */
+    try {
+      var shell =
+        (anchor.closest && (anchor.closest(".vc-nav-shell") || anchor.closest("header.fixed") || anchor.closest("header"))) ||
+        null;
+      if (shell && shell.getBoundingClientRect) {
+        var shellRect = shell.getBoundingClientRect();
+        preferBelow = true;
+        top = shellRect.bottom + 10;
+        left = rect.left + rect.width / 2 - pw / 2;
+      }
+    } catch (eShell) {}
     var maxLeft = window.innerWidth - pw - 10;
     if (left < 10) left = 10;
     if (left > maxLeft) left = maxLeft;
-    if (top < 10) top = rect.bottom + 12;
+    if (!preferBelow && top < 10) top = rect.bottom + 12;
+    var maxTop = window.innerHeight - ph - 10;
+    if (top > maxTop) top = Math.max(10, maxTop);
     preview.style.left = Math.round(left) + "px";
     preview.style.top = Math.round(top) + "px";
   }
@@ -7484,23 +7499,33 @@
     if (siteNotifsSyncInFlight) return siteNotifsSyncInFlight;
     var ctrl = null;
     var tid = null;
+    var abortMs = 12000;
+    try {
+      if (
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        Number(navigator.maxTouchPoints || 0) > 0
+      ) {
+        abortMs = 20000;
+      }
+    } catch (eMs) {}
     try {
       ctrl = new AbortController();
       tid = setTimeout(function () {
         try {
           ctrl.abort();
         } catch (eAb) {}
-      }, 12000);
+      }, abortMs);
     } catch (e0) {
       ctrl = null;
     }
-    var opts = {
+    var fetchOpts = {
       headers: { Authorization: "Bearer " + token },
       credentials: "omit",
+      cache: "no-store",
     };
     try {
       if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
-        opts.headers = window.VcPerf.apiHeaders(opts.headers, url);
+        fetchOpts.headers = window.VcPerf.apiHeaders(fetchOpts.headers, url);
       }
       if (window.VcPerf && typeof window.VcPerf.notificationsLimit === "function") {
         var lim = window.VcPerf.notificationsLimit(50);
@@ -7509,8 +7534,8 @@
         else if (window.VcPerf.tier && window.VcPerf.tier() === "mid") url += "&perf=mid";
       }
     } catch (ePerfN) {}
-    if (ctrl) opts.signal = ctrl.signal;
-    siteNotifsSyncInFlight = fetch(url, opts)
+    if (ctrl) fetchOpts.signal = ctrl.signal;
+    siteNotifsSyncInFlight = fetch(url, fetchOpts)
       .then(function (r) {
         if (r && r.status === 429) {
           var blockMs = 90000;
@@ -7538,7 +7563,14 @@
           } catch (e401) {}
           return null;
         }
-        return r.json();
+        return r.text().then(function (raw) {
+          if (!raw || !String(raw).trim()) return null;
+          try {
+            return JSON.parse(raw);
+          } catch (eJ) {
+            return null;
+          }
+        });
       })
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
@@ -7561,7 +7593,16 @@
           if (mutedId) rememberToastedId(mutedId);
         }
       })
-      .catch(function () {})
+      .catch(function (err) {
+        /* apiFalseErr1: abort/rete = soft retry una volta, niente toast */
+        try {
+          if (err && err.name === "AbortError" && !opts._retried) {
+            setTimeout(function () {
+              syncSiteNotificationsFromServer({ force: true, _retried: true });
+            }, 1200);
+          }
+        } catch (eR) {}
+      })
       .finally(function () {
         siteNotifsSyncInFlight = null;
         siteNotifsLastSyncAt = Date.now();
@@ -9506,28 +9547,38 @@
     return false;
   }
 
+  function ensureMobileConfessionaleTile(gridRoot) {
+    if (!gridRoot || isEventDedicatedNavPage()) return;
+    try {
+      if (gridRoot.querySelector('a[href*="/confessionale"]')) return;
+      var guideLink = gridRoot.querySelector('a[href*="/staff/guida"]');
+      if (!guideLink && !isStaffNavAllowed()) return;
+      var guideGrid =
+        (guideLink && guideLink.closest && guideLink.closest(".vc-mobile-nav-grid")) ||
+        null;
+      if (!guideGrid) {
+        var staffSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
+        guideGrid = staffSec ? staffSec.querySelector(".vc-mobile-nav-grid") || staffSec : null;
+      }
+      if (!guideGrid) return;
+      var cAdd = document.createElement("a");
+      cAdd.className = "vc-mobile-nav-tile";
+      cAdd.href = "/staff/confessionale/";
+      cAdd.setAttribute("data-vc-mobile-staff-confessionale", "1");
+      cAdd.innerHTML =
+        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
+        '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
+      bindMobileNavTileNav(cAdd);
+      guideGrid.appendChild(cAdd);
+    } catch (eConf) {}
+  }
+
   function appendStaffGuideSection(gridRoot, sourceDetails) {
     if (!gridRoot) return;
     if (isEventDedicatedNavPage()) return;
     try {
       if (gridRoot.querySelector('a[href*="/staff/guida"]')) {
-        if (!gridRoot.querySelector('a[href*="/confessionale"]') && isStaffNavAllowed()) {
-          var existingSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
-          var existingGrid = existingSec
-            ? existingSec.querySelector(".vc-mobile-nav-grid") || existingSec
-            : null;
-          if (existingGrid) {
-            var cAdd = document.createElement("a");
-            cAdd.className = "vc-mobile-nav-tile";
-            cAdd.href = "/staff/confessionale/";
-            cAdd.setAttribute("data-vc-mobile-staff-confessionale", "1");
-            cAdd.innerHTML =
-              '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
-              '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
-            bindMobileNavTileNav(cAdd);
-            existingGrid.appendChild(cAdd);
-          }
-        }
+        ensureMobileConfessionaleTile(gridRoot);
         return;
       }
     } catch (eDup) {}
@@ -10001,6 +10052,7 @@
           gridRoot,
           document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"),
         );
+        ensureMobileConfessionaleTile(gridRoot);
       } catch (eStaff) {}
       return;
     }
@@ -10030,6 +10082,7 @@
     }
 
     appendStaffGuideSection(gridRoot, document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
+    ensureMobileConfessionaleTile(gridRoot);
   }
 
   function cloneBrand(intoEl) {
@@ -10657,6 +10710,14 @@
             forbiddenStatusBlockedUntil = Date.now() + 90000;
             return finish(forbiddenBooksRoundState || null);
           }
+          /* eventoClosedApi1: stop polling after Hogwarts kill-switch 410 */
+          if (payload && payload.status === 410) {
+            forbiddenStatusBlockedUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
+            try {
+              removeAllForbiddenBooks();
+            } catch (eRm) {}
+            return finish({ ok: true, closed: true, roundActive: false });
+          }
           if (payload && payload.ok && payload.body) return finish(payload.body);
           return null;
         })
@@ -10673,6 +10734,13 @@
         if (res && res.status === 429) {
           forbiddenStatusBlockedUntil = Date.now() + 90000;
           return finish(forbiddenBooksRoundState || null);
+        }
+        if (res && res.status === 410) {
+          forbiddenStatusBlockedUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
+          try {
+            removeAllForbiddenBooks();
+          } catch (eRm2) {}
+          return { ok: true, closed: true, roundActive: false };
         }
         if (!res || !res.ok) {
           return res.text().catch(function () { return ""; }).then(function () {
@@ -10973,7 +11041,7 @@ function vcPageAssetVer() {
     if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
   } catch (e0) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-site-polish.js?v=20260901cineFxUnify1";
+  s.src = "/js/vc-site-polish.js?v=20260909reviewsStageSpread4";
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();
