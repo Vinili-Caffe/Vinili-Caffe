@@ -22,8 +22,52 @@ const KEYWORD_MAX_LEN = 60;
 const SYNC_DEBOUNCE_MS = 4000;
 const MAX_EXEMPT_CHANNELS = 50;
 const AUTOMOD_DEPLOY_CACHE_KEY = "discord-automod";
+/** Channel IDs Discord AutoMod rejected (CHANNEL_TYPE_INVALID / no longer exists). */
+const REJECTED_EXEMPT_PATH = path.resolve(
+  __dirname,
+  "../../Utils/Config/automodRejectedExemptChannels.json",
+);
+const rejectedExemptChannelIds = new Set();
+const pruneLogOnce = new Set();
 let syncTimer = null;
 let lastSyncSignature = "";
+
+function loadRejectedExemptChannelIds() {
+  try {
+    if (!fs.existsSync(REJECTED_EXEMPT_PATH)) return;
+    const parsed = JSON.parse(fs.readFileSync(REJECTED_EXEMPT_PATH, "utf8"));
+    const list = Array.isArray(parsed?.ids) ? parsed.ids : Array.isArray(parsed) ? parsed : [];
+    for (const raw of list) {
+      const id = String(raw || "").trim();
+      if (/^\d{16,22}$/.test(id)) rejectedExemptChannelIds.add(id);
+    }
+  } catch (_) {}
+}
+
+function persistRejectedExemptChannelIds() {
+  try {
+    const ids = [...rejectedExemptChannelIds].sort();
+    if (ids.length > 400) ids.splice(0, ids.length - 400);
+    fs.writeFileSync(
+      REJECTED_EXEMPT_PATH,
+      `${JSON.stringify({ ids, updatedAt: new Date().toISOString() }, null, 2)}\n`,
+      "utf8",
+    );
+  } catch (_) {}
+}
+
+loadRejectedExemptChannelIds();
+
+function logAutomodPruneOnce(key, ...args) {
+  const k = String(key || "").slice(0, 160);
+  if (!k || pruneLogOnce.has(k)) return;
+  pruneLogOnce.add(k);
+  if (pruneLogOnce.size > 200) {
+    const first = pruneLogOnce.values().next().value;
+    pruneLogOnce.delete(first);
+  }
+  global.logger?.debug?.(...args);
+}
 
 function readAutomodConfig() {
   try {
@@ -167,15 +211,12 @@ function collectExemptEntityIds(collectionOrArray) {
   return out;
 }
 
+/* Discord AutoMod: solo text/announcement/category — voice/stage/forum → CHANNEL_TYPE_INVALID */
 const AUTOMOD_EXEMPTABLE_CHANNEL_TYPES = new Set(
   [
     ChannelType.GuildText,
-    ChannelType.GuildVoice,
     ChannelType.GuildCategory,
     ChannelType.GuildAnnouncement,
-    ChannelType.GuildStageVoice,
-    ChannelType.GuildForum,
-    ChannelType.GuildMedia,
   ].filter((t) => t != null),
 );
 
@@ -190,12 +231,155 @@ function isDiscordAutomodExemptableChannel(channel) {
 function isInvalidAutomodExemptChannelError(err) {
   const msg = String(err?.message || err || "");
   if (/INVALID_AUTO_MODERATION_CHANNEL_IN_EXEMPTIONS/i.test(msg)) return true;
+  if (/CHANNEL_TYPE_INVALID/i.test(msg) && /exempt/i.test(msg)) return true;
   if (/exempt_channels/i.test(msg) && /no longer exists/i.test(msg)) return true;
   const details = err?.rawError?.errors || err?.rawError?.errors?.exempt_channels;
-  if (details && /INVALID_AUTO_MODERATION_CHANNEL_IN_EXEMPTIONS/i.test(JSON.stringify(details))) {
+  if (
+    details &&
+    /INVALID_AUTO_MODERATION_CHANNEL_IN_EXEMPTIONS|CHANNEL_TYPE_INVALID|no longer exists/i.test(
+      JSON.stringify(details),
+    )
+  ) {
     return true;
   }
   return false;
+}
+
+function rememberRejectedExemptChannels(ids) {
+  let added = 0;
+  for (const raw of Array.isArray(ids) ? ids : []) {
+    const id = String(raw || "").trim();
+    if (!/^\d{16,22}$/.test(id)) continue;
+    if (rejectedExemptChannelIds.has(id)) continue;
+    rejectedExemptChannelIds.add(id);
+    added += 1;
+  }
+  if (added) persistRejectedExemptChannelIds();
+}
+
+function extractInvalidExemptChannelIdsFromError(err, attemptedIds) {
+  const attempted = (Array.isArray(attemptedIds) ? attemptedIds : []).map(String);
+  const bad = new Set();
+  const root =
+    err?.rawError?.errors?.exempt_channels ||
+    err?.rawError?.errors?.exemptChannels ||
+    null;
+  if (root && typeof root === "object") {
+    for (const key of Object.keys(root)) {
+      if (!/^\d+$/.test(key)) continue;
+      const idx = Number(key);
+      if (Number.isFinite(idx) && attempted[idx]) bad.add(String(attempted[idx]));
+    }
+  }
+  return [...bad];
+}
+
+async function applyAutomodRuleWithExemptRepair(mutate, body, ruleLabel = "") {
+  let channels = [...(body.exemptChannels || [])]
+    .map(String)
+    .filter((id) => id && !rejectedExemptChannelIds.has(id));
+  let lastErr = null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      return await mutate({ ...body, exemptChannels: channels });
+    } catch (err) {
+      lastErr = err;
+      if (!isInvalidAutomodExemptChannelError(err) || !channels.length) throw err;
+
+      let bad = extractInvalidExemptChannelIdsFromError(err, channels);
+      if (!bad.length && channels.length > 1) {
+        /* Discord didn't point at indices: probe first half vs second half. */
+        const mid = Math.ceil(channels.length / 2);
+        const head = channels.slice(0, mid);
+        const tail = channels.slice(mid);
+        try {
+          await mutate({ ...body, exemptChannels: head });
+          /* head ok → invalid IDs are in tail; keep head and continue pruning tail */
+          channels = head;
+          const repairedTail = [];
+          for (const id of tail) {
+            if (rejectedExemptChannelIds.has(id)) continue;
+            try {
+              await mutate({ ...body, exemptChannels: [...channels, ...repairedTail, id] });
+              repairedTail.push(id);
+            } catch (oneErr) {
+              if (!isInvalidAutomodExemptChannelError(oneErr)) throw oneErr;
+              rememberRejectedExemptChannels([id]);
+            }
+          }
+          if (repairedTail.length !== tail.length) {
+            logAutomodPruneOnce(
+              `pruned:${ruleLabel || body?.name || "?"}`,
+              "[discordAutomod] pruned exempt_channels for",
+              ruleLabel || body?.name || "?",
+              `dropped=${tail.length - repairedTail.length}`,
+              `kept=${channels.length + repairedTail.length}`,
+            );
+          }
+          return mutate({ ...body, exemptChannels: [...channels, ...repairedTail] });
+        } catch (headErr) {
+          if (!isInvalidAutomodExemptChannelError(headErr)) throw headErr;
+          bad = extractInvalidExemptChannelIdsFromError(headErr, head);
+          if (!bad.length) {
+            /* entire problem in head (or both): drop tail from this pass and shrink */
+            channels = head;
+            continue;
+          }
+        }
+      }
+
+      if (!bad.length && channels.length === 1) {
+        rememberRejectedExemptChannels(channels);
+        logAutomodPruneOnce(
+          `drop1:${channels[0]}`,
+          "[discordAutomod] permanent drop exempt channel",
+          ruleLabel || body?.name || "?",
+          channels[0],
+        );
+        channels = [];
+        continue;
+      }
+
+      if (!bad.length) {
+        /* last resort: walk one-by-one */
+        const accepted = [];
+        for (const id of channels) {
+          if (rejectedExemptChannelIds.has(id)) continue;
+          try {
+            await mutate({ ...body, exemptChannels: [...accepted, id] });
+            accepted.push(id);
+          } catch (oneErr) {
+            if (!isInvalidAutomodExemptChannelError(oneErr)) throw oneErr;
+            rememberRejectedExemptChannels([id]);
+          }
+        }
+        logAutomodPruneOnce(
+          `rebuild:${ruleLabel || body?.name || "?"}`,
+          "[discordAutomod] rebuilt exempt_channels for",
+          ruleLabel || body?.name || "?",
+          `kept=${accepted.length}/${channels.length}`,
+        );
+        if (accepted.length) return mutate({ ...body, exemptChannels: accepted });
+        return mutate({
+          ...body,
+          exemptChannels: [],
+          reason: `${body.reason || "Vinili AutoMod sync"} (cleared stale exempts)`,
+        });
+      }
+
+      rememberRejectedExemptChannels(bad);
+      const drop = new Set(bad);
+      channels = channels.filter((id) => !drop.has(id));
+      logAutomodPruneOnce(
+        `drop:${[...drop].sort().join(",")}`,
+        "[discordAutomod] drop invalid exempt_channels for",
+        ruleLabel || body?.name || "?",
+        [...drop].join(","),
+        `remaining=${channels.length}`,
+      );
+    }
+  }
+  throw lastErr || new Error("automod_exempt_repair_failed");
 }
 
 function filterGuildSnowflakeIds(guild, ids, kind = "channel") {
@@ -204,6 +388,7 @@ function filterGuildSnowflakeIds(guild, ids, kind = "channel") {
   return (Array.isArray(ids) ? ids : [])
     .map((id) => String(id || "").trim())
     .filter((id) => {
+      if (kind === "channel" && rejectedExemptChannelIds.has(id)) return false;
       if (!cache.has(id)) return false;
       if (kind !== "channel") return true;
       return isDiscordAutomodExemptableChannel(cache.get(id));
@@ -309,7 +494,8 @@ function prioritizeAutomodExemptChannelIds(guild, ids) {
   push(automodZones);
   push(ticketCategories);
   push(ticketChannels);
-  global.logger?.warn?.(
+  logAutomodPruneOnce(
+    `trim:${existing.length}->${out.length}`,
     `[discordAutomod] exempt channels trimmed ${existing.length} -> ${out.length}`,
   );
   return out;
@@ -722,40 +908,14 @@ async function syncGuildDiscordAutomodRules(guild, options = {}) {
       exemptRoles,
       reason: "Vinili AutoMod sync",
     };
-    const applyRuleEdit = async (target, body) => {
-      try {
-        return await target.edit(body);
-      } catch (err) {
-        if (!isInvalidAutomodExemptChannelError(err) || !(body.exemptChannels || []).length) {
-          throw err;
-        }
-        global.logger?.warn?.(
-          "[discordAutomod] stale exempt_channels for",
-          spec.name,
-          "- retry with empty exemptions",
-        );
-        return target.edit({ ...body, exemptChannels: [], reason: `${body.reason} (cleared stale exempts)` });
-      }
-    };
-    const applyRuleCreate = async (body) => {
-      try {
-        return await guild.autoModerationRules.create(body);
-      } catch (err) {
-        if (!isInvalidAutomodExemptChannelError(err) || !(body.exemptChannels || []).length) {
-          throw err;
-        }
-        global.logger?.warn?.(
-          "[discordAutomod] stale exempt_channels for",
-          spec.name,
-          "- create retry with empty exemptions",
-        );
-        return guild.autoModerationRules.create({
-          ...body,
-          exemptChannels: [],
-          reason: `${body.reason} (cleared stale exempts)`,
-        });
-      }
-    };
+    const applyRuleEdit = async (target, body) =>
+      applyAutomodRuleWithExemptRepair((next) => target.edit(next), body, spec.name);
+    const applyRuleCreate = async (body) =>
+      applyAutomodRuleWithExemptRepair(
+        (next) => guild.autoModerationRules.create(next),
+        body,
+        spec.name,
+      );
     if (!found) {
       let createdRule = null;
       let createErr = null;

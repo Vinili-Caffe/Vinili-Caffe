@@ -1,8 +1,18 @@
 const { GuildScheduledEventStatus } = require("discord.js");
 const IDs = require("../Config/ids");
+const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag");
 
-const CACHE_TTL_MS = 5000;
+const CACHE_TTL_MS = 20_000;
+const CACHE_SOFT_MS = 12_000;
 let cache = { at: 0, payload: null };
+let liveEventInflight = null;
+let liveEventSoftRefresh = null;
+
+/* siteApiW6: ETag/304 on live-event poll */
+function sendLiveEvent(req, res, payload, cacheControl) {
+  const etag = weakEtagFromParts(["live", cache.at || 0, payload?.active ? "1" : "0", payload?.event?.id || ""]);
+  return sendJsonWithEtag(req, res, payload, { cacheControl, etag });
+}
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -85,70 +95,121 @@ async function handleSiteLiveEventGet(client, req, res) {
   try {
     const now = Date.now();
     if (cache.payload && now - cache.at < CACHE_TTL_MS) {
-      res.setHeader("Cache-Control", "public, max-age=8");
-      return res.json(cache.payload);
+      /* siteApiW3: soft refresh in background after soft window */
+      if (now - cache.at > CACHE_SOFT_MS && !liveEventSoftRefresh) {
+        liveEventSoftRefresh = buildLiveEventPayload(client, { force: true })
+          .then((payload) => {
+            if (payload) cache = { at: Date.now(), payload };
+          })
+          .catch(() => null)
+          .finally(() => {
+            liveEventSoftRefresh = null;
+          });
+      }
+      return sendLiveEvent(req, res, cache.payload, "public, max-age=15");
     }
 
-    const guildId = resolveGuildId(client);
-    if (!guildId) {
-      const empty = { ok: true, active: false, inviteUrl: inviteFallbackUrl() };
-      cache = { at: now, payload: empty };
-      res.setHeader("Cache-Control", "public, max-age=15");
-      return res.json(empty);
+    if (liveEventInflight) {
+      const payload = await liveEventInflight;
+      return sendLiveEvent(req, res, payload, "public, max-age=15");
     }
 
-    const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-    if (!guild) {
-      const empty = { ok: true, active: false, inviteUrl: inviteFallbackUrl() };
-      cache = { at: now, payload: empty };
-      res.setHeader("Cache-Control", "public, max-age=15");
-      return res.json(empty);
-    }
-
-    const col = await guild.scheduledEvents.fetch({ force: true }).catch(() => guild.scheduledEvents.fetch().catch(() => null));
-    const nowMs = Date.now();
-    const ongoing = col ? [...col.values()].filter((e) => isOngoingForSite(e, nowMs)) : [];
-
-    const inviteUrl = inviteFallbackUrl();
-
-    if (!ongoing.length) {
-      const payload = { ok: true, active: false, inviteUrl };
-      cache = { at: now, payload };
-      res.setHeader("Cache-Control", "public, max-age=8");
-      return res.json(payload);
-    }
-
-    ongoing.sort((a, b) => {
-      const pa = Number(a.status) === GuildScheduledEventStatus.Active ? 0 : 1;
-      const pb = Number(b.status) === GuildScheduledEventStatus.Active ? 0 : 1;
-      if (pa !== pb) return pa - pb;
-      return eventStartMs(a) - eventStartMs(b);
-    });
-    const ev = ongoing[0];
-    const gid = String(guild.id);
-    const eid = String(ev.id || "");
-    const cta = resolvePrimaryCta(ev, gid);
-    const desc = plainDescription(ev.description, 400);
-    const payload = {
-      ok: true,
-      active: true,
-      inviteUrl,
-      event: {
-        id: eid,
-        name: String(ev.name || "Evento in corso").slice(0, 120),
-        description: desc,
-        buttonUrl: cta.url,
-        buttonLabel: cta.label,
-        eventUrl: eid ? eventPageUrl(gid, eid) : inviteUrl,
-      },
-    };
-    cache = { at: now, payload };
-    res.setHeader("Cache-Control", "public, max-age=8");
-    return res.json(payload);
+    liveEventInflight = buildLiveEventPayload(client, { force: false })
+      .then((payload) => {
+        cache = { at: Date.now(), payload };
+        return payload;
+      })
+      .finally(() => {
+        liveEventInflight = null;
+      });
+    const payload = await liveEventInflight;
+    return sendLiveEvent(req, res, payload, "public, max-age=15");
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-live-event:", err);
+    if (cache.payload) {
+      return sendLiveEvent(req, res, cache.payload, "public, max-age=8");
+    }
     return res.status(500).json({ ok: false, active: false, error: "internal" });
   }
 }
 
-module.exports = { handleSiteLiveEventGet };
+async function buildLiveEventPayload(client, { force } = {}) {
+  const now = Date.now();
+  const guildId = resolveGuildId(client);
+  if (!guildId) {
+    return { ok: true, active: false, inviteUrl: inviteFallbackUrl() };
+  }
+
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) {
+    return { ok: true, active: false, inviteUrl: inviteFallbackUrl() };
+  }
+
+  let col = null;
+  if (force) {
+    col = await guild.scheduledEvents.fetch({ force: true }).catch(() => guild.scheduledEvents.fetch().catch(() => null));
+  } else if (guild.scheduledEvents?.cache?.size) {
+    col = guild.scheduledEvents.cache;
+    setImmediate(() => {
+      guild.scheduledEvents.fetch({ force: false }).catch(() => null);
+    });
+  } else {
+    col = await guild.scheduledEvents.fetch({ force: false }).catch(() => null);
+  }
+  const nowMs = Date.now();
+  const ongoing = col ? [...col.values()].filter((e) => isOngoingForSite(e, nowMs)) : [];
+
+  const inviteUrl = inviteFallbackUrl();
+
+  if (!ongoing.length) {
+    return { ok: true, active: false, inviteUrl };
+  }
+
+  ongoing.sort((a, b) => {
+    const pa = Number(a.status) === GuildScheduledEventStatus.Active ? 0 : 1;
+    const pb = Number(b.status) === GuildScheduledEventStatus.Active ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    return eventStartMs(a) - eventStartMs(b);
+  });
+  const ev = ongoing[0];
+  const gid = String(guild.id);
+  const eid = String(ev.id || "");
+  const cta = resolvePrimaryCta(ev, gid);
+  const desc = plainDescription(ev.description, 400);
+  return {
+    ok: true,
+    active: true,
+    inviteUrl,
+    event: {
+      id: eid,
+      name: String(ev.name || "Evento in corso").slice(0, 120),
+      description: desc,
+      buttonUrl: cta.url,
+      buttonLabel: cta.label,
+      eventUrl: eid ? eventPageUrl(gid, eid) : inviteUrl,
+    },
+  };
+}
+
+/* siteApiW4: warm cache on site-api boot */
+function warmSiteLiveEventCache(client) {
+  if (cache.payload && Date.now() - cache.at < CACHE_TTL_MS) {
+    return Promise.resolve(cache.payload);
+  }
+  if (liveEventInflight) return liveEventInflight;
+  liveEventInflight = buildLiveEventPayload(client, { force: false })
+    .then((payload) => {
+      cache = { at: Date.now(), payload };
+      return payload;
+    })
+    .catch((err) => {
+      global.logger?.warn?.("[WEBHOOK] site-live-event warm:", err?.message || err);
+      return null;
+    })
+    .finally(() => {
+      liveEventInflight = null;
+    });
+  return liveEventInflight;
+}
+
+module.exports = { handleSiteLiveEventGet, warmSiteLiveEventCache };

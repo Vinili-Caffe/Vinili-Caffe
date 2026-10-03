@@ -262,6 +262,7 @@
       p === "/staff/inbox" ||
       p === "/staff/guida" ||
       p === "/staff/pause" ||
+      p === "/staff/compiti" ||
       p === "/staff/gestione" ||
       p === "/staff/organico" ||
       p === "/staff/punti-tolti" ||
@@ -389,13 +390,23 @@
     if (!el) return;
     el.hidden = false;
     el.classList.add("vc-staff-panel", "is-loading");
-    if (el.querySelector(".vc-staff-panel-skeleton")) return;
+    /* ticketsSkel1: prefer shared list skeleton when empty (organico / staff panels) */
+    if (el.querySelector(".vc-list-skel") || el.querySelector(".vc-staff-panel-skeleton")) {
+      try {
+        el.setAttribute("aria-busy", "true");
+      } catch (eB) {}
+      return;
+    }
     if (el.children.length > 0) {
       var skWrap = document.createElement("div");
       skWrap.className = "vc-staff-panel-skeleton";
       skWrap.setAttribute("aria-hidden", "true");
       skWrap.innerHTML = "<span></span><span></span><span></span>";
       el.appendChild(skWrap);
+      return;
+    }
+    if (global.VcListSkeleton && typeof global.VcListSkeleton.fill === "function") {
+      global.VcListSkeleton.fill(el, { mode: "rows", count: 5 });
       return;
     }
     if (!el.textContent.trim()) {
@@ -407,6 +418,12 @@
     var el = byId(elId);
     if (!el) return;
     el.classList.remove("is-loading");
+    try {
+      el.removeAttribute("aria-busy");
+    } catch (eC) {}
+    if (global.VcListSkeleton && typeof global.VcListSkeleton.clearBusy === "function") {
+      global.VcListSkeleton.clearBusy(el);
+    }
     var sk = el.querySelector(".vc-staff-panel-skeleton");
     if (sk) sk.remove();
   }
@@ -414,13 +431,41 @@
   function fetchJson(url, options) {
     var opts = options || {};
     var method = String(opts.method || "GET").toUpperCase();
+    function withViewAs(headers) {
+      var h = Object.assign({}, headers || {});
+      try {
+        if (global.VcViewAs && typeof global.VcViewAs.applyHeader === "function") {
+          var patched = global.VcViewAs.applyHeader({ headers: h });
+          h = patched.headers;
+          if (h && typeof h.forEach === "function") {
+            var plain = {};
+            h.forEach(function (v, k) {
+              plain[k] = v;
+            });
+            h = plain;
+          }
+        } else if (sessionStorage.getItem("vc_view_as")) {
+          h["X-VC-View-As"] = String(sessionStorage.getItem("vc_view_as") || "");
+        }
+        var authNow = String(h.Authorization || h.authorization || "").trim();
+        if (
+          sessionStorage.getItem("vc_view_as") &&
+          (!authNow || /^Bearer\s*$/i.test(authNow)) &&
+          typeof window.__vcDiscordGetRealAccessToken === "function"
+        ) {
+          var realTok = String(window.__vcDiscordGetRealAccessToken() || "").trim();
+          if (realTok) h.Authorization = "Bearer " + realTok;
+        }
+      } catch (eVa) {}
+      return h;
+    }
     if (
       method === "GET" &&
       opts.cache !== false &&
       global.VcApiCache &&
       typeof global.VcApiCache.fetchStaffJson === "function"
     ) {
-      var headers = Object.assign({ Authorization: "Bearer " + getToken() }, opts.headers || {});
+      var headers = withViewAs(Object.assign({ Authorization: "Bearer " + getToken() }, opts.headers || {}));
       return global.VcApiCache.fetchStaffJson(url, {
         headers: headers,
         timeoutMs: resolveFetchTimeoutMs(opts.timeoutMs),
@@ -432,7 +477,7 @@
         onStale: opts.onStale,
       });
     }
-    var headers = Object.assign({ Authorization: "Bearer " + getToken() }, opts.headers || {});
+    var headers = withViewAs(Object.assign({ Authorization: "Bearer " + getToken() }, opts.headers || {}));
     var timeoutMs = resolveFetchTimeoutMs(opts.timeoutMs);
     var fetchOpts = {
       method: opts.method || "GET",
@@ -459,8 +504,12 @@
             function () {
               externalAbort = true;
               try {
-                ctrl.abort();
-              } catch (eLink) {}
+                ctrl.abort("external");
+              } catch (eLink) {
+                try {
+                  ctrl.abort();
+                } catch (eLink2) {}
+              }
             },
             { once: true },
           );
@@ -502,6 +551,13 @@
             return {};
           })
           .then(function (data) {
+            if (res && res.status === 401) {
+              try {
+                if (typeof global.__vcDiscordCompleteLogout === "function") {
+                  global.__vcDiscordCompleteLogout({ reason: "staff-tools-401" });
+                }
+              } catch (e401) {}
+            }
             return { res: res, data: data };
           });
       })
@@ -511,12 +567,22 @@
         clearTimers();
         var isAbort =
           err &&
-          (err.name === "AbortError" || String(err.message || "").toLowerCase().indexOf("abort") >= 0);
+          (err.name === "AbortError" ||
+            err.name === "TimeoutError" ||
+            String(err.message || "").toLowerCase().indexOf("abort") >= 0);
         if (isAbort) {
-                    if (externalAbort && !timedOutByUs) return abortedPayload();
+          if (externalAbort && !timedOutByUs) return abortedPayload();
           return timeoutPayload();
         }
-        throw err;
+        /* rateLimitCalm1: mai rilanciare — evita Uncaught (in promise) in console */
+        return {
+          res: { ok: false, status: 0 },
+          data: {
+            ok: false,
+            error: "network_error",
+            message: (err && err.message) || "Errore di rete.",
+          },
+        };
       });
     return Promise.race([
       fetchPromise,

@@ -1,0 +1,1314 @@
+@import url("https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&display=swap");
+
+/* Staff Compiti DualView1 — staff edit vs HS review + retry */
+:root {
+  --vc-compiti-paper: #f6ead6;
+  --vc-compiti-paper-deep: #e8d9c0;
+  --vc-compiti-ink: #1a1410;
+  --vc-compiti-muted: #3d342a;
+  --vc-compiti-hand: "Caveat", "Segoe Print", "Comic Sans MS", cursive;
+  --vc-compiti-cover: #5c3a24;
+  --vc-compiti-cover-deep: #3a2214;
+}
+
+html.vc-staff-compiti-route .vc-home-cine__canvas,
+html.vc-compiti-perf .vc-home-cine__canvas,
+html.vc-staff-compiti-route .vc-blob,
+html.vc-compiti-perf .vc-blob {
+  display: none !important;
+}
+html.vc-staff-compiti-route .vc-home-cine,
+html.vc-compiti-perf .vc-home-cine {
+  pointer-events: none !important;
+}
+
+/* compitiUx1: dopo reveal — scroll pagina + niente rotellina hold */
+html.vc-staff-compiti-route.vc-staff-app-revealed,
+html.vc-staff-compiti-route.vc-staff-app-revealed body.vc-staff-compiti-page,
+html.vc-compiti-perf.vc-staff-app-revealed,
+html.vc-compiti-perf.vc-staff-app-revealed body.vc-staff-compiti-page {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  touch-action: pan-y !important;
+  height: auto !important;
+  max-height: none !important;
+  overscroll-behavior-y: auto !important;
+}
+/* compitiScrollUnlock2: soft-lock residuo dopo dialog/azione non deve mangiare la scrollbar */
+html.vc-staff-compiti-route.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
+html.vc-staff-compiti-route.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)
+  body.vc-staff-compiti-page,
+html.vc-compiti-perf.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open),
+html.vc-compiti-perf.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)
+  body.vc-staff-compiti-page {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin !important;
+}
+html.vc-staff-compiti-route.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)::-webkit-scrollbar,
+html.vc-compiti-perf.vc-staff-app-revealed:not(.vc-dialog-open):not(.vc-notif-sheet-open):not(.vc-notif-drawer-open):not(.vc-img-lb-open)::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+  display: block !important;
+}
+html.vc-staff-compiti-route.vc-staff-app-revealed body.vc-staff-compiti-page,
+html.vc-compiti-perf.vc-staff-app-revealed body.vc-staff-compiti-page {
+  pointer-events: auto !important;
+  cursor: auto !important;
+}
+html.vc-staff-compiti-route.vc-staff-app-revealed #vc-staff-loading,
+html.vc-compiti-perf.vc-staff-app-revealed #vc-staff-loading {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+html.vc-staff-compiti-route .vc-compiti-cover,
+html.vc-staff-compiti-route .vc-compiti-cover * {
+  cursor: pointer !important;
+}
+html.vc-staff-compiti-route .vc-compiti-cover:not(.is-ready),
+html.vc-staff-compiti-route .vc-compiti-cover:not(.is-ready) * {
+  cursor: progress !important;
+}
+
+html.vc-staff-compiti-route .vc-staff-compiti-board,
+body.vc-staff-compiti-page .vc-staff-compiti-board {
+  position: relative;
+  overflow: visible;
+  margin: 0.15rem auto 1.25rem;
+  max-width: min(74rem, 100%);
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+body.vc-compiti-hs .vc-staff-compiti-board {
+  /* compitiHsNavEdge1: gutter laterale per frecce ai bordi */
+  padding-inline: 2.75rem !important;
+  max-width: min(74rem, 100%);
+}
+body.vc-compiti-hs .vc-staff-compiti-board.is-closed {
+  padding-inline: 0 !important;
+}
+
+.vc-compiti-cover {
+  position: relative;
+  display: none;
+  width: min(18.5rem, 78vw);
+  height: min(26rem, 62vh);
+  margin: 0.75rem auto 1.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  perspective: 1200px;
+  -webkit-tap-highlight-color: transparent;
+}
+.vc-staff-compiti-board.is-closed .vc-compiti-cover,
+.vc-staff-compiti-board.is-opening .vc-compiti-cover {
+  display: block;
+}
+.vc-compiti-cover__front {
+  position: absolute;
+  inset: 0 0 0 0.7rem;
+  border-radius: 0.35rem 0.85rem 0.85rem 0.35rem;
+  background:
+    linear-gradient(115deg, rgba(255, 230, 190, 0.12), transparent 42%),
+    linear-gradient(160deg, var(--vc-compiti-cover) 0%, var(--vc-compiti-cover-deep) 100%);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 220, 170, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transform-origin: left center;
+  color: #f4e6d4;
+  transition: transform 0.75s cubic-bezier(0.22, 0.8, 0.28, 1), opacity 0.55s ease;
+}
+.vc-compiti-cover__badge {
+  font-family: var(--vc-compiti-hand);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+.vc-compiti-cover__title {
+  font-family: var(--vc-compiti-hand);
+  font-size: 2.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.vc-compiti-cover__sub {
+  font-family: var(--vc-compiti-hand);
+  font-size: 1.55rem;
+  opacity: 0.88;
+  margin-bottom: 1.4rem;
+}
+.vc-compiti-cover__hint {
+  font-family: var(--vc-compiti-hand);
+  font-size: 1.2rem;
+  opacity: 0.72;
+  min-height: 1.4em;
+}
+.vc-compiti-cover.is-ready .vc-compiti-cover__hint {
+  opacity: 1;
+}
+.vc-compiti-cover__spine {
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 0.85rem;
+  border-radius: 0.35rem 0 0 0.35rem;
+  background: linear-gradient(90deg, #24150c, #6a4228 55%, #2a180e);
+  box-shadow: inset -2px 0 0 rgba(0, 0, 0, 0.35);
+}
+.vc-compiti-cover__edge {
+  position: absolute;
+  right: -0.35rem;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 0.55rem;
+  border-radius: 0 0.2rem 0.2rem 0;
+  background: repeating-linear-gradient(
+    180deg,
+    #efe0c8 0 2px,
+    #e4d2b4 2px 4px
+  );
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.25);
+}
+.vc-compiti-cover:hover .vc-compiti-cover__front {
+  transform: rotateY(-8deg);
+}
+.vc-staff-compiti-board.is-opening .vc-compiti-cover__front {
+  transform: rotateY(-105deg);
+  opacity: 0;
+}
+.vc-staff-compiti-board.is-opening .vc-compiti-cover {
+  pointer-events: none;
+}
+
+.vc-staff-compiti-board.is-closed .vc-staff-compiti-book {
+  display: none !important;
+}
+.vc-staff-compiti-board.is-closed .vc-compiti-hs-nav,
+.vc-staff-compiti-board.is-closed .vc-compiti-hs-nav__btn {
+  display: none !important;
+}
+.vc-staff-compiti-board.is-opening .vc-staff-compiti-book {
+  display: grid;
+  animation: vcCompitiBookReveal 0.72s cubic-bezier(0.22, 0.8, 0.28, 1) both;
+}
+.vc-staff-compiti-board.is-open .vc-compiti-cover {
+  display: none !important;
+}
+@keyframes vcCompitiBookReveal {
+  0% { opacity: 0; transform: scale(0.92) rotateY(12deg); }
+  100% { opacity: 1; transform: scale(1) rotateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-compiti-cover:hover .vc-compiti-cover__front,
+  .vc-staff-compiti-board.is-opening .vc-compiti-cover__front {
+    transform: none;
+  }
+  .vc-staff-compiti-board.is-opening .vc-staff-compiti-book {
+    animation: none;
+  }
+}
+
+.vc-staff-compiti-book {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  width: 100%;
+  max-width: min(72rem, 100%);
+  margin: 0 auto;
+  color: var(--vc-compiti-ink);
+  font-family: var(--vc-compiti-hand);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.45);
+  border-radius: 0.95rem;
+  transform: translateZ(0);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.vc-staff-compiti-book.is-staff-flip-next {
+  animation: vcCompitiStaffFlipNext 0.28s ease;
+}
+.vc-staff-compiti-book.is-staff-flip-prev {
+  animation: vcCompitiStaffFlipPrev 0.28s ease;
+}
+@keyframes vcCompitiStaffFlipNext {
+  0% { transform: rotateY(0); opacity: 1; }
+  45% { transform: rotateY(-42deg); opacity: 0.55; }
+  55% { transform: rotateY(42deg); opacity: 0.55; }
+  100% { transform: rotateY(0); opacity: 1; }
+}
+@keyframes vcCompitiStaffFlipPrev {
+  0% { transform: rotateY(0); opacity: 1; }
+  45% { transform: rotateY(42deg); opacity: 0.55; }
+  55% { transform: rotateY(-42deg); opacity: 0.55; }
+  100% { transform: rotateY(0); opacity: 1; }
+}
+
+.vc-staff-compiti-book__page {
+  position: relative;
+  min-height: 32rem;
+  padding: 1.65rem 1.55rem 1.75rem;
+  background-color: var(--vc-compiti-paper);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 29px,
+      rgba(40, 28, 16, 0.07) 29px,
+      rgba(40, 28, 16, 0.07) 30px
+    ),
+    linear-gradient(135deg, var(--vc-compiti-paper) 0%, var(--vc-compiti-paper-deep) 100%);
+  color: var(--vc-compiti-ink) !important;
+  font-family: var(--vc-compiti-hand);
+  box-shadow: inset 0 0 0 1px rgba(40, 28, 16, 0.18);
+}
+
+.vc-staff-compiti-book__page--left {
+  border-radius: 0.95rem 0.15rem 0.15rem 0.95rem;
+}
+.vc-staff-compiti-book__page--right {
+  border-radius: 0.15rem 0.95rem 0.95rem 0.15rem;
+  overflow-x: hidden;
+  overflow-y: visible;
+  perspective: 1400px;
+}
+
+.vc-staff-compiti-book__spine {
+  margin: 0.4rem -1px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(30, 20, 12, 0.65), rgba(90, 61, 40, 0.98) 40%, rgba(30, 20, 12, 0.55));
+}
+
+/* compitiHsNavStable1 + compitiFfLoad1: frecce ai bordi, altezza fissa (= min pagina libro)
+   così non saltano su/giù quando il contenuto cambia altezza.
+   Niente max-height:% — su Firefox col parent height:auto collassa la nav in alto. */
+.vc-compiti-hs-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: auto;
+  height: 32rem;
+  z-index: 8;
+  pointer-events: none;
+}
+.vc-compiti-hs-nav[hidden] {
+  display: none !important;
+}
+.vc-compiti-hs-nav__btn[hidden] {
+  display: none !important;
+}
+.vc-compiti-hs-nav__btn {
+  pointer-events: auto;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 999px;
+  /* switchArrowBorder1: bordo conic */
+  border: 2px solid transparent;
+  background-color: #100c09;
+  background-image:
+    linear-gradient(#100c09, #100c09),
+    conic-gradient(
+      from 0deg,
+      rgba(255, 247, 236, 0.98) 0deg,
+      rgba(236, 205, 176, 0.9) 70deg,
+      rgba(212, 168, 136, 0.78) 140deg,
+      rgba(180, 130, 90, 0.82) 200deg,
+      rgba(212, 168, 136, 0.78) 270deg,
+      rgba(255, 247, 236, 0.98) 360deg
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  -webkit-background-clip: padding-box, border-box;
+  color: #f3e6d6 !important;
+  -webkit-text-fill-color: #f3e6d6 !important;
+  cursor: pointer;
+  font-size: 1.25rem;
+  box-shadow: 0 0 0 1px rgba(255, 247, 236, 0.18), 0 6px 14px rgba(0, 0, 0, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 8;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.vc-compiti-hs-nav__btn .fa,
+.vc-compiti-hs-nav__btn i {
+  color: #f3e6d6 !important;
+  -webkit-text-fill-color: #f3e6d6 !important;
+  background: none !important;
+  background-image: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.vc-compiti-hs-nav__btn--prev {
+  left: 0.05rem;
+  right: auto;
+}
+.vc-compiti-hs-nav__btn--next {
+  right: 0.05rem;
+  left: auto;
+}
+.vc-compiti-hs-nav__btn:hover {
+  background-color: #16110d;
+  background-image:
+    linear-gradient(#16110d, #16110d),
+    conic-gradient(
+      from 0deg,
+      rgba(255, 247, 236, 0.98) 0deg,
+      rgba(236, 205, 176, 0.92) 70deg,
+      rgba(212, 168, 136, 0.82) 140deg,
+      rgba(180, 130, 90, 0.86) 200deg,
+      rgba(212, 168, 136, 0.82) 270deg,
+      rgba(255, 247, 236, 0.98) 360deg
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  -webkit-background-clip: padding-box, border-box;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+.vc-compiti-hs-nav__btn:hover .fa,
+.vc-compiti-hs-nav__btn:hover i {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+.vc-compiti-hs-nav__btn:active {
+  transform: translateY(-50%) scale(0.96) !important;
+}
+
+.vc-compiti-identity-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.vc-compiti-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.vc-compiti-identity__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.vc-compiti-identity__avatar {
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid rgba(107, 68, 35, 0.5);
+  background: #d9cbb4;
+}
+
+.vc-compiti-identity__name,
+.vc-compiti-identity__meta,
+.vc-compiti-month,
+.vc-compiti-toc-title,
+.vc-compiti-hint,
+.vc-compiti-list-title,
+.vc-compiti-leaf__meta,
+.vc-compiti-leaf__status,
+.vc-compiti-check__label,
+.vc-compiti-note-label,
+.vc-compiti-note,
+.vc-compiti-save,
+.vc-compiti-pager__btn,
+.vc-compiti-toc__item,
+.vc-compiti-progress {
+  font-family: var(--vc-compiti-hand) !important;
+  color: var(--vc-compiti-ink) !important;
+}
+
+.vc-compiti-identity__name {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.vc-compiti-identity__meta {
+  margin: 0.1rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--vc-compiti-muted) !important;
+}
+
+.vc-compiti-progress {
+  margin: 0;
+  flex-shrink: 0;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  background: rgba(107, 68, 35, 0.14);
+  border: 1px solid rgba(107, 68, 35, 0.35);
+  white-space: nowrap;
+}
+.vc-compiti-progress.is-done {
+  background: rgba(55, 110, 55, 0.18);
+  border-color: rgba(55, 110, 55, 0.42);
+  color: #1e3a1e !important;
+}
+.vc-compiti-progress.is-fail {
+  background: rgba(140, 50, 40, 0.16);
+  border-color: rgba(160, 70, 55, 0.4);
+  color: #5a2218 !important;
+}
+.vc-compiti-progress.is-review {
+  background: rgba(120, 90, 40, 0.16);
+  border-color: rgba(140, 110, 50, 0.4);
+}
+.vc-compiti-progress.is-retry,
+.vc-compiti-leaf__status.is-retry {
+  background: rgba(140, 90, 40, 0.18);
+  border-color: rgba(160, 100, 45, 0.42);
+  color: #5a3a12 !important;
+}
+
+.vc-compiti-hs-empty {
+  margin: 0 0 0.85rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--vc-compiti-muted) !important;
+}
+body.vc-compiti-hs-view .vc-compiti-proof-add,
+body.vc-compiti-hs-view .vc-compiti-actions {
+  display: none !important;
+}
+body.vc-compiti-hs-view .vc-compiti-note {
+  min-height: 7rem;
+  background: rgba(255, 255, 255, 0.42);
+  border-style: solid;
+  border-color: rgba(107, 68, 35, 0.18);
+  cursor: default;
+  resize: none;
+  opacity: 1;
+  color: #3a2a18;
+}
+body.vc-compiti-hs-view .vc-compiti-note:disabled,
+body.vc-compiti-hs-view .vc-compiti-note[readonly] {
+  cursor: default;
+  opacity: 1;
+  -webkit-text-fill-color: #3a2a18;
+  color: #3a2a18;
+}
+body.vc-compiti-hs-empty-week .vc-compiti-form {
+  display: none !important;
+}
+body.vc-compiti-hs-view .vc-compiti-review:not([hidden]) {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.vc-compiti-month {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--vc-compiti-muted) !important;
+}
+
+.vc-compiti-toc-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.85rem;
+  font-weight: 700;
+}
+
+.vc-compiti-toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+.vc-compiti-toc__row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.vc-compiti-toc__row .vc-compiti-toc__item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vc-compiti-toc__swap {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: rgba(60, 42, 28, 0.55);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.vc-compiti-toc__swap:hover {
+  color: var(--vc-compiti-ink);
+  background: rgba(107, 68, 35, 0.12);
+}
+.vc-compiti-toc__swap:active {
+  background: rgba(107, 68, 35, 0.2);
+}
+.vc-compiti-toc__swap-slot {
+  flex: 0 0 1.7rem;
+  width: 1.7rem;
+  height: 1.7rem;
+}
+.vc-compiti-swap-meta {
+  margin: 0.35rem 0 0;
+  font-family: var(--vc-compiti-hand);
+  font-size: 1.05rem;
+  color: var(--vc-compiti-muted);
+  opacity: 0.9;
+}
+.vc-compiti-swap-meta[hidden] {
+  display: none !important;
+}
+
+.vc-compiti-toc__item {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.25;
+  cursor: pointer;
+}
+.vc-compiti-toc__item:hover:not(:disabled) {
+  background: rgba(107, 68, 35, 0.1);
+}
+.vc-compiti-toc__item.is-active {
+  background: rgba(107, 68, 35, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(107, 68, 35, 0.35);
+}
+.vc-compiti-toc__item.is-locked {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.vc-compiti-toc__item.is-locked .vc-compiti-toc__label {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: rgba(40, 28, 16, 0.55);
+}
+.vc-compiti-toc__item.is-future .vc-compiti-toc__label {
+  opacity: 0.72;
+  font-style: italic;
+}
+
+.vc-compiti-hint {
+  margin: 1rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--vc-compiti-muted) !important;
+}
+
+.vc-compiti-leaf {
+  transform-origin: left center;
+  font-family: var(--vc-compiti-hand);
+}
+.vc-compiti-leaf.is-flip-out-next { animation: vcCompitiFlipOutNext 0.28s ease-in forwards; }
+.vc-compiti-leaf.is-flip-out-prev { animation: vcCompitiFlipOutPrev 0.28s ease-in forwards; }
+.vc-compiti-leaf.is-flip-in-next { animation: vcCompitiFlipInNext 0.32s ease-out forwards; }
+.vc-compiti-leaf.is-flip-in-prev { animation: vcCompitiFlipInPrev 0.32s ease-out forwards; }
+@keyframes vcCompitiFlipOutNext { to { transform: rotateY(-88deg); opacity: 0.35; } }
+@keyframes vcCompitiFlipInNext { from { transform: rotateY(72deg); opacity: 0.35; } to { transform: none; opacity: 1; } }
+@keyframes vcCompitiFlipOutPrev { to { transform: rotateY(88deg); opacity: 0.35; } }
+@keyframes vcCompitiFlipInPrev { from { transform: rotateY(-72deg); opacity: 0.35; } to { transform: none; opacity: 1; } }
+
+.vc-compiti-leaf__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+.vc-compiti-leaf__meta {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--vc-compiti-muted) !important;
+}
+.vc-compiti-leaf__status {
+  margin: 0;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  background: rgba(107, 68, 35, 0.12);
+  border: 1px solid rgba(107, 68, 35, 0.3);
+}
+.vc-compiti-leaf__status.is-done { background: rgba(55, 110, 55, 0.16); color: #1e3a1e !important; }
+.vc-compiti-leaf__status.is-fail { background: rgba(140, 50, 40, 0.16); color: #5a2218 !important; }
+
+.vc-compiti-list-title {
+  margin: 0 0 0.9rem;
+  font-size: 2.05rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.vc-compiti-form { display: grid; gap: 0.85rem; }
+
+.vc-compiti-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+.vc-compiti-check__input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.vc-compiti-check__box {
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 2px solid rgba(40, 28, 16, 0.7);
+  border-radius: 0.2rem;
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 1px 1px 0 rgba(40, 28, 16, 0.12);
+  position: relative;
+  transform: rotate(-2deg);
+  flex-shrink: 0;
+}
+.vc-compiti-check__input:checked + .vc-compiti-check__box::after {
+  content: "";
+  position: absolute;
+  left: 0.28rem;
+  top: 0.02rem;
+  width: 0.42rem;
+  height: 0.78rem;
+  border: solid #1a1410;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(38deg);
+}
+.vc-compiti-check__input:focus-visible + .vc-compiti-check__box {
+  outline: 2px solid rgba(107, 68, 35, 0.55);
+  outline-offset: 2px;
+}
+.vc-compiti-check__input:disabled + .vc-compiti-check__box,
+.vc-compiti-check__input:disabled ~ .vc-compiti-check__label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vc-compiti-note-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--vc-compiti-muted) !important;
+}
+.vc-compiti-note {
+  width: 100%;
+  min-height: 5rem;
+  resize: vertical;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.45rem;
+  border: 1px dashed rgba(40, 28, 16, 0.35);
+  background: rgba(255, 255, 255, 0.4);
+  font-size: 1.35rem !important;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.vc-compiti-proofs-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.4rem;
+}
+.vc-compiti-proof-add {
+  font-family: var(--vc-compiti-hand);
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(40, 28, 16, 0.3);
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  color: var(--vc-compiti-ink);
+}
+.vc-compiti-proofs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.vc-compiti-proofs__empty {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--vc-compiti-muted) !important;
+  font-family: var(--vc-compiti-hand);
+}
+.vc-compiti-proof {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 0.45rem;
+  overflow: hidden;
+  border: 1px solid rgba(40, 28, 16, 0.25);
+  background: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+  z-index: 2;
+}
+.vc-compiti-proof img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 1;
+  visibility: visible;
+}
+.vc-compiti-proof__file {
+  font-size: 0.85rem;
+  padding: 0.25rem;
+  text-align: center;
+  word-break: break-all;
+  font-family: var(--vc-compiti-hand);
+}
+.vc-compiti-proof__rm {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.vc-compiti-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.vc-compiti-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(40, 28, 16, 0.35);
+  background: linear-gradient(180deg, #c9a078 0%, #a67c52 100%);
+  color: #1a120c !important;
+  font-size: 1.25rem !important;
+  font-weight: 700;
+  cursor: pointer;
+}
+.vc-compiti-save--ghost {
+  background: rgba(255, 255, 255, 0.45);
+}
+.vc-compiti-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.vc-compiti-review {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+.vc-compiti-review[hidden] { display: none !important; }
+.vc-compiti-review__btn {
+  flex: 1;
+  font-family: var(--vc-compiti-hand);
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(40, 28, 16, 0.3);
+  cursor: pointer;
+}
+.vc-compiti-review__btn--ok {
+  background: rgba(70, 130, 70, 0.25);
+  color: #1e3a1e;
+}
+.vc-compiti-review__btn--no {
+  background: rgba(150, 60, 50, 0.2);
+  color: #5a2218;
+}
+
+.vc-compiti-pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.vc-compiti-pager__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.6rem;
+  /* switchArrowBorder1: bordo gradient su Indietro/Avanti */
+  border: 2px solid transparent;
+  background-color: rgba(255, 252, 245, 0.72);
+  background-image:
+    linear-gradient(rgba(255, 252, 245, 0.82), rgba(245, 236, 220, 0.78)),
+    conic-gradient(
+      from 0deg,
+      rgba(111, 78, 55, 0.95) 0deg,
+      rgba(180, 130, 90, 0.88) 70deg,
+      rgba(212, 168, 136, 0.92) 140deg,
+      rgba(139, 110, 77, 0.9) 200deg,
+      rgba(212, 168, 136, 0.92) 270deg,
+      rgba(111, 78, 55, 0.95) 360deg
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  -webkit-background-clip: padding-box, border-box;
+  box-shadow: 0 0 0 1px rgba(111, 78, 55, 0.22);
+  font-size: 1.2rem !important;
+  font-weight: 700;
+  cursor: pointer;
+}
+.vc-compiti-pager__btn--primary {
+  background-color: rgba(107, 68, 35, 0.16);
+  background-image:
+    linear-gradient(rgba(107, 68, 35, 0.18), rgba(107, 68, 35, 0.12)),
+    conic-gradient(
+      from 0deg,
+      rgba(111, 78, 55, 0.95) 0deg,
+      rgba(180, 130, 90, 0.88) 70deg,
+      rgba(212, 168, 136, 0.92) 140deg,
+      rgba(139, 110, 77, 0.9) 200deg,
+      rgba(212, 168, 136, 0.92) 270deg,
+      rgba(111, 78, 55, 0.95) 360deg
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  -webkit-background-clip: padding-box, border-box;
+}
+.vc-compiti-pager__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* compitiReviewUnlock1: batte vc-page-cine-boot :disabled → cursore loading PNG */
+html body.vc-staff-compiti-page :is(
+  .vc-compiti-pager__btn:disabled,
+  .vc-compiti-toc__item:disabled,
+  .vc-compiti-save:disabled,
+  .vc-compiti-hs-nav__btn:disabled,
+  textarea.vc-compiti-note:disabled,
+  .vc-compiti-note:disabled,
+  [aria-disabled="true"]
+),
+html.vc-staff-compiti-route body :is(
+  .vc-compiti-pager__btn:disabled,
+  .vc-compiti-toc__item:disabled,
+  .vc-compiti-save:disabled,
+  .vc-compiti-hs-nav__btn:disabled,
+  textarea.vc-compiti-note:disabled,
+  .vc-compiti-note:disabled,
+  [aria-disabled="true"]
+) {
+  cursor: not-allowed !important;
+}
+html body.vc-staff-compiti-page textarea.vc-compiti-note[readonly],
+html.vc-staff-compiti-route body textarea.vc-compiti-note[readonly] {
+  cursor: text !important;
+}
+
+.vc-compiti-flip-corner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 3.1rem;
+  height: 3.1rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 3;
+}
+.vc-compiti-flip-corner span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  border-style: solid;
+  border-width: 0 0 2.5rem 2.5rem;
+  border-color: transparent transparent rgba(107, 68, 35, 0.28) transparent;
+}
+
+@media (max-width: 719.98px) {
+  body.vc-compiti-hs .vc-staff-compiti-board {
+    padding-inline: 2.45rem !important;
+  }
+  .vc-compiti-hs-nav__btn {
+    width: 2.35rem;
+    height: 2.35rem;
+    font-size: 1.1rem;
+  }
+  .vc-staff-compiti-book {
+    grid-template-columns: 1fr;
+    max-width: 34rem;
+  }
+  .vc-staff-compiti-book__spine { display: none; }
+  .vc-staff-compiti-book__page { min-height: 0; border-radius: 0.95rem; }
+  .vc-staff-compiti-book__page--right { margin-top: 0.85rem; }
+  .vc-compiti-identity-row { flex-direction: column; align-items: stretch; }
+  .vc-compiti-progress { align-self: flex-end; }
+  /* compitiPhoneLoad1: bar Conferma/Rifiuta sticky in fondo al foglio su telefono */
+  body.vc-compiti-hs-view .vc-compiti-review:not([hidden]) {
+    position: sticky;
+    bottom: 0.35rem;
+    z-index: 6;
+    margin-top: 1rem;
+    padding: 0.45rem;
+    border-radius: 0.75rem;
+    background: rgba(246, 234, 214, 0.94);
+    box-shadow: 0 -6px 16px rgba(40, 28, 16, 0.08);
+  }
+}
+
+/* compitiInkFix1: soft-fx palette (main p/li/h2 sand + text-fill transparent)
+   rende il taccuino crema illegibile — forza inchiostro scuro sulla carta.
+   Nota: soft-fx usa :not(#id) che alza la specificità a 2 ID → servono ID qui. */
+/* compitiBookPaper1: NON azzerare i div pagina/spine (prima spariva tutto il libro) */
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  :is(
+    p,
+    li,
+    h1,
+    h2,
+    h3,
+    h4,
+    span,
+    strong,
+    b,
+    em,
+    label,
+    a,
+    button,
+    textarea,
+    input,
+    summary
+  ):not(.fa):not([class*="fa-"]):not(#discord-login-btn):not(#vc-regole-disclaimer):not(.vc-compiti-proof),
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  div:not(.vc-staff-compiti-book__page):not(.vc-staff-compiti-book__page--left):not(.vc-staff-compiti-book__page--right):not(.vc-staff-compiti-book__spine):not(.fa):not([class*="fa-"]):not(#discord-login-btn):not(#vc-regole-disclaimer):not(.vc-compiti-proof):not(.vc-compiti-proofs):not(.vc-compiti-proofs-block) {
+  background-image: none !important;
+  background-color: transparent !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: var(--vc-compiti-ink) !important;
+  -webkit-text-fill-color: var(--vc-compiti-ink) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  :is(
+    .vc-compiti-identity__meta,
+    .vc-compiti-week,
+    .vc-compiti-month,
+    .vc-compiti-hint,
+    .vc-compiti-leaf__meta,
+    .vc-compiti-note-label,
+    .vc-compiti-hs-empty,
+    .vc-compiti-proofs__empty,
+    .vc-compiti-deadline
+  ):not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  color: var(--vc-compiti-muted) !important;
+  -webkit-text-fill-color: var(--vc-compiti-muted) !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  :is(
+    .vc-compiti-progress.is-done,
+    .vc-compiti-leaf__status.is-done,
+    .vc-compiti-review__btn--ok
+  ):not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  color: #1e3a1e !important;
+  -webkit-text-fill-color: #1e3a1e !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  :is(
+    .vc-compiti-progress.is-fail,
+    .vc-compiti-leaf__status.is-fail,
+    .vc-compiti-review__btn--no
+  ):not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  color: #5a2218 !important;
+  -webkit-text-fill-color: #5a2218 !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  :is(.vc-compiti-progress.is-retry, .vc-compiti-leaf__status.is-retry):not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  color: #5a3a12 !important;
+  -webkit-text-fill-color: #5a3a12 !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  :is(.vc-compiti-save, .vc-compiti-pager__btn, .vc-compiti-toc__item):not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-save:not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  background: linear-gradient(180deg, #c9a078 0%, #a67c52 100%) !important;
+  color: #1a120c !important;
+  -webkit-text-fill-color: #1a120c !important;
+}
+/* compitiPhoneLoad1: soft-fx azzerava bg dei bottoni Conferma/Rifiuta → invisibili su mobile */
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-review__btn--ok:not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  background: rgba(70, 130, 70, 0.42) !important;
+  color: #1e3a1e !important;
+  -webkit-text-fill-color: #1e3a1e !important;
+  border-color: rgba(40, 80, 40, 0.45) !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-review__btn--no:not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  background: rgba(150, 60, 50, 0.36) !important;
+  color: #5a2218 !important;
+  -webkit-text-fill-color: #5a2218 !important;
+  border-color: rgba(120, 40, 30, 0.4) !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-pager__btn:not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  background: rgba(255, 255, 255, 0.55) !important;
+  color: var(--vc-compiti-ink) !important;
+  -webkit-text-fill-color: var(--vc-compiti-ink) !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-pager__btn--primary:not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  background: rgba(107, 68, 35, 0.22) !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-note:not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  background: rgba(255, 255, 255, 0.45) !important;
+  color: #3a2a18 !important;
+  -webkit-text-fill-color: #3a2a18 !important;
+}
+/* compitiProofsVis1: soft-fx/ink wipe azzerava bg delle thumb → prove invisibili sulla carta */
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  #vc-compiti-proofs
+  a.vc-compiti-proof:not(#discord-login-btn):not(#vc-regole-disclaimer),
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  #vc-compiti-proofs
+  .vc-compiti-proof:not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  display: flex !important;
+  width: 4.5rem !important;
+  height: 4.5rem !important;
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  background-image: none !important;
+  border: 1px solid rgba(40, 28, 16, 0.4) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  -webkit-text-fill-color: var(--vc-compiti-ink) !important;
+  color: var(--vc-compiti-ink) !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  z-index: 3 !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-proof img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-proofs-block {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative;
+  z-index: 2;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-proofs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 0.45rem !important;
+  min-height: 4.5rem;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-compiti-toc__item.is-active:not(#discord-login-btn):not(#vc-regole-disclaimer) {
+  background: rgba(107, 68, 35, 0.18) !important;
+}
+
+/* compitiInkFix2: icone howto + cover sempre leggibili (soft-fx non le mangia) */
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  .vc-compiti-howto
+  :is(i.fa, .fa) {
+  color: #d4a888 !important;
+  -webkit-text-fill-color: #d4a888 !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-compiti-cover
+  :is(.vc-compiti-cover__badge, .vc-compiti-cover__title, .vc-compiti-cover__sub, .vc-compiti-cover__hint) {
+  color: #f4e6d4 !important;
+  -webkit-text-fill-color: #f4e6d4 !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  .vc-staff-compiti-board.is-closed
+  #vc-compiti-cover {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* compitiBookPaper1: ripristina carta crema + dorso — batte soft-fx / ink wipe */
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book.vc-staff-compiti-book,
+html.vc-site-polish.vc-staff-compiti-route
+  body.vc-staff-compiti-page
+  #vc-staff-compiti-book {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  background: transparent !important;
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.45) !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  .vc-staff-compiti-board.is-closed
+  #vc-staff-compiti-book {
+  display: none !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-staff-compiti-book__page,
+html.vc-site-polish.vc-staff-compiti-route
+  body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-staff-compiti-book__page {
+  background-color: #f6ead6 !important;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 29px,
+      rgba(40, 28, 16, 0.07) 29px,
+      rgba(40, 28, 16, 0.07) 30px
+    ),
+    linear-gradient(135deg, #f6ead6 0%, #e8d9c0 100%) !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  color: #1a1410 !important;
+  -webkit-text-fill-color: #1a1410 !important;
+  box-shadow: inset 0 0 0 1px rgba(40, 28, 16, 0.18) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-staff-compiti-book
+  .vc-staff-compiti-book__spine {
+  background: linear-gradient(90deg, rgba(30, 20, 12, 0.65), rgba(90, 61, 40, 0.98) 40%, rgba(30, 20, 12, 0.55)) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+html.vc-site-polish.vc-staff-compiti-route:not(.vc-soft-fx-off)
+  body.vc-body.vc-staff-compiti-page
+  #vc-compiti-cover
+  .vc-compiti-cover__front {
+  background:
+    linear-gradient(115deg, rgba(255, 230, 190, 0.12), transparent 42%),
+    linear-gradient(160deg, #5c3a24 0%, #3a2214 100%) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* compitiProofsVis2: pin bg thumbs (cache-bust + max id specificity) */
+html.vc-site-polish.vc-staff-compiti-route body.vc-staff-compiti-page
+  #vc-staff-compiti-book #vc-compiti-proofs a.vc-compiti-proof {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  background-image: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}

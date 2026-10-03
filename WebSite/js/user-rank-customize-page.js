@@ -15,6 +15,7 @@
   var previewRenderInFlight = false;
   var previewRefreshQueued = false;
   var previewLastSignature = "";
+  var previewBakedOpacity = 0.8;
   var liveCustomizePollTimer = null;
   var LIVE_CUSTOMIZE_POLL_MS = 90000;
   var PREVIEW_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -87,9 +88,13 @@
 
   function setLocalOpacityDragPreview(enabled) {
     var overlay = byId("vc-rank-editor-preview-live-overlay");
+    var img = byId("vc-rank-editor-preview-image");
     if (!overlay || !draft) return;
     if (!enabled) {
       overlay.style.opacity = "0";
+      overlay.style.background = "transparent";
+      overlay.style.mixBlendMode = "normal";
+      if (img) img.style.filter = "";
       return;
     }
     var t = effectiveRankTheme(draft || {});
@@ -97,12 +102,30 @@
     var alpha = Number(t.overlayOpacity);
     if (!Number.isFinite(alpha)) alpha = 0.8;
     alpha = Math.max(0, Math.min(1, alpha));
-    overlay.style.background = panel;
-    overlay.style.opacity = String(alpha * 0.24);
+    var baked = Number(previewBakedOpacity);
+    if (!Number.isFinite(baked)) baked = 0.8;
+    baked = Math.max(0, Math.min(1, baked));
+    var delta = alpha - baked;
+    /* rankOpacityLive1: anteprima immediata rispetto all'ultima PNG server */
+    if (delta >= 0) {
+      overlay.style.background = panel;
+      overlay.style.mixBlendMode = "normal";
+      overlay.style.opacity = String(Math.min(0.92, delta * 0.9));
+      if (img) img.style.filter = "";
+    } else {
+      /* opacità ↓: schiarisci i box sull'immagine baked (fino al refresh server) */
+      overlay.style.background = "rgba(255,255,255,0.08)";
+      overlay.style.mixBlendMode = "soft-light";
+      overlay.style.opacity = String(Math.min(0.85, Math.abs(delta) * 1.15));
+      if (img) {
+        var lift = Math.min(0.35, Math.abs(delta) * 0.55);
+        img.style.filter = "brightness(" + String(1 + lift) + ") contrast(" + String(1 - lift * 0.35) + ")";
+      }
+    }
   }
 
   var COLOR_FIELDS = [
-    { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
+    { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box della rank card", icon: "fa-tint" },
     { key: "primaryTextColor", title: "Testo Principale", subtitle: "Username, progress bar e stats", icon: "fa-text-width" },
     { key: "multiplierColor", title: "Moltiplicatore", subtitle: "Testo moltiplicatore XP", icon: "fa-bolt" },
     { key: "valueColor", title: "Valori", subtitle: "Server rank e weekly rank", icon: "fa-bar-chart" },
@@ -252,8 +275,11 @@
       document.documentElement.classList.remove("vc-loading-scroll-lock");
       document.documentElement.classList.remove("vc-page-cine-boot");
       document.documentElement.classList.add("vc-page-cine-ready");
+      /* personalizzaRankFix1e: vc-perf early CSS hides main until curtain-off */
+      document.documentElement.classList.add("vc-cine-curtain-off");
       document.documentElement.classList.add("vc-styles-ready");
       document.documentElement.classList.add("vc-core-styles-ready");
+      document.documentElement.classList.add("vc-soft-fx-ready");
     } catch (e) {}
     try {
       var html = document.documentElement;
@@ -386,13 +412,14 @@
   function toPct(value) {
     var n = Number(value);
     if (!Number.isFinite(n)) n = 0.8;
-    return Math.max(0, Math.min(100, Math.round((n * 100) / 5) * 5));
+    return Math.max(0, Math.min(100, Math.round(n * 100)));
   }
 
   function fromPct(value) {
     var n = Number(value);
     if (!Number.isFinite(n)) n = 80;
-    return Math.max(0, Math.min(1, n / 100));
+    n = Math.max(0, Math.min(100, Math.round(n)));
+    return n / 100;
   }
 
   function hexToRgbList(hex) {
@@ -532,7 +559,7 @@
         var initialPreviewSrc = "";
     if (matchingCache) initialPreviewSrc = matchingCache;
     else if (previewObjectUrl) initialPreviewSrc = previewObjectUrl;
-    else initialPreviewSrc = loadLatestCachedPreview(true) || "";
+    /* personalizzaRankFix1: mai riusare una preview cache di un altro tema/utente */
     return (
       '<div class="vc-rank-editor-preview__imagewrap' + (initialPreviewSrc ? " is-ready" : "") + '">' +
       '<div class="vc-rankcard-ph" aria-hidden="true">' +
@@ -682,6 +709,12 @@
     img.removeAttribute("hidden");
   }
 
+  function syncPreviewBakedOpacityFromDraft() {
+    var alpha = draft && draft.overlayOpacity != null ? Number(draft.overlayOpacity) : 0.8;
+    if (!Number.isFinite(alpha)) alpha = 0.8;
+    previewBakedOpacity = Math.max(0, Math.min(1, alpha));
+  }
+
   function refreshServerPreview() {
     if (previewRenderInFlight) {
       previewRefreshQueued = true;
@@ -697,11 +730,12 @@
       previewRenderInFlight = false;
       return;
     }
-    var latestCachedDataUrlAtBoot = loadLatestCachedPreview(true);
-    if (latestCachedDataUrlAtBoot && !img.getAttribute("src")) {
-      applyCustomizePreviewSrc(img, latestCachedDataUrlAtBoot);
+    var matchingCachedAtBoot = loadCachedPreview(previewSignatureForTheme(draft || {}), true);
+    if (matchingCachedAtBoot && !img.getAttribute("src")) {
+      applyCustomizePreviewSrc(img, matchingCachedAtBoot);
       img.classList.remove("is-rendering");
       setCustomizePreviewStatus(status, "", false);
+      syncPreviewBakedOpacityFromDraft();
       setLocalOpacityDragPreview(false);
     }
     if (!token || !url || !draft) {
@@ -714,15 +748,17 @@
     if (signature === previewLastSignature && img.getAttribute("src")) {
       setCustomizePreviewStatus(status, "", false);
       markCustomizePreviewReady(img, true);
+      syncPreviewBakedOpacityFromDraft();
+      setLocalOpacityDragPreview(false);
       previewRenderInFlight = false;
       return;
     }
     var cachedDataUrl = loadCachedPreview(signature, true);
-    var latestCachedDataUrl = cachedDataUrl || loadLatestCachedPreview(true);
-    if (latestCachedDataUrl && (!img.getAttribute("src") || img.classList.contains("is-rendering"))) {
-      applyCustomizePreviewSrc(img, latestCachedDataUrl);
+    if (cachedDataUrl && (!img.getAttribute("src") || img.classList.contains("is-rendering"))) {
+      applyCustomizePreviewSrc(img, cachedDataUrl);
       img.classList.remove("is-rendering");
       setCustomizePreviewStatus(status, "", false);
+      syncPreviewBakedOpacityFromDraft();
       setLocalOpacityDragPreview(false);
     }
     if (cachedDataUrl) {
@@ -731,6 +767,7 @@
       setCustomizePreviewStatus(status, "", false);
       previewLastSignature = signature;
       previewRenderInFlight = false;
+      syncPreviewBakedOpacityFromDraft();
       setLocalOpacityDragPreview(false);
       return;
     }
@@ -794,6 +831,7 @@
             window.URL.revokeObjectURL(prevObjectUrl);
           } catch (ePrev) {}
         }
+        syncPreviewBakedOpacityFromDraft();
         setLocalOpacityDragPreview(false);
       })
       .catch(function (err) {
@@ -925,9 +963,9 @@
           '<span class="vc-rank-opacity-row__icon" aria-hidden="true"><i class="fa fa-sliders"></i></span>' +
           '<span class="vc-rank-opacity-row__copy">' +
           "<strong>Opacità sfondo</strong>" +
-          "<em>Trasparenza dei box contenitori</em>" +
+          "<em>Opacità dei box della rank card</em>" +
           "</span>" +
-          '<input id="vc-rank-opacity-range" class="vc-rank-opacity-row__range" type="range" min="0" max="100" step="5" value="' + esc(String(toPct(draft.overlayOpacity))) + '" aria-label="Opacità sfondo" />' +
+          '<input id="vc-rank-opacity-range" class="vc-rank-opacity-row__range" type="range" min="0" max="100" step="1" value="' + esc(String(toPct(draft.overlayOpacity))) + '" aria-label="Opacità sfondo" />' +
           '<span class="vc-rank-opacity-row__pct" id="vc-rank-opacity-label">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
       "</div>" +
           colorCards
@@ -1159,15 +1197,17 @@
       range.addEventListener("input", function () {
         draft.overlayOpacity = fromPct(range.value);
         var label = byId("vc-rank-opacity-label");
-        if (label) label.textContent = String(range.value) + "%";
+        if (label) label.textContent = String(toPct(draft.overlayOpacity)) + "%";
         var badge = document.querySelector(".vc-rank-editor-card__badge");
-        if (badge) badge.textContent = String(range.value) + "%";
+        if (badge) badge.textContent = String(toPct(draft.overlayOpacity)) + "%";
+        /* rankOpacityLive1: feedback istantaneo + refresh server debounced (no Salva) */
         setLocalOpacityDragPreview(true);
-        schedulePreviewRefresh(80);
+        schedulePreviewRefresh(70);
       });
       range.addEventListener("change", function () {
         draft.overlayOpacity = fromPct(range.value);
-        setLocalOpacityDragPreview(false);
+        /* tieni overlay finché non arriva la PNG aggiornata */
+        setLocalOpacityDragPreview(true);
         schedulePreviewRefresh(0);
       });
     }

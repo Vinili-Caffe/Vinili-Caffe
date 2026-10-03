@@ -1,5 +1,9 @@
 const { EmbedBuilder } = require("discord.js");
-const { guildIconUrl, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const {
+  guildIconUrl,
+  userAvatarUrlDynamic,
+  userAvatarUrlStatic,
+} = require("../Discord/guildDiscordIdentity");
 const DEFAULT_FOOTER_TEXT = "© 2026 Vinili & Caffè. Tutti i diritti riservati.";
 const DEFAULT_COLOR = "#6f4e37";
 const ERROR_EMBED_COLORS = new Set([0xed4245, 0xe74c3c, 0xbe3851, 0xff0000,]);
@@ -14,23 +18,39 @@ function hexToInt(hex) {
 function hasFooter(embed) {
   return Boolean(embed?.data?.footer || embed?.footer);
 }
-function getBotIconUrl(guild) {
-  const botUser = guild?.client?.user;
+
+/** Footer bot: preferisci avatar globale statico — User plain non è GuildMember. */
+function resolveBotFooterIconUrl(botUser) {
+  if (!botUser) return null;
   try {
-    return userAvatarUrlDynamic(botUser, { size: 64 });
+    const staticUrl = userAvatarUrlStatic(botUser, { size: 64 });
+    if (staticUrl && !/\/embed\/avatars\//i.test(staticUrl) && !/\/guilds\/\d+\/users\//i.test(staticUrl)) {
+      return staticUrl;
+    }
+    if (typeof botUser.displayAvatarURL === "function") {
+      const png = botUser.displayAvatarURL({ size: 64, extension: "png", forceStatic: true });
+      if (png && !/\/embed\/avatars\//i.test(png) && !/\/guilds\/\d+\/users\//i.test(png)) {
+        return png;
+      }
+    }
+    const dyn = userAvatarUrlDynamic(botUser, { size: 64 });
+    if (dyn && !/\/guilds\/\d+\/users\//i.test(dyn)) return dyn;
+    const uid = String(botUser.id || "").trim();
+    const hash = String(botUser.avatar || "").trim();
+    if (/^\d{16,22}$/.test(uid) && hash) {
+      return `https://cdn.discordapp.com/avatars/${uid}/${hash}.png?size=64`;
+    }
   } catch (err) {
     global.logger?.warn?.("[defaultFooter] ", err?.message || err);
   }
   return null;
 }
+
+function getBotIconUrl(guild) {
+  return resolveBotFooterIconUrl(guild?.client?.user || global?.botClient?.user);
+}
 function getGlobalBotIconUrl() {
-  const botUser = global?.botClient?.user;
-  try {
-    return userAvatarUrlDynamic(botUser, { size: 64 });
-  } catch (err) {
-    global.logger?.warn?.("[defaultFooter] ", err?.message || err);
-  }
-  return null;
+  return resolveBotFooterIconUrl(global?.botClient?.user);
 }
 function getGuildIconUrl(guild) {
   if (!guild) return null;

@@ -111,7 +111,7 @@ function buildPotionReminderEmbed(client, c) {
       ].join("\n"),
     )
     .setFooter({
-      text: "DM Hogwarts: [profilo sul sito](https://www.viniliecaffe.it/personalizza/) → Privacy / Notifiche DM.",
+      text: "DM Hogwarts: [Personalizza](https://www.viniliecaffe.it/personalizza/) → Privacy / Notifiche DM.",
     });
 
   const url = resolvePotionsAbsoluteUrl(client, c);

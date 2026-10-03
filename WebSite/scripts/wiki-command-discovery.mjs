@@ -28,8 +28,36 @@ const PREFIX_FOLDER_LABELS = {
   admin: "Admin",
   staff: "Staff",
   event: "Eventi",
+  music: "Musica",
   dev: "Dev",
 };
+
+/** wikiCatIcons1 */
+const CAT_ICON_MAP = {
+  utility: { fa: "fa-wrench", tone: "" },
+  music: { fa: "fa-music", tone: "violet" },
+  tts: { fa: "fa-microphone", tone: "" },
+  level: { fa: "fa-trophy", tone: "" },
+  minigames: { fa: "fa-gamepad", tone: "violet" },
+  stats: { fa: "fa-bar-chart", tone: "" },
+  economy: { fa: "fa-money", tone: "" },
+  staff: { fa: "fa-shield", tone: "" },
+  moderation: { fa: "fa-gavel", tone: "" },
+  event: { fa: "fa-calendar", tone: "violet" },
+  admin: { fa: "fa-lock", tone: "" },
+  dev: { fa: "fa-code", tone: "" },
+};
+
+function catIconMeta(cat) {
+  const id = String(cat?.id || "").trim().toLowerCase();
+  return CAT_ICON_MAP[id] || { fa: "fa-folder-o", tone: "" };
+}
+
+function catIconHtml(cat) {
+  const meta = catIconMeta(cat);
+  const tone = meta.tone ? ` vc-cmd-acc-ico--${meta.tone}` : "";
+  return `<span class="vc-cmd-acc-ico${tone}" aria-hidden="true"><i class="fa ${meta.fa}"></i></span>`;
+}
 
 const CATEGORY_ORDER = [
   "utility",
@@ -580,7 +608,6 @@ function comandoMetaLabel(n) {
 }
 
 function buildPaneInnerHtml(botAttrName, avatarUrlAttr, categories) {
-  const srcEsc = escAttr(avatarUrlAttr);
   const grpName = escAttr(`wiki-grp-${botAttrName}`);
   const itemName = escAttr(`wiki-item-${botAttrName}`);
   let html = "";
@@ -589,9 +616,10 @@ function buildPaneInnerHtml(botAttrName, avatarUrlAttr, categories) {
     const ctitle = escHtml(cat.title);
     const cid = escAttr(String(cat.id || ""));
     const meta = comandoMetaLabel(n);
+    const pillFa = catIconMeta(cat).fa;
     html += `          <details class="vc-cmd-acc vc-cmd-grp" name="${grpName}" data-vc-cmd-cat="${cid}">
             <summary class="vc-cmd-acc-sum">
-              <img class="vc-cmd-acc-avatar" src="${srcEsc}" alt="" width="32" height="32" decoding="async" />
+              ${catIconHtml(cat)}
               <span class="vc-cmd-acc-text">
                 <span class="vc-cmd-acc-title vc-cmd-grp-title">${ctitle}</span>
                 <span class="vc-cmd-acc-meta" data-vc-cmd-grp-meta>${meta}</span>
@@ -632,7 +660,7 @@ function buildPaneInnerHtml(botAttrName, avatarUrlAttr, categories) {
                   </div>
                   <div class="vc-cmd-field vc-cmd-field--category">
                     <div class="vc-cmd-field-label">Categoria</div>
-                    <span class="vc-cmd-cat-pill"><i class="fa fa-diamond" aria-hidden="true"></i><span>${catPill}</span></span>
+                    <span class="vc-cmd-cat-pill"><i class="fa ${pillFa}" aria-hidden="true"></i><span>${catPill}</span></span>
                   </div>
                 </div>
               </details>

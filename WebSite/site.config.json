@@ -196,9 +196,14 @@
       "minute": 0
     },
     "overrideIso": "",
-    "linkFilm": "/images/seratafilm/il-corvo-web.mp4",
+    "linkFilm": "/images/seratafilm/watch-obsession-web.mp4",
     "hogwartsThemeVideoUrl": "/images/evento-hogwarts/theme-bg.mp4",
-    "filmTitle": "Il Corvo",
+    "filmTitle": "Watch Obsession",
+    "creditsSkip": {
+      "enabled": false,
+      "startSeconds": 0,
+      "label": "Salta titoli di coda"
+    },
     "adBreak": {
       "enabled": false,
       "videoUrl": "/seratafilm/ad.mp4",
@@ -267,6 +272,22 @@
       {
         "date": "2026-09-05",
         "title": "Il Corvo"
+      },
+      {
+        "date": "2026-09-12",
+        "title": "Gran Turismo"
+      },
+      {
+        "date": "2026-09-19",
+        "title": "Cars - Motori ruggenti"
+      },
+      {
+        "date": "2026-09-26",
+        "title": "V per Vendetta"
+      },
+      {
+        "date": "2026-10-03",
+        "title": "Watch Obsession"
       }
     ]
   },

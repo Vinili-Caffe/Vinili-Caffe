@@ -180,16 +180,19 @@
     var cur = String(img.getAttribute("src") || "").trim();
     var existingCdn = sanitizeCdnAvatarUrl(img.getAttribute("data-vc-avatar-cdn-url"));
     /* Already showing a real Discord avatar — leave it. */
+    // Already showing a real Discord avatar — leave it (no class thrash → no MO loop).
     if (sanitizeCdnAvatarUrl(cur) && img.naturalWidth > 0) {
       try {
-        img.classList.add("vc-avatar", "vc-avatar--ready");
-        img.classList.remove("vc-avatar--pending", "vc-avatar-fallback-img");
-        img.dataset.vcAvatarOk = "1";
-        img.removeAttribute("data-vc-avatar-fallback");
+        if (!img.classList.contains("vc-avatar--ready") || img.classList.contains("vc-avatar--pending")) {
+          img.classList.add("vc-avatar", "vc-avatar--ready");
+          img.classList.remove("vc-avatar--pending", "vc-avatar-fallback-img");
+          img.dataset.vcAvatarOk = "1";
+          img.removeAttribute("data-vc-avatar-fallback");
+        }
       } catch (eOk) {}
       return false;
     }
-    if (sanitizeCdnAvatarUrl(cur) && !img.classList.contains("vc-avatar--pending")) {
+    if (sanitizeCdnAvatarUrl(cur) && !img.classList.contains("vc-avatar--pending") && !img.classList.contains("vc-avatar--ready")) {
       /* CDN in src, still loading — keep CDN, don't demote to coffee. */
       try {
         img.classList.add("vc-avatar", "vc-avatar--pending");
@@ -730,25 +733,94 @@
   };
 
   function boot() {
-    scan(document);
+    /* violPass5: niente scan(document) sync al boot — solo header/avatar noti */
+    try {
+      var early =
+        document.querySelector("header") ||
+        document.getElementById("discord-login-state") ||
+        document.body;
+      if (early) scan(early);
+    } catch (eBootScan) {}
     if (typeof MutationObserver !== "function") return;
     var timer = 0;
     var dirty = false;
+    var pending = [];
+
+    function pushRoot(node) {
+      if (!node) return;
+      try {
+        if (node.nodeType === 1) pending.push(node);
+        else if (node.nodeType === 3 && node.parentElement) pending.push(node.parentElement);
+      } catch (eP) {}
+    }
+
     function flush() {
       timer = 0;
-      if (!dirty) return;
+      if (!dirty && !pending.length) return;
       dirty = false;
-      try {
-        scan(document);
-      } catch (eSc) {}
-      try {
-        hydrateAllCdnAttrs(document);
-      } catch (eHy) {}
+      var roots = pending;
+      pending = [];
+      if (!roots.length) {
+        /* violPass4: niente scan(document) sync — riprova al prossimo mutate */
+        return;
+      }
+      /* troppe mutazioni → sample dei primi N, non full document sync */
+      if (roots.length > 24) {
+        roots = roots.slice(0, 24);
+      }
+      /* gestisciMenuAbove1 / avatarIdleSlice1 / violPass4: budget stretto, niente idle timeout */
+      var seen = typeof WeakSet === "function" ? new WeakSet() : null;
+      var i = 0;
+      var budget = 2;
+      function step() {
+        var n = 0;
+        while (i < roots.length && n < budget) {
+          var root = roots[i++];
+          n += 1;
+          if (!root || !root.isConnected) continue;
+          if (seen) {
+            if (seen.has(root)) continue;
+            seen.add(root);
+          }
+          try {
+            scan(root);
+          } catch (eSc) {}
+        }
+        if (i < roots.length) {
+          window.setTimeout(step, 48);
+        }
+      }
+      window.setTimeout(step, 0);
     }
-    var obs = new MutationObserver(function () {
-      dirty = true;
+
+    function scheduleFlush() {
       if (timer) return;
-      timer = window.setTimeout(flush, 40);
+      timer = 1;
+      /* violPass4 / violPass7: solo setTimeout + flush yield (era 76–104ms) */
+      window.setTimeout(function () {
+        timer = 0;
+        window.setTimeout(function () {
+          try {
+            flush();
+          } catch (eFl) {}
+        }, 0);
+      }, 280);
+    }
+
+    var obs = new MutationObserver(function (muts) {
+      dirty = true;
+      try {
+        for (var i = 0; i < muts.length; i += 1) {
+          var m = muts[i];
+          if (!m) continue;
+          if (m.type === "attributes" && m.target) pushRoot(m.target);
+          var added = m.addedNodes;
+          if (added && added.length) {
+            for (var j = 0; j < added.length; j += 1) pushRoot(added[j]);
+          }
+        }
+      } catch (eM) {}
+      scheduleFlush();
     });
     obs.observe(document.documentElement, {
       subtree: true,
@@ -764,3 +836,6 @@
     boot();
   }
 })();
+/* violPass4 */
+/* violPass5 */
+/* violPass7 */

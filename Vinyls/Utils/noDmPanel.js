@@ -135,7 +135,7 @@ async function handleNoDmPanelInteraction(interaction) {
             .setColor("#6f4e37")
             .setTitle("<:success:1461731530333229226> Preferenze DM salvate")
             .setDescription(
-              "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.",
+              "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.",
             ),
         ],
         components: [],

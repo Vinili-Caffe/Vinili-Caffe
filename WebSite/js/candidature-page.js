@@ -223,43 +223,6 @@
     if (kind === "partnermanager") hydratePartnerManagerRewardIntro(intro);
   }
 
-  function setShuffleText(el, finalText) {
-    if (!el) return;
-    var target = String(finalText || "");
-    if (!target) {
-      el.textContent = "";
-      return;
-    }
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      el.textContent = target;
-      return;
-    }
-    if (el.__vcShuffleTimer) {
-      clearInterval(el.__vcShuffleTimer);
-      el.__vcShuffleTimer = null;
-    }
-    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    var frame = 0;
-    var totalFrames = Math.max(8, Math.min(26, target.length + 8));
-    el.__vcShuffleTimer = setInterval(function () {
-      frame += 1;
-      var fixed = Math.floor((frame / totalFrames) * target.length);
-      var out = "";
-      for (var i = 0; i < target.length; i++) {
-        var ch = target.charAt(i);
-        if (ch === " ") out += " ";
-        else if (i < fixed) out += ch;
-        else out += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      el.textContent = out;
-      if (frame >= totalFrames) {
-        clearInterval(el.__vcShuffleTimer);
-        el.__vcShuffleTimer = null;
-        el.textContent = target;
-      }
-    }, 22);
-  }
-
   function getToken() {
     try {
       var t = localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -280,8 +243,9 @@
   }
 
   function fetchMe(token) {
-    return fetch("https://discord.com/api/v10/users/@me", {
+    return fetch("/webhooks/site-discord-me", {
       headers: { Authorization: "Bearer " + token },
+      credentials: "same-origin",
     }).then(function (r) {
       if (!r.ok) throw new Error(String(r.status));
       return r.json();
@@ -299,7 +263,35 @@
     }
   }
 
+  function showLoginGate() {
+    var g = byId("vc-candidature-login-gate");
+    if (!g) return false;
+    g.removeAttribute("hidden");
+    g.classList.remove("vc-reviews-gate--dismissed");
+    g.setAttribute("aria-hidden", "false");
+    return true;
+  }
+
+  function hideLoginGate() {
+    var g = byId("vc-candidature-login-gate");
+    if (!g) return;
+    g.setAttribute("hidden", "");
+    g.classList.add("vc-reviews-gate--dismissed");
+    g.setAttribute("aria-hidden", "true");
+  }
+
   function redirectToAccessRequired() {
+    /* loginRequiredModal1: modal sui bottoni, non gate fullscreen */
+    hideLoginGate();
+    if (window.VcLoginRequired && typeof window.VcLoginRequired.require === "function") {
+      window.VcLoginRequired.require({
+        title: "Candidature",
+        sub: "Staff",
+        body: "Accedi con Discord per inviare una candidatura.",
+      });
+      return;
+    }
+    if (showLoginGate()) return;
     var path = "";
     try {
       path = String(window.location.pathname || "");
@@ -317,6 +309,8 @@
 
   var currentUser = null;
   var activeKind = "helper";
+  /* candTabPreferApply1: dopo click utente non forzare di nuovo il preferred */
+  var userSelectedKind = false;
   var eligibilityState = { loading: false, data: null };
 
   function cfgCandidature() {
@@ -519,6 +513,85 @@
     return t("cand.eligibility.cannotSubmit", "Non puoi inviare candidature con questo account.");
   }
 
+  function syncTabActiveUi() {
+    var b1 = byId("vc-candidature-tab-helper");
+    var b2 = byId("vc-candidature-tab-pm");
+    var helperOn = activeKind === "helper";
+    if (b1) {
+      b1.classList.toggle("vc-candidature-tab--on", helperOn);
+      b1.classList.toggle("is-active", helperOn);
+      b1.setAttribute("aria-selected", helperOn ? "true" : "false");
+    }
+    if (b2) {
+      b2.classList.toggle("vc-candidature-tab--on", !helperOn);
+      b2.classList.toggle("is-active", !helperOn);
+      b2.setAttribute("aria-selected", !helperOn ? "true" : "false");
+    }
+  }
+
+  function pickPreferredKind(d) {
+    /* candFounderFirstPaint2: Founder/staff su helper → SEMPRE Helper al primo paint
+       (anche con draft/userSelected PM: altrimenti “Sei già Founder” non stampava) */
+    if (!d || d.ok !== true) return activeKind;
+    var h = d.helper;
+    var p = d.partnermanager;
+    if (isAlreadyStaffOrPmRow(h)) return "helper";
+    if (isAlreadyStaffOrPmRow(p)) {
+      if (userSelectedKind && activeKind === "helper" && isKindInteractive(d, "helper")) return "helper";
+      return "partnermanager";
+    }
+    var hElig = Boolean(h && h.eligible === true);
+    var pElig = Boolean(p && p.eligible === true);
+    if (hElig && !pElig) return "helper";
+    if (pElig && !hElig) return "partnermanager";
+    if (hElig && pElig) {
+      return activeKind === "partnermanager" ? "partnermanager" : "helper";
+    }
+    if (activeKind === "helper" && !hElig && pElig) return "partnermanager";
+    if (activeKind === "partnermanager" && !pElig && hElig) return "helper";
+    return activeKind;
+  }
+
+  function helperAlreadyStaffNotice(d) {
+    if (!d || d.ok !== true) return null;
+    var h = d.helper;
+    if (!isAlreadyStaffOrPmRow(h)) return null;
+    var label = String((h && h.roleLabel) || "").trim();
+    var msg = polishGateMessage(d, "helper", (h && h.message) || "");
+    if (!String(msg || "").trim() && !label) return null;
+    return {
+      message: msg,
+      icon: gateIconForEligibility(d, "helper", "slate"),
+    };
+  }
+
+  function candidatureEligCacheKey() {
+    var id = currentUser && (currentUser.id || currentUser.userId);
+    return id ? "vc-cand-elig-v1:" + String(id) : "";
+  }
+
+  function readCachedEligibility() {
+    var key = candidatureEligCacheKey();
+    if (!key) return null;
+    try {
+      var raw = sessionStorage.getItem(key);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || parsed.ok !== true) return null;
+      return parsed;
+    } catch (eR) {
+      return null;
+    }
+  }
+
+  function writeCachedEligibility(data) {
+    var key = candidatureEligCacheKey();
+    if (!key || !data || data.ok !== true) return;
+    try {
+      sessionStorage.setItem(key, JSON.stringify(data));
+    } catch (eW) {}
+  }
+
   function syncTabDisabledState() {
     var b1 = byId("vc-candidature-tab-helper");
     var b2 = byId("vc-candidature-tab-pm");
@@ -553,12 +626,59 @@
   function clearGate() {
     var gate = byId("vc-candidature-gate");
     var body = byId("vc-candidature-gate-body");
+    if (body && body.__vcShuffleTimer) {
+      try {
+        clearInterval(body.__vcShuffleTimer);
+      } catch (eClr) {}
+      body.__vcShuffleTimer = null;
+    }
     if (gate) {
       gate.hidden = true;
       gate.className = "vc-candidature-notice mt-4";
       gate.removeAttribute("data-gate-icon");
     }
     if (body) body.textContent = "";
+  }
+
+  function setShuffleText(el, finalText) {
+    if (!el) return;
+    var target = String(finalText || "");
+    if (el.__vcShuffleTimer) {
+      clearInterval(el.__vcShuffleTimer);
+      el.__vcShuffleTimer = null;
+    }
+    if (!target) {
+      el.textContent = "";
+      return;
+    }
+    /* candFounderFirstPaint2: “Sei già …” stamp definitivo subito — no shuffle che lo fa sparire */
+    el.textContent = target;
+    if (
+      /sei\s*gi[aà]|already\s+a\b|already\s+an\b/i.test(target) ||
+      (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+    ) {
+      return;
+    }
+    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    var frame = 0;
+    var totalFrames = Math.max(8, Math.min(26, target.length + 8));
+    el.__vcShuffleTimer = setInterval(function () {
+      frame += 1;
+      var fixed = Math.floor((frame / totalFrames) * target.length);
+      var out = "";
+      for (var i = 0; i < target.length; i++) {
+        var ch = target.charAt(i);
+        if (ch === " ") out += " ";
+        else if (i < fixed) out += ch;
+        else out += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      el.textContent = out;
+      if (frame >= totalFrames) {
+        clearInterval(el.__vcShuffleTimer);
+        el.__vcShuffleTimer = null;
+        el.textContent = target;
+      }
+    }, 22);
   }
 
   function setGateIcon(gate, iconKind) {
@@ -612,6 +732,7 @@
     var row = kind === "partnermanager" ? d && d.partnermanager : d && d.helper;
     var c = candidatureRowCode(row);
     var label = String((row && row.roleLabel) || "").trim();
+    /* candFounderNotice1: Founder/Manager/… → “Sei già un {role}” sempre se c’è label */
     if ((c === "helper_blocked" || c === "already_role") && label) {
       return t("cand.eligibility.alreadyRoleNamed", "Sei già un {role}.").replace(/\{role\}/g, label);
     }
@@ -623,6 +744,9 @@
         return t("cand.eligibility.alreadyPm", "Sei già un Partner Manager.");
       }
       return t("cand.eligibility.alreadyHelper", "Sei già un Helper.");
+    }
+    if (kind === "helper" && /sei\s*gi[aà]/i.test(text) && label) {
+      return t("cand.eligibility.alreadyRoleNamed", "Sei già un {role}.").replace(/\{role\}/g, label);
     }
     if (kind === "helper" && /partner\s*manager/i.test(text) && /sei gi[aà]/i.test(text)) {
       return t("cand.eligibility.alreadyHelper", "Sei già un Helper.");
@@ -653,7 +777,15 @@
     if (!gate || !inner) return;
 
     if (!currentUser) {
-      clearGate();
+      /* candSwitchGuest1: non wipe del messaggio login allo switch Helper/PM */
+      showGateMessage(
+        "slate",
+        t(
+          "cand.loginRequired",
+          "Accedi con Discord (in alto a destra) per compilare il modulo: l’ID viene preso dal tuo profilo e non è modificabile.",
+        ),
+        "info",
+      );
       setFormInnerAndModuloTitleHidden(inner, true);
       syncTabDisabledState();
       setFieldsDisabled(false);
@@ -671,13 +803,16 @@
     }
 
     if (eligibilityState.loading) {
-      /* candHideModuloNoFlash1: niente flash modulo mentre arriva eligibility */
-      clearGate();
-      setFormInnerAndModuloTitleHidden(inner, true);
-      syncTabDisabledState();
-      setFieldsDisabled(true);
-      if (sub) sub.disabled = true;
-      return;
+      /* candFounderFirstPaint2: se c’è cache/stale, NON wipe della pill Founder */
+      if (eligibilityState.data && eligibilityState.data.ok === true) {
+        /* fall through: ridipinge con dati stale */
+      } else {
+        setFormInnerAndModuloTitleHidden(inner, true);
+        syncTabDisabledState();
+        setFieldsDisabled(true);
+        if (sub) sub.disabled = true;
+        return;
+      }
     }
 
     var d = eligibilityState.data;
@@ -730,13 +865,34 @@
     }
 
     syncTabDisabledState();
-    if (!isKindInteractive(d, activeKind)) {
-      if (pInteractive) activeKind = "partnermanager";
-      else if (hInteractive) activeKind = "helper";
-      var b1 = byId("vc-candidature-tab-helper");
-      var b2 = byId("vc-candidature-tab-pm");
-      if (b1) b1.classList.toggle("vc-candidature-tab--on", activeKind === "helper");
-      if (b2) b2.classList.toggle("vc-candidature-tab--on", activeKind === "partnermanager");
+    /* candFounderFirstPaint2: staff/Founder su helper batte draft PM al primo paint */
+    var staffNotice = helperAlreadyStaffNotice(d);
+    var preferred;
+    if (staffNotice && !userSelectedKind) {
+      preferred = "helper";
+    } else if (userSelectedKind) {
+      preferred = activeKind;
+    } else {
+      preferred = pickPreferredKind(d);
+    }
+    if (!isKindInteractive(d, preferred)) {
+      if (hInteractive) preferred = "helper";
+      else if (pInteractive) preferred = "partnermanager";
+    }
+    if (preferred === "partnermanager" || preferred === "helper") activeKind = preferred;
+    syncTabActiveUi();
+
+    /* Founder/staff: pill SEMPRE se tab Helper (o se PM non selezionato dall’utente) */
+    if (staffNotice && activeKind === "helper") {
+      if (!isSuccessBannerVisible()) {
+        showGateMessage("slate", staffNotice.message, staffNotice.icon);
+      } else {
+        clearGate();
+      }
+      setFormInnerAndModuloTitleHidden(inner, true);
+      setFieldsDisabled(true);
+      if (sub) sub.disabled = true;
+      return;
     }
 
     if (!currentTypeEligible(d)) {
@@ -805,14 +961,20 @@
     var url = eligibilityApiUrl();
     var token = getToken();
     if (!url || !currentUser || !token) {
-      eligibilityState = { loading: false, data: null };
+      if (!eligibilityState.data) {
+        var cachedNoTok = readCachedEligibility();
+        eligibilityState = { loading: false, data: cachedNoTok || null };
+      } else {
+        eligibilityState.loading = false;
+      }
       syncEligibilityToDom();
       return;
     }
     if (tryN === 0 && eligInflight) return eligInflight;
     var mySeq = tryN === 0 ? ++eligSeq : eligSeq;
     if (tryN === 0) {
-      eligibilityState = { loading: true, data: null };
+      /* candFounderFirstPaint2: keep stale data so Founder pill non sparisce al refresh */
+      eligibilityState = { loading: true, data: eligibilityState.data || null };
       syncEligibilityToDom();
     }
     var run = (async function () {
@@ -850,11 +1012,13 @@
         var emptyBody = !String(rawText || "").trim();
         if (res.ok && data && data.ok === true && !emptyBody) {
           eligibilityState = { loading: false, data: data };
+          writeCachedEligibility(data);
           syncEligibilityToDom();
           return;
         }
         if (res.status === 401) {
-          eligibilityState = { loading: false, data: null };
+          /* keep stale/cache — non cancellare Founder al 401 transient */
+          eligibilityState = { loading: false, data: eligibilityState.data || readCachedEligibility() };
           syncEligibilityToDom();
           return;
         }
@@ -863,7 +1027,7 @@
           if (mySeq !== eligSeq) return;
           return refreshEligibility(tryN + 1);
         }
-        eligibilityState = { loading: false, data: null };
+        eligibilityState = { loading: false, data: eligibilityState.data || readCachedEligibility() };
         syncEligibilityToDom();
       } catch (e) {
         if (mySeq !== eligSeq) return;
@@ -872,7 +1036,7 @@
           if (mySeq !== eligSeq) return;
           return refreshEligibility(tryN + 1);
         }
-        eligibilityState = { loading: false, data: null };
+        eligibilityState = { loading: false, data: eligibilityState.data || readCachedEligibility() };
         syncEligibilityToDom();
       } finally {
         if (timer) clearTimeout(timer);
@@ -902,10 +1066,7 @@
     if (!user) {
       setShuffleText(
         el,
-        t(
-          "cand.loginRequired",
-          "Accedi con Discord (in alto a destra) per compilare il modulo: l’ID viene preso dal tuo profilo e non è modificabile.",
-        ),
+        t("cand.welcome", "Accedi con Discord per compilare il modulo."),
       );
       return;
     }
@@ -1116,7 +1277,9 @@
 
   function persistCandidatureDraft() {
     if (!window.VcFormDrafts || !currentUser) return;
-    window.VcFormDrafts.save(candidatureDraftKey(activeKind), collectDraftAnswers());
+    window.VcFormDrafts.save(candidatureDraftKey(activeKind), collectDraftAnswers(), {
+      notify: true,
+    });
     window.VcFormDrafts.save("candidature:ui", { kind: activeKind });
   }
 
@@ -1145,11 +1308,9 @@
 
   function setKind(kind) {
     persistCandidatureDraft();
+    userSelectedKind = true;
     activeKind = kind === "partnermanager" ? "partnermanager" : "helper";
-    var b1 = byId("vc-candidature-tab-helper");
-    var b2 = byId("vc-candidature-tab-pm");
-    if (b1) b1.classList.toggle("vc-candidature-tab--on", activeKind === "helper");
-    if (b2) b2.classList.toggle("vc-candidature-tab--on", activeKind === "partnermanager");
+    syncTabActiveUi();
     renderFields();
     syncEligibilityToDom();
     persistCandidatureDraft();
@@ -1331,7 +1492,7 @@
     }
     var token = getToken();
     if (!token) {
-      await notify(t("cand.error.session", "Sessione scaduta: effettua di nuovo il login."));
+      redirectToAccessRequired();
       return;
     }
     var blockMsg = clientSubmitBlockMessage();
@@ -1465,15 +1626,37 @@
   function applyUser(user) {
     currentUser = user;
     setWelcome(user);
-    showFormWrap(Boolean(user));
+    /* candHeroCompact1: form sempre sotto hero — guest vede tabs + avviso login */
+    showFormWrap(true);
     var inner = byId("vc-candidature-form-inner");
-    /* candHideModuloNoFlash1: nascondi modulo subito, fino a eligibility */
     setFormInnerAndModuloTitleHidden(inner, true);
     if (!user) {
       setSubmitSuccessVisible(false);
       eligibilityState = { loading: false, data: null };
-      syncEligibilityToDom();
+      showGateMessage(
+        "slate",
+        t(
+          "cand.loginRequired",
+          "Accedi con Discord (in alto a destra) per compilare il modulo: l’ID viene preso dal tuo profilo e non è modificabile.",
+        ),
+        "info",
+      );
+      setFormInnerAndModuloTitleHidden(inner, true);
+      syncTabDisabledState();
+      var sub = byId("vc-candidature-submit");
+      if (sub) sub.disabled = false;
       return;
+    }
+    hideLoginGate();
+    /* candFounderFirstPaint2: pill da cache SUBITO, poi refresh API */
+    userSelectedKind = false;
+    var cached = readCachedEligibility();
+    if (cached) {
+      eligibilityState = { loading: true, data: cached };
+      syncEligibilityToDom();
+    } else {
+      eligibilityState = { loading: true, data: null };
+      setFormInnerAndModuloTitleHidden(inner, true);
     }
     refreshEligibility();
   }
@@ -1485,10 +1668,7 @@
         activeKind = ui.kind;
       }
     }
-    var b1Init = byId("vc-candidature-tab-helper");
-    var b2Init = byId("vc-candidature-tab-pm");
-    if (b1Init) b1Init.classList.toggle("vc-candidature-tab--on", activeKind === "helper");
-    if (b2Init) b2Init.classList.toggle("vc-candidature-tab--on", activeKind === "partnermanager");
+    syncTabActiveUi();
     wireCandidatureDraftPersistence();
     var tabH = byId("vc-candidature-tab-helper");
     var tabPm = byId("vc-candidature-tab-pm");
@@ -1517,6 +1697,7 @@
     }
 
     var t = getToken();
+    hideLoginGate();
     if (t) {
       fetchMe(t)
         .then(function (u) {
@@ -1524,11 +1705,9 @@
         })
         .catch(function () {
           applyUser(null);
-          redirectToAccessRequired();
         });
     } else {
       applyUser(null);
-      redirectToAccessRequired();
     }
   }
 

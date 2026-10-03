@@ -63,6 +63,48 @@ img[data-vc-avatar].vc-avatar-fallback-img {
   background-color: #1a120d;
 }
 
+/* dashHeaderAvatarLock1: pending/early shell senza .discord-profile-link
+   altrimenti .discord-avatar-img {width/height:100%} esplode a ~300px e spacca l'header */
+header .vc-auth-pending-shell,
+header .vc-auth-early-shell,
+#header-quick-actions .vc-auth-pending-shell,
+#header-quick-actions .vc-auth-early-shell,
+#discord-login-state .vc-auth-pending-shell,
+#discord-login-state .vc-auth-early-shell {
+  box-sizing: border-box !important;
+  width: 2.35rem !important;
+  height: 2.35rem !important;
+  min-width: 2.35rem !important;
+  min-height: 2.35rem !important;
+  max-width: 2.35rem !important;
+  max-height: 2.35rem !important;
+  overflow: hidden !important;
+  flex: 0 0 2.35rem !important;
+  gap: 0 !important;
+}
+header .vc-auth-pending-shell .discord-avatar-clip,
+header .vc-auth-early-shell .discord-avatar-clip,
+#header-quick-actions .vc-auth-pending-shell .discord-avatar-clip,
+#header-quick-actions .vc-auth-early-shell .discord-avatar-clip,
+#discord-login-state .vc-auth-pending-shell .discord-avatar-clip,
+#discord-login-state .vc-auth-early-shell .discord-avatar-clip {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 2.35rem !important;
+  max-height: 2.35rem !important;
+}
+header .vc-auth-pending-shell .discord-avatar-img,
+header .vc-auth-early-shell .discord-avatar-img,
+#header-quick-actions .vc-auth-pending-shell .discord-avatar-img,
+#header-quick-actions .vc-auth-early-shell .discord-avatar-img,
+#discord-login-state .vc-auth-pending-shell .discord-avatar-img,
+#discord-login-state .vc-auth-early-shell .discord-avatar-img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 2.35rem !important;
+  max-height: 2.35rem !important;
+}
+
 /* avatarGlow1: profile wrap must stay overflow:visible so ::before/::after outer halo is not clipped
    (image circle clip lives on .vc-user-profile-avatarclip) */
 .vc-user-profile-avatarwrap {
@@ -79,3 +121,127 @@ img[data-vc-avatar].vc-avatar-fallback-img {
   background: #1a120d !important;
   color: rgba(244, 220, 194, 0.85);
 }
+
+/* avatarCircleGlow1: anello gradient sempre + luce che gira all'hover */
+@keyframes vc-avatar-ring-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vc-user-profile-avatarwrap,
+.vc-user-rankcard__avatarwrap,
+.vc-rank-editor-preview__avatarwrap {
+  --vc-avatar-ring: var(--vc-rank-ring, #e8c49c);
+  position: relative !important;
+  overflow: visible !important;
+  isolation: isolate;
+}
+
+.vc-user-profile-avatarwrap::before,
+.vc-user-rankcard__avatarwrap::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: -8px !important;
+  z-index: 0 !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 55%, transparent) 0%,
+    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 22%, transparent) 48%,
+    transparent 74%
+  ) !important;
+  filter: blur(10px) !important;
+  opacity: 0.9 !important;
+}
+
+.vc-user-profile-avatarwrap::after,
+.vc-user-rankcard__avatarwrap::after,
+.vc-rank-editor-preview__avatarwrap::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: -3px !important;
+  z-index: 3 !important;
+  border-radius: inherit !important;
+  border: 0 !important;
+  box-sizing: border-box !important;
+  padding: 2.5px !important;
+  pointer-events: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 45%, transparent),
+    0 0 26px color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 28%, transparent) !important;
+  background: conic-gradient(
+    from 200deg,
+    #fff7ec 0deg,
+    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 88%, white) 22deg,
+    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 35%, transparent) 70deg,
+    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 10%, transparent) 140deg,
+    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 10%, transparent) 220deg,
+    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 35%, transparent) 290deg,
+    color-mix(in srgb, var(--vc-avatar-ring, #e8c49c) 88%, white) 338deg,
+    #fff7ec 360deg
+  ) !important;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0) !important;
+  mask-composite: exclude !important;
+  animation: none !important;
+  transform: rotate(0deg);
+  transform-origin: center center;
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vc-user-profile-avatarwrap:hover::after,
+  .vc-user-rankcard__avatarwrap:hover::after,
+  .vc-rank-editor-preview__avatarwrap:hover::after {
+    animation: vc-avatar-ring-spin 2.2s linear infinite !important;
+  }
+}
+
+.vc-user-profile-avatarclip,
+.vc-user-rankcard__avatarclip {
+  position: relative !important;
+  z-index: 1 !important;
+  border-radius: inherit !important;
+  overflow: hidden !important;
+}
+
+@supports not (background: color-mix(in srgb, red 50%, blue)) {
+  .vc-user-profile-avatarwrap::after,
+  .vc-user-rankcard__avatarwrap::after,
+  .vc-rank-editor-preview__avatarwrap::after {
+    background: conic-gradient(
+      from 200deg,
+      #fff7ec 0deg,
+      #e8c49c 28deg,
+      rgba(232, 196, 156, 0.2) 90deg,
+      rgba(232, 196, 156, 0.08) 180deg,
+      rgba(232, 196, 156, 0.2) 270deg,
+      #e8c49c 332deg,
+      #fff7ec 360deg
+    ) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vc-user-profile-avatarwrap::after,
+  .vc-user-rankcard__avatarwrap::after,
+  .vc-rank-editor-preview__avatarwrap::after,
+  .vc-user-profile-avatarwrap:hover::after,
+  .vc-user-rankcard__avatarwrap:hover::after,
+  .vc-rank-editor-preview__avatarwrap:hover::after {
+    animation: none !important;
+  }
+}
+

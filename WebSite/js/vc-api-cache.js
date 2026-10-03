@@ -1,14 +1,21 @@
+/* siteApiW7 */
 (function () {
   "use strict";
-  
+  /* consoleErrors1 / console429Kill1: per-endpoint 429/502 cool-down also for /webhooks/site-* */
+  /* multiDeviceApi1: 5xx cool-down corto + retry x3; health/status mai bloccati */
+
   var PREFIX = "vc:apicache:";
   var LOCAL_PREFIX = "vc:apicache:local:";
   var memory = Object.create(null);
   var inFlight = Object.create(null);
   /* phoneApiBlockFix1: per-endpoint cool-down (was global — one 429 froze the whole phone site) */
   var webhookBlockedUntilByKey = Object.create(null);
-  var DEFAULT_429_BLOCK_MS = 25000;
-  var DEFAULT_429_BLOCK_MS_TOUCH = 12000;
+  /* phoneUser429Fix1: cool-down più corti; GET site-users aspetta invece di “Troppe richieste” */
+  var DEFAULT_429_BLOCK_MS = 12000;
+  var DEFAULT_429_BLOCK_MS_TOUCH = 8000;
+  var READ_429_BLOCK_MS = 6000;
+  var READ_429_BLOCK_MS_TOUCH = 4500;
+  var warmQueueGapMs = 0;
 
   function isTouchDevice() {
     try {
@@ -18,10 +25,81 @@
     return false;
   }
 
-  function webhook429BlockMs(retryAfterSec) {
+  function isReadHeavyWebhook(url) {
+    var key = normalizeWebhookBlockKey(url);
+    return (
+      key === "/webhooks/site-users" ||
+      key === "/webhooks/site-chrome-prefs" ||
+      key === "/webhooks/site-profile-extras" ||
+      key === "/webhooks/site-custom-profile" ||
+      key === "/webhooks/site-rank-card" ||
+      key === "/webhooks/site-rank-card-public" ||
+      key === "/webhooks/site-notifications" ||
+      key === "/webhooks/site-roles" ||
+      key === "/webhooks/site-vote" ||
+      key === "/webhooks/site-wiki-help" ||
+      key === "/webhooks/site-confessionale" ||
+      key === "/webhooks/site-web-tickets" ||
+      key === "/webhooks/site-staff-compiti" ||
+      key === "/webhooks/site-staff-organico" ||
+      key === "/webhooks/site-staff-dashboard"
+    );
+  }
+
+  /* inAppNotifSync1: inbox in-app critica — cool-down cortissimi (push arriva, campanella resta vuota) */
+  function isSiteNotificationsWebhook(url) {
+    return normalizeWebhookBlockKey(url) === "/webhooks/site-notifications";
+  }
+
+  /* reviewsSoft429Fix1 + phoneApiSoft429Kill1: pagine API bot — no freeze globale */
+  function isBoardReadWebhook(url) {
+    var key = normalizeWebhookBlockKey(url);
+    return (
+      key === "/webhooks/site-reviews" ||
+      key === "/webhooks/site-suggestions" ||
+      key === "/webhooks/site-bot-feedback" ||
+      key === "/webhooks/site-feedback" ||
+      key === "/webhooks/site-vote" ||
+      key === "/webhooks/site-roles" ||
+      key === "/webhooks/site-users" ||
+      key === "/webhooks/site-wiki-help" ||
+      key === "/webhooks/site-confessionale" ||
+      key === "/webhooks/site-profile-extras" ||
+      key === "/webhooks/site-custom-profile" ||
+      key === "/webhooks/site-web-tickets" ||
+      key === "/webhooks/site-staff-compiti" ||
+      key === "/webhooks/site-staff-organico" ||
+      key === "/webhooks/site-staff-pause" ||
+      key === "/webhooks/site-staff-profile" ||
+      key === "/webhooks/site-candidature"
+    );
+  }
+
+  function webhook429BlockMs(retryAfterSec, url) {
     var sec = Number(retryAfterSec);
-    if (Number.isFinite(sec) && sec > 0) return Math.min(60000, sec * 1000);
-    return isTouchDevice() ? DEFAULT_429_BLOCK_MS_TOUCH : DEFAULT_429_BLOCK_MS;
+    /* inAppNotifSync1: campanella non può restare bloccata 20–90s dopo un 429 */
+    if (isSiteNotificationsWebhook(url)) {
+      if (Number.isFinite(sec) && sec > 0) return Math.min(8000, Math.max(2500, sec * 1000));
+      return isTouchDevice() ? 3500 : 4500;
+    }
+    /* console429Kill1: CF IP-wide — cool-down più lunghi */
+    if (Number.isFinite(sec) && sec > 0) return Math.min(90000, Math.max(12000, sec * 1000));
+    if (isReadHeavyWebhook(url)) {
+      return isTouchDevice() ? 20000 : 28000;
+    }
+    return isTouchDevice() ? 25000 : 40000;
+  }
+
+  function webhookBlockRemainingMs(url) {
+    var left = 0;
+    try {
+      if (typeof window.__vcWebhookGlobalBlockedUntil === "function") {
+        left = Math.max(left, Number(window.__vcWebhookGlobalBlockedUntil() || 0) - now());
+      }
+    } catch (eG) {}
+    var key = normalizeWebhookBlockKey(url);
+    if (key) left = Math.max(left, Number(webhookBlockedUntilByKey[key] || 0) - now());
+    return Math.max(0, left);
   }
 
   function now() {
@@ -111,9 +189,14 @@
     return method + " " + auth + " " + String(url || "");
   }
 
-  function noteWebhook429(retryAfterSec, url) {
-    var blockMs = webhook429BlockMs(retryAfterSec);
+  function noteWebhook429(retryAfterSec, url, meta) {
+    var blockMs = webhook429BlockMs(retryAfterSec, url);
     var key = normalizeWebhookBlockKey(url);
+    /* phoneApiSoft429Kill1: NEVER arm global from app/soft 429 — only CF HTML via armFrom429.
+       Soft429 responses re-entering here used to freeze every phone API page. */
+    try {
+      if (meta && meta.soft429) return;
+    } catch (eSoftMeta) {}
     /* No URL → do NOT freeze every webhook (legacy callers used to kill the phone UI). */
     if (!key) return;
     webhookBlockedUntilByKey[key] = Math.max(Number(webhookBlockedUntilByKey[key]) || 0, now() + blockMs);
@@ -126,17 +209,35 @@
     } catch (eEv) {}
   }
 
-  /* phoneApiReloadFix1: never client-block public/site APIs after first paint/reload */
-  function isCriticalSiteWebhook(url) {
+  /* multiDeviceApi1: 502/503 durante boot/restart ≠ CF 429 — cool-down corto così i retry funzionano su phone/tablet */
+  function noteWebhook5xx(url) {
+    var key = normalizeWebhookBlockKey(url);
+    if (!key) return;
+    if (isHealthWebhook(url)) return;
+    /* inAppNotifSync1: 502 breve su inbox — altrimenti push ok / campanella morta */
+    var blockMs = isSiteNotificationsWebhook(url)
+      ? isTouchDevice()
+        ? 1200
+        : 1600
+      : isTouchDevice()
+        ? 2200
+        : 2800;
+    webhookBlockedUntilByKey[key] = Math.max(Number(webhookBlockedUntilByKey[key]) || 0, now() + blockMs);
+  }
+
+  /* consoleErrors1: block per-endpoint anche su site-* (prima isCritical bypassava TUTTI → storm 429).
+     Solo health resta sempre sbloccato. */
+  function isHealthWebhook(url) {
     try {
       var base =
         typeof location !== "undefined" && location.origin ? location.origin : "https://localhost";
       var path = String(new URL(String(url || ""), base).pathname || "");
-      if (path.indexOf("/webhooks/") !== 0) return false;
       return (
-        path.indexOf("/webhooks/site-") === 0 ||
-        path.indexOf("/webhooks/health") === 0 ||
-        path.indexOf("/webhooks/site-api/health") === 0
+        path === "/webhooks/health" ||
+        path === "/webhooks/status" ||
+        path === "/webhooks/site-api/health" ||
+        path === "/webhooks/coffee/health" ||
+        path.indexOf("/webhooks/health/") === 0
       );
     } catch (e) {
       return false;
@@ -163,8 +264,18 @@
   }
 
   function isWebhookBlocked(url) {
+    if (isHealthWebhook(url)) return false;
+    /* reviewsSoft429Fix1: GET board non eredita il freeze globale */
+    if (isBoardReadWebhook(url)) {
+      var bkey = normalizeWebhookBlockKey(url);
+      return bkey ? Number(webhookBlockedUntilByKey[bkey] || 0) > now() : false;
+    }
+    try {
+      if (typeof window.__vcWebhookGlobalBlockedUntil === "function") {
+        if (Date.now() < Number(window.__vcWebhookGlobalBlockedUntil() || 0)) return true;
+      }
+    } catch (eGb) {}
     if (!url) return false;
-    if (isCriticalSiteWebhook(url)) return false;
     var key = normalizeWebhookBlockKey(url);
     if (!key) return false;
     return Number(webhookBlockedUntilByKey[key] || 0) > now();
@@ -218,9 +329,22 @@
       .text()
       .then(function (text) {
         var raw = String(text == null ? "" : text);
-        if (!raw) return { ok: r.ok, status: r.status, body: r.ok ? {} : { ok: false, error: "empty_body" } };
+        var etag = "";
         try {
-          return { ok: r.ok, status: r.status, body: JSON.parse(raw) };
+          etag = String((r && r.headers && r.headers.get("ETag")) || "").trim();
+        } catch (eEt) {
+          etag = "";
+        }
+        if (!raw) {
+          return {
+            ok: r.ok,
+            status: r.status,
+            body: r.ok ? {} : { ok: false, error: "empty_body" },
+            etag: etag,
+          };
+        }
+        try {
+          return { ok: r.ok, status: r.status, body: JSON.parse(raw), etag: etag };
         } catch (eJson) {
           /* HTML/proxy → soft fail, non “offline” grezzo */
           return softFailPayload(r.status || 0, "invalid_json", { invalidJson: true });
@@ -231,30 +355,102 @@
       });
   }
 
+  /* siteApiW4: conditional GET via If-None-Match for staff/notif validators */
+  var httpValidators = Object.create(null);
+
+  function validatorKey(url, init) {
+    var auth = "";
+    try {
+      var src = (init && init.headers) || {};
+      if (typeof src.forEach === "function") {
+        src.forEach(function (value, key) {
+          if (String(key).toLowerCase() === "authorization") auth = String(value || "");
+        });
+      } else if (src && typeof src === "object") {
+        auth = String(src.Authorization || src.authorization || "");
+      }
+    } catch (eVk) {}
+    return String(url || "") + "|" + auth.slice(0, 40);
+  }
+
   function fetchJsonOnce(url, init, timeoutMs) {
     var ms = defaultFetchTimeoutMs(timeoutMs);
     var ctrl = new AbortController();
-    var tid = window.setTimeout(function () {
-      try {
-        ctrl.abort();
-      } catch (eA) {}
-    }, ms);
-    var headers = Object.assign({ Accept: "application/json" }, (init && init.headers) || {});
+    var tid = 0;
+    var headers = { Accept: "application/json" };
+    try {
+      var src = (init && init.headers) || {};
+      if (typeof src.forEach === "function") {
+        src.forEach(function (value, key) {
+          headers[String(key)] = String(value);
+        });
+      } else if (src && typeof src === "object") {
+        Object.keys(src).forEach(function (key) {
+          headers[key] = src[key];
+        });
+      }
+    } catch (eHdrCopy) {
+      headers = Object.assign({ Accept: "application/json" }, (init && init.headers) || {});
+    }
     try {
       if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
         headers = window.VcPerf.apiHeaders(headers, url);
       }
     } catch (eH) {}
+    var vk = validatorKey(url, { headers: headers });
+    try {
+      var prev = httpValidators[vk];
+      if (prev && prev.etag && !headers["If-None-Match"] && !headers["if-none-match"]) {
+        headers["If-None-Match"] = prev.etag;
+      }
+    } catch (eInm) {}
+    /* phoneApiSoft429Kill1: start abort timer only when fetch actually begins
+       (queue delay must not eat the timeout budget). */
+    tid = window.setTimeout(function () {
+      try {
+        ctrl.abort();
+      } catch (eA) {}
+    }, ms);
     return fetch(url, Object.assign({}, init || {}, { headers: headers, signal: ctrl.signal }))
       .then(function (r) {
-        if (isWebhookUrl(url) && r && r.status === 429) {
-          var ra = 0;
-          try {
-            ra = Number(r.headers.get("Retry-After") || "0");
-          } catch (eRa) {}
-          noteWebhook429(ra, url);
+        var soft429 = false;
+        try {
+          soft429 = Boolean(r && r.headers && r.headers.get("X-VC-Soft429"));
+        } catch (eSoft) {
+          soft429 = false;
         }
-        return parseResponseBody(r);
+        if (isWebhookUrl(url) && r && r.status === 429) {
+          if (!soft429) {
+            var ra = 0;
+            try {
+              ra = Number(r.headers.get("Retry-After") || "0");
+            } catch (eRa) {}
+            noteWebhook429(ra, url, { soft429: false });
+          }
+        }
+        /* multiDeviceApi1: 502/503 → cool-down CORTO (non 429-length) + retry in shouldRetryFetch */
+        if (!soft429 && isWebhookUrl(url) && r && (r.status === 502 || r.status === 503 || r.status === 504)) {
+          noteWebhook5xx(url);
+        }
+        if (r && r.status === 304) {
+          var hit = httpValidators[vk];
+          if (hit && hit.body) {
+            return { ok: true, status: 304, body: hit.body, etag: hit.etag, notModified: true };
+          }
+        }
+        return parseResponseBody(r).then(function (payload) {
+          try {
+            if (
+              payload &&
+              payload.etag &&
+              payload.body &&
+              (payload.body.ok === true || payload.body.viewAsActive)
+            ) {
+              httpValidators[vk] = { etag: payload.etag, body: payload.body };
+            }
+          } catch (eStore) {}
+          return payload;
+        });
       })
       .catch(function (err) {
         var name = err && err.name ? String(err.name) : "";
@@ -264,7 +460,7 @@
         return softFailPayload(0, "network_error", { networkError: true });
       })
       .finally(function () {
-        window.clearTimeout(tid);
+        if (tid) window.clearTimeout(tid);
       });
   }
 
@@ -283,6 +479,26 @@
     var fk = flightKey(url, init);
     if (webhook && inFlight[fk]) return inFlight[fk];
     if (webhook && isWebhookBlocked(url)) {
+      var left = webhookBlockRemainingMs(url);
+      /* phoneUser429Fix1 + reviewsSoft429Fix2: board/classifica aspettano e riprovano (no flash Troppe richieste) */
+      if ((isReadHeavyWebhook(url) || isBoardReadWebhook(url)) && left > 0 && left < 14000) {
+        var waited = delayMs(left + 80).then(function () {
+          if (isWebhookBlocked(url)) {
+            return {
+              ok: false,
+              status: 429,
+              body: { ok: false, error: "rate_limited_client" },
+              blocked: true,
+              soft: true,
+            };
+          }
+          return fetchJsonOnce(url, init, ms);
+        });
+        inFlight[fk] = waited.finally(function () {
+          delete inFlight[fk];
+        });
+        return inFlight[fk];
+      }
       return Promise.resolve({
         ok: false,
         status: 429,
@@ -292,11 +508,41 @@
       });
     }
 
-    /* phoneApiGlobalFix1: 1 retry automatico su timeout/rete (touch backoff più lungo) */
+    /* phoneApiGlobalFix1 + phoneApiSoft429Kill1: retry timeout/rete + soft429 touch */
     var req = fetchJsonOnce(url, init, ms).then(function (payload) {
+      var soft429Body =
+        payload &&
+        Number(payload.status) === 429 &&
+        payload.body &&
+        (payload.body.soft === true ||
+          payload.body.error === "rate_limited" ||
+          payload.body.error === "rate_limited_client");
+      if (soft429Body && isTouchDevice() && (isReadHeavyWebhook(url) || isBoardReadWebhook(url))) {
+        return delayMs(1100).then(function () {
+          if (isWebhookBlocked(url)) {
+            return delayMs(Math.min(4000, webhookBlockRemainingMs(url) + 60)).then(function () {
+              return fetchJsonOnce(url, init, ms);
+            });
+          }
+          return fetchJsonOnce(url, init, ms);
+        });
+      }
       if (!shouldRetryFetch(payload)) return payload;
       var nextMs = Math.min(56000, Math.max(ms + (isTouchDevice() ? 14000 : 10000), Math.round(ms * 1.45)));
       var wait = isTouchDevice() ? 750 : 420;
+      var st0 = Number(payload && payload.status) || 0;
+      if (st0 === 502 || st0 === 503 || st0 === 504) {
+        /* multiDeviceApi1: secondo retry dopo boot flap (watchdog/restart) */
+        wait = isTouchDevice() ? 1100 : 850;
+        return delayMs(wait).then(function () {
+          return fetchJsonOnce(url, init, nextMs).then(function (payload2) {
+            if (!shouldRetryFetch(payload2)) return payload2;
+            return delayMs(isTouchDevice() ? 1600 : 1200).then(function () {
+              return fetchJsonOnce(url, init, nextMs);
+            });
+          });
+        });
+      }
       return delayMs(wait).then(function () {
         return fetchJsonOnce(url, init, nextMs);
       });
@@ -361,7 +607,8 @@
       (opts.forceNetwork !== false && isWebhookUrl(url) && isReloadNavigation());
 
     function network() {
-      if (isWebhookUrl(url) && isWebhookBlocked(url)) {
+      /* voteStaleFix1: forceNetwork must hit origin even during 429 cool-down */
+      if (isWebhookUrl(url) && isWebhookBlocked(url) && !forceNetwork) {
         var blockedStale = stalePayloadFromCache(key, ttlMs, staleMs, persistMs);
         if (blockedStale) return Promise.resolve(blockedStale);
       }
@@ -429,17 +676,18 @@
   function prefetchIdle(key, url, opts) {
     var run = function () {
       if (isWebhookBlocked(url)) return;
-      prefetch(key, url, opts);
+      /* violPass7: handler corto — prefetch (storage+fetch) in macrotask separato */
+      window.setTimeout(function () {
+        try {
+          prefetch(key, url, opts);
+        } catch (ePf) {}
+      }, 0);
     };
-    /* phoneApiGlobalFix1: su telefono ritarda il warm per non pestare il first-paint */
-    var idleTimeout = isTouchDevice() ? 14000 : 3500;
-    var fallbackMs = isTouchDevice() ? 9000 : 1200;
-    try {
-      if (typeof window.requestIdleCallback === "function") {
-        window.requestIdleCallback(run, { timeout: idleTimeout });
-        return;
-      }
-    } catch (eI) {}
+    /* consoleStorm2 + violPass4: niente requestIdleCallback({timeout}) → Violation idle */
+    /* violPass7: stagger più largo — evita burst setTimeout 1s+ */
+    warmQueueGapMs += isTouchDevice() ? 4200 : 3400;
+    var stagger = warmQueueGapMs;
+    var fallbackMs = (isTouchDevice() ? 14000 : 11000) + stagger;
     window.setTimeout(run, fallbackMs);
   }
 
@@ -509,7 +757,13 @@
 
   function bearerFromHeaders(headers) {
     var h = headers || {};
-    var raw = String(h.Authorization || h.authorization || "").trim();
+    var raw = "";
+    try {
+      if (typeof h.get === "function") raw = String(h.get("Authorization") || h.get("authorization") || "").trim();
+      else raw = String(h.Authorization || h.authorization || "").trim();
+    } catch (eB) {
+      raw = String(h.Authorization || h.authorization || "").trim();
+    }
     return raw.replace(/^Bearer\s+/i, "");
   }
 
@@ -575,6 +829,14 @@
     });
   }
 
+  function clearWebhookBlock(url) {
+    var key = normalizeWebhookBlockKey(url);
+    if (!key) return;
+    try {
+      delete webhookBlockedUntilByKey[key];
+    } catch (eC) {}
+  }
+
   window.VcApiCache = {
     keyFor: keyFor,
     fetchWithCache: fetchWithCache,
@@ -587,13 +849,16 @@
     invalidateContains: invalidateContains,
     isWebhookBlocked: isWebhookBlocked,
     noteWebhook429: noteWebhook429,
+    webhookBlockRemainingMs: webhookBlockRemainingMs,
     clearWebhookBlocks: clearWebhookBlocks,
+    clearWebhookBlock: clearWebhookBlock,
     fetchJson: fetchJson,
+    __siteApiW4: true,
   };
 
   try {
     window.addEventListener("pageshow", function (ev) {
-      clearWebhookBlocks();
+      /* consoleStorm2: do NOT clear 429 cool-downs on every pageshow (CF 1015) */
       if (ev && (ev.persisted || isReloadNavigation())) {
         try {
           window.dispatchEvent(new CustomEvent("vc:site-api-refetch", { detail: { persisted: Boolean(ev.persisted) } }));
@@ -602,3 +867,13 @@
     });
   } catch (ePs) {}
 })();
+
+/* consoleNoise2 */
+
+
+/* console429Kill1 */
+/* violPass4 */
+/* violPass5 */
+/* violPass7 */
+/* violPass10 */
+

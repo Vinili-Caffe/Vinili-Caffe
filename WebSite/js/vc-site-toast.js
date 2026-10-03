@@ -102,7 +102,18 @@
     requestAnimationFrame(function () {
       toast.classList.add("is-visible");
     });
-    if (pending) return;
+    if (pending) {
+      /* ticketListStuckFix1: pending non resta forever (max ~12s) */
+      timer = setTimeout(function () {
+        toast.classList.add("is-leaving");
+        toast.classList.remove("is-visible");
+        setTimeout(function () {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 200);
+        timer = null;
+      }, 12000);
+      return;
+    }
     var ms = Number(opts.ms);
     if (!Number.isFinite(ms) || ms <= 0) ms = isError ? 2800 : 1400;
     timer = setTimeout(function () {

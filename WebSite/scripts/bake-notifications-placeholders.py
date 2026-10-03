@@ -108,7 +108,33 @@ def main() -> None:
 
     replacements = {
         "COOKIEYES_BLOCK": "",
-        "GA_BLOCK": "",
+        "GA_BLOCK": """<!-- gtagPrivacy2 / gtagAllPages1 -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("consent", "default", {
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+        analytics_storage: "granted",
+        functionality_storage: "granted",
+        personalization_storage: "denied",
+        security_storage: "granted",
+        wait_for_update: 400
+      });
+      gtag("set", "ads_data_redaction", true);
+      gtag("set", "url_passthrough", true);
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KPF6425N60"></script>
+    <script>
+      gtag("js", new Date());
+      gtag("config", "G-KPF6425N60", {
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false,
+        anonymize_ip: true,
+        send_page_view: true
+      });
+    </script>""",
         "SITE_NAME": site_name,
         "SITE_URL": site_url,
         "YEAR": year,

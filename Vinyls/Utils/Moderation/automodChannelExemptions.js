@@ -19,6 +19,8 @@ function getStaticAutomodExemptChannelIds(client = null) {
   const ids = new Set();
   const streamerChat = String(IDs.channels?.streamerChat || "").trim();
   if (/^\d{16,22}$/.test(streamerChat)) ids.add(streamerChat);
+  const streamerStage = String(IDs.channels?.streamerStage || "").trim();
+  if (/^\d{16,22}$/.test(streamerStage)) ids.add(streamerStage);
   for (const id of readStreamVoiceChannelIdsFromClient(client)) ids.add(id);
   return ids;
 }
@@ -27,8 +29,10 @@ function getStanzaAutomodExemptCategoryIds() {
   const ids = new Set();
   const legacyStanze = String(IDs.categories?.categoryStanze || "").trim();
   const activeStanze = String(IDs.categories?.categoryPublics || "").trim();
+  const limitate = String(IDs.categories?.categoryLimitate || "").trim();
   if (/^\d{16,22}$/.test(legacyStanze)) ids.add(legacyStanze);
   if (/^\d{16,22}$/.test(activeStanze)) ids.add(activeStanze);
+  if (/^\d{16,22}$/.test(limitate)) ids.add(limitate);
   return ids;
 }
 
@@ -58,11 +62,33 @@ function isUnderAutomodExemptCategory(channel, guild) {
 
 function isStanzaAutomodExemptChannel(channel, guild) {
   if (!channel || !guild) return false;
+  const lobbyId = String(IDs.channels?.stanzaLobbyVoice || "").trim();
+  const chId = String(channel.id || "");
+  if (lobbyId && chId === lobbyId) return true;
+  if (/Stanza di\s+/i.test(String(channel.name || ""))) return true;
   try {
-    const { isAutomodExemptStanzaChannel } = require("../../Services/Voice/stanzaVoiceRoomsService");
-    if (typeof isAutomodExemptStanzaChannel === "function") {
-      return isAutomodExemptStanzaChannel(channel, guild);
+    const coffee = require("../../../Coffee/Services/Voice/stanzaVoiceRoomsService");
+    if (typeof coffee.isManagedStanzaRoomChannel === "function") {
+      return Boolean(coffee.isManagedStanzaRoomChannel(channel, String(channel.parentId || "")));
     }
+  } catch (_) {}
+  return false;
+}
+
+function isLimitateAutomodExemptChannel(channel, guild, client = null) {
+  if (!channel || !guild) return false;
+  const limitate = String(IDs.categories?.categoryLimitate || "").trim();
+  const chId = String(channel.id || "");
+  const parentId = String(channel.parentId || "");
+  if (limitate && (chId === limitate || parentId === limitate)) return true;
+  try {
+    const hubClient = client || guild.client || null;
+    const {
+      isPublicVoiceHubId,
+      isSpawnedHubChannel,
+    } = require("../../Services/Voice/publicVoiceHubService");
+    if (typeof isPublicVoiceHubId === "function" && isPublicVoiceHubId(chId, hubClient)) return true;
+    if (typeof isSpawnedHubChannel === "function" && isSpawnedHubChannel(channel, hubClient)) return true;
   } catch (_) {}
   return false;
 }
@@ -76,6 +102,7 @@ function isAutomodExemptChannel(channel, guild, client = null) {
   if (isUnderAutomodExemptCategory(channel, guild)) return true;
   if (guild && isChannelInCustomPrivateCategory(channel, guild)) return true;
   if (isStanzaAutomodExemptChannel(channel, guild)) return true;
+  if (isLimitateAutomodExemptChannel(channel, guild, client)) return true;
   return false;
 }
 
@@ -95,6 +122,7 @@ function collectDiscordAutomodExemptChannelIds(guild, client = null) {
       if (typeof ch?.isThread === "function" && ch.isThread()) continue;
       if (isChannelInCustomPrivateCategory(ch, guild)) ids.add(String(ch.id));
       if (isStanzaAutomodExemptChannel(ch, guild)) ids.add(String(ch.id));
+      if (isLimitateAutomodExemptChannel(ch, guild, client)) ids.add(String(ch.id));
     }
   }
   return [...ids].filter((id) => /^\d{16,22}$/.test(id));

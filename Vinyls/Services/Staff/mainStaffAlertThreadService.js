@@ -5,7 +5,7 @@ const {
 } = require("../../Utils/Discord/threadRoleMembers");
 
 const DEFAULT_CONFIG = {
-  enabled: true,
+  enabled: false,
   guildId: "1462458562507964584",
   channelId: "1526909652967751741",
   mainGuildId: IDs.guilds?.main || "1329080093599076474",

@@ -1,18 +1,18 @@
-/* 20260907cursorAnim3 */
+/* 20260913cursorStatic1 */
 :root{
-  --vc-cursor-default: url("/images/musicrecordspin-cursor-anim-v3.gif") 12 12, auto;
-  --vc-cursor-pointer: url("/images/coffe-cursor-anim-v3.gif") 9 11, pointer;
+  --vc-cursor-default: url("/images/musicrecordspin-cursor-static.png") 12 12, auto;
+  --vc-cursor-pointer: url("/images/coffe-cursor-static.png") 9 11, pointer;
 
     --bg0:#100c09;
     --bg1:#1a120e;
-    --card: rgba(14, 10, 8, 0.78);
-    --card2: rgba(20, 14, 11, 0.88);
+    --card: #100c09;
+    --card2: #140f0c;
     --text:#f8f2ea;
     --muted: rgba(248, 242, 234, 0.78);
     --accent:#ead4c0;
     --accent2:#d4a888;
     --mocha:#6f4e37;
-    --shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+    --shadow: 0 8px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     --radius: 1.75rem;
     --banner-radius: 1.75rem;
 }
@@ -112,17 +112,20 @@ body.vc-seratafilm-app-revealed #vc-seratafilm-app {
     display: flex;
     gap: 24px;
     align-items: stretch;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-wrap: nowrap;
+    justify-content: stretch;
+    width: 100%;
 }
 
 .banner-vertical {
+    position: relative;
     flex: 0 0 180px;
-    background: linear-gradient(145deg, rgba(20, 30, 55, 0.65), rgba(10, 15, 35, 0.75));
-    backdrop-filter: blur(var(--vc-glass-blur));
+    background: #100c09;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border-radius: var(--banner-radius);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 18px 35px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(245, 214, 183, 0.28);
+    box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -130,11 +133,14 @@ body.vc-seratafilm-app-revealed #vc-seratafilm-app {
     transition: all 0.2s ease;
     padding: 20px 12px;
     text-align: center;
+    overflow: hidden;
+    isolation: isolate;
+    background-clip: padding-box;
 }
 
 .banner-vertical:hover {
-    border-color: rgba(247, 201, 72, 0.5);
-    background: linear-gradient(145deg, rgba(30, 42, 75, 0.75), rgba(15, 22, 48, 0.85));
+    border-color: rgba(245, 214, 183, 0.4);
+    background: #140f0c;
     transform: translateY(-3px);
 }
 
@@ -196,9 +202,10 @@ body.vc-seratafilm-app-revealed #vc-seratafilm-app {
 }
 
 .center-stage {
-    flex: 1;
-    min-width: 280px;
-    max-width: 760px;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    width: auto;
 }
 
 .wrap {
@@ -209,10 +216,14 @@ body.vc-seratafilm-app-revealed #vc-seratafilm-app {
     position: relative;
     padding: 34px 28px 26px;
     border-radius: var(--radius);
-    background: linear-gradient(180deg, var(--card), rgba(255,255,255,.04));
+    background: #100c09;
     box-shadow: var(--shadow);
-    border: 1px solid rgba(255,255,255,.14);
-    backdrop-filter: blur(var(--vc-glass-blur));
+    border: 1px solid rgba(245, 214, 183, 0.28);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    overflow: hidden;
+    isolation: isolate;
+    background-clip: padding-box;
 }
 
 .card::before {
@@ -220,8 +231,8 @@ body.vc-seratafilm-app-revealed #vc-seratafilm-app {
     position:absolute;
     inset:-1px;
     border-radius: inherit;
-    background: linear-gradient(135deg, rgba(138,92,255,.55), rgba(247,201,72,.35));
-    opacity:.22;
+    background: none;
+    opacity:0;
     pointer-events:none;
     padding: 1px;
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -252,8 +263,16 @@ h1 {
     margin-top: 18px;
 }
 
+/* sfThanksLayout4: stesso timer 4 colonne della pagina countdown */
 body.vc-seratafilm-thanks-page #timer {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+}
+
+body.vc-seratafilm-thanks-page #timer .tile.vc-seratafilm-thanks-next {
+    grid-column: 1 / -1;
+    text-align: left;
+    padding: 14px 16px;
 }
 
 .vc-seratafilm-thanks-kicker {
@@ -264,14 +283,14 @@ body.vc-seratafilm-thanks-page #timer {
     line-height: 1.25;
 }
 
-body.vc-seratafilm-thanks-page #timer .tile .lbl {
+body.vc-seratafilm-thanks-page #timer .tile.vc-seratafilm-thanks-next .lbl {
     display: block;
-    margin-top: 14px;
-    font-size: clamp(1rem, 2.6vw, 1.2rem);
-    line-height: 1.55;
+    margin-top: 0;
+    font-size: clamp(0.92rem, 2.1vw, 1.05rem);
+    line-height: 1.45;
 }
 
-body.vc-seratafilm-thanks-page #timer .tile .lbl strong {
+body.vc-seratafilm-thanks-page #timer .tile.vc-seratafilm-thanks-next .lbl strong {
     color: var(--text);
     font-weight: 700;
 }
@@ -290,17 +309,19 @@ body.vc-seratafilm-thanks-page .hint .btn.secondary {
 
 .tile {
     border-radius: 18px;
-    background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
-    border: 1px solid rgba(255,255,255,.14);
+    background: #140f0c;
+    border: 1px solid rgba(245, 214, 183, 0.22);
     padding: 14px 12px 12px;
     text-align: center;
     transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 .tile:hover {
     transform: translateY(-2px);
-    background: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.07));
-    border-color: rgba(255,255,255,.20);
+    background: #1a1410;
+    border-color: rgba(245, 214, 183, 0.32);
 }
 
 @keyframes vc-seratafilm-pulseGlow {
@@ -509,6 +530,69 @@ body.vc-seratafilm-hogwarts-event .vc-seratafilm-film__loading-text {
 
 .vc-seratafilm-film__loading[hidden] {
     display: none !important;
+}
+
+.vc-seratafilm-credits-skip {
+    position: absolute;
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 56px));
+    z-index: 40;
+    margin: 0;
+    padding: 12px 18px;
+    border: 1px solid rgba(247, 201, 72, 0.55);
+    border-radius: 999px;
+    background: linear-gradient(145deg, rgba(36, 28, 18, 0.92), rgba(14, 10, 8, 0.94));
+    color: #fff8f0;
+    font: 600 0.95rem/1.2 "Segoe UI", system-ui, sans-serif;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.45),
+      0 0 28px rgba(247, 201, 72, 0.28),
+      inset 0 1px 0 rgba(255, 247, 236, 0.18);
+    filter: drop-shadow(0 0 10px rgba(247, 201, 72, 0.22));
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 0.28s ease, transform 0.28s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vc-seratafilm-credits-skip:not([hidden]) {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.vc-seratafilm-credits-skip:hover,
+.vc-seratafilm-credits-skip:focus-visible {
+    background: rgba(28, 28, 32, 0.92);
+    border-color: rgba(255, 255, 255, 0.45);
+    outline: none;
+}
+
+.vc-seratafilm-credits-skip[hidden] {
+    display: none !important;
+}
+
+body.vc-seratafilm-ad-break-active .vc-seratafilm-credits-skip,
+.vc-seratafilm-film.is-preloading .vc-seratafilm-credits-skip {
+    display: none !important;
+}
+
+@media (max-width: 720px) {
+    .vc-seratafilm-credits-skip {
+        left: 50%;
+        right: auto;
+        bottom: max(64px, calc(env(safe-area-inset-bottom, 0px) + 48px));
+        transform: translate(-50%, 8px);
+        white-space: nowrap;
+    }
+
+    .vc-seratafilm-credits-skip:not([hidden]) {
+        transform: translate(-50%, 0);
+    }
 }
 
 .vc-seratafilm-ad-break {
@@ -823,10 +907,11 @@ h1 img.vc-twemoji {
 
 .banner-horizontal {
     width: 100%;
-    background: linear-gradient(95deg, rgba(20, 30, 55, 0.7), rgba(10, 15, 35, 0.8));
-    backdrop-filter: blur(var(--vc-glass-blur));
+    background: #100c09;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border-radius: 32px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(245, 214, 183, 0.28);
     padding: 18px 24px;
     display: flex;
     flex-wrap: wrap;
@@ -835,11 +920,15 @@ h1 img.vc-twemoji {
     gap: 20px;
     transition: all 0.2s;
     margin-top: auto;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    isolation: isolate;
+    background-clip: padding-box;
 }
 
 .banner-horizontal:hover {
-    border-color: rgba(138, 92, 255, 0.6);
-    background: linear-gradient(95deg, rgba(30, 45, 80, 0.75), rgba(18, 28, 55, 0.85));
+    border-color: rgba(245, 214, 183, 0.4);
+    background: #140f0c;
 }
 
 .sponsor-horiz-content {
@@ -868,21 +957,21 @@ h1 img.vc-twemoji {
 }
 
 .horiz-cta {
-    background: linear-gradient(145deg, #8a5cff, #6b3bcb);
-    border: none;
+    background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%);
+    border: 1px solid rgba(255, 244, 232, 0.28);
     border-radius: 60px;
     padding: 10px 28px;
-    color: white;
+    color: #1a120e;
     font-weight: 600;
     text-decoration: none;
     transition: 0.2s;
-    box-shadow: 0 8px 20px rgba(106, 60, 255, 0.3);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
 }
 
 .horiz-cta:hover {
     transform: scale(1.02);
-    background: linear-gradient(145deg, #9c73ff, #7c4ee0);
-    box-shadow: 0 12px 28px rgba(106, 60, 255, 0.45);
+    background: linear-gradient(180deg, #f6e6d6 0%, #e0b992 58%, #c49a74 100%);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32);
 }
 
 .banner-horizontal-2 {
@@ -1436,9 +1525,12 @@ body.vc-seratafilm-ad-spot-playing .vc-bgm-player--seratafilm {
     }
     .row-main {
         gap: 16px;
+        flex-wrap: wrap;
     }
     .center-stage {
         max-width: 100%;
+        flex: 1 1 100%;
+        width: 100%;
     }
     .banner-horizontal {
         flex-direction: column;
@@ -1643,26 +1735,26 @@ body.vc-seratafilm-hogwarts-event h1 {
 
 body.vc-seratafilm-hogwarts-event .card {
     border-color: rgba(212, 168, 136, 0.28);
-    background: linear-gradient(180deg, rgba(28, 16, 10, 0.92), rgba(12, 8, 6, 0.9));
-    backdrop-filter: blur(var(--vc-glass-blur));
-    -webkit-backdrop-filter: blur(var(--vc-glass-blur));
+    background: #100c09;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 body.vc-seratafilm-hogwarts-event .card::before {
-    background: linear-gradient(135deg, rgba(116, 0, 1, 0.45), rgba(212, 168, 136, 0.32));
-    opacity: 0.28;
+    background: none;
+    opacity: 0;
 }
 
 body.vc-seratafilm-hogwarts-event .banner-vertical {
-    background: linear-gradient(145deg, rgba(36, 18, 12, 0.9), rgba(14, 8, 6, 0.92));
+    background: #100c09;
     border-color: rgba(212, 168, 136, 0.28);
-    backdrop-filter: blur(var(--vc-glass-blur));
-    -webkit-backdrop-filter: blur(var(--vc-glass-blur));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 body.vc-seratafilm-hogwarts-event .banner-vertical:hover {
     border-color: rgba(212, 168, 136, 0.48);
-    background: linear-gradient(145deg, rgba(48, 24, 16, 0.94), rgba(18, 10, 8, 0.94));
+    background: #140f0c;
 }
 
 body.vc-seratafilm-hogwarts-event .sponsor-text {
@@ -1672,15 +1764,15 @@ body.vc-seratafilm-hogwarts-event .sponsor-text {
 }
 
 body.vc-seratafilm-hogwarts-event .banner-horizontal {
-    background: linear-gradient(95deg, rgba(36, 18, 12, 0.9), rgba(14, 8, 6, 0.92));
+    background: #100c09;
     border-color: rgba(212, 168, 136, 0.28);
-    backdrop-filter: blur(var(--vc-glass-blur));
-    -webkit-backdrop-filter: blur(var(--vc-glass-blur));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 body.vc-seratafilm-hogwarts-event .banner-horizontal:hover {
     border-color: rgba(116, 0, 1, 0.45);
-    background: linear-gradient(95deg, rgba(48, 24, 16, 0.94), rgba(18, 10, 8, 0.94));
+    background: #140f0c;
 }
 
 body.vc-seratafilm-hogwarts-event .horiz-text {
@@ -1727,10 +1819,9 @@ body.vc-seratafilm-hogwarts-event .num {
 
 body.vc-seratafilm-hogwarts-event .tile {
     border-color: rgba(212, 168, 136, 0.22);
-    background: linear-gradient(180deg, rgba(42, 24, 16, 0.96), rgba(18, 10, 8, 0.94));
+    background: #140f0c;
 }
 
-body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading .vc-seratafilm-loading__card,
 body.vc-seratafilm-hogwarts-event .vc-seratafilm-denied__card {
     border-color: rgba(212, 168, 136, 0.22);
     background: rgba(18, 10, 6, 0.88);
@@ -1874,11 +1965,14 @@ body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading .vc-seratafilm-loading_
   display: block;
   width: 2.35rem;
   height: 2.35rem;
-  border-radius: 9999px;
+  border-radius: 50% !important;
   border: 2px solid rgba(245, 232, 216, 0.16);
   border-top-color: rgba(247, 236, 223, 0.96);
-  box-shadow: 0 0 22px rgba(232, 196, 156, 0.28);
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
   animation: vc-seratafilm-load-spin 0.9s linear infinite;
+  will-change: transform;
 }
 
 @keyframes vc-seratafilm-load-spin {
@@ -1905,25 +1999,133 @@ body.vc-seratafilm-hogwarts-event #vc-seratafilm-loading .vc-seratafilm-loading_
   color: rgba(247, 236, 223, 0.78) !important;
 }
 
-/* seratafilmSitePalette1: mocha/sand opaque cards like rest of site */
+/* sfLoadNoSquare3: loading card transparent even under photo-bg solid loaders */
+html.vc-site-photo-bg body.vc-seratafilm-page #vc-seratafilm-loading .vc-seratafilm-loading__card,
+html.vc-site-photo-bg body.vc-body #vc-seratafilm-loading .vc-seratafilm-loading__card,
+body.vc-seratafilm-page #vc-seratafilm-loading .vc-seratafilm-loading__card,
+body.vc-seratafilm-page .vc-seratafilm-loading__card,
+#vc-seratafilm-loading .vc-seratafilm-loading__card {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  overflow: visible !important;
+  isolation: auto !important;
+  padding: 0 !important;
+  max-width: 40rem !important;
+}
+
+/* seratafilmSolidCards3 + sfUiGlowBgm1: opaque cards + warm glow gradient */
 body.vc-seratafilm-page .banner-vertical,
 body.vc-seratafilm-page .banner-horizontal,
 body.vc-seratafilm-page .banner-horizontal-2,
 body.vc-seratafilm-page .card,
-body.vc-seratafilm-page .vc-seratafilm-loading__card,
-body.vc-seratafilm-page .vc-seratafilm-denied__card {
-  background: rgba(14, 10, 8, 0.78) !important;
+body.vc-seratafilm-page .vc-seratafilm-denied__card,
+body.vc-seratafilm-hogwarts-event .banner-vertical,
+body.vc-seratafilm-hogwarts-event .banner-horizontal,
+body.vc-seratafilm-hogwarts-event .banner-horizontal-2,
+body.vc-seratafilm-hogwarts-event .card {
+  background: #100c09 !important;
+  background-color: #100c09 !important;
   background-image: none !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  opacity: 1 !important;
+  border: 1px solid rgba(245, 214, 183, 0.34) !important;
+  border-radius: var(--radius) !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  background-clip: padding-box !important;
+  box-shadow:
+    0 10px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(212, 168, 136, 0.12),
+    0 0 36px rgba(212, 168, 136, 0.22),
+    0 0 64px rgba(247, 201, 72, 0.1),
+    inset 0 1px 0 rgba(255, 247, 236, 0.08) !important;
+  filter: drop-shadow(0 0 16px rgba(212, 168, 136, 0.32)) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+body.vc-seratafilm-page .banner-horizontal,
+body.vc-seratafilm-page .banner-horizontal-2,
+body.vc-seratafilm-hogwarts-event .banner-horizontal,
+body.vc-seratafilm-hogwarts-event .banner-horizontal-2 {
+  border-radius: 32px !important;
+}
+body.vc-seratafilm-page .center-stage,
+body.vc-seratafilm-page .center-stage .wrap,
+body.vc-seratafilm-page .row-main,
+body.vc-seratafilm-page .dashboard {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  border: 0 !important;
+}
 body.vc-seratafilm-page .banner-vertical:hover,
-body.vc-seratafilm-page .banner-horizontal:hover {
-  border-color: rgba(212, 168, 136, 0.35) !important;
-  background: rgba(20, 14, 11, 0.88) !important;
+body.vc-seratafilm-page .banner-horizontal:hover,
+body.vc-seratafilm-hogwarts-event .banner-vertical:hover,
+body.vc-seratafilm-hogwarts-event .banner-horizontal:hover {
+  border-color: rgba(245, 214, 183, 0.4) !important;
+  background: #140f0c !important;
+  background-color: #140f0c !important;
+  background-image: none !important;
   transform: translateY(-2px);
+}
+body.vc-seratafilm-page .card::before,
+body.vc-seratafilm-hogwarts-event .card::before,
+body.vc-seratafilm-page .banner-vertical::before,
+body.vc-seratafilm-hogwarts-event .banner-vertical::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: -1px !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  opacity: 1 !important;
+  padding: 1px !important;
+  background: linear-gradient(
+    135deg,
+    rgba(247, 236, 223, 0.55) 0%,
+    rgba(212, 168, 136, 0.28) 42%,
+    rgba(111, 78, 55, 0.45) 100%
+  ) !important;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+  mask-composite: exclude !important;
+  -webkit-mask-composite: xor !important;
+  z-index: 0 !important;
+}
+body.vc-seratafilm-page .tile,
+body.vc-seratafilm-hogwarts-event .tile {
+  background: #140f0c !important;
+  background-image: none !important;
+  border: 1px solid rgba(245, 214, 183, 0.22) !important;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.vc-seratafilm-page .center-stage {
+  flex: 1 1 0 !important;
+  max-width: none !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+body.vc-seratafilm-page .row-main {
+  width: 100% !important;
+  max-width: 100% !important;
+  align-items: stretch;
+  flex-wrap: nowrap !important;
+  justify-content: stretch !important;
+}
+body.vc-seratafilm-page .banner-horizontal,
+body.vc-seratafilm-page .banner-horizontal-2 {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+body.vc-seratafilm-page .dashboard {
+  max-width: min(1400px, 100%);
 }
 body.vc-seratafilm-page .card h1,
 body.vc-seratafilm-page .sponsor-text,
@@ -1941,18 +2143,21 @@ body.vc-seratafilm-page #timer .num {
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45) !important;
 }
 body.vc-seratafilm-page .tile {
-  background: rgba(14, 10, 8, 0.78) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45) !important;
+  background: #140f0c !important;
+  border: 1px solid rgba(245, 214, 183, 0.22) !important;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 body.vc-seratafilm-page .pill {
-  background: rgba(111, 78, 55, 0.35) !important;
+  background: rgba(111, 78, 55, 0.55) !important;
   border: 1px solid rgba(212, 168, 136, 0.28) !important;
   color: #f7eadb !important;
 }
 body.vc-seratafilm-page .btn.secondary,
 body.vc-seratafilm-page .hint .btn.secondary {
-  background: rgba(14, 10, 8, 0.78) !important;
+  background: #140f0c !important;
   border: 1px solid rgba(212, 168, 136, 0.35) !important;
   color: #f7eadb !important;
   box-shadow: none !important;
@@ -1962,12 +2167,14 @@ body.vc-seratafilm-page .horiz-cta-2 {
   background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
   color: #1a120e !important;
   border: 1px solid rgba(255, 244, 232, 0.28) !important;
-  box-shadow: 0 14px 36px rgba(212, 168, 136, 0.28) !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28) !important;
+  filter: none !important;
 }
 body.vc-seratafilm-page .horiz-cta:hover,
 body.vc-seratafilm-page .horiz-cta-2:hover {
   background: linear-gradient(180deg, #f6e6d6 0%, #e0b992 58%, #c49a74 100%) !important;
-  box-shadow: 0 16px 40px rgba(212, 168, 136, 0.36) !important;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32) !important;
+  filter: none !important;
 }
 body.vc-seratafilm-page .vc-seratafilm-denied__btn--primary {
   background: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
@@ -2111,4 +2318,44 @@ body.vc-seratafilm-page .vc-seratafilm-bgm-hint__ico {
     min-height: 0;
     display: block;
   }
+  body.vc-seratafilm-thanks-page #timer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* sfUiGlowBgm1: title emoji + pill emoji readable */
+body.vc-seratafilm-page h1 img.vc-emoji,
+body.vc-seratafilm-page h1 img.vc-twemoji,
+body.vc-seratafilm-page .pill img.vc-emoji,
+body.vc-seratafilm-page .pill img.vc-twemoji {
+  height: 1.15em !important;
+  width: 1.15em !important;
+  max-width: 1.35em !important;
+  max-height: 1.35em !important;
+  vertical-align: -0.18em !important;
+  filter: none !important;
+}
+body.vc-seratafilm-page .banner-horizontal {
+  position: relative;
+}
+body.vc-seratafilm-page .banner-horizontal::before,
+body.vc-seratafilm-hogwarts-event .banner-horizontal::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: -1px !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  opacity: 1 !important;
+  padding: 1px !important;
+  background: linear-gradient(
+    135deg,
+    rgba(247, 236, 223, 0.5) 0%,
+    rgba(212, 168, 136, 0.26) 45%,
+    rgba(111, 78, 55, 0.42) 100%
+  ) !important;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+  mask-composite: exclude !important;
+  -webkit-mask-composite: xor !important;
+  z-index: 0 !important;
 }

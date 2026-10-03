@@ -25,6 +25,8 @@
   };
   var liveRolesPollTimer = null;
   var LIVE_ROLES_POLL_MS = 60000;
+  var ownerHydrateRetryTimer = null;
+  var ownerHydrateRetries = 0;
 
   function byId(id) {
     return document.getElementById(id);
@@ -277,24 +279,52 @@
 
   function avatarUrl(row) {
     var fromApi = String(row.ownerAvatarUrl || "").trim();
-    if (/^https?:\/\//i.test(fromApi)) return fromApi;
+    if (/^https?:\/\//i.test(fromApi)) {
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferAnimatedUrl === "function") {
+          return window.VcDiscordAvatar.preferAnimatedUrl(fromApi, 128) || fromApi;
+        }
+      } catch (eAnim) {}
+      return fromApi;
+    }
 
     var id = String(row.ownerId || "").trim();
     var av = String(row.ownerAvatar || "").trim();
     if (id && av) {
-      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + ".png?size=128";
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromParts === "function") {
+          var built = window.VcDiscordAvatar.buildFromParts(id, av, 128);
+          if (built) return built;
+        }
+      } catch (eBuild) {}
+      var ext = /^a_/i.test(av) ? "gif" : "png";
+      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + "." + ext + "?size=128";
     }
     return fallbackAvatarById(id);
   }
 
   function memberAvatarUrl(row) {
     var fromApi = String(row.avatarUrl || "").trim();
-    if (/^https?:\/\//i.test(fromApi)) return fromApi;
+    if (/^https?:\/\//i.test(fromApi)) {
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferAnimatedUrl === "function") {
+          return window.VcDiscordAvatar.preferAnimatedUrl(fromApi, 128) || fromApi;
+        }
+      } catch (eAnim2) {}
+      return fromApi;
+    }
 
     var id = String(row.userId || "").trim();
     var av = String(row.avatar || "").trim();
     if (id && av) {
-      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + ".png?size=128";
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromParts === "function") {
+          var built2 = window.VcDiscordAvatar.buildFromParts(id, av, 128);
+          if (built2) return built2;
+        }
+      } catch (eBuild2) {}
+      var ext2 = /^a_/i.test(av) ? "gif" : "png";
+      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + "." + ext2 + "?size=128";
     }
     return fallbackAvatarById(id);
   }
@@ -344,8 +374,8 @@
         } catch (eCls) {}
       }
     }
-    if (title) title.textContent = label || "Caricamento ruoli";
-    if (subtitle) subtitle.textContent = state.loading ? sub || "Sto recuperando tutti i ruoli personalizzati della community…" : "";
+    if (title) title.textContent = label || "Caricamento…";
+    if (subtitle) subtitle.textContent = state.loading ? sub || "Un momento…" : "";
     if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
@@ -404,9 +434,41 @@
       overlay.setAttribute("data-vc-loader-blocking", "1");
       overlay.removeAttribute("hidden");
     }
-    if (title) title.textContent = "Caricamento ruoli";
-    if (subtitle) subtitle.textContent = "Sto recuperando tutti i ruoli personalizzati della community...";
+    if (title) title.textContent = "Caricamento…";
+    if (subtitle) subtitle.textContent = "Un momento…";
     if (grid) grid.setAttribute("aria-busy", "true");
+  }
+
+  function countIncompleteOwners(rows) {
+    var list = Array.isArray(rows) ? rows : [];
+    var n = 0;
+    for (var i = 0; i < list.length; i += 1) {
+      var r = list[i];
+      if (!r) continue;
+      var oid = String(r.ownerId || "").trim();
+      if (!oid) continue;
+      var name = String(r.ownerDisplayName || r.ownerUsername || "").trim();
+      if (!name || /^utente$/i.test(name)) n += 1;
+    }
+    return n;
+  }
+
+  function scheduleOwnerHydrateRetry() {
+    if (ownerHydrateRetries >= 3) return;
+    if (ownerHydrateRetryTimer) return;
+    if (countIncompleteOwners(state.rows) < 1) return;
+    ownerHydrateRetryTimer = window.setTimeout(function () {
+      ownerHydrateRetryTimer = null;
+      ownerHydrateRetries += 1;
+      try {
+        if (window.VcApiCache && typeof window.VcApiCache.invalidate === "function") {
+          window.VcApiCache.invalidate(
+            window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles", v: "roles5" }),
+          );
+        }
+      } catch (eInv) {}
+      load({ silent: true, bypassCache: true });
+    }, ownerHydrateRetries === 0 ? 2200 : 4500);
   }
 
   function applyFilter() {
@@ -568,8 +630,9 @@
     var expiryChip = row.isPermanent
       ? '<span class="vc-role-chip vc-role-chip--perm"><i class="fa fa-link" aria-hidden="true"></i> Permanente</span>'
       : '<span class="vc-role-chip vc-role-chip--temp"><i class="fa fa-clock-o" aria-hidden="true"></i> ' + esc(formatDateIt(row.expiresAt)) + "</span>";
+    /* lighthouseLhSite1: article without role=listitem */
     return (
-      '<article class="vc-role-card" role="listitem" data-role-id="' + esc(row.roleId) + '" tabindex="0" aria-label="Apri membri del ruolo ' + esc(row.roleName || "Ruolo custom") + '">' +
+      '<article class="vc-role-card" data-role-id="' + esc(row.roleId) + '" tabindex="0" aria-label="Apri membri del ruolo ' + esc(row.roleName || "Ruolo custom") + '">' +
       '<div class="vc-role-card-top">' +
       '<div class="vc-role-card-iconwrap">' +
       roleIcon(row) +
@@ -702,7 +765,114 @@
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
     modal.removeAttribute("inert");
-    document.body.classList.add("vc-role-modal-open");
+    lockRoleModalScroll();
+  }
+
+  function anyRoleModalOpen() {
+    var members = byId("vc-role-modal");
+    var request = byId("vc-role-request-modal");
+    var login = byId("vc-login-required-modal");
+    return Boolean(
+      (members && !members.hidden) ||
+        (request && !request.hidden) ||
+        (login && !login.hidden)
+    );
+  }
+
+  function captureRoleScrollY() {
+    var y = 0;
+    try {
+      if (typeof window.__vcGetPinnedPageScrollY === "function") {
+        y = Number(window.__vcGetPinnedPageScrollY()) || 0;
+      }
+    } catch (ePinY) {}
+    try {
+      var live =
+        window.scrollY ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        (document.body && document.body.scrollTop) ||
+        0;
+      if (live > y) y = live;
+    } catch (eLive) {}
+    return Math.max(0, Number(y) || 0);
+  }
+
+  function lockRoleModalScroll() {
+    try {
+      var already = document.body.classList.contains("vc-role-modal-open");
+      var y = already
+        ? Number(document.body.dataset.vcRoleScrollY || "0") || 0
+        : captureRoleScrollY();
+      if (!already) document.body.dataset.vcRoleScrollY = String(y);
+      /* modalScrollStay3: soft overflow lock — no position:fixed (yank to top) */
+      if (typeof window.__vcArmModalScrollLock === "function") {
+        window.__vcArmModalScrollLock({
+          bodyClass: "vc-role-modal-open",
+          y: y,
+          holdMs: 320,
+        });
+        document.body.dataset.vcRoleScrollY = String(y);
+        return;
+      }
+      document.body.classList.add("vc-role-modal-open");
+      document.documentElement.classList.add("vc-scroll-soft-lock");
+      try {
+        if (typeof window.__vcResetPinnedPageScrollY === "function") {
+          window.__vcResetPinnedPageScrollY(y);
+        }
+        if (typeof window.__vcPinPageScroll === "function") {
+          window.__vcPinPageScroll({ soft: true, forcePhoneLock: true });
+        }
+        if (typeof window.__vcHoldPageScroll === "function") {
+          window.__vcHoldPageScroll(320, y);
+        }
+      } catch (ePin) {}
+    } catch (eLock) {}
+  }
+
+  function unlockRoleModalScroll() {
+    if (anyRoleModalOpen()) return;
+    try {
+      var y = Number(document.body.dataset.vcRoleScrollY || "0") || 0;
+      if (typeof window.__vcReleaseModalScrollLock === "function") {
+        window.__vcReleaseModalScrollLock({
+          bodyClass: "vc-role-modal-open",
+          y: y,
+        });
+      } else {
+        document.body.classList.remove("vc-role-modal-open");
+        document.documentElement.classList.remove("vc-scroll-soft-lock");
+        [
+          "overflow",
+          "overflow-x",
+          "overflow-y",
+          "position",
+          "top",
+          "left",
+          "right",
+          "width",
+        ].forEach(function (prop) {
+          document.body.style.removeProperty(prop);
+          document.documentElement.style.removeProperty(prop);
+        });
+        try {
+          if (typeof window.__vcUnpinPageScroll === "function") {
+            window.__vcUnpinPageScroll();
+          }
+        } catch (eUnpin) {}
+        try {
+          window.scrollTo(0, y);
+          if (document.documentElement) document.documentElement.scrollTop = y;
+          if (document.body) document.body.scrollTop = y;
+        } catch (eScr) {}
+        try {
+          if (typeof window.__vcHoldPageScroll === "function") {
+            window.__vcHoldPageScroll(280, y);
+          }
+        } catch (eHold) {}
+      }
+      delete document.body.dataset.vcRoleScrollY;
+    } catch (eUnlock) {}
   }
 
   function closeRoleModal() {
@@ -718,12 +888,20 @@
     modal.setAttribute("inert", "");
     modal.setAttribute("aria-hidden", "true");
     modal.hidden = true;
-    document.body.classList.remove("vc-role-modal-open");
+    unlockRoleModalScroll();
 
     if (state.lastFocusEl && typeof state.lastFocusEl.focus === "function") {
-      state.lastFocusEl.focus();
+      try {
+        state.lastFocusEl.focus({ preventScroll: true });
+      } catch (eFocus) {
+        state.lastFocusEl.focus();
+      }
     } else {
-      document.body.focus();
+      try {
+        document.body.focus({ preventScroll: true });
+      } catch (eBodyFocus) {
+        document.body.focus();
+      }
     }
 
     state.lastFocusEl = null;
@@ -762,11 +940,42 @@
   }
 
   function setRequestState(msg, isErr) {
+    var text = String(msg || "").trim();
     var el = byId("vc-role-request-state");
-    if (!el) return;
-    el.hidden = !msg;
-    el.className = "vc-role-request-state" + (isErr ? " vc-role-request-state--err" : " vc-role-request-state--ok");
-    el.textContent = msg || "";
+    /* rolesRequestToast1: niente riga verde sotto textarea — toast (come setState) */
+    if (el) {
+      el.textContent = "";
+      el.hidden = true;
+      el.className = "vc-role-request-state";
+    }
+    if (!text) {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") window.VcSiteToast.hide();
+      } catch (eHide) {}
+      return;
+    }
+    function paintToast() {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+          window.VcSiteToast.show(text, Boolean(isErr), {
+            pending: !isErr && /\.\.\.|…$/.test(text) ? true : undefined,
+            ms: isErr ? 3600 : 1800,
+          });
+          return true;
+        }
+      } catch (eToast) {}
+      return false;
+    }
+    if (paintToast()) return;
+    window.setTimeout(function () {
+      if (paintToast()) return;
+      if (el) {
+        el.textContent = text;
+        el.hidden = false;
+        el.className =
+          "vc-role-request-state" + (isErr ? " vc-role-request-state--err" : " vc-role-request-state--ok");
+      }
+    }, 120);
   }
 
   function syncRequestModalState() {
@@ -783,6 +992,7 @@
     var label = document.querySelector(".vc-role-request-label");
     var textarea = byId("vc-role-request-reason");
     var meta = document.querySelector(".vc-role-request-meta");
+    var actions = document.querySelector("#vc-role-request-modal .vc-role-request-actions");
     var cancel = byId("vc-role-request-cancel");
     var submit = byId("vc-role-request-submit");
     var needsLogin = !getToken();
@@ -796,7 +1006,12 @@
       textarea.disabled = needsLogin;
     }
     if (meta) meta.hidden = needsLogin;
-    if (cancel) cancel.textContent = needsLogin ? "Chiudi" : "Annulla";
+    /* auth: solo X in alto — niente Chiudi/footer bianco */
+    if (actions) actions.hidden = needsLogin;
+    if (cancel) {
+      cancel.hidden = needsLogin;
+      cancel.textContent = "Annulla";
+    }
     if (submit) submit.hidden = needsLogin;
 
     syncRequestModalState();
@@ -846,7 +1061,7 @@
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
     modal.removeAttribute("inert");
-    document.body.classList.add("vc-role-modal-open");
+    lockRoleModalScroll();
     setTimeout(function () {
       if (!state.requestAuthRequired && textarea && typeof textarea.focus === "function") {
         textarea.focus();
@@ -869,14 +1084,22 @@
     modal.setAttribute("inert", "");
     modal.setAttribute("aria-hidden", "true");
     modal.hidden = true;
-    document.body.classList.remove("vc-role-modal-open");
+    unlockRoleModalScroll();
     setRequestState("", false);
     syncRequestModalState();
 
     if (state.lastFocusEl && typeof state.lastFocusEl.focus === "function") {
-      state.lastFocusEl.focus();
+      try {
+        state.lastFocusEl.focus({ preventScroll: true });
+      } catch (eFocus) {
+        state.lastFocusEl.focus();
+      }
     } else {
-      document.body.focus();
+      try {
+        document.body.focus({ preventScroll: true });
+      } catch (eBodyFocus) {
+        document.body.focus();
+      }
     }
 
     state.lastFocusEl = null;
@@ -1120,6 +1343,7 @@
     }
     nav.hidden = false;
     if (mp && typeof mp.fill === "function") {
+      /* publicPagerTickets1: stessa pill numerata dei ticket */
       mp.fill(nav, state.page, state.totalPages, { aria: "Paginazione ruoli" }, {
         go: function (page) {
           var cap = Math.max(1, Number(state.totalPages) || 1);
@@ -1317,11 +1541,14 @@
       var sameData = snapshot && state.lastSnapshot && snapshot === state.lastSnapshot;
       state.lastSnapshot = snapshot;
             setState("", false);
-      if (silent && sameData) return true;
-      state.page = 1;
-      applyFilter();
-      setSummary(state.summary);
-      renderGrid();
+      if (!(silent && sameData)) {
+        state.page = 1;
+        applyFilter();
+        setSummary(state.summary);
+        renderGrid();
+      }
+      if (countIncompleteOwners(state.rows) < 1) ownerHydrateRetries = 0;
+      else scheduleOwnerHydrateRetry();
       return true;
     }
 
@@ -1351,7 +1578,7 @@
 
     if (!silent) {
       state.lastAppliedSummarySig = "";
-      setLoading(true, "Caricamento ruoli", "Sto recuperando tutti i ruoli personalizzati della community…");
+      setLoading(true, "Caricamento…", "Un momento…");
       setState("", false);
     }
 
@@ -1359,7 +1586,7 @@
       var out = null;
       if (window.VcApiCache && opts.bypassCache !== true) {
         out = await window.VcApiCache.fetchWithCache(
-          window.VcApiCache.keyFor(api, { scope: "roles", v: "roles3" }),
+          window.VcApiCache.keyFor(api, { scope: "roles", v: "roles5" }),
           api,
           {
             ttlMs: 90000,

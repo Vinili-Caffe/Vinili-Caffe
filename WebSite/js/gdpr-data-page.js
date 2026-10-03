@@ -84,10 +84,13 @@
     activityUserProfiles: "Profili attività",
     siteDocuments: "Documenti e richieste sul sito",
     userLeaveBackups: "Backup uscita dal server",
+    userFullDiscordStateHistories: "Cronologia stato Discord",
+    muteRoleSnapshotProfiles: "Snapshot ruoli mute/timeout",
+    customPerksDiscordCleanupProfiles: "Pulizia perk Discord in coda",
     communicationTimeoutRoleSnapshots: "Snapshot timeout comunicazione",
     customPerksDiscordCleanupQueue: "Coda pulizia perk Discord",
     countingRestoreTokens: "Token ripristino counting",
-    legacyCollections: "Dati legacy",
+    legacyCollections: "Dati storici",
     guildFeatureBucket: "Dati community",
     suggestionsRemoved: "Feedback",
     ticketsRedacted: "Ticket (resi anonimi)",
@@ -96,12 +99,36 @@
     staffProfiles: "Profili staff",
     hogwartsProfiles: "Profili Hogwarts",
     hogwartsSortingDoc: "Smistamento Hogwarts",
+    tenantPartnershipProfiles: "Profili partnership",
     payments: "Pagamenti / crediti",
     moderationCasesAsSubject: "Casi di moderazione",
+    /* legacy Mongo collection names */
+    activityusers: "Profili attività (storico)",
+    expusers: "Esperienza e livelli (storico)",
+    activitydailies: "Attività giornaliera (storico)",
+    activityhourlies: "Attività oraria (storico)",
+    activitydailycompacts: "Attività giornaliera compatta",
+    activityhourlycompacts: "Attività oraria compatta",
+    levelhistories: "Storico livelli",
+    levelhistoryusers: "Storico livelli utente",
+    mentionreactions: "Reazioni alle menzioni",
+    mentionresponses: "Risposte alle menzioni",
+    birthdayprofiles: "Profili compleanno",
   };
 
+  function humanizeKey(key) {
+    var s = String(key || "").trim();
+    if (!s) return s;
+    return s
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[_\-.]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function labelFor(key) {
-    return i18n("dashGdpr.count." + key, COUNT_LABELS[key] || key);
+    var k = String(key || "").trim();
+    return i18n("dashGdpr.count." + k, COUNT_LABELS[k] || humanizeKey(k) || k);
   }
 
   function countValue(v) {
@@ -172,22 +199,52 @@
   }
 
   function needLoginMsg() {
-    return i18n("dashGdpr.needLogin", "Accedi con Discord per esportare o cancellare i tuoi dati.");
+    return i18n("dashGdpr.needLogin", "Per esportare o cancellare i tuoi dati devi accedere con Discord.");
+  }
+
+  function legalCard(opts) {
+    var tone = opts.tone || "blue";
+    var icon = opts.icon || "fa-shield";
+    var title = opts.title || "";
+    var titleKey = opts.titleKey || "";
+    var body = opts.body || "";
+    var titleAttr = titleKey ? ' data-i18n="' + esc(titleKey) + '"' : "";
+    return (
+      '<article class="vc-legal-card vc-legal-card--' +
+      esc(tone) +
+      '">' +
+      '<div class="vc-legal-card__head">' +
+      '<span class="vc-legal-card__icon" aria-hidden="true"><i class="fa ' +
+      esc(icon) +
+      '"></i></span>' +
+      '<h2 class="vc-legal-card__title"' +
+      titleAttr +
+      ">" +
+      esc(title) +
+      "</h2>" +
+      "</div>" +
+      body +
+      "</article>"
+    );
   }
 
   function renderLoginPrompt() {
     var root = byId("vc-gdpr-root");
     if (!root) return;
-    root.innerHTML =
-      '<section class="vc-acc-card">' +
-      '<h2 class="vc-acc-card__title" data-i18n="dashGdpr.needLoginTitle">Accesso richiesto</h2>' +
-      '<p class="vc-acc-card__text" data-i18n="dashGdpr.needLogin">' +
-      esc(needLoginMsg()) +
-      "</p>" +
-      '<div class="vc-acc-card__actions">' +
-      '<button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" data-vc-discord-login id="vc-gdpr-login">' +
-      '<i class="fa fa-discord" aria-hidden="true"></i> <span data-i18n="auth.login">Login</span></button>' +
-      "</div></section>";
+    root.innerHTML = legalCard({
+      tone: "indigo",
+      icon: "fa-sign-in",
+      titleKey: "dashGdpr.needLoginTitle",
+      title: i18n("dashGdpr.needLoginTitle", "Accedi per continuare"),
+      body:
+        '<p class="vc-legal-card__text" data-i18n="dashGdpr.needLogin">' +
+        esc(needLoginMsg()) +
+        "</p>" +
+        '<p class="vc-legal-cta">' +
+        '<button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" data-vc-discord-login id="vc-gdpr-login">' +
+        '<i class="fa fa-discord" aria-hidden="true"></i> <span data-i18n="auth.loginDiscord">Login con Discord</span></button>' +
+        "</p>",
+    });
     root.hidden = false;
     try {
       if (window.VcI18n && typeof window.VcI18n.apply === "function") window.VcI18n.apply(root);
@@ -204,64 +261,91 @@
     }
     var previewHtml = "";
     if (state.preview) {
-      previewHtml =
-        '<section class="vc-acc-card">' +
-        '<h2 class="vc-acc-card__title" data-i18n="dashGdpr.previewTitle">Anteprima cancellazione</h2>' +
-        '<p class="vc-acc-card__text">' +
-        esc(
-          state.preview.message ||
-            i18n(
-              "dashGdpr.previewHint",
-              "Anteprima: nessun dato è stato cancellato. Controlla cosa verrebbe eliminato e cosa resterebbe.",
-            ),
-        ) +
-        "</p>" +
-        '<div class="vc-gdpr-count-block">' +
-        "<h3 class=\"vc-gdpr-count-block__title\">" +
-        esc(i18n("dashGdpr.deletedLabel", "Cosa verrebbe eliminato")) +
-        "</h3>" +
-        summarizeCountsHtml(state.preview.deleted) +
-        "</div>" +
-        '<div class="vc-gdpr-count-block">' +
-        "<h3 class=\"vc-gdpr-count-block__title\">" +
-        esc(i18n("dashGdpr.retainedLabel", "Cosa resterebbe (obblighi / sicurezza)")) +
-        "</h3>" +
-        summarizeCountsHtml(state.preview.retained) +
-        "</div>" +
-        "</section>";
+      previewHtml = legalCard({
+        tone: "purple",
+        icon: "fa-eye",
+        titleKey: "dashGdpr.previewTitle",
+        title: i18n("dashGdpr.previewTitle", "Anteprima cancellazione"),
+        body:
+          "<p>" +
+          esc(
+            state.preview.message ||
+              i18n(
+                "dashGdpr.previewHint",
+                "Solo anteprima: non è stato cancellato nulla. Controlla cosa verrebbe eliminato e cosa resterebbe.",
+              ),
+          ) +
+          "</p>" +
+          '<div class="vc-gdpr-count-block">' +
+          '<h3 class="vc-gdpr-count-block__title">' +
+          esc(i18n("dashGdpr.deletedLabel", "Cosa verrebbe eliminato")) +
+          "</h3>" +
+          summarizeCountsHtml(state.preview.deleted) +
+          "</div>" +
+          '<div class="vc-gdpr-count-block">' +
+          '<h3 class="vc-gdpr-count-block__title">' +
+          esc(i18n("dashGdpr.retainedLabel", "Cosa resterebbe (obblighi / sicurezza)")) +
+          "</h3>" +
+          summarizeCountsHtml(state.preview.retained) +
+          "</div>",
+      });
     }
 
     root.innerHTML =
-      '<section class="vc-acc-card">' +
-      '<h2 class="vc-acc-card__title" data-i18n="dashGdpr.exportTitle">Esporta i tuoi dati</h2>' +
-      '<p class="vc-acc-card__text" data-i18n="dashGdpr.exportLead">Scarica un file JSON con i dati trattati da sito e bot per il tuo account Discord.</p>' +
-      '<div class="vc-acc-card__actions">' +
-      '<button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" id="vc-gdpr-export"' +
-      (state.busy ? " disabled" : "") +
-      '><i class="fa fa-download" aria-hidden="true"></i> <span data-i18n="dashGdpr.exportBtn">Scarica i miei dati</span></button>' +
-      "</div></section>" +
+      legalCard({
+        tone: "blue",
+        icon: "fa-download",
+        titleKey: "dashGdpr.exportTitle",
+        title: i18n("dashGdpr.exportTitle", "Esporta i tuoi dati"),
+        body:
+          '<p data-i18n="dashGdpr.exportLead">' +
+          esc(
+            i18n(
+              "dashGdpr.exportLead",
+              "Scarica un file JSON con i dati di sito e bot collegati al tuo account Discord.",
+            ),
+          ) +
+          "</p>" +
+          '<p class="vc-legal-cta">' +
+          '<button type="button" class="vc-dashboard-btn vc-dashboard-btn--primary" id="vc-gdpr-export"' +
+          (state.busy ? " disabled" : "") +
+          '><i class="fa fa-download" aria-hidden="true"></i> <span data-i18n="dashGdpr.exportBtn">Scarica i miei dati</span></button>' +
+          "</p>",
+      }) +
       previewHtml +
-      '<section class="vc-acc-card">' +
-      '<h2 class="vc-acc-card__title" data-i18n="dashGdpr.eraseTitle">Cancella i tuoi dati</h2>' +
-      '<p class="vc-acc-card__text" data-i18n="dashGdpr.eraseLead">Alcuni dati (moderazione, pagamenti, obblighi legali) possono essere conservati. L’operazione è irreversibile per i dati eliminabili.</p>' +
-      '<div class="vc-acc-card__actions">' +
-      '<button type="button" class="vc-dashboard-btn" id="vc-gdpr-preview"' +
-      (state.busy ? " disabled" : "") +
-      '><i class="fa fa-eye" aria-hidden="true"></i> <span data-i18n="dashGdpr.previewBtn">Anteprima cancellazione</span></button>' +
-      "</div>" +
-      '<label class="vc-dashboard-field vc-gdpr-confirm-field" for="vc-gdpr-confirm-token">' +
-      '<span data-i18n="dashGdpr.confirmLabel">Per confermare, digita il tuo username Discord o ID</span>' +
-      '<input type="text" id="vc-gdpr-confirm-token" name="gdpr-confirm" autocomplete="off" spellcheck="false" ' +
-      (state.busy ? "disabled " : "") +
-      'placeholder="username o ID" value="' +
-      esc(state.confirmToken) +
-      '" />' +
-      "</label>" +
-      '<div class="vc-acc-card__actions">' +
-      '<button type="button" class="vc-dashboard-btn vc-dashboard-btn--danger" id="vc-gdpr-erase"' +
-      (state.busy ? " disabled" : "") +
-      '><i class="fa fa-trash" aria-hidden="true"></i> <span data-i18n="dashGdpr.eraseBtn">Cancella i miei dati</span></button>' +
-      "</div></section>";
+      legalCard({
+        tone: "gold",
+        icon: "fa-trash",
+        titleKey: "dashGdpr.eraseTitle",
+        title: i18n("dashGdpr.eraseTitle", "Cancella i tuoi dati"),
+        body:
+          '<p data-i18n="dashGdpr.eraseLead">' +
+          esc(
+            i18n(
+              "dashGdpr.eraseLead",
+              "Puoi richiedere la cancellazione dei dati eliminabili. Restano eventuali dati necessari a moderazione, pagamenti o obblighi di legge. L’operazione non si può annullare.",
+            ),
+          ) +
+          "</p>" +
+          '<p class="vc-legal-cta">' +
+          '<button type="button" class="vc-dashboard-btn" id="vc-gdpr-preview"' +
+          (state.busy ? " disabled" : "") +
+          '><i class="fa fa-eye" aria-hidden="true"></i> <span data-i18n="dashGdpr.previewBtn">Anteprima cancellazione</span></button>' +
+          "</p>" +
+          '<label class="vc-dashboard-field vc-gdpr-confirm-field" for="vc-gdpr-confirm-token">' +
+          '<span data-i18n="dashGdpr.confirmLabel">Per confermare, digita il tuo username Discord o il tuo ID</span>' +
+          '<input type="text" id="vc-gdpr-confirm-token" name="gdpr-confirm" autocomplete="off" spellcheck="false" ' +
+          (state.busy ? "disabled " : "") +
+          'placeholder="username o ID" value="' +
+          esc(state.confirmToken) +
+          '" />' +
+          "</label>" +
+          '<p class="vc-legal-cta">' +
+          '<button type="button" class="vc-dashboard-btn vc-dashboard-btn--danger" id="vc-gdpr-erase"' +
+          (state.busy ? " disabled" : "") +
+          '><i class="fa fa-trash" aria-hidden="true"></i> <span data-i18n="dashGdpr.eraseBtn">Cancella i miei dati</span></button>' +
+          "</p>",
+      });
 
     root.hidden = false;
     try {

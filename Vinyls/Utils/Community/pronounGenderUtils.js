@@ -21,10 +21,21 @@ function resolveMemberPronounGender(member) {
   const cache = member?.roles?.cache;
   if (!cache) return "u";
   const roles = IDs.roles || {};
-  if (roles.sheHer && cache.has(roles.sheHer)) return "f";
-  if (roles.heHim && cache.has(roles.heHim)) return "m";
-  if (roles.theyThem && cache.has(roles.theyThem)) return "x";
-  if (roles.askMe && cache.has(roles.askMe)) return "u";
+  const has = (id) => {
+    const s = String(id || "").trim();
+    if (!s) return false;
+    try {
+      if (typeof cache.has === "function" && cache.has(s)) return true;
+    } catch (_) {}
+    try {
+      if (typeof cache.get === "function" && cache.get(s)) return true;
+    } catch (_) {}
+    return false;
+  };
+  if (roles.sheHer && has(roles.sheHer)) return "f";
+  if (roles.heHim && has(roles.heHim)) return "m";
+  if (roles.theyThem && has(roles.theyThem)) return "x";
+  if (roles.askMe && has(roles.askMe)) return "u";
   return "u";
 }
 

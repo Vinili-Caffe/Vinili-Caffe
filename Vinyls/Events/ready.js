@@ -16,23 +16,13 @@ const { bootstrapSupporter, recoverSupporterStatusAnnouncesOnStartup } = require
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
 const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameService");
-const { startBurrobirraEffectLoop } = require("../Services/Minigames/burrobirraEffectService");
-const { startHouseBurrobirraEffectLoop } = require("../Services/Minigames/hogwartsHouseBurrobirraEffectService");
-const { isHogwartsRuntimeDisabled } = require("../Utils/Web/hogwartsRuntimeKillSwitch");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService");
 const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService");
 const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService");
-const { startReactPressEventLoop } = require("../Services/Community/hogwartsReactPressService");
-const { startGaleoniEconomyChannelUnlockLoop } = require("../Services/Community/galeoniEconomyChannelUnlockService");
 const { purgeDisabledTrisSessions } = require("../Utils/Economy/trisGuiRuntime");
-const { startPremiLaReactEndLoop } = require("../Services/Community/hogwartsReactPressEndService");
-const { startHogwartsSpellListHuntLoop } = require("../Services/Community/hogwartsSpellListHuntService");
-const { startHogwartsSpellListHuntEndLoop } = require("../Services/Community/hogwartsSpellListHuntEndService");
-const { startPotionReminderLoop } = require("../Services/Community/hogwartsPotionReminderService");
 const { startHogwartsEventEndLoop } = require("../Services/Community/hogwartsEventEndService");
-const { startConsumableBoostExpiryLoop } = require("../Services/Community/hogwartsConsumableBoostsService");
 const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
 const { sweepExpiredCommunicationTimeoutMirrors, reconcileIncompleteActiveMuteMirrors } = require("../Services/Moderation/mutedMirrorRoleService");
@@ -55,15 +45,12 @@ const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService");
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
+const { startStafferDellaSettimanaLoop } = require("../Services/Staff/stafferDellaSettimanaService");
 const { startTwitchLiveAlertLoop } = require("../Services/Community/twitchLiveAlertService");
 const { startKickLiveAlertLoop } = require("../Services/Community/kickLiveAlertService");
+const { startGameNewsAlertLoop } = require("../Services/Community/gameNewsAlertService");
+const { startStreamerStageGuardLoop } = require("../Services/Community/streamerStageGuardService");
 const { startKickSubscriberSyncLoop } = require("../Services/Community/kickSubscriberSyncService");
-const { startHogwartsHouseCupLoop } = require("../Services/Community/hogwartsHouseCupPublishService");
-const { syncHogwartsShopLogsOnStartup } = require("../Services/Community/hogwartsShopLogService");
-const { syncShopBoostMinigameUsageBackfillOnStartup } = require("../Services/Community/hogwartsShopBoostsService");
-const { syncHogwartsMinigameHousePointsBackfillOnStartup } = require("../Services/Community/hogwartsMinigameHousePointsBackfillService");
-const { syncHouseSortingAnnouncesOnStartup } = require("../Services/Community/hogwartsSortingLogService");
-const { syncSortingRolesOnStartup } = require("../Services/Community/hogwartsSortingRoleService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { runStaffWarnChannelMigrationOnStartup } = require("../Services/Staff/staffWarnChannelMigrationService");
@@ -435,11 +422,12 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed join welcome announcements",
       weight: 43,
-      enabled: primaryScheduler && fullSync,
+      /* missedJoinCatchup1: sempre al boot (anche fast path) — join offline non hanno pending Mongo */
+      enabled: primaryScheduler,
       run: () =>
         guildMemberAddExtras.recoverJoinAnnouncementsOnStartup(client, {
-          limit: 25,
-          lookbackMs: 24 * 60 * 60 * 1000,
+          limit: fullSync ? 40 : 30,
+          lookbackMs: 48 * 60 * 60 * 1000,
         }),
     },
     {
@@ -539,31 +527,32 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover unannounced boosters (member + native scan)",
       weight: 50.5,
-      enabled: primaryScheduler && fullSync,
+      /* boostMiss1: anche fast-path — altrimenti boost durante FULL_STARTUP_SYNC=0 restano senza embed */
+      enabled: primaryScheduler,
       run: () =>
         guildMemberUpdateExtras.recoverUnannouncedBoostersOnStartup(client, {
-          lookbackMs: 48 * 60 * 60 * 1000,
-          maxRecover: 25,
+          lookbackMs: fullSync ? 48 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000,
+          maxRecover: fullSync ? 25 : 8,
         }),
     },
     {
       label: "recover missing second boost embeds (native vs supporters)",
       weight: 51,
-      enabled: primaryScheduler && fullSync,
+      enabled: primaryScheduler,
       run: () =>
         guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
-          lookbackMs: 7 * 24 * 60 * 60 * 1000,
-          maxRecover: 10,
+          lookbackMs: fullSync ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000,
+          maxRecover: fullSync ? 10 : 5,
         }),
     },
     {
       label: "recover last 2 native boost system messages (multi-channel scan)",
       weight: 51,
-      enabled: false,
+      enabled: primaryScheduler,
       run: () =>
         guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
-          messageLimit: 5,
-          lookbackMs: 24 * 60 * 60 * 1000,
+          messageLimit: fullSync ? 5 : 3,
+          lookbackMs: fullSync ? 24 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000,
         }),
     },
     {
@@ -674,45 +663,6 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       weight: 85,
       enabled: primaryScheduler && fullSync && shouldRunVerificationTenureBackfill(client),
       run: () => backfillVerificationTenure(client),
-    },
-    {
-      label: "hogwarts shop purchase log backfill",
-      weight: 86,
-      enabled: false,
-      run: () => syncHogwartsShopLogsOnStartup(client),
-    },
-    {
-      label: "hogwarts shop boost minigame usage backfill",
-      weight: 86,
-      enabled: false,
-      run: () => syncShopBoostMinigameUsageBackfillOnStartup(client),
-    },
-    {
-      label: "hogwarts minigame house points backfill",
-      weight: 86,
-      enabled: false,
-      run: () => syncHogwartsMinigameHousePointsBackfillOnStartup(client),
-    },
-    {
-      label: "hogwarts house sorting announce backfill",
-      weight: 87,
-      enabled: false,
-      run: () => syncHouseSortingAnnouncesOnStartup(client),
-    },
-    {
-      label: "hogwarts sorting role repair",
-      weight: 87,
-      enabled: false,
-      run: () => syncSortingRolesOnStartup(client),
-    },
-    {
-      label: "hogwarts basilisk curse state hydrate",
-      weight: 87,
-      enabled: false,
-      run: async () => {
-        const { hydrateBasiliskScopeState } = require("../Services/Community/hogwartsBasiliskService");
-        await hydrateBasiliskScopeState(client);
-      },
     },
     {
       label: "renumber categories",
@@ -1189,73 +1139,10 @@ function startPrimaryLoops(client, engagementTick) {
   const loopStarters = [
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
     ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
-    ["[BURROBIRRA] Failed to start loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startBurrobirraEffectLoop(client);
-    }],
-    ["[HOUSE BURROBIRRA] Failed to start loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startHouseBurrobirraEffectLoop(client);
-    }],
-    ["[VOTE ROLE] Failed to start cleanup loop", () => startVoteRoleCleanupLoop(client)],
-    ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
-    ["[PREMEMBER] Failed to start Unverified sweep loop", () => startPreMemberRoleSweepLoop(client)],
-    ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
-    ["[SPONSOR 24H KICK] Failed to start loop", () => startSponsorKickLoop(client)],
-    ["[SPONSOR NICK SWEEP] Failed to start loop", () => startSponsorGuildNicknameSweepLoop(client)],
-    ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
+    ["[HOGWARTS FINALE PRIZES] Failed to start completion loop", () => startHogwartsEventEndLoop(client)],
     ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
     ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
     ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
-    ["[PREMI LA REACT] Failed to start loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startReactPressEventLoop(client);
-    }],
-    ["[GALEONI ECONOMY CHANNEL] Failed to start unlock loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startGaleoniEconomyChannelUnlockLoop(client);
-    }],
-    ["[TRIS] Failed to purge disabled sessions", () => {
-      void purgeDisabledTrisSessions(client).catch((err) =>
-        global.logger?.warn?.("[TRIS] purge disabled sessions:", err?.message || err),
-      );
-    }],
-    ["[PREMI LA REACT END] Failed to start leaderboard loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startPremiLaReactEndLoop(client);
-    }],
-    ["[HOGWARTS FORBIDDEN CHANNELS] Failed to start loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      const booksCfg = client?.config?.hogwartsForbiddenBooks;
-      const presenceCfg = client?.config?.presence?.forbiddenSectionEvent;
-      const {
-        startForbiddenSectionChannelDecorLoop,
-      } = require("../Services/Community/hogwartsForbiddenSectionChannelService");
-      if (booksCfg?.enabled === false || presenceCfg?.enabled === false) {
-        return;
-      }
-      startForbiddenSectionChannelDecorLoop(client);
-    }],
-    ["[HOGWARTS SPELL LIST HUNT] Failed to start loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startHogwartsSpellListHuntLoop(client);
-    }],
-    ["[HOGWARTS SPELL LIST HUNT END] Failed to start leaderboard loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startHogwartsSpellListHuntEndLoop(client);
-    }],
-    ["[HOGWARTS POTIONS] Failed to start reminder loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startPotionReminderLoop(client);
-    }],
-    ["[HOGWARTS EVENT END] Failed to start completion loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startHogwartsEventEndLoop(client);
-    }],
-    ["[HOGWARTS CONSUMABLE BOOST EXPIRY] Failed to start loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startConsumableBoostExpiryLoop(client);
-    }],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[USER FULL STATE] Failed to start persistence loop", () => startUserFullStatePersistenceLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
@@ -1266,24 +1153,16 @@ function startPrimaryLoops(client, engagementTick) {
     }],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],
     ["[WEEKLY ACTIVITY WINNERS] Failed to start loop", () => startWeeklyActivityWinnersLoop(client)],
-    ["[HOGWARTS HOUSE CUP] Failed to start loop", () => {
-      if (isHogwartsRuntimeDisabled(client)) return;
-      startHogwartsHouseCupLoop(client);
-    }],
-    ["[CONTEST PRIZE] Failed to start cron", () => startContestPrizeMaintenanceCron(client)],
+    ["[STAFFER SETTIMANA] Failed to start loop", () => startStafferDellaSettimanaLoop(client)],
+    ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
-    ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
-    ["[STAFF AUTO VALUTAZIONI] Failed to start loop", () => startStaffAutoValutazioniLoop(client)],
-    ["[PM AFK WATCH] Failed to start loop", () => startPmVoiceAfkWatchLoop(client)],
-    ["[REPOST ROULETTE] Failed to start cron", () => {
-      const { startRepostRouletteCron } = require("../Services/Community/repostRouletteService");
-      startRepostRouletteCron(client);
-    }],
     ["[PREMIUM EXPIRY REMINDER] Failed to start loop", () => startPremiumExpiryReminderLoop(client)],
     ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
     ["[EXP EVENT ANNOUNCE] Failed to start loop", () => startGlobalExpEventAnnouncementLoop(client)],
     ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
     ["[KICK LIVE] Failed to start loop", () => startKickLiveAlertLoop(client)],
+    ["[GAME NEWS] Failed to start loop", () => startGameNewsAlertLoop(client)],
+    ["[STREAMER STAGE] Failed to start guard", () => startStreamerStageGuardLoop(client)],
     ["[KICK SUB] Failed to start sync loop", () => startKickSubscriberSyncLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],

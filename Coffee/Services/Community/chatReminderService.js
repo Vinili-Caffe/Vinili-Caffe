@@ -110,7 +110,7 @@ const reminderPool = [
       .setTitle("<a:VC_Vote:1482535223001485473> Vota ogni giorno!")
       .setDescription(
         [
-          "<:VC_EXP:1482534670896730143> Con il tuo primo voto otterrai **250 EXP** mentre le volte successive un semplice boost di EXP che ti aiuteranno a scalare la classifica settimanale! Grazie per il tuo sostegno!",
+          "<:VC_EXP:1482534670896730143> Con il tuo primo voto otterrai **250 EXP** mentre le volte successive un boost di EXP che ti aiuteranno a scalare la classifica settimanale! Grazie per il tuo sostegno!",
           "<:VC_Link:1482460590894088222> Vota [qui](https://www.viniliecaffe.it/vote) ogni giorno!",
         ].join("\n"),
       ),
@@ -135,23 +135,37 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_Color:1482532543273238569> Sblocca i colori gradienti esclusivi!")
       .setDescription([
-        "<:VC_Vip:1482534921472835895> Ottieni i colori PLUS con i ruoli <@&1329497467481493607> o <@&1544830759741825145> e ricorda: con <@&1544830866616754257> puoi crearne uno personalizzato! Per impostare il tuo colore usa il [profilo sul sito](https://www.viniliecaffe.it/personalizza/)",
+        "<:VC_Vip:1482534921472835895> Ottieni i colori PLUS con i ruoli <@&1329497467481493607> o <@&1544830759741825145> e ricorda: con <@&1544830866616754257> puoi crearne uno personalizzato! Per impostare il tuo colore usa la pagina [Personalizza](https://www.viniliecaffe.it/personalizza/) del nostro sito.",
       ].join("\n")),
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("<:VC_Color:1482532543273238569> Personalizza il tuo profilo del server!")
+      .setTitle("<:VC_EXP:1482534670896730143> Personalizza il tuo profilo del server!")
       .setDescription([
-        "<:VC_Vip:1482534921472835895> Apri il [profilo sul sito](https://www.viniliecaffe.it/personalizza/) e imposta il tuo compleanno, attiva i reminder del nostro bot per accumulare EXP!",
+        "<:VC_Color:1482532543273238569> Apri la pagina [Personalizza](https://www.viniliecaffe.it/personalizza/) del nostro sito e imposta il tuo compleanno. Non dimenticare di attivare i reminder del nostro bot per accumulare EXP extra!",
         "",
         `<a:VC_Boost:1482706171386269830> Alcuni colori si sbloccano con livelli o boost: rendi il tuo profilo davvero personale!`,
       ].join("\n")),
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
+      .setTitle("<a:VC_WingYellow:1448687141604298822> Più di 90 ruoli a tua disposizione!")
+      .setDescription([
+        "<a:VC_uaskelly:1507868393305411655> Colori, giochi, ping, hobby e molto altro! [Personalizza](https://www.viniliecaffe.it/personalizza/) il tuo profilo ottenendo i giusti ruoli per connetterti con la community!",
+      ].join("\n")),
+  () =>
+    new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("<:VC_BestStaff:1494286900436013056> Il gaming approda su Vinili & Caffè!")
+      .setDescription([
+        "🎮 Vocali e testuali appositamente realizzate per giocare insieme. [Personalizza](https://www.viniliecaffe.it/personalizza/) il tuo profilo e indica i giochi che usi di più e divertiti in compagnia!",
+      ].join("\n")),
+  () =>
+    new EmbedBuilder()
+      .setColor("#6f4e37")
       .setTitle("<:VC_Link:1482460590894088222> Aggiungi un posto a tavola che c’è un amico in più!")
       .setDescription([
-        "<a:VC_FlowerPink:1468688049725636903> In gruppo il divertimento raddoppia! Invitando i tuoi amici  su Vinili & Caffè contribuirai a realizzare una community sempre più unita e animata aumentando anche i tuoi punti EXP con l’attività che ne deriverebbe!",
+        "<a:VC_FlowerPink:1468688049725636903> In gruppo il divertimento raddoppia! Invitando i tuoi amici su Vinili & Caffè per contribuire alla realizzazione di una community sempre più unita e animata aumentando anche i tuoi punti EXP con l’attività che ne deriverebbe!",
         "",
         "<a:VC_Beer:1448687940560490547> Basta condividere il link del server o quello nelle info!",
       ].join("\n")),
@@ -162,7 +176,7 @@ const reminderPool = [
       .setDescription([
         "<a:VC_Flowers:1468687836055212174> Oltre alla chat, unisciti ai **canali vocali** per musica, giochi e chiacchiere live. La voce ci rende una vera famiglia!",
         "",
-        "<a:VC_Mute:1482534751511515238> Nessuno è obbligato: puoi parlare oppure solo ascoltare. Trova la categoria vocali e entra quando vuoi.",
+        "<a:VC_Mute:1482534751511515238> Se non puoi parlare utilizza il nostro bot! La compagnia alla portata di tutti.",
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -171,29 +185,59 @@ const reminderPool = [
       .setDescription([
         "<:VC_Eye:1331619214410383381> Eventi, novità e annunci? Li trovi nei canali del server! Rimani sintonizzato su <#1442569115972669541>!",
         "",
-        `<a:VC_Flowers:1468687836055212174> Tutto su livelli, premi e iniziative sempre [sul nostro sito](https://viniliecaffe.it/perks)!`,
+        `<a:VC_Flowers:1468687836055212174> Informazioni su livelli e premi sono disponibili su [sul nostro sito](https://viniliecaffe.it/perks)!`,
       ].join("\n")),
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle("<a:VC_Events:1482706144953897223> TOP WEEKLY!")
       .setDescription([
-        "<a:VC_HelloKittyGift:1329447876857958471> Ogni domenica alle 21:00 scopriamo l’utente più attivo del server su <#1470183921236049940>! Sfida gli altri e scala la classifica della settimana per avere vantaggi settimanali!",
+        "<a:VC_HelloKittyGift:1329447876857958471> Alle 21:00 di ogni domenica scopri l’utente più attivo del server su <#1470183921236049940>! Sfida gli altri e scala la classifica della settimana per vincere e avere vantaggi settimanali!",
       ].join("\n")),
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle("<:VC_Collab:1482534540089098260> Vuoi sponsorizzare il tuo server o social network?")
       .setDescription([
-        "<a:VC_ThankYou:1330186319673950401> Vinili & Caffè offre sponsorizzazioni per i tuoi progetti. Apri un " + siteTicketsPageDiscordRef("HIGH STAFF") + " per avere più info!",
-        "<:VC_Ticket:1482535175283019888> Trovi tutte le info sulle sponsorizzazioni [sul nostro sito](https://viniliecaffe.it/sponsor)",
+        "<a:VC_ThankYou:1330186319673950401> Cerchi visibilità per il tuo progetto? Vinili & Caffè offre sponsorizzazioni studiati per aiutarti. Apri un " + siteTicketsPageDiscordRef("HIGH STAFF") + " per avere più info!",
+        "<:VC_Ticket:1482535175283019888> Trovi tutte le info sulle sponsorizzazioni [sul nostro sito](https://viniliecaffe.it/sponsor).",
+      ].join("\n")),
+  () =>
+    new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("<a:VC_ThankYou:1330186319673950401> Hai bisogno di supporto?")
+      .setDescription([
+        "<:VC_Ticket:1482535175283019888> Che sia una partnership, un supporto per le nostre feautures o una richiesta di sponsor, recati [sul nostro sito](https://viniliecaffe.it/ticket) e apri un ticket. Saremo pronti ad aiutarti!",
+      ].join("\n")),
+  () =>
+    new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("🎞️ Il cinema su Discord come non lo hai mai visto!")
+      .setDescription([
+        "🍿 Guardare un film è sempre bello ma farlo insieme lo è ancora di più! [Attiva le notifiche](https://discord.gg/s4eatFC5ke?event=1497535662445039646) delle nostre serate cinema. Prendi posto, scalda i popcorn e togli dal frigo una bella bibita fresca: il film sta per iniziare!",
+      ].join("\n")),
+  () =>
+    new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("<:VC_Collab:1482534540089098260> Vinili & Caffè ha bisogno di te!")
+      .setDescription([
+        "<:VC_Mod:1494287597952958514> Se Vinili & Caffè ti piace da morire e vuoi aiutare la crescita della mostra community attivamente, il ruolo da Staffer è quello che fa per te. Candidati [sul nostro sito](https://viniliecaffe.it/candidature/) per la posizione che preferisci!",
+        "<a:VC_Boost:1482706171386269830> Paghiamo i Partner Manager e ringraziamo il miglior staffer del mese con Nitro Boost! Che aspetti?",
+      ].join("\n")),
+  () =>
+    new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("<:VC_Collab:1482534540089098260> Un bot stabile e sicuro per la gestione del tuo server!")
+      .setDescription([
+        "<:VC_Mention:1482526855289634997> Se gestire i Partner Manager, contare le partnership e controllare ping o requisiti delle tue collaborazioni ti stanca, è il momento giusto di aggiungere <@1329118940110127204> al tuo server! Fare partnership non è mai stato così facile!",
+        "<:VC_MilkExclaim:1504510510492815411> Per supporto alla configurazione, non esitare ad aprire un ticket " + siteTicketsPageDiscordRef("SUPPORTO") + "!"
       ].join("\n")),
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle("<a:VC_Events:1482706144953897223> Giveaway per tutti!")
       .setDescription([
-        "<:VC_Wallet:1482534947574124584> Partecipa ai nostri giveaway! Li trovi in <#1442569115972669541> e sono aperti a tutti i membri: non perdere le prossime estrazioni!",
+        "<:VC_Wallet:1482534947574124584> Partecipa ai nostri giveaway! Li trovi in <#1442569115972669541> e sono aperti a tutti. Non perdere le prossime estrazioni!",
       ].join("\n")),
 ];
 

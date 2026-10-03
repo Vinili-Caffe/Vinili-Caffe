@@ -23,7 +23,34 @@ COMMON_REPS = {
     "{{YEAR}}": str(datetime.now().year),
     "{{SITE_URL}}": "https://www.viniliecaffe.it/",
     "{{COOKIEYES_BLOCK}}": "",
-    "{{GA_BLOCK}}": "",
+    "{{GA_BLOCK}}": """    <!-- gtagPrivacy2 / gtagAllPages1: Consent Mode BEFORE gtag/js — sitewide -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("consent", "default", {
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+        analytics_storage: "granted",
+        functionality_storage: "granted",
+        personalization_storage: "denied",
+        security_storage: "granted",
+        wait_for_update: 400
+      });
+      gtag("set", "ads_data_redaction", true);
+      gtag("set", "url_passthrough", true);
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KPF6425N60"></script>
+    <script>
+      gtag("js", new Date());
+      gtag("config", "G-KPF6425N60", {
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false,
+        anonymize_ip: true,
+        send_page_view: true
+      });
+    </script>
+""",
     "{{DISCORD_OAUTH_CLIENT_ID}}": "1329118940110127204",
     "{{DISCORD_OAUTH_REDIRECT_URI}}": "https://www.viniliecaffe.it/",
     "{{DISCORD_INVITE_URL}}": "https://discord.gg/viniliecaffe",

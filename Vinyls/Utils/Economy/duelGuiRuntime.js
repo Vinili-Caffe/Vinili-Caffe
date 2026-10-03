@@ -538,10 +538,6 @@ function warmupDuelPanel() {
   if (typeof renderDuelCanvas.warmup === "function") renderDuelCanvas.warmup();
 }
 
-setImmediate(() => {
-  warmupDuelPanel();
-});
-
 module.exports = {
   PVP_INVITE_TTL_MS,
   acceptPvpChallenge,

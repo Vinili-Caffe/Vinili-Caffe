@@ -58,21 +58,38 @@ html.vc-site-polish body.vc-body.vc-web-tickets-page .vc-wt-board.is-tilting {
   isolation: auto !important;
 }
 
-/* ticketsSolid1: inbox/chat board solid palette (no frosted glass) */
+/* ticketsSolid1 + ticketsGlowRestore1: board solid + alone sand (no frosted glass) */
+/* wtConnectShell1: layout = solo metà inferiore del blocco unico (raggio top 0) */
 body.vc-web-tickets-page .vc-wt-layout {
   background:
     radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.1), transparent 52%),
     linear-gradient(165deg, #1c1410 0%, #120e0b 52%, #0c0907 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 1.6rem !important;
+  border: 1px solid rgba(245, 214, 183, 0.22) !important;
+  border-top: 0 !important;
+  border-radius: 0 0 1.6rem 1.6rem !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 36px rgba(0, 0, 0, 0.22) !important;
+    0 16px 36px rgba(0, 0, 0, 0.22),
+    0 0 22px rgba(212, 168, 136, 0.18),
+    0 0 48px rgba(168, 118, 82, 0.1) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   gap: 0 !important;
   overflow: hidden !important;
   isolation: isolate !important;
+}
+/* wtShellLight1: cream shell in light (prima del dark fill) */
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-layout,
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-layout {
+  background: #faf6f0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
+    linear-gradient(175deg, #fffaf4 0%, #f3ebe3 55%, #efe6dc 100%) !important;
+  border: 1px solid rgba(111, 78, 55, 0.2) !important;
+  border-top: 0 !important;
+  border-radius: 0 0 1.6rem 1.6rem !important;
+  box-shadow: 0 16px 36px rgba(60, 40, 24, 0.12) !important;
+  color: #2a1c14 !important;
 }
 
 body.vc-web-tickets-page .vc-wt-sidebar,
@@ -102,7 +119,8 @@ body.vc-web-tickets-page .vc-wt-compose-panel {
 body.vc-web-tickets-page .vc-wt-chrome {
   display: flex !important;
   flex-direction: column !important;
-  gap: 0.75rem !important;
+  /* wtConnectShell1: no gap tra filtri e layout (altrimenti angolo doppio) */
+  gap: 0 !important;
   width: 100% !important;
   min-width: 0 !important;
 }
@@ -112,7 +130,17 @@ body.vc-web-tickets-page .vc-wt-scope-dock {
   align-items: center !important;
   width: fit-content !important;
   max-width: 100% !important;
-  margin: 0 auto !important;
+  margin: 0 auto 0.75rem !important;
+  /* ticketScopeClick2: sopra filtri/overlay — click Personali|Staff sempre attivi */
+  position: relative !important;
+  z-index: 40 !important;
+  pointer-events: auto !important;
+}
+/* ticketSwitchFreeze2: pannello lista/chat cliccabile anche se hold cine resta appeso */
+html.vc-interaction-hold body.vc-web-tickets-page main .vc-wt-layout,
+html.vc-interaction-hold body.vc-web-tickets-page main .vc-wt-filter-menu,
+html.vc-interaction-hold body.vc-web-tickets-page #vc-wt-app:not([aria-busy="true"]) {
+  pointer-events: auto !important;
 }
 body.vc-web-tickets-page .vc-wt-scope-dock[hidden] {
   display: none !important;
@@ -122,37 +150,163 @@ body.vc-web-tickets-page .vc-wt-scope-bar.vc-notif-scope-bar {
   max-width: 100% !important;
   margin: 0 auto !important;
   background: #140f0c !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(245, 214, 183, 0.24) !important;
   box-shadow:
     0 10px 28px rgba(0, 0, 0, 0.28),
+    0 0 16px rgba(212, 168, 136, 0.2),
+    0 0 32px rgba(168, 118, 82, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  position: relative !important;
+  z-index: 41 !important;
+  pointer-events: auto !important;
 }
 body.vc-web-tickets-page .vc-wt-scope-bar .vc-notif-scope-bar__btn {
   flex: 0 0 auto !important;
   min-width: 8.5rem !important;
+  position: relative !important;
+  z-index: 42 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  touch-action: manipulation !important;
 }
 body.vc-web-tickets-page .vc-wt-filter-menu {
   display: grid !important;
   gap: 0.55rem !important;
   margin: 0 !important;
   padding: 0.75rem 0.9rem !important;
-  border-radius: 1.15rem !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  background:
-    radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.08), transparent 52%),
-    linear-gradient(165deg, #1c1410 0%, #120e0b 55%, #0c0907 100%) !important;
+  /* wtConnectShell1: metà superiore del blocco unico (collegato al layout sotto) */
+  border-radius: 1.6rem 1.6rem 0 0 !important;
+  border: 1px solid transparent !important;
+  border-bottom: 1px solid rgba(245, 214, 183, 0.16) !important;
+  background-image:
+    radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.1), transparent 52%),
+    linear-gradient(165deg, #1c1410 0%, #120e0b 55%, #0c0907 100%),
+    linear-gradient(
+      135deg,
+      rgba(255, 247, 236, 0.92) 0%,
+      rgba(236, 205, 176, 0.82) 34%,
+      rgba(212, 168, 136, 0.74) 66%,
+      rgba(168, 118, 82, 0.9) 100%
+    ) !important;
+  background-origin: padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, border-box !important;
+  -webkit-background-clip: padding-box, padding-box, border-box !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 12px 28px rgba(0, 0, 0, 0.18) !important;
+    0 0 12px rgba(236, 205, 176, 0.22),
+    0 0 24px rgba(168, 118, 82, 0.14),
+    inset 0 1px 0 rgba(255, 247, 236, 0.06) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  /* ticketFilterReload2: click filtri sempre attivi */
+  position: relative !important;
+  z-index: 30 !important;
+  pointer-events: auto !important;
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-filter-menu,
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-filter-menu,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body#top #vc-page-content .vc-wt-filter-menu {
+  /* stesso cream del layout — niente card annidata */
+  background: #faf6f0 !important;
+  background-color: #faf6f0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
+    linear-gradient(175deg, #fffaf4 0%, #f3ebe3 55%, #efe6dc 100%) !important;
+  background-origin: border-box !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  border: 1px solid rgba(111, 78, 55, 0.2) !important;
+  border-bottom: 1px solid rgba(111, 78, 55, 0.14) !important;
+  border-radius: 1.6rem 1.6rem 0 0 !important;
+  box-shadow: none !important;
+  color: #2a1c14 !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  touch-action: manipulation !important;
+  position: relative !important;
+  z-index: 31 !important;
 }
 body.vc-web-tickets-page .vc-wt-filter-menu--loading {
   min-height: 3.25rem !important;
   opacity: 0.55 !important;
   pointer-events: none !important;
+}
+/* ticketsSkel1: row + chat placeholders while list loads */
+body.vc-web-tickets-page .vc-wt-filter-skel {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.55rem !important;
+  padding: 0.55rem 0.15rem !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-skel span {
+  display: block !important;
+  height: 0.85rem !important;
+  border-radius: 0.45rem !important;
+  flex: 1 1 auto !important;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(245, 214, 183, 0.14), rgba(255, 255, 255, 0.06)) !important;
+  background-size: 200% 100% !important;
+  /* cpuFreezeTrim1: no infinite skel shine */
+  animation: none !important;
+}
+body.vc-web-tickets-page .vc-wt-filter-skel span:nth-child(2) { flex: 0 0 28% !important; }
+body.vc-web-tickets-page .vc-wt-filter-skel span:nth-child(3) { flex: 0 0 18% !important; }
+body.vc-web-tickets-page .vc-wt-list .vc-list-skel.vc-list-skel--row,
+body.vc-web-tickets-page .vc-wt-skel-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  min-height: 3.65rem !important;
+  padding: 0.75rem 0.85rem !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: transparent !important;
+}
+body.vc-web-tickets-page .vc-wt-skel-chat {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: center !important;
+  gap: 0.85rem !important;
+  min-height: 12rem !important;
+  padding: 1.25rem 1.1rem !important;
+}
+body.vc-web-tickets-page .vc-wt-skel-chat__block {
+  display: block !important;
+  width: 42% !important;
+  max-width: 11rem !important;
+  height: 2.6rem !important;
+  border-radius: 0.85rem !important;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(245, 214, 183, 0.12), rgba(255, 255, 255, 0.05)) !important;
+  background-size: 200% 100% !important;
+  animation: none !important;
+}
+body.vc-web-tickets-page .vc-wt-skel-chat__lines {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.45rem !important;
+  width: 72% !important;
+  max-width: 18rem !important;
+}
+body.vc-web-tickets-page .vc-wt-skel-chat__lines i {
+  display: block !important;
+  height: 0.65rem !important;
+  border-radius: 0.4rem !important;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)) !important;
+  background-size: 200% 100% !important;
+  animation: none !important;
+}
+body.vc-web-tickets-page .vc-wt-skel-chat__lines i:nth-child(1) { width: 88% !important; }
+body.vc-web-tickets-page .vc-wt-skel-chat__lines i:nth-child(2) { width: 64% !important; }
+body.vc-web-tickets-page .vc-wt-skel-chat__lines i:nth-child(3) { width: 46% !important; }
+/* ticketsSkel1: con sessione Discord mostra subito lo skeleton (niente vuoto sotto il gate) */
+html.vc-auth-session-pending body.vc-web-tickets-page #vc-wt-app,
+html.vc-auth-session-pending body.vc-web-tickets-page #vc-wt-app[hidden] {
+  display: block !important;
 }
 body.vc-web-tickets-page .vc-wt-filter-menu__main {
   display: flex !important;
@@ -195,27 +349,53 @@ body.vc-web-tickets-page .vc-wt-filter-group__seg {
   gap: 0.35rem !important;
   min-width: 0 !important;
 }
+/* ticketsGlowRestore1: chip = bordo sand gradient (batte flat solid precedente) */
 body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip {
   appearance: none !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  background: rgba(255, 255, 255, 0.04) !important;
-  color: rgba(245, 235, 224, 0.72) !important;
+  border: 1px solid transparent !important;
+  border-color: transparent !important;
+  background-color: transparent !important;
+  background-image:
+    linear-gradient(rgba(22, 16, 12, 0.94), rgba(22, 16, 12, 0.94)),
+    linear-gradient(
+      135deg,
+      rgba(255, 247, 236, 0.88) 0%,
+      rgba(236, 205, 176, 0.78) 40%,
+      rgba(212, 168, 136, 0.7) 70%,
+      rgba(168, 118, 82, 0.88) 100%
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  color: rgba(245, 235, 224, 0.86) !important;
+  -webkit-text-fill-color: rgba(245, 235, 224, 0.86) !important;
   border-radius: 0.65rem !important;
   padding: 0.4rem 0.85rem !important;
   font-size: 0.78rem !important;
   font-weight: 650 !important;
   white-space: nowrap !important;
   cursor: var(--vc-cursor-pointer, pointer) !important;
+  box-shadow: none !important;
 }
-body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip.is-active {
-  border-color: rgba(212, 168, 136, 0.42) !important;
-  color: #fff8f1 !important;
-  background: rgba(212, 168, 136, 0.16) !important;
-  box-shadow: inset 0 0 0 1px rgba(212, 168, 136, 0.08) !important;
-}
-body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip:hover:not(.is-active) {
-  color: #fff8f1 !important;
-  background: rgba(255, 255, 255, 0.05) !important;
+body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip.is-active,
+body.vc-web-tickets-page .vc-wt-filter-menu .vc-wt-chip:hover {
+  background-image:
+    linear-gradient(145deg, rgba(80, 55, 38, 0.96), rgba(28, 19, 13, 0.98)),
+    linear-gradient(
+      135deg,
+      rgba(255, 247, 236, 0.98) 0%,
+      rgba(236, 205, 176, 0.9) 36%,
+      rgba(212, 168, 136, 0.82) 68%,
+      rgba(168, 118, 82, 0.95) 100%
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  color: #fff8f0 !important;
+  -webkit-text-fill-color: #fff8f0 !important;
+  box-shadow:
+    0 0 8px rgba(236, 205, 176, 0.28),
+    0 0 14px rgba(168, 118, 82, 0.16) !important;
 }
 body.vc-web-tickets-page .vc-wt-new-btn--cta {
   width: auto !important;
@@ -228,6 +408,35 @@ body.vc-web-tickets-page .vc-wt-new-btn--cta {
   font-weight: 700 !important;
   white-space: nowrap !important;
   box-shadow: 0 8px 20px rgba(232, 201, 168, 0.16) !important;
+}
+/* wtNewBtnLight1: Nuovo ticket = sabbia+mocha (testo scuro) in light */
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-new-btn,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-new-btn--cta,
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-new-btn,
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-new-btn--cta,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-new-btn--cta {
+  border: 1px solid rgba(111, 78, 55, 0.38) !important;
+  background: #d4a888 !important;
+  background-color: #d4a888 !important;
+  background-image: linear-gradient(180deg, #f0dcc8 0%, #d4a888 58%, #b88968 100%) !important;
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  box-shadow: 0 8px 18px rgba(111, 78, 55, 0.2) !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-new-btn--cta :is(i, .fa, span),
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-new-btn--cta :is(i, .fa, span) {
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-new-btn--cta:hover,
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-new-btn--cta:hover {
+  background: linear-gradient(180deg, #f7e6d4 0%, #e0b892 55%, #c49a72 100%) !important;
+  background-color: #e0b892 !important;
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  filter: none !important;
 }
 body.vc-web-tickets-page .vc-wt-new-btn--cta span {
   display: inline !important;
@@ -430,6 +639,7 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
   z-index: 5 !important;
 }
 @media (max-width: 900px) {
+  /* ticketPhonePageScroll1: overflow:hidden sul layout bloccava lo scroll pagina (gesto “mangiato”) */
   body.vc-web-tickets-page .vc-wt-layout {
     display: grid !important;
     grid-template-columns: 1fr !important;
@@ -438,16 +648,16 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
     max-height: none !important;
     min-height: 0 !important;
     gap: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   body.vc-web-tickets-page .vc-wt-sidebar {
     display: flex !important;
     flex-direction: column !important;
-    height: min(62dvh, 34rem) !important;
-    max-height: min(62dvh, 34rem) !important;
-    min-height: 24rem !important;
-    overflow: hidden !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     border: 0 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 0 !important;
@@ -461,15 +671,15 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
   }
 
   body.vc-web-tickets-page .vc-wt-list {
-    flex: 1 1 auto !important;
+    flex: 0 0 auto !important;
     min-height: 0 !important;
-    overflow-y: auto !important;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto;
+    -webkit-overflow-scrolling: auto;
   }
 
-  body.vc-web-tickets-page .vc-wt-main,
-  body.vc-web-tickets-page .vc-wt-main:not(.vc-wt-main--active),
+  /* ticketPhoneTabList1: chat aperta = altezza piena; vuota = compatta (no buco 78vh sotto lista) */
   body.vc-web-tickets-page .vc-wt-main.vc-wt-main--active {
     display: flex !important;
     flex-direction: column !important;
@@ -478,10 +688,29 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
     max-height: min(78vh, 720px) !important;
     border: 0 !important;
     border-radius: 0 !important;
+    overflow: hidden !important;
   }
 
-  body.vc-web-tickets-page .vc-wt-chat,
-  body.vc-web-tickets-page .vc-wt-compose-panel {
+  body.vc-web-tickets-page .vc-wt-main:not(.vc-wt-main--active) {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  body.vc-web-tickets-page .vc-wt-main:not(.vc-wt-main--active) .vc-wt-chat--empty,
+  body.vc-web-tickets-page .vc-wt-main:not(.vc-wt-main--active) .vc-wt-skel-chat {
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0.85rem 1rem 1.1rem !important;
+  }
+
+  body.vc-web-tickets-page .vc-wt-main.vc-wt-main--active .vc-wt-chat,
+  body.vc-web-tickets-page .vc-wt-main.vc-wt-main--active .vc-wt-compose-panel {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     height: 100% !important;
@@ -489,12 +718,12 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
   }
 
   .vc-wt-sidebar {
-    height: min(62dvh, 34rem) !important;
-    max-height: min(62dvh, 34rem) !important;
-    min-height: 24rem !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
   }
 
-  .vc-wt-main {
+  .vc-wt-main.vc-wt-main--active {
     height: min(78vh, 720px) !important;
     min-height: min(78vh, 720px) !important;
     max-height: min(78vh, 720px) !important;
@@ -502,12 +731,24 @@ body.vc-web-tickets-page.vc-page-cine-layout #vc-page-content {
 }
 
 html.vc-site-polish body.vc-web-tickets-page main .vc-wt-sidebar {
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
-html.vc-site-polish body.vc-web-tickets-page main .vc-wt-list {
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
+@media (max-width: 900px) {
+  html.vc-site-polish body.vc-web-tickets-page main .vc-wt-list {
+    overflow: visible !important;
+    overscroll-behavior: auto;
+  }
+}
+
+@media (min-width: 901px) {
+  html.vc-site-polish body.vc-web-tickets-page main .vc-wt-sidebar {
+    overflow: hidden !important;
+  }
+  html.vc-site-polish body.vc-web-tickets-page main .vc-wt-list {
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
 }
 
 @media (max-width: 900px) {
@@ -522,6 +763,32 @@ html.vc-site-polish body.vc-web-tickets-page main .vc-wt-list {
 }
 .vc-wt-msg--pending .vc-wt-msg__bubble {
   filter: saturate(0.85);
+}
+
+/* msgReadReceipts1: spunte stile WhatsApp */
+.vc-msg-ticks {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: 0.15rem;
+  line-height: 0;
+  vertical-align: middle;
+  color: rgba(210, 194, 178, 0.55);
+}
+.vc-msg-ticks.is-read {
+  color: #53bdeb;
+}
+.vc-msg-ticks__svg {
+  display: block;
+  width: 1rem;
+  height: 0.7rem;
+  fill: currentColor;
+}
+.vc-wt-msg.is-mine .vc-msg-ticks.is-sent {
+  color: rgba(247, 236, 223, 0.5);
+}
+.vc-wt-msg.is-mine .vc-msg-ticks.is-read {
+  color: #53bdeb;
 }
 
 html.vc-site-polish body.vc-web-tickets-page .vc-reviews-page-layout,
@@ -546,16 +813,51 @@ html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout {
   background:
     radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.1), transparent 52%),
     linear-gradient(165deg, #1c1410 0%, #120e0b 52%, #0c0907 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 1.6rem !important;
+  border: 1px solid rgba(245, 214, 183, 0.22) !important;
+  border-top: 0 !important;
+  border-radius: 0 0 1.6rem 1.6rem !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 16px 36px rgba(0, 0, 0, 0.22) !important;
+    0 16px 36px rgba(0, 0, 0, 0.22),
+    0 0 22px rgba(212, 168, 136, 0.18),
+    0 0 48px rgba(168, 118, 82, 0.1) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   gap: 0 !important;
   overflow: hidden !important;
   isolation: isolate !important;
+}
+/* ticketPhonePageScroll1b: batte il polish overflow:hidden sopra — su phone deve scrollare la pagina */
+@media (max-width: 900px) {
+  html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout,
+  html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-layout,
+  html.vc-site-polish body.vc-body#top #vc-page-content .vc-wt-layout,
+  html.vc-site-polish body.vc-web-tickets-page #vc-wt-app .vc-wt-layout {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar,
+  html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  html.vc-site-polish body.vc-web-tickets-page .vc-wt-list,
+  html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-list {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-layout {
+  background: #faf6f0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
+    linear-gradient(175deg, #fffaf4 0%, #f3ebe3 55%, #efe6dc 100%) !important;
+  border: 1px solid rgba(111, 78, 55, 0.2) !important;
+  box-shadow: 0 16px 36px rgba(60, 40, 24, 0.12) !important;
+  color: #2a1c14 !important;
 }
 
 html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar,
@@ -576,9 +878,18 @@ html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar {
   border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
+/* ticketFilterOpenPhone1: tap lista/chip sempre ricevuti su telefono */
+body.vc-web-tickets-page .vc-wt-list,
+body.vc-web-tickets-page .vc-wt-list .vc-wt-item,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-list,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-list .vc-wt-item {
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: rgba(245, 198, 112, 0.22);
+}
 body.vc-web-tickets-page .vc-wt-item,
 html.vc-site-polish body.vc-web-tickets-page .vc-wt-item {
-  border-radius: 0 !important;
+  border-radius: 1.05rem !important;
 }
 
 body.vc-web-tickets-page .vc-wt-item__avatar--icon,
@@ -593,3 +904,910 @@ html.vc-site-polish body.vc-web-tickets-page .vc-wt-item__avatar--icon {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
   }
 }
+
+/* ticketsHoursDisclaimer1: stesso box amber di /regole/ e footer embed ticket */
+body.vc-web-tickets-page .vc-support-page-hero .vc-tickets-hours-disclaimer,
+body.vc-web-tickets-page .vc-support-page-hero p.vc-tickets-hours-disclaimer,
+body.vc-web-tickets-page #vc-tickets-hours-disclaimer,
+html.vc-site-polish body.vc-web-tickets-page .vc-support-page-hero .vc-tickets-hours-disclaimer,
+html.vc-site-polish body.vc-web-tickets-page #vc-tickets-hours-disclaimer {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.5rem !important;
+  max-width: 32rem !important;
+  width: 100% !important;
+  margin: 1rem 0 0 !important;
+  padding: 0.72rem 0.9rem !important;
+  font-size: 0.84rem !important;
+  line-height: 1.5 !important;
+  text-align: left !important;
+  color: rgba(247, 236, 223, 0.88) !important;
+  -webkit-text-fill-color: rgba(247, 236, 223, 0.88) !important;
+  border: 1px solid rgba(245, 198, 112, 0.32) !important;
+  border-radius: 0.85rem !important;
+  background: rgba(40, 28, 12, 0.55) !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+body.vc-web-tickets-page #vc-tickets-hours-disclaimer > .fa,
+html.vc-site-polish body.vc-web-tickets-page #vc-tickets-hours-disclaimer > .fa {
+  flex-shrink: 0 !important;
+  margin: 0.2em 0 0 !important;
+  line-height: 1 !important;
+  color: rgba(251, 191, 36, 0.95) !important;
+  -webkit-text-fill-color: rgba(251, 191, 36, 0.95) !important;
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+}
+
+body.vc-web-tickets-page #vc-tickets-hours-disclaimer strong,
+html.vc-site-polish body.vc-web-tickets-page #vc-tickets-hours-disclaimer strong {
+  color: rgba(247, 236, 223, 0.98) !important;
+  -webkit-text-fill-color: rgba(247, 236, 223, 0.98) !important;
+  font-weight: 600 !important;
+}
+
+/* ticketPhoneHeroCue1 + ticketPhonePageScroll1: hero fold, ma body scrolla (no trap overflow)
+   loadScrollLockAll2: non sbloccare durante loading/hold/loader. */
+@media (max-width: 900px), (pointer: coarse) {
+  html.vc-page-cine-ready:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading) body.vc-web-tickets-page,
+  html.vc-page-cine-ready:not(.vc-loading-scroll-lock):not(.vc-loader-blocking-live):not(.vc-interaction-hold):not(.vc-chrome-bar-loading) body.vc-web-tickets-page.vc-page-cine-layout {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    touch-action: pan-y pinch-zoom !important;
+    overscroll-behavior-y: auto !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-support-page-hero,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-wt-page-hero,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero:not(.is-collapsed),
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-support-page-hero:not(.is-collapsed) {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 100svh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: visible !important;
+    padding:
+      max(5.2rem, calc(env(safe-area-inset-top, 0px) + 4.2rem))
+      max(0.85rem, env(safe-area-inset-right, 0px))
+      max(4.6rem, calc(env(safe-area-inset-bottom, 0px) + 3.4rem))
+      max(0.85rem, env(safe-area-inset-left, 0px)) !important;
+  }
+
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-hero__inner,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero > .relative,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-hero__inner,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero > .relative {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    flex: 0 1 auto !important;
+    width: 100% !important;
+    max-height: calc(100dvh - 9.5rem) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  /* tip Come funziona / Nota: fuori dalla hero (park JS) — mai dentro la card */
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-aside-inline,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-aside-inline {
+    display: none !important;
+  }
+
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-head,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-head.vc-hero-head--has-aside,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-head,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-head.vc-hero-head--has-aside {
+    max-width: min(34rem, calc(100% - 1.2rem)) !important;
+    width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    gap: 0.4rem !important;
+    padding: 0.85rem 0.95rem 0.95rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 1.5rem !important;
+    background: #100c09 !important;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  }
+
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-hero-copy,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-page-cine-hero-copy {
+    text-align: center !important;
+  }
+
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-brand-glow,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero h1,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero h1 {
+    font-size: clamp(1.4rem, 5.6vw, 1.85rem) !important;
+    line-height: 1.1 !important;
+    margin-top: 0.25rem !important;
+  }
+
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-hero-about,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero p.mt-5,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero p.max-w-2xl {
+    margin-top: 0.28rem !important;
+    font-size: 0.9rem !important;
+    line-height: 1.35 !important;
+  }
+
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-support-page-hero__icon,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero .vc-tickets-hero-ticket {
+    margin-bottom: 0.25rem !important;
+    transform: scale(0.86);
+    transform-origin: center center;
+  }
+
+  /* ticketCueFixed2: overflow hero non deve clippare il cue fixed su WebKit */
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-hero-scroll-clip,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-hero-scroll-clip,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-support-page-hero,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero.vc-support-page-hero {
+    overflow: visible !important;
+  }
+
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero > .vc-home-scrollcue,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero > .vc-home-scrollcue,
+  body.vc-page-cine-layout.vc-web-tickets-page > .vc-home-scrollcue,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page > .vc-home-scrollcue {
+    /* ticketCueFixed2 + scrollCuePhoneMargin1: stesso filo margine delle altre cine */
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: calc(0.4rem + env(safe-area-inset-bottom, 0px)) !important;
+    inset: auto 0 calc(0.4rem + env(safe-area-inset-bottom, 0px)) 0 !important;
+    width: max-content !important;
+    max-width: calc(100% - 2rem) !important;
+    margin: 0 auto !important;
+    transform: none !important;
+    z-index: 50 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: flex !important;
+    pointer-events: none !important;
+  }
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero > .vc-home-scrollcue.is-away,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero > .vc-home-scrollcue.is-away,
+  body.vc-page-cine-layout.vc-web-tickets-page > .vc-home-scrollcue.is-away,
+  html.vc-site-polish body.vc-page-cine-layout.vc-web-tickets-page > .vc-home-scrollcue.is-away {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  body.vc-web-tickets-page #vc-tickets-hours-disclaimer,
+  html.vc-site-polish body.vc-web-tickets-page #vc-tickets-hours-disclaimer,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-hero #vc-tickets-hours-disclaimer {
+    margin-top: 0.4rem !important;
+    padding: 0.4rem 0.55rem !important;
+    font-size: 0.7rem !important;
+    line-height: 1.3 !important;
+  }
+
+  /* tip sotto la hero, non dentro */
+  body.vc-page-cine-layout.vc-web-tickets-page #vc-tickets-aside-below,
+  body.vc-page-cine-layout.vc-web-tickets-page .vc-page-cine-aside-below {
+    display: grid !important;
+    gap: 0.75rem !important;
+    width: min(36rem, calc(100% - 1.5rem)) !important;
+    margin: 0.85rem auto 1.25rem !important;
+  }
+}
+
+
+/* ticketsGlowRestore1: badge stato ticket = bordo gradient (CHIUSO/IN CARICO/…) */
+html.vc-site-polish body.vc-web-tickets-page :is(
+  .vc-wt-pill,
+  .vc-wt-item__badge
+) {
+  border: 1px solid transparent !important;
+  border-color: transparent !important;
+  background-image:
+    linear-gradient(rgba(22, 16, 12, 0.94), rgba(22, 16, 12, 0.94)),
+    linear-gradient(
+      135deg,
+      rgba(255, 247, 236, 0.88) 0%,
+      rgba(236, 205, 176, 0.78) 40%,
+      rgba(212, 168, 136, 0.7) 70%,
+      rgba(168, 118, 82, 0.88) 100%
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+}
+html.vc-site-polish body.vc-web-tickets-page :is(
+  .vc-wt-pill.is-claimed,
+  .vc-wt-item.is-claimed .vc-wt-item__badge
+) {
+  background-image:
+    linear-gradient(rgba(42, 30, 18, 0.95), rgba(28, 19, 12, 0.97)),
+    linear-gradient(
+      135deg,
+      rgba(255, 247, 236, 0.95) 0%,
+      rgba(236, 205, 176, 0.88) 40%,
+      rgba(212, 168, 136, 0.8) 100%
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  color: #f0d4a8 !important;
+  -webkit-text-fill-color: #f0d4a8 !important;
+}
+html.vc-site-polish body.vc-web-tickets-page :is(
+  .vc-wt-pill.is-closed,
+  .vc-wt-item.is-closed .vc-wt-item__badge
+) {
+  background-image:
+    linear-gradient(rgba(28, 24, 20, 0.94), rgba(18, 15, 12, 0.96)),
+    linear-gradient(
+      135deg,
+      rgba(220, 210, 198, 0.55) 0%,
+      rgba(180, 168, 152, 0.45) 50%,
+      rgba(140, 128, 112, 0.55) 100%
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  color: rgba(200, 188, 176, 0.78) !important;
+  -webkit-text-fill-color: rgba(200, 188, 176, 0.78) !important;
+}
+html.vc-site-polish body.vc-web-tickets-page :is(
+  .vc-wt-pill.is-open,
+  .vc-wt-item.is-open .vc-wt-item__badge
+) {
+  background-image:
+    linear-gradient(rgba(42, 30, 18, 0.95), rgba(28, 19, 12, 0.97)),
+    linear-gradient(
+      135deg,
+      rgba(255, 247, 236, 0.95) 0%,
+      rgba(236, 205, 176, 0.88) 40%,
+      rgba(212, 168, 136, 0.8) 100%
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  color: #f0d4a8 !important;
+  -webkit-text-fill-color: #f0d4a8 !important;
+}
+
+
+/* wtConnectShell1b: dark+light force join (batte ext/soft full radius) */
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-chrome,
+html body.vc-web-tickets-page .vc-wt-chrome,
+html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-chrome,
+html.vc-site-polish body.vc-body#top #vc-page-content .vc-wt-chrome {
+  gap: 0 !important;
+  row-gap: 0 !important;
+}
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-filter-menu,
+html body.vc-web-tickets-page .vc-wt-filter-menu,
+html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-filter-menu,
+html.vc-site-polish body.vc-body#top #vc-page-content .vc-wt-filter-menu {
+  border-top-left-radius: 1.6rem !important;
+  border-top-right-radius: 1.6rem !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  margin-bottom: 0 !important;
+}
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout,
+html body.vc-web-tickets-page .vc-wt-layout,
+html.vc-site-polish body.vc-body.vc-web-tickets-page#top .vc-wt-layout,
+html.vc-site-polish body.vc-body#top #vc-page-content .vc-wt-layout,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish body.vc-body#top #vc-page-content .vc-wt-layout {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 1.6rem !important;
+  border-bottom-right-radius: 1.6rem !important;
+  border-top-width: 0 !important;
+  border-top-style: none !important;
+  margin-top: 0 !important;
+}
+
+/* skelLightVisible2 */
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-filter-skel span,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-skel-chat__block,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-skel-chat__lines i {
+  background: linear-gradient(90deg, rgba(111, 78, 55, 0.1), rgba(184, 137, 104, 0.28), rgba(111, 78, 55, 0.1)) !important;
+  background-size: 200% 100% !important;
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-list .vc-list-skel.vc-list-skel--row,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-skel-row {
+  border-bottom: 1px solid rgba(111, 78, 55, 0.14) !important;
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-list-skel__avatar {
+  background: rgba(111, 78, 55, 0.16) !important;
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page :is(.vc-list-skel__lines i, .vc-list-skel__block, .vc-list-skel__meta) {
+  background: linear-gradient(90deg, rgba(111, 78, 55, 0.1), rgba(184, 137, 104, 0.28), rgba(111, 78, 55, 0.1)) !important;
+  background-size: 200% 100% !important;
+}
+
+/* wtPagerSeamFix2: sidebar = pezzo del layout (no card soft-fx), pager un po' più su, niente stacco colore */
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-wt-sidebar,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-wt-sidebar,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar,
+html.vc-site-photo-bg.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-sidebar,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  isolation: auto !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar,
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-sidebar {
+  border-right: 1px solid rgba(111, 78, 55, 0.16) !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-wt-sidebar::before,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-wt-sidebar::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar::before,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar::after,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar::before,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+@media (max-width: 900px) {
+  html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar {
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-sidebar {
+    border-bottom: 1px solid rgba(111, 78, 55, 0.16) !important;
+  }
+}
+
+body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-wt-pager-wrap {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  margin: 0 !important;
+  /* un po' più padding sotto = switcher più sopra dal bordo */
+  padding: 0.4rem 0.75rem 1.65rem !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager {
+  margin: 0 auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  box-shadow: none !important;
+}
+body.vc-web-tickets-page .vc-wt-list,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-list {
+  background: transparent !important;
+  background-image: none !important;
+  /* meno padding sotto: lista e pager condividono lo stesso fondo */
+  padding-bottom: 0.2rem !important;
+}
+
+/* ticketsTextVisible1: soft-fx gradient clip lasciava h2/empty/list invisibili nella board
+   (non toccare .vc-wt-layout/.vc-wt-chrome: altrimenti sparisce il pannello scuro) */
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-app :is(
+  h1, h2, h3, h4, p, span, li, a, label, strong, em, small,
+  .vc-wt-empty,
+  .vc-wt-item__title,
+  .vc-wt-item__sub,
+  .vc-wt-item__meta,
+  .vc-wt-chat-empty,
+  .vc-wt-chat__title,
+  .vc-wt-filter-group__label,
+  .vc-wt-sidebar__top h2
+):not(.fa):not(i):not([class*="fa-"]):not(.vc-wt-chip):not(.vc-wt-pill):not(.vc-wt-item__badge):not(.vc-notif-scope-bar__btn) {
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: rgba(247, 236, 223, 0.94) !important;
+  -webkit-text-fill-color: rgba(247, 236, 223, 0.94) !important;
+  text-shadow: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-app .vc-wt-empty p,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-app .vc-wt-item__meta,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-app .vc-wt-filter-group__label {
+  color: rgba(210, 194, 178, 0.78) !important;
+  -webkit-text-fill-color: rgba(210, 194, 178, 0.78) !important;
+}
+/* ripristina pannello scuro se soft-fx lo ha azzerato */
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-app .vc-wt-layout {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.1), transparent 52%),
+    linear-gradient(165deg, #1c1410 0%, #120e0b 52%, #0c0907 100%) !important;
+  background-image:
+    radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.1), transparent 52%),
+    linear-gradient(165deg, #1c1410 0%, #120e0b 52%, #0c0907 100%) !important;
+  border: 1px solid rgba(245, 214, 183, 0.22) !important;
+  border-top: 0 !important;
+}
+/* tip Nota: campanella visibile */
+html.vc-site-polish body.vc-web-tickets-page .vc-tip-row {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.65rem !important;
+}
+html.vc-site-polish body.vc-web-tickets-page .vc-tip-row > .fa {
+  margin-top: 0.15rem !important;
+  color: rgba(232, 201, 168, 0.95) !important;
+  -webkit-text-fill-color: rgba(232, 201, 168, 0.95) !important;
+}
+
+/* wtUiPolish1: APERTO in palette sand, shell gradient sotto, card rounded, pager small, chat scroll */
+html.vc-site-polish body.vc-web-tickets-page :is(
+  .vc-wt-pill.is-open,
+  .vc-wt-item.is-open .vc-wt-item__badge
+),
+html.vc-site-polish body.vc-body.vc-web-tickets-page#top :is(
+  .vc-wt-pill.is-open,
+  .vc-wt-item.is-open .vc-wt-item__badge
+),
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page :is(
+  .vc-wt-pill.is-open,
+  .vc-wt-item.is-open .vc-wt-item__badge
+),
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top.vc-web-tickets-page :is(
+  .vc-wt-pill.is-open,
+  .vc-wt-item.is-open .vc-wt-item__badge
+),
+html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top.vc-web-tickets-page :is(
+  .vc-wt-pill.is-open,
+  .vc-wt-item.is-open .vc-wt-item__badge
+),
+html.vc-soft-fx-ready.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top :is(
+  .vc-wt-pill.is-open,
+  .vc-wt-item.is-open .vc-wt-item__badge
+) {
+  background-image:
+    linear-gradient(rgba(42, 30, 18, 0.95), rgba(28, 19, 12, 0.97)),
+    linear-gradient(
+      135deg,
+      rgba(255, 247, 236, 0.95) 0%,
+      rgba(236, 205, 176, 0.88) 40%,
+      rgba(212, 168, 136, 0.8) 100%
+    ) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+  -webkit-background-clip: padding-box, border-box !important;
+  background-color: transparent !important;
+  color: #f0d4a8 !important;
+  -webkit-text-fill-color: #f0d4a8 !important;
+  border-color: transparent !important;
+}
+
+/* shell inferiore: stesso gradient bordo del filter (anche lato/bottom) */
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-layout,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-app .vc-wt-layout,
+html.vc-site-polish body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-wt-layout {
+  border: 1px solid transparent !important;
+  border-top-width: 0 !important;
+  border-top-style: none !important;
+  background-image:
+    radial-gradient(120% 140% at 0% 0%, rgba(212, 168, 136, 0.1), transparent 52%),
+    linear-gradient(165deg, #1c1410 0%, #120e0b 52%, #0c0907 100%),
+    linear-gradient(
+      135deg,
+      rgba(255, 247, 236, 0.92) 0%,
+      rgba(236, 205, 176, 0.82) 34%,
+      rgba(212, 168, 136, 0.74) 66%,
+      rgba(168, 118, 82, 0.9) 100%
+    ) !important;
+  background-origin: padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, border-box !important;
+  -webkit-background-clip: padding-box, padding-box, border-box !important;
+}
+
+html[data-vc-theme="light"].vc-site-polish body.vc-web-tickets-page .vc-wt-layout,
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-layout {
+  border: 1px solid rgba(111, 78, 55, 0.2) !important;
+  border-top: 0 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 248, 238, 0.95), transparent 52%),
+    linear-gradient(175deg, #fffaf4 0%, #f3ebe3 55%, #efe6dc 100%) !important;
+  background-origin: border-box !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+}
+
+/* card ticket più rounded + gap (prima radius 0) */
+body.vc-web-tickets-page .vc-wt-list,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.55rem !important;
+  padding: 0.55rem 0.65rem 0.35rem !important;
+}
+body.vc-web-tickets-page .vc-wt-item,
+body.vc-web-tickets-page .vc-wt-list .vc-wt-item,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-item,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-list .vc-wt-item,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page .vc-wt-item {
+  border-radius: 1.05rem !important;
+  overflow: visible !important;
+}
+
+/* paginazione più compatta solo su /tickets */
+body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap {
+  padding: 0.28rem 0.55rem 0.85rem !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-mini-pager,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager {
+  gap: 0.35rem !important;
+  transform: scale(0.92);
+  transform-origin: center bottom;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap :is(.vc-mini-pager__arrow, .vc-mini-pager__now),
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap :is(.vc-mini-pager__arrow, .vc-mini-pager__now),
+body.vc-web-tickets-page .vc-wt-pager .vc-mini-pager__arrow,
+body.vc-web-tickets-page .vc-wt-pager .vc-mini-pager__now {
+  min-width: 2.05rem !important;
+  width: 2.05rem !important;
+  height: 2.05rem !important;
+  font-size: 0.78rem !important;
+  border-radius: 0.65rem !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-mini-pager__lbl,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-mini-pager__of,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-mini-pager__input {
+  font-size: 0.78rem !important;
+}
+
+/* chat log: scrollbar resta dopo azioni (close/claim/rate) — stage flex, no height:100% */
+body.vc-web-tickets-page .vc-wt-main,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-main {
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+body.vc-web-tickets-page .vc-wt-chat,
+body.vc-web-tickets-page .vc-wt-chat--closed,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat--closed {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+body.vc-web-tickets-page .vc-wt-chat__stage,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat__stage {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+body.vc-web-tickets-page #vc-wt-chat-top,
+body.vc-web-tickets-page .vc-wt-chat__top,
+body.vc-web-tickets-page .vc-wt-rate-dock,
+body.vc-web-tickets-page .vc-wt-composer,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-chat-top,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat__top,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-rate-dock,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-composer {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-chat__log,
+body.vc-web-tickets-page .vc-wt-chat--closed .vc-wt-chat__log,
+body.vc-web-tickets-page #vc-wt-chat-log,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat__log,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-chat--closed .vc-wt-chat__log,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-chat-log {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  overscroll-behavior: contain !important;
+  scrollbar-gutter: stable !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(212, 168, 136, 0.45) rgba(255, 255, 255, 0.05) !important;
+}
+body.vc-web-tickets-page .vc-wt-chat__log::-webkit-scrollbar,
+body.vc-web-tickets-page .vc-wt-chat--closed .vc-wt-chat__log::-webkit-scrollbar {
+  width: 8px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+body.vc-web-tickets-page .vc-wt-chat__log::-webkit-scrollbar-thumb,
+body.vc-web-tickets-page .vc-wt-chat--closed .vc-wt-chat__log::-webkit-scrollbar-thumb {
+  background: rgba(212, 168, 136, 0.45) !important;
+  border-radius: 999px !important;
+}
+
+/* ticketListChrome1: no titolo Staff/Personali, card più su, pager 1 riga più giù, divider gradient */
+body.vc-web-tickets-page .vc-wt-sidebar__top,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar__top {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+}
+body.vc-web-tickets-page .vc-wt-list,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-list,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-list {
+  padding-top: 0.35rem !important;
+  padding-left: 0.65rem !important;
+  padding-right: 0.65rem !important;
+  padding-bottom: 0.25rem !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-wt-pager-wrap {
+  padding: 0.55rem 0.4rem 1.15rem !important;
+  margin-top: auto !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-mini-pager,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  gap: 0.2rem !important;
+  transform: scale(0.88) !important;
+  transform-origin: center bottom !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination__row,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination__seg,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-pt-seg,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination__row,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination__seg,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-pt-seg {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.18rem !important;
+  width: max-content !important;
+  max-width: none !important;
+  margin: 0 auto !important;
+  white-space: nowrap !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-pt-seg__btn,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-pt-seg__btn {
+  min-width: 1.75rem !important;
+  width: auto !important;
+  height: 1.75rem !important;
+  padding: 0 0.35rem !important;
+  font-size: 0.72rem !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+@media (min-width: 901px) {
+  body.vc-web-tickets-page .vc-wt-sidebar,
+  html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-wt-sidebar,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar,
+  html.vc-site-polish body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar,
+  body.vc-web-tickets-page #vc-wt-sidebar {
+    border-right: 0 !important;
+    position: relative !important;
+  }
+  body.vc-web-tickets-page .vc-wt-sidebar::after,
+  html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar::after,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-wt-sidebar::after,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar::after,
+  html.vc-site-polish body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar::after,
+  body.vc-web-tickets-page #vc-wt-sidebar::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 6% !important;
+    bottom: 6% !important;
+    right: 0 !important;
+    left: auto !important;
+    width: 1px !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+    background: linear-gradient(
+      180deg,
+      rgba(212, 168, 136, 0) 0%,
+      rgba(212, 168, 136, 0.22) 14%,
+      rgba(236, 205, 176, 0.62) 50%,
+      rgba(212, 168, 136, 0.22) 86%,
+      rgba(212, 168, 136, 0) 100%
+    ) !important;
+    background-image: linear-gradient(
+      180deg,
+      rgba(212, 168, 136, 0) 0%,
+      rgba(212, 168, 136, 0.22) 14%,
+      rgba(236, 205, 176, 0.62) 50%,
+      rgba(212, 168, 136, 0.22) 86%,
+      rgba(212, 168, 136, 0) 100%
+    ) !important;
+  }
+  html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-sidebar::after,
+  html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-sidebar::after {
+    background: linear-gradient(
+      180deg,
+      rgba(111, 78, 55, 0) 0%,
+      rgba(111, 78, 55, 0.18) 14%,
+      rgba(111, 78, 55, 0.42) 50%,
+      rgba(111, 78, 55, 0.18) 86%,
+      rgba(111, 78, 55, 0) 100%
+    ) !important;
+  }
+}
+
+/* ticketPagerCompact1: pager basso + divisore pieno (niente fade corto) */
+body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-wt-pager-wrap {
+  padding: 0.35rem 0.45rem 0.4rem !important;
+  margin-top: 0 !important;
+  min-height: 0 !important;
+  border-top: 1px solid rgba(212, 168, 136, 0.38) !important;
+  border-image: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page #vc-wt-pager-wrap {
+  border-top-color: rgba(111, 78, 55, 0.28) !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap::before,
+body.vc-web-tickets-page #vc-wt-pager-wrap::after,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap::before,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap::after {
+  content: none !important;
+  display: none !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-mini-pager,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination {
+  transform: none !important;
+  gap: 0.12rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-pt-seg,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination__seg,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-pt-seg,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-inbox-pagination__seg {
+  padding: 0.08rem !important;
+  min-height: 0 !important;
+  gap: 0.1rem !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-pt-seg__btn,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-staff-pt-seg__btn {
+  min-width: 1.55rem !important;
+  height: 1.55rem !important;
+  min-height: 1.55rem !important;
+  max-height: 1.55rem !important;
+  padding: 0 0.28rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1 !important;
+}
+
+@media (min-width: 901px) {
+  /* divisore lista/chat: tutta altezza, tratto continuo */
+  body.vc-web-tickets-page .vc-wt-sidebar::after,
+  html.vc-site-polish body.vc-web-tickets-page .vc-wt-sidebar::after,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content .vc-wt-sidebar::after,
+  html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top .vc-wt-sidebar::after,
+  html.vc-site-polish body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar::after,
+  body.vc-web-tickets-page #vc-wt-sidebar::after {
+    top: 0 !important;
+    bottom: 0 !important;
+    height: 100% !important;
+    background: rgba(212, 168, 136, 0.42) !important;
+    background-image: none !important;
+    opacity: 1 !important;
+  }
+  html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-sidebar::after,
+  html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-sidebar::after {
+    background: rgba(111, 78, 55, 0.32) !important;
+    background-image: none !important;
+  }
+}
+
+/* ticketDetailFast1: placeholder mentre arriva il dettaglio su telefono */
+body.vc-web-tickets-page .vc-wt-chat-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 9rem;
+  padding: 1.5rem 1rem;
+  color: rgba(236, 205, 176, 0.85);
+  font-size: 0.92rem;
+  text-align: center;
+}
+body.vc-web-tickets-page .vc-wt-chat-loading__spin {
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 2px solid rgba(212, 168, 136, 0.25);
+  border-top-color: rgba(236, 205, 176, 0.95);
+  border-radius: 999px;
+  animation: vc-wt-spin 0.7s linear infinite;
+}
+@keyframes vc-wt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-chat-loading {
+  color: rgba(90, 64, 48, 0.78);
+}
+html[data-vc-theme="light"] body.vc-web-tickets-page .vc-wt-chat-loading__spin {
+  border-color: rgba(111, 78, 55, 0.22);
+  border-top-color: rgba(111, 78, 55, 0.85);
+}
+

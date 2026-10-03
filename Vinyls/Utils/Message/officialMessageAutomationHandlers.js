@@ -613,7 +613,7 @@ async function handleVoteManagerMessage(message, client, options = {}) {
     (voteText.includes("discadia") && /(vote|voto|votato|voting|gem)/i.test(voteText)) ||
     (voteText.includes("disurl") && /(vote|voto|votato|voting|gem)/i.test(voteText));
   if (!looksLikeVote) return false;
-  const looksLikeBumpSuccess = /(server has been bumped|has been successfully bumped|bump(?:ed)?\s*successfully|successfully bumped|bump complete|bump done|thanks for bumping|you can bump again)/i.test(voteText);
+  const looksLikeBumpSuccess = /(server has been bumped|has been successfully bumped|bump(?:ed)?\s*successfully|successfully bumped|bump complete|bump done|thanks for bumping|you can bump again|\bbumped\.?\s*(?:\+\s*)?(?:\d+\s*)?boosts?\s+earned|(?:\+\s*)?\d+\s*boosts?\s+earned)/i.test(voteText);
   if (looksLikeBumpSuccess) return false;
 
   let user = await resolveUserFromMessage(message);
@@ -922,7 +922,7 @@ async function handleDiscadiaBump(message, client) {
   const authorName = String(message.author?.globalName || message.author?.username || "",);
   const sourceName = String([message.author?.globalName || "", message.author?.username || "", message.author?.tag || "", message.author?.id || "", message.applicationId || "",].filter(Boolean).join(" "),);
   const isAutomatedSource = Boolean(message.author?.bot || message.applicationId || message.webhookId,);
-  const patterns = Array.isArray(discadia.bumpSuccessPatterns) ? discadia.bumpSuccessPatterns.map((p) => String(p).toLowerCase()) : ["has been successfully bumped", "successfully bumped", "bumped successfully",];
+  const patterns = Array.isArray(discadia.bumpSuccessPatterns) ? discadia.bumpSuccessPatterns.map((p) => String(p).toLowerCase()) : ["has been successfully bumped", "successfully bumped", "bumped successfully", "boost earned", "+1 boost earned",];
   const haystacks = [];
   if (message.content) haystacks.push(message.content);
   if (Array.isArray(message.embeds)) {
@@ -945,8 +945,18 @@ async function handleDiscadiaBump(message, client) {
     logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "already_bumped_recently_text");
     return false;
   }
-  const hasPattern = patterns.some((pattern) => joined.includes(pattern));
-  const hasSuccessWord = /(server has been bumped|has been successfully bumped|bump(?:ed)?successfully|successfully bumped|successful bump|bump complete|bump done|thanks for bumping|you can bump again|bump effettuato|bump eseguito|bump completato|bump andato a buon fine|server bumpato con successo|bump riuscito|puoi bumpare di nuovo|potrai bumpare di nuovo)/i.test(joined);
+  const hasPatternLegacy = patterns.some((pattern) => joined.includes(pattern) && !/boost\s+earned/i.test(pattern));
+  const hasBoostEarnedPattern = patterns.some((pattern) => /boost\s+earned/i.test(pattern) && joined.includes(pattern));
+  /* discadiaBumpFmt2026: "**Server** bumped. +1 Boost earned." (+ optional streak / Next bump) */
+  const hasNewDiscadiaBumpFmt =
+    (/\bbumped\b/i.test(joined) && /(?:\+\s*)?(?:\d+\s*)?boosts?\s+earned/i.test(joined)) ||
+    (hasBoostEarnedPattern && /\bbumped\b/i.test(joined));
+  const hasPattern = hasPatternLegacy || hasNewDiscadiaBumpFmt;
+  const hasSuccessWord =
+    hasNewDiscadiaBumpFmt ||
+    /(server has been bumped|has been successfully bumped|bump(?:ed)?successfully|successfully bumped|successful bump|bump complete|bump done|thanks for bumping|you can bump again|bump effettuato|bump eseguito|bump completato|bump andato a buon fine|server bumpato con successo|bump riuscito|puoi bumpare di nuovo|potrai bumpare di nuovo)/i.test(
+      joined,
+    );
   const hasBumpWord = /\bbump(?:ed)?\b/i.test(joined);
   const hasFailureWord = /already bumped|already has been bumped|cannot bump|can\s*'t bump|can't bump|please wait|too early|wait before|failed to bump|bump failed|errore bump|impossibile bumpare|devi aspettare|attendi prima di bumpare|troppo presto per bumpare|bump non riuscito|bump fallito|must be (?:\*\*)?(?:owner|admin)|manage server|permission to bump|don't have permission|do not have permission|missing permission|you must be|unable to bump|not allowed to bump|unauthorized|can't use this command|cannot use this command|non hai i permessi|permesso negato/i.test(joined);
   const hasDiscadiaWord = /\bdiscadia\b/i.test(joined);

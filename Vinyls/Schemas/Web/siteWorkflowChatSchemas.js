@@ -26,6 +26,16 @@ const siteWorkflowChatMessageSchema = new Schema(
     imageUrls: { type: [String], default: [] },
     replyToId: { type: Schema.Types.ObjectId, ref: "SiteWorkflowChatMessage", default: null },
     editedAt: { type: Date, default: null },
+    /* msgReadReceipts1: WhatsApp-style ✓ / ✓✓ */
+    readBy: {
+      type: [
+        {
+          userId: { type: String, required: true, trim: true, maxlength: 32 },
+          at: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
     reactions: {
       type: [
         {

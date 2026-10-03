@@ -3,46 +3,61 @@ LICENZA PROPRIETARIA — VINILI & CAFFÈ
 
 Copyright (c) 2024–2026 Vinili & Caffè. Tutti i diritti riservati.
 
-Il presente repository e tutto il materiale in esso contenuto (codice sorgente,
-script, configurazioni, asset, documentazione e file derivati) sono di proprietà
-esclusiva di Vinili & Caffè e dei suoi titolari.
+Il presente avviso copre l'ecosistema Vinili & Caffè, incluso:
+
+  • repository, codice sorgente, script, configurazioni, asset e documentazione;
+  • sito web, dashboard e materiali correlati;
+  • bot Discord e relativi asset/branding;
+  • server Discord ufficiale della community (brand, icone, banner,
+    emoji/sticker personalizzati e materiali creati dallo staff).
 
 CONCESSIONE
 -----------
 
 Non viene concessa alcuna licenza, esplicita o implicita, a terzi per l'uso di
-questo software o di qualsiasi sua parte.
+questo software, dei contenuti del sito/bot o degli asset del server ufficiale,
+salvo autorizzazione scritta dei titolari.
 
 È espressamente vietato, senza previa autorizzazione scritta dei titolari:
 
-  • copiare, riprodurre o duplicare il codice o i file del progetto;
+  • copiare, riprodurre o duplicare codice, file, brand o asset protetti;
   • modificare, adattare, tradurre o creare opere derivate;
   • distribuire, pubblicare, sublicenziare o mettere a disposizione di terzi;
   • eseguire, installare o far girare il software in ambienti non autorizzati;
   • decompilare, disassemblare o effettuare reverse engineering, salvo dove la legge applicabile lo imponga in modo inderogabile;
-  • rimuovere o alterare avvisi di copyright o di licenza.
+  • rimuovere o alterare avvisi di copyright o di licenza;
+  • ripubblicare o rivendere emoji, sticker, banner, loghi o materiali del server ufficiale come propri.
 
 USO AUTORIZZATO
 ---------------
 
-L'uso del codice è consentito esclusivamente al personale autorizzato di
-Vinili & Caffè, per finalità interne e operative concordate dai titolari.
-Ogni altro uso è non autorizzato e costituisce violazione dei diritti del
-titolare.
+L'uso del codice e degli asset protetti è consentito esclusivamente al
+personale autorizzato di Vinili & Caffè, per finalità interne e operative
+concordate dai titolari. L'uso della community (sito/bot/server) da parte
+degli utenti è regolato dai Termini di Servizio e non trasferisce proprietà
+su brand, codice o asset ufficiali.
 
 TERZE PARTI
 -----------
 
 Componenti di terze parti (librerie npm, script vendor, tool in deploy/tools)
-restano soggetti alle rispettive licenze indicate nei file originali o in
-NOTICE.md. Il presente documento non estende diritti su tali componenti.
+e la piattaforma Discord restano soggetti alle rispettive licenze/policy.
+Il presente documento non estende diritti su tali componenti.
+
+CONTENUTI UTENTE
+----------------
+
+I messaggi, media e altri contenuti pubblicati dagli utenti restano dei
+rispettivi autori, nei limiti di legge, delle policy Discord e dei Termini
+di Servizio di Vinili & Caffè.
 
 GARANZIE E RESPONSABILITÀ
 -------------------------
 
-Il software è fornito "così com'è", senza garanzie di alcun tipo. In nessun
-caso i titolari saranno responsabili per danni derivanti dall'uso non autorizzato
-o da qualsiasi utilizzo del materiale coperto da questa licenza.
+Il software e i servizi sono forniti "così come sono", senza garanzie di alcun
+tipo. In nessun caso i titolari saranno responsabili per danni derivanti
+dall'uso non autorizzato o da qualsiasi utilizzo del materiale coperto da
+questa licenza.
 
 CONTATTI
 --------

@@ -1668,7 +1668,10 @@ const SCAM_CRYPTO_PATTERNS = [
   /\b(activate\s+code|special\s+promocode|promocode)\b/i,
     /\bcongratulations\b.{0,40}\b(reward|bonus|withdraw|crypto|casino|usdt|gift|nitro)\b/i,
   /\b(your reward has been|reward has been successfully)\b/i,
-  /\b(give(?:away|ing)\s+(?:away\s+)?\$?\d[\d,.]*\b)/,
+  /* scamGiveawayFp1: require real currency marker — "giveaway 50 euro" in chat is normal */
+  /\b(give(?:away|ing)\s+(?:away\s+)?(?:\$|€|£)\s*\d[\d,.]*)\b/,
+  /\b(give(?:away|ing)\s+(?:away\s+)?\d[\d,.]*\s*(?:\$|€|£)(?!\w))/,
+  /\b(give(?:away|ing)\s+(?:away\s+)?(?:usd|usdt)\s*\d[\d,.]*)\b/,
   /\b(promo\s+code|special\s+promo)\b/,
   /\b(withdraw(?:al)?\s+success(?:ful)?)\b/,
   /\b(usdt|btc|eth)\b.{0,40}\b(withdraw|bonus|giveaway|promo|register)\b/,

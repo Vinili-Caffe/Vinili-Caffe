@@ -311,6 +311,8 @@ async function handlePartnerRedeemStaffHp(interaction, parsed) {
     targetUserId: parsed.targetId,
     redeemTier,
     actorUser: interaction.user,
+    reason: "Riscatto manuale High Staff (Discord)",
+    source: "discord_hs",
   });
   if (!res.ok) {
     await interaction.editReply({ content: res.userMessage }).catch(() => { });
@@ -597,24 +599,36 @@ async function execute(interaction) {
       }
       const highestDepex = getHighestLadderRole(targetMember);
       const depexLadderDestId = peekDepexLadderTargetRoleId(highestDepex);
+      const memberRoleId = String(IDs.roles.Member || "");
+      const ladderIsMember =
+        !depexLadderDestId ||
+        depexLadderDestId === "" ||
+        String(depexLadderDestId) === memberRoleId;
       const depexLadderDest = depexLadderDestId
         ? guildRoleLabel(
             interaction.guild,
             depexLadderDestId,
-            String(depexLadderDestId) === String(IDs.roles.Member) ? "Member" : "Ruolo nuovo",
+            ladderIsMember ? "Member" : "Ruolo nuovo",
           )
         : "Ruolo nuovo";
       const memberDest = guildRoleLabel(interaction.guild, IDs.roles.Member, "Member");
-      const depexRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_staff")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
-          .setLabel(staffHpArrowLabel("Depex", depexLadderDest))
-          .setStyle(ButtonStyle.Danger),
+      /* depexDupMember1: se ladder = Member non mostrare due bottoni Depex→Member */
+      const depexComponents = [];
+      if (!ladderIsMember) {
+        depexComponents.push(
+          new ButtonBuilder()
+            .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_staff")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
+            .setLabel(staffHpArrowLabel("Depex", depexLadderDest))
+            .setStyle(ButtonStyle.Danger),
+        );
+      }
+      depexComponents.push(
         new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_full")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
           .setLabel(staffHpArrowLabel("Depex", memberDest))
-          .setStyle(ButtonStyle.Secondary),
+          .setStyle(ladderIsMember ? ButtonStyle.Danger : ButtonStyle.Secondary),
       );
+      const depexRow = new ActionRowBuilder().addComponents(...depexComponents);
       if (hasPartnerManager) {
         depexRow.addComponents(
           new ButtonBuilder()

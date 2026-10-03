@@ -25,6 +25,16 @@ const {
 } = require("./websiteGuildMemberFetch");
 const { listBirthdaysForMonth } = require("../../Services/Community/profileStore");
 const { getRomeDateParts } = require("../../Services/Community/birthdayService");
+const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag");
+
+/* siteApiW6: ETag/304 on users/leaderboard poll */
+function replyUsers(req, res, payload, cacheControl, extraHeaders) {
+  return sendJsonWithEtag(req, res, payload, {
+    cacheControl,
+    etag: weakEtagFromJson(payload),
+    extraHeaders,
+  });
+}
 
 const LIST_CACHE_TTL_MS = 90_000;
 const PROFILE_CACHE_TTL_MS = 90_000;
@@ -48,6 +58,8 @@ const PROFILE_CACHE_VER = 7;
 const PROFILE_MEMBER_SOFT_TIMEOUT_MS = 400;
 const LIST_MEMBER_WARM_MS = 180;
 const listCache = new Map();
+/* siteUsersW2: singleflight on listCache miss — stampede → one Mongo/Discord build */
+const listCacheInflight = new Map();
 
 function stripDataUrl(value) {
   const s = String(value || "").trim();
@@ -92,7 +104,7 @@ function listMemberWarmBudgetMs(userIds) {
   return Math.min(650, Math.max(LIST_MEMBER_WARM_MS, 140 + n * 45));
 }
 
-async function resolveIdentitiesForList(client, guild, userIds, lite) {
+async function resolveIdentitiesForList(client, guild, userIds, lite, softOnly) {
   const ids = [
     ...new Set(
       (Array.isArray(userIds) ? userIds : [])
@@ -101,13 +113,33 @@ async function resolveIdentitiesForList(client, guild, userIds, lite) {
     ),
   ];
   if (!ids.length) return new Map();
-  await warmGuildMembersSoft(guild, ids, listMemberWarmBudgetMs(ids));
+  /* siteUsersW2: lite/mid = cache-first + soft warm; hard Discord hydrate deferred */
+  const soft = Boolean(lite || softOnly);
+  const warmMs = soft ? Math.min(160, listMemberWarmBudgetMs(ids)) : listMemberWarmBudgetMs(ids);
+  await warmGuildMembersSoft(guild, ids, warmMs);
   const entries = await Promise.all(
-    ids.map(async (uid) => [uid, await fetchUserIdentity(client, guild, uid, { skipUserFetch: lite })]),
+    ids.map(async (uid) => [
+      uid,
+      soft
+        ? identityFromCacheOnly(client, guild, uid)
+        : await fetchUserIdentity(client, guild, uid, { skipUserFetch: Boolean(lite) }),
+    ]),
   );
   const map = new Map(entries);
   const missing = ids.filter((uid) => identityLooksIncomplete(map.get(uid), uid));
   if (!missing.length) return map;
+  if (soft) {
+    setImmediate(() => {
+      warmGuildMembers(guild, missing)
+        .then(() =>
+          Promise.all(
+            missing.map((uid) => fetchUserIdentity(client, guild, uid, { skipUserFetch: false })),
+          ),
+        )
+        .catch(() => {});
+    });
+    return map;
+  }
   await warmGuildMembers(guild, missing).catch(() => {});
   await Promise.all(
     missing.map(async (uid) => {
@@ -129,6 +161,25 @@ function cacheSet(key, payload, ttlMs) {
     payload,
     expiresAt: Date.now() + (Number.isFinite(ttl) && ttl > 0 ? ttl : LIST_CACHE_TTL_MS),
   });
+}
+
+async function cacheGetOrBuild(key, builder, ttlMs) {
+  const hit = cacheGet(key);
+  if (hit != null) return hit;
+  let inflight = listCacheInflight.get(key);
+  if (!inflight) {
+    inflight = Promise.resolve()
+      .then(() => builder())
+      .then((payload) => {
+        cacheSet(key, payload, ttlMs);
+        return payload;
+      })
+      .finally(() => {
+        listCacheInflight.delete(key);
+      });
+    listCacheInflight.set(key, inflight);
+  }
+  return inflight;
 }
 
 function parseIntSafe(v, min, max, def) {
@@ -156,7 +207,9 @@ function parseBoard(raw) {
   const b = String(raw || "level").trim().toLowerCase();
   if (b === "profile") return "profile";
   if (b === "birthdays") return "birthdays";
-  if (b === "weekly" || b === "messages" || b === "voice") return b;
+  if (b === "weekly" || b === "messages" || b === "voice" || b === "minigames" || b === "minigame") {
+    return b === "minigame" ? "minigames" : b;
+  }
   return "level";
 }
 
@@ -281,6 +334,9 @@ function boardQuery(board, guildId) {
   if (board === "weekly") return { ...g, "profile.totals.exp.weeklyExp": { $gt: 0 } };
   if (board === "messages") return { ...g, "profile.totals.messagesTotal": { $gt: 0 } };
   if (board === "voice") return { ...g, "profile.totals.voiceTotalSeconds": { $gt: 0 } };
+  if (board === "minigames") {
+    return { guildId, "profile.totals.exp.minigame.totalExp": { $gt: 0 } };
+  }
   return g;
 }
 
@@ -289,6 +345,7 @@ function boardSort(board) {
   if (board === "weekly") return { "profile.totals.exp.weeklyExp": -1 };
   if (board === "messages") return { "profile.totals.messagesTotal": -1 };
   if (board === "voice") return { "profile.totals.voiceTotalSeconds": -1 };
+  if (board === "minigames") return { "profile.totals.exp.minigame.totalExp": -1 };
   return { "profile.totals.exp.totalExp": -1 };
 }
 
@@ -760,7 +817,7 @@ async function buildCustomProfileData(guild, userId, opts) {
         const missing = ids.filter((id) => id && !have.has(String(id))).slice(0, lite ? 12 : 40);
         for (const id of missing) {
           const m = guild.members.cache.get(String(id));
-          if (m && !m.user?.bot) roleMembers.push(m);
+          if (m && !m.user?.bot && m.roles?.cache?.has?.(role.id)) roleMembers.push(m);
         }
         const stillMissing = missing.filter((id) => !guild.members.cache.has(String(id))).slice(0, lite ? 8 : 16);
         if (stillMissing.length) {
@@ -769,7 +826,14 @@ async function buildCustomProfileData(guild, userId, opts) {
           );
           for (const id of stillMissing) {
             const m = guild.members.cache.get(String(id));
-            if (m && !m.user?.bot && !roleMembers.some((x) => String(x.id) === String(id))) roleMembers.push(m);
+            if (
+              m &&
+              !m.user?.bot &&
+              m.roles?.cache?.has?.(role.id) &&
+              !roleMembers.some((x) => String(x.id) === String(id))
+            ) {
+              roleMembers.push(m);
+            }
           }
         }
       }
@@ -844,7 +908,7 @@ async function buildCustomProfileData(guild, userId, opts) {
         const missing = ids.filter((id) => id && !have.has(String(id))).slice(0, lite ? 12 : 40);
         for (const id of missing) {
           const m = guild.members.cache.get(String(id));
-          if (m && !m.user?.bot) secondaryRoleMembers.push(m);
+          if (m && !m.user?.bot && m.roles?.cache?.has?.(secondaryRole.id)) secondaryRoleMembers.push(m);
         }
         const stillMissing = missing.filter((id) => !guild.members.cache.has(String(id))).slice(0, lite ? 8 : 16);
         if (stillMissing.length) {
@@ -853,7 +917,12 @@ async function buildCustomProfileData(guild, userId, opts) {
           );
           for (const id of stillMissing) {
             const m = guild.members.cache.get(String(id));
-            if (m && !m.user?.bot && !secondaryRoleMembers.some((x) => String(x.id) === String(id))) {
+            if (
+              m &&
+              !m.user?.bot &&
+              m.roles?.cache?.has?.(secondaryRole.id) &&
+              !secondaryRoleMembers.some((x) => String(x.id) === String(id))
+            ) {
               secondaryRoleMembers.push(m);
             }
           }
@@ -1141,10 +1210,10 @@ async function getCachedWeeklyHourlySorted(guild) {
   const cacheKey = `v1:${guild.id}:weekly-hourly-sorted`;
   const cached = cacheGet(cacheKey);
   if (Array.isArray(cached)) return cached;
-  const breakdown = await computeLeaderboardRows(guild, "weekly", 8000).catch(() => []);
-  const sorted = sortHourlyBreakdownForBoard(breakdown, "weekly");
-  cacheSet(cacheKey, sorted);
-  return sorted;
+  return cacheGetOrBuild(cacheKey, async () => {
+    const breakdown = await computeLeaderboardRows(guild, "weekly", 8000).catch(() => []);
+    return sortHourlyBreakdownForBoard(breakdown, "weekly");
+  });
 }
 
 function peekCachedWeeklyHourlySorted(guild) {
@@ -1239,6 +1308,17 @@ async function computeUserSearchRankMeta({
       const higher = nInt(higherAgg?.[0]?.n);
       searchRank = higher + 1;
     }
+  } else if (board === "minigames") {
+    const mt = nInt(doc.profile?.totals?.exp?.minigame?.totalExp);
+    pageMaxSecondary = Math.max(1, mt);
+    const higher =
+      mt > 0
+        ? await ActivityUserProfile.countDocuments({
+            guildId,
+            "profile.totals.exp.minigame.totalExp": { $gt: mt },
+          }).catch(() => 0)
+        : 0;
+    searchRank = mt > 0 ? higher + 1 : 0;
   } else if (board === "level") {
     const te = nInt(doc.profile?.totals?.exp?.totalExp);
     const higher = await ActivityUserProfile.countDocuments({
@@ -1317,7 +1397,7 @@ async function buildProfileSearchPayload(client, guildId, searchId) {
     };
   }
 
-  const boards = ["level", "weekly", "messages", "voice"];
+  const boards = ["level", "weekly", "messages", "voice", "minigames"];
   const romeDayKey = getRomeDayKey(new Date());
   const weeklySortedPeek = peekCachedWeeklyHourlySorted(guild);
   const weeklyHourlyExp = computeWeeklyExpFromProfileDoc(doc);
@@ -1573,6 +1653,31 @@ async function buildRowFromDoc(
       voiceWeeklyBarPct: pctBar(voiceTotalSeconds, pageMaxSecondary),
     };
   }
+  if (board === "minigames") {
+    const mg = d.profile?.totals?.exp?.minigame || {};
+    const minigameTotalExp =
+      ov && ov.minigameTotalExp != null ? nInt(ov.minigameTotalExp) : nInt(mg.totalExp);
+    const minigameWeeklyExp =
+      ov && ov.minigameWeeklyExp != null ? nInt(ov.minigameWeeklyExp) : nInt(mg.weeklyExp);
+    const currentStreak =
+      ov && ov.currentStreak != null ? nInt(ov.currentStreak) : nInt(mg.currentStreak);
+    const bestStreak = ov && ov.bestStreak != null ? nInt(ov.bestStreak) : nInt(mg.bestStreak);
+    return {
+      rank,
+      userId,
+      username: id.username,
+      displayName: id.displayName,
+      discriminator: id.discriminator,
+      avatar: id.avatar,
+      memberAvatar: id.memberAvatar || "",
+      avatarUrl: id.avatarUrl,
+      minigameTotalExp,
+      minigameWeeklyExp,
+      currentStreak,
+      bestStreak,
+      minigameBarPct: pctBar(minigameTotalExp, pageMaxSecondary),
+    };
+  }
   return { rank, userId, username: id.username, displayName: id.displayName };
 }
 
@@ -1582,6 +1687,7 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, ho
   let topWeeklyExp = 0;
   let topMessagesTotal = 0;
   let topVoiceSeconds = 0;
+  let topMinigameTotal = 0;
   if (board === "level") {
     const te = Math.max(0, Math.floor(Number(d.profile?.totals?.exp?.totalExp || 0)));
     const li = getLevelInfo(te);
@@ -1601,6 +1707,11 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, ho
       ao && ao.voiceSeconds != null
         ? nInt(ao.voiceSeconds)
         : Math.max(0, Math.floor(Number(d.profile?.totals?.voiceTotalSeconds || 0)));
+  } else if (board === "minigames") {
+    topMinigameTotal =
+      ao && ao.minigameTotalExp != null
+        ? nInt(ao.minigameTotalExp)
+        : Math.max(0, Math.floor(Number(d.profile?.totals?.exp?.minigame?.totalExp || 0)));
   }
   const gm =
     board === "weekly" && globalExpMult != null && Number.isFinite(Number(globalExpMult)) && Number(globalExpMult) > 0
@@ -1615,6 +1726,7 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, ho
     topWeeklyExp: board === "weekly" ? topWeeklyExp : null,
     topMessagesTotal: board === "messages" ? topMessagesTotal : null,
     topVoiceSeconds: board === "voice" ? topVoiceSeconds : null,
+    topMinigameTotal: board === "minigames" ? topMinigameTotal : null,
     globalExpMultiplier: gm,
   };
 }
@@ -1638,21 +1750,41 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       const birthdaysCacheKey = `birthdays:v1:${guildId}:${year}:${month}`;
       const cachedBirthdays = cacheGet(birthdaysCacheKey);
       if (cachedBirthdays) {
-        res.setHeader("Cache-Control", "public, max-age=60");
-        return res.json(cachedBirthdays);
+        return replyUsers(req, res, cachedBirthdays, "public, max-age=60");
       }
       const payload = await buildBirthdaysMonthPayload(client, guildId, month, year);
       cacheSet(birthdaysCacheKey, payload, BIRTHDAYS_CACHE_TTL_MS);
-      res.setHeader("Cache-Control", "public, max-age=60");
-      return res.json(payload);
+      return replyUsers(req, res, payload, "public, max-age=60");
     }
 
     if (searchId && board === "profile") {
       const profileCacheKey = `profile:v${PROFILE_CACHE_VER}:${guildId}:${searchId}`;
+      /* leaveProfileLive1: never serve cached in-guild snapshot after leave/negative */
+      const { isOnNegativeCache } = require("./websiteGuildMemberFetch");
+      if (isOnNegativeCache(searchId)) {
+        try {
+          listCache.delete(profileCacheKey);
+        } catch (_) {}
+        const gone = {
+          ok: true,
+          search: true,
+          notFound: true,
+          leftGuild: true,
+          inGuild: false,
+          board: "profile",
+          page: 1,
+          perPage: 1,
+          total: 0,
+          totalPages: 1,
+          profile: null,
+          rows: {},
+        };
+        res.setHeader("Cache-Control", "no-store");
+        return res.json(gone);
+      }
       const cachedProfile = cacheGet(profileCacheKey);
       if (cachedProfile) {
-        res.setHeader("Cache-Control", "public, max-age=15");
-        return res.json(cachedProfile);
+        return replyUsers(req, res, cachedProfile, "public, max-age=15");
       }
       const payload = await buildProfileSearchPayload(client, guildId, searchId);
       const memberResolved = Boolean(payload && payload._memberResolved);
@@ -1669,7 +1801,8 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         cacheSet(profileCacheKey, payload, PROFILE_CACHE_TTL_MS);
       }
       res.setHeader("Cache-Control", payload.notFound ? "no-store" : "public, max-age=45");
-      return res.json(payload);
+      if (payload.notFound) return res.json(payload);
+      return replyUsers(req, res, payload, "public, max-age=45");
     }
 
     if (searchId) {
@@ -1695,6 +1828,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
             topWeeklyExp: null,
             topMessagesTotal: null,
             topVoiceSeconds: null,
+            topMinigameTotal: null,
             globalExpMultiplier: null,
           },
           rows: [],
@@ -1743,6 +1877,17 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         ]).catch(() => []);
         const higher = nInt(higherAgg?.[0]?.n);
         searchRank = higher + 1;
+      } else if (board === "minigames") {
+        const mt = nInt(doc.profile?.totals?.exp?.minigame?.totalExp);
+        pageMaxSecondary = Math.max(1, mt);
+        const higher =
+          mt > 0
+            ? await ActivityUserProfile.countDocuments({
+                guildId,
+                "profile.totals.exp.minigame.totalExp": { $gt: mt },
+              }).catch(() => 0)
+            : 0;
+        searchRank = mt > 0 ? higher + 1 : 0;
       } else if (board === "level") {
         const te = nInt(doc.profile?.totals?.exp?.totalExp);
         const higher = await ActivityUserProfile.countDocuments({
@@ -1835,8 +1980,9 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     }
 
     const page = parseIntSafe(q.page, 1, 100000, 1);
-    const perPageMax = lite ? 8 : perfTier === "mid" ? 12 : 24;
-    const perPageDefault = lite ? 6 : 12;
+    /* ulNineAlways1: UI /user/ è 3×3 — lite non deve clampare sotto 9 */
+    const perPageMax = lite ? 9 : perfTier === "mid" ? 12 : 24;
+    const perPageDefault = lite ? 9 : 12;
     const perPage = parseIntSafe(q.perPage, 1, perPageMax, perPageDefault);
     const guild =
       client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
@@ -1847,111 +1993,113 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       : `v3:${guildId}:${board}:p${page}:n${perPage}:perf${perfTier}`;
     const cached = cacheGet(cacheKey);
     if (cached) {
-      res.setHeader("Cache-Control", lite ? "public, max-age=45" : "public, max-age=15");
-      res.setHeader("X-VC-Perf", perfTier);
-      return res.json(cached);
+      return replyUsers(req, res, cached, lite ? "public, max-age=45" : "public, max-age=15", {
+        "X-VC-Perf": perfTier,
+      });
     }
 
     const skip = (page - 1) * perPage;
+    const softIds = lite || perfTier === "mid";
 
     if (hourlyBoard) {
-      const cap = Math.min(lite ? 2500 : 8000, Math.max(lite ? 600 : 1200, page * perPage + (lite ? 200 : 800)));
-      const breakdown = await computeLeaderboardRows(guild, "weekly", cap).catch(() => []);
-      const sorted = sortHourlyBreakdownForBoard(breakdown, "weekly");
-      const total = sorted.length;
-      const slice = sorted.slice(skip, skip + perPage);
-      let pageMaxSecondary = 1;
-      for (const agg of slice) {
-        pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.exp));
-      }
-      if (pageMaxSecondary < 1) pageMaxSecondary = 1;
-      let globalExpMultiplier = 1;
-      let guildExpSettings = null;
-      globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
-      if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
-      guildExpSettings = lite ? null : await getGuildExpSettings(guildId).catch(() => null);
-      const userIds = slice.map((r) => String(r.userId || "")).filter(Boolean);
-      const profileDocs = userIds.length
-        ? await ActivityUserProfile.find({ guildId, userId: { $in: userIds } })
-            .select(SEARCH_SELECT)
-            .lean()
-            .catch(() => [])
-        : [];
-      const docMap = new Map(profileDocs.map((d) => [String(d.userId), d]));
-      const identityMap = await resolveIdentitiesForList(client, guild, userIds, lite);
-      const rows = [];
-      for (let i = 0; i < slice.length; i += 1) {
-        const agg = slice[i];
-        const d = docMap.get(String(agg.userId));
-        if (!d) continue;
-        const rank = skip + i + 1;
-        const overrides = { weeklyExp: nInt(agg.exp) };
-        const weeklyEffectiveMultiplier = await getResolvedWeeklyExpMultiplier(
-          guild,
-          String(d.userId || ""),
-          guildExpSettings,
-        ).catch(() => null);
-        rows.push(
-          await buildRowFromDoc(
-            client,
-            guild,
-            board,
-            d,
-            rank,
-            pageMaxSecondary,
-            globalExpMultiplier,
-            overrides,
-            weeklyEffectiveMultiplier,
-            identityMap.get(String(d.userId || "")),
-          ),
-        );
-      }
-      const first = sorted[0];
-      let topDisplayName = "";
-      let topWeeklyExp = 0;
-      if (first) {
-        const uid = String(first.userId || "");
-        if (uid) {
-          const cachedId = identityFromCacheOnly(client, guild, uid);
-          topDisplayName = String(cachedId.displayName || cachedId.username || "").trim();
+      /* siteUsersW2: reuse shared weekly-hourly sorted + singleflight page payload */
+      const payload = await cacheGetOrBuild(cacheKey, async () => {
+        const sorted = await getCachedWeeklyHourlySorted(guild);
+        const total = sorted.length;
+        const slice = sorted.slice(skip, skip + perPage);
+        let pageMaxSecondary = 1;
+        for (const agg of slice) {
+          pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.exp));
         }
-        topWeeklyExp = nInt(first.exp);
-      }
-      if (!String(topDisplayName || "").trim() && rows.length && skip === 0) {
-        const fb = String(rows[0].displayName || rows[0].username || "").trim();
-        if (fb) topDisplayName = fb;
-      }
-      const stats = {
-        rankedUsers: total,
-        membersApprox: guild?.memberCount ?? null,
-        topDisplayName,
-        topPlayerUsername: topDisplayName,
-        topLevel: null,
-        topWeeklyExp,
-        topMessagesTotal: null,
-        topVoiceSeconds: null,
-        globalExpMultiplier,
-      };
-      const payload = {
-        ok: true,
-        board,
-        page,
-        perPage,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / perPage)),
-        stats,
-        rows,
-      };
-      cacheSet(cacheKey, payload);
-      res.setHeader("Cache-Control", lite ? "public, max-age=45" : "public, max-age=20");
-      res.setHeader("X-VC-Perf", perfTier);
-      return res.json(payload);
+        if (pageMaxSecondary < 1) pageMaxSecondary = 1;
+        let globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
+        if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
+        const guildExpSettings = lite ? null : await getGuildExpSettings(guildId).catch(() => null);
+        const userIds = slice.map((r) => String(r.userId || "")).filter(Boolean);
+        const profileDocs = userIds.length
+          ? await ActivityUserProfile.find({ guildId, userId: { $in: userIds } })
+              .select(SEARCH_SELECT)
+              .lean()
+              .catch(() => [])
+          : [];
+        const docMap = new Map(profileDocs.map((d) => [String(d.userId), d]));
+        const identityMap = await resolveIdentitiesForList(client, guild, userIds, lite, softIds);
+        const rows = [];
+        for (let i = 0; i < slice.length; i += 1) {
+          const agg = slice[i];
+          const d = docMap.get(String(agg.userId));
+          if (!d) continue;
+          const rank = skip + i + 1;
+          const overrides = { weeklyExp: nInt(agg.exp) };
+          const memberHint = guild?.members?.cache?.get?.(String(d.userId || "")) || null;
+          const weeklyEffectiveMultiplier = await getResolvedWeeklyExpMultiplier(
+            guild,
+            String(d.userId || ""),
+            guildExpSettings,
+            memberHint,
+          ).catch(() => null);
+          rows.push(
+            await buildRowFromDoc(
+              client,
+              guild,
+              board,
+              d,
+              rank,
+              pageMaxSecondary,
+              globalExpMultiplier,
+              overrides,
+              weeklyEffectiveMultiplier,
+              identityMap.get(String(d.userId || "")),
+            ),
+          );
+        }
+        const first = sorted[0];
+        let topDisplayName = "";
+        let topWeeklyExp = 0;
+        if (first) {
+          const uid = String(first.userId || "");
+          if (uid) {
+            const cachedId = identityFromCacheOnly(client, guild, uid);
+            topDisplayName = String(cachedId.displayName || cachedId.username || "").trim();
+          }
+          topWeeklyExp = nInt(first.exp);
+        }
+        if (!String(topDisplayName || "").trim() && rows.length && skip === 0) {
+          const fb = String(rows[0].displayName || rows[0].username || "").trim();
+          if (fb) topDisplayName = fb;
+        }
+        return {
+          ok: true,
+          board,
+          page,
+          perPage,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / perPage)),
+          stats: {
+            rankedUsers: total,
+            membersApprox: guild?.memberCount ?? null,
+            topDisplayName,
+            topPlayerUsername: topDisplayName,
+            topLevel: null,
+            topWeeklyExp,
+            topMessagesTotal: null,
+            topVoiceSeconds: null,
+            topMinigameTotal: null,
+            globalExpMultiplier,
+          },
+          rows,
+        };
+      });
+      return replyUsers(req, res, payload, lite ? "public, max-age=45" : "public, max-age=20", {
+        "X-VC-Perf": perfTier,
+      });
     }
 
     const filter = boardQuery(board, guildId);
     const sort = boardSort(board);
     const select = boardSelect();
 
+    const payload = await cacheGetOrBuild(cacheKey, async () => {
     let total = 0;
     let docs = [];
     let topDoc = null;
@@ -1997,6 +2145,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     let topWeeklyExp = 0;
     let topMessagesTotal = 0;
     let topVoiceSeconds = 0;
+    let topMinigameTotal = 0;
 
     if (topDoc) {
       const uid = String(topDoc.userId || "");
@@ -2014,6 +2163,8 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         topMessagesTotal = nInt(topDoc.__sortVal ?? topDoc.profile?.totals?.messagesTotal);
       } else if (board === "voice") {
         topVoiceSeconds = nInt(topDoc.__sortVal ?? topDoc.profile?.totals?.voiceTotalSeconds);
+      } else if (board === "minigames") {
+        topMinigameTotal = nInt(topDoc.profile?.totals?.exp?.minigame?.totalExp);
       }
     }
 
@@ -2030,6 +2181,10 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       for (const d of docs) {
         pageMaxSecondary = Math.max(pageMaxSecondary, nInt(d.profile?.totals?.voiceTotalSeconds));
       }
+    } else if (board === "minigames") {
+      for (const d of docs) {
+        pageMaxSecondary = Math.max(pageMaxSecondary, nInt(d.profile?.totals?.exp?.minigame?.totalExp));
+      }
     }
 
     let globalExpMultiplier = 1;
@@ -2044,6 +2199,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       guild,
       docs.map((d) => d.userId).concat(topDoc ? [topDoc.userId] : []),
       lite,
+      softIds,
     );
     const rows = await Promise.all(
       docs.map(async (d, i) => {
@@ -2054,9 +2210,16 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
             : board === "voice"
               ? { voiceTotalSeconds: nInt(d.__sortVal ?? d.profile?.totals?.voiceTotalSeconds) }
               : {};
+        const memberHint =
+          board === "weekly" ? guild?.members?.cache?.get?.(String(d.userId || "")) || null : null;
         const weeklyEffectiveMultiplier =
           board === "weekly"
-            ? await getResolvedWeeklyExpMultiplier(guild, String(d.userId || ""), guildExpSettings).catch(() => null)
+            ? await getResolvedWeeklyExpMultiplier(
+                guild,
+                String(d.userId || ""),
+                guildExpSettings,
+                memberHint,
+              ).catch(() => null)
             : null;
         return buildRowFromDoc(
           client,
@@ -2078,37 +2241,86 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       if (fb) topDisplayName = fb;
     }
 
-    const stats = {
-      rankedUsers: total,
-      membersApprox: guild?.memberCount ?? null,
-      topDisplayName,
-      topPlayerUsername: topDisplayName,
-      topLevel: board === "level" ? topLevel : null,
-      topWeeklyExp: board === "weekly" ? topWeeklyExp : null,
-      topMessagesTotal: board === "messages" ? topMessagesTotal : null,
-      topVoiceSeconds: board === "voice" ? topVoiceSeconds : null,
-      globalExpMultiplier: board === "weekly" ? globalExpMultiplier : null,
-      siteRomeCalendarDay: board === "messages" || board === "voice" ? romeDayKey : null,
-    };
-
-    const payload = {
+    return {
       ok: true,
       board,
       page,
       perPage,
       total,
       totalPages: Math.max(1, Math.ceil(total / perPage)),
-      stats,
+      stats: {
+        rankedUsers: total,
+        membersApprox: guild?.memberCount ?? null,
+        topDisplayName,
+        topPlayerUsername: topDisplayName,
+        topLevel: board === "level" ? topLevel : null,
+        topWeeklyExp: board === "weekly" ? topWeeklyExp : null,
+        topMessagesTotal: board === "messages" ? topMessagesTotal : null,
+        topVoiceSeconds: board === "voice" ? topVoiceSeconds : null,
+        topMinigameTotal: board === "minigames" ? topMinigameTotal : null,
+        globalExpMultiplier: board === "weekly" ? globalExpMultiplier : null,
+        siteRomeCalendarDay: board === "messages" || board === "voice" ? romeDayKey : null,
+      },
       rows,
     };
-    cacheSet(cacheKey, payload);
-    res.setHeader("Cache-Control", lite ? "public, max-age=45" : "public, max-age=20");
-    res.setHeader("X-VC-Perf", perfTier);
-    return res.json(payload);
+    });
+    return replyUsers(req, res, payload, lite ? "public, max-age=45" : "public, max-age=20", {
+      "X-VC-Perf": perfTier,
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-users:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
   }
 }
 
-module.exports = { handleSiteUsersLeaderboardGet, buildCustomProfileData };
+/* siteApiW4: prewarm lite leaderboard pages after site-api listen */
+async function warmSiteUsersLeaderboardCache(client) {
+  const boards = ["level", "weekly"];
+  for (const board of boards) {
+    const req = {
+      query: { board, page: "1", perPage: "9", perf: "lite" },
+      headers: {},
+    };
+    const res = {
+      setHeader() {},
+      status() {
+        return this;
+      },
+      json() {
+        return this;
+      },
+    };
+    try {
+      await handleSiteUsersLeaderboardGet(client, req, res);
+    } catch (err) {
+      global.logger?.warn?.("[WEBHOOK] site-users warm:", board, err?.message || err);
+    }
+  }
+}
+
+/** leaveProfileLive1: drop cached community profile for a user (after guild leave). */
+function invalidateProfileCacheForUser(guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!uid) return 0;
+  let n = 0;
+  const exact = gid ? `profile:v${PROFILE_CACHE_VER}:${gid}:${uid}` : "";
+  if (exact && listCache.delete(exact)) n += 1;
+  const suffix = `:${uid}`;
+  for (const key of listCache.keys()) {
+    if (!String(key).startsWith("profile:v")) continue;
+    if (exact && key === exact) continue;
+    if (String(key).endsWith(suffix)) {
+      listCache.delete(key);
+      n += 1;
+    }
+  }
+  return n;
+}
+
+module.exports = {
+  handleSiteUsersLeaderboardGet,
+  buildCustomProfileData,
+  warmSiteUsersLeaderboardCache,
+  invalidateProfileCacheForUser,
+};

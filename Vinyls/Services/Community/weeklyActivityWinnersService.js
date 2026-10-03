@@ -826,9 +826,12 @@ async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys, cli
   const projection = { _id: 0, userId: 1 };
   for (const k of keys) projection[`profile.totals.hourly.${k}`] = 1;
       const perUser = new Map();
+  /* weeklyCountFix1: ogni chunk deve sommare SOLO le ore del chunk.
+     Prima sommava tutte le ore wanted a ogni hit → moltiplicava x(~7) i top attivi. */
   try {
     for (let i = 0; i < keys.length; i += 24) {
       const chunk = keys.slice(i, i + 24);
+      const chunkWanted = new Set(chunk);
       const orHourly = chunk.map((k) => ({ [`profile.totals.hourly.${k}`]: { $exists: true } }));
       const cursor = ActivityUserProfile.find({ guildId: guild.id, $or: orHourly })
         .select(projection)
@@ -841,6 +844,7 @@ async function loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys, cli
         let messageCount = 0;
         let voiceSeconds = 0;
         for (const [hourKey, value] of Object.entries(hourly)) {
+          if (!chunkWanted.has(String(hourKey))) continue;
           if (!wanted.has(String(hourKey))) continue;
           if (shouldSkipBackfillRow(String(hourKey), wanted)) continue;
           let scale = 1;
@@ -1576,9 +1580,6 @@ async function publishMonthlyActivityWinners(client, options = {}) {
     `<a:VC_HeartsPink:1468685897389052008> • **Classifica mensile EXP totale:**`,
     ...combinedRows,
     "",
-    `<a:VC_Winner:1482535294757507255> • **Premi Top Monthly:**`,
-    ...monthlyRewardRows,
-    "",
     `<:VC_Leaderboard:1482534806314287387> • **Top Voters:**`,
     ...voterRows,
   ];
@@ -1606,7 +1607,7 @@ async function publishMonthlyActivityWinners(client, options = {}) {
   );
   if (!options.skipDiscordSends && channel) {
     const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
-    const votersRoleTextByIndex = ["<@&1521787468201066666>", "<@&1544830866616754257>", "<@&1544830864565735515>"];
+    const votersRoleTextByIndex = ["<@&1555127259436679240>", "<@&1544830866616754257>", "<@&1544830864565735515>"];
     const voter1 = monthlyVotersTop[0];
     const voter2 = monthlyVotersTop[1];
     const voter3 = monthlyVotersTop[2];

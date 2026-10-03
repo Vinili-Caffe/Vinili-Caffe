@@ -2,8 +2,9 @@
 
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { resolveWelcomeBadge } = require("../Community/pronounWelcomeUtils");
+const { fetchWebsiteGuildMember, clearWebsiteMemberCaches } = require("./websiteGuildMemberFetch");
 
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 45_000;
 const cache = new Map();
 
 function cacheKey(userId) {
@@ -30,6 +31,17 @@ function writeCache(userId, payload) {
   }
 }
 
+function roleIdsFromMember(member) {
+  try {
+    const cacheLike = member?.roles?.cache;
+    if (cacheLike && typeof cacheLike.keys === "function") {
+      return [...cacheLike.keys()].map(String);
+    }
+  } catch (_) {}
+  if (Array.isArray(member?.roles)) return member.roles.map(String);
+  return [];
+}
+
 /**
  * GET /webhooks/site-welcome-pronouns
  * Auth: Bearer Discord OAuth token (identify).
@@ -37,8 +49,10 @@ function writeCache(userId, payload) {
  * Pronoun source:
  * 1) Discord user `pronouns` field if OAuth/@me ever returns it
  * 2) else guild pronoun roles (he/him, she/her, they/them, ask me)
+ *
+ * welcomePronouns4: merge OAuth+bot role ids; guild m/f beats profile ask/any.
  */
-async function getWelcomePronouns(client, { accessToken } = {}) {
+async function getWelcomePronouns(client, { accessToken, fresh } = {}) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) {
     return {
@@ -53,15 +67,58 @@ async function getWelcomePronouns(client, { accessToken } = {}) {
     };
   }
 
-  const { member, userId, discordUser } = resolved;
-  const cached = readCache(userId);
-  if (cached) return { ...cached, cached: true };
+  const { guild, userId, discordUser } = resolved;
+  let member = resolved.member;
+
+  if (!fresh) {
+    const cached = readCache(userId);
+    if (cached) return { ...cached, cached: true };
+  } else {
+    cache.delete(cacheKey(userId));
+  }
+
+  /* welcomePronounsFetchSoft1: niente force/clear ad ogni hit — solo cache guild + soft fetch.
+     Il force continuo saturava Discord e spamava member_fetch_timeout. */
+  try {
+    if (guild && userId) {
+      const fromGuildCache = guild.members?.cache?.get?.(userId) || null;
+      if (fromGuildCache) {
+        member = fromGuildCache;
+      } else if (fresh) {
+        try {
+          clearWebsiteMemberCaches(userId);
+        } catch (_) {}
+        const fetched = await fetchWebsiteGuildMember(guild, userId, {
+          timeoutMs: 6500,
+          retry: false,
+          soft: true,
+          force: true,
+        }).catch(() => null);
+        if (fetched) member = fetched;
+      } else {
+        const fetched = await fetchWebsiteGuildMember(guild, userId, {
+          timeoutMs: 3500,
+          retry: false,
+          soft: true,
+          force: false,
+        }).catch(() => null);
+        if (fetched) member = fetched;
+      }
+    }
+  } catch (_) {}
 
   const discordPronouns = String(
     discordUser?.pronouns || discordUser?.user?.pronouns || member?.user?.pronouns || "",
   ).trim();
 
-  const badge = resolveWelcomeBadge(member, { discordPronouns });
+  const roleIdsResolved = roleIdsFromMember(resolved.member);
+  const roleIdsFresh = roleIdsFromMember(member);
+  const roleIds = [...new Set([...roleIdsFresh, ...roleIdsResolved])];
+
+  const badge = resolveWelcomeBadge(member, {
+    discordPronouns,
+    roleIds,
+  });
   const payload = {
     ok: true,
     status: 200,

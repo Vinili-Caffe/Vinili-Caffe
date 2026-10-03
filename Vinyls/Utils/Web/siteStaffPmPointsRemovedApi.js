@@ -1,5 +1,8 @@
 const IDs = require("../Config/ids");
-const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
+const {
+  assertWebsiteStaffAccess,
+  normalizeHeaderSecret,
+} = require("./siteStaffAccessApi");
 const { memberIsHighStaffForPointReview } = require("../Partner/partnerPointContextUtils");
 const { reviewPartnerPointReport } = require("../Partner/partnerPointReportReviewRuntime");
 const {
@@ -7,7 +10,6 @@ const {
   findPmPointsRemovedEntry,
 } = require("../Partner/pmPointsRemovedStore");
 const { resolveWebUserIdentitiesBatch, identityFallback } = require("./siteWebUserIdentity");
-const { memberIsPm } = require("./siteStaffRosterCache");
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 50;
@@ -39,25 +41,9 @@ async function enrichEntries(client, guild, entries) {
 async function handleSiteStaffPmPointsRemovedGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
-    }
-    const canReview = memberIsHighStaffForPointReview(access.member);
-    const canView = canReview || memberIsPm(access.member);
-    if (!canView) {
-      return res.status(403).json({
-        ok: false,
-        error: "forbidden",
-        message: "Solo Partner Manager e High Staff possono vedere i punti tolti PM.",
-      });
-    }
-
-    const guildId = String(IDs.guilds.main || "");
-    const guild =
-      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-    if (!guild) {
-      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
     }
 
     const before = String(req.query?.before || "").trim();
@@ -68,13 +54,33 @@ async function handleSiteStaffPmPointsRemovedGet(client, req, res) {
     if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_LIMIT;
     limit = Math.min(MAX_LIMIT, Math.max(1, Math.floor(limit)));
 
+    const viewerId = String(access.member?.id || access.user?.id || "").trim();
+    const canReview = memberIsHighStaffForPointReview(access.member);
+    /* partnerPtChrono1: self vede la propria cronologia; HS vede (e review) chiunque */
+    const isSelfScoped = Boolean(pmUserId && viewerId && pmUserId === viewerId);
+    if (!isSelfScoped && !canReview) {
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+        message: "Puoi vedere solo i tuoi punti tolti, oppure essere High Staff.",
+      });
+    }
+
+    const guildId = String(IDs.guilds.main || "");
+    const guild =
+      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (!guild) {
+      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
+    }
+
+    const scopedPmUserId = isSelfScoped ? viewerId : pmUserId || null;
     const listed = await listPmPointsRemovedEntries({
       guildId,
       limit,
       before: before || null,
-      pendingOnly,
-      pmUserId: pmUserId || null,
-      q: q || null,
+      pendingOnly: canReview ? pendingOnly : false,
+      pmUserId: scopedPmUserId,
+      q: canReview ? q || null : null,
     });
     const enriched = await enrichEntries(client, guild, listed.items);
 
@@ -101,7 +107,7 @@ async function handleSiteStaffPmPointsRemovedGet(client, req, res) {
 async function handleSiteStaffPmPointsRemovedPost(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }

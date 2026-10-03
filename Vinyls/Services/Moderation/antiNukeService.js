@@ -1254,7 +1254,17 @@ async function runAutoBackupSyncAfterPanic(guild, state) {
   let rolesDeleted = 0;
   let webhooksDeleted = 0;
   if (enabled && cfg.deleteNewChannels && me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) {
+    let isProtectedStage = () => false;
+    try {
+      ({ isProtectedStreamerStageChannelId: isProtectedStage } = require("../Community/streamerStageGuardService"));
+    } catch {
+      isProtectedStage = () => false;
+    }
     for (const channelId of state.createdChannelIds) {
+      if (isProtectedStage(channelId, guild.client)) {
+        global.logger?.warn?.("[AntiNuke] skip delete protected streamer stage:", channelId);
+        continue;
+      }
       const channel = await getGuildChannelCached(guild, String(channelId), { ttlMs: 30_000 });
       if (!channel) continue;
       const deleted = await channel.delete("<a:VC_Unlock:1482532082466029608> AntiNuke panic cleanup: delete new channel").then(() => true).catch(() => false);
@@ -2095,6 +2105,15 @@ async function handleChannelCreationAction({ guild, executorId, channelId = "", 
   }
   const instantCfg = ANTINUKE_CONFIG.panicMode.instantRollbackWhileActive;
   if (panicActive && instantCfg?.enabled && instantCfg?.deleteCreatedChannels && channelId) {
+    try {
+      const { isProtectedStreamerStageChannelId } = require("../Community/streamerStageGuardService");
+      if (isProtectedStreamerStageChannelId(channelId, guild.client)) {
+        global.logger?.warn?.("[AntiNuke] skip instant delete protected streamer stage:", channelId);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
     const me = guild.members?.me;
     const targetChannel = channel || (await getGuildChannelCached(guild, String(channelId), { ttlMs: 30_000 }));
     const canDelete = targetChannel?.deletable && me?.permissions?.has?.(PermissionsBitField.Flags.ManageChannels);

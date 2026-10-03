@@ -2,6 +2,7 @@ const { getGuildMemberCached, getUserCached } = require("../Interaction/interact
 const {
   accountUsername,
   userAvatarUrlDynamic,
+  sitePreferredAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
 const { identityFromMember } = require("./siteStaffRosterCache");
 
@@ -63,7 +64,11 @@ function identityFromUser(user, userId) {
     userId: uid,
     displayName: displayName || FALLBACK_LABEL,
     username: accountUsername(user) || "",
-    avatarUrl: userAvatarUrlDynamic(user, { size: 128 }) || "",
+    /* organicoAvatarGlobal1: preferisci CDN /avatars/ globale (no guild URL fantasma) */
+    avatarUrl:
+      sitePreferredAvatarUrl(user, { size: 128, preferAnimated: true, allowDefault: false }) ||
+      userAvatarUrlDynamic(user, { size: 128, allowDefault: false }) ||
+      "",
   };
 }
 
@@ -85,6 +90,12 @@ function readIdentityOkCache(userId) {
 function writeIdentityOkCache(id) {
   const uid = String(id?.userId || "").trim();
   if (!uid || !id || id.displayName === FALLBACK_LABEL || isSnowflakeLabel(id.displayName, uid)) return;
+  const av = String(id.avatarUrl || "").trim();
+  /* organicoAvatarHeal1: non cacheare embed / URL non-CDN (snap 404) come “ok” */
+  if (av && !/^https:\/\/cdn\.discordapp\.com\/(?:avatars\/\d+\/|guilds\/\d+\/users\/\d+\/avatars\/)/i.test(av)) return;
+  if (av && /\/embed\/avatars\//i.test(av)) return;
+  /* organicoAvatarOutSync1: senza avatar non è “ok” — altrimenti blocca i refetch */
+  if (!av) return;
   if (identityOkCache.size > 5000) {
     const first = identityOkCache.keys().next().value;
     if (first) identityOkCache.delete(first);
@@ -113,12 +124,11 @@ function retryAfterMs(err) {
 async function fetchDiscordUserFresh(client, userId) {
   const uid = String(userId || "").trim();
   if (!client || !isDiscordSnowflake(uid)) return null;
-  const cached = client.users?.cache?.get?.(uid);
-  if (cached) return cached;
   if (typeof client.users?.fetch !== "function") return null;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      return await client.users.fetch(uid);
+      /* organicoAvatarHeal1: force — evita hash avatar stale nella cache d.js */
+      return await client.users.fetch(uid, { force: true });
     } catch (err) {
       if (isRateLimitError(err) && attempt < 4) {
         await sleep(retryAfterMs(err));
@@ -134,8 +144,12 @@ async function resolveWebUserIdentity(client, guild, userId, opts = {}) {
   const uid = String(userId || "").trim();
   if (!isDiscordSnowflake(uid)) return identityFallback(uid);
 
-  const warm = readIdentityOkCache(uid);
-  if (warm) return warm;
+  const preferFreshUser = Boolean(opts.preferFreshUser);
+  if (!preferFreshUser) {
+    const warm = readIdentityOkCache(uid);
+    /* organicoLiveAvatar1: cache senza avatar non è “ok” — rifetch (depexed con foto live) */
+    if (warm && String(warm.avatarUrl || "").trim()) return warm;
+  }
 
   if (!opts.skipGuildMember) {
     const member = guild ? await getGuildMemberCached(guild, uid).catch(() => null) : null;
@@ -152,9 +166,12 @@ async function resolveWebUserIdentity(client, guild, userId, opts = {}) {
     }
   }
 
-  let user = client?.users?.cache?.get?.(uid) || null;
+  let user = null;
+  if (!preferFreshUser) {
+    user = client?.users?.cache?.get?.(uid) || null;
+  }
   if (!user && client) {
-    user = opts.preferFreshUser
+    user = preferFreshUser
       ? await fetchDiscordUserFresh(client, uid)
       : await getUserCached(client, uid).catch(() => null);
   }
@@ -173,15 +190,18 @@ async function resolveWebUserIdentitiesBatch(client, guild, userIds, opts = {}) 
   const paceMs = Math.max(0, Number(opts.paceMs) || 0);
   const cacheOnly = Boolean(opts.cacheOnly);
   const fillFallback = opts.fillFallback !== false && !cacheOnly;
+  const preferFreshUser = Boolean(opts.preferFreshUser);
   const unique = [...new Set((userIds || []).map((x) => String(x || "").trim()).filter(isDiscordSnowflake))];
   const out = new Map();
   const missing = [];
 
   for (const uid of unique) {
-    const warm = readIdentityOkCache(uid);
-    if (warm) {
-      out.set(uid, warm);
-      continue;
+    if (!preferFreshUser) {
+      const warm = readIdentityOkCache(uid);
+      if (warm && String(warm.avatarUrl || "").trim()) {
+        out.set(uid, warm);
+        continue;
+      }
     }
     const member = guild?.members?.cache?.get?.(uid);
     if (member) {
@@ -196,12 +216,14 @@ async function resolveWebUserIdentitiesBatch(client, guild, userIds, opts = {}) 
       out.set(uid, resolved);
       continue;
     }
-    const cachedUser = client?.users?.cache?.get?.(uid);
-    if (cachedUser) {
-      const resolved = identityFromUser(cachedUser, uid);
-      writeIdentityOkCache(resolved);
-      out.set(uid, resolved);
-      continue;
+    if (!preferFreshUser) {
+      const cachedUser = client?.users?.cache?.get?.(uid);
+      if (cachedUser) {
+        const resolved = identityFromUser(cachedUser, uid);
+        writeIdentityOkCache(resolved);
+        out.set(uid, resolved);
+        continue;
+      }
     }
     missing.push(uid);
   }
@@ -217,7 +239,7 @@ async function resolveWebUserIdentitiesBatch(client, guild, userIds, opts = {}) 
           const id = await resolveWebUserIdentity(client, guild, uid, {
             // Default: allow guild cache/member. Callers that fear member storms pass skipGuildMember:true.
             skipGuildMember: Boolean(opts.skipGuildMember),
-            preferFreshUser: true,
+            preferFreshUser,
           });
           out.set(uid, id);
         }),

@@ -1,5 +1,6 @@
 const { ChannelType } = require("discord.js");
-const TICKETS_CATEGORY_NAME = "⁰⁰・ 　　 　　TICKETS 　　　　　 ・";
+/* categoryCenterPad3: sidePad=1 frame=9 — niente "..." Discord */
+const TICKETS_CATEGORY_NAME = "⁰⁰・　　TICKETS　　・";
 const TICKETS_OVERFLOW_SEPARATOR = " • ";
 
 function normalizeCategoryName(name) {

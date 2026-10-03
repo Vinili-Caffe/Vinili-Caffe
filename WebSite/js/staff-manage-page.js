@@ -38,10 +38,14 @@
     return Boolean(state.selfService && isViewingSelf());
   }
 
-  function apiUrl(userId) {
+  function apiUrl(userId, opts) {
+    opts = opts || {};
     var base = T.resolveApiUrl(window.__VC_STAFF_MANAGE, "/webhooks/site-staff-manage");
     if (!userId) return base;
-    return base + (base.indexOf("?") >= 0 ? "&" : "?") + "userId=" + encodeURIComponent(userId);
+    var q = "userId=" + encodeURIComponent(userId);
+    if (opts.roster === 0 || opts.roster === "0" || state._modalMode) q += "&roster=0";
+    if (opts.fresh) q += "&fresh=1";
+    return base + (base.indexOf("?") >= 0 ? "&" : "?") + q;
   }
 
   function selectedUserIdFromUrl() {
@@ -332,24 +336,32 @@
     var pages = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE));
     if (pages <= 1) return "";
     var cur = Math.min(pages, Math.max(1, page || 1));
+    if (window.__vcMiniPager && typeof window.__vcMiniPager.html === "function") {
+      return window.__vcMiniPager.html(cur, pages, {
+        aria: "Paginazione cronologia",
+        prevAttr: 'data-hist-page="prev"',
+        nextAttr: 'data-hist-page="next"',
+        goAttr: "data-hist-page",
+      }).replace(
+        'class="vc-mini-pager vc-pill-pager vc-staff-inbox-pagination"',
+        'class="vc-staff-manage-history-pager vc-mini-pager vc-pill-pager vc-staff-inbox-pagination" data-hist-pager',
+      );
+    }
     return (
-      '<nav class="vc-staff-manage-history-pager vc-mini-pager" data-hist-pager aria-label="Paginazione cronologia">' +
-      '<button type="button" class="vc-mini-pager__arrow" data-hist-page="' +
-      T.esc(String(cur - 1)) +
-      '"' +
+      '<nav class="vc-staff-manage-history-pager vc-mini-pager vc-pill-pager vc-staff-inbox-pagination" data-hist-pager aria-label="Paginazione cronologia">' +
+      '<div class="vc-staff-inbox-pagination__row"><div class="vc-staff-pt-seg vc-staff-inbox-pagination__seg">' +
+      '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__navbtn" data-hist-page="prev"' +
       (cur <= 1 ? " disabled" : "") +
-      ' aria-label="Pagina precedente"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>' +
-      '<span class="vc-staff-manage-history-pager__label">Pagina ' +
+      ' aria-label="Pagina precedente">\u2190</button>' +
+      '<button type="button" class="vc-staff-pt-seg__btn is-active" data-hist-page="' +
       T.esc(String(cur)) +
-      " / " +
-      T.esc(String(pages)) +
-      "</span>" +
-      '<button type="button" class="vc-mini-pager__arrow" data-hist-page="' +
-      T.esc(String(cur + 1)) +
-      '"' +
+      '" aria-current="page">' +
+      T.esc(String(cur)) +
+      "</button>" +
+      '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__navbtn" data-hist-page="next"' +
       (cur >= pages ? " disabled" : "") +
-      ' aria-label="Pagina successiva"><i class="fa fa-chevron-right" aria-hidden="true"></i></button>' +
-      "</nav>"
+      ' aria-label="Pagina successiva">\u2192</button>' +
+      "</div></div></nav>"
     );
   }
 
@@ -505,10 +517,12 @@
 
   function setPauseStatus(text, isError) {
     var el = T.byId("vc-staff-manage-pause-status");
-    if (!el) return;
-    el.textContent = String(text || "");
-    el.hidden = !text;
-    el.classList.toggle("is-error", Boolean(isError));
+    if (el) {
+      el.textContent = "";
+      el.hidden = true;
+      el.classList.remove("is-error");
+    }
+    showManageToast(text, isError);
   }
 
   function memberHeadHtml(m) {
@@ -624,7 +638,11 @@
         low === "staffer del mese" ||
         low === "staff del mese" ||
         low.indexOf("staffer del mese") !== -1 ||
-        low.indexOf("staff del mese") !== -1
+        low.indexOf("staff del mese") !== -1 ||
+        low === "staffer della settimana" ||
+        low === "staff della settimana" ||
+        low.indexOf("staffer della settimana") !== -1 ||
+        low.indexOf("staff della settimana") !== -1
       ) {
         continue;
       }
@@ -664,10 +682,19 @@
     var isPm = Boolean(m.isPm);
     var choices = [];
     if (hub === "pex") {
-      if (m.canPex || m.canPexProspect) {
+      // pexPmRolePick1: da PM-only mostra scelta grado (non auto-Helper).
+      if (m.canPexProspect && Array.isArray(m.prospectPexChoices) && m.prospectPexChoices.length) {
+        m.prospectPexChoices.forEach(function (opt) {
+          if (!opt || !opt.id) return;
+          choices.push({
+            id: String(opt.id),
+            label: String(opt.label || opt.roleLabel || opt.id),
+          });
+        });
+      } else if (m.canPex) {
         choices.push({ id: "pex", label: "Pex" + arrow + pexDest });
       }
-            if (m.canPexPm && !isPm) {
+      if (m.canPexPm && !isPm) {
         choices.push({ id: "pex_pm", label: memberDest + arrow + "Partner Manager" });
       }
       if (!choices.length) {
@@ -678,7 +705,9 @@
       if (!chooseFn) return Promise.resolve(choices[0].id);
       return chooseFn({
         title: "Pex",
-        message: "Scegli il tipo di promozione.",
+        message: m.canPexProspect
+          ? "Scegli il ruolo staff da aggiungere (mantiene Partner Manager)."
+          : "Scegli il tipo di promozione.",
         cancelLabel: "Annulla",
         icon: "fa-arrow-up",
         danger: false,
@@ -686,13 +715,39 @@
       });
     }
     if (hub === "depex") {
-      if (m.canDepexLadder) {
+      /* depexDupMember1: se il depex a un grado = già Member, non duplicare Depex→Member */
+      var depexSameAsMember = false;
+      try {
+        var destN = String(depexDest || "")
+          .trim()
+          .toLowerCase();
+        var memN = String(memberDest || "")
+          .trim()
+          .toLowerCase();
+        depexSameAsMember =
+          Boolean(m.depexLadderIsMember) ||
+          destN === memN ||
+          destN === "member" ||
+          String(m.depexTargetRoleId || "") === "" ||
+          /^member$/i.test(String(m.depexTargetLabel || "").trim());
+      } catch (eSame) {
+        depexSameAsMember = false;
+      }
+      if (m.canDepexLadder && !depexSameAsMember) {
         choices.push({ id: "depex", label: "Depex" + arrow + depexDest });
       }
-            if (m.canDepexPm && isPm) {
-        choices.push({ id: "depex_pm", label: "Partner Manager" + arrow + memberDest, danger: true });
+      /* depexPmDupMember1: PM-only → una sola voce Member (niente PM→Member + Depex→Member) */
+      var isPmOnly = Boolean(m.isPmOnly);
+      if (m.canDepexPm && isPm && !isPmOnly) {
+        choices.push({ id: "depex_pm", label: "Rimuovi Partner Manager", danger: true });
       }
       if (m.canDepexFull !== false) {
+        choices.push({ id: "depex_full", label: "Depex" + arrow + memberDest, danger: true });
+      }
+      if (!choices.length && m.canDepexLadder && depexSameAsMember) {
+        choices.push({ id: "depex_full", label: "Depex" + arrow + memberDest, danger: true });
+      }
+      if (!choices.length && m.canDepexPm && isPm) {
         choices.push({ id: "depex_full", label: "Depex" + arrow + memberDest, danger: true });
       }
       if (!choices.length) {
@@ -864,12 +919,205 @@
       });
   }
 
+  /* depexToast1: progress + outcome → toast float (niente riga inline sotto Pex/Depex). */
+  function showManageToast(text, isError) {
+    var msg = String(text || "").trim();
+    if (!msg) {
+      try {
+        if (typeof T.hideStaffToast === "function") T.hideStaffToast();
+        else if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") {
+          window.VcSiteToast.hide();
+        }
+      } catch (eHide) {}
+      return;
+    }
+    var pending =
+      !isError && /in corso|Aggiornamento punti|Scambio in corso/i.test(msg);
+    var opts = pending ? { pending: true } : null;
+    try {
+      if (typeof T.showStaffToast === "function") {
+        T.showStaffToast(msg, Boolean(isError), opts);
+        return;
+      }
+      if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+        window.VcSiteToast.show(msg, Boolean(isError), opts || undefined);
+      }
+    } catch (eToast) {}
+  }
+
   function setActionStatus(text, isError) {
     var el = T.byId("vc-staff-manage-action-status");
-    if (!el) return;
-    el.textContent = String(text || "");
-    el.hidden = !text;
-    el.classList.toggle("is-error", Boolean(isError));
+    if (el) {
+      el.textContent = "";
+      el.hidden = true;
+      el.classList.remove("is-error");
+    }
+    showManageToast(text, isError);
+  }
+
+  function memberStillOnStaff(m) {
+    if (!m || typeof m !== "object") return false;
+    return Boolean(
+      m.ladderRoleId ||
+        m.isPm ||
+        m.isPmOnly ||
+        m.canDepexFull ||
+        m.canDepexLadder ||
+        m.canDepexPm ||
+        m.canPex,
+    );
+  }
+
+  function wasPmOnlyProfile(m) {
+    if (!m || typeof m !== "object") return false;
+    if (m.isPmOnly === true) return true;
+    var kind = String(m.profileKind || "").trim().toLowerCase();
+    if (kind === "pm_only") return true;
+    return Boolean(m.isPm && !m.ladderRoleId);
+  }
+
+  /* pexPmHelperClose1: PM → Helper (o altro grado ladder) = chiudi sheet + hard refresh come depex. */
+  function shouldHardRefreshAfterCareer(action, beforeMember, afterMember) {
+    var act = String(action || "").trim().toLowerCase();
+    if (!wasPmOnlyProfile(beforeMember)) return false;
+    if (act === "pex_pm") return false;
+    if (act === "pex" || act.indexOf("pex_") === 0) {
+      if (afterMember && afterMember.ladderRoleId && !afterMember.isPmOnly) return true;
+      /* POST ok ma member fetch ancora PM-only: comunque reshape. */
+      return true;
+    }
+    return false;
+  }
+
+  function closeManageSheetSafe() {
+    try {
+      if (typeof window.__vcCloseStaffManageSheet === "function") {
+        window.__vcCloseStaffManageSheet();
+      }
+    } catch (eClose) {}
+  }
+
+  function refreshAfterCareerAction(action, meta) {
+    meta = meta || {};
+    var act = String(action || "").trim().toLowerCase();
+    var beforeMember = meta.beforeMember || null;
+    var leftStaff = act.indexOf("depex") === 0 && !memberStillOnStaff(state.member);
+    var hardRefresh = shouldHardRefreshAfterCareer(act, beforeMember, state.member);
+    if (leftStaff) {
+      if (state.member && typeof state.member === "object") {
+        state.member = Object.assign({}, state.member, {
+          leftStaff: true,
+          ladderRoleId: null,
+          canDepexFull: false,
+          canDepexLadder: false,
+          canPex: false,
+        });
+      }
+      notifyModalUpdated({
+        leftStaff: true,
+        hardRefresh: true,
+        action: act,
+        member: state.member,
+      });
+      closeManageSheetSafe();
+      return Promise.resolve();
+    }
+    if (hardRefresh) {
+      notifyModalUpdated({
+        leftStaff: false,
+        hardRefresh: true,
+        joinedLadder: true,
+        action: act,
+        member: state.member,
+      });
+      closeManageSheetSafe();
+      return Promise.resolve();
+    }
+    return T.fetchJson(apiUrl(state.selectedId, { fresh: true }), { cache: false, ttlMs: 0, persistMs: 0 })
+      .then(function (memberOut) {
+        var data = (memberOut && memberOut.data) || {};
+        var err = String(data.error || "").trim();
+        var status = memberOut && memberOut.res ? Number(memberOut.res.status || 0) : 0;
+        if (data.ok) {
+          if (data.sections) state.sections = data.sections;
+          state.member = data.member || state.member;
+          if (act.indexOf("depex") === 0 && !memberStillOnStaff(state.member)) {
+            notifyModalUpdated({
+              leftStaff: true,
+              hardRefresh: true,
+              action: act,
+              member: state.member,
+            });
+            closeManageSheetSafe();
+            return;
+          }
+          if (shouldHardRefreshAfterCareer(act, beforeMember, state.member)) {
+            notifyModalUpdated({
+              leftStaff: false,
+              hardRefresh: true,
+              joinedLadder: true,
+              action: act,
+              member: state.member,
+            });
+            closeManageSheetSafe();
+            return;
+          }
+          renderDetail();
+          notifyModalUpdated({ leftStaff: false, hardRefresh: false, action: act, member: state.member });
+          return;
+        }
+        /* Dopo depex completo il GET torna not_staff: non è un errore di rete. */
+        if (
+          act.indexOf("depex") === 0 &&
+          (err === "not_staff" || status === 400 || status === 403 || status === 404)
+        ) {
+          if (state.member && typeof state.member === "object") {
+            state.member = Object.assign({}, state.member, {
+              leftStaff: true,
+              ladderRoleId: null,
+              canDepexFull: false,
+              canDepexLadder: false,
+              canPex: false,
+            });
+          }
+          notifyModalUpdated({
+            leftStaff: true,
+            hardRefresh: true,
+            action: act,
+            member: state.member,
+          });
+          closeManageSheetSafe();
+          return;
+        }
+        renderDetail();
+        notifyModalUpdated({ leftStaff: false, hardRefresh: false, action: act, member: state.member });
+      })
+      .catch(function () {
+        /* POST già ok: non mascherare il successo con errore di rete sul refresh. */
+        if (act.indexOf("depex") === 0 && !memberStillOnStaff(state.member)) {
+          notifyModalUpdated({
+            leftStaff: true,
+            hardRefresh: true,
+            action: act,
+            member: state.member,
+          });
+          closeManageSheetSafe();
+          return;
+        }
+        if (shouldHardRefreshAfterCareer(act, beforeMember, state.member)) {
+          notifyModalUpdated({
+            leftStaff: false,
+            hardRefresh: true,
+            joinedLadder: true,
+            action: act,
+            member: state.member,
+          });
+          closeManageSheetSafe();
+          return;
+        }
+        renderDetail();
+        notifyModalUpdated({ leftStaff: false, hardRefresh: false, action: act, member: state.member });
+      });
   }
 
   function selectMember(userId, opts) {
@@ -883,7 +1131,10 @@
       renderDetail();
       return Promise.resolve();
     }
-    return T.fetchJson(apiUrl(state.selectedId))
+    return T.fetchJson(apiUrl(state.selectedId, { fresh: Boolean(opts.fresh || opts.modal || state._modalMode) }), {
+      cache: false,
+      timeoutMs: 55000,
+    })
       .then(function (out) {
         if (!out.res.ok || !out.data || !out.data.ok) {
           if (!state._modalMode) {
@@ -1166,6 +1417,42 @@
 
     var labels = {
       pex: { title: "Pex staff", msg: "Confermi il pex di un grado?", danger: false, icon: "fa-arrow-up" },
+      pex_helper: {
+        title: "Partner Manager → Helper",
+        msg: "Aggiungere Helper (mantiene Partner Manager)?",
+        danger: false,
+        icon: "fa-arrow-up",
+      },
+      pex_mod: {
+        title: "Partner Manager → Moderator",
+        msg: "Aggiungere Moderator (mantiene Partner Manager)?",
+        danger: false,
+        icon: "fa-arrow-up",
+      },
+      pex_senior_moderator: {
+        title: "Partner Manager → Senior Moderator",
+        msg: "Aggiungere Senior Moderator (mantiene Partner Manager)?",
+        danger: false,
+        icon: "fa-arrow-up",
+      },
+      pex_director: {
+        title: "Partner Manager → Director",
+        msg: "Aggiungere Director (mantiene Partner Manager)?",
+        danger: false,
+        icon: "fa-arrow-up",
+      },
+      pex_admin: {
+        title: "Partner Manager → Admin",
+        msg: "Aggiungere Admin (mantiene Partner Manager)?",
+        danger: false,
+        icon: "fa-arrow-up",
+      },
+      pex_manager: {
+        title: "Partner Manager → Manager",
+        msg: "Aggiungere Manager (mantiene Partner Manager)?",
+        danger: false,
+        icon: "fa-arrow-up",
+      },
       pex_pm: {
         title: "Member → Partner Manager",
         msg: "Assegnare il ruolo Partner Manager?",
@@ -1174,8 +1461,8 @@
       },
       depex: { title: "Depex staff", msg: "Confermi il depex di un grado?", danger: true, icon: "fa-arrow-down" },
       depex_pm: {
-        title: "Partner Manager → Member",
-        msg: "Rimuovere il ruolo Partner Manager?",
+        title: "Rimuovi Partner Manager",
+        msg: "Rimuovere il ruolo Partner Manager (resta lo staff ladder)?",
         danger: true,
         icon: "fa-handshake-o",
       },
@@ -1195,12 +1482,25 @@
       if (action === "depex" && m.depexTargetLabel) meta.title = "Depex" + arrow + String(m.depexTargetLabel).trim();
       if (action === "depex_full" && m.memberRoleLabel) meta.title = "Depex" + arrow + String(m.memberRoleLabel).trim();
       if (action === "pex_pm") meta.title = memberDest + arrow + "Partner Manager";
-      if (action === "depex_pm") meta.title = "Partner Manager" + arrow + memberDest;
+      if (action === "depex_pm") meta.title = "Rimuovi Partner Manager";
+      if (Array.isArray(m.prospectPexChoices)) {
+        m.prospectPexChoices.forEach(function (opt) {
+          if (opt && String(opt.id) === String(action) && opt.label) meta.title = String(opt.label);
+        });
+      }
     } catch (eTitle) {}
 
     var run = function (finalReason) {
       state.busy = true;
       setActionStatus("Esecuzione in corso\u2026", false);
+      var beforeMember = state.member
+        ? {
+            isPm: Boolean(state.member.isPm),
+            isPmOnly: Boolean(state.member.isPmOnly),
+            ladderRoleId: state.member.ladderRoleId || null,
+            profileKind: state.member.profileKind || null,
+          }
+        : null;
       var body = Object.assign(
         {
           action: action,
@@ -1224,14 +1524,7 @@
           state.member = out.data.member || state.member;
           setActionStatus(out.data.message || "Operazione completata.", false);
           if (reasonEl) reasonEl.value = "";
-          return T.fetchJson(apiUrl(state.selectedId)).then(function (memberOut) {
-            if (memberOut.data && memberOut.data.ok) {
-              if (memberOut.data.sections) state.sections = memberOut.data.sections;
-              state.member = memberOut.data.member || state.member;
-            }
-            renderDetail();
-            notifyModalUpdated();
-          });
+          return refreshAfterCareerAction(action, { beforeMember: beforeMember });
         })
         .catch(function () {
           state.busy = false;
@@ -1275,14 +1568,16 @@
     });
   }
 
-  function notifyModalUpdated() {
+  function notifyModalUpdated(info) {
     if (!state._modalMode) return;
     try {
       if (
         window.VCStaffManagePanel &&
         typeof window.VCStaffManagePanel.onMemberUpdated === "function"
       ) {
-        window.VCStaffManagePanel.onMemberUpdated(state.member);
+        window.VCStaffManagePanel.onMemberUpdated(
+          info || { leftStaff: false, member: state.member },
+        );
       }
     } catch (eN) {}
   }
@@ -1303,8 +1598,18 @@
         var histBtn =
           ev.target && ev.target.closest ? ev.target.closest("[data-hist-page]") : null;
         if (histBtn && !histBtn.disabled) {
-          var nextPage = Number(histBtn.getAttribute("data-hist-page") || 0);
-          if (Number.isFinite(nextPage) && nextPage >= 1) {
+          var dir = String(histBtn.getAttribute("data-hist-page") || "");
+          var m = state.selectedMember;
+          var rows = m ? historyRowsForMember(m) : [];
+          var maxPage = Math.max(1, Math.ceil((rows.length || 0) / HISTORY_PAGE_SIZE) || 1);
+          var nextPage = state.historyPage;
+          if (dir === "prev" && state.historyPage > 1) nextPage = state.historyPage - 1;
+          else if (dir === "next" && state.historyPage < maxPage) nextPage = state.historyPage + 1;
+          else {
+            var n = Number(dir);
+            if (Number.isFinite(n) && n >= 1 && n <= maxPage) nextPage = n;
+          }
+          if (nextPage !== state.historyPage) {
             state.historyPage = nextPage;
             renderDetail();
           }
@@ -1603,18 +1908,24 @@
         }
         return Promise.reject(eBind2);
       }
-      return selectMember(userId, { modal: true }).catch(function (out) {
+      return selectMember(userId, { modal: true, fresh: true }).catch(function (out) {
         if (panel) {
           var msg =
             (out && out.data && out.data.message) ||
-            (out && out.res && out.res.status === 403
-              ? "Non hai permessi per gestire questo profilo."
-              : "Impossibile caricare la scheda.");
+            (out && out.timedOut
+              ? "Timeout caricamento scheda. Riprova."
+              : out && out.res && out.res.status === 403
+                ? "Non hai permessi per gestire questo profilo."
+                : out && out.res && out.res.status === 503
+                  ? "Discord lento o non disponibile. Riprova tra poco."
+                  : "Impossibile caricare la scheda.");
           panel.innerHTML =
             '<div class="vc-staff-manage-modal-error">' +
             "<p>" +
             T.esc(msg) +
-            "</p></div>";
+            "</p>" +
+            '<p class="vc-staff-manage-modal-error__hint">Chiudi e riprova, oppure ricarica la pagina.</p>' +
+            "</div>";
         }
         return Promise.reject(out);
       });

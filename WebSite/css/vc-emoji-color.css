@@ -1,0 +1,236 @@
+/* bakeEmoji1: Twemoji <img> + span fallback; boards step/title solid */
+html.vc-site-polish body.vc-body img.vc-emoji,
+html.vc-site-polish body.vc-body img.vc-twemoji,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body img.vc-emoji,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body img.vc-twemoji,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body img.vc-emoji,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body img.vc-twemoji,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main img.vc-emoji,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main img.vc-twemoji {
+  display: inline-block !important;
+  height: 1.2em !important;
+  width: 1.2em !important;
+  max-width: 1.35em !important;
+  max-height: 1.35em !important;
+  margin: 0 0.08em !important;
+  padding: 0 !important;
+  vertical-align: -0.2em !important;
+  object-fit: contain !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+html.vc-site-polish body.vc-body span.vc-emoji,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body span.vc-emoji,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body span.vc-emoji,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main :is(h1, h2, h3, h4, p, li, span, a, strong, b, em) span.vc-emoji,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top main :is(h1, h2, h3, h4, p, li, span, a, strong, b, em) span.vc-emoji,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top main span.vc-emoji,
+html.vc-site-polish body.vc-body span.vc-sponsor-emoji,
+html.vc-site-polish[data-vc-theme="light"] body.vc-body span.vc-sponsor-emoji {
+  display: inline !important;
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: inherit !important;
+  -webkit-text-fill-color: unset !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  vertical-align: -0.08em !important;
+  font-variant-emoji: emoji !important;
+  font-family:
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Noto Color Emoji",
+    "Android Emoji",
+    "Twemoji Mozilla",
+    emoji !important;
+}
+
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main h2.vc-boards-form-hero__title,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main h2.vc-boards-form-hero__title,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page main h2.vc-boards-form-hero__title,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page #vc-page-content h2.vc-boards-form-hero__title,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page main h2.vc-boards-form-hero__title,
+html.vc-site-polish body.vc-boards-page h2.vc-boards-form-hero__title {
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: #f7ecdf !important;
+  -webkit-text-fill-color: #f7ecdf !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page main h2.vc-boards-form-hero__title,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page main h2.vc-boards-form-hero__title,
+html.vc-site-polish[data-vc-theme="light"] body.vc-boards-page h2.vc-boards-form-hero__title,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main h2.vc-boards-form-hero__title {
+  color: #2a1c14 !important;
+  -webkit-text-fill-color: #2a1c14 !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+}
+
+/* boardsStepsRead1: step sempre leggibili (mai ink scuro su fondo scuro) */
+html.vc-site-polish body.vc-body.vc-boards-page main li.vc-boards-steps__item,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page main li.vc-boards-steps__item {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  line-height: 1 !important;
+  font-size: 0.8rem !important;
+  color: #e8d4bc !important;
+  -webkit-text-fill-color: #e8d4bc !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  border: 1px solid transparent !important;
+}
+html.vc-site-polish body.vc-body.vc-boards-page main li.vc-boards-steps__item span.vc-boards-steps__num,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item span.vc-boards-steps__num,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item span.vc-boards-steps__num {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  min-width: 1.25rem !important;
+  border-radius: 999px !important;
+  background: #2a221c !important;
+  background-color: #2a221c !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: #f0d4b4 !important;
+  -webkit-text-fill-color: #f0d4b4 !important;
+  font-size: 0.8rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  font-family: inherit !important;
+}
+html.vc-site-polish body.vc-body.vc-boards-page main li.vc-boards-steps__item span.vc-boards-steps__label,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item span.vc-boards-steps__label,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item span.vc-boards-steps__label {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: #e8d4bc !important;
+  -webkit-text-fill-color: #e8d4bc !important;
+  font-family: inherit !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+html.vc-site-polish body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page main li.vc-boards-steps__item.is-active,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page main li.vc-boards-steps__item.is-active {
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  background-color: #e8c4a0 !important;
+  background-image: linear-gradient(180deg, #f3dcc4 0%, #d4a888 100%) !important;
+  background: #e8c4a0 linear-gradient(180deg, #f3dcc4 0%, #d4a888 100%) !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  border-color: #fff7ec !important;
+  box-shadow: inset 0 1px 0 #ffffff !important;
+}
+html.vc-site-polish body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active span.vc-boards-steps__num,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active span.vc-boards-steps__num,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active span.vc-boards-steps__num {
+  background: #1a120e !important;
+  background-color: #1a120e !important;
+  background-image: none !important;
+  color: #f0d4b4 !important;
+  -webkit-text-fill-color: #f0d4b4 !important;
+}
+html.vc-site-polish body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active span.vc-boards-steps__label,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active span.vc-boards-steps__label,
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body.vc-boards-page main li.vc-boards-steps__item.is-active span.vc-boards-steps__label,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top.vc-boards-page main li.vc-boards-steps__item.is-active span.vc-boards-steps__label {
+  color: #1a120e !important;
+  -webkit-text-fill-color: #1a120e !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* boardsFormPrefix1: @ e https:// sempre leggibili */
+html.vc-site-polish body.vc-body.vc-boards-page .vc-boards-social-at,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-social-at,
+html.vc-site-polish body.vc-body.vc-boards-page .vc-boards-url-prefix,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-url-prefix {
+  color: #f0d4b4 !important;
+  -webkit-text-fill-color: #f0d4b4 !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  text-shadow: none !important;
+}
+
+/* boardsFormUi1: msel emoji + tip + placeholder soft */
+html.vc-site-polish body.vc-body.vc-boards-page .vc-boards-msel__opt,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-msel__opt {
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: #ecd6bc !important;
+  -webkit-text-fill-color: #ecd6bc !important;
+}
+html.vc-site-polish body.vc-body.vc-boards-page .vc-boards-msel__opt-ico,
+html.vc-site-polish body.vc-body.vc-boards-page .vc-boards-msel__tag-ico,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-msel__opt-ico,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-msel__tag-ico {
+  color: initial !important;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  background-image: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+html.vc-site-polish body.vc-body.vc-boards-page .vc-boards-form input::placeholder,
+html.vc-site-polish body.vc-body.vc-boards-page .vc-boards-form textarea::placeholder,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-form input::placeholder,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-boards-page .vc-boards-form textarea::placeholder {
+  color: rgba(236, 214, 188, 0.38) !important;
+  -webkit-text-fill-color: rgba(236, 214, 188, 0.38) !important;
+  opacity: 1 !important;
+}
+
+/* boardsFormUi1 */

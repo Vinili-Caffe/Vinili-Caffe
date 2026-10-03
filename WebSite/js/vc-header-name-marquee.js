@@ -1,13 +1,60 @@
 (function () {
   if (typeof window === "undefined") return;
-  if (window.__vcHeaderSiteNameMarqueeWired === "tabletNavDouble1") return;
-  window.__vcHeaderSiteNameMarqueeWired = "tabletNavDouble1";
+  if (window.__vcHeaderSiteNameMarqueeWired === "violPass6") return;
+  window.__vcHeaderSiteNameMarqueeWired = "violPass6";
 
   var timer = null;
   var syncing = false;
   var TEXT_CLASS = "vc-header-site-name__text";
   var TRACK_CLASS = "vc-header-site-name__track";
   var ROOT_CLASS = "vc-header-site-name";
+
+  /* navBrandMarqueeNoGhost1: inline !important — batte metalFace :is() (spec (0,5,5))
+     che lasciava clip-text sul __text originale → ghost iOS sopra il marquee */
+  function marqueeSolidPaint(el) {
+    if (!el || !el.style) return;
+    var light = false;
+    try {
+      light = document.documentElement.getAttribute("data-vc-theme") === "light";
+    } catch (eTh) {}
+    var fill = light ? "#2a1c14" : "#f5d6b7";
+    try {
+      el.style.setProperty("background", "none", "important");
+      el.style.setProperty("background-image", "none", "important");
+      el.style.setProperty("background-color", "transparent", "important");
+      el.style.setProperty("-webkit-background-clip", "border-box", "important");
+      el.style.setProperty("background-clip", "border-box", "important");
+      el.style.setProperty("color", fill, "important");
+      el.style.setProperty("-webkit-text-fill-color", fill, "important");
+      el.style.setProperty("text-shadow", "none", "important");
+      el.style.setProperty("text-decoration", "none", "important");
+      el.style.setProperty("border-bottom", "none", "important");
+      el.style.setProperty("filter", "none", "important");
+      el.style.setProperty("-webkit-filter", "none", "important");
+      el.style.setProperty("-webkit-backface-visibility", "hidden", "important");
+      el.style.setProperty("backface-visibility", "hidden", "important");
+    } catch (ePaint) {}
+  }
+
+  function clearMarqueeSolidPaint(el) {
+    if (!el || !el.style) return;
+    try {
+      el.style.removeProperty("background");
+      el.style.removeProperty("background-image");
+      el.style.removeProperty("background-color");
+      el.style.removeProperty("-webkit-background-clip");
+      el.style.removeProperty("background-clip");
+      el.style.removeProperty("color");
+      el.style.removeProperty("-webkit-text-fill-color");
+      el.style.removeProperty("text-shadow");
+      el.style.removeProperty("text-decoration");
+      el.style.removeProperty("border-bottom");
+      el.style.removeProperty("filter");
+      el.style.removeProperty("-webkit-filter");
+      el.style.removeProperty("-webkit-backface-visibility");
+      el.style.removeProperty("backface-visibility");
+    } catch (eClr) {}
+  }
 
   function isMobileNavViewport() {
     try {
@@ -17,6 +64,10 @@
   }
 
     function wantsHeaderNavMarquee() {
+    try {
+      /* ticketsCpuHard2: niente marquee brand su /tickets/ (CPU continuo) */
+      if (document.body && document.body.classList.contains("vc-web-tickets-page")) return false;
+    } catch (eTk) {}
     return isMobileNavViewport();
   }
 
@@ -43,17 +94,26 @@
       }
       trackEl.style.transform = "";
       trackEl.style.animation = "";
+      for (var j = 0; j < nodes.length; j++) clearMarqueeSolidPaint(nodes[j]);
     }
-    if (textEl) textEl.style.paddingInlineEnd = "";
+    if (textEl) {
+      clearMarqueeSolidPaint(textEl);
+      textEl.style.paddingInlineEnd = "";
+    }
   }
 
   function measureSegmentWidth(trackEl, textEl) {
-    void trackEl.offsetWidth;
-    var fromText = Math.ceil(
-      (textEl && (textEl.getBoundingClientRect().width || textEl.offsetWidth)) || 0
-    );
+    /* violPass2: una sola lettura scrollWidth — no void offsetWidth + getBCR (Forced reflow) */
+    var fromText = 0;
+    try {
+      fromText = Math.ceil((textEl && textEl.scrollWidth) || 0);
+    } catch (eSw) {}
     if (fromText > 0) return Math.max(fromText, 36);
-    return Math.max(Math.round((trackEl.scrollWidth || 0) / 2), 36);
+    try {
+      return Math.max(Math.round((trackEl.scrollWidth || 0) / 2), 36);
+    } catch (eTw) {
+      return 36;
+    }
   }
 
   function isBrandNameLink(el) {
@@ -127,8 +187,26 @@
     stripTruncateClass(nameEl);
     var track = nameEl.querySelector("." + TRACK_CLASS);
     if (track) {
+      /* navBrandHostNoClip1: sposta nodi fuori dal track (testo fantasma sotto marquee) */
+      var stray = [];
+      for (var si = 0; si < nameEl.childNodes.length; si++) {
+        var ch = nameEl.childNodes[si];
+        if (ch !== track) stray.push(ch);
+      }
       var texts = track.querySelectorAll("." + TEXT_CLASS);
-      return { track: track, text: texts[0] || null };
+      var textEl = texts[0] || null;
+      if (!textEl) {
+        textEl = document.createElement("span");
+        textEl.className = TEXT_CLASS;
+        track.insertBefore(textEl, track.firstChild);
+      }
+      for (var sj = 0; sj < stray.length; sj++) {
+        textEl.appendChild(stray[sj]);
+      }
+      if (!String(textEl.textContent || "").trim()) {
+        textEl.textContent = brandFallbackText(nameEl);
+      }
+      return { track: track, text: textEl };
     }
     track = document.createElement("span");
     track.className = TRACK_CLASS;
@@ -157,23 +235,23 @@
       return;
     }
 
-    if (wantsHeaderNavMarquee() && nameEl.classList.contains("is-marquee")) {
+    /* handlerPerf2: desktop = solo struttura, zero measure/reflow */
+    if (!wantsHeaderNavMarquee()) {
+      if (nameEl.classList.contains("is-marquee")) clearMarquee(nameEl, trackEl, textEl);
+      return;
+    }
+
+    /* navBrandMarqueeAlways1: su telefono marquee sempre attivo (effetto brand),
+       non spegnere se il testo “ci sta”. */
+    if (nameEl.classList.contains("is-marquee")) {
       var prevText = String(nameEl.getAttribute("data-vc-marquee-text") || "");
       var hasClone = trackEl.querySelector("." + TEXT_CLASS + ".is-clone");
       var stored = Number(nameEl.getAttribute("data-vc-marquee-dist") || 0);
       var prevCw = Number(nameEl.getAttribute("data-vc-marquee-cw") || 0);
+      /* handlerPerf2: solo clientWidth (no getBCR / getComputedStyle in hot path) */
       var liveCw = nameEl.clientWidth || 0;
-      if (liveCw <= 0) liveCw = Math.floor(nameEl.getBoundingClientRect().width || 0);
-      var soleW = Math.ceil(
-        (textEl && (textEl.getBoundingClientRect().width || textEl.offsetWidth)) || 0
-      );
-      // Container cresciuto (tablet): testo ci sta → togli marquee (altrimenti doppia scritta).
-      if (soleW > 0 && liveCw > 0 && soleW <= liveCw + 2) {
-        // fall through: clear + no re-marquee
-      } else if (prevText === nextText && hasClone && Number.isFinite(stored) && stored > 0) {
-        // Non ricalcolare scrollWidth: con layout is-marquee vs no-marquee
-        // liveDist oscillava (es. 143 vs 127) e riavviava l'animazione in loop.
-        if (Math.abs(liveCw - prevCw) <= 10) {
+      if (prevText === nextText && hasClone && Number.isFinite(stored) && stored > 0) {
+        if (liveCw <= 0 || Math.abs(liveCw - prevCw) <= 12) {
           return;
         }
       }
@@ -190,55 +268,23 @@
     textEl.style.paddingInlineEnd = "";
     trackEl.style.transform = "";
 
-    void nameEl.offsetWidth;
+    /* handlerPerf2 / violPass6: una sola lettura layout — niente getComputedStyle */
     var containerW = nameEl.clientWidth || 0;
     if (containerW <= 0) {
-      containerW = Math.floor(nameEl.getBoundingClientRect().width || 0);
-    }
-    if (containerW <= 0) {
-      if (wantsHeaderNavMarquee()) {
-        window.setTimeout(function () {
-          syncOne(nameEl);
-        }, 120);
-      }
+      window.setTimeout(function () {
+        syncOne(nameEl);
+      }, 180);
       return;
     }
 
-    if (!wantsHeaderNavMarquee()) return;
-
-    var probe = document.createElement("span");
-    probe.textContent = textEl.textContent || "";
-    probe.setAttribute("aria-hidden", "true");
-    try {
-      var cs = window.getComputedStyle(textEl);
-      probe.style.cssText =
-        "position:absolute;left:-99999px;top:0;visibility:hidden;white-space:nowrap;display:inline-block;pointer-events:none;" +
-        "font:" +
-        cs.font +
-        ";letter-spacing:" +
-        cs.letterSpacing +
-        ";text-transform:" +
-        cs.textTransform +
-        ";";
-    } catch (eProbe) {
-      probe.style.cssText =
-        "position:absolute;left:-99999px;top:0;visibility:hidden;white-space:nowrap;display:inline-block;";
-    }
-    document.body.appendChild(probe);
-    var textW = Math.ceil(probe.scrollWidth || probe.offsetWidth || 0);
-    probe.parentNode.removeChild(probe);
-
-    // Marquee solo se il testo non ci sta: su tablet lo spazio largo
-    // altrimenti mostra clone+originale affiancati ("doppia" scritta).
-    var active = nameEl.classList.contains("is-marquee");
-    if (textW <= containerW + 2) return;
-    if (active && textW <= containerW + 6) return;
-    if (!active && textW <= containerW + 8) return;
-
+    /* Always-on su telefono: niente early-return se il testo ci sta. */
     var clone = textEl.cloneNode(true);
     clone.setAttribute("aria-hidden", "true");
     clone.classList.add("is-clone");
     textEl.style.paddingInlineEnd = "2rem";
+    /* navBrandMarqueeNoGhost1: solid paint PRIMA dell'anim — no metal clip-text ghost */
+    marqueeSolidPaint(textEl);
+    marqueeSolidPaint(clone);
     trackEl.appendChild(clone);
 
     // Misura con layout marquee attivo ma animazione spenta, così la distanza è stabile.
@@ -246,12 +292,15 @@
     trackEl.style.animation = "none";
     var segmentW = measureSegmentWidth(trackEl, textEl);
     trackEl.style.animation = "";
-    nameEl.style.setProperty("--vc-marquee-distance", segmentW + "px");
+    nameEl.style.setProperty("--vc-marquee-distance", segmentW + "px", "important");
     var duration = Math.max(8, Math.min(30, segmentW / 26));
-    nameEl.style.setProperty("--vc-marquee-duration", duration.toFixed(1) + "s");
+    nameEl.style.setProperty("--vc-marquee-duration", duration.toFixed(1) + "s", "important");
     nameEl.setAttribute("data-vc-marquee-text", nextText);
     nameEl.setAttribute("data-vc-marquee-dist", String(segmentW));
     nameEl.setAttribute("data-vc-marquee-cw", String(containerW));
+    /* re-assert dopo class/is-marquee (theme/css possono ripingere) */
+    marqueeSolidPaint(textEl);
+    marqueeSolidPaint(clone);
   }
 
   function syncAll(root) {
@@ -260,15 +309,20 @@
     try {
       var links = collectBrandNameLinks(root);
       for (var i = 0; i < links.length; i++) syncOne(links[i]);
-      if (typeof window.__vcHeaderSiteNameMoRefresh === "function") {
-        try {
-          window.__vcHeaderSiteNameMoRefresh();
-        } catch (eRefMo) {}
-      }
-      if (typeof window.__vcHeaderSiteNameRoRefresh === "function") {
-        try {
-          window.__vcHeaderSiteNameRoRefresh();
-        } catch (eRefRo) {}
+      /* handlerPerf2: niente Mo/Ro refresh a ogni sync (era ~700ms+ Violation) */
+      var n = links.length;
+      if (window.__vcHeaderSiteNameLinkCount !== n) {
+        window.__vcHeaderSiteNameLinkCount = n;
+        if (typeof window.__vcHeaderSiteNameMoRefresh === "function") {
+          try {
+            window.__vcHeaderSiteNameMoRefresh();
+          } catch (eRefMo) {}
+        }
+        if (typeof window.__vcHeaderSiteNameRoRefresh === "function") {
+          try {
+            window.__vcHeaderSiteNameRoRefresh();
+          } catch (eRefRo) {}
+        }
       }
     } finally {
       syncing = false;
@@ -277,11 +331,27 @@
 
   function schedule(root) {
     if (syncing) return;
+    try {
+      if (document.hidden || document.visibilityState === "hidden") return;
+    } catch (eHid) {}
     if (timer) clearTimeout(timer);
     timer = setTimeout(function () {
       timer = null;
-      syncAll(root);
-    }, 180);
+      try {
+        if (document.hidden || document.visibilityState === "hidden") return;
+      } catch (eHid2) {}
+      function run() {
+        syncAll(root);
+      }
+      /* handlerPerf2: idle > rAF (niente Violation requestAnimationFrame handler) */
+      try {
+        if (typeof window.requestIdleCallback === "function") {
+          window.requestIdleCallback(run, { timeout: 700 });
+          return;
+        }
+      } catch (eIdle) {}
+      window.setTimeout(run, 0);
+    }, 380);
   }
 
   function observeBrandHosts() {
@@ -387,21 +457,28 @@
         window.__vcHeaderSiteNameMoRefresh = observeLinks;
       }
     } catch (eMo) {}
+    /* handlerPerf1: meno pass boot marquee + navBrandMarqueeAlways1: dopo soft-fx/css */
     setTimeout(function () {
       schedule(document);
-    }, 120);
+    }, 200);
     setTimeout(function () {
       schedule(document);
-    }, 400);
+    }, 900);
     setTimeout(function () {
       schedule(document);
-    }, 1200);
-    setTimeout(function () {
-      schedule(document);
-    }, 2800);
-    setTimeout(function () {
-      schedule(document);
-    }, 5000);
+    }, 2200);
+    try {
+      var soft = document.getElementById("vc-soft-fx-css");
+      if (soft) {
+        soft.addEventListener(
+          "load",
+          function () {
+            schedule(document);
+          },
+          { once: true },
+        );
+      }
+    } catch (eSoft) {}
   }
 
   if (document.readyState === "loading") {
@@ -488,19 +565,23 @@
     textEl.style.paddingInlineEnd = "";
     trackEl.style.transform = "";
 
-    void el.offsetWidth;
     var containerW = el.clientWidth || 0;
     var person = el.closest && el.closest(".vc-home-staff-roster__person");
     if (person) {
-      var pcs = window.getComputedStyle(person);
-      var pad = (parseFloat(pcs.paddingLeft) || 0) + (parseFloat(pcs.paddingRight) || 0);
-      var gap = parseFloat(pcs.columnGap || pcs.gap) || 0;
+      var pad = 0;
+      var gap = 0;
+      try {
+        var pcs = window.getComputedStyle(person);
+        pad = (parseFloat(pcs.paddingLeft) || 0) + (parseFloat(pcs.paddingRight) || 0);
+        gap = parseFloat(pcs.columnGap || pcs.gap) || 0;
+      } catch (ePcs) {}
       var used = 0;
       var extra = 0;
       for (var pi = 0; pi < person.children.length; pi += 1) {
         var child = person.children[pi];
         if (child === el) continue;
-        used += child.getBoundingClientRect().width;
+        /* violPass2: offsetWidth invece di getBCR */
+        used += child.offsetWidth || 0;
         extra += 1;
       }
       var avail = Math.floor(person.clientWidth - pad - used - gap * extra);
@@ -542,7 +623,7 @@
     trackEl.appendChild(clone);
     textEl.style.paddingInlineEnd = "1.6rem";
 
-    var segmentW = Math.ceil(textEl.getBoundingClientRect().width || textEl.scrollWidth || textW);
+    var segmentW = Math.ceil(textEl.scrollWidth || textW);
     if (segmentW <= 0) segmentW = textW + 26;
     el.style.setProperty("--vc-marquee-distance", segmentW + "px");
     var duration = Math.max(7, Math.min(22, segmentW / 28));
@@ -556,11 +637,29 @@
   }
 
   function schedule(root) {
+    try {
+      if (document.hidden || document.visibilityState === "hidden") return;
+    } catch (eHid) {}
     if (timer) clearTimeout(timer);
     timer = setTimeout(function () {
       timer = null;
-      syncAll(root);
-    }, 60);
+      try {
+        if (document.hidden || document.visibilityState === "hidden") return;
+      } catch (eHid2) {}
+      /* violPass2: idle invece di rAF (era ~153ms Violation requestAnimationFrame) */
+      function run() {
+        try {
+          syncAll(root);
+        } catch (eSync) {}
+      }
+      try {
+        if (typeof window.requestIdleCallback === "function") {
+          window.requestIdleCallback(run, { timeout: 900 });
+          return;
+        }
+      } catch (eIdle) {}
+      window.setTimeout(run, 0);
+    }, 220);
   }
 
   window.__vcSyncNameMarquees = function (root) {
@@ -616,7 +715,7 @@
     } catch (eRo) {}
     setTimeout(function () {
       schedule(document);
-    }, 120);
+    }, 220);
   }
 
   if (document.readyState === "loading") {
@@ -625,3 +724,5 @@
     wire();
   }
 })();
+/* handlerPerf1 marker */
+/* violPass2 */

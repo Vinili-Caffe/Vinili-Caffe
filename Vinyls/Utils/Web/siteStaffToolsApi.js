@@ -28,6 +28,7 @@ const {
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const { buildPmShopCatalogForWeb } = require("./siteStaffPmShopApi");
 const { memberIsPm } = require("./siteStaffRosterCache");
+const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag");
 const { resolveWebUserIdentitiesBatch } = require("./siteWebUserIdentity");
 const { memberCanManagePartnerManagers } = require("../Ticket/ticketPartnershipStaffRoles");
 
@@ -38,7 +39,7 @@ function memberIsHighStaff(member) {
 async function handleSiteStaffPmHubGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,
@@ -134,7 +135,7 @@ async function handleSiteStaffPmHubGet(client, req, res) {
 async function handleSiteStaffTicketsGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,
@@ -186,13 +187,29 @@ async function handleSiteStaffTicketsGet(client, req, res) {
       panelId: t.panelId != null ? String(t.panelId) : null,
     }));
 
-    res.setHeader("Cache-Control", "private, max-age=10");
-    return res.status(200).json({
+    const payload = {
       ok: true,
       guildId,
       count: tickets.length,
       tickets,
       filters: { mine, unclaimed },
+    };
+    /* siteApiW8: ETag/304 on discord staff tickets list poll */
+    const etag = weakEtagFromParts([
+      "stt",
+      guildId,
+      access.member.id,
+      mine ? "1" : "0",
+      unclaimed ? "1" : "0",
+      tickets.length,
+      tickets
+        .map((t) => `${t.id}:${t.claimedBy || ""}:${t.createdAt || ""}`)
+        .join(",")
+        .slice(0, 180),
+    ]);
+    return sendJsonWithEtag(req, res, payload, {
+      cacheControl: "private, no-cache",
+      etag,
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-tickets:", err);
@@ -203,7 +220,7 @@ async function handleSiteStaffTicketsGet(client, req, res) {
 async function handleSiteStaffSerataFilmGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,
@@ -241,7 +258,7 @@ async function handleSiteStaffSerataFilmGet(client, req, res) {
 async function handleSiteStaffSerataFilmPost(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,

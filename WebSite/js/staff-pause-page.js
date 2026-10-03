@@ -595,10 +595,32 @@
   }
 
   function setRequestFeedback(text, kind) {
+    var msg = String(text || "").trim();
     var el = byId("vc-staff-request-feedback");
+    /* rolesRequestToast1: feedback richiesta → toast, non riga sotto il form */
+    if (el) {
+      el.textContent = "";
+      el.classList.remove("is-error", "is-ok");
+    }
+    if (!msg) {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") window.VcSiteToast.hide();
+      } catch (eHide) {}
+      return;
+    }
+    var isErr = kind === "error";
+    try {
+      if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+        window.VcSiteToast.show(msg, isErr, {
+          pending: !isErr && kind !== "ok" && /\.\.\.|…$/.test(msg) ? true : undefined,
+          ms: isErr ? 3600 : kind === "ok" ? 2200 : 1800,
+        });
+        return;
+      }
+    } catch (eToast) {}
     if (!el) return;
-    el.textContent = String(text || "");
-    el.classList.toggle("is-error", kind === "error");
+    el.textContent = msg;
+    el.classList.toggle("is-error", isErr);
     el.classList.toggle("is-ok", kind === "ok");
   }
 

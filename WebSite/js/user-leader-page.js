@@ -1,12 +1,6 @@
 (function () {
-  var PER_PAGE = (function () {
-    try {
-      if (window.VcPerf && typeof window.VcPerf.leaderboardPerPage === "function") {
-        return window.VcPerf.leaderboardPerPage(9);
-      }
-    } catch (e) {}
-    return 9;
-  })();
+  var PER_PAGE = 9; /* ulNineAlways1: fisso 9 (no VcPerf lite→6) */
+  /* ulNineLoadUnlock1: API lite max9 + silent success spegne loader */
 
   function isProfileMode() {
     try {
@@ -100,7 +94,14 @@
     var id = String(row.userId || "").trim();
     var av = String(row.avatar || "").trim();
     if (id && av) {
-      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + ".png?size=128";
+      try {
+        if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.buildFromParts === "function") {
+          var built = window.VcDiscordAvatar.buildFromParts(id, av, 128);
+          if (built) return built;
+        }
+      } catch (eBuild) {}
+      var ext = /^a_/i.test(av) ? "gif" : "png";
+      return "https://cdn.discordapp.com/avatars/" + id + "/" + av + "." + ext + "?size=128";
     }
     try {
       if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.siteFallbackAvatarUrl === "function") {
@@ -241,7 +242,7 @@
     }
     if (midVal) {
       var kind = "plain";
-      if (state.board === "weekly" || state.board === "messages") kind = "int";
+      if (state.board === "weekly" || state.board === "messages" || state.board === "minigames") kind = "int";
       else if (state.board === "voice") kind = "hours";
       animateValueNode(midVal, readDisplayedAnimatedValue(midVal, kind), kind, 1000);
     }
@@ -260,6 +261,7 @@
     if (board === "weekly") return Number(row.weeklyExp) || 0;
     if (board === "messages") return Number(row.messagesTotal) || 0;
     if (board === "voice") return Number(row.voiceTotalSeconds) || 0;
+    if (board === "minigames") return Number(row.minigameTotalExp) || 0;
     return 0;
   }
 
@@ -294,9 +296,19 @@
   }
 
   function rankInner(rank) {
-    if (rank <= 0) return '<span class="vc-ul-rank-num">—</span>';
-    if (rank <= 3) return '<i class="fa fa-star" aria-hidden="true"></i>';
-    return '<span class="vc-ul-rank-num">#' + esc(String(rank)) + "</span>";
+    var r = Number(rank) || 0;
+    if (r <= 0) return '<span class="vc-ul-rank-num">—</span>';
+    /* ulPodioMedal1: stesse emoji podio di /vote/ (oro/argento/bronzo), non stella unica */
+    if (r >= 1 && r <= 3) {
+      return (
+        '<img class="vc-ul-rank-medal" src="/images/vc-podio-' +
+        String(r) +
+        '.png" alt="" width="40" height="40" decoding="async" draggable="false" data-vc-emoji="VC_Podio' +
+        String(r) +
+        '" />'
+      );
+    }
+    return '<span class="vc-ul-rank-num">#' + esc(String(r)) + "</span>";
   }
 
   function defaultEmbedAvatarUrl() {
@@ -400,6 +412,7 @@
   var USERS_FETCH_TIMEOUT_MS = 10000;
   var usersMemoryCache = new Map();
   var pendingScrollToCards = false;
+  var pendingKeepScrollY = 0;
   var leaderPrefetchConsumed = false;
 
   function fetchWithTimeout(url, options, timeoutMs) {
@@ -660,6 +673,16 @@
 
     function scrollAfterReveal() {
       if (isProfileMode()) return;
+      var yKeep = 0;
+      try {
+        yKeep =
+          window.pageYOffset ||
+          (document.documentElement && document.documentElement.scrollTop) ||
+          0;
+        if (opts && opts.keepY != null && Number.isFinite(Number(opts.keepY))) {
+          yKeep = Math.max(yKeep, Number(opts.keepY) || 0);
+        }
+      } catch (eKeep) {}
       function refreshCommunityLayout() {
         try {
           if (typeof window.__vcEnsureCommunityPageCineLayout === "function") {
@@ -700,11 +723,25 @@
           } catch (e2) {}
         }
       }
+      function restoreKeptY() {
+        /* scrollStayAll1: tab switch / pager — resta all'altezza, anche se il DOM collassa */
+        if (yKeep < 24) return;
+        try {
+          if (typeof window.__vcHoldPageScroll === "function") window.__vcHoldPageScroll(320, yKeep);
+          else if (typeof window.scrollTo === "function") window.scrollTo(0, yKeep);
+        } catch (eRest) {}
+      }
       refreshCommunityLayout();
       window.setTimeout(refreshCommunityLayout, 0);
       window.setTimeout(refreshCommunityLayout, 150);
       window.setTimeout(refreshCommunityLayout, 600);
-      if (!shouldScroll) return;
+      if (!shouldScroll) {
+        restoreKeptY();
+        window.setTimeout(restoreKeptY, 0);
+        window.setTimeout(restoreKeptY, 120);
+        window.setTimeout(restoreKeptY, 320);
+        return;
+      }
       window.setTimeout(function () {
         refreshCommunityLayout();
         scrollToLeaderCards("auto");
@@ -803,6 +840,11 @@
     var grid = byId("vc-ul-grid");
     if (overlay) {
       if (state.loading) {
+        try {
+          if (typeof window.__vcPinPageScroll === "function") {
+            window.__vcPinPageScroll({ soft: true });
+          }
+        } catch (ePinLd) {}
         overlay.hidden = false;
         overlay.removeAttribute("hidden");
         syncLeaderLoaderBlocking(overlay, true);
@@ -811,8 +853,8 @@
         overlay.style.removeProperty("pointer-events");
       }
     }
-    if (title) title.textContent = label || "Caricamento...";
-    if (sub) sub.textContent = state.loading ? "Sto preparando la pagina..." : "";
+    if (title) title.textContent = label || "Caricamento…";
+    if (sub) sub.textContent = state.loading ? "Un momento…" : "";
     if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
@@ -820,7 +862,9 @@
     if (!state.loading) {
       var doScroll = pendingScrollToCards;
       pendingScrollToCards = false;
-      clearLeaderPending({ scroll: doScroll });
+      var keepY = pendingKeepScrollY;
+      pendingKeepScrollY = 0;
+      clearLeaderPending({ scroll: doScroll, keepY: keepY });
     }
   }
 
@@ -887,14 +931,51 @@
   }
 
   var leader429RetryTimer = null;
+  var leader429RetryAttempt = 0;
+  function clearLeader429Retry() {
+    if (leader429RetryTimer) {
+      try {
+        window.clearTimeout(leader429RetryTimer);
+      } catch (eClr) {}
+      leader429RetryTimer = null;
+    }
+  }
   function scheduleLeader429Retry() {
     if (leader429RetryTimer) return;
-    leader429RetryTimer = window.setTimeout(function () {
+    leader429RetryAttempt += 1;
+    if (leader429RetryAttempt > 8) {
+      leader429RetryAttempt = 0;
+      try {
+        var gridEl = byId("vc-ul-grid");
+        if (!(gridEl && gridEl.querySelector(".vc-ul-card"))) {
+          setLoading(false);
+          setState("Troppe richieste. Riprova tra poco.", true);
+        } else if (state.loading) {
+          setLoading(false);
+        }
+      } catch (eGiveUp) {}
+      return;
+    }
+    var wait = 1200;
+    try {
+      if (window.VcApiCache && typeof window.VcApiCache.webhookBlockRemainingMs === "function") {
+        wait = Math.max(900, Math.min(14000, Number(window.VcApiCache.webhookBlockRemainingMs(resolvedApiUrl()) || 0) + 180));
+      } else {
+        wait = Math.min(12000, 1000 * leader429RetryAttempt);
+      }
+    } catch (eW) {
+      wait = Math.min(12000, 1000 * leader429RetryAttempt);
+    }
+    leader429RetryTimer = window.setTimeout(function onLeader429Tick() {
       leader429RetryTimer = null;
-      if (document.visibilityState !== "visible") return;
-      if (state.loading) return;
-      load({ silent: true });
-    }, 8500);
+      if (document.visibilityState !== "visible") {
+        /* ulLoadUnlock1: non droppare il retry — riprogramma finché il tab non è visibile */
+        leader429RetryTimer = window.setTimeout(onLeader429Tick, 2000);
+        return;
+      }
+      /* userLoadRetry1: non bloccare se state.loading (era il bug “a volte non carica”) */
+      load({ silent: true, rateRetry: true });
+    }, wait);
   }
 
   function cardHead(row) {
@@ -942,7 +1023,7 @@
   function renderCardLevel(row) {
     var pct = Math.max(0, Math.min(100, Number(row.progressPercent) || 0));
     return (
-      '<article class="vc-ul-card" role="listitem">' +
+      '<article class="vc-ul-card">' +
       cardHead(row) +
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
@@ -983,7 +1064,7 @@
     var wPct = Math.max(0, Math.min(100, Number(row.weeklyBarPct) || 0));
     var mult = formatMult(row.expMultiplier != null ? row.expMultiplier : 1);
     return (
-      '<article class="vc-ul-card vc-ul-card--weekly" role="listitem">' +
+      '<article class="vc-ul-card vc-ul-card--weekly">' +
       cardHead(row) +
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
@@ -1035,7 +1116,7 @@
   function renderCardMessages(row) {
     var wPct = Math.max(0, Math.min(100, Number(row.messagesWeeklyBarPct) || 0));
     return (
-      '<article class="vc-ul-card vc-ul-card--messages" role="listitem">' +
+      '<article class="vc-ul-card vc-ul-card--messages">' +
       cardHead(row) +
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
@@ -1075,7 +1156,7 @@
   function renderCardVoice(row) {
     var wPct = Math.max(0, Math.min(100, Number(row.voiceWeeklyBarPct) || 0));
     return (
-      '<article class="vc-ul-card vc-ul-card--voice" role="listitem">' +
+      '<article class="vc-ul-card vc-ul-card--voice">' +
       cardHead(row) +
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
@@ -1112,10 +1193,51 @@
     );
   }
 
+  function renderCardMinigames(row) {
+    var wPct = Math.max(0, Math.min(100, Number(row.minigameBarPct) || 0));
+    return (
+      '<article class="vc-ul-card vc-ul-card--minigames">' +
+      cardHead(row) +
+      '<div class="vc-ul-card-stats">' +
+      '<div class="vc-ul-statbox">' +
+      '<span class="vc-ul-statbox-label">Punti totali</span>' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="' +
+      esc(String(Number(row.minigameTotalExp) || 0)) +
+      '">' +
+      esc(formatIntIt(row.minigameTotalExp)) +
+      "</span>" +
+      "</div>" +
+      '<div class="vc-ul-statbox">' +
+      '<span class="vc-ul-statbox-label">Punti settimanali</span>' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="' +
+      esc(String(Number(row.minigameWeeklyExp) || 0)) +
+      '">' +
+      esc(formatIntIt(row.minigameWeeklyExp)) +
+      "</span>" +
+      "</div>" +
+      "</div>" +
+      '<div class="vc-ul-stat-wide">' +
+      '<div class="vc-ul-stat-wide-row">' +
+      '<span class="vc-ul-stat-wide-label">Streak (attuale / best)</span>' +
+      '<span class="vc-ul-stat-wide-val">' +
+      esc(formatIntIt(row.currentStreak)) +
+      " / " +
+      esc(formatIntIt(row.bestStreak)) +
+      "</span>" +
+      "</div>" +
+      '<div class="vc-ul-progress vc-ul-progress--inset" title="Punti minigame totali rispetto al massimo in questa pagina" aria-hidden="true"><span class="vc-ul-progress-fill vc-ul-progress-fill--msg" style="width:' +
+      esc(String(wPct)) +
+      '%"></span></div>' +
+      "</div>" +
+      "</article>"
+    );
+  }
+
   function renderCard(row, board) {
     if (board === "weekly") return renderCardWeekly(row);
     if (board === "messages") return renderCardMessages(row);
     if (board === "voice") return renderCardVoice(row);
+    if (board === "minigames") return renderCardMinigames(row);
     return renderCardLevel(row);
   }
 
@@ -1159,13 +1281,14 @@
     nav.style.display = "flex";
     if (mp && typeof mp.fill === "function") {
       nav.__vcPagerRetry = 0;
+      /* publicPagerTickets1: stessa pill numerata dei ticket (no classic <1>) */
       mp.fill(nav, state.page, tp, { aria: "Paginazione classifica" }, {
         go: function (page) {
           var cap = Math.max(1, Number(state.totalPages) || 1);
           var next = Math.max(1, Math.min(cap, Number(page) || 1));
           if (next === state.page) return;
           state.page = next;
-          load({ scroll: true });
+          load({ scroll: false });
         },
       });
       return;
@@ -1185,23 +1308,9 @@
   }
 
   function boardLeadBlurb(board) {
-    var b = String(board || "level");
-    var key =
-      b === "weekly"
-        ? "user.subWeekly"
-        : b === "messages"
-          ? "user.subMessages"
-          : b === "voice"
-            ? "user.subVoice"
-            : "user.subLevel";
-    var fallback =
-      b === "weekly"
-        ? "Classifica dell'attività settimanale (EXP della settimana)"
-        : b === "messages"
-          ? "Classifica per messaggi inviati in chat"
-          : b === "voice"
-            ? "Classifica per tempo trascorso in vocal"
-            : "Classifica per livello (EXP totale)";
+    /* classificaSub1: descrizione hero fissa (non cambia per tab) */
+    var key = "user.sub";
+    var fallback = "Scopri i membri più attivi della community.";
     try {
       if (window.VcI18n && typeof window.VcI18n.t === "function") {
         var tr = window.VcI18n.t(key);
@@ -1240,6 +1349,9 @@
       } else if (board === "voice") {
         midLabel.textContent = "Ore vocali più alte";
         midVal.textContent = st.topVoiceSeconds != null ? formatHoursIt(st.topVoiceSeconds) : "—";
+      } else if (board === "minigames") {
+        midLabel.textContent = "Punti minigame più alti";
+        midVal.textContent = st.topMinigameTotal != null ? formatIntIt(st.topMinigameTotal) : "—";
       } else {
         midLabel.textContent = "—";
         midVal.textContent = "—";
@@ -1258,6 +1370,8 @@
         midVal.textContent = formatIntIt(topRow.messagesTotal);
       } else if (board === "voice") {
         midVal.textContent = formatHoursIt(topRow.voiceTotalSeconds);
+      } else if (board === "minigames") {
+        midVal.textContent = formatIntIt(topRow.minigameTotalExp);
       }
     }
     if (tn && topRow) {
@@ -1304,6 +1418,9 @@
         midLabel.textContent = "Ore vocali più alte";
         topMetricKind = "hours";
         topMetricValue = topRow ? Number(topRow.voiceTotalSeconds) || 0 : (st.topVoiceSeconds != null ? Number(st.topVoiceSeconds) || 0 : null);
+      } else if (board === "minigames") {
+        midLabel.textContent = "Punti minigame più alti";
+        topMetricValue = topRow ? Number(topRow.minigameTotalExp) || 0 : (st.topMinigameTotal != null ? Number(st.topMinigameTotal) || 0 : null);
       } else {
         midLabel.textContent = "—";
         midVal.textContent = "—";
@@ -1414,26 +1531,45 @@
             url += "&_vcq=" + encodeURIComponent(String(Date.now()));
     }
     if (opts && opts.scroll) pendingScrollToCards = true;
+    else {
+      /* scrollStayAll1: memorizza Y prima che il loader collassi l'altezza */
+      try {
+        pendingKeepScrollY = Math.max(
+          0,
+          window.pageYOffset ||
+            (document.documentElement && document.documentElement.scrollTop) ||
+            0
+        );
+      } catch (eKeepY) {
+        pendingKeepScrollY = 0;
+      }
+    }
+    /* userLoadRetry1: paintedStale PRIMA del warm — non resettare dopo (hoisting bug) */
+    var paintedStale = false;
     if (!silent && !state.searchUserId) {
       var warmKey = usersCacheKey(url);
       var warmHit = readUsersSessionCache(warmKey, Date.now(), true);
       if (warmHit && warmHit.value && warmHit.value.body && warmHit.value.body.ok === true) {
-        paintedStale = Boolean(warmHit.stale);
         applyPayload(warmHit.value, false);
         var warmRows = warmHit.value.body.rows;
-        if (Array.isArray(warmRows) && warmRows.length) setLoading(false);
+        if (Array.isArray(warmRows) && warmRows.length) {
+          paintedStale = true;
+          setLoading(false);
+        }
       }
     }
-    if (!silent) {
-      setLoading(true, "Caricamento...");
+    if (!silent && !paintedStale) {
+      setLoading(true, "Caricamento…");
       setState("Caricamento…", false);
     }
-    var paintedStale = false;
     function applyPayload(out, fromSilent) {
       if (!out || !out.ok || !out.body || out.body.ok !== true) {
         if (fromSilent && paintedStale) return;
         var rateLimited = isRateLimitedPayload(out);
-        if (rateLimited) {
+        var alreadyClientBlocked =
+          Boolean(out && out.blocked) ||
+          String((out.body && out.body.error) || "").toLowerCase() === "rate_limited_client";
+        if (rateLimited && !alreadyClientBlocked) {
           try {
             if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
               window.VcApiCache.noteWebhook429(0, url);
@@ -1441,14 +1577,27 @@
           } catch (eNote) {}
         }
         var msg = formatLeaderLoadError(out);
-        // Toast only (no banner under navbar). Keep stale/current cards if present.
-        if (!fromSilent || !paintedStale) setState(msg, true);
+        var gridEl = byId("vc-ul-grid");
+        var hasCards = Boolean(gridEl && gridEl.querySelector(".vc-ul-card"));
+        /* phoneUser429Fix1: niente empty “Troppe richieste” — resta in caricamento e ritenta */
+        if (rateLimited && !hasCards && !paintedStale) {
+          if (!fromSilent) {
+            setLoading(true, "Caricamento…");
+            setState("Caricamento…", false);
+          } else {
+            setLoading(true, "Caricamento…");
+          }
+          scheduleLeader429Retry();
+          return;
+        }
+        if (!fromSilent || !paintedStale) {
+          if (!(rateLimited && hasCards)) setState(msg, true);
+        }
         if (paintedStale) {
           if (rateLimited) scheduleLeader429Retry();
           return;
         }
-        var gridEl = byId("vc-ul-grid");
-        if (gridEl && gridEl.querySelector(".vc-ul-card")) {
+        if (hasCards) {
           if (rateLimited) scheduleLeader429Retry();
           return;
         }
@@ -1458,12 +1607,14 @@
           totalPages: 1,
           board: state.board,
           loadError: true,
-          rateLimited: rateLimited,
+          rateLimited: rateLimited && leader429RetryAttempt >= 8,
         });
         syncSearchUi();
         if (rateLimited) scheduleLeader429Retry();
         return;
       }
+      leader429RetryAttempt = 0;
+      clearLeader429Retry();
       setState("", false);
       var body = out.body;
       if (state.searchUserId && body && Array.isArray(body.rows)) {
@@ -1503,12 +1654,16 @@
       }
       var incomplete = rowsLookIncomplete(body.rows);
       if (fromSilent && fp && fp === state.renderFingerprint && !incomplete) {
+        /* ulLoadUnlock1: silent 429→ok deve spegnere il loader anche se fingerprint uguale */
+        if (state.loading) setLoading(false);
         syncSearchUi();
         return;
       }
       state.renderFingerprint = fp;
       render(body);
       syncSearchUi();
+      /* ulLoadUnlock1: silent retry ok non passa da finally(!silent) — sblocca qui */
+      if (state.loading) setLoading(false);
       if (incomplete) {
         state.identityRetryCount = Number(state.identityRetryCount || 0) + 1;
         if (state.identityRetryCount <= 3) {
@@ -1556,9 +1711,21 @@
         syncSearchUi();
       })
       .finally(function () {
+        var gridNow = byId("vc-ul-grid");
+        var hasNow = Boolean(gridNow && gridNow.querySelector(".vc-ul-card"));
         if (!silent) {
+          /* userLoadRetry1: se in coda un retry 429 e non ci sono card, tieni il loader */
+          if (leader429RetryTimer && !hasNow && !paintedStale) {
+            setLoading(true, "Caricamento…");
+            return;
+          }
           setLoading(false);
           return;
+        }
+        /* ulLoadUnlock1: silent con card (o senza retry) non lascia il gate forever */
+        if (hasNow && state.loading) setLoading(false);
+        else if (!leader429RetryTimer && state.loading && !hasNow && !paintedStale) {
+          setLoading(false);
         }
         if (pendingScrollToCards) {
           pendingScrollToCards = false;
@@ -1607,7 +1774,7 @@
         this.setAttribute("aria-current", "true");
         var sidInp = byId("vc-ul-search-id");
         if (sidInp && state.searchUserId) sidInp.value = state.searchUserId;
-        load({ scroll: true });
+        load({ scroll: false });
       });
     }
   }
@@ -1643,7 +1810,7 @@
         if (inp) inp.value = "";
         state.page = 1;
         setFiltersOpen(false);
-        load({ scroll: true });
+        load({ scroll: false });
         syncSearchUi();
         return;
       }
@@ -1656,7 +1823,7 @@
       state.searchUserId = digits;
       state.page = 1;
       if (inp) inp.value = digits;
-      load({ silent: true, scroll: true });
+      load({ silent: true, scroll: false });
       syncSearchUi();
     }
     if (form) {
@@ -1713,28 +1880,34 @@
     initFilters();
     initProfileWarmPrefetch();
     setFiltersOpen(false);
-    setLoading(true, "Caricamento...");
+    setLoading(true, "Caricamento…");
     load();
     startLiveUsersPolling();
-        setTimeout(function () {
+    /* ulLoadUnlock1: watchdog duro — a 14s spegne sempre loader/429 loop */
+    setTimeout(function () {
       try {
-        if (!document.documentElement.classList.contains("vc-user-leader-pending")) return;
         var grid = byId("vc-ul-grid");
-        var hasRows = grid && grid.children && grid.children.length > 0;
+        var hasRows = Boolean(grid && grid.querySelector(".vc-ul-card"));
         if (state.loading && !hasRows) {
           setState("La classifica impiega troppo tempo a rispondere. Riprova tra qualche secondo.", true);
         }
-        if (hasRows || !state.loading) {
+        if (state.loading || document.documentElement.classList.contains("vc-user-leader-pending")) {
+          clearLeader429Retry();
+          leader429RetryAttempt = 0;
           setLoading(false);
         }
       } catch (eFs) {}
-    }, 12000);
+    }, 14000);
   }
 
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState !== "visible") return;
-    if (state.loading || state.filtersOpen) return;
-    load({ silent: true });
+    if (state.filtersOpen) return;
+    /* userLoadRetry1: anche se loading, se non ci sono card riprova (sblocca 429 stall) */
+    var gridVis = byId("vc-ul-grid");
+    var hasVis = Boolean(gridVis && gridVis.querySelector(".vc-ul-card"));
+    if (state.loading && hasVis) return;
+    load({ silent: hasVis });
   });
 
   window.addEventListener("vc:site-api-refetch", function () {

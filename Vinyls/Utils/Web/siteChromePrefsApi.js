@@ -1,6 +1,7 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const IDs = require("../Config/ids");
+const { tryNotModified } = require("./siteHttpEtag");
 
 function normalizeHeaderSecret(raw) {
   if (raw == null) return "";
@@ -47,6 +48,7 @@ function sanitizeChromePrefs(raw) {
   }
   if (src.kickPip && typeof src.kickPip === "object") {
     const kick = {};
+    if (typeof src.kickPip.userClosed === "boolean") kick.userClosed = src.kickPip.userClosed;
     if (src.kickPip.dismiss && typeof src.kickPip.dismiss === "object") {
       const ids = Array.isArray(src.kickPip.dismiss.ids)
         ? src.kickPip.dismiss.ids.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 20)
@@ -78,20 +80,92 @@ function sanitizeChromePrefs(raw) {
     }
     if (Object.keys(kick).length) out.kickPip = kick;
   }
+  /* twitchPipPrefs1: open/closed + pos synced across devices like kickPip */
+  if (src.twitchPip && typeof src.twitchPip === "object") {
+    const tw = {};
+    if (typeof src.twitchPip.userClosed === "boolean") tw.userClosed = src.twitchPip.userClosed;
+    if (src.twitchPip.dismiss && typeof src.twitchPip.dismiss === "object") {
+      const until = Number(src.twitchPip.dismiss.until) || 0;
+      const id = String(src.twitchPip.dismiss.id || "").trim().slice(0, 120);
+      if (id || until > 0) {
+        tw.dismiss = { id, until: until > 0 ? until : Date.now() + 18 * 60 * 60 * 1000 };
+      }
+    }
+    if (src.twitchPip.pos && typeof src.twitchPip.pos === "object") {
+      const corner = String(src.twitchPip.pos.corner || "").trim();
+      if (/^(tl|tr|bl|br)$/.test(corner)) tw.pos = { corner };
+      else if (Number.isFinite(Number(src.twitchPip.pos.left)) && Number.isFinite(Number(src.twitchPip.pos.top))) {
+        tw.pos = {
+          left: Math.max(0, Math.min(10000, Number(src.twitchPip.pos.left))),
+          top: Math.max(0, Math.min(10000, Number(src.twitchPip.pos.top))),
+        };
+      }
+    }
+    if (Object.keys(tw).length) out.twitchPip = tw;
+  }
+  /* navFeatSeenSync1: map path -> ts visite badge Nuovo/Aggiornato */
+  if (src.navFeatSeen && typeof src.navFeatSeen === "object") {
+    const map = {};
+    Object.keys(src.navFeatSeen)
+      .slice(0, 220)
+      .forEach((k) => {
+        const key = String(k || "").replace(/\/+$/, "") || "";
+        if (!key || key === "/" || key.length > 140) return;
+        if (!/^\/[a-z0-9/_-]*$/i.test(key)) return;
+        const ts = Number(src.navFeatSeen[k]);
+        if (Number.isFinite(ts) && ts > 0) map[key] = Math.floor(ts);
+      });
+    if (Object.keys(map).length) out.navFeatSeen = map;
+  }
+  /* themeSync1: light|dark|auto synced across devices via chrome prefs */
+  if (typeof src.theme === "string") {
+    const theme = String(src.theme || "").trim().toLowerCase();
+    if (theme === "light" || theme === "dark" || theme === "auto") out.theme = theme;
+  }
   out.updatedAt = Number(src.updatedAt) || Date.now();
   return out;
 }
 
 function deepMergeChrome(base, patch) {
+  const rawPatch = patch && typeof patch === "object" ? patch : {};
   const a = sanitizeChromePrefs(base);
   const b = sanitizeChromePrefs(patch);
   const out = { ...a, ...b, updatedAt: Math.max(Number(a.updatedAt) || 0, Number(b.updatedAt) || 0, Date.now()) };
   if (a.hogwartsBgm || b.hogwartsBgm) out.hogwartsBgm = { ...(a.hogwartsBgm || {}), ...(b.hogwartsBgm || {}) };
   if (a.seratafilmBgm || b.seratafilmBgm) out.seratafilmBgm = { ...(a.seratafilmBgm || {}), ...(b.seratafilmBgm || {}) };
   if (a.typeSfx || b.typeSfx) out.typeSfx = { ...(a.typeSfx || {}), ...(b.typeSfx || {}) };
-  if (a.kickPip || b.kickPip) {
+  if (a.kickPip || b.kickPip || rawPatch.kickPip) {
     out.kickPip = { ...(a.kickPip || {}), ...(b.kickPip || {}) };
-    if (b.kickPip?.dismiss === null) delete out.kickPip.dismiss;
+    if (
+      rawPatch.kickPip &&
+      Object.prototype.hasOwnProperty.call(rawPatch.kickPip, "dismiss") &&
+      rawPatch.kickPip.dismiss === null
+    ) {
+      delete out.kickPip.dismiss;
+    }
+    if (typeof rawPatch.kickPip?.userClosed === "boolean") {
+      out.kickPip.userClosed = rawPatch.kickPip.userClosed;
+    }
+  }
+  if (a.twitchPip || b.twitchPip || rawPatch.twitchPip) {
+    out.twitchPip = { ...(a.twitchPip || {}), ...(b.twitchPip || {}) };
+    if (
+      rawPatch.twitchPip &&
+      Object.prototype.hasOwnProperty.call(rawPatch.twitchPip, "dismiss") &&
+      rawPatch.twitchPip.dismiss === null
+    ) {
+      delete out.twitchPip.dismiss;
+    }
+    if (typeof rawPatch.twitchPip?.userClosed === "boolean") {
+      out.twitchPip.userClosed = rawPatch.twitchPip.userClosed;
+    }
+  }
+  if (a.navFeatSeen || b.navFeatSeen) {
+    const map = { ...(a.navFeatSeen || {}) };
+    Object.keys(b.navFeatSeen || {}).forEach((k) => {
+      map[k] = Math.max(Number(map[k]) || 0, Number(b.navFeatSeen[k]) || 0);
+    });
+    out.navFeatSeen = map;
   }
   return sanitizeChromePrefs(out);
 }
@@ -110,7 +184,9 @@ async function handleSiteChromePrefsGet(client, req, res) {
       .lean()
       .catch(() => null);
     const prefs = sanitizeChromePrefs(doc?.profile?.siteChromePrefs || {});
-    res.setHeader("Cache-Control", "private, max-age=30");
+    const etag = `W/"chrome-${resolved.userId}-${Number(prefs.updatedAt) || 0}"`;
+    res.setHeader("Cache-Control", "private, max-age=120, stale-while-revalidate=60");
+    if (tryNotModified(req, res, etag)) return res;
     return res.status(200).json({ ok: true, prefs });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-chrome-prefs get:", err);

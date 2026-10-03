@@ -1,0 +1,145 @@
+/* vcLoadingEmojiKill3: ALL ring spinners + FA + ::before → VC_Loading (last wins) */
+html body :is(
+  .vc-ul-loading-spinner,
+  .vc-roles-loading-spinner,
+  .vc-ui-spinner,
+  .vc-ui-spinner--sm,
+  .vc-ui-spinner--md,
+  .vc-ui-spinner--lg,
+  .vc-ui-spinner--on-dark,
+  .vc-page-transition-spinner,
+  .vc-rank-customize-loading__spin,
+  .vc-dashboard-loading__spinner,
+  .vc-staff-inbox-loading__spinner,
+  .vc-session-verify-spinner,
+  .vc-submit-spinner,
+  .vc-user-profile-loader__spin,
+  .discord-login-btn__spin,
+  .vc-reviews-stage-loading__pulse,
+  .vc-hw-loading__spin,
+  span.vc-ul-loading-spinner,
+  span.vc-ui-spinner,
+  span.vc-page-transition-spinner,
+  span.vc-dashboard-loading__spinner,
+  span.vc-user-profile-loader__spin,
+  span.discord-login-btn__spin
+),
+html body #vc-dashboard-loading .vc-dashboard-loading__spinner,
+html body #vc-dashboard-guild-loading .vc-dashboard-loading__spinner,
+html body .vc-dash-save-toast__icon .vc-ui-spinner,
+html body.vc-body.vc-users-page .vc-ul-loading-spinner,
+html body.vc-body.vc-roles-page .vc-ul-loading-spinner,
+html body #vc-ul-loading .vc-ul-loading-spinner,
+html body #vc-roles-loading .vc-ul-loading-spinner,
+html body .vc-user-profile-loader .vc-user-profile-loader__spin,
+html body #vc-page-transition .vc-page-transition-spinner,
+html body .discord-login-btn--loading .discord-login-btn__spin,
+html body.vc-reviews-page .vc-reviews-stage-loading__pulse,
+html body .vc-hw-loading__card::before,
+html body #vc-hw-loading .vc-hw-loading__card::before,
+html body .fa.fa-spinner,
+html body .fa.fa-spinner.fa-spin,
+html body i.fa-spinner,
+html body i.fa-spinner.fa-spin,
+html body .fa-spin.fa-spinner {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  border-top-color: transparent !important;
+  border-right-color: transparent !important;
+  border-bottom-color: transparent !important;
+  border-left-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  background-color: transparent !important;
+  background: transparent url("/images/vc-loading.gif?v=20260920vcLoadingSpokes1") center / contain no-repeat !important;
+  background-image: url("/images/vc-loading.gif?v=20260920vcLoadingSpokes1") !important;
+  background-position: center !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  animation: none !important;
+  -webkit-animation: none !important;
+}
+
+/* FA glyph off — solo gif */
+html body .fa.fa-spinner::before,
+html body .fa.fa-spinner.fa-spin::before,
+html body i.fa-spinner::before,
+html body i.fa-spinner.fa-spin::before {
+  content: none !important;
+  display: none !important;
+}
+
+html body .vc-hw-loading__card::before,
+html body #vc-hw-loading .vc-hw-loading__card::before {
+  content: "" !important;
+  width: 2.35rem !important;
+  height: 2.35rem !important;
+  display: block !important;
+}
+
+html body :is(.vc-ui-spinner, .vc-ui-spinner--sm, .discord-login-btn__spin, .vc-submit-spinner) {
+  width: 1.1rem !important;
+  height: 1.1rem !important;
+  min-width: 1.1rem !important;
+  min-height: 1.1rem !important;
+  display: inline-block !important;
+}
+html body .vc-ui-spinner--md { width: 1.35rem !important; height: 1.35rem !important; }
+html body .vc-ui-spinner--lg { width: 1.85rem !important; height: 1.85rem !important; }
+html body :is(
+  .vc-ul-loading-spinner,
+  .vc-roles-loading-spinner,
+  .vc-rank-customize-loading__spin,
+  .vc-user-profile-loader__spin,
+  .vc-session-verify-spinner,
+  .vc-reviews-stage-loading__pulse
+) {
+  width: 3.2rem !important;
+  height: 3.2rem !important;
+  min-width: 3.2rem !important;
+  min-height: 3.2rem !important;
+  display: inline-block !important;
+}
+html body .vc-page-transition-spinner { width: 2.4rem !important; height: 2.4rem !important; display: inline-block !important; }
+html body :is(
+  .vc-dashboard-loading__spinner,
+  #vc-dashboard-loading .vc-dashboard-loading__spinner,
+  #vc-dashboard-guild-loading .vc-dashboard-loading__spinner
+) {
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  display: inline-block !important;
+}
+html body .fa.fa-spinner,
+html body .fa.fa-spinner.fa-spin,
+html body i.fa-spinner {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  line-height: 1.25rem !important;
+  font-size: 0 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+
+/* vcLoadingCursorBack1: cursore loading personalizzato (:VC_Loading: a raggi).
+   Fallback auto — mai wait blu Windows. */
+html.vc-interaction-hold,
+html.vc-interaction-hold body,
+html.vc-interaction-hold * {
+  cursor: url("/images/vc-loading-cursor.png?v=20260920vcLoadingCursorClean1") 16 16, auto !important;
+}
+html body :is(
+  .is-loading,
+  .is-saving,
+  .is-refreshing,
+  :disabled,
+  [aria-busy="true"],
+  .vc-candidature-submit--loading,
+  .vc-rank-editor-save.is-saving,
+  .vc-kick-pip__play.is-loading
+) {
+  cursor: url("/images/vc-loading-cursor.png?v=20260920vcLoadingCursorClean1") 16 16, auto !important;
+}

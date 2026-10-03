@@ -20,10 +20,12 @@ const { hasExtraCustomPerksUnlock } = require("../../Utils/Community/customPerks
 
 const RECENT_UNMUTE_RECOVERY_MS = 7 * 24 * 60 * 60 * 1000;
 const RECENT_UNMUTE_RECOVERY_DEDUPE_MS = 6 * 60 * 60 * 1000;
+const MUTE_MIRROR_STAFF_PROTECT_MS = 7 * 24 * 60 * 60 * 1000;
 const SWEEP_DEFAULT_LIMIT = 50;
 const ACTIVE_MUTE_RECONCILE_LIMIT = 80;
 const EMPTY_SNAPSHOT_COOLDOWN_MS = 30 * 60 * 1000;
 const recentUnmuteProfileRecoveryUntil = new Map();
+const muteMirrorStaffProtectUntil = new Map();
 const emptySnapshotCooldownUntil = new Map();
 const SNAPSHOT_PERSIST_WAIT_MS = 8000;
 const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [IDs.roles.VIP, IDs.roles.ServerBooster, IDs.roles.DoubleBooster, IDs.roles.Level50].filter(Boolean);
@@ -178,6 +180,84 @@ function wasRecentUnmuteProfileRecoveryDone(guildId, userId, now = Date.now()) {
   return Boolean(until && now < Number(until));
 }
 
+function cleanupMuteMirrorStaffProtect(now = Date.now()) {
+  for (const [key, until] of muteMirrorStaffProtectUntil.entries()) {
+    if (!until || now >= Number(until)) muteMirrorStaffProtectUntil.delete(key);
+  }
+}
+
+function markMuteMirrorStaffProtect(guildId, userId, now = Date.now()) {
+  const key = snapshotKey(guildId, userId);
+  if (!key || key === ":") return;
+  muteMirrorStaffProtectUntil.set(key, now + MUTE_MIRROR_STAFF_PROTECT_MS);
+  if (muteMirrorStaffProtectUntil.size > 4000) cleanupMuteMirrorStaffProtect(now);
+}
+
+function clearMuteMirrorStaffProtect(guildId, userId) {
+  muteMirrorStaffProtectUntil.delete(snapshotKey(guildId, userId));
+}
+
+function isMuteMirrorStaffProtectActive(guildId, userId, now = Date.now()) {
+  cleanupMuteMirrorStaffProtect(now);
+  const until = muteMirrorStaffProtectUntil.get(snapshotKey(guildId, userId));
+  return Boolean(until && now < Number(until));
+}
+
+function collectStaffOrPmRoleIdsFromList(roleIds) {
+  const staffIds = new Set(
+    [
+      IDs.roles?.Staff,
+      IDs.roles?.Helper,
+      IDs.roles?.Mod,
+      IDs.roles?.SeniorModerator,
+      IDs.roles?.Director,
+      IDs.roles?.HighStaff,
+      IDs.roles?.PartnerManager,
+    ]
+      .map((x) => String(x || "").trim())
+      .filter(Boolean),
+  );
+  return normalizeSnapshotRoleIds(roleIds).filter((id) => staffIds.has(id));
+}
+
+async function discordStateStillHasStaffOrPm(guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!isValidGuildUserId(gid, uid) || !dbReady()) return false;
+  const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+    .select("profile.discordState.roleIds profile.muteRoleSnapshot.roleIds")
+    .lean()
+    .catch(() => null);
+  const fromState = collectStaffOrPmRoleIdsFromList(doc?.profile?.discordState?.roleIds);
+  if (fromState.length) return true;
+  return collectStaffOrPmRoleIdsFromList(doc?.profile?.muteRoleSnapshot?.roleIds).length > 0;
+}
+
+function memberIsInMuteMirrorState(member) {
+  const mutedId = String(IDs.roles?.Muted || "").trim();
+  if (mutedId && member?.roles?.cache?.has(mutedId)) return true;
+  return isCommunicationTimeoutActive(member);
+}
+
+/**
+ * Blocca depex staff/PM e side-effect (cancel pause/resoconti/unclaim) mentre
+ * il mute mirror sta strip/restoreando i ruoli — anche per staff/PM.
+ */
+async function shouldSuppressStaffDepexForMuteMirror(member) {
+  if (!member?.guild?.id || !member?.id) return false;
+  const gid = String(member.guild.id);
+  const uid = String(member.id);
+  if (memberIsInMuteMirrorState(member)) return true;
+  if (isMuteMirrorStaffProtectActive(gid, uid)) return true;
+  if (wasRecentUnmuteProfileRecoveryDone(gid, uid)) return true;
+  if (await hasPendingMuteMirrorSnapshot(gid, uid).catch(() => false)) return true;
+  const mutedId = String(IDs.roles?.Muted || "").trim();
+  if (memberLooksRoleWiped(member, mutedId) && (await discordStateStillHasStaffOrPm(gid, uid).catch(() => false))) {
+    return true;
+  }
+  return false;
+}
+
 function snapshotKey(guildId, userId) {
   return `${String(guildId || "").trim()}:${String(userId || "").trim()}`;
 }
@@ -227,6 +307,7 @@ async function upsertSnapshot(guildId, userId, roleIds) {
   await persistMuteRoleSnapshotToProfile(gid, uid, ids).catch((err) => {
     global.logger?.warn?.("[mutedMirrorRole] snapshot persist failed:", gid, uid, err?.message || err);
   });
+  markMuteMirrorStaffProtect(gid, uid);
   return true;
 }
 
@@ -295,13 +376,40 @@ async function recoverSnapshotRoleIdsFallback(guildId, userId, mutedRoleId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) return [];
+  const muted = String(mutedRoleId || "").trim();
   try {
-    const ids = await loadStoredPersonalityRoleIds(gid, uid).catch(() => []);
-    const muted = String(mutedRoleId || "").trim();
-    return normalizeSnapshotRoleIds(ids).filter((id) => id && id !== muted);
+    const fromPersonality = await loadStoredPersonalityRoleIds(gid, uid).catch(() => []);
+    let fromDiscordState = [];
+    if (dbReady()) {
+      const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+        .select("profile.discordState.roleIds profile.personalityRoleIds")
+        .lean()
+        .catch(() => null);
+      fromDiscordState = normalizeSnapshotRoleIds(doc?.profile?.discordState?.roleIds);
+      const personalityExtra = normalizeSnapshotRoleIds(doc?.profile?.personalityRoleIds);
+      fromDiscordState = normalizeSnapshotRoleIds([...fromDiscordState, ...personalityExtra]);
+    }
+    return normalizeSnapshotRoleIds([...fromDiscordState, ...fromPersonality]).filter(
+      (id) => id && id !== muted,
+    );
   } catch (_) {
     return [];
   }
+}
+
+function memberLooksRoleWiped(member, mutedRoleId) {
+  const guildId = String(member?.guild?.id || "");
+  const muted = String(mutedRoleId || "").trim();
+  const cache = member?.roles?.cache;
+  if (!cache) return true;
+  let count = 0;
+  for (const [id] of cache) {
+    const rid = String(id || "").trim();
+    if (!rid || rid === guildId) continue;
+    if (muted && rid === muted) continue;
+    count += 1;
+  }
+  return count < 2;
 }
 
 async function clearSnapshot(guildId, userId) {
@@ -464,9 +572,27 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
 
   const reasonOut = String(options.reason || "Fine timeout / +unmute");
   const hasMuted = member.roles.cache.has(ctx.mutedRoleId);
-  const saved = await loadSnapshot(guild.id, member.id);
+  let saved = await loadSnapshot(guild.id, member.id);
   const wasUnmuteFlow = Boolean(options.wasUnmuteFlow);
-  if (!hasMuted && saved.length === 0 && !wasUnmuteFlow) return { ok: true, restored: false, reason: "noop" };
+  const wiped = memberLooksRoleWiped(member, ctx.mutedRoleId);
+
+  if ((!saved || saved.length === 0) && (wasUnmuteFlow || hasMuted || wiped)) {
+    const fallback = await recoverSnapshotRoleIdsFallback(guild.id, member.id, ctx.mutedRoleId);
+    if (fallback.length > 0) {
+      saved = fallback;
+      await upsertSnapshot(guild.id, member.id, fallback).catch(() => null);
+      global.logger?.warn?.(
+        "[mutedMirrorRole] snapshot vuoto: fallback discordState/personality",
+        guild.id,
+        member.id,
+        fallback.length,
+      );
+    }
+  }
+
+  if (!hasMuted && saved.length === 0 && !wasUnmuteFlow && !wiped) {
+    return { ok: true, restored: false, reason: "noop" };
+  }
 
   let profileDoc = options.profileDoc || null;
   if (wasUnmuteFlow && !hasMuted) {
@@ -478,16 +604,21 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
     }
     if (isPostUnmuteReconciliationCurrent(profileDoc, guild.id, member.id)) {
       const memberRoleId = String(IDs.roles?.Member || "").trim();
-      const missingCoreMember = Boolean(memberRoleId && !member.roles.cache.has(memberRoleId) && saved.length > 0);
-      if (!missingCoreMember) {
+      const missingCoreMember = Boolean(memberRoleId && !member.roles.cache.has(memberRoleId));
+      if (!missingCoreMember && !wiped && saved.length === 0) {
         markRecentUnmuteProfileRecovery(guild.id, member.id);
-                if (saved.length > 0) await clearSnapshot(guild.id, member.id);
+        return { ok: true, restored: false, restoreOk: true, reason: "already_reconciled" };
+      }
+      if (!missingCoreMember && !wiped && saved.length > 0) {
+        markRecentUnmuteProfileRecovery(guild.id, member.id);
+        await clearSnapshot(guild.id, member.id);
         return { ok: true, restored: false, restoreOk: true, reason: "already_reconciled" };
       }
       global.logger?.warn?.(
-        "[mutedMirrorRole] already_reconciled ma Member assente: riprovo restore",
+        "[mutedMirrorRole] already_reconciled ma ruoli incompleti: riprovo restore",
         guild.id,
         member.id,
+        `wiped=${wiped} saved=${saved.length}`,
       );
     }
   }
@@ -517,7 +648,8 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
     } else if (hasMuted) {
       await member.roles.remove(ctx.mutedRoleId, reasonOut);
       restored = true;
-      restoreOk = true;
+      // Non marcare restoreOk se i ruoli sono ancora wipeati: tiene aperto il retry.
+      restoreOk = !memberLooksRoleWiped(member, ctx.mutedRoleId);
     }
   } catch (err) {
     if (isUnknownDiscordMemberError(err)) {
@@ -536,7 +668,7 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
       });
       if (removed) {
         restored = true;
-        restoreOk = saved.length === 0;
+        restoreOk = saved.length === 0 && !memberLooksRoleWiped(member, ctx.mutedRoleId);
       }
     }
   }
@@ -602,15 +734,18 @@ async function restoreRolesAfterCommunicationTimeoutEnd(member, options = {}) {
   const pendingSnapshot = await loadSnapshot(guild.id, member.id);
   const stillMuted = member.roles.cache.has(ctx.mutedRoleId);
   const memberRoleId = String(IDs.roles?.Member || "").trim();
-  const restoredCoreMember = !memberRoleId || member.roles.cache.has(memberRoleId) || saved.length === 0;
+  const hasCoreMember = !memberRoleId || member.roles.cache.has(memberRoleId);
+  const stillWiped = memberLooksRoleWiped(member, ctx.mutedRoleId);
   if (
     wasUnmuteFlow &&
     !isCommunicationTimeoutActive(member) &&
     !stillMuted &&
     pendingSnapshot.length === 0 &&
-    restoredCoreMember
+    hasCoreMember &&
+    !stillWiped
   ) {
     await markPostUnmuteReconciliationComplete(guild.id, member.id);
+    clearMuteMirrorStaffProtect(guild.id, member.id);
   }
 
   return {
@@ -1417,9 +1552,8 @@ module.exports = {
   sweepExpiredCommunicationTimeoutMirrors,
   isCommunicationTimeoutActive,
   didCommunicationTimeoutChange,
-  memberIsInMuteMirrorState: (member) => {
-    const mutedId = String(IDs.roles?.Muted || "").trim();
-    if (mutedId && member?.roles?.cache?.has(mutedId)) return true;
-    return isCommunicationTimeoutActive(member);
-  },
+  memberIsInMuteMirrorState,
+  shouldSuppressStaffDepexForMuteMirror,
+  markMuteMirrorStaffProtect,
+  isMuteMirrorStaffProtectActive,
 };

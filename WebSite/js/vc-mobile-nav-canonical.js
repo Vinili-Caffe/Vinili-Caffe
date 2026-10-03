@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var VER = "20260907recensioniNav1";
+  var VER = "20261001hamFootOnly1";
 
   function t(key, fallback) {
     try {
@@ -22,6 +22,7 @@
     } catch (e) {
       return String(raw || "")
         .replace(/^https?:\/\/[^/]+/i, "")
+        .replace(/[?#].*$/, "")
         .replace(/\/index\.html$/i, "")
         .replace(/\/+$/, "") || "/";
     }
@@ -53,7 +54,7 @@
   function hrefMatches(href) {
     var target = normPath(href);
     var here = currentPath();
-    if (!target) return false;
+    if (!target || target === "#") return false;
     // Home tile only — never treat "/" as a prefix match for other pages.
     if (target === "/") return here === "/";
     /* mobileNavProfileActive1: sul profilo non evidenziare Users. */
@@ -62,9 +63,14 @@
       return here === "/user" || here === "/users";
     }
     if (target === here) return true;
-    if (target === "/personalizza" && here.indexOf("/personalizza") === 0) return true;
-    if (target === "/appelli" && here.indexOf("/appelli") === 0) return true;
-    if (target === "/candidature" && here.indexOf("/candidature") === 0) return true;
+    /* Prefissi solo su sezioni note con sottopagine (match esatto del segmento base). */
+    if (target === "/personalizza" && (here === "/personalizza" || here.indexOf("/personalizza/") === 0)) return true;
+    if (target === "/appelli" && (here === "/appelli" || here.indexOf("/appelli/") === 0)) return true;
+    if (target === "/candidature" && (here === "/candidature" || here.indexOf("/candidature/") === 0)) return true;
+    /* hamBachecaDashTiles1: Bacheca hub + sottopagine */
+    if (target === "/bacheca" && (here === "/bacheca" || here.indexOf("/bacheca/") === 0)) return true;
+    if (target === "/boards" && (here === "/boards" || here.indexOf("/boards/") === 0 || here === "/bacheca" || here.indexOf("/bacheca/") === 0)) return true;
+    if (target === "/dashboard" && (here === "/dashboard" || here.indexOf("/dashboard/") === 0)) return true;
     return false;
   }
 
@@ -88,6 +94,7 @@
         tiles: [
           { href: "/wiki/", icon: "fa-map-o", label: t("nav.wiki", "Wiki") },
           { href: "/sponsor/", icon: "fa-handshake-o", label: t("nav.sponsor", "Sponsor") },
+          /* hamFootOnly1: Bacheca solo nel trio footer, non in PRINCIPALE */
         ],
       },
       {
@@ -106,6 +113,7 @@
           { href: "/ruoli/", icon: "fa-shield", label: t("nav.roles", "Ruoli") },
           { href: "/regole/", icon: "fa-file-text-o", label: t("nav.rules", "Regole") },
           { href: "/faq/", icon: "fa-question-circle", label: t("nav.faq", "FAQ") },
+          { href: "/confessionale/", icon: "fa-comments", label: t("nav.confessionale", "Confessionale") },
         ],
       },
       {
@@ -146,10 +154,6 @@
     a.setAttribute("href", href);
     a.href = href;
     if (spec.loading) a.setAttribute("data-vc-loading", spec.loading);
-    if (hrefMatches(href)) {
-      a.classList.add("is-active");
-      a.setAttribute("aria-current", "page");
-    }
     var ico = document.createElement("span");
     ico.className = "vc-mobile-nav-tile-ico";
     ico.setAttribute("aria-hidden", "true");
@@ -165,13 +169,68 @@
     return a;
   }
 
-  function appendSection(gridRoot, title, tiles) {
+  function sectionStorageKey(title) {
+    return "vc.mobileNav.sec.v2." + String(title || "")
+      .toUpperCase()
+      .replace(/\s+/g, "_");
+  }
+
+  function isPinnedSectionTitle(title) {
+    var t = String(title || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase();
+    if (t === "STAFF" || t.indexOf("STAFF") === 0) return false;
+    return t === "PRINCIPALE" || t === "SITO" || t === "MAIN";
+  }
+
+  function sectionShouldOpen(title, tiles, index) {
+    if (isPinnedSectionTitle(title)) return true;
+    try {
+      var stored = localStorage.getItem(sectionStorageKey(title));
+      if (stored === "0") return false;
+      if (stored === "1") return true;
+    } catch (eStore) {}
+    /* hamburgerOpenAll2: tutte le categorie aperte di default */
+    return true;
+  }
+
+  function bindSectionToggle(details, title) {
+    if (!details || isPinnedSectionTitle(title)) return;
+    details.addEventListener("toggle", function () {
+      try {
+        localStorage.setItem(sectionStorageKey(title), details.open ? "1" : "0");
+      } catch (eT) {}
+    });
+  }
+
+  function appendSection(gridRoot, title, tiles, index) {
     if (!gridRoot || !tiles || !tiles.length) return;
-    var sec = document.createElement("section");
-    sec.className = "vc-mobile-nav-section";
-    var h = document.createElement("h3");
+    var pinned = isPinnedSectionTitle(title);
+    var sec = document.createElement(pinned ? "section" : "details");
+    sec.className = "vc-mobile-nav-section" + (pinned ? " vc-mobile-nav-section--pinned" : "");
+    if (!pinned && sectionShouldOpen(title, tiles, index || 0)) sec.setAttribute("open", "");
+    var h = document.createElement(pinned ? "h3" : "summary");
     h.className = "vc-mobile-nav-section-title";
-    h.textContent = title;
+    var txt = document.createElement("span");
+    txt.className = "vc-mobile-nav-section-title__txt";
+    txt.textContent = title;
+    h.appendChild(txt);
+    if (!pinned) {
+      var chev = document.createElement("i");
+      chev.className = "fa fa-chevron-down vc-mobile-nav-section-chev";
+      chev.setAttribute("aria-hidden", "true");
+      h.appendChild(chev);
+      h.addEventListener("click", function (ev) {
+        try {
+          if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+          if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+        } catch (ePrev) {}
+        try {
+          sec.open = !sec.open;
+        } catch (eOpen) {}
+      });
+    }
     var g = document.createElement("div");
     g.className = "vc-mobile-nav-grid";
     var i;
@@ -181,7 +240,34 @@
     if (!g.children.length) return;
     sec.appendChild(h);
     sec.appendChild(g);
+    if (!pinned) bindSectionToggle(sec, title);
     gridRoot.appendChild(sec);
+  }
+
+  function finalizeActiveTiles(gridRoot) {
+    if (!gridRoot) return;
+    var tiles = gridRoot.querySelectorAll("a.vc-mobile-nav-tile");
+    var best = null;
+    var bestLen = -1;
+    var i;
+    for (i = 0; i < tiles.length; i += 1) {
+      var a = tiles[i];
+      a.classList.remove("is-active");
+      try {
+        a.removeAttribute("aria-current");
+      } catch (eRm) {}
+      var href = a.getAttribute("href") || "";
+      if (!hrefMatches(href)) continue;
+      var len = normPath(href).length;
+      if (len > bestLen) {
+        best = a;
+        bestLen = len;
+      }
+    }
+    if (best) {
+      best.classList.add("is-active");
+      best.setAttribute("aria-current", "page");
+    }
   }
 
   function build(gridRoot) {
@@ -196,8 +282,9 @@
       for (tIdx = 0; tIdx < sec.tiles.length; tIdx += 1) {
         tiles.push(createTile(sec.tiles[tIdx]));
       }
-      appendSection(gridRoot, sec.title, tiles);
+      appendSection(gridRoot, sec.title, tiles, s);
     }
+    finalizeActiveTiles(gridRoot);
     return true;
   }
 
@@ -206,6 +293,7 @@
     build: build,
     hrefMatches: hrefMatches,
     normPath: normPath,
+    finalizeActiveTiles: finalizeActiveTiles,
     shouldUse: isPublicSitePage,
     isPublicSitePage: isPublicSitePage,
   };

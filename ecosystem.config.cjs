@@ -131,14 +131,15 @@ module.exports = {
     ensurePm2App(
       "site-api",
       "Vinyls/Services/Web/durableSiteApiApp.js",
-                  "450M",
+      "620M",
       {
         SITE_API_PORT: "3020",
         WEBSITE_CANDIDATURE_HTTP: "1",
         WEBSITE_PUBLIC_HTTP: "1",
         PARTNERSHIP_MIGRATION_EXTERNAL: "1",
       },
-      "--max-old-space-size=360",
+      /* siteApiW4: was 360 — heap pressure under staff+notif caches */
+      "--max-old-space-size=512",
     ),
     ensurePm2App(
       "partnership-migration",
@@ -176,6 +177,29 @@ module.exports = {
       {
         min_uptime: "10s",
         max_memory_restart: "90M",
+      },
+    ),
+    ensurePm2App(
+      "host-housekeeper",
+      "deploy/ha/hostHousekeeperApp.js",
+      "110M",
+      {
+        HOST_HOUSEKEEPER: "1",
+        HOST_HOUSEKEEPER_INTERVAL_MS: "60000",
+        HOST_HOUSEKEEPER_CLEANUP_MS: "1800000",
+        HOST_HOUSEKEEPER_SAT_FAILS: "5",
+        HOST_HOUSEKEEPER_REBOOT_COOLDOWN_MS: "21600000",
+        HOST_HOUSEKEEPER_SOFT_COOLDOWN_MS: "900000",
+        HOST_HOUSEKEEPER_LOAD_MULT: "2.5",
+        HOST_HOUSEKEEPER_MEM_PCT: "8",
+        HOST_HOUSEKEEPER_DISK_PCT: "92",
+        HOST_HOUSEKEEPER_DISK_WARN: "85",
+        HOST_HOUSEKEEPER_ALLOW_REBOOT: "1",
+      },
+      "--max-old-space-size=80",
+      {
+        min_uptime: "10s",
+        max_memory_restart: "110M",
       },
     ),
     {

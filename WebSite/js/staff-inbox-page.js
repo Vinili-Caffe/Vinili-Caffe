@@ -3,19 +3,14 @@
   if (!T) return;
 
   var TABS = [
-    { id: "pause", label: "Pause", queue: "pause", requiresHighStaff: true },
+    /* pauseOutInbox1: Pause → card giorni sul profilo staff (non più inbox) */
     { id: "candidature", label: "Candidature", queue: "candidature", requiresCandidatureReview: true },
     { id: "appelli", label: "Appelli", queue: "appelli", requiresAppelliReview: true },
-    { id: "resoconti", label: "Resoconti", queue: "resoconti" },
-    { id: "punti-tolti", label: "Punti tolti", queue: null, requiresPmOrHighStaff: true },
+    /* resoProfile1: Resoconti → card sul profilo staff */
+    /* partnerPtChrono1: Punti tolti → card Partner sul profilo staff */
   ];
 
   var QUEUE_FILTERS = {
-    pause: [
-      { id: "", label: "Tutte le pause" },
-      { id: "staff", label: "Staff" },
-      { id: "pm", label: "Partner Manager" },
-    ],
     candidature: [
       { id: "", label: "Tutte" },
       { id: "helper", label: "Helper" },
@@ -36,6 +31,8 @@
   var PAGE_SIZE = 10;
   var loadSeq = 0;
   var detailSeq = 0;
+  /* inboxClickOpen2: timestamp ultimo open sheet (anti ghost-close) */
+  var inboxSheetOpenedAt = 0;
   var loadAbortCtrl = null;
   var loadWatchdogTimer = null;
   var initStarted = false;
@@ -105,26 +102,115 @@
     }
   }
 
-  function forceReleaseStuckInboxLoad() {
+  /* inboxRefreshUnlock1: sblocca tocchi/cine senza abortire il fetch in corso */
+  function unlockInboxPageChrome() {
+    try {
+      var root = document.documentElement;
+      /* ready flags: altrimenti html:not(.vc-soft-fx-ready) lascia main pe:none */
+      root.classList.add(
+        "vc-page-cine-ready",
+        "vc-cine-curtain-off",
+        "vc-soft-fx-ready",
+        "vc-core-styles-ready",
+        "vc-home-styles-ready",
+      );
+      root.classList.remove(
+        "vc-page-cine-boot",
+        "vc-notif-staff-loading",
+        "vc-notif-early-staff",
+        "vc-interaction-hold",
+        "vc-loading-scroll-lock",
+        "vc-scroll-soft-lock",
+        "vc-loader-blocking-live",
+      );
+      window.__VC_NOTIF_EARLY_STAFF = false;
+      window.__VC_INBOX_FS_GATE_HOLD = false;
+      root.style.removeProperty("touch-action");
+      if (document.body) {
+        document.body.style.removeProperty("touch-action");
+        document.body.style.setProperty("pointer-events", "auto", "important");
+      }
+      try {
+        var mainEl = document.querySelector("body.vc-notifications-page > main");
+        if (mainEl) mainEl.style.setProperty("pointer-events", "auto", "important");
+      } catch (eMainPe) {}
+      root.style.setProperty("cursor", "auto", "important");
+      if (document.body) document.body.style.setProperty("cursor", "auto", "important");
+      window.setTimeout(function () {
+        try {
+          root.style.removeProperty("cursor");
+          if (document.body) document.body.style.removeProperty("cursor");
+        } catch (eClrCur) {}
+      }, 50);
+    } catch (eUnlock) {}
+    try {
+      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eUnpin) {}
+    try {
+      if (typeof window.__vcReleaseInteractionHold === "function") window.__vcReleaseInteractionHold();
+    } catch (eRel) {}
+  }
+
+  function forceReleaseStuckInboxLoad(opts) {
+    opts = opts || {};
+    var abortFetch = opts.abort !== false;
+    var restart = Boolean(opts.restart);
+    if (abortFetch) {
     loadInFlightNonQuiet = false;
     bootLoadSeq = 0;
     loadQueueCoalesce = null;
     clearLoadWatchdog();
     clearSkeletonWatchdog();
+    clearSoftRefreshFailsafe();
     try {
-      if (loadAbortCtrl) loadAbortCtrl.abort();
+      if (loadAbortCtrl) {
+        /* rateLimitCalm1: abort silenzioso — niente Uncaught AbortError in console */
+        try {
+          if (typeof loadAbortCtrl.abort === "function") loadAbortCtrl.abort("force_release");
+        } catch (eAbortInner) {
+          try {
+            loadAbortCtrl.abort();
+          } catch (eAbort2) {}
+        }
+      }
     } catch (eAbort) {}
     loadAbortCtrl = null;
+    }
     /* Always lift FS gate — mobile watchdogs used to leave GATE_HOLD forever after staffBooted. */
     try {
-      initialQueueLoaded = true;
+      if (abortFetch || state.items.length) initialQueueLoaded = true;
       inboxBooting = false;
       hideInboxFsLoading(true);
       hideInboxBootScreen(true);
     } catch (eGate) {}
     try {
-      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
-    } catch (eUnpin) {}
+      clearInboxLoading();
+    } catch (eClr) {}
+    try {
+      var list = T.byId("vc-staff-inbox-list");
+      if (list) {
+        list.classList.remove("is-loading", "is-refreshing");
+        list.setAttribute("aria-busy", "false");
+        list.removeAttribute("data-inbox-loading");
+      }
+      var panel = T.byId("vc-staff-inbox");
+      if (panel) panel.classList.remove("is-booting");
+    } catch (eList) {}
+    unlockInboxPageChrome();
+    if (restart && isStaffScopeActive()) {
+      try {
+        emptyLoadedTabs = Object.create(null);
+        lastInboxListPaintSig = "";
+        loadQueue({
+          soft: false,
+          sync: true,
+          cache: false,
+          _userIntent: true,
+          _internal: true,
+          _refreshUnlock: true,
+        }).catch(function () {});
+      } catch (eRestart) {}
+    }
   }
 
   function forceAppealSyncLoad(reason) {
@@ -190,7 +276,7 @@
   };
 
   var state = {
-    tab: "pause",
+    tab: "candidature",
     scope: "pending",
     summary: null,
     permissions: null,
@@ -227,13 +313,29 @@
     var perms = readPermissions();
     if (tab.requiresHighStaff && !(perms.isHighStaff || perms.canManage || perms.highStaff)) return false;
     if (tab.requiresPmOrHighStaff) {
+      /* inboxNoDirector1: punti tolti = PM + HS — non Director */
+      if (perms.canViewPmPointsRemoved === true) return true;
+      if (perms.canViewPmPointsRemoved === false) return false;
+      if (perms.director && !(perms.isHighStaff || perms.canManage || perms.highStaff)) return false;
       return Boolean(
         perms.isPm ||
           perms.pm ||
+          perms.isPmGestore ||
           perms.isHighStaff ||
           perms.canManage ||
+          perms.highStaff,
+      );
+    }
+    if (tab.requiresResocontiReview) {
+      /* inboxNoDirector1: resoconti = HS / gestore / reviewer — non Director */
+      if (perms.canViewResoconti === true || perms.resocontiReview === true) return true;
+      if (perms.canViewResoconti === false) return false;
+      if (perms.director && !(perms.isHighStaff || perms.canManage || perms.highStaff)) return false;
+      return Boolean(
+        perms.isHighStaff ||
+          perms.canManage ||
           perms.highStaff ||
-          perms.director,
+          perms.isPmGestore,
       );
     }
     if (tab.requiresCandidatureReview && !perms.candidatureReview) return false;
@@ -256,7 +358,7 @@
     for (var i = 0; i < TABS.length; i += 1) {
       if (canAccessTab(TABS[i].id)) return TABS[i].id;
     }
-    return "resoconti";
+    return "candidature";
   }
 
   function permissionsReady() {
@@ -318,6 +420,19 @@
     if (rid && rid === fid) return true;
     if (iid && iid === fid) return true;
     if (dk && (dk === fid || dk.indexOf(":" + fid) >= 0)) return true;
+    /* notifSheetOpenFix1: item=resoconti:new:MSGID → match MSGID */
+    var last = "";
+    try {
+      var parts = fid.split(":").filter(Boolean);
+      last = parts.length ? String(parts[parts.length - 1] || "").trim() : "";
+    } catch (eLast) {}
+    if (last) {
+      if (mid && mid === last) return true;
+      if (rid && rid === last) return true;
+      if (iid && iid === last) return true;
+    }
+    if (mid && fid.indexOf(mid) >= 0) return true;
+    if (rid && fid.indexOf(rid) >= 0) return true;
     return false;
   }
 
@@ -330,15 +445,41 @@
     } catch (eClrFocus) {}
   }
 
+  var pendingFocusRetryTimer = 0;
+  var pendingFocusRetryUntil = 0;
+
+  function schedulePendingFocusRetry() {
+    if (!pendingFocusItemId || pendingFocusConsumed) return;
+    if (!pendingFocusRetryUntil) pendingFocusRetryUntil = Date.now() + 14000;
+    if (Date.now() > pendingFocusRetryUntil) return;
+    window.clearTimeout(pendingFocusRetryTimer);
+    pendingFocusRetryTimer = window.setTimeout(function () {
+      pendingFocusRetryTimer = 0;
+      try {
+        if (tryOpenPendingFocusItem()) return;
+      } catch (eTry) {}
+      schedulePendingFocusRetry();
+    }, 450);
+  }
+
   function tryOpenPendingFocusItem() {
-    if (!pendingFocusItemId || pendingFocusConsumed || !state.items.length) return false;
+    if (!pendingFocusItemId || pendingFocusConsumed) return false;
+    if (!state.items.length) {
+      schedulePendingFocusRetry();
+      return false;
+    }
     var focusId = pendingFocusItemId;
     var item = state.items.find(function (it) {
       return itemMatchesFocusId(it, focusId);
     });
-    if (!item) return false;
+    if (!item) {
+      schedulePendingFocusRetry();
+      return false;
+    }
     pendingFocusConsumed = true;
     pendingFocusItemId = "";
+    pendingFocusRetryUntil = 0;
+    window.clearTimeout(pendingFocusRetryTimer);
     clearPendingFocusFromUrl();
     openDetail(item);
     return true;
@@ -379,20 +520,68 @@
   }
 
   function markTabConfirmedEmpty(tabId) {
-            if (inboxBooting || !initialQueueLoaded) return;
+    /* inboxPendingBadgeSync1: azzera badge anche a boot — prima il guard
+       inboxBooting/!initialQueueLoaded lasciava emptyLoadedTabs=true e summary=1. */
     var id = String(tabId || state.tab || "").trim();
-    if (!id) return;
+    if (!id || id === "punti-tolti") return;
     emptyLoadedTabs[id] = true;
-    if (state.summary && typeof state.summary === "object" && Number(state.summary[id] || 0) > 0) {
-      state.summary[id] = 0;
+    if (!state.summary || typeof state.summary !== "object") return;
+    if (Number(state.summary[id] || 0) <= 0) {
       try {
-        sessionStorage.setItem(
-          SUMMARY_CACHE_KEY,
-          JSON.stringify({ summary: state.summary, permissions: state.permissions, at: Date.now() }),
-        );
-      } catch (eCache) {}
-      renderTabs();
+        renderTabs();
+      } catch (eRt0) {}
+      return;
     }
+    state.summary[id] = 0;
+    persistSummaryCache();
+    try {
+      renderTabs();
+    } catch (eRt) {}
+  }
+
+  function persistSummaryCache() {
+    if (!state.summary || typeof state.summary !== "object") return;
+    try {
+      var cachePayload = {
+        summary: state.summary,
+        permissions: state.permissions || null,
+        at: Date.now(),
+      };
+      sessionStorage.setItem(SUMMARY_CACHE_KEY, JSON.stringify(cachePayload));
+      localStorage.setItem(SUMMARY_CACHE_LOCAL_KEY, JSON.stringify(cachePayload));
+    } catch (eCache) {}
+  }
+
+  /* inboxPendingBadgeSync1: badge tab = total pending della coda (lista pagina 1, senza filtro tipo). */
+  function syncTabBadgeFromLoadedQueue(tabId, scope, filter, items, pagination, page) {
+    if (String(scope || "") !== "pending") return false;
+    if (String(filter || "").trim()) return false;
+    var id = String(tabId || "").trim();
+    if (!id || id === "punti-tolti") return false;
+    if (!state.summary || typeof state.summary !== "object") state.summary = {};
+    var pageNum = Number(page || 1) || 1;
+    var total = null;
+    if (pagination && pagination.total != null && Number.isFinite(Number(pagination.total))) {
+      total = Math.max(0, Math.floor(Number(pagination.total)));
+    } else if (pageNum <= 1) {
+      total = Array.isArray(items) ? items.length : 0;
+    } else {
+      return false;
+    }
+    var prev = Number(state.summary[id] || 0);
+    if (prev === total) {
+      if (total === 0) emptyLoadedTabs[id] = true;
+      else delete emptyLoadedTabs[id];
+      return false;
+    }
+    state.summary[id] = total;
+    if (total === 0) emptyLoadedTabs[id] = true;
+    else delete emptyLoadedTabs[id];
+    persistSummaryCache();
+    try {
+      renderTabs();
+    } catch (eRt2) {}
+    return true;
   }
 
   function appealPendingInSummary() {
@@ -532,7 +721,7 @@
           return;
         }
         if (!state.items.length) return;
-        loadQueue({ soft: true, sync: true, quiet: true, _internal: true }).catch(function () {});
+        /* inboxCenterEmpty1: boot hard già ok — niente secondo refresh silenzioso */
       }, 180);
     });
   }
@@ -584,12 +773,7 @@
       }
     });
     if (touched) {
-      try {
-        sessionStorage.setItem(
-          SUMMARY_CACHE_KEY,
-          JSON.stringify({ summary: state.summary, permissions: state.permissions, at: Date.now() }),
-        );
-      } catch (eCache) {}
+      persistSummaryCache();
       renderTabs();
     }
   }
@@ -774,16 +958,33 @@
 
   function scheduleInboxWsReconnect() {
     if (state.inboxWsReconnectTimer) return;
+    var delay = 8000;
+    try {
+      if (typeof window.__vcWebhookGlobalBlockedUntil === "function") {
+        var until = Number(window.__vcWebhookGlobalBlockedUntil() || 0);
+        if (Date.now() < until) delay = Math.max(delay, until - Date.now() + 1500);
+      }
+    } catch (eDel) {}
     state.inboxWsReconnectTimer = setTimeout(function () {
       state.inboxWsReconnectTimer = null;
       connectInboxWebSocket();
-    }, 8000);
+    }, delay);
   }
 
   function connectInboxWebSocket() {
     if (typeof WebSocket === "undefined") return;
     var url = inboxRealtimeWsUrl();
     if (!url) return;
+    /* consoleStormKill3: pausa WS se rate-limit attivo */
+    try {
+      if (typeof window.__vcWebhookGlobalBlockedUntil === "function") {
+        var until = Number(window.__vcWebhookGlobalBlockedUntil() || 0);
+        if (Date.now() < until) {
+          scheduleInboxWsReconnect();
+          return;
+        }
+      }
+    } catch (eBlk) {}
     disconnectInboxWebSocket();
     try {
       var ws = new WebSocket(url);
@@ -824,6 +1025,9 @@
     var row = state.items[idx];
     var prev = state.detail || {};
     var prevDecidedName = String(prev.decidedByName || "").trim();
+    var prevStatus = String(prev.status || "").trim().toLowerCase();
+    var nextStatus = String((row && row.status) || "").trim().toLowerCase();
+    var statusChanged = Boolean(prevStatus && nextStatus && prevStatus !== nextStatus);
     state.detail = Object.assign({}, prev, row, {
       dedupeKey: row.dedupeKey || prev.dedupeKey || "",
       messageId: row.messageId || prev.messageId || "",
@@ -837,9 +1041,14 @@
     });
     renderList();
     var nextDecidedName = String((state.detail && state.detail.decidedByName) || "").trim();
-    if (!shouldRemountDetailForSoftSync(row)) {
+    /* inboxSheetFlashFix1: soft poll must not remount open sheet (mobile flash loop). */
+    if (!shouldRemountDetailForSoftSync(row, { statusChanged: statusChanged })) {
+      patchSheetStatusInDom(state.detail);
       if (nextDecidedName && nextDecidedName !== prevDecidedName) {
-        if (!patchDecisionMetaInDom(state.detail)) renderDetail();
+        if (!patchDecisionMetaInDom(state.detail)) {
+          /* keep sheet; meta patch failed is non-fatal on soft sync */
+          patchDecisionMetaInDom(state.detail);
+        }
       } else {
         patchDecisionMetaInDom(state.detail);
       }
@@ -848,14 +1057,41 @@
     renderDetail();
   }
 
-  function shouldRemountDetailForSoftSync(row) {
+  function isWorkflowSheetOpen() {
+    try {
+      var sheet = document.getElementById("vc-staff-reso-sheet");
+      if (!sheet || sheet.hidden || sheet.hasAttribute("hidden")) return false;
+      return sheet.classList.contains("is-in");
+    } catch (eOpen) {
+      return false;
+    }
+  }
+
+  function shouldRemountDetailForSoftSync(row, opts) {
+    opts = opts || {};
     if (!state.selectedKey || !state.detail) return true;
     if (!row) return true;
+    // Status flip (pending→done) needs one remount so actions/foot update.
+    if (opts.statusChanged) return true;
+    // Sheet already open for this item: patch only — full remount flashes on mobile.
+    if (usesWorkflowSheet() && isWorkflowSheetOpen()) return false;
     try {
       if (document.getElementById("vc-wfc-root") && window.VcWorkflowChat) {
         return false;
       }
     } catch (eRoot) {}
+    return true;
+  }
+
+  function patchSheetStatusInDom(item) {
+    if (!item) return false;
+    var el = document.querySelector(
+      "#vc-staff-reso-sheet .vc-staff-reso-hero__status, #vc-staff-reso-sheet .vc-staff-inbox-status",
+    );
+    if (!el) return false;
+    var cls = "vc-staff-inbox-status vc-staff-reso-hero__status " + statusClass(item);
+    el.className = cls;
+    el.textContent = statusLabel(item);
     return true;
   }
 
@@ -876,6 +1112,10 @@
       return;
     }
     if (state.detail || state.selectedKey || state.detailLoading) {
+      /* inboxClickOpen2: non chiudere lo sheet se un refresh ha perso temporaneamente la riga */
+      try {
+        if (isWorkflowSheetOpen() && Date.now() - inboxSheetOpenedAt < 12000) return;
+      } catch (eKeep) {}
       clearDetailState();
     }
   }
@@ -1046,9 +1286,10 @@
   }
 
   function applyActionResult(out, body) {
+    var actedKey = state.selectedKey || "";
     var patch = optimisticWorkflowPatch(body, out);
     if (patch) {
-      if (state.detail && String(patch.messageId || "") === String(state.detail.messageId || state.selectedKey || "")) {
+      if (state.detail && String(patch.messageId || "") === String(state.detail.messageId || actedKey || "")) {
         patch.body = patch.body || patch.content || state.detail.body || state.detail.content || "";
         patch.content = patch.content || patch.body || state.detail.content || state.detail.body || "";
       }
@@ -1056,23 +1297,25 @@
       mergeWorkflowItemIntoList(patch);
     }
     if (
-      state.scope === "pending" &&
       patch &&
       String(patch.status || "").toLowerCase() !== "pending"
     ) {
+      if (state.scope === "pending" && actedKey) {
       state.items = state.items.filter(function (it) {
-        return itemKey(it) !== state.selectedKey;
-      });
-      closeDetail();
-      try {
-        renderList();
+          return itemKey(it) !== actedKey;
+        });
+      }
+    }
+    /* inboxClickOpen10f: chiudi PRIMA di qualsiasi remount (renderDetail+rAF riapriva lo sheet) */
+    closeDetail({ force: true });
+    try {
+      cancelInboxSheetOpenRaf();
+      closeResoSheet(true, { force: true });
+    } catch (eForceClose) {}
+    try {
+      renderList({ force: true });
         renderTabs();
       } catch (eRtList) {}
-    } else if (state.selectedKey && patch) {
-      applySelectedItemFromList();
-    } else {
-      syncDetailWithList();
-    }
     bumpSummaryAfterAction(body);
     T.hideStaffToast();
     inboxNotify(
@@ -1082,9 +1325,13 @@
     );
     teardownChat();
     invalidateWorkflowCache();
+    /* refresh lista subito dopo decisione (senza rimontare lo sheet) */
     scheduleInboxSoftRefresh();
         scheduleInboxRefreshFromRealtime({ immediate: true });
   }
+  try {
+    window.__vcStaffInboxApplyActionResult = applyActionResult;
+  } catch (eProbeHook) {}
 
   function resocontoCardAction(item) {
     item = itemWithLocalDecision(item);
@@ -1296,7 +1543,9 @@
     }, 420);
   }
 
+  try {
   initWorkflowChat();
+  } catch (eInitChat) {}
 
   function inboxNotify(msg, isError, opts) {
         if (isInboxEmbed()) {
@@ -1378,7 +1627,7 @@
         return;
       }
       var s = document.createElement("script");
-      s.src = "/js/staff-punti-tolti-page.js?v=20260904ptScopeUnified1";
+      s.src = "/js/staff-punti-tolti-page.js?v=20260918siteBatchFix3";
       s.async = true;
       s.setAttribute("data-vc-staff-pt-js", "1");
       s.onload = function () {
@@ -1466,64 +1715,107 @@
     });
   }
 
-  function setTab(tab) {
-    state.tab = tab;
+  function clearInboxPointerBlockers() {
+    unlockInboxPageChrome();
+  }
+
+  function beginUserQueueSwitch(kind, value) {
+    clearInboxPointerBlockers();
+    /* inboxTabPaint1: switch utente = drop focus deep-link + sblocca empty cache tab */
+    try {
+      pendingFocusConsumed = true;
+      pendingFocusItemId = "";
+      pendingFocusRetryUntil = 0;
+      window.clearTimeout(pendingFocusRetryTimer);
+      clearPendingFocusFromUrl();
+    } catch (eFocus) {}
+    try {
+      if (kind === "tab" && value) delete emptyLoadedTabs[String(value)];
+      else if (kind === "tab") delete emptyLoadedTabs[state.tab];
+    } catch (eEmpty) {}
+  }
+
+  /* inboxClickOpen10d: switch tab/scope DEVE chiudere lo sheet (altrimenti heartbeat lo tiene sopra la lista) */
+  function dismissSheetForQueueSwitch() {
+    try {
+      window.clearInterval(window.__vcInboxSheetUnlockBeat);
+      window.__vcInboxSheetUnlockBeat = 0;
+    } catch (eHb) {}
+    try {
+      window.clearInterval(window.__vcInboxOpenKeepAlive);
+      window.__vcInboxOpenKeepAlive = 0;
+    } catch (eKa) {}
+    inboxSheetOpenedAt = 0;
+    try {
     teardownChat();
+    } catch (eChat) {}
     state.detail = null;
     state.selectedKey = "";
     state.detailLoading = false;
     state.detailError = "";
+    try {
+      closeResoSheet(true, { force: true });
+    } catch (eClose) {}
+    try {
+      var layout = T.byId("vc-staff-inbox");
+      if (layout) layout.classList.remove("has-detail");
+    } catch (eLay) {}
+  }
+
+  function setTab(tab) {
+    beginUserQueueSwitch("tab", tab);
+    state.tab = tab;
+    dismissSheetForQueueSwitch();
     state.page = 1;
     state.filter = "";
     state.week = "";
     state.weeks = [];
     state.items = [];
     state.pagination = null;
+    lastInboxListPaintSig = "";
     syncUrlState();
     showInboxLoading("skeleton");
-    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true });
+    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true, cache: false });
   }
+  try {
+    window.__vcStaffInboxSetTab = setTab;
+    window.__vcDismissSheetForQueueSwitch = dismissSheetForQueueSwitch;
+  } catch (eTabExp) {}
 
   function setScope(scope) {
+    beginUserQueueSwitch("scope");
     state.scope = scope === "pending" ? "pending" : "all";
-    state.detail = null;
-    state.selectedKey = "";
-    state.detailLoading = false;
-    state.detailError = "";
+    dismissSheetForQueueSwitch();
     state.page = 1;
     state.items = [];
     state.pagination = null;
+    lastInboxListPaintSig = "";
     syncUrlState();
-    renderDetail();
     showInboxLoading("skeleton");
-    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true });
+    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true, cache: false });
   }
 
   function setFilter(filterId) {
+    beginUserQueueSwitch("filter");
     state.filter = String(filterId || "").trim().toLowerCase();
-    state.detail = null;
-    state.selectedKey = "";
-    state.detailLoading = false;
+    dismissSheetForQueueSwitch();
     state.page = 1;
     state.items = [];
     state.pagination = null;
+    lastInboxListPaintSig = "";
     syncUrlState();
-    renderDetail();
     showInboxLoading("skeleton");
-    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true });
+    loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true, cache: false });
   }
 
   function setWeek(weekKey) {
     state.week = String(weekKey || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(state.week)) state.week = "";
-    state.detail = null;
-    state.selectedKey = "";
-    state.detailLoading = false;
+    dismissSheetForQueueSwitch();
     state.page = 1;
     state.items = [];
     state.pagination = null;
     syncUrlState();
-    renderDetail();
     showInboxLoading("skeleton");
     loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true });
   }
@@ -1606,14 +1898,8 @@
     return "Ruolo";
   }
 
+  /* inboxTabHintKill1: niente sottotitoli sotto le tab inbox */
   function inboxFilterHint() {
-    if (isPuntiToltiTab()) {
-      return "Conferma o nega le segnalazioni in attesa prima di chiudere il turno.";
-    }
-    if (state.tab === "pause") return "Controlla le richieste di pausa in coda prima di chiudere.";
-    if (state.tab === "candidature") return "Approva o rifiuta le candidature in attesa.";
-    if (state.tab === "appelli") return "Valuta unban e unmute in coda.";
-    if (state.tab === "resoconti") return "Rivedi i resoconti settimanali dello staff.";
     return "";
   }
 
@@ -1627,18 +1913,9 @@
     var wrap = inboxFilterWrap();
     if (!wrap) return;
     wrap.classList.add("vc-staff-inbox-board-toolbar");
-    var hint = wrap.querySelector(".vc-staff-inbox-board-toolbar__hint");
-    var text = inboxFilterHint();
-    if (!text) {
-      if (hint) hint.remove();
-      return;
-    }
-    if (!hint) {
-      hint = document.createElement("p");
-      hint.className = "vc-staff-inbox-board-toolbar__hint";
-      wrap.appendChild(hint);
-    }
-    hint.textContent = text;
+    wrap.querySelectorAll(".vc-staff-inbox-board-toolbar__hint").forEach(function (el) {
+      el.remove();
+    });
   }
 
   function renderQueueFilters() {
@@ -1825,8 +2102,7 @@
         }
         if (next === page) return;
         setPage(next);
-        var list = T.byId("vc-staff-inbox-list");
-        if (list && list.scrollIntoView) list.scrollIntoView({ behavior: "smooth", block: "start" });
+        /* scrollStayAll1: no scrollIntoView */
       });
     });
   }
@@ -1931,8 +2207,9 @@
     } else {
       root.className = "vc-staff-tools-tabs";
     }
+    /* inboxPhoneTabs1: solo code attive (candidature/appelli) — no pause/resoconti/punti */
     var buttons = TABS.filter(function (t) {
-      return canAccessTab(t.id);
+      return canAccessTab(t.id) && (t.id === "candidature" || t.id === "appelli");
     })
       .map(function (t) {
         var count = state.summary && state.summary[t.id] != null ? Number(state.summary[t.id]) : 0;
@@ -1955,14 +2232,569 @@
     root.innerHTML = embed
       ? '<div class="vc-staff-pt-seg" role="tablist" aria-label="Sezioni inbox">' + buttons + "</div>"
       : buttons;
-    root.querySelectorAll("[data-tab]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        setTab(btn.getAttribute("data-tab"));
-        renderTabs();
-        renderQueueFilters();
-      });
-    });
+    /* inboxTabPaint1: solo delegation (niente doppio setTab per-bottone) */
   }
+
+  /* inboxTabClick1 / inboxClickOpen10d: un solo listener document; handler sostituibile a ogni load */
+  function onChromeActivate(ev) {
+    try {
+      var t = ev && ev.target;
+      if (!t || !t.closest) return;
+      var host = t.closest("#vc-staff-inbox, .vc-notif-staff-inbox, #vc-staff-inbox-unified");
+      if (!host) return;
+      var tabBtn = t.closest("[data-tab]");
+      if (tabBtn && host.contains(tabBtn)) {
+        var tabId = tabBtn.getAttribute("data-tab");
+        if (!tabId) return;
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (e1) {}
+        if (tabId === state.tab) {
+          beginUserQueueSwitch("tab", tabId);
+          dismissSheetForQueueSwitch();
+          state.items = [];
+          state.pagination = null;
+          lastInboxListPaintSig = "";
+          showInboxLoading("skeleton");
+          loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true, cache: false });
+          return;
+        }
+        setTab(tabId);
+        return;
+      }
+      var scopeBtn = t.closest("[data-scope]");
+      if (scopeBtn && host.contains(scopeBtn)) {
+        var sc = scopeBtn.getAttribute("data-scope");
+        if (!sc) return;
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (e2) {}
+        if (sc === state.scope) {
+          beginUserQueueSwitch("scope");
+          dismissSheetForQueueSwitch();
+          state.items = [];
+          lastInboxListPaintSig = "";
+          showInboxLoading("skeleton");
+          loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true, cache: false });
+          return;
+        }
+        setScope(sc);
+        return;
+      }
+      var ptBtn = t.closest("[data-pt-scope]");
+      if (ptBtn && host.contains(ptBtn)) {
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (e3) {}
+        var next = ptBtn.getAttribute("data-pt-scope") === "pending";
+        try {
+          if (window.VCStaffPuntiTolti && typeof window.VCStaffPuntiTolti.setPendingOnly === "function") {
+            window.VCStaffPuntiTolti.setPendingOnly(next);
+          }
+        } catch (eSet) {}
+        renderScopeToggle();
+        return;
+      }
+      var filterBtn = t.closest("[data-filter]");
+      if (filterBtn && host.contains(filterBtn)) {
+        var fid = filterBtn.getAttribute("data-filter") || "";
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (e4) {}
+        if (String(fid) === String(state.filter || "")) {
+          beginUserQueueSwitch("filter");
+          dismissSheetForQueueSwitch();
+          state.items = [];
+          lastInboxListPaintSig = "";
+          showInboxLoading("skeleton");
+          loadQueue({ soft: false, _userIntent: true, _scopeSwitch: true, cache: false });
+          return;
+        }
+        setFilter(fid);
+      }
+    } catch (eAct) {}
+  }
+  function wireInboxChromeDelegation() {
+    try {
+      window.__vcInboxChromeActivate = onChromeActivate;
+    } catch (eExp) {}
+    if (window.__vcInboxChromeClickWired === "inboxClickOpen10d") return;
+    window.__vcInboxChromeClickWired = "inboxClickOpen10d";
+    document.addEventListener(
+      "click",
+      function (ev) {
+        try {
+          if (typeof window.__vcInboxChromeActivate === "function") window.__vcInboxChromeActivate(ev);
+        } catch (eDel) {}
+      },
+      true,
+    );
+  }
+  try {
+    wireInboxChromeDelegation();
+  } catch (eWireChrome) {}
+
+  /* inboxClickOpen10: unlock + document capture per act/X (sheet listener poteva restare orphan) */
+  var INBOX_SHEET_OPEN_GUARD_MS = 500;
+  var INBOX_SHEET_Z = "121050";
+  var inboxCardOpenDedupeKey = "";
+  var inboxCardOpenDedupeAt = 0;
+  function disarmSheetCloseGuard() {
+    try {
+      window.__vcSheetCloseGuardUntil = 0;
+    } catch (e0) {}
+    try {
+      /* solo se arm supporta disarm reale (n===0 → until=0), altrimenti riarmerebbe */
+      var armFn = window.__vcArmSheetCloseGuard;
+      if (typeof armFn === "function" && window.__vcSheetGhostCloseWired === "inboxClickOpen10") {
+        armFn(0);
+      }
+    } catch (e1) {}
+  }
+
+  function sheetOpenGuardActive() {
+    return Date.now() - inboxSheetOpenedAt < INBOX_SHEET_OPEN_GUARD_MS;
+  }
+
+  function ensureSheetForceVisibleCss() {
+    try {
+      [
+        "vc-inbox-sheet-force-open5",
+        "vc-inbox-sheet-force-open6",
+        "vc-inbox-sheet-force-open7",
+        "vc-inbox-sheet-force-open8",
+        "vc-inbox-sheet-force-open8b",
+      ].forEach(function (oldId) {
+        var old = document.getElementById(oldId);
+        if (old && old.parentNode) old.parentNode.removeChild(old);
+      });
+      var id = "vc-inbox-sheet-force-open10";
+      var st = document.getElementById(id);
+      if (!st) {
+        st = document.createElement("style");
+        st.id = id;
+        (document.head || document.documentElement).appendChild(st);
+      }
+      /* sheetUnlock1: stesso sblocco per reso + stat/manage/feedback */
+      st.textContent =
+        "html.vc-staff-reso-sheet-open,html.vc-staff-stat-sheet-open,html.vc-staff-manage-sheet-open,html.vc-feedback-sheet-open," +
+        "html.vc-staff-reso-sheet-open body,html.vc-staff-stat-sheet-open body,html.vc-staff-manage-sheet-open body,html.vc-feedback-sheet-open body{" +
+        "pointer-events:auto!important;touch-action:manipulation!important;cursor:auto!important}" +
+        "html.vc-staff-reso-sheet-open #vc-staff-reso-sheet," +
+        "#vc-staff-reso-sheet.is-in:not([hidden]){" +
+        "display:grid!important;visibility:visible!important;opacity:1!important;" +
+        "pointer-events:auto!important;touch-action:manipulation!important;z-index:" +
+        INBOX_SHEET_Z +
+        "!important;position:fixed!important;" +
+        "inset:0!important;transform:none!important;place-items:end center!important}" +
+        "html.vc-staff-reso-sheet-open #vc-staff-reso-sheet .vc-staff-reso-sheet__panel," +
+        "#vc-staff-reso-sheet.is-in .vc-staff-reso-sheet__panel{" +
+        "opacity:1!important;visibility:visible!important;transform:none!important;" +
+        "display:flex!important;pointer-events:auto!important;touch-action:manipulation!important;" +
+        "max-height:min(94dvh,58rem)!important}" +
+        "html.vc-staff-reso-sheet-open #vc-staff-reso-sheet .vc-staff-reso-sheet__panel *," +
+        "#vc-staff-reso-sheet.is-in .vc-staff-reso-sheet__panel *," +
+        "html.vc-staff-stat-sheet-open .vc-staff-stat-sheet," +
+        "html.vc-staff-stat-sheet-open .vc-staff-stat-sheet *," +
+        "html.vc-staff-manage-sheet-open .vc-staff-manage-sheet," +
+        "html.vc-staff-manage-sheet-open .vc-staff-manage-sheet *," +
+        "html.vc-feedback-sheet-open .vc-feedback-sheet," +
+        "html.vc-feedback-sheet-open .vc-feedback-sheet *{" +
+        "pointer-events:auto!important;touch-action:manipulation!important;cursor:auto!important}" +
+        "html.vc-staff-reso-sheet-open #vc-staff-reso-sheet .vc-staff-reso-sheet__backdrop," +
+        "#vc-staff-reso-sheet.is-in .vc-staff-reso-sheet__backdrop{" +
+        "opacity:1!important;pointer-events:auto!important}" +
+        "html.vc-staff-reso-sheet-open #vc-staff-inbox-loading," +
+        "html.vc-staff-stat-sheet-open #vc-staff-inbox-loading," +
+        "html.vc-staff-manage-sheet-open #vc-staff-inbox-loading," +
+        "html.vc-feedback-sheet-open #vc-staff-inbox-loading," +
+        "html.vc-staff-reso-sheet-open .vc-staff-loading," +
+        "html.vc-staff-reso-sheet-open #vc-necessity-banner," +
+        "html.vc-staff-stat-sheet-open #vc-necessity-banner," +
+        "html.vc-staff-manage-sheet-open #vc-necessity-banner," +
+        "html.vc-feedback-sheet-open #vc-necessity-banner," +
+        "html.vc-staff-reso-sheet-open .vc-necessity-banner," +
+        "html.vc-staff-reso-sheet-open #vc-cine-boot-curtain," +
+        "html.vc-staff-stat-sheet-open #vc-cine-boot-curtain," +
+        "html.vc-staff-manage-sheet-open #vc-cine-boot-curtain," +
+        "html.vc-feedback-sheet-open #vc-cine-boot-curtain," +
+        "html.vc-staff-reso-sheet-open #vc-shared-boot-overlay," +
+        "html.vc-staff-stat-sheet-open #vc-shared-boot-overlay," +
+        "html.vc-staff-manage-sheet-open #vc-shared-boot-overlay," +
+        "html.vc-feedback-sheet-open #vc-shared-boot-overlay," +
+        "html.vc-staff-reso-sheet-open .vc-session-verify-overlay," +
+        "html.vc-staff-stat-sheet-open .vc-session-verify-overlay," +
+        "html.vc-staff-manage-sheet-open .vc-session-verify-overlay," +
+        "html.vc-feedback-sheet-open .vc-session-verify-overlay{" +
+        "display:none!important;visibility:hidden!important;opacity:0!important;" +
+        "pointer-events:none!important}" +
+        "html.vc-staff-reso-sheet-open .vc-dialog," +
+        "html.vc-staff-stat-sheet-open .vc-dialog," +
+        "html.vc-staff-manage-sheet-open .vc-dialog," +
+        "html.vc-feedback-sheet-open .vc-dialog," +
+        "html.vc-staff-reso-sheet-open .vc-dash-confirm," +
+        "html.vc-staff-reso-sheet-open #vc-site-dialog{" +
+        "z-index:130000!important;pointer-events:auto!important}";
+    } catch (eCss) {}
+  }
+
+  function unlockSheetInteractions() {
+    try {
+      document.documentElement.classList.remove(
+        "vc-interaction-hold",
+        "vc-notif-staff-loading",
+        "vc-notif-early-staff",
+        "vc-loading-scroll-lock",
+        "vc-loader-blocking-live",
+        "vc-scroll-soft-lock",
+        "vc-page-cine-boot",
+      );
+      document.documentElement.classList.add("vc-soft-fx-ready", "vc-page-cine-ready");
+      window.__VC_INBOX_FS_GATE_HOLD = false;
+      window.__VC_NOTIF_EARLY_STAFF = false;
+    } catch (eCls) {}
+    try {
+      document.documentElement.style.setProperty("pointer-events", "auto", "important");
+      document.documentElement.style.setProperty("touch-action", "manipulation", "important");
+      if (document.body) {
+        document.body.style.setProperty("pointer-events", "auto", "important");
+        document.body.style.setProperty("touch-action", "manipulation", "important");
+        document.body.style.setProperty("cursor", "auto", "important");
+      }
+    } catch (ePe) {}
+    try {
+      /* inboxClickOpen10: NON chiamare arm(0) — su vc-landing-notif vecchio arm(0)=arm(520)
+         e lo swallow mangia TUTTI i click; l'heartbeat lo riarmava per sempre. */
+      window.__vcSheetCloseGuardUntil = 0;
+    } catch (eG) {}
+    try {
+      var ban = document.getElementById("vc-necessity-banner");
+      if (ban) {
+        ban.style.setProperty("display", "none", "important");
+        ban.style.setProperty("pointer-events", "none", "important");
+        ban.style.setProperty("visibility", "hidden", "important");
+        ban.setAttribute("aria-hidden", "true");
+      }
+    } catch (eBan) {}
+    try {
+      var load = document.getElementById("vc-staff-inbox-loading");
+      if (load) {
+        load.hidden = true;
+        load.setAttribute("hidden", "");
+        load.classList.add("vc-staff-loading--hidden");
+        load.style.setProperty("pointer-events", "none", "important");
+        load.style.setProperty("display", "none", "important");
+      }
+    } catch (eLoad) {}
+    try {
+      state.busy = false;
+    } catch (eBusy) {}
+    try {
+      if (typeof window.__vcReleaseInteractionHold === "function") window.__vcReleaseInteractionHold();
+    } catch (eRel) {}
+    try {
+      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eUn) {}
+  }
+
+  function forceSheetInlineVisible(sheet) {
+    if (!sheet) return;
+    try {
+      sheet.style.setProperty("display", "grid", "important");
+      sheet.style.setProperty("visibility", "visible", "important");
+      sheet.style.setProperty("opacity", "1", "important");
+      sheet.style.setProperty("pointer-events", "auto", "important");
+      sheet.style.setProperty("z-index", INBOX_SHEET_Z, "important");
+      sheet.style.setProperty("position", "fixed", "important");
+      sheet.style.setProperty("inset", "0", "important");
+      sheet.style.setProperty("transform", "none", "important");
+      var panel = sheet.querySelector(".vc-staff-reso-sheet__panel");
+      if (panel) {
+        panel.style.setProperty("opacity", "1", "important");
+        panel.style.setProperty("visibility", "visible", "important");
+        panel.style.setProperty("transform", "none", "important");
+        panel.style.setProperty("display", "flex", "important");
+        panel.style.setProperty("pointer-events", "auto", "important");
+      }
+      var bd = sheet.querySelector(".vc-staff-reso-sheet__backdrop");
+      if (bd) bd.style.setProperty("opacity", "1", "important");
+    } catch (eInline) {}
+  }
+
+  function armSheetOpenGuard(ms) {
+    var hold = Number(ms) > 0 ? Number(ms) : INBOX_SHEET_OPEN_GUARD_MS;
+    inboxSheetOpenedAt = Date.now();
+    try {
+      window.__vcInboxSheetOpenedAt = inboxSheetOpenedAt;
+    } catch (eAt) {}
+    /* inboxClickOpen8: niente keepAlive / is-open-guard pe:none (rompevano i tap) */
+    try {
+      window.clearInterval(window.__vcInboxOpenKeepAlive);
+      window.__vcInboxOpenKeepAlive = 0;
+    } catch (eKa) {}
+    try {
+      var sheet = document.getElementById("vc-staff-reso-sheet");
+      if (sheet) sheet.classList.remove("is-open-guard");
+    } catch (eG) {}
+    void hold;
+  }
+
+  function syncTabForCardOpen() {
+    /* inboxClickOpen5: boot/URL a volte lasciano tab=punti-tolti mentre la lista è workflow → zero sheet */
+    try {
+      var sp = new URLSearchParams(location.search || "");
+      var inbox = String(sp.get("inbox") || "")
+        .trim()
+        .toLowerCase();
+      if (
+        inbox === "resoconti" ||
+        inbox === "candidature" ||
+        inbox === "appelli" ||
+        inbox === "pause"
+      ) {
+        state.tab = inbox;
+      }
+    } catch (eUrl) {}
+    if (!usesWorkflowSheet()) {
+      var guess = "resoconti";
+      try {
+        var active = document.querySelector(
+          "#vc-staff-inbox-tabs [data-tab].is-active, #vc-staff-inbox-tabs [data-tab][aria-selected='true']",
+        );
+        var tid = active && active.getAttribute("data-tab");
+        if (
+          tid === "resoconti" ||
+          tid === "candidature" ||
+          tid === "appelli" ||
+          tid === "pause"
+        ) {
+          guess = tid;
+        }
+      } catch (eTab) {}
+      state.tab = guess;
+    }
+  }
+
+  function openInboxCardByKey(key, ev) {
+    key = String(key || "");
+    if (!key) return false;
+    clearInboxPointerBlockers();
+    disarmSheetCloseGuard();
+    ensureSheetForceVisibleCss();
+    syncTabForCardOpen();
+    unlockSheetInteractions();
+    var item = state.items.find(function (it) {
+      return itemKey(it) === key;
+    });
+    if (!item) {
+      item =
+        state.tab === "pause"
+          ? { id: key.split(":").slice(1).join(":") || key, userId: key.split(":")[0] || "" }
+          : { messageId: key, recordId: key, id: key, displayName: "Resoconto" };
+    }
+    var sheetOpenNow = isWorkflowSheetOpen();
+    if (
+      sheetOpenNow &&
+      state.selectedKey &&
+      state.selectedKey === key &&
+      (state.detail || state.detailLoading)
+    ) {
+      /* anti ghost: non chiudere entro guard dall'open */
+      if (sheetOpenGuardActive()) return true;
+      closeDetail();
+      return true;
+    }
+    armSheetOpenGuard(INBOX_SHEET_OPEN_GUARD_MS);
+    /* APRI SHEET SUBITO — prima di renderList/fetch */
+    try {
+      if (usesWorkflowSheet()) {
+        openResoSheet();
+        armSheetOpenGuard(INBOX_SHEET_OPEN_GUARD_MS);
+        var bodyEarly = document.getElementById("vc-staff-reso-body");
+        if (bodyEarly && !String(bodyEarly.innerHTML || "").trim()) {
+          bodyEarly.innerHTML =
+            '<div class="vc-staff-inbox-detail__loading">Apertura\u2026</div>';
+        }
+      }
+    } catch (eEarly) {
+      try {
+        window.__vcInboxLastOpenErr = "earlySheet:" + (eEarly && eEarly.message ? eEarly.message : eEarly);
+      } catch (e0) {}
+    }
+    try {
+      openDetail(item);
+      armSheetOpenGuard(INBOX_SHEET_OPEN_GUARD_MS);
+    } catch (eOpen) {
+      try {
+        window.__vcInboxLastOpenErr = "openDetail:" + (eOpen && eOpen.message ? eOpen.message : eOpen);
+      } catch (e1) {}
+      try {
+        if (usesWorkflowSheet()) {
+          openResoSheet();
+          armSheetOpenGuard(INBOX_SHEET_OPEN_GUARD_MS);
+          state.detail = item;
+          state.selectedKey = key;
+          if (state.tab === "resoconti") renderResoSheet(item);
+          else if (state.tab === "candidature") renderCandSheet(item);
+          else if (state.tab === "appelli") renderAppealSheet(item);
+          else if (state.tab === "pause") renderPauseSheet(item);
+        }
+      } catch (eFb) {
+        try {
+          window.__vcInboxLastOpenErr =
+            String(window.__vcInboxLastOpenErr || "") +
+            "|fb:" +
+            (eFb && eFb.message ? eFb.message : eFb);
+        } catch (e2) {}
+      }
+    }
+    return true;
+  }
+
+  function wireInboxCardDelegation() {
+    try {
+      window.__vcStaffInboxOpenCardByKey = openInboxCardByKey;
+    } catch (eExp0) {}
+    if (window.__vcInboxCardClickWired === "inboxClickOpen10c") return;
+    window.__vcInboxCardClickWired = "inboxClickOpen10c";
+    function onCardActivate(ev) {
+      try {
+        if (!ev || !ev.target || !ev.target.closest) return;
+        /* solo click — preventDefault su pointerdown iOS uccideva i tap successivi nello sheet */
+        if (ev.type && ev.type !== "click") return;
+        if (ev.__vcInboxCardOpen10c) return;
+        var t = ev.target;
+        /* sheet aperto: non toccare nulla (lascia azioni/X/chat) */
+        if (document.documentElement.classList.contains("vc-staff-reso-sheet-open")) return;
+        if (
+          t.closest(
+            "#vc-staff-reso-sheet, .vc-dialog, .vc-dash-confirm, #vc-site-dialog, .vc-wfc-root, .vc-workflow-chat, .vc-emoji-picker",
+          )
+        ) {
+          return;
+        }
+        if (t.closest(".vc-notify-close-btn")) return;
+        var card = t.closest(".vc-staff-inbox-item[data-item-key]");
+        if (!card) return;
+        if (!card.closest("#vc-staff-inbox, .vc-notif-staff-inbox, #vc-staff-inbox-list")) return;
+        var key = card.getAttribute("data-item-key") || "";
+        if (!key) return;
+        if (
+          key === inboxCardOpenDedupeKey &&
+          Date.now() - inboxCardOpenDedupeAt < 700
+        ) {
+          ev.__vcInboxCardOpen10c = true;
+          return;
+        }
+        inboxCardOpenDedupeKey = key;
+        inboxCardOpenDedupeAt = Date.now();
+        ev.__vcInboxCardOpen10c = true;
+        try {
+          window.__vcInboxLastTap = { key: key, type: ev.type, at: Date.now() };
+        } catch (eTap) {}
+        try {
+          if (typeof ev.stopPropagation === "function") ev.stopPropagation();
+        } catch (ePrev) {}
+        openInboxCardByKey(key, ev);
+      } catch (eCard) {
+        try {
+          window.__vcInboxLastOpenErr = "cardActivate:" + (eCard && eCard.message ? eCard.message : eCard);
+        } catch (eLog) {}
+      }
+    }
+    document.addEventListener("click", onCardActivate, true);
+    try {
+      window.__vcStaffInboxOpenCardByKey = openInboxCardByKey;
+    } catch (eExp) {}
+  }
+  try {
+    wireInboxCardDelegation();
+  } catch (eWireCard) {}
+
+  /* inboxClickOpen10: act/X su document capture — stesso fix delle card (niente listener orphan sullo sheet) */
+  function wireInboxSheetActionDelegation() {
+    if (window.__vcInboxSheetActWired === "inboxClickOpen10c") return;
+    window.__vcInboxSheetActWired = "inboxClickOpen10c";
+    function onSheetActivate(ev) {
+      try {
+        if (!ev || !ev.target || !ev.target.closest) return;
+        if (ev.type && ev.type !== "click") return;
+        if (ev.__vcInboxSheetAct10c) return;
+        var t = ev.target;
+        /* mai mangiare click del modal conferma */
+        if (
+          t &&
+          t.closest &&
+          t.closest(".vc-dialog, #vc-site-dialog, .vc-dash-confirm, .vc-dialog__panel, .vc-dialog__actions")
+        ) {
+          return;
+        }
+        var sheet = document.getElementById("vc-staff-reso-sheet");
+        if (!sheet || sheet.hidden || sheet.hasAttribute("hidden")) return;
+        if (!sheet.classList.contains("is-in") && !document.documentElement.classList.contains("vc-staff-reso-sheet-open")) {
+          return;
+        }
+        if (!sheet.contains(t)) return;
+        var actBtn = t.closest("[data-act], [data-reso-reject-ui]");
+        if (actBtn && sheet.contains(actBtn)) {
+          ev.__vcInboxSheetAct10c = true;
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (ePrev) {}
+          try {
+            window.__vcInboxLastSheetAct = actBtn.getAttribute("data-act") || "reject-ui";
+          } catch (eAct) {}
+          try {
+            unlockSheetInteractions();
+          } catch (eUn) {}
+          try {
+            runSheetActionFromButton(actBtn, state.detail);
+          } catch (eRun) {
+            try {
+              window.__vcInboxLastOpenErr = "sheetAct:" + (eRun && eRun.message ? eRun.message : eRun);
+            } catch (eLog) {}
+          }
+          return;
+        }
+        var closer = t.closest("[data-reso-close]");
+        if (!closer || !sheet.contains(closer)) return;
+        if (
+          closer.classList &&
+          closer.classList.contains("vc-staff-reso-sheet__backdrop") &&
+          sheetOpenGuardActive()
+        ) {
+          ev.__vcInboxSheetAct10c = true;
+          try {
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (eBd) {}
+          return;
+        }
+        ev.__vcInboxSheetAct10c = true;
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (eCl) {}
+        try {
+          window.__vcInboxLastSheetAct = "close";
+        } catch (eC) {}
+        closeDetail({ force: true });
+      } catch (eSheet) {
+        try {
+          window.__vcInboxLastOpenErr = "sheetActivate:" + (eSheet && eSheet.message ? eSheet.message : eSheet);
+        } catch (eLog2) {}
+      }
+    }
+    document.addEventListener("click", onSheetActivate, true);
+  }
+  try {
+    wireInboxSheetActionDelegation();
+  } catch (eWireSheet) {}
 
   function cleanDiscordText(text, opts) {
     var keepNewlines = Boolean(opts && opts.keepNewlines);
@@ -2180,6 +3012,37 @@
     });
         s = s.replace(/\{\{VCEMOJI\d*$/, "").trim();
     return restoreDiscordEmojis(s, emojiSafe.tokens) + "\u2026";
+  }
+
+  function listItemPreview(item) {
+    if (!item) return "";
+    var raw =
+      item.preview ||
+      item.motivazione ||
+      item.body ||
+      item.content ||
+      item.note ||
+      "";
+    if (state.tab === "appelli") raw = cleanAppealListPreview(raw);
+    else raw = cleanDiscordText(raw || "", { keepCustomEmoji: true, keepNewlines: false });
+    raw = String(raw || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!raw) {
+      if (state.tab === "candidature" && item.type) {
+        return "Candidatura " + formatWorkflowType(item.type);
+      }
+      if (state.tab === "appelli" && item.kind) {
+        return item.kind === "unban" ? "Richiesta unban" : item.kind === "unmute" ? "Richiesta unmute" : "Appello";
+      }
+      return "";
+    }
+    return truncatePreview(raw, 110);
+  }
+
+  function listItemWhen(item) {
+    if (!item) return "";
+    return formatDate(item.updatedAt || item.createdAt || item.at || "");
   }
 
   function typeBadge(item) {
@@ -2566,14 +3429,14 @@
           ? window.VcDialog.prompt.bind(window.VcDialog)
           : null;
     var opts = {
-      title: "Motivo · " + label,
-      message: "Inserisci la motivazione per applicare " + label + ".",
-      label: "Motivazione",
-      placeholder: placeholder,
-      confirmLabel: "Applica " + label,
-      cancelLabel: "Annulla",
-      multiline: true,
-      maxLength: 500,
+        title: "Motivo · " + label,
+        message: "Inserisci la motivazione per applicare " + label + ".",
+        label: "Motivazione",
+        placeholder: placeholder,
+        confirmLabel: "Applica " + label,
+        cancelLabel: "Annulla",
+        multiline: true,
+        maxLength: 500,
     };
     if (runner) {
       return runner(opts).then(function (val) {
@@ -3237,6 +4100,119 @@
     }
   }
 
+  function confirmSheetAction(opts) {
+    opts = opts || {};
+    var payload = {
+      title: opts.title || "Confermi?",
+      message: opts.message || "Confermi questa azione?",
+      confirmLabel: opts.confirmLabel || "Conferma",
+      cancelLabel: opts.cancelLabel || "Annulla",
+      danger: Boolean(opts.danger),
+      icon: opts.icon || (opts.danger ? "fa-exclamation-triangle" : "fa-check-circle"),
+    };
+    if (T && typeof T.confirm === "function") {
+      return Promise.resolve(T.confirm(payload)).then(function (ok) {
+        return ok === true;
+      });
+    }
+    return (typeof window.__vcEnsureDialog === "function"
+      ? window.__vcEnsureDialog()
+      : Promise.resolve(window.VcDialog)
+    ).then(function (D) {
+      if (!D || typeof D.confirm !== "function") return true;
+      return D.confirm(payload);
+    }).then(function (ok) {
+      return ok === true;
+    });
+  }
+
+  function sheetActionConfirmCopy(tab, act, overrideKey) {
+    var a = String(act || "").toLowerCase();
+    var t = String(tab || "").toLowerCase();
+    var ov = String(overrideKey || "").trim();
+    if (t === "pause") {
+      if (a === "reject") {
+        return {
+          title: "Rifiuta pausa",
+          message: "Rifiutare questa richiesta di pausa?",
+          confirmLabel: "Rifiuta",
+          danger: true,
+          icon: "fa-times-circle",
+        };
+      }
+      return {
+        title: "Accetta pausa",
+        message: "Accettare questa richiesta di pausa?",
+        confirmLabel: "Accetta",
+        danger: false,
+        icon: "fa-check-circle",
+      };
+    }
+    if (t === "candidature") {
+      if (a === "reject") {
+        return {
+          title: "Rifiuta candidatura",
+          message: "Rifiutare questa candidatura?",
+          confirmLabel: "Rifiuta",
+          danger: true,
+          icon: "fa-times-circle",
+        };
+      }
+      return {
+        title: "Accetta candidatura",
+        message: "Accettare questa candidatura?",
+        confirmLabel: "Accetta",
+        danger: false,
+        icon: "fa-check-circle",
+      };
+    }
+    if (t === "appelli") {
+      if (a === "reject") {
+        return {
+          title: "Rifiuta appello",
+          message: "Rifiutare questo appello?",
+          confirmLabel: "Rifiuta",
+          danger: true,
+          icon: "fa-times-circle",
+        };
+      }
+      return {
+        title: "Accetta appello",
+        message: "Accettare questo appello?",
+        confirmLabel: "Accetta",
+        danger: false,
+        icon: "fa-check-circle",
+      };
+    }
+    if (t === "resoconti") {
+      if (a === "reject" || ov) {
+        return {
+          title: ov ? "Conferma esito" : "Rifiuta resoconto",
+          message: ov
+            ? "Applicare l\u2019esito selezionato a questo resoconto?"
+            : "Rifiutare questo resoconto?",
+          confirmLabel: ov ? "Conferma" : "Rifiuta",
+          danger: true,
+          icon: ov ? "fa-gavel" : "fa-times-circle",
+        };
+      }
+      return {
+        title: "Conferma resoconto",
+        message: "Confermare questo resoconto?",
+        confirmLabel: "Conferma",
+        danger: false,
+        icon: "fa-check-circle",
+      };
+    }
+    return {
+      title: a === "reject" ? "Rifiuta" : "Conferma",
+      message: a === "reject" ? "Rifiutare questa richiesta?" : "Confermare questa azione?",
+      confirmLabel: a === "reject" ? "Rifiuta" : "Conferma",
+      danger: a === "reject",
+      icon: a === "reject" ? "fa-times-circle" : "fa-check-circle",
+    };
+  }
+
   function runResocontoAction(btn, itemOverride) {
     if (state.busy) return;
     var item =
@@ -3247,32 +4223,36 @@
       }) ||
       null;
     var body = buildResocontoActionBody(btn, item, null);
+    var act = btn && btn.getAttribute("data-act");
+    var overrideKey = btn && btn.getAttribute("data-override-key");
     ensureResocontoReason(body, item).then(function (reasonOk) {
       if (reasonOk == null) return;
-      postAction(body);
+      return confirmSheetAction(sheetActionConfirmCopy("resoconti", act, overrideKey)).then(function (ok) {
+        if (!ok) return;
+        /* inboxClickOpen10f: chiudi subito al tap Conferma (POST in background) */
+        try {
+          closeDetail({ force: true });
+          cancelInboxSheetOpenRaf();
+        } catch (eCloseEarly) {}
+        postAction(body);
+      });
     });
   }
 
-  function bindActionButtons(root, itemOverride) {
-    if (!root) return;
-    root.querySelectorAll("[data-reso-reject-ui]").forEach(function (btn) {
-      btn.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        if (state.busy) return;
-        var wrap = btn.closest("[data-reso-actions]") || root;
+  function runSheetActionFromButton(btn, itemOverride) {
+    if (!btn || state.busy) return;
+    if (btn.hasAttribute("data-reso-reject-ui")) {
+      var wrap = btn.closest("[data-reso-actions]") || btn.parentElement;
         revealResocontoRejectAlts(wrap);
-      });
-    });
-    root.querySelectorAll("[data-act]").forEach(function (btn) {
-      btn.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        if (state.busy) return;
+      return;
+    }
+    if (!btn.hasAttribute("data-act")) return;
         var act = btn.getAttribute("data-act");
         if (state.tab === "resoconti") {
           runResocontoAction(btn, itemOverride);
           return;
         }
-        var item = itemOverride || null;
+    var item = itemOverride || state.detail || null;
         var body = { queue: state.tab, action: act };
         if (state.tab === "pause") {
           body.userId = btn.getAttribute("data-user-id") || (item && item.userId);
@@ -3285,7 +4265,29 @@
           }
           if (state.tab === "appelli") body.kind = btn.getAttribute("data-kind") || (item && item.kind);
         }
-        postAction(body);
+        confirmSheetAction(sheetActionConfirmCopy(state.tab, act)).then(function (ok) {
+          if (!ok) return;
+      try {
+        closeDetail({ force: true });
+        cancelInboxSheetOpenRaf();
+      } catch (eCloseEarly2) {}
+          postAction(body);
+        });
+  }
+
+  function bindActionButtons(root, itemOverride) {
+    if (!root) return;
+    /* inboxClickOpen8: resta come backup; la delegation sullo sheet è il path principale */
+    root.querySelectorAll("[data-reso-reject-ui]").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        runSheetActionFromButton(btn, itemOverride);
+      });
+    });
+    root.querySelectorAll("[data-act]").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        runSheetActionFromButton(btn, itemOverride);
       });
     });
   }
@@ -3305,6 +4307,9 @@
     if (!opts.force && state.items.length) {
       var sig = inboxListPaintSig();
       if (sig && sig === lastInboxListPaintSig && root.querySelector(".vc-staff-inbox-item, .vc-notify-row")) {
+        /* inboxLoadingEmoji1: early return non deve lasciare is-refreshing attivo */
+        root.classList.remove("is-loading", "is-refreshing");
+        root.setAttribute("aria-busy", "false");
         return;
       }
       lastInboxListPaintSig = sig;
@@ -3316,6 +4321,11 @@
     if (!state.items.length) {
       if (listEmptyDespitePending()) {
         if (inboxLoadBusy()) {
+          /* inboxEmptyNoSkel1: se empty già stampato, non ri-flashare skeleton su retry */
+          if (root.querySelector(".vc-staff-inbox-empty") && initialQueueLoaded) {
+            schedulePendingListRetry();
+            return;
+          }
           root.hidden = false;
           root.classList.add("is-loading");
           root.classList.remove("is-refreshing");
@@ -3336,6 +4346,10 @@
             "Lista in aggiornamento. " +
               '<button type="button" class="vc-staff-inbox-reload-btn" id="vc-staff-inbox-reload-pending">Ricarica</button>',
             "fa-refresh",
+            {
+              title: "Aggiornamento in corso",
+              rawHtml: true,
+            },
           );
           var reloadBtn = T.byId("vc-staff-inbox-reload-pending");
           if (reloadBtn) {
@@ -3350,7 +4364,36 @@
       }
       root.hidden = false;
       root.classList.remove("is-loading", "is-refreshing");
-      root.innerHTML = inboxEmptyBoxHtml(T.esc(inboxEmptyMessage()), "fa-inbox");
+      root.removeAttribute("data-inbox-loading");
+      root.innerHTML = inboxEmptyBoxHtml("", "fa-inbox", {
+        title: inboxEmptyMessage(),
+        sub: inboxEmptySubMessage(),
+      });
+      try {
+        initialQueueLoaded = true;
+        inboxBooting = false;
+        hideInboxFsLoading(true);
+        hideInboxBootScreen(true);
+      } catch (eLiftEmpty) {}
+      /* inboxEmptyNoSkel1: empty confermato (no filtro) → niente retry/skeleton dopo */
+      try {
+        if (!String(state.filter || "").trim() && state.page <= 1) {
+          markTabConfirmedEmpty(state.tab);
+        }
+      } catch (eMarkEmpty) {}
+      /* inboxPendingBadgeSync1: empty pending senza filtro tipo → badge 0 subito */
+      try {
+        if (state.scope === "pending" && !String(state.filter || "").trim() && state.page <= 1) {
+          syncTabBadgeFromLoadedQueue(
+            state.tab,
+            state.scope,
+            state.filter,
+            [],
+            state.pagination || { total: 0 },
+            1,
+          );
+        }
+      } catch (eBadgeEmpty) {}
       if (state.detail || state.selectedKey || state.detailLoading) clearDetailState();
       return;
     }
@@ -3365,16 +4408,18 @@
           var key = itemKey(item);
           var selected = state.selectedKey && state.selectedKey === key;
           var flagBits = resocontoFlagBadgesHtml(item);
-          // inboxListCompactAll1: tutte le tab = avatar + nome/badge + azione a destra (come resoconti).
+          /* inboxListCards1: card ricche (preview + data) — no più riga secca compact */
           var sideBit =
             state.tab === "resoconti" ? resocontoRoleBadgeHtml(item) : typeBadge(item);
           var actionLabel =
             state.tab === "resoconti"
               ? String(resocontoCardAction(item) || statusLabel(item) || "").trim() || "—"
               : String(statusLabel(item) || "").trim() || "—";
+          var preview = listItemPreview(item);
+          var when = listItemWhen(item);
           if (embed) {
             return (
-              '<li class="vc-notify-row vc-notify-row--link vc-staff-inbox-item vc-staff-inbox-item--list-compact' +
+              '<li class="vc-notify-row vc-notify-row--link vc-staff-inbox-item vc-staff-inbox-item--card' +
               (selected ? " is-selected" : "") +
               '" data-item-key="' +
               T.esc(key) +
@@ -3392,7 +4437,14 @@
               T.esc(title) +
               (sideBit ? " " + sideBit : "") +
               (flagBits ? " " + flagBits : "") +
-              "</p></div>" +
+              "</p>" +
+              (preview ? '<p class="vc-notify-row-desc">' + T.esc(preview) + "</p>" : "") +
+              (when
+                ? '<div class="vc-notify-row-meta"><span class="vc-notify-row-time">' +
+                  T.esc(when) +
+                  "</span></div>"
+                : "") +
+              "</div>" +
               '<span class="vc-notify-row-badge ' +
               notifyBadgeClass(item) +
               '">' +
@@ -3401,7 +4453,7 @@
             );
           }
           return (
-            '<li class="vc-staff-inbox-item vc-staff-inbox-item--card vc-staff-inbox-item--list-compact' +
+            '<li class="vc-staff-inbox-item vc-staff-inbox-item--card' +
             (selected ? " is-selected" : "") +
             '" data-item-key="' +
             T.esc(key) +
@@ -3423,7 +4475,10 @@
             "</h3>" +
             sideBit +
             flagBits +
-            "</div></div>" +
+            "</div>" +
+            (preview ? '<p class="vc-staff-inbox-item__preview">' + T.esc(preview) + "</p>" : "") +
+            (when ? '<p class="vc-staff-inbox-item__meta">' + T.esc(when) + "</p>" : "") +
+            "</div>" +
             '<span class="vc-staff-inbox-status ' +
             statusClass(item) +
             '">' +
@@ -3434,24 +4489,45 @@
         .join("") +
       "</ul>";
 
+    /* inboxStuckKill2: lista dipinta = fine soft/hard + alza sempre il gate FS */
+    root.classList.remove("is-loading", "is-refreshing");
+    root.setAttribute("aria-busy", "false");
+    root.removeAttribute("data-inbox-loading");
+    clearSoftRefreshFailsafe();
+    try {
+      initialQueueLoaded = true;
+      inboxBooting = false;
+      hideInboxFsLoading(true);
+      hideInboxBootScreen(true);
+    } catch (eLift) {}
+    /* notifQueueFast1: items visibili → sblocca click (hold/gate residui) */
+    try {
+      document.documentElement.classList.remove(
+        "vc-interaction-hold",
+        "vc-notif-staff-loading",
+        "vc-notif-early-staff",
+        "vc-loading-scroll-lock",
+        "vc-scroll-soft-lock",
+      );
+      window.__VC_INBOX_FS_GATE_HOLD = false;
+      window.__VC_NOTIF_EARLY_STAFF = false;
+    } catch (eHoldClr) {}
+
     root.querySelectorAll(".vc-staff-inbox-item").forEach(function (card) {
-      function openCard() {
-        var key = card.getAttribute("data-item-key");
-        var item = state.items.find(function (it) {
-          return itemKey(it) === key;
-        });
-        if (!item) return;
-                if (state.selectedKey && state.selectedKey === key && (state.detail || state.detailLoading)) {
-          closeDetail();
-          return;
-        }
-        openDetail(item);
+      function openCard(ev) {
+        /* inboxClickOpen10c: path diretto; delegation è il fallback stabile */
+        if (document.documentElement.classList.contains("vc-staff-reso-sheet-open")) return;
+        if (ev && ev.__vcInboxCardOpen10c) return;
+        try {
+          if (ev) ev.__vcInboxCardOpen10c = true;
+        } catch (eMark) {}
+        openInboxCardByKey(card.getAttribute("data-item-key"), ev);
       }
       card.addEventListener("click", openCard);
       card.addEventListener("keydown", function (ev) {
         if (ev.key === "Enter" || ev.key === " ") {
           ev.preventDefault();
-          openCard();
+          openCard(ev);
         }
       });
     });
@@ -3511,10 +4587,36 @@
     } catch (eSched) {}
   }
 
-  function clearDetailState() {
+  function clearDetailState(opts) {
+    opts = opts || {};
+    /* inboxClickOpen5: refresh/empty-list NON devono chiudere durante open guard */
+    if (!opts.force && sheetOpenGuardActive() && (state.selectedKey || state.detail || state.detailLoading)) {
+      try {
+        window.__vcInboxLastOpenErr = "clearDetailBlocked:" + (Date.now() - inboxSheetOpenedAt) + "ms";
+      } catch (eBlk0) {}
+      return;
+    }
     detailSeq += 1;
     teardownChat();
-    closeResoSheet(true);
+    /* notifTapEmptyFix1: arma ghost-guard SOLO se lo sheet era davvero aperto */
+    var sheetWasOpen = false;
+    try {
+      var sheetChk = document.getElementById("vc-staff-reso-sheet");
+      sheetWasOpen = Boolean(
+        sheetChk &&
+          !sheetChk.hidden &&
+          !sheetChk.hasAttribute("hidden") &&
+          sheetChk.classList.contains("is-in"),
+      );
+    } catch (eWas) {
+      sheetWasOpen = false;
+    }
+    if (sheetWasOpen) {
+      try {
+        if (typeof window.__vcArmSheetCloseGuard === "function") window.__vcArmSheetCloseGuard(420);
+    } catch (eGhost) {}
+    }
+    closeResoSheet(true, { force: true });
     state.detail = null;
     state.detailLoading = false;
     state.detailError = "";
@@ -3522,8 +4624,21 @@
     renderDetail();
   }
 
-  function closeDetail() {
-    clearDetailState();
+  function closeDetail(opts) {
+    opts = opts || {};
+    /* inboxClickOpen7: ghost-close bloccato; X/azioni user passano force:true */
+    if (!opts.force && sheetOpenGuardActive()) {
+      try {
+        window.__vcInboxLastOpenErr = "closeDetailBlocked:" + (Date.now() - inboxSheetOpenedAt) + "ms";
+      } catch (eBlk) {}
+      return;
+    }
+    try {
+      window.clearInterval(window.__vcInboxOpenKeepAlive);
+      window.__vcInboxOpenKeepAlive = 0;
+    } catch (eKa) {}
+    inboxSheetOpenedAt = 0;
+    clearDetailState({ force: true });
     repairInboxAfterBack();
     renderList();
   }
@@ -4162,7 +5277,7 @@
 
   function ensureResoSheet() {
     var sheet = document.getElementById("vc-staff-reso-sheet");
-    if (sheet && sheet.getAttribute("data-reso-bound") === "resoClose2") return sheet;
+    if (sheet && sheet.getAttribute("data-reso-bound") === "resoClose10") return sheet;
     if (sheet) {
       try {
         sheet.remove();
@@ -4171,7 +5286,7 @@
     sheet = document.createElement("div");
     sheet.id = "vc-staff-reso-sheet";
     sheet.className = "vc-staff-reso-sheet";
-    sheet.setAttribute("data-reso-bound", "resoClose2");
+    sheet.setAttribute("data-reso-bound", "resoClose10");
     sheet.hidden = true;
     sheet.innerHTML =
       '<button type="button" class="vc-staff-reso-sheet__backdrop" data-reso-close="1" aria-label="Chiudi"></button>' +
@@ -4185,47 +5300,134 @@
       '<div class="vc-staff-reso-sheet__foot" id="vc-staff-reso-foot"></div>' +
       "</div>";
     document.body.appendChild(sheet);
-    function onCloseIntent(ev) {
-      var t = ev.target;
-      if (!t || !t.closest) return;
-      var closer = t.closest("[data-reso-close]");
-      if (!closer || !sheet.contains(closer)) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      closeDetail();
-    }
-    sheet.addEventListener("click", onCloseIntent);
+    /* backup locale; path principale = wireInboxSheetActionDelegation (document capture) */
     document.addEventListener("keydown", function resoEsc(ev) {
       if (ev.key !== "Escape") return;
       if (!sheet || sheet.hidden || !sheet.classList.contains("is-in")) return;
       ev.preventDefault();
-      closeDetail();
+      closeDetail({ force: true });
     });
     return sheet;
   }
 
-  function closeResoSheet(silent) {
+  function cancelInboxSheetOpenRaf() {
+    try {
+      if (window.__vcInboxSheetOpenRaf) {
+        window.cancelAnimationFrame(window.__vcInboxSheetOpenRaf);
+        window.__vcInboxSheetOpenRaf = 0;
+      }
+    } catch (eRaf) {}
+  }
+
+  function closeResoSheet(silent, opts) {
+    opts = opts || {};
+    /* inboxClickOpen5: clearDetailState/renderList NON devono killare lo sheet appena aperto */
+    if (!opts.force && sheetOpenGuardActive()) {
+      try {
+        window.__vcInboxLastOpenErr = "closeResoBlocked:" + (Date.now() - inboxSheetOpenedAt) + "ms";
+      } catch (eBlk2) {}
+      return;
+    }
+    cancelInboxSheetOpenRaf();
+    try {
+      window.clearInterval(window.__vcInboxSheetUnlockBeat);
+      window.__vcInboxSheetUnlockBeat = 0;
+    } catch (eHb) {}
     var sheet = document.getElementById("vc-staff-reso-sheet");
     try {
       document.documentElement.classList.remove("vc-staff-reso-sheet-open");
     } catch (e) {}
+    /* ripristina banner cookie dopo close */
+    try {
+      var ban = document.getElementById("vc-necessity-banner");
+      if (ban) {
+        ban.style.removeProperty("display");
+        ban.style.removeProperty("pointer-events");
+        ban.style.removeProperty("visibility");
+        ban.removeAttribute("aria-hidden");
+      }
+    } catch (eBan) {}
     if (!sheet) return;
-    sheet.classList.remove("is-in");
+    sheet.classList.remove("is-in", "is-open-guard");
     sheet.hidden = true;
     sheet.setAttribute("hidden", "");
+    try {
+      sheet.style.setProperty("display", "none", "important");
+      sheet.style.setProperty("pointer-events", "none", "important");
+    } catch (eSt) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
     if (!silent) {
           }
   }
 
   function openResoSheet() {
     var sheet = ensureResoSheet();
+    var alreadyOpen = false;
+    try {
+      alreadyOpen = !sheet.hidden && !sheet.hasAttribute("hidden") && sheet.classList.contains("is-in");
+    } catch (eAlready) {}
+    cancelInboxSheetOpenRaf();
     sheet.hidden = false;
+    try {
+      sheet.removeAttribute("hidden");
+    } catch (eHid) {}
+    try {
+      sheet.style.removeProperty("display");
+      sheet.style.removeProperty("pointer-events");
+    } catch (eStOpen) {}
     try {
       document.documentElement.classList.add("vc-staff-reso-sheet-open");
     } catch (e) {}
-    window.requestAnimationFrame(function () {
+    unlockSheetInteractions();
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eSync) {}
+    try {
       sheet.classList.add("is-in");
+    } catch (eIn) {}
+    ensureSheetForceVisibleCss();
+    forceSheetInlineVisible(sheet);
+    try {
+      if (sheet.parentNode !== document.body) document.body.appendChild(sheet);
+    } catch (eMove) {}
+    /* heartbeat: se hold/banner tornano, ri-sblocca finché lo sheet è aperto */
+    try {
+      window.clearInterval(window.__vcInboxSheetUnlockBeat);
+      window.__vcInboxSheetUnlockBeat = window.setInterval(function () {
+        try {
+          if (!document.documentElement.classList.contains("vc-staff-reso-sheet-open")) {
+            window.clearInterval(window.__vcInboxSheetUnlockBeat);
+            window.__vcInboxSheetUnlockBeat = 0;
+            return;
+          }
+          /* inboxClickOpen10d: niente sheet fantasma dopo switch tab (detail già azzerato) */
+          if (!state.selectedKey && !state.detail && !state.detailLoading) {
+            closeResoSheet(true, { force: true });
+            window.clearInterval(window.__vcInboxSheetUnlockBeat);
+            window.__vcInboxSheetUnlockBeat = 0;
+            return;
+          }
+          unlockSheetInteractions();
+          forceSheetInlineVisible(document.getElementById("vc-staff-reso-sheet"));
+        } catch (eBeat) {}
+      }, 400);
+    } catch (eHb) {}
+    if (alreadyOpen) return;
+    try {
+      window.__vcInboxSheetOpenRaf = window.requestAnimationFrame(function () {
+        window.__vcInboxSheetOpenRaf = 0;
+        try {
+          /* se nel frattempo abbiamo chiuso (azione confermata), non riaprire */
+          if (!document.documentElement.classList.contains("vc-staff-reso-sheet-open")) return;
+          if (!state.selectedKey && !state.detail) return;
+      sheet.classList.add("is-in");
+          forceSheetInlineVisible(sheet);
+          unlockSheetInteractions();
+        } catch (eRaf) {}
     });
+    } catch (eRaf2) {}
   }
 
   function splitAutoValutazioneParts(azione) {
@@ -4581,6 +5783,7 @@
     bindActionButtons(foot, item);
     bootChatForDetail(item);
     scanInboxAvatars(sheet);
+    clearInboxSoftLoadingUi();
   }
 
   function normalizeCandidaturaDetailFields(fields, item) {
@@ -4712,6 +5915,9 @@
       foot.innerHTML = "";
       return;
     }
+    /* inboxSheetLoadKill1: contenuto pronto → niente stato loading residuo */
+    if (state.detailLoading && candFull) state.detailLoading = false;
+    clearInboxSoftLoadingUi();
     captureWorkflowChatDraft();
     body.innerHTML =
       detailErrorHtml +
@@ -4796,6 +6002,8 @@
       foot.innerHTML = "";
       return;
     }
+    if (state.detailLoading && appealFull) state.detailLoading = false;
+    clearInboxSoftLoadingUi();
     captureWorkflowChatDraft();
     body.innerHTML =
       detailErrorHtml +
@@ -5167,11 +6375,13 @@
       '">' +
       T.esc(statusLabel(item)) +
       "</span></div>";
-    var motivazione = String(item.motivazione || item.preview || item.body || "").trim();
+    var motivazione = String(
+      item.motivazione || item.content || item.body || item.preview || "",
+    ).trim();
     var motiveHtml = motivazione
-      ? '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa"><h4>Motivazione</h4><p>' +
-        formatDiscordHtml(motivazione) +
-        "</p></div>"
+      ? '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa"><h4>Motivazione</h4><div class="vc-staff-inbox-detail__answer">' +
+        formatDiscordHtml(motivazione, { keepNewlines: true }) +
+        "</div></div>"
       : "";
     var month = pickPauseSheetMonth(item);
     var reqKeys = pauseRequestDayKeys(item);
@@ -5196,11 +6406,13 @@
     loadPauseCalMonth(item, calState, body.querySelector("[data-pause-cal-mount]"));
     bootChatForDetail(item);
     scanInboxAvatars(sheet);
+    clearInboxSoftLoadingUi();
   }
 
   function renderDetailFields(item) {
     var fields = Array.isArray(item.fields) ? item.fields : [];
-    var sourceBody = item.body || item.content || item.preview || "";
+    /* inboxSheetFullText1: content pieno prima del body preview (500) */
+    var sourceBody = item.content || item.body || item.preview || "";
     if (state.tab === "appelli") {
       var appealParsed = parseAppealSections(sourceBody);
       if (appealParsed.length) fields = appealParsed;
@@ -5231,6 +6443,11 @@
         item.preview ||
         sourceBody ||
         "";
+      if (
+        String(candSource || "").length < String(sourceBody || "").length
+      ) {
+        candSource = sourceBody;
+      }
       var parsedCand = parseNumberedSections(candSource, { sequential: true });
       if (parsedCand.length >= 2) {
         fields = parsedCand;
@@ -5401,12 +6618,15 @@
   function renderDetail() {
     var panel = T.byId("vc-staff-inbox-detail");
     var layout = T.byId("vc-staff-inbox");
-    if (!panel) return;
+    /* inboxCardOpen1: sheet workflow anche se manca il pannello side-detail */
+    if (!panel && !(usesWorkflowSheet() && (state.detail || state.detailLoading))) return;
 
         if (usesWorkflowSheet() && (state.detail || state.detailLoading)) {
       if (layout) layout.classList.remove("has-detail");
+      if (panel) {
       panel.hidden = true;
       panel.innerHTML = "";
+      }
       if (state.tab === "resoconti") {
         if (state.detailLoading && !state.detail) {
           openResoSheet();
@@ -5473,7 +6693,7 @@
       }
     }
 
-    closeResoSheet(true);
+    closeResoSheet(true, { force: !sheetOpenGuardActive() });
 
     if (layout) {
       layout.classList.toggle("has-detail", Boolean(state.detail || state.detailLoading));
@@ -5597,6 +6817,31 @@
     } catch (eSoft) {}
   }
 
+  function isResoSheetOpen() {
+    try {
+      if (document.documentElement.classList.contains("vc-staff-reso-sheet-open")) return true;
+    } catch (eCls) {}
+    try {
+      var sheet = document.getElementById("vc-staff-reso-sheet");
+      return Boolean(sheet && !sheet.hidden && sheet.classList.contains("is-in"));
+    } catch (eSheet) {}
+    return false;
+  }
+
+  function clearInboxSoftLoadingUi() {
+    try {
+      clearInboxLoading();
+    } catch (eClr) {}
+    try {
+      T.hideStaffToast();
+    } catch (eToast) {}
+    try {
+      if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") {
+        window.VcSiteToast.hide();
+      }
+    } catch (eSite) {}
+  }
+
   function openDetail(listItem) {
     var seq = (detailSeq += 1);
     var key = itemKey(listItem);
@@ -5618,12 +6863,39 @@
       }
       hasLocalBody = Boolean(fullEnough || hasLocalBody);
     }
+    /* inboxSheetLoadKill1 / inboxClickOpen3: spegni soft-refresh + apri sheet PRIMA di renderList */
+    clearInboxSoftLoadingUi();
     state.detailLoading = !hasLocalBody;
     state.detailError = "";
     state.detail = listItem;
     state.selectedKey = key;
+    inboxSheetOpenedAt = Date.now();
+    if (usesWorkflowSheet()) {
+      try {
+        ensureSheetForceVisibleCss();
+        openResoSheet();
+      } catch (eSheetFirst) {}
+    }
+    try {
     renderList();
+    } catch (eList) {
+      try {
+        window.__vcInboxLastOpenErr = "renderList:" + (eList && eList.message ? eList.message : eList);
+      } catch (eL) {}
+    }
+    try {
     renderDetail();
+    } catch (eDet) {
+      try {
+        window.__vcInboxLastOpenErr = "renderDetail:" + (eDet && eDet.message ? eDet.message : eDet);
+      } catch (eD) {}
+      if (usesWorkflowSheet()) {
+        try {
+          openResoSheet();
+          if (state.tab === "resoconti") renderResoSheet(listItem);
+        } catch (eFb2) {}
+      }
+    }
     var detailId =
       state.tab === "pause"
         ? listItem.id
@@ -5672,6 +6944,8 @@
         state.detailError = "";
         state.detail = listItem;
         T.hideStaffToast();
+        /* inboxDetailPaint1: sempre ripaintare — altrimenti resta "Caricamento…" (loading flag spento senza remount) */
+        renderDetail();
         if (rateish) {
           window.setTimeout(function () {
             if (seq !== detailSeq || state.selectedKey !== key) return;
@@ -5774,6 +7048,8 @@
           renderList();
         }
         renderDetail();
+                /* inboxSheetLoadKill1: dopo paint dettaglio spegni eventuali soft-load */
+        clearInboxSoftLoadingUi();
                 if (state.tab === "resoconti") {
           scheduleResoStatsSoftRefresh(seq, key, detailId, listItem);
         }
@@ -5849,11 +7125,12 @@
     el.hidden = true;
     el.setAttribute("role", "status");
     el.setAttribute("aria-live", "polite");
-    el.setAttribute("aria-label", "Caricamento inbox staff");
+    el.setAttribute("aria-label", "Caricamento…");
     el.innerHTML =
       '<div class="vc-staff-loading__card">' +
-      '<p class="vc-staff-loading__text">Caricamento inbox staff\u2026</p>' +
-      '<p class="vc-staff-loading__hint" id="vc-staff-inbox-loading-hint">Pause · Candidature · Appelli · Resoconti</p>' +
+      '<span class="vc-ul-loading-spinner" aria-hidden="true"></span>' +
+      '<p class="vc-staff-loading__text">Caricamento\u2026</p>' +
+      '<p class="vc-staff-loading__hint" id="vc-staff-inbox-loading-hint">Un momento\u2026</p>' +
       "</div>";
     var host = T.byId("vc-notif-pane-staff") || document.body;
     host.insertBefore(el, host.firstChild);
@@ -5871,33 +7148,18 @@
   function setInboxFsLoadingHint(text) {
     var hint = T.byId("vc-staff-inbox-loading-hint");
     if (!hint) return;
-    hint.textContent = text || "Pause · Candidature · Appelli · Resoconti";
+    hint.textContent = text || "Candidature · Appelli";
   }
 
   function showInboxFsLoading(hint) {
-    var el = ensureInboxBootEl();
-    if (!el) return;
-    setInboxFsLoadingHint(hint);
+    /* inboxFreezeKill2: overlay FS (.vc-staff-loading fixed inset:0) freeza TUTTA la pagina.
+       Mai mostrarlo — solo skeleton in lista + hide immediato di ogni residuo. */
     try {
-      window.__VC_INBOX_FS_GATE_HOLD = true;
-    } catch (eHold) {}
-    armInboxFsGateHardFailsafe();
-    // Already visible: only refresh hint — avoid class thrash that re-flashes the gate on mobile.
-    if (isInboxFsLoadingVisible()) {
-      try {
-        document.documentElement.classList.add("vc-notif-staff-loading");
-      } catch (eKeep) {}
-      return;
-    }
-    el.hidden = false;
-    el.removeAttribute("hidden");
-    el.classList.remove("vc-staff-loading--hidden");
+      if (hint) setInboxFsLoadingHint(hint);
+    } catch (eHint) {}
     try {
-      document.documentElement.classList.add("vc-notif-staff-loading");
-    } catch (eCls) {}
-    try {
-      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-    } catch (eSync) {}
+      hideInboxFsLoading(true);
+    } catch (eNoGate) {}
   }
 
   function hideInboxFsLoading(force) {
@@ -5934,15 +7196,11 @@
     try {
       window.clearTimeout(window.__vcInboxFsGateHardFailsafe);
     } catch (eClr) {}
-    var ms = T.isCoarseMobile && T.isCoarseMobile() ? 8500 : 12000;
+    /* inboxUnblockKill1: max 2s — prima 4.5–6.5s lasciava l'inbox morta */
+    var ms = 2000;
     try {
       window.__vcInboxFsGateHardFailsafe = window.setTimeout(function () {
         window.__vcInboxFsGateHardFailsafe = 0;
-        try {
-          if (!isInboxFsLoadingVisible() && !document.documentElement.classList.contains("vc-notif-staff-loading")) {
-            return;
-          }
-        } catch (eVis) {}
         forceReleaseStuckInboxLoad();
         try {
           finishQueueLoad(loadSeq, {
@@ -5956,10 +7214,11 @@
 
   function inboxListSkeletonHtml() {
     var label = tabLabel(state.tab).toLowerCase();
+    /* inboxLoadingEmoji1: VC_Loading al posto della rotellina CSS */
     return (
       '<div class="vc-staff-inbox-loading" role="status" aria-live="polite" aria-busy="true">' +
       '<div class="vc-staff-inbox-loading__head">' +
-      '<span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>' +
+      '<img class="vc-staff-inbox-loading__emoji" src="/images/vc-loading.gif?v=20260920vcLoadingSpokes1" width="22" height="22" alt="" decoding="async" draggable="false" data-vc-emoji-skip="1" />' +
       "<p>Carico " +
       T.esc(label) +
       "\u2026</p></div>" +
@@ -5982,7 +7241,7 @@
       panel.classList.add("is-booting");
       panel.hidden = false;
     }
-    showInboxFsLoading("Pause · Candidature · Appelli · Resoconti");
+    showInboxFsLoading("Candidature · Appelli");
     var list = T.byId("vc-staff-inbox-list");
     if (!list) return;
     // Keep existing skeleton if already booting — rewriting the list looks like a second loading page.
@@ -6038,9 +7297,22 @@
     syncUrlState();
   }
 
-  function applySummaryPayload(data) {
+  function applySummaryPayload(data, opts) {
+    opts = opts || {};
     if (!data || !data.summary || typeof data.summary !== "object") return false;
-    state.summary = data.summary;
+    var incoming = data.summary;
+    var merged = Object.assign({}, state.summary || {}, incoming);
+    /* inboxPendingBadgeSync1: non rialzare badge già azzerati dalla lista vuota
+       (cache/prefetch summary stale), salvo refresh forzato/live. */
+    if (!opts.force && !opts.fromLive) {
+      Object.keys(emptyLoadedTabs).forEach(function (id) {
+        if (!emptyLoadedTabs[id]) return;
+        if (Number(merged[id] || 0) > 0 && Number((state.summary && state.summary[id]) || 0) === 0) {
+          merged[id] = 0;
+        }
+      });
+    }
+    state.summary = merged;
     if (data.permissions) {
       var p = data.permissions;
       state.permissions = {
@@ -6052,15 +7324,7 @@
         director: Boolean(p.director),
       };
     }
-    try {
-      var cachePayload = {
-        summary: state.summary,
-        permissions: data.permissions || null,
-        at: Date.now(),
-      };
-      sessionStorage.setItem(SUMMARY_CACHE_KEY, JSON.stringify(cachePayload));
-      localStorage.setItem(SUMMARY_CACHE_LOCAL_KEY, JSON.stringify(cachePayload));
-    } catch (eCache) {}
+    persistSummaryCache();
     ensureAccessibleTab();
     renderTabs();
     return true;
@@ -6138,7 +7402,11 @@
         ensureAccessibleTab();
         applyInstantSummary();
         prepareBootTab();
-        return runBootQueueLoad();
+        /* siteApiW4: summary + queue in parallel after gate */
+        return Promise.all([
+          runBootQueueLoad(),
+          loadSummary({ cache: false }).catch(function () {}),
+        ]);
       })
       .finally(function () {
         window.setTimeout(function () {
@@ -6172,16 +7440,28 @@
     return "";
   }
 
-  function inboxEmptyBoxHtml(messageHtml, iconClass) {
+  function inboxEmptyBoxHtml(messageHtml, iconClass, opts) {
+    opts = opts || {};
     var ic = String(iconClass || "fa-inbox").trim() || "fa-inbox";
+    var title = String(opts.title || "").trim();
+    var sub = String(opts.sub || "").trim();
+    if (!title && !sub && messageHtml) {
+      if (opts.rawHtml) sub = String(messageHtml || "");
+      else title = String(messageHtml || "");
+    }
+    if (!title) title = "Nessuna richiesta";
     return (
-      '<div class="vc-notify-empty vc-staff-inbox-empty" role="status">' +
-      '<i class="fa ' +
+      '<div class="vc-staff-inbox-empty vc-notify-empty" role="status">' +
+      '<div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa ' +
       T.esc(ic) +
-      '" aria-hidden="true"></i>' +
-      "<p>" +
-      messageHtml +
-      "</p></div>"
+      '"></i></div>' +
+      '<p class="vc-notif-empty-title">' +
+      T.esc(title) +
+      "</p>" +
+      (sub
+        ? '<p class="vc-notif-empty-sub">' + (opts.rawHtml ? sub : T.esc(sub)) + "</p>"
+        : "") +
+      "</div>"
     );
   }
 
@@ -6192,14 +7472,53 @@
     return "Nessuna richiesta trovata con i filtri selezionati.";
   }
 
+  function inboxEmptySubMessage() {
+    if (state.scope === "pending") {
+      return "Prova ad ampliare i filtri o passa a Tutti.";
+    }
+    return "Modifica i filtri per vedere altre richieste.";
+  }
+
   var inboxLoadingShownAt = 0;
+  var softRefreshFailsafeTimer = 0;
+
+  function clearSoftRefreshFailsafe() {
+    if (softRefreshFailsafeTimer) {
+      clearTimeout(softRefreshFailsafeTimer);
+      softRefreshFailsafeTimer = 0;
+    }
+  }
+
+  function armSoftRefreshFailsafe() {
+    clearSoftRefreshFailsafe();
+    softRefreshFailsafeTimer = window.setTimeout(function () {
+      softRefreshFailsafeTimer = 0;
+      var list = T.byId("vc-staff-inbox-list");
+      if (!list) return;
+      var soft = list.classList.contains("is-refreshing");
+      var hard = list.classList.contains("is-loading");
+      if (!soft && !hard && !isInboxFsLoadingVisible()) return;
+      /* inboxStuckKill2: soft/hard refresh bloccato → sblocca lista + gate */
+      list.classList.remove("is-refreshing", "is-loading");
+      list.setAttribute("aria-busy", "false");
+      list.removeAttribute("data-inbox-loading");
+      loadInFlightNonQuiet = false;
+      try {
+        if (hard || isInboxFsLoadingVisible() || document.documentElement.classList.contains("vc-notif-staff-loading")) {
+          forceReleaseStuckInboxLoad();
+        }
+      } catch (eFs) {}
+    }, 1800);
+  }
 
   function clearInboxLoading() {
     var list = T.byId("vc-staff-inbox-list");
+    clearSoftRefreshFailsafe();
     if (!list) return;
     list.classList.remove("is-loading", "is-refreshing");
     list.removeAttribute("aria-busy");
     list.setAttribute("aria-busy", "false");
+    list.removeAttribute("data-inbox-loading");
   }
 
   function showInboxLoading(mode) {
@@ -6214,10 +7533,45 @@
     }
 
     if (mode === "soft" && (state.items.length || state.selectedKey || pendingFocusItemId)) {
-      list.classList.add("is-refreshing");
+      /* vcLoadingSpokes1: soft = :VC_Loading: a raggi (non pallini cyan / wait blu),
+         click restano aperti (pointer-events auto in CSS). */
       list.classList.remove("is-loading");
+      list.classList.add("is-refreshing");
+      list.setAttribute("aria-busy", "true");
+      armSoftRefreshFailsafe();
       return;
     }
+
+    /* inboxEmptyNoSkel1: empty già visibile → non wipe con skeleton (refresh breve) */
+    try {
+      if (
+        initialQueueLoaded &&
+        list.querySelector(".vc-staff-inbox-empty") &&
+        !state.items.length &&
+        (mode === "skeleton" || mode === "soft")
+      ) {
+        list.classList.remove("is-loading");
+        list.classList.add("is-refreshing");
+        list.setAttribute("aria-busy", "true");
+        armSoftRefreshFailsafe();
+        return;
+      }
+    } catch (eKeepEmpty) {}
+
+    /* inboxClickOpen2: se lo sheet è aperto, non wipe detail/lista (chiudeva il resoconto) */
+    try {
+      if (
+        mode === "skeleton" &&
+        (isWorkflowSheetOpen() || state.selectedKey || state.detailLoading) &&
+        (state.items.length || state.selectedKey)
+      ) {
+        list.classList.remove("is-loading");
+        list.classList.add("is-refreshing");
+        list.setAttribute("aria-busy", "true");
+        armSoftRefreshFailsafe();
+        return;
+      }
+    } catch (eKeepLoad) {}
 
     state.items = [];
     state.pagination = null;
@@ -6250,6 +7604,7 @@
     list.setAttribute("data-inbox-loading", "1");
     list.innerHTML = inboxListSkeletonHtml();
     inboxLoadingShownAt = Date.now();
+    armSoftRefreshFailsafe();
     // Fullscreen gate solo al primo boot; dopo resta lo skeleton in lista.
     if (inboxBooting || !initialQueueLoaded) {
       showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
@@ -6291,7 +7646,15 @@
       loadWatchdogTimer = null;
       if (seq !== loadSeq) return;
       var list = T.byId("vc-staff-inbox-list");
-      if (!list || (!list.classList.contains("is-loading") && !isInboxFsLoadingVisible())) return;
+      var softStuck = list && list.classList.contains("is-refreshing");
+      var hardStuck = list && list.classList.contains("is-loading");
+      if (!list || (!hardStuck && !softStuck && !isInboxFsLoadingVisible())) return;
+      if (softStuck && !hardStuck && !isInboxFsLoadingVisible()) {
+        /* Soft-only: sblocca senza svuotare la lista */
+        clearInboxLoading();
+        loadInFlightNonQuiet = false;
+        return;
+      }
             forceReleaseStuckInboxLoad();
       lastQueueLoadFailed = true;
       if (state.tab === "appelli" && !initialQueueLoaded) {
@@ -6465,6 +7828,21 @@
         !opts._scopeSwitch &&
         !opts._userIntent &&
         (state.items.length || state.selectedKey || pendingFocusItemId);
+      /* inboxEmptyNoSkel1: retry/internal su empty già stampato → soft, no skeleton */
+      try {
+        var listNow = T.byId("vc-staff-inbox-list");
+        if (
+          !useSoft &&
+          initialQueueLoaded &&
+          listNow &&
+          listNow.querySelector(".vc-staff-inbox-empty") &&
+          !opts._userIntent &&
+          !opts._scopeSwitch &&
+          (opts._emptyRetry || opts._internal || soft)
+        ) {
+          useSoft = true;
+        }
+      } catch (eSoftEmpty) {}
       showInboxLoading(useSoft ? "soft" : "skeleton");
       if (state.tab === "appelli" && state.scope === "pending" && appealPendingInSummary()) {
         armSkeletonWatchdog();
@@ -6557,28 +7935,33 @@
         if (requestedTab === "resoconti" && requestedWeek) {
           url += "&week=" + encodeURIComponent(requestedWeek);
         }
-                if (opts.sync || (!opts.soft && requestedTab === "appelli" && requestedScope === "pending")) {
+                if (opts.sync === true || opts._forceDiscordSync === true) {
           url += "&sync=1";
         }
 
         var prefetched = consumeQueuePrefetch(requestedTab, requestedScope, requestedPage);
         var fetchOpts = {
+          /* notifQueueFast1: timeout più corti — paint DB prima, sync Discord non blocca 28s */
           timeoutMs:
-            requestedTab === "appelli" && T.isCoarseMobile && T.isCoarseMobile()
+            requestedTab === "appelli"
               ? T.resolveFetchTimeoutMs
-                ? T.resolveFetchTimeoutMs(22000)
-                : 22000
+                ? T.resolveFetchTimeoutMs(opts.sync ? 14000 : 10000)
+                : opts.sync
+                  ? 14000
+                  : 10000
               : requestedTab === "resoconti"
                 ? T.resolveFetchTimeoutMs
-                  ? T.resolveFetchTimeoutMs(9000)
-                  : 9000
+                  ? T.resolveFetchTimeoutMs(opts.sync ? 14000 : 10000)
+                  : opts.sync
+                    ? 14000
+                    : 10000
                 : T.resolveFetchTimeoutMs
-                  ? T.resolveFetchTimeoutMs(28000)
-                  : 28000,
+                  ? T.resolveFetchTimeoutMs(12000)
+                  : 12000,
           signal: loadAbortCtrl ? loadAbortCtrl.signal : null,
         };
-        /* inboxLiveDecisionFix1: quiet/realtime must hit network, not 45s GET cache */
-        if (quiet || opts._realtime || opts.cache === false) {
+        /* inboxLiveDecisionFix1 / inboxTabPaint1: switch tab/scope sempre network */
+        if (quiet || opts._realtime || opts.cache === false || opts._scopeSwitch || opts._userIntent) {
           fetchOpts.cache = false;
         }
         var fetchPromise = prefetched
@@ -6623,6 +8006,10 @@
               errCode === "missing_token" ||
               errCode === "invalid_token";
             /* notifApiErr1: soft/abort/json/rete → retry, no scary toast if list already ok */
+            var is429 =
+              errCode === "rate_limited_client" ||
+              errCode === "rate_limited" ||
+              Number(out.res && out.res.status) === 429;
             var softFail =
               Boolean(out.soft) ||
               Boolean(out.data && out.data.soft) ||
@@ -6631,13 +8018,52 @@
               errCode === "network_error" ||
               errCode === "invalid_json" ||
               errCode === "empty_body" ||
-              errCode === "rate_limited_client" ||
-              errCode === "rate_limited" ||
+              is429 ||
               Number(out.res && out.res.status) === 0 ||
-              Number(out.res && out.res.status) === 408 ||
-              Number(out.res && out.res.status) === 429;
+              Number(out.res && out.res.status) === 408;
             var retryCount = Number(opts._retryCount || 0) + (opts._retried ? 1 : 0);
             if (!opts._retryCount && opts._retried) retryCount = 1;
+            /* rateLimitCalm1: 429 = stop stampede; su switch tab ritenta 1 volta dopo cooldown */
+            if (is429) {
+              try {
+                if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
+                  window.VcApiCache.noteWebhook429(20, apiBase());
+                }
+              } catch (e429n) {}
+              if (!quiet) endNonQuietQueueLoad(seq);
+              if (!quiet) {
+                lastQueueLoadFailed = true;
+                finalizeVisibleQueueLoad(seq, quiet);
+                var wantRetry =
+                  (opts._userIntent || opts._scopeSwitch) &&
+                  !opts._rateLimitRetry &&
+                  !state.items.length &&
+                  state.tab === requestedTab;
+                if (wantRetry) {
+                  showInboxLoading("skeleton");
+                  window.setTimeout(function () {
+                    if (state.tab !== requestedTab) return;
+                    if (state.items.length) return;
+                    loadQueue({
+                      soft: false,
+                      _userIntent: true,
+                      _scopeSwitch: true,
+                      cache: false,
+                      _rateLimitRetry: true,
+                      _internal: true,
+                    }).catch(function () {});
+                  }, 2800);
+                } else if (!state.items.length) {
+                  safeRenderList();
+                }
+              }
+              return;
+            }
+            if (errCode === "aborted") {
+              if (!quiet) endNonQuietQueueLoad(seq);
+              finalizeVisibleQueueLoad(seq, quiet);
+              return;
+            }
             if ((timedOut || unauthorized || softFail || !out.res.ok) && retryCount < 3 && !quiet) {
               return new Promise(function (resolve) {
                 window.setTimeout(resolve, 400 * (retryCount + 1));
@@ -6668,7 +8094,7 @@
                     ? "Sessione scaduta. Ricarica la pagina e accedi di nuovo."
                     : softFail
                       ? ""
-                      : "Impossibile caricare la coda.");
+                    : "Impossibile caricare la coda.");
               if (loadMsg) inboxNotify(loadMsg, true);
               if (!soft && !state.items.length) {
                 state.items = [];
@@ -6713,6 +8139,15 @@
             state.weeks = [];
             state.week = "";
           }
+          /* inboxPendingBadgeSync1: dopo summary API, la lista pending vince sul badge */
+          syncTabBadgeFromLoadedQueue(
+            requestedTab,
+            requestedScope,
+            requestedFilter,
+            state.items,
+            state.pagination,
+            state.page,
+          );
           if (state.summary && state.page <= 1 && state.items.length > 0) {
             delete emptyLoadedTabs[requestedTab];
             renderTabs();
@@ -6721,8 +8156,14 @@
           renderPagination();
           renderWeekNav();
           syncDetailWithList();
-          if (quiet) {
+          /* inboxTabPaint1: paint SUBITO (anche non-quiet) — prima aspettava solo finalize */
+          try {
+            lastInboxListPaintSig = "";
+            renderList({ force: true });
+          } catch (ePaintNow) {
             safeRenderList();
+          }
+          if (quiet) {
             try {
               renderTabs();
             } catch (eQt) {}
@@ -6764,9 +8205,32 @@
               Object.assign({}, opts, {
                 _emptyRetry: true,
                 _internal: true,
-                sync: requestedTab === "appelli" || requestedTab === "candidature",
+                /* inboxTabPaint1: sync Discord su TUTTE le code dopo switch vuoto */
+                sync: true,
                 soft: false,
                 _userIntent: true,
+                cache: false,
+              }),
+            );
+          }
+          if (
+            !quiet &&
+            !state.items.length &&
+            (opts._scopeSwitch || opts._userIntent) &&
+            !opts._emptyRetry &&
+            !opts.sync &&
+            !summaryCount
+          ) {
+            /* switch tab con summary 0: un sync prima di stampare empty definitivo */
+            return chainQueueLoad(
+              seq,
+              Object.assign({}, opts, {
+                _emptyRetry: true,
+                _internal: true,
+                sync: true,
+                soft: false,
+                _userIntent: true,
+                cache: false,
               }),
             );
           }
@@ -6799,6 +8263,8 @@
             !state.items.length &&
             summaryCount > 0 &&
             initialQueueLoaded &&
+            !pendingFocusItemId &&
+            !urlHasExplicitInboxTab() &&
             (Number(opts._appealRetry || 0) >= 2 || requestedTab !== "appelli")
           ) {
             markTabConfirmedEmpty(requestedTab);
@@ -6811,6 +8277,8 @@
             (opts._emptyRetry || opts.sync) &&
             !opts._switchedEmptyTab &&
             initialQueueLoaded &&
+            !pendingFocusItemId &&
+            !urlHasExplicitInboxTab() &&
             !(
               requestedTab === "appelli" &&
               Number(opts._appealRetry || 0) < 2 &&
@@ -6843,25 +8311,47 @@
               clearLoadWatchdog();
             }
             showInboxFsLoading("Carico " + tabLabel(state.tab).toLowerCase() + "\u2026");
+            armInboxFsGateHardFailsafe();
             window.setTimeout(function () {
-              if (!isStaffScopeActive()) return;
+              if (!isStaffScopeActive()) {
+                forceReleaseStuckInboxLoad();
+                return;
+              }
               if (state.items.length) {
                 initialQueueLoaded = true;
                 hideInboxBootScreen(true);
                 return;
               }
               loadQueue({
-                soft: false,
+                soft: true,
                 sync: requestedTab === "appelli" || requestedTab === "resoconti" || requestedTab === "candidature",
                 quiet: false,
                 _internal: true,
                 _bootEmptyRescue: true,
                 _boot: true,
                 _userIntent: true,
-              }).catch(function () {
-                initialQueueLoaded = true;
-                hideInboxBootScreen(true);
-              });
+                _forceDiscordSync:
+                  requestedTab === "appelli" || requestedTab === "resoconti" || requestedTab === "candidature",
+              })
+                .catch(function () {
+                  forceReleaseStuckInboxLoad();
+                  finishQueueLoad(loadSeq, { force: true });
+                })
+                .then(function () {
+                  /* inboxStuckKill2: se rescue non sblocca, alza comunque */
+                  window.setTimeout(function () {
+                    if (state.items.length) return;
+                    var listEl = T.byId("vc-staff-inbox-list");
+                    var stillStuck =
+                      isInboxFsLoadingVisible() ||
+                      (listEl &&
+                        (listEl.classList.contains("is-loading") ||
+                          listEl.querySelector(".vc-staff-inbox-loading")));
+                    if (!stillStuck) return;
+                    forceReleaseStuckInboxLoad();
+                    finishQueueLoad(loadSeq, { force: true });
+                  }, 2800);
+                });
             }, 180);
             return;
           }
@@ -6915,7 +8405,7 @@
           lastQueueLoadFailed = true;
           /* notifApiErr1: abort/rete soft già ritentati — niente toast se lista presente */
           if (!(soft || state.items.length)) {
-            inboxNotify("Errore di rete. Controlla la connessione e riprova.", true);
+          inboxNotify("Errore di rete. Controlla la connessione e riprova.", true);
           }
           if (!state.items.length) {
             state.items = [];
@@ -6972,6 +8462,7 @@
             return;
     }
     initStarted = true;
+    unlockInboxPageChrome();
     readUrlState();
     seedPermissionsFromGate();
     ensureAccessibleTab();
@@ -6992,33 +8483,172 @@
     showInboxBootScreen();
     loadInitialData()
       .then(function () {
+        unlockInboxPageChrome();
         connectInboxWebSocket();
         ensureInboxPoll();
         scheduleMobileAppealBootGuarantee();
-                if (lastQueueLoadFailed) {
+        if (lastQueueLoadFailed || !state.items.length) {
           window.setTimeout(function () {
-            if (!isStaffScopeActive() || initialQueueLoaded) return;
-            loadQueue({ soft: Boolean(state.items.length), _internal: true }).catch(function () {});
+            if (!isStaffScopeActive()) return;
+            if (state.items.length && initialQueueLoaded) return;
+            forceReleaseStuckInboxLoad({ abort: true, restart: true });
           }, 900);
         }
       })
       .catch(function () {
         initialQueueLoaded = true;
         hideInboxBootScreen(true);
+        unlockInboxPageChrome();
         finishQueueLoad(loadSeq, { force: true });
         loadInFlightNonQuiet = false;
         lastQueueLoadFailed = true;
         inboxNotify("Impossibile caricare l'inbox.", true);
         connectInboxWebSocket();
         ensureInboxPoll();
+        window.setTimeout(function () {
+          forceReleaseStuckInboxLoad({ abort: true, restart: true });
+        }, 600);
       });
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) return;
+      /* inboxUnblockKill1: al ritorno tab spegni gate stuck subito */
+      try {
+        if (
+          document.documentElement.classList.contains("vc-notif-staff-loading") ||
+          isInboxFsLoadingVisible()
+        ) {
+          forceReleaseStuckInboxLoad();
+        }
+      } catch (eVisGate) {}
       if (Date.now() - lastVisibleRefreshAt < 8000) return;
       lastVisibleRefreshAt = Date.now();
       scheduleInboxRefreshFromRealtime({ immediate: true });
     });
   }
+
+  /* inboxRefreshUnlock1: heartbeat rapido — unlock UI; restart fetch solo se lista vuota */
+  (function armInboxUnblockHeartbeat() {
+    try {
+      if (window.__vcInboxUnblockHeartbeat) return;
+      window.__vcInboxUnblockHeartbeat = window.setInterval(function () {
+        try {
+          if (document.hidden || document.visibilityState === "hidden") return;
+        } catch (eHid) {}
+        try {
+          if (!isStaffScopeActive()) return;
+          var list = T.byId("vc-staff-inbox-list");
+          var hasRows = Boolean(
+            list && list.querySelector(".vc-staff-inbox-item, .vc-notify-row"),
+          );
+          var soft = list && list.classList.contains("is-refreshing");
+          var hard = list && list.classList.contains("is-loading");
+          var hold = document.documentElement.classList.contains("vc-interaction-hold");
+          var gateCls = document.documentElement.classList.contains("vc-notif-staff-loading");
+          var early = document.documentElement.classList.contains("vc-notif-early-staff");
+          var bootCls = document.documentElement.classList.contains("vc-page-cine-boot");
+          var notReady = !document.documentElement.classList.contains("vc-page-cine-ready");
+          var gateEl = isInboxFsLoadingVisible();
+          var gateHold = Boolean(window.__VC_INBOX_FS_GATE_HOLD);
+          var stuckEmpty =
+            !hasRows &&
+            (hard || soft || gateCls || early || gateHold || !initialQueueLoaded || lastQueueLoadFailed);
+          /* Con righe: solo unlock UI, NON abort del fetch */
+          if (hasRows && (soft || hard || hold || gateCls || early || gateEl || gateHold || bootCls || notReady)) {
+            forceReleaseStuckInboxLoad({ abort: false });
+            return;
+          }
+          if (stuckEmpty) {
+            forceReleaseStuckInboxLoad({ abort: true, restart: !loadInFlightNonQuiet });
+            return;
+          }
+          if (hold || gateCls || early || gateEl || gateHold || bootCls || notReady) {
+            unlockInboxPageChrome();
+          }
+        } catch (eHb) {}
+      }, 1400);
+      window.__vcForceReleaseInbox = forceReleaseStuckInboxLoad;
+      /* notifSheetOpenFix1: soft-open da campanella/notifica già su /notifications */
+      window.__vcStaffInboxOpenDeepLink = function (opts) {
+        opts = opts || {};
+        try {
+          if (isInboxEmbed() && !isStaffScopeActive()) {
+            try {
+              if (window.VcNotifScope && typeof window.VcNotifScope.setScope === "function") {
+                window.VcNotifScope.setScope("staff", { push: false, remember: false });
+              }
+            } catch (eForceSc) {}
+            if (!isStaffScopeActive()) return false;
+          }
+        } catch (eScope) {
+          return false;
+        }
+        var tab = String(opts.inbox || "").trim().toLowerCase();
+        var item = String(opts.item || "").trim();
+        var scope = String(opts.scope || "pending").trim().toLowerCase() || "pending";
+        if (tab) {
+          var okTab = TABS.some(function (t) {
+            return t.id === tab;
+          });
+          if (!okTab && tab !== "punti-tolti") return false;
+          state.tab = tab;
+          state.filter = "";
+          state.week = "";
+          state.page = 1;
+        }
+        if (scope === "pending" || scope === "all" || scope === "done") state.scope = scope;
+        if (item) {
+          pendingFocusConsumed = false;
+          pendingFocusItemId = item;
+          pendingFocusRetryUntil = 0;
+        }
+        try {
+          syncUrlState();
+          if (item) {
+            var u = new URL(location.href);
+            u.searchParams.set("item", item);
+            u.searchParams.set("scope", state.scope || "pending");
+            if (isInboxEmbed()) u.searchParams.set("view", "staff");
+            history.replaceState({}, "", u.pathname + u.search);
+          }
+        } catch (eUrl) {}
+        try {
+          renderTabs();
+          renderScopeToggle();
+        } catch (eChrome) {}
+        /* notifQueueFast1: prima paint da DB (soft, no sync), poi sync background se vuoto */
+        loadQueue({ soft: true, sync: false, _userIntent: true, _internal: true })
+          .then(function () {
+            tryOpenPendingFocusItem();
+            schedulePendingFocusRetry();
+            try {
+              forceReleaseStuckInboxLoad();
+            } catch (eRel) {}
+            if (!state.items.length && (tab === "appelli" || tab === "candidature" || tab === "resoconti")) {
+              return loadQueue({
+                soft: true,
+                sync: true,
+                _forceDiscordSync: true,
+                quiet: true,
+                _internal: true,
+                _userIntent: true,
+              }).then(function () {
+                tryOpenPendingFocusItem();
+                try {
+                  forceReleaseStuckInboxLoad();
+                } catch (eRel2) {}
+              });
+            }
+          })
+          .catch(function () {
+            schedulePendingFocusRetry();
+            try {
+              forceReleaseStuckInboxLoad();
+            } catch (eRel3) {}
+          });
+        return true;
+      };
+    } catch (eArmHb) {}
+  })();
 
   function ensureInboxCineLayout() {
     try {
@@ -7054,20 +8684,16 @@
   try {
     window.VCStaffInboxEmbed = {
       forceRelease: function () {
-        forceReleaseStuckInboxLoad();
-        try {
-          finishQueueLoad(loadSeq, {
-            force: true,
-            message: "Caricamento inbox interrotto. Tocca Ricarica.",
-          });
-        } catch (eFin) {}
+        forceReleaseStuckInboxLoad({ abort: true, restart: true });
       },
+      unlock: unlockInboxPageChrome,
       boot: function () {
         T.hideStaffToast();
+        unlockInboxPageChrome();
         if (isInboxEmbed() && !isStaffScopeActive()) return;
         if (initStarted) {
-          if (lastQueueLoadFailed || !initialQueueLoaded) {
-            if (!initialLoadPromise) loadInitialData().catch(function () {});
+          if (lastQueueLoadFailed || !initialQueueLoaded || !state.items.length) {
+            forceReleaseStuckInboxLoad({ abort: true, restart: true });
             return;
           }
           if (needsMobileAppealReload()) {
@@ -7076,6 +8702,7 @@
                     try {
             hideInboxBootScreen(true);
           } catch (eHideBoot) {}
+          lastInboxListPaintSig = "";
           safeRenderList();
           return;
         }
@@ -7088,14 +8715,39 @@
     };
   } catch (eExport) {}
 
+  try {
+    window.__vcStaffInboxSetTab = setTab;
+    window.__vcDismissSheetForQueueSwitch = dismissSheetForQueueSwitch;
+    window.__vcInboxChromeActivate = onChromeActivate;
+  } catch (eTabExp2) {}
+
   T.bootPage(function () {
     ensureInboxCineLayout();
+    var inboxPageshowSeen = false;
     window.addEventListener("pageshow", function (ev) {
       if (isInboxEmbed() && !isStaffScopeActive()) return;
       seedPermissionsFromGate();
       repairInboxAfterBack();
-      if ((!initialQueueLoaded || lastQueueLoadFailed) && !inboxLoadBusy()) {
-        loadQueue({ soft: Boolean(state.items.length), _internal: true }).catch(function () {});
+      unlockInboxPageChrome();
+      /* inboxCenterEmpty1: pageshow iniziale = stesso load del boot → no double fetch */
+      if (!ev.persisted) {
+        if (inboxPageshowSeen) return;
+        inboxPageshowSeen = true;
+        if (initialQueueLoaded && !lastQueueLoadFailed) safeRenderList();
+        return;
+      }
+      /* inboxRefreshUnlock1: bfcache/back-forward → network + paint */
+      emptyLoadedTabs = Object.create(null);
+      lastInboxListPaintSig = "";
+      if ((!initialQueueLoaded || lastQueueLoadFailed || !state.items.length) && !inboxLoadBusy()) {
+        loadQueue({
+          soft: false,
+          sync: true,
+          cache: false,
+          _userIntent: true,
+          _internal: true,
+          _refreshUnlock: true,
+        }).catch(function () {});
       } else {
         safeRenderList();
       }
@@ -7148,16 +8800,21 @@
     T.registerPtrRefresh(function () {
       if (!isStaffScopeActive()) return Promise.resolve();
       if (loadInFlightNonQuiet) return Promise.resolve();
-      return loadQueue({
-        soft: Boolean(state.items.length),
-        _internal: true,
-        sync: state.tab === "appelli" || state.scope === "pending",
-      }).then(function () {
-        return loadSummary().catch(function () {});
-      });
+      /* siteApiW4: queue + summary parallel on pull-to-refresh */
+      return Promise.all([
+        loadQueue({
+          soft: Boolean(state.items.length),
+          _internal: true,
+          sync: state.tab === "appelli" || state.scope === "pending",
+        }),
+        loadSummary().catch(function () {}),
+      ]);
     });
     if (isStaffScopeActive()) {
       T.whenDiscordSessionReady(init, T.getToken() ? 1 : 400);
     }
   });
 })();
+/* inboxCenterEmpty1 */
+/* inboxEmptyNoSkel1 */
+/* inboxListCards1 */

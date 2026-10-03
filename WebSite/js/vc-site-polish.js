@@ -56,7 +56,12 @@
   }
 
   function skipHeavyPolishFx() {
-        return isPhoneTouchUi();
+    try {
+      /* cpuPagesIdle1: no tilt/heavy polish su pagine soft */
+      if (document.documentElement.classList.contains("vc-site-cpu-soft")) return true;
+      if (document.documentElement.classList.contains("vc-pwa-cpu-nuke")) return true;
+    } catch (eSoft) {}
+    return isPhoneTouchUi();
   }
 
   function isVotePage() {
@@ -98,11 +103,12 @@
         (el.classList.contains("vc-page-cine-hero") ||
           el.classList.contains("vc-support-page-hero") ||
           el.classList.contains("vc-notify-hero") ||
-          el.classList.contains("vc-staff-hero"))
+          el.classList.contains("vc-staff-hero") ||
+          el.classList.contains("vc-legal-hero"))
       ) {
         continue;
       }
-      if (el.closest && el.closest(".vc-page-cine-hero, .vc-support-page-hero, .vc-notify-hero, .vc-staff-hero")) {
+      if (el.closest && el.closest(".vc-page-cine-hero, .vc-support-page-hero, .vc-notify-hero, .vc-staff-hero, .vc-legal-hero")) {
         continue;
       }
       if (el.hidden || el.hasAttribute("hidden")) continue;
@@ -126,7 +132,8 @@
     try {
       var r = el.getBoundingClientRect();
       var fold = window.innerHeight || 800;
-            return r.top < fold * 0.88 && r.bottom > 24 && r.top > -40;
+      /* scrollPaintHoles1: wide band — avoid opacity:0 holes while scrolling */
+      return r.bottom > -80 && r.top < fold * 1.35;
     } catch (e) {
       return true;
     }
@@ -138,6 +145,14 @@
         /* reviewsStageSpread2: carousel stage cards must stay absolute — no fx/panel/rise */
         if (el.classList && el.classList.contains("vc-reviews-stage__card")) return;
         if (el.closest && el.closest(".vc-reviews-stage")) return;
+        /* cineHeroCtaFit1: CTA hero non sono card — border-white+rounded finivano in scanGlassPanels */
+        if (el.tagName === "A" && el.classList && (el.classList.contains("vc-header-pill") || el.classList.contains("vc-home-cine-cta"))) return;
+        /* legalHeroNoCard1: titolo policy senza card esterna */
+        if (el.classList && el.classList.contains("vc-legal-hero")) return;
+        if (el.closest && el.closest(".vc-legal-hero")) return;
+        /* glowCorners: wiki shell has its own chrome — don't add fx/home-panel (square ID shells) */
+        if (el.classList && el.classList.contains("vc-wiki-cmd-shell")) return;
+        if (el.id === "wiki-comandi-panel") return;
         if (el.classList && el.classList.contains("vc-fx-card") && el.querySelector(":scope > .vc-fx-sheen")) {
       return;
     }
@@ -244,6 +259,14 @@
     if (typeof delayMs === "number") {
       el.style.setProperty("--vc-rise-delay", Math.max(0, delayMs) + "ms");
     }
+    /* scrollPaintHoles1: never leave a card invisible if IO misses */
+    window.setTimeout(function () {
+      try {
+        if (el && el.classList && el.classList.contains("vc-home-rise") && !el.classList.contains("is-in")) {
+          el.classList.add("is-in");
+        }
+      } catch (eRiseFail) {}
+    }, 1600);
   }
 
   function isAccordionFx(el) {
@@ -295,7 +318,9 @@
     for (var i = 0; i < found.length; i++) {
       var el = found[i];
       if (skipChrome(el)) continue;
-      if (el.closest && el.closest(".vc-page-cine-hero, .vc-ul-toolbar, .vc-ul-board-tabs, .vc-wt-board, dialog, header, footer")) {
+      /* cineHeroCtaFit1: pill CTA outline matchano border-white+rounded — skip */
+      if (el.tagName === "A" && el.classList && (el.classList.contains("vc-header-pill") || el.classList.contains("vc-home-cine-cta"))) continue;
+      if (el.closest && el.closest(".vc-page-cine-hero, .vc-support-page-hero, .vc-home-cine-hero, .vc-ul-toolbar, .vc-ul-board-tabs, .vc-wt-board, dialog, header, footer")) {
         continue;
       }
       if (el.hidden || el.hasAttribute("hidden")) continue;
@@ -357,6 +382,11 @@
         "body.vc-notifications-page main > section",
         "body.vc-notifications-page #vc-page-content > div",
         "body.vc-notifications-page #vc-page-content > section",
+        /* cineHeroCtaFit1: strip panel classes from hero CTA pills */
+        "a.vc-header-pill.vc-home-panel",
+        "a.vc-header-pill.vc-fx-card",
+        "a.vc-home-cine-cta.vc-home-panel",
+        "a.vc-home-cine-cta.vc-fx-card",
         ".vc-home-panel:has(#vc-roles-grid)",
         ".vc-fx-card:has(#vc-roles-grid)",
         ".vc-home-panel:has(#vc-ul-grid)",
@@ -391,6 +421,10 @@
         ".vc-fx-card:has(.vc-wiki-cmd-shell)",
         ".vc-home-panel:has(.vc-legal-card)",
         ".vc-fx-card:has(.vc-legal-card)",
+        ".vc-legal-hero.vc-home-panel",
+        ".vc-legal-hero.vc-fx-card",
+        "section.vc-legal-hero.vc-home-panel",
+        "section.vc-legal-hero.vc-fx-card",
         ".vc-home-panel:has(.vc-staff-block)",
         ".vc-fx-card:has(.vc-staff-block)",
         ".vc-home-panel:has(#vc-regole-list)",
@@ -518,7 +552,7 @@
             io.unobserve(entries[e].target);
           }
         },
-        { root: null, rootMargin: "48px 0px", threshold: 0.06 }
+        { root: null, rootMargin: "180px 0px 280px 0px", threshold: 0.01 }
       );
       for (var n = 0; n < riseNodes.length; n++) {
         if (riseNodes[n].getAttribute("data-vc-body-cascade") === "1") continue;
@@ -584,7 +618,7 @@
       if (document.querySelector('script[src*="vc-home-cine"]')) return;
     } catch (e0) {}
     var s = document.createElement("script");
-    s.src = "/js/vc-home-cine.js?v=20260901bodySnappyFx1";
+    s.src = "/js/vc-home-cine.js?v=20260929cpuIdleHard1";
     s.defer = true;
     (document.body || document.documentElement).appendChild(s);
   }
@@ -664,10 +698,52 @@
     }
     window.setTimeout(function () {
       forceRevealStaleRises(false);
+    }, 280);
+    window.setTimeout(function () {
+      forceRevealStaleRises(false);
     }, 900);
     window.setTimeout(function () {
       forceRevealStaleRises(true);
-    }, 12000);
+    }, 8000);
+    try {
+      var scrollBusyTimer = null;
+      var ensureScrollPaintCss = function () {
+        if (document.getElementById("vc-scroll-paint-css")) return;
+        var s = document.createElement("style");
+        s.id = "vc-scroll-paint-css";
+        /* glowStayScroll1: non toccare bordo/glow card in scroll — solo sheen off */
+        s.textContent =
+          "html.vc-scroll-busy .vc-fx-sheen{opacity:0!important;visibility:hidden!important;}";
+        document.head.appendChild(s);
+      };
+      var onScrollPaint = function () {
+        try {
+          ensureScrollPaintCss();
+          document.documentElement.classList.add("vc-scroll-busy");
+        } catch (eBusy) {}
+        forceRevealStaleRises(false);
+        if (scrollBusyTimer) window.clearTimeout(scrollBusyTimer);
+        /* glowStayScroll1: busy più corto — non serve più tenere solid border */
+        scrollBusyTimer = window.setTimeout(function () {
+          try {
+            document.documentElement.classList.remove("vc-scroll-busy");
+          } catch (eBusyOff) {}
+        }, 180);
+      };
+      window.addEventListener("scroll", onScrollPaint, { passive: true, capture: true });
+      window.addEventListener("wheel", onScrollPaint, { passive: true, capture: true });
+      window.addEventListener("touchmove", onScrollPaint, { passive: true, capture: true });
+      try {
+        window.addEventListener("scrollend", function () {
+          if (scrollBusyTimer) window.clearTimeout(scrollBusyTimer);
+          scrollBusyTimer = window.setTimeout(function () {
+            try {
+              document.documentElement.classList.remove("vc-scroll-busy");
+            } catch (eEnd) {}
+          }, 80);
+        }, { passive: true });
+      } catch (eScrollEnd) {}
+    } catch (eScroll) {}
     try {
       window.addEventListener("pageshow", function () {
         recoverBlackScreen();

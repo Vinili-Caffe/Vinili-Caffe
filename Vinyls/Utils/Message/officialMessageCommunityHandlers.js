@@ -1121,19 +1121,24 @@ function logCountingReactionError(client, err) {
 }
 
 async function sendCountingFailureReply(message, embed, client, restoreContext = null) {
-  const { createRestoreToken, attachRestoreMessageId, buildCountingRestoreRow } = require("../Community/countingRestoreService");
+  const {
+    COUNTING_RESTORE_ENABLED,
+    createRestoreToken,
+    attachRestoreMessageId,
+    buildCountingRestoreRow,
+  } = require("../Community/countingRestoreService");
   const components = [];
   const lostCount = Math.max(0, Math.floor(Number(restoreContext?.lostCount || 0)));
   const guildId = String(restoreContext?.guildId || message?.guild?.id || "");
   let restoreToken = null;
-  if (lostCount > 0 && guildId) {
+  if (COUNTING_RESTORE_ENABLED && lostCount > 0 && guildId) {
     restoreToken = await createRestoreToken({
       guildId,
       lostCount,
       lostLastUser: restoreContext?.lostLastUser,
       channelId: message?.channel?.id,
     });
-    components.push(buildCountingRestoreRow(restoreToken));
+    if (restoreToken) components.push(buildCountingRestoreRow(restoreToken));
   }
   try {
     const sent = await safeMessageReply(message, {

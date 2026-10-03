@@ -840,9 +840,6 @@ async function runAutoPoll(client, pollOpts = {}) {
   }
 
   client._autoPollPendingSlot = slot.key;
-  global.logger?.info?.(
-    `[poll.auto] slot ${slot.key}: avvio pubblicazione${catchUp ? " (recovery)" : ""}.`,
-  );
   const optionTarget = pickNextOptionTarget(client, cfg);
   let payload = null;
   const maxAttempts = resolveMaxCandidateAttempts(cfg);
@@ -894,9 +891,6 @@ async function runAutoPoll(client, pollOpts = {}) {
     global.logger?.warn?.("[poll.auto] createPollForGuild failed:", result?.error || "unknown");
     return { retry: true, reason: "create_failed", slotKey: slot.key };
   }
-  global.logger?.info?.(
-    `[poll.auto] slot ${slot.key}: poll #${result.pollNumber} pubblicato in chat (${result.messageId}).`,
-  );
   return { retry: false, reason: "success", slotKey: slot.key };
 }
 
@@ -922,7 +916,11 @@ function startAutoPollLoop(client) {
   clearAutoPollRetryTimer(client);
 
   const scheduleCfg = client?.config?.autoPoll || {};
-  if (scheduleCfg.enabled !== false && !String(process.env.OPENROUTER_API_KEY || "").trim()) {
+  if (scheduleCfg.enabled === false) {
+    global.logger?.info?.("[poll.auto] disattivati: nessun cron e nessuna recovery.");
+    return;
+  }
+  if (!String(process.env.OPENROUTER_API_KEY || "").trim()) {
     global.logger?.info?.("[poll.auto] OPENROUTER_API_KEY assente: i sondaggi useranno il banco locale.");
   }
   const slots = resolveAutoPollSlots(scheduleCfg);

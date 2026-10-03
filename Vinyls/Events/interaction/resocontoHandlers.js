@@ -12,6 +12,7 @@ const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdenti
 const {
   memberHasResocontoButtonAccess,
 } = require("../../Utils/Staff/resocontoAccess");
+const { stripStafferAwardRoles } = require("../../Utils/Staff/staffRoleHierarchy");
 const { onResocontoOutcomeRecorded } = require("../../Services/Staff/resocontoReviewerRewardService");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
@@ -311,6 +312,7 @@ async function applyDepexSideEffects(guild, member, roleId) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
+    await stripStafferAwardRoles(member);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
     const ok = roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
     if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
@@ -319,6 +321,7 @@ async function applyDepexSideEffects(guild, member, roleId) {
   if (roleId === ROLE_DIRECTOR) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
+    await stripStafferAwardRoles(member);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
     const ok = roleRemoved && staffRemoved && memberAdded;
     if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
@@ -328,6 +331,7 @@ async function applyDepexSideEffects(guild, member, roleId) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
+    await stripStafferAwardRoles(member);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
     const ok = roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
     if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
@@ -339,6 +343,7 @@ async function applyDepexSideEffects(guild, member, roleId) {
     const coOwnerRemoved = ROLE_CO_OWNER ? await ensureRoleRemoved(guild, member, ROLE_CO_OWNER) : true;
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
+    await stripStafferAwardRoles(member);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
     const ok = roleRemoved && managerRemoved && coOwnerRemoved && staffRemoved && highStaffRemoved && memberAdded;
     if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
@@ -701,6 +706,7 @@ async function applyPmAction(guild, payload, reasonOverride = null, actor = null
   await member.roles.remove(ROLE_DIRECTOR).catch(() => null);
   await member.roles.remove(ROLE_STAFF).catch(() => null);
   await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
+  await stripStafferAwardRoles(member);
   if (ROLE_MEMBER) {
     const memberRoleAdded = await ensureRoleAdded(guild, member, ROLE_MEMBER);
     if (!memberRoleAdded) return "<a:VC_Alert:1482706673176150077> Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.";

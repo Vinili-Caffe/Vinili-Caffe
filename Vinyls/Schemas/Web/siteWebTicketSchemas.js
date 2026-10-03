@@ -48,6 +48,8 @@ const siteWebTicketSchema = new Schema(
     lastMessageAt: { type: Date, default: Date.now, index: true },
     lastMessagePreview: { type: String, default: "", trim: true, maxlength: 180 },
     lastAuthorKind: { type: String, default: "user", trim: true, maxlength: 16 },
+    /* ticketSlaPushOnce2: epoch lastMessageAt già pushata OS — evita re-push dopo trim/dismiss inbox */
+    slaOsPushEpochMs: { type: Number, default: null },
     messageCount: { type: Number, default: 0 },
     addedUsers: {
       type: [
@@ -105,6 +107,16 @@ const siteWebTicketMessageSchema = new Schema(
     imageUrls: { type: [String], default: [] },
     replyToId: { type: Schema.Types.ObjectId, default: null, ref: "SiteWebTicketMessage", index: true },
     editedAt: { type: Date, default: null },
+    /* msgReadReceipts1: WhatsApp-style ✓ / ✓✓ */
+    readBy: {
+      type: [
+        {
+          userId: { type: String, required: true, trim: true, maxlength: 32 },
+          at: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
     reactions: {
       type: [
         {

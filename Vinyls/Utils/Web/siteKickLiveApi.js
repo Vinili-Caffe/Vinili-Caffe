@@ -5,6 +5,7 @@ const {
   normalizeSlug,
   resolveConfig,
 } = require("../../Services/Community/kickLiveAlertService");
+const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag");
 
 const CACHE_TTL_MS = 25_000;
 const STALE_KEEP_MS = 12 * 60_000;
@@ -393,8 +394,19 @@ async function refreshLiveCache(client) {
 async function handleSiteKickLiveGet(client, req, res) {
   try {
     const pack = await refreshLiveCache(client);
-    res.setHeader("Cache-Control", "public, max-age=15");
-    return res.json(pack.payload);
+    /* siteApiW7: ETag/304 on kick live poll */
+    const payload = pack.payload;
+    const etag = weakEtagFromParts([
+      "kick",
+      pack.at || cache.at || 0,
+      payload?.active ? "1" : "0",
+      payload?.primary?.id || "",
+      Array.isArray(payload?.streams) ? payload.streams.length : 0,
+    ]);
+    return sendJsonWithEtag(req, res, payload, {
+      cacheControl: "public, max-age=15",
+      etag,
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-kick-live:", err);
     return res.status(500).json({ ok: false, active: false, error: "internal" });

@@ -47,6 +47,20 @@ const SITE_NOTIF_GROUPS = Object.freeze([
     kinds: Object.freeze(["staff"]),
     staffOnly: true,
   },
+  // confessionaleInboxCat1: dedicated Inbox category "Confessioni"
+  {
+    key: "confessionale",
+    label: "Confessioni",
+    hint: "Nuove confessioni e commenti in discussione",
+    kinds: Object.freeze(["confessionale"]),
+    staffOnly: true,
+  },
+  {
+    key: "votes",
+    label: "Promemoria voti",
+    hint: "Quando puoi votare di nuovo su Top.gg / Discadia",
+    kinds: Object.freeze(["vote_reminder"]),
+  },
   {
     key: "general",
     label: "Altri avvisi sito",
@@ -299,13 +313,14 @@ async function shouldSkipSiteInAppNotif(
   const k = String(kind || "info").trim().toLowerCase();
 
   if (k === "vote_reminder") {
-    const listing = inferVoteListingFromNotif({ title, body, dedupeKey, openUrl });
-    const category = listing === "topgg" ? "vote_topgg" : "bump";
-    if (voteBlocked && typeof voteBlocked === "object") {
-      if (voteBlocked[category]) return true;
-    } else if (gid && (await shouldBlockDm(gid, uid, category).catch(() => false))) {
-      return true;
+    /* votePushNoDmFix1: NoDM Discord NON silenzia push sito — solo mute gruppo site (se presente) */
+    if (KIND_TO_GROUP[k]) {
+      const muted = Array.isArray(mutedKinds)
+        ? normalizeMutedKinds(mutedKinds)
+        : await getMutedKinds(gid, uid).catch(() => []);
+      if (isKindMuted(muted, k)) return true;
     }
+    return false;
   }
 
   if (KIND_TO_GROUP[k]) {

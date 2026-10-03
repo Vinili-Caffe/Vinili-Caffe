@@ -85,6 +85,23 @@ function memberCanReviewAppelli(member) {
   return memberIsHighStaffEligible(member) || memberHasDirectorRole(member);
 }
 
+/** Staffer del mese / della settimana — tolti su ogni depex. */
+function stafferAwardRoleIds() {
+  return [
+    staffRoleId("StafferDelMese"),
+    staffRoleId("StafferDellaSettimana"),
+  ].filter(Boolean);
+}
+
+async function stripStafferAwardRoles(member) {
+  const ids = stafferAwardRoleIds();
+  if (!ids.length || !member?.roles?.remove) return member;
+  const held = ids.filter((id) => memberHasRoleId(member, id));
+  if (!held.length) return member;
+  await member.roles.remove(held).catch(() => null);
+  return member;
+}
+
 module.exports = {
   STAFF_LADDER_KEYS_HIGH_TO_LOW,
   STAFF_PROMOTION_ROLE_UP,
@@ -99,4 +116,6 @@ module.exports = {
   memberIsHighStaffEligible,
   memberHasDirectorRole,
   memberCanReviewAppelli,
+  stafferAwardRoleIds,
+  stripStafferAwardRoles,
 };

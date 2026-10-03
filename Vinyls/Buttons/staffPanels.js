@@ -1,7 +1,7 @@
 const triggersButtons = require("../Triggers/buttons");
 const { STAFF_GUIDE_MENU_ID } = require("../Utils/Staff/staffGuideMenuComponents");
 const STAFF_IDS = new Set(["sanzioni", "moderazione_staff", "warnstaff", "valutazioni", "pause", "limiti", "regolamento", "regole_staff", "lineeguida", "comandi", "guidapartners", "guidamiddle", "generalimoderazione", "testualimoderazione", "vocalimoderazione", "metodi", "ping", "info_rules", "info_donations", "info_sponsor", "candidature_premi_partner", "info_boost_levels", "info_levels", "info_level", "torna_indietro", "info_badges_roles", "r_multiplier_info", "avatar_views", "banner_views"]);
-const STAFF_EMBED_ROLE_SELECT_IDS = new Set(["personality_pronouns", "personality_age", "personality_region", "personality_dm", "personality_relationship", "personality_zodiac", "personality_mentions", "personality_hobby", "personality_colors_1", "personality_colors_plus"]);
+const STAFF_EMBED_ROLE_SELECT_IDS = new Set(["personality_pronouns", "personality_age", "personality_region", "personality_dm", "personality_relationship", "personality_zodiac", "personality_mentions", "personality_hobby", "personality_gaming", "personality_colors_1", "personality_colors_plus"]);
 
 function match(interaction) {
   const id = String(interaction?.customId || "");

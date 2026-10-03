@@ -14,6 +14,35 @@ function normalizeLogin(value) {
   return String(value || "").trim().toLowerCase().replace(/^@/, "");
 }
 
+function twitchNetErrorCode(err) {
+  return String(err?.cause?.code || err?.code || err?.cause?.message || err?.message || "").trim();
+}
+
+function isRetryableTwitchNetError(err) {
+  const code = twitchNetErrorCode(err);
+  return /CONNECT_TIMEOUT|ETIMEDOUT|ECONNRESET|ECONNREFUSED|UND_ERR|ENOTFOUND|EAI_AGAIN|AbortError|TimeoutError/i.test(
+    code,
+  );
+}
+
+/** twitchConnectRetry1: undici a volte fa CONNECT_TIMEOUT verso Helix; 1 retry + timeout esplicito. */
+async function twitchFetch(url, opts = {}, { timeoutMs = 15_000, retries = 1 } = {}) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fetch(url, {
+        ...opts,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (err) {
+      lastErr = err;
+      if (!isRetryableTwitchNetError(err) || attempt >= retries) break;
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 function resolveConfig(client) {
   const raw = client?.config?.twitchLiveAlerts && typeof client.config.twitchLiveAlerts === "object"
     ? client.config.twitchLiveAlerts
@@ -77,7 +106,7 @@ async function getAppAccessToken(clientId, clientSecret) {
   let res = null;
   let fetchErr = null;
   try {
-    res = await fetch("https://id.twitch.tv/oauth2/token", {
+    res = await twitchFetch("https://id.twitch.tv/oauth2/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
@@ -87,7 +116,7 @@ async function getAppAccessToken(clientId, clientSecret) {
   }
   if (!res?.ok) {
     const text = res ? await res.text().catch(() => "") : "";
-    const net = fetchErr?.cause?.code || fetchErr?.cause?.message || fetchErr?.message || "";
+    const net = twitchNetErrorCode(fetchErr);
     const detail = String(text || net || "").trim().slice(0, 240);
     throw new Error(`Twitch token HTTP ${res?.status || "?"} ${detail}`.trim());
   }
@@ -106,7 +135,7 @@ async function fetchLiveStreams(clientId, accessToken, logins) {
   let res = null;
   let fetchErr = null;
   try {
-    res = await fetch(url, {
+    res = await twitchFetch(url, {
       headers: {
         "Client-Id": clientId,
         Authorization: `Bearer ${accessToken}`,
@@ -117,7 +146,7 @@ async function fetchLiveStreams(clientId, accessToken, logins) {
   }
   if (!res?.ok) {
     const text = res ? await res.text().catch(() => "") : "";
-    const net = fetchErr?.cause?.code || fetchErr?.cause?.message || fetchErr?.message || "";
+    const net = twitchNetErrorCode(fetchErr);
     const detail = String(text || net || "").trim().slice(0, 240);
     throw new Error(`Twitch streams HTTP ${res?.status || "?"} ${detail}`.trim());
   }
@@ -285,7 +314,82 @@ async function setVoiceChannelStatus(client, channelId, status, reason = "Twitch
     }
     return true;
   } catch (err) {
-    global.logger?.warn?.("[TWITCH LIVE] voice status failed:", chId, err?.message || err);
+    const msg = String(err?.message || err || "");
+    /* Stage / non-voice: Discord 50024 — gestito con topic stage, non spam log. */
+    if (/Cannot execute action on this channel type/i.test(msg) || Number(err?.code) === 50024) {
+      return false;
+    }
+    global.logger?.warn?.("[TWITCH LIVE] voice status failed:", chId, msg);
+    return false;
+  }
+}
+
+function isStageChannel(channel) {
+  if (!channel) return false;
+  if (typeof channel.isStageChannel === "function" && channel.isStageChannel()) return true;
+  return Number(channel.type) === 13;
+}
+
+function channelSupportsVoiceStatus(channel) {
+  if (!channel?.isVoiceBased?.()) return false;
+  if (isStageChannel(channel)) return false;
+  return true;
+}
+
+async function syncTwitchStageTopic(guild, channel, topic, live) {
+  if (!guild?.stageInstances || !isStageChannel(channel)) return false;
+  const channelId = String(channel.id || "").trim();
+  if (!channelId) return false;
+  const topicText = String(topic || "").trim().slice(0, 120);
+
+  try {
+    let existing = channel.stageInstance || null;
+    if (!existing && guild.stageInstances.cache?.size) {
+      existing =
+        guild.stageInstances.cache.find((row) => String(row?.channelId || "") === channelId) || null;
+    }
+    if (!existing) {
+      const fetched = await guild.stageInstances.fetch(channelId).catch(() => null);
+      if (fetched) existing = fetched;
+    }
+
+    if (live) {
+      if (!topicText) return false;
+      if (existing) {
+        if (String(existing.topic || "") === topicText) return true;
+        if (typeof existing.setTopic === "function") {
+          await existing.setTopic(topicText);
+        } else {
+          await guild.stageInstances.edit(channelId, { topic: topicText });
+        }
+        return true;
+      }
+      try {
+        await guild.stageInstances.create(channelId, {
+          topic: topicText,
+          privacyLevel: 2,
+        });
+      } catch (createErr) {
+        const msg = String(createErr?.message || createErr || "");
+        if (/already|exist/i.test(msg) || Number(createErr?.code) === 150000 || Number(createErr?.code) === 150006) {
+          await guild.stageInstances.edit(channelId, { topic: topicText });
+        } else {
+          throw createErr;
+        }
+      }
+      return true;
+    }
+
+    if (existing) {
+      if (typeof existing.delete === "function") {
+        await existing.delete();
+      } else {
+        await guild.stageInstances.delete(channelId);
+      }
+    }
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[TWITCH LIVE] stage topic failed:", channelId, err?.message || err);
     return false;
   }
 }
@@ -300,18 +404,27 @@ async function updateStreamVoiceChannel(client, streamer, mode) {
   if (!channel?.isVoiceBased?.()) return { ok: false, reason: "channel_unavailable" };
 
   const isOn = String(mode || "").toLowerCase() === "on";
-  const name = isOn
-    ? String(streamer.voiceNameOn || "").trim()
-    : String(streamer.voiceNameOff || "").trim();
-  if (name) {
-    await channel.setName(name.slice(0, 100), `Twitch live ${isOn ? "ON" : "OFF"}`).catch((err) => {
+  const nameOn = String(streamer.voiceNameOn || "").trim();
+  const nameOff = String(streamer.voiceNameOff || "").trim();
+  /* streamNameNoOnOff1: se On/Off sono uguali (o manca uno) → non rinominare a ogni live;
+     allinea solo al nome canonico fisso. Emoji/stato via topic/status. */
+  const canonical = nameOn || nameOff;
+  const renameOnToggle = Boolean(nameOn && nameOff && nameOn !== nameOff);
+  const name = renameOnToggle ? (isOn ? nameOn : nameOff) : canonical;
+  if (name && String(channel.name || "") !== name.slice(0, 100)) {
+    await channel.setName(name.slice(0, 100), renameOnToggle ? `Twitch live ${isOn ? "ON" : "OFF"}` : "Twitch stream voice name").catch((err) => {
       global.logger?.warn?.("[TWITCH LIVE] rename failed:", channelId, err?.message || err);
     });
   }
-  if (isOn) {
-    await setVoiceChannelStatus(client, channelId, streamer.voiceStatusOn, "Twitch live ON");
-  } else {
-    await setVoiceChannelStatus(client, channelId, "", "Twitch live OFF");
+  /* Canale Stage: niente /voice-status (errore 50024) — usa topic stage come Kick. */
+  if (isStageChannel(channel)) {
+    await syncTwitchStageTopic(guild, channel, streamer.voiceStatusOn, isOn);
+  } else if (channelSupportsVoiceStatus(channel)) {
+    if (isOn) {
+      await setVoiceChannelStatus(client, channelId, streamer.voiceStatusOn, "Twitch live ON");
+    } else {
+      await setVoiceChannelStatus(client, channelId, "", "Twitch live OFF");
+    }
   }
   return { ok: true, channelId, mode: isOn ? "on" : "off" };
 }
@@ -446,4 +559,8 @@ module.exports = {
   evaluateLiveAnnouncementDecision,
   resolveConfig,
   buildAnnouncementContent,
+  normalizeLogin,
+  getAppAccessToken,
+  fetchLiveStreams,
+  buildStreamThumbnailUrl,
 };

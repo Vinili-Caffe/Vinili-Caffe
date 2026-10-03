@@ -635,7 +635,7 @@ function buildResolveAttempts(userQuery) {
       attempts.push(`ytmsearch:${simplified}`, `ytsearch:${simplified}`, `scsearch:${simplified}`);
     }
     if (mode === "spotify" || mode === "spotify_first") {
-      if (!attempts.includes(primary)) attempts.push(primary);
+      /* spsearchFix1: non appendere spsearch (LavaSrc SocketTimeout); yt* già in attempts */
     }
     return [...new Set(attempts)];
   }
@@ -978,74 +978,80 @@ async function remirrorYoutubeViaHttp(node, track) {
 }
 
 async function playWithMirrorFallbacks(player, session, node, track) {
-  let list = Array.isArray(track?._mirrorCandidates) ? track._mirrorCandidates : null;
-  if (!list?.length) list = await collectPlayableMirrorCandidates(node, track);
-  list = (Array.isArray(list) ? list : []).filter((cand) => {
-    const enc = String(cand?.encoded || "").trim();
-    if (!enc) return false;
-    const src = String(cand?.info?.sourceName || "").toLowerCase();
-    return src !== "spotify";
-  });
-  if (!list.length) {
-    const src = String(track?.info?.sourceName || "").toLowerCase();
-    if (track?.encoded && src && src !== "spotify") list = [track];
-  }
+  /* playlistRaceFix1: durante probe l'handler end NON avanza la coda */
+  if (session) session._mirrorProbing = true;
+  try {
+    let list = Array.isArray(track?._mirrorCandidates) ? track._mirrorCandidates : null;
+    if (!list?.length) list = await collectPlayableMirrorCandidates(node, track);
+    list = (Array.isArray(list) ? list : []).filter((cand) => {
+      const enc = String(cand?.encoded || "").trim();
+      if (!enc) return false;
+      const src = String(cand?.info?.sourceName || "").toLowerCase();
+      return src !== "spotify";
+    });
+    if (!list.length) {
+      const src = String(track?.info?.sourceName || "").toLowerCase();
+      if (track?.encoded && src && src !== "spotify") list = [track];
+    }
 
-  const isYt = (cand) => {
-    const s = String(cand?.info?.sourceName || "").toLowerCase();
-    return s === "youtube" || s === "youtubemusic";
-  };
-  const isHttp = (cand) => String(cand?.info?.sourceName || "").toLowerCase() === "http";
+    const isYt = (cand) => {
+      const s = String(cand?.info?.sourceName || "").toLowerCase();
+      return s === "youtube" || s === "youtubemusic";
+    };
+    const isHttp = (cand) => String(cand?.info?.sourceName || "").toLowerCase() === "http";
 
     const ytSeed =
-    list.find((c) => isYt(c)) ||
-    (isYt(track) ? track : null);
-  if (ytSeed) {
-    const httpAlt = await remirrorYoutubeViaHttp(node, ytSeed).catch((err) => {
-      logMusic("yt-dlp remirror err", err?.message || err);
-      return null;
-    });
-    if (httpAlt?.encoded) {
-      list = [httpAlt, ...list.filter((c) => String(c?.encoded) !== String(httpAlt.encoded))];
+      list.find((c) => isYt(c)) ||
+      (isYt(track) ? track : null);
+    if (ytSeed) {
+      const httpAlt = await remirrorYoutubeViaHttp(node, ytSeed).catch((err) => {
+        logMusic("yt-dlp remirror err", err?.message || err);
+        return null;
+      });
+      if (httpAlt?.encoded) {
+        list = [httpAlt, ...list.filter((c) => String(c?.encoded) !== String(httpAlt.encoded))];
+      }
     }
-  }
 
-  list = [
-    ...list.filter(isHttp),
-    ...list.filter((c) => !isHttp(c) && isYt(c)),
-    ...list.filter((c) => !isHttp(c) && !isYt(c)),
-  ].slice(0, 5);
-  logMusic(
-    "mirror try",
-    list.map((c) => `${c?.info?.sourceName}:${String(c?.info?.identifier || "").slice(0, 12)}`).join(","),
-  );
-  for (let i = 0; i < list.length; i++) {
-    const cand = list[i];
-    const playGen = markFreshPlayAttempt(session);
-    session.nowPlaying = describeTrack(cand);
-    session.playingEncoded = cand.encoded;
-    try {
-      if (player.paused) await player.setPaused(false).catch(() => {});
-      await playEncodedFromStart(player, cand.encoded, { skipOauth: isHttp(cand) });
-    } catch (err) {
-      logMusic("play mirror fail", cand?.info?.sourceName, err?.message || err);
-      continue;
+    list = [
+      ...list.filter(isHttp),
+      ...list.filter((c) => !isHttp(c) && isYt(c)),
+      ...list.filter((c) => !isHttp(c) && !isYt(c)),
+    ].slice(0, 5);
+    logMusic(
+      "mirror try",
+      list.map((c) => `${c?.info?.sourceName}:${String(c?.info?.identifier || "").slice(0, 12)}`).join(","),
+    );
+    for (let i = 0; i < list.length; i++) {
+      const cand = list[i];
+      const playGen = markFreshPlayAttempt(session);
+      session.nowPlaying = describeTrack(cand);
+      session.playingEncoded = cand.encoded;
+      try {
+        if (player.paused) await player.setPaused(false).catch(() => {});
+        await playEncodedFromStart(player, cand.encoded, { skipOauth: isHttp(cand) });
+      } catch (err) {
+        logMusic("play mirror fail", cand?.info?.sourceName, err?.message || err);
+        continue;
+      }
+      const probe = await probeMirrorPlayback(player, session, playGen, cand, 1800);
+      if (probe === "interrupted") {
+        return { ok: false, interrupted: true, track: cand };
+      }
+      if (probe === "ok") {
+        return { ok: true, track: cand };
+      }
+      logMusic("mirror died early, next", {
+        src: cand?.info?.sourceName,
+        id: String(cand?.info?.identifier || "").slice(0, 16),
+        left: list.length - i - 1,
+        earlyPlayFailed: Boolean(session.earlyPlayFailed),
+      });
     }
-    const probe = await probeMirrorPlayback(player, session, playGen, cand, 1800);
-    if (probe === "interrupted") {
-      return { ok: false, interrupted: true, track: cand };
-    }
-    if (probe === "ok") {
-      return { ok: true, track: cand };
-    }
-    logMusic("mirror died early, next", {
-      src: cand?.info?.sourceName,
-      id: String(cand?.info?.identifier || "").slice(0, 16),
-      left: list.length - i - 1,
-      earlyPlayFailed: Boolean(session.earlyPlayFailed),
-    });
+    return { ok: false, interrupted: false, track: null };
+  } finally {
+    if (session) session._mirrorProbing = false;
   }
-  return { ok: false, interrupted: false, track: null };
 }
 
 async function probeMirrorPlayback(player, session, playGen, cand, maxMs = 1800) {
@@ -1299,6 +1305,9 @@ function safeEmbedBoldFragment(s) {
 }
 
 const MUSIC_SPOTIFY_URL_LOOKUP = String(process.env.MUSIC_SPOTIFY_URL_LOOKUP || "1").trim() === "1";
+const SPOTIFY_CLIENT_ID = String(process.env.SPOTIFY_CLIENT_ID || "").trim();
+const SPOTIFY_CLIENT_SECRET = String(process.env.SPOTIFY_CLIENT_SECRET || "").trim();
+let _spotifyTokenCache = { accessToken: "", expiresAtMs: 0 };
 
 function safeDiscordLinkLabel(s) {
   let t = String(s || "").trim();
@@ -1344,21 +1353,66 @@ function spotifyDirectUrlFromTrack(t) {
   return null;
 }
 
-async function trySpotifyDirectUrlViaSearch(node, track) {
-  if (!MUSIC_SPOTIFY_URL_LOOKUP || !node?.rest || !track?.info) return null;
+/* spsearchFix1: non usare Lavalink spsearch (LavaSrc SocketTimeout → stack PM2).
+   Lookup link Spotify via Web API client-credentials (stesso clientId di application.yml). */
+async function fetchSpotifyClientCredentialsToken() {
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) return "";
+  const now = Date.now();
+  if (_spotifyTokenCache.accessToken && _spotifyTokenCache.expiresAtMs > now + 30_000) {
+    return _spotifyTokenCache.accessToken;
+  }
+  const basic = Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString("base64");
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${basic}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: "grant_type=client_credentials",
+  });
+  if (!res.ok) return "";
+  const j = await res.json().catch(() => null);
+  const tok = String(j?.access_token || "").trim();
+  const expiresIn = Math.max(60, Number(j?.expires_in) || 3600);
+  if (!tok) return "";
+  _spotifyTokenCache = { accessToken: tok, expiresAtMs: now + expiresIn * 1000 };
+  return tok;
+}
+
+async function trySpotifyDirectUrlViaSearch(_node, track) {
+  if (!MUSIC_SPOTIFY_URL_LOOKUP || !track?.info) return null;
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) return null;
   const title = String(track.info.title || "").trim();
   const author = String(track.info.author || "").trim();
   const q = [title, author].filter(Boolean).join(" ").trim();
   if (q.length < 2) return null;
-  const ident = `spsearch:${q.slice(0, 280)}`;
   try {
-    const res = await node.rest.resolve(ident);
-    const list = tracksFromResolve(res);
-    const hit = list[0];
+    const tok = await fetchSpotifyClientCredentialsToken();
+    if (!tok) return null;
+    const url =
+      "https://api.spotify.com/v1/search?" +
+      new URLSearchParams({
+        q: q.slice(0, 280),
+        type: "track",
+        limit: "5",
+        market: String(process.env.SPOTIFY_MARKET || "IT").trim() || "IT",
+      }).toString();
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${tok}`, Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const j = await res.json().catch(() => null);
+    const items = Array.isArray(j?.tracks?.items) ? j.tracks.items : [];
+    const hit = items.find((it) => it?.external_urls?.spotify || it?.id) || items[0];
     if (!hit) return null;
-    return spotifyDirectUrlFromTrack(hit);
+    const open = String(hit?.external_urls?.spotify || "").trim();
+    if (open) return open;
+    const id = String(hit?.id || "").trim();
+    if (/^[a-zA-Z0-9]{21,22}$/.test(id)) return `https://open.spotify.com/track/${id}`;
+    return null;
   } catch (err) {
-    logMusic("spsearch:", err?.message || err);
+    logMusic("spotify web search:", err?.message || err);
     return null;
   }
 }
@@ -1866,9 +1920,8 @@ function normalizeLavalinkResolveQuery(raw) {
   if (/^spotify:/i.test(q)) return q;
   if (/^[a-z0-9]+search:/i.test(q)) return q;
   const envPrefix = String(process.env.MUSIC_SEARCH_PREFIX || "").trim();
-  const mode = getMusicSearchMode();
-  const fallback =
-    mode === "spotify" || mode === "spotify_first" ? "spsearch:" : "ytsearch:";
+  /* spsearchFix1: LavaSrc spsearch timeouta — plain text sempre yt* (Spotify URL restano LavaSrc) */
+  const fallback = "ytsearch:";
   const prefix = envPrefix || fallback;
   const p = prefix.endsWith(":") ? prefix : `${prefix}:`;
   return `${p}${q}`;
@@ -2056,10 +2109,20 @@ async function tickMusicInactivity(client) {
       if (!m.user?.bot) humans += 1;
     }
     const player = sh.players.get(gid);
+    const session = guildQueues.get(gid);
     const queueIdle = isMusicSessionQueueIdle(gid);
-    const activelyPlaying = Boolean(player?.track) && !player.paused && !queueIdle;
-    const unhealthy = !activelyPlaying || humans === 0;
-    if (!unhealthy) {
+    /* playlistRaceFix1: tra un brano e l'altro / mirror probe non contare idle */
+    const hasQueueWork = Boolean(
+      session &&
+        (session.nowPlaying ||
+          (Array.isArray(session.tracks) && session.tracks.length) ||
+          session._mirrorProbing ||
+          session._playAdvanceLock),
+    );
+    const trackPlaying = Boolean(player?.track) && !player.paused;
+    const emptyVc = humans === 0;
+    const trulyIdle = !trackPlaying && !hasQueueWork && queueIdle;
+    if (!emptyVc && !trulyIdle) {
       musicIdleSince.delete(gid);
       continue;
     }
@@ -2070,7 +2133,6 @@ async function tickMusicInactivity(client) {
     const since = musicIdleSince.get(gid) || now;
     if (now - since < MUSIC_INACTIVITY_MS) continue;
     musicIdleSince.delete(gid);
-    const session = guildQueues.get(gid);
     const textChannelId = session?.textChannelId || null;
     guildQueues.delete(gid);
     endListeners.delete(gid);
@@ -2139,7 +2201,13 @@ async function handleMusicBotVoiceDisconnect(client, guild) {
   );
   const textChannelId = session?.textChannelId || null;
   if (hadPlayer || hadSessionMusic || hadConn || hadResumeHint) {
-    guildQueues.delete(gid);
+    /* playlistRaceFix1: leave intenzionale (AFK probe / stop) tiene la sessione in RAM */
+    if (!intentional) {
+      guildQueues.delete(gid);
+    } else {
+      persistMusicQueueSnapshotNow(client);
+      logMusic("voice disconnect intentional — keep queue session", { guildId: gid });
+    }
     endListeners.delete(gid);
     if (sh?.players?.get(gid)) {
       try {
@@ -2154,12 +2222,14 @@ async function handleMusicBotVoiceDisconnect(client, guild) {
     }
   }
   persistMusicQueueSnapshotNow(client);
-  const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
-  await purgeTtsVoicePersistence(gid, client).catch(() => {});
-  try {
-    const { clearVoiceSession } = require("../Voice/voiceSessionService");
-    clearVoiceSession(gid);
-  } catch (_) {}
+  if (!intentional) {
+    const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
+    await purgeTtsVoicePersistence(gid, client).catch(() => {});
+    try {
+      const { clearVoiceSession } = require("../Voice/voiceSessionService");
+      clearVoiceSession(gid);
+    } catch (_) {}
+  }
 }
 
 async function destroyGhostMusicStateIfBotNotInVoice(client, guild) {
@@ -2197,52 +2267,131 @@ function getIdealMusicNode(client) {
 }
 
 async function playSessionTrackNow(client, player, session, guildId, track, opts = {}) {
-  const maxAttempts = Math.max(1, Math.min(12, Number(opts.maxAttempts) || 8));
+  /* playlistRaceFix1: default più alto; non azzerare il resto della playlist a 8 fail */
+  const maxAttempts = Math.max(1, Math.min(80, Number(opts.maxAttempts) || 40));
   const node = getIdealMusicNode(client);
   if (!node?.rest || !player || !session) {
     return { ok: false, interrupted: false, reason: "no_node" };
   }
-  let cand = track;
-  for (let attempt = 0; attempt < maxAttempts && cand; attempt += 1) {
-    session.nowPlaying = describeTrack(cand);
-    session.currentRequesterUserId = cand?.vcRequestedByUserId || session.currentRequesterUserId || null;
-    session.currentRequesterUserTag = cand?.vcRequestedByUserTag || session.currentRequesterUserTag || null;
-    const started = await playWithMirrorFallbacks(player, session, node, cand);
-    if (started.interrupted) return { ok: false, interrupted: true };
-    if (started.ok && started.track) {
-      session.playingEncoded = started.track.encoded;
-      session.nowPlaying = describeTrack(started.track);
-      session.earlyPlayFailed = false;
-      session.suppressQueueEndUntil = Date.now() + 4000;
-      if (session.repeatOne && started.track.encoded) {
-        session.repeatEncoded = started.track.encoded;
+  session._playAdvanceLock = true;
+  try {
+    let cand = track;
+    for (let attempt = 0; attempt < maxAttempts && cand; attempt += 1) {
+      session.nowPlaying = describeTrack(cand);
+      session.currentRequesterUserId = cand?.vcRequestedByUserId || session.currentRequesterUserId || null;
+      session.currentRequesterUserTag = cand?.vcRequestedByUserTag || session.currentRequesterUserTag || null;
+      const started = await playWithMirrorFallbacks(player, session, node, cand);
+      if (started.interrupted) return { ok: false, interrupted: true };
+      if (started.ok && started.track) {
+        session.playingEncoded = started.track.encoded;
+        session.nowPlaying = describeTrack(started.track);
+        session.earlyPlayFailed = false;
+        session.suppressQueueEndUntil = Date.now() + 4000;
+        if (session.repeatOne && started.track.encoded) {
+          session.repeatEncoded = started.track.encoded;
+        }
+        try {
+          persistMusicQueueSnapshotNow(client);
+        } catch (_) {}
+        return { ok: true, track: started.track };
       }
-      try {
-        persistMusicQueueSnapshotNow(client);
-      } catch (_) {}
-      return { ok: true, track: started.track };
+      logMusic("queue advance after failed start", {
+        guildId: String(guildId || ""),
+        attempt: attempt + 1,
+        label: describeTrack(cand),
+        left: Array.isArray(session.tracks) ? session.tracks.length : 0,
+      });
+      cand = shiftNextQueueTrack(session, null);
     }
-    logMusic("queue advance after failed start", {
-      guildId: String(guildId || ""),
-      attempt: attempt + 1,
-      label: describeTrack(cand),
+    return {
+      ok: false,
+      interrupted: false,
+      reason: "exhausted",
       left: Array.isArray(session.tracks) ? session.tracks.length : 0,
-    });
-    cand = shiftNextQueueTrack(session, null);
+    };
+  } finally {
+    session._playAdvanceLock = false;
   }
-  return { ok: false, interrupted: false, reason: "exhausted" };
 }
 
 function attachEndHandler(client, player, guildId) {
   const gid = String(guildId || "").trim();
   if (!gid || !player) return;
-  if (typeof player.removeAllListeners === "function") player.removeAllListeners("end");
+  if (typeof player.removeAllListeners === "function") {
+    player.removeAllListeners("end");
+    try {
+      player.removeAllListeners("stuck");
+    } catch (_) {}
+    try {
+      player.removeAllListeners("exception");
+    } catch (_) {}
+    try {
+      player.removeAllListeners("closed");
+    } catch (_) {}
+  }
   endListeners.add(gid);
+
+  const advanceAfterFailure = async (reasonTag) => {
+    const session = guildQueues.get(gid);
+    if (!session || session._mirrorProbing || session._playAdvanceLock) return;
+    const next = shiftNextQueueTrack(session, session.playingEncoded || null);
+    if (!next) return;
+    logMusic("force advance after player fault", { guildId: gid, reason: reasonTag });
+    try {
+      await playSessionTrackNow(client, player, session, gid, next);
+    } catch (err) {
+      global.logger?.warn?.("[MUSIC] force advance failed:", err?.message || err);
+    }
+  };
+
+  player.on("stuck", (ev) => {
+    logMusic("track stuck", {
+      guildId: gid,
+      thresholdMs: ev?.thresholdMs,
+      encoded: String(sessionPlayingEncoded(gid) || "").slice(0, 24),
+    });
+    void (async () => {
+      try {
+        if (typeof player.seekTo === "function") {
+          await player.seekTo(0);
+          return;
+        }
+      } catch (_) {}
+      await advanceAfterFailure("stuck");
+    })();
+  });
+
+  player.on("exception", (ev) => {
+    logMusic("track exception", {
+      guildId: gid,
+      message: ev?.exception?.message || ev?.message || "",
+    });
+    const session = guildQueues.get(gid);
+    if (session) session.earlyPlayFailed = true;
+    if (session?._mirrorProbing) return;
+    void advanceAfterFailure("exception");
+  });
+
+  player.on("closed", (ev) => {
+    logMusic("player closed", { guildId: gid, code: ev?.code, byRemote: ev?.byRemote });
+  });
+
   player.on("end", async (ev) => {
     const reasonRaw = String(ev?.reason ?? ev?.endReason ?? "").toLowerCase();
     if (reasonRaw === "replaced") return;
     const session = guildQueues.get(gid);
     if (!session) return;
+    /* playlistRaceFix1: end durante mirror → segnala fail, non shiftare coda */
+    if (session._mirrorProbing || session._playAdvanceLock) {
+      session.earlyPlayFailed = true;
+      logMusic("end deferred during probe/advance", {
+        guildId: gid,
+        reason: reasonRaw,
+        probing: Boolean(session._mirrorProbing),
+        advancing: Boolean(session._playAdvanceLock),
+      });
+      return;
+    }
     const endedEncoded = encodedFromEvTrack(ev?.track);
     const now = Date.now();
     const prevEnd = lastMusicEndHandledByGuild.get(gid);
@@ -2259,14 +2408,14 @@ function attachEndHandler(client, player, guildId) {
       const encoded = endedEncoded || session.repeatEncoded;
       if (typeof encoded === "string" && encoded.length) {
         try {
-          const replayed = await playSessionTrackNow(
-            client,
-            player,
-            session,
-            gid,
-            { encoded, info: null },
-            { maxAttempts: 1 },
-          );
+          const replayTrack = {
+            encoded,
+            info: null,
+            _mirrorCandidates: null,
+          };
+          const replayed = await playSessionTrackNow(client, player, session, gid, replayTrack, {
+            maxAttempts: 1,
+          });
           if (replayed.ok) return;
           session.repeatOne = false;
           session.repeatEncoded = null;
@@ -2311,9 +2460,26 @@ function attachEndHandler(client, player, guildId) {
           session.repeatQueueSnapshot = null;
         }
       }
+      if (shouldSuppressQueueEndedEmbed(session, reasonRaw)) {
+        logMusic(
+          `suppress queue-ended guild=${guildId} reason=${String(reasonRaw || "")} freshMs=${
+            Date.now() - Number(session._freshPlayAt || 0)
+          }`
+        );
+        session.earlyPlayFailed = true;
+        session.nowPlaying = null;
+        session.playingEncoded = null;
+        clearSessionCurrentRequester(session);
+        /* non wipe tracks se ce ne sono ancora (race / suppress) */
+        if (!Array.isArray(session.tracks) || !session.tracks.length) {
+          session.tracks = [];
+        }
+        musicIdleSince.set(guildId, Date.now());
+        persistMusicQueueSnapshotNow(client);
+        cancelPendingQueueEndedEmbed(gid);
+        return;
+      }
       const notifyChannelId = session.textChannelId || null;
-      const suppressEnded = shouldSuppressQueueEndedEmbed(session, reasonRaw);
-      if (suppressEnded) session.earlyPlayFailed = true;
       session.nowPlaying = null;
       session.playingEncoded = null;
       clearSessionCurrentRequester(session);
@@ -2324,12 +2490,7 @@ function attachEndHandler(client, player, guildId) {
       session.repeatQueueSnapshot = null;
       musicIdleSince.set(guildId, Date.now());
       persistMusicQueueSnapshotNow(client);
-      if (!suppressEnded) {
-        scheduleMusicQueueEndedEmbed(client, notifyChannelId, guildId);
-      } else {
-        cancelPendingQueueEndedEmbed(gid);
-        logMusic("queue end suppressed after fresh/failed start", { guildId: gid, reasonRaw });
-      }
+      scheduleMusicQueueEndedEmbed(client, notifyChannelId, guildId);
       return;
     }
     if (typeof endedEncoded === "string" && endedEncoded.length) {
@@ -2339,25 +2500,57 @@ function attachEndHandler(client, player, guildId) {
     try {
       const played = await playSessionTrackNow(client, player, session, gid, next);
       if (played.ok || played.interrupted) return;
-      logMusic("play next exhausted queue", { guildId: gid });
+      const left = Array.isArray(session.tracks) ? session.tracks.length : 0;
+      logMusic("play next exhausted attempts", { guildId: gid, left });
+      /* playlistRaceFix1: se restano brani, non buttare tutta la playlist */
+      if (left > 0) {
+        const retry = shiftNextQueueTrack(session, null);
+        if (retry) {
+          const again = await playSessionTrackNow(client, player, session, gid, retry, {
+            maxAttempts: 40,
+          });
+          if (again.ok || again.interrupted) return;
+        }
+      }
+      const stillLeft = Array.isArray(session.tracks) ? session.tracks.length : 0;
       const notifyChannelId = session.textChannelId || null;
       session.nowPlaying = null;
       session.playingEncoded = null;
       clearSessionCurrentRequester(session);
-      session.tracks = [];
-      musicIdleSince.set(guildId, Date.now());
-      persistMusicQueueSnapshotNow(client);
-      if (!shouldSuppressQueueEndedEmbed(session, reasonRaw)) {
-        scheduleMusicQueueEndedEmbed(client, notifyChannelId, guildId);
+      if (stillLeft <= 0) {
+        session.tracks = [];
+        musicIdleSince.set(guildId, Date.now());
+        persistMusicQueueSnapshotNow(client);
+        if (!shouldSuppressQueueEndedEmbed(session, reasonRaw)) {
+          scheduleMusicQueueEndedEmbed(client, notifyChannelId, guildId);
+        } else {
+          cancelPendingQueueEndedEmbed(gid);
+        }
       } else {
+        logMusic("keep remaining playlist after start failures", { guildId: gid, left: stillLeft });
+        musicIdleSince.set(guildId, Date.now());
+        persistMusicQueueSnapshotNow(client);
         cancelPendingQueueEndedEmbed(gid);
       }
     } catch (err) {
       global.logger?.warn?.("[MUSIC] play next failed:", err?.message || err);
-      await leaveMusicVoiceChannelMarked(client, guildId);
-      guildQueues.delete(guildId);
+      /* non distruggere la coda: riprova il prossimo al prossimo end/skip */
+      try {
+        session.earlyPlayFailed = true;
+        session.nowPlaying = null;
+        session.playingEncoded = null;
+        persistMusicQueueSnapshotNow(client);
+      } catch (_) {}
     }
   });
+}
+
+function sessionPlayingEncoded(guildId) {
+  try {
+    return guildQueues.get(String(guildId || "").trim())?.playingEncoded || "";
+  } catch (_) {
+    return "";
+  }
 }
 
 function initLavalinkMusicIfEnabled(client) {

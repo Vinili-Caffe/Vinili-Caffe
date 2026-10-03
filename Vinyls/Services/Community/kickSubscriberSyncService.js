@@ -824,7 +824,6 @@ async function startKickSubscriberSyncLoop(client) {
   if (!client || loopStarted.has(client)) return;
   const cfg = resolveSubSyncConfig(client);
   if (!cfg.enabled) {
-    global.logger?.info?.("[KICK SUB] disabled");
     return;
   }
   if (!cfg.roleId) {

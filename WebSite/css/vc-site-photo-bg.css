@@ -84,22 +84,86 @@ html.vc-site-photo-bg .vc-home-cine__spotlight {
   opacity: 0 !important;
 }
 
-/* Readable overlay over bright shop windows */
+/* Readable overlay — phone flat (no fascia sotto nav); PC = classico sotto */
 html.vc-site-photo-bg .vc-home-cine__veil,
 html.vc-site-polish.vc-site-photo-bg .vc-home-cine__veil,
 html.vc-site-photo-bg body.vc-body--home .vc-home-cine__veil {
   opacity: 1 !important;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(10, 7, 5, 0.55) 0%,
-      rgba(10, 7, 5, 0.24) 32%,
-      rgba(10, 7, 5, 0.3) 62%,
-      rgba(10, 7, 5, 0.8) 100%
-    ),
-    radial-gradient(ellipse 72% 55% at 50% 42%, rgba(10, 7, 5, 0.2), transparent 72%) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
-
+/* desktopPcBgRestore1: PC — sfondo com’era prima (veil scuro + foto center) */
+@media (min-width: 1200px) {
+  html.vc-site-photo-bg .vc-home-cine__veil,
+  html.vc-site-polish.vc-site-photo-bg .vc-home-cine__veil,
+  html.vc-site-photo-bg body.vc-body--home .vc-home-cine__veil {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(10, 7, 5, 0.55) 0%,
+        rgba(10, 7, 5, 0.24) 32%,
+        rgba(10, 7, 5, 0.3) 62%,
+        rgba(10, 7, 5, 0.8) 100%
+      ),
+      radial-gradient(ellipse 72% 55% at 50% 42%, rgba(10, 7, 5, 0.2), transparent 72%) !important;
+  }
+  html.vc-site-photo-bg .vc-home-cine__photo,
+  html.vc-site-polish.vc-site-photo-bg .vc-home-cine__photo,
+  html.vc-site-photo-bg body.vc-body--home .vc-home-cine__photo {
+    object-position: center center !important;
+    transform: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+}
+/* telefono: flat + crop (anti fascia nera sotto nav) */
+@media (max-width: 1199.98px), (pointer: coarse) {
+  html.vc-site-photo-bg .vc-home-cine__veil,
+  html.vc-site-polish.vc-site-photo-bg .vc-home-cine__veil,
+  html.vc-site-photo-bg body.vc-body--home .vc-home-cine__veil {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      transparent 42%,
+      rgba(10, 7, 5, 0.18) 72%,
+      rgba(10, 7, 5, 0.62) 100%
+    ) !important;
+  }
+  /* gifAlwaysOn2: niente transform/filter sull'img — congelano i frame GIF (Safari/Chromium) */
+  html.vc-site-photo-bg .vc-home-cine__photo,
+  html.vc-site-polish.vc-site-photo-bg .vc-home-cine__photo,
+  html.vc-site-photo-bg body.vc-body--home .vc-home-cine__photo {
+    object-position: center 58% !important;
+    object-fit: cover !important;
+    width: 116vw !important;
+    height: 116vh !important;
+    height: 116dvh !important;
+    left: -8vw !important;
+    top: -8vh !important;
+    top: -8dvh !important;
+    right: auto !important;
+    bottom: auto !important;
+    inset: auto !important;
+    transform: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    contain: none !important;
+  }
+}
+html.vc-site-photo-bg .vc-home-cine,
+html.vc-site-polish.vc-site-photo-bg .vc-home-cine {
+  overflow: hidden !important;
+}
+html.vc-site-photo-bg .vc-home-cine::after,
+html.vc-site-polish.vc-site-photo-bg .vc-home-cine::after,
+html.vc-site-photo-bg body.vc-body--home .vc-home-cine::after {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+}
+/* fxAlignPhonePc1 / desktopPcBgRestore1 */
 html.vc-site-photo-bg .vc-home-cine__grain,
 html.vc-site-polish.vc-site-photo-bg .vc-home-cine__grain,
 html.vc-perf-mid.vc-site-photo-bg .vc-home-cine__grain,
@@ -123,7 +187,8 @@ html.vc-site-photo-bg.vc-site-polish body.vc-body [class]::after {
   -webkit-backdrop-filter: none !important;
 }
 
-html.vc-site-photo-bg body.vc-body :is(
+/* softLook1d: flat wipe only when soft-fx is off — otherwise wash/rim never wins vs :not() mega-spec */
+html.vc-site-photo-bg.vc-soft-fx-off body.vc-body :is(
   .vc-fx-card,
   .vc-home-panel,
   .vc-page-cine-card,
@@ -160,19 +225,38 @@ html.vc-site-photo-bg body.vc-body :is(
   background-image: none !important;
 }
 
-/* Loader/gate: niente vetro sopra il GIF durante il boot (lag) */
+/* Loader/gate: radial opaco (niente vetro/GIF sotto) — profileLoadMatch1 */
 html.vc-site-photo-bg body.vc-body :is(
   .vc-ul-loading,
   .vc-reviews-gate,
   .vc-rank-customize-loading,
-  .vc-user-profile-loader,
   .vc-session-verify-overlay,
   .vc-seratafilm-loading,
-  .vc-seratafilm-loading__card
+  .vc-seratafilm-loading__card,
+  .vc-user-profile-loader,
+  .vc-user-profile-boot,
+  #vc-user-profile-loading
 ) {
-  background: #100c09 !important;
-  background-color: #100c09 !important;
-  background-image: none !important;
+  background-color: #0b0806 !important;
+  background-image:
+    radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* profileLoadMatch1: profilo = stesso radial degli altri loader (niente foto sotto) */
+html.vc-site-photo-bg.vc-user-profile-pending body.vc-body :is(
+  .vc-user-profile-loader,
+  .vc-user-profile-boot,
+  #vc-user-profile-loading
+),
+html.vc-site-photo-bg:has(#vc-user-profile-view:not([hidden]) .vc-user-profile-loader) body.vc-body :is(
+  .vc-user-profile-loader,
+  .vc-user-profile-boot,
+  #vc-user-profile-loading
+) {
+  background-color: #0b0806 !important;
+  background-image:
+    radial-gradient(ellipse 92% 74% at 50% 38%, rgba(232, 196, 156, 0.16) 0%, rgba(28, 20, 14, 0.94) 52%, #0a0706 100%) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -232,13 +316,23 @@ html.vc-site-photo-bg.vc-site-polish.vc-home-motion-ready .vc-home-rise.is-in,
 html.vc-site-photo-bg [class*="home-rise"],
 html.vc-site-photo-bg .vc-fx-card,
 html.vc-site-photo-bg .vc-home-panel,
-html.vc-site-photo-bg .vc-page-cine-card,
-html.vc-site-photo-bg .vc-hero-head {
+html.vc-site-photo-bg .vc-page-cine-card {
   opacity: 1 !important;
   transform: none !important;
   translate: none !important;
   filter: none !important;
   animation: none !important;
+  transition: none !important;
+  transition-delay: 0ms !important;
+  will-change: auto !important;
+  content-visibility: visible !important;
+}
+/* hero: niente animation:none — aura pulse host in soft-fx */
+html.vc-site-photo-bg .vc-hero-head {
+  opacity: 1 !important;
+  transform: none !important;
+  translate: none !important;
+  filter: none !important;
   transition: none !important;
   transition-delay: 0ms !important;
   will-change: auto !important;
@@ -329,15 +423,55 @@ body.vc-reviews-page img.vc-reviews-card__avatar {
   display: inline-block !important;
 }
 
-/* gifGpuCut2: veil più semplice = meno paint sopra la GIF */
+/* gifGpuCut2 / desktopPcBgRestore1: PC classico; phone flat */
 html.vc-site-photo-bg .vc-home-cine__veil,
 html.vc-site-polish.vc-site-photo-bg .vc-home-cine__veil,
 html.vc-site-photo-bg body.vc-body--home .vc-home-cine__veil {
   opacity: 1 !important;
-  background: linear-gradient(
-    180deg,
-    rgba(10, 7, 5, 0.52) 0%,
-    rgba(10, 7, 5, 0.28) 45%,
-    rgba(10, 7, 5, 0.78) 100%
-  ) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+@media (min-width: 1200px) {
+  html.vc-site-photo-bg .vc-home-cine__veil,
+  html.vc-site-polish.vc-site-photo-bg .vc-home-cine__veil,
+  html.vc-site-photo-bg body.vc-body--home .vc-home-cine__veil {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(10, 7, 5, 0.55) 0%,
+        rgba(10, 7, 5, 0.24) 32%,
+        rgba(10, 7, 5, 0.3) 62%,
+        rgba(10, 7, 5, 0.8) 100%
+      ),
+      radial-gradient(ellipse 72% 55% at 50% 42%, rgba(10, 7, 5, 0.2), transparent 72%) !important;
+  }
+}
+@media (max-width: 1199.98px), (pointer: coarse) {
+  html.vc-site-photo-bg .vc-home-cine__veil,
+  html.vc-site-polish.vc-site-photo-bg .vc-home-cine__veil,
+  html.vc-site-photo-bg body.vc-body--home .vc-home-cine__veil {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      transparent 42%,
+      rgba(10, 7, 5, 0.18) 72%,
+      rgba(10, 7, 5, 0.62) 100%
+    ) !important;
+  }
+}
+
+/* gifAlwaysOn2: override finale — mai transform/filter/contain sull'img sfondo (congela GIF) */
+html.vc-site-photo-bg .vc-home-cine__photo,
+html.vc-site-polish.vc-site-photo-bg .vc-home-cine__photo,
+html.vc-site-photo-bg body.vc-body .vc-home-cine__photo,
+html.vc-site-photo-bg body.vc-body--home .vc-home-cine__photo,
+html.vc-pwa-cpu-nuke body.vc-body .vc-home-cine__photo {
+  transform: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  contain: none !important;
+  will-change: auto !important;
+  backface-visibility: visible !important;
+  -webkit-backface-visibility: visible !important;
 }

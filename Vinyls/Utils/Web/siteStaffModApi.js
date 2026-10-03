@@ -14,7 +14,7 @@ function stripDiscordDecorations(text) {
 async function handleSiteStaffModLookupGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }

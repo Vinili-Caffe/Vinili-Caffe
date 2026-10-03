@@ -1,6 +1,12 @@
 # Logs
 logs
 *.log
+
+# One-shot deploy/probe scripts
+deploy/_tmp_*
+WebSite/scripts/_tmp_*
+WebSite/scripts/_tmp_*/
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

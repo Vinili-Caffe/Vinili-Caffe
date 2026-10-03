@@ -143,11 +143,90 @@ async function claimVoteReminderSlot(guildId, userId, voteListing, lastVoteAtMs)
   return claimed?._id ? claimedAt : null;
 }
 
+async function releaseVoteReminderSlot(guildId, userId, voteListing) {
+  /* votePushTtl1: se enqueue/push fallisce dopo claim, sblocca lo slot listing
+     così lo sweep può ritentare (Top.gg e Discadia restano indipendenti). */
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  const listing = voteListingKey(voteListing);
+  if (!gid || !uid) return false;
+  const remindedPath = voteLastRemindedAtPath(listing);
+  const res = await ActivityUserProfile.updateOne(
+    { guildId: gid, userId: uid },
+    { $unset: { [remindedPath]: "" } },
+  ).catch(() => null);
+  return Boolean(res?.modifiedCount || res?.nModified);
+}
+
 const voteReminderDispatchInflight = new Set();
+/* votePushPhoneRetry1: PC ok + telefono fail → ritenta solo mobile (no ri-banner PC) */
+const voteReminderPhoneRetryTimers = new Map();
+const VOTE_PHONE_RETRY_DELAYS_MS = Object.freeze([90_000, 10 * 60_000, 45 * 60_000]);
 
 function voteReminderLockKey(guildId, userId, voteListing, lastVoteAtMs) {
   const atMin = Math.floor(Math.max(0, Number(lastVoteAtMs) || 0) / 60_000);
   return `${String(guildId || "").trim()}:${String(userId || "").trim()}:${voteListingKey(voteListing)}:${atMin}`;
+}
+
+function clearVoteReminderPhoneRetries(userId, voteListing) {
+  const uid = String(userId || "").trim();
+  const listing = voteListingKey(voteListing);
+  if (!uid) return;
+  const prefix = `phone:${listing}:${uid}:`;
+  for (const [key, timer] of voteReminderPhoneRetryTimers) {
+    if (!String(key).startsWith(prefix)) continue;
+    clearTimeout(timer);
+    voteReminderPhoneRetryTimers.delete(key);
+  }
+}
+
+function scheduleVoteReminderPhoneRetries(payload) {
+  const uid = String(payload?.userId || "").trim();
+  const listing = voteListingKey(payload?.voteListing);
+  if (!uid) return;
+  clearVoteReminderPhoneRetries(uid, listing);
+  const base = {
+    userId: uid,
+    title: String(payload?.title || "").trim(),
+    body: String(payload?.body || "").trim(),
+    openUrl: String(payload?.openUrl || "").trim(),
+    kind: "vote_reminder",
+    id: String(payload?.notifId || "").trim(),
+    dedupeKey: String(payload?.dedupeKey || "").trim(),
+    ttlSeconds: 60 * 60 * 12,
+  };
+  VOTE_PHONE_RETRY_DELAYS_MS.forEach((delayMs, idx) => {
+    const key = `phone:${listing}:${uid}:${idx}`;
+    const timer = setTimeout(() => {
+      voteReminderPhoneRetryTimers.delete(key);
+      void (async () => {
+        try {
+          const { sendWebPushToUser } = require("../../Utils/Web/siteWebPushService");
+          const out = await sendWebPushToUser(uid, base, { deviceFilter: "mobile" });
+          const mobileSent = Number(out?.mobileSent) || 0;
+          if (mobileSent > 0) {
+            global.logger?.info?.("[VOTE REMINDER] phone retry delivered:", uid, listing, idx + 1);
+            clearVoteReminderPhoneRetries(uid, listing);
+            return;
+          }
+          global.logger?.warn?.("[VOTE REMINDER] phone retry miss:", uid, listing, idx + 1, {
+            mobileTargets: out?.mobileTargets,
+            mobileFailed: out?.mobileFailed,
+            skippedGone: out?.skippedGone,
+          });
+        } catch (err) {
+          global.logger?.warn?.("[VOTE REMINDER] phone retry error:", uid, err?.message || err);
+        }
+      })();
+    }, delayMs);
+    if (typeof timer.unref === "function") timer.unref();
+    voteReminderPhoneRetryTimers.set(key, timer);
+  });
+  global.logger?.warn?.("[VOTE REMINDER] phone miss after desktop push — scheduled retries:", uid, listing, {
+    mobileTargets: payload?.mobileTargets,
+    mobileFailed: payload?.mobileFailed,
+    desktopSent: payload?.desktopSent,
+  });
 }
 
 function extractDiscadiaVoteState(doc) {
@@ -836,7 +915,7 @@ async function buildVoteReminderEmbed(client, opts = {}) {
     .setColor(client?.config?.embedInfo || "#6f4e37")
     .setDescription(description)
     .setFooter({
-      text: "DM voti: [profilo sul sito](https://www.viniliecaffe.it/personalizza/) → Privacy (Discadia e Top.gg separati) o Notifiche DM.",
+      text: "DM voti: [Personalizza](https://www.viniliecaffe.it/personalizza/) → Privacy (Discadia e Top.gg separati) o Notifiche DM.",
     });
 
   const components = [];
@@ -946,16 +1025,79 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
     }
 
     const skipDm = await shouldSkipVoteDmByNoDm(client, gid, uid, listing);
-    if (skipDm) {
-            return { ok: true, delivered: false, skippedOptOut: true };
-    }
 
     const siteOpts = buildVoteSiteInAppNotificationOpts(client, gid, uid, listing, lastVoteAtMs, cooldownMs);
-    await enqueueSiteInAppNotification(siteOpts).catch((err) => {
+    /* votePushNoDmFix1: push sito anche se Discord NoDM — NoDM vale solo per DM
+       votePushTtl1: TTL lungo + rollback claim se enqueue fallisce
+       votePushPhoneFix1: se TUTTI gli endpoint push falliscono (FCM 410 tipico phone),
+       rilascia claim così lo sweep ritenta quando il telefono si ri-iscrive.
+       votePushPhoneRetry1: se PC ok ma telefono miss → retry solo mobile (no doppio PC). */
+    let siteOk = false;
+    const pushOut = {
+      sent: -1,
+      failed: 0,
+      skipped: false,
+      ok: true,
+      mobileSent: 0,
+      mobileFailed: 0,
+      mobileTargets: 0,
+      desktopSent: 0,
+      skippedGone: 0,
+      notifId: "",
+    };
+    try {
+      siteOk = await enqueueSiteInAppNotification({
+        ...siteOpts,
+        pushTtlSeconds: 60 * 60 * 12,
+        __pushOut: pushOut,
+      });
+    } catch (err) {
       global.logger?.warn?.("[VOTE REMINDER] site notification failed:", uid, err?.message || err);
-    });
+      await releaseVoteReminderSlot(gid, uid, listing).catch(() => false);
+      siteOk = false;
+    }
+    if (!siteOk) {
+      await releaseVoteReminderSlot(gid, uid, listing).catch(() => false);
+      return { ok: false, delivered: false, skippedOptOut: false, siteEnqueueFailed: true };
+    }
+    if (
+      pushOut.sent === 0 &&
+      pushOut.failed > 0 &&
+      pushOut.skipped !== true
+    ) {
+      global.logger?.warn?.("[VOTE REMINDER] all push endpoints failed — release claim for retry:", uid, listing, pushOut);
+      await releaseVoteReminderSlot(gid, uid, listing).catch(() => false);
+      return { ok: false, delivered: false, skippedOptOut: false, pushAllFailed: true };
+    }
+    const mobileTargets = Number(pushOut.mobileTargets) || 0;
+    const mobileCandidates = Number(pushOut.mobileCandidates) || mobileTargets;
+    const mobileSent = Number(pushOut.mobileSent) || 0;
+    const desktopSent = Number(pushOut.desktopSent) || 0;
+    /* telefono aveva sub (anche 410/gone) ma zero delivery → ritenta solo mobile */
+    if (
+      mobileCandidates > 0 &&
+      mobileSent === 0 &&
+      (desktopSent > 0 || Number(pushOut.sent) > 0)
+    ) {
+      scheduleVoteReminderPhoneRetries({
+        userId: uid,
+        voteListing: listing,
+        title: siteOpts.title,
+        body: siteOpts.body,
+        openUrl: siteOpts.openUrl,
+        dedupeKey: siteOpts.dedupeKey,
+        notifId: pushOut.notifId,
+        mobileTargets: mobileCandidates,
+        mobileFailed: pushOut.mobileFailed,
+        desktopSent,
+      });
+    }
 
-        const skipDiscordForPush = await shouldSkipDiscordDmForActiveWebPush(gid, uid, siteOpts).catch(() => false);
+    if (skipDm) {
+      return { ok: true, delivered: true, skippedOptOut: true, sitePushAttempted: true };
+    }
+
+    const skipDiscordForPush = await shouldSkipDiscordDmForActiveWebPush(gid, uid, siteOpts).catch(() => false);
     if (skipDiscordForPush) {
       return { ok: true, delivered: true, skippedOptOut: false, skippedDiscordForWebPush: true };
     }
@@ -1120,6 +1262,18 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
     voteAtMs: now.getTime(),
   });
 
+  /* smartNotifLifecycle1: al voto → via reminder inbox+OS di quella piattaforma */
+  try {
+    clearVoteReminderPhoneRetries(userId, voteListing);
+    const { removeSiteInAppNotificationsMatching } = require("../../Utils/Web/siteInAppNotificationsService");
+    void removeSiteInAppNotificationsMatching({
+      userId: String(userId || "").trim(),
+      prefixes: [`vote_reminder_${voteListing}_`],
+      kinds: ["vote_reminder"],
+      forceDismiss: true,
+    }).catch(() => null);
+  } catch (_) {}
+
   return { voteCount: voteCountForListing, previousLastVoteAt, voteListing };
 }
 
@@ -1273,6 +1427,7 @@ async function sendDueDiscadiaVoteReminders(client) {
     const state = extractDiscadiaVoteState(doc);
     if (!userId || !state) continue;
 
+    let userHadVotePushThisTick = false;
     for (const voteListing of ["topgg", "discadia"]) {
       const lastVoteAtRaw = voteStateLastAt(state, voteListing);
       if (!lastVoteAtRaw) continue;
@@ -1280,6 +1435,12 @@ async function sendDueDiscadiaVoteReminders(client) {
       if (!Number.isFinite(lastVoteAt)) continue;
       const cooldownMs = getVoteCooldownMs(client, voteListing);
       if (!shouldSendVoteReminderForListing(state, voteListing, cooldownMs)) continue;
+
+      /* votePushPairPhone1: non sparare Top.gg+Discadia nello stesso istante —
+         su FCM/Android la seconda push collassa e sul telefono ne arriva una sola. */
+      if (userHadVotePushThisTick) {
+        await new Promise((r) => setTimeout(r, 3200));
+      }
 
       const result = await dispatchVoteReminder(client, {
         guildId,
@@ -1289,6 +1450,7 @@ async function sendDueDiscadiaVoteReminders(client) {
         cooldownMs,
       });
       if (result.ok) {
+        userHadVotePushThisTick = true;
         const remindedAt = new Date();
         state[voteListing === "topgg" ? "lastRemindedAtTopgg" : "lastRemindedAtDiscadia"] = remindedAt;
         state.lastRemindedAt = remindedAt;

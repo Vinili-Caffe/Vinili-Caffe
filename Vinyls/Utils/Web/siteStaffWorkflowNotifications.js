@@ -12,7 +12,7 @@ const {
   getResocontoButtonAllowedRoleIds,
 } = require("../Staff/resocontoAccess");
 
-const RECIPIENT_CACHE_TTL_MS = 60_000;
+const RECIPIENT_CACHE_TTL_MS = 5 * 60_000;
 const recipientCache = new Map();
 
 const QUEUE_TAB = Object.freeze({
@@ -27,9 +27,17 @@ const DIGEST_LABEL = Object.freeze({
   resoconti: "resoconti",
 });
 
-function inboxOpenUrl(queue, itemHint = "") {
-  const tab = QUEUE_TAB[String(queue || "").trim().toLowerCase()] || "pause";
+function inboxOpenUrl(queue, itemHint = "", subjectUserId = "") {
+  const q = String(queue || "").trim().toLowerCase();
   const hint = String(itemHint || "").trim();
+  const subject = String(subjectUserId || "").trim();
+  /* pauseOutInbox1: Pause fuori inbox → profilo staff (card giorni). */
+  if (q === "pause" && /^\d{16,22}$/.test(subject)) {
+    let url = `/user/?id=${encodeURIComponent(subject)}&tab=staff&staffOpen=pause`;
+    if (hint) url += `&pauseId=${encodeURIComponent(hint)}`;
+    return url;
+  }
+  const tab = QUEUE_TAB[q] || "candidature";
   let url = `/notifications/?view=staff&inbox=${encodeURIComponent(tab)}&scope=pending`;
   if (hint) url += `&item=${encodeURIComponent(hint)}`;
   return url;
@@ -122,7 +130,9 @@ async function notifyInboxStaffNewItem(opts = {}) {
   if (!title) return 0;
 
   const itemHint = String(opts.itemId || opts.messageId || opts.pauseId || "").trim();
-  const openUrl = String(opts.openUrl || inboxOpenUrl(queue, itemHint)).trim().slice(0, 400);
+  const openUrl = String(opts.openUrl || inboxOpenUrl(queue, itemHint, subjectUserId))
+    .trim()
+    .slice(0, 400);
   const dedupeKey =
     String(opts.dedupeKey || "").trim().slice(0, 120) ||
     `inbox:${queue}:new:${itemHint || subjectUserId || Date.now()}`;
@@ -245,6 +255,9 @@ function itemHintFromDedupe(dedupeKey) {
     .split(":")
     .filter(Boolean);
   if (parts.length < 2) return "";
+  const last = parts[parts.length - 1];
+  /* Prefer snowflake / mongo-ish id as focus hint (notifSheetOpenFix1) */
+  if (/^\d{16,22}$/.test(last) || /^[a-f0-9]{24}$/i.test(last)) return last;
   return parts.slice(1).join(":");
 }
 
@@ -368,6 +381,7 @@ async function notifyWorkflowSubjectRemoved(opts = {}) {
 
 async function notifyWorkflowChatNewMessage(opts = {}) {
   const guild = opts.guild;
+  const client = opts.client || null;
   const guildId = String(guild?.id || opts.guildId || IDs.guilds?.main || "").trim();
   const queue = String(opts.queue || "").trim().toLowerCase();
   const dedupeKey = String(opts.dedupeKey || "").trim();
@@ -376,6 +390,7 @@ async function notifyWorkflowChatNewMessage(opts = {}) {
   const authorKind = String(opts.authorKind || "").trim().toLowerCase();
   const authorName = String(opts.authorName || "").trim() || "Qualcuno";
   const preview = String(opts.preview || "").replace(/\s+/g, " ").trim().slice(0, 140);
+  const messageId = String(opts.messageId || "").trim();
   const subjectInChat = opts.subjectInChat !== false;
   const skipUserIds = new Set(
     (Array.isArray(opts.skipUserIds) ? opts.skipUserIds : []).map((id) => String(id || "").trim()).filter(Boolean),
@@ -383,8 +398,16 @@ async function notifyWorkflowChatNewMessage(opts = {}) {
   if (!guildId || !QUEUE_TAB[queue] || !dedupeKey) return { subject: false, staff: 0 };
   if (authorKind === "system") return { subject: false, staff: 0 };
 
+  if (authorId) {
+    try {
+      const { cancelChatDmFallback } = require("./siteChatDmFallback");
+      cancelChatDmFallback("workflow", dedupeKey, authorId);
+    } catch (_) {}
+  }
+
   const label = practiceLabel(queue, opts.workflow);
   const inviteOnly = queue === "candidature" || queue === "appelli";
+  const dmTargets = [];
 
   if (authorKind === "staff" || (authorKind !== "user" && authorId && authorId !== subjectUserId)) {
     if (!/^\d{16,22}$/.test(subjectUserId)) return { subject: false, staff: 0 };
@@ -393,11 +416,15 @@ async function notifyWorkflowChatNewMessage(opts = {}) {
     if (skipUserIds.has(subjectUserId)) return { subject: false, staff: 0 };
     const openUrl =
       queue === "pause" ? "/staff/pause/" : subjectChatOpenUrl(queue, dedupeKey);
+    const subjectTitle = `Nuovo messaggio · ${label}`;
+    const subjectBody = preview
+      ? `${authorName}: ${preview}`
+      : `${authorName} ha scritto nella chat della tua ${label}.`;
     const subjectOk = await enqueueSiteInAppNotification({
       guildId,
       userId: subjectUserId,
-      title: `Nuovo messaggio · ${label}`,
-      body: preview ? `${authorName}: ${preview}` : `${authorName} ha scritto nella chat della tua ${label}.`,
+      title: subjectTitle,
+      body: subjectBody,
       kind: "mod",
       channel: "personal",
       openUrl,
@@ -405,27 +432,58 @@ async function notifyWorkflowChatNewMessage(opts = {}) {
       dedupeWindowMs: 90_000,
       replaceDedupe: true,
     }).catch(() => false);
+    dmTargets.push({
+      userId: subjectUserId,
+      openPath: openUrl,
+      title: subjectTitle,
+      body: subjectBody,
+      kind: "mod",
+    });
 
     /* notifUseful1: notify other staff participants already in the thread (not whole queue) */
     let peerStaff = 0;
     const peerIds = Array.isArray(opts.participantStaffIds) ? opts.participantStaffIds : [];
     if (peerIds.length) {
+      const peers = peerIds.filter(
+        (id) => id && id !== authorId && id !== subjectUserId && !skipUserIds.has(id),
+      );
+      const peerTitle = `Nuovo messaggio · ${label}`;
+      const peerBody = preview
+        ? `${authorName}: ${preview}`
+        : `${authorName} ha scritto nella discussione.`;
+      const peerOpen = inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey));
       peerStaff = await notifyUsersList(
         guildId,
-        peerIds.filter((id) => id && id !== authorId && id !== subjectUserId && !skipUserIds.has(id)),
+        peers,
         {
-          title: `Nuovo messaggio · ${label}`,
-          body: preview ? `${authorName}: ${preview}` : `${authorName} ha scritto nella discussione.`,
+          title: peerTitle,
+          body: peerBody,
           kind: "mod",
           channel: "inbox",
-          openUrl: inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey)),
+          openUrl: peerOpen,
           dedupeKey: `wfc:msg:staff:${dedupeKey}`,
           dedupeWindowMs: 90_000,
           replaceDedupe: true,
         },
         [subjectUserId, authorId],
       );
+      for (const id of peers) {
+        dmTargets.push({
+          userId: id,
+          openPath: peerOpen,
+          title: peerTitle,
+          body: peerBody,
+          kind: "mod",
+        });
+      }
     }
+    scheduleWorkflowDmFallbacks(client, {
+      guildId,
+      dedupeKey,
+      messageId,
+      label,
+      targets: dmTargets,
+    });
     return { subject: Boolean(subjectOk), staff: peerStaff };
   }
 
@@ -436,25 +494,71 @@ async function notifyWorkflowChatNewMessage(opts = {}) {
     });
     const peers = Array.isArray(opts.participantStaffIds) ? opts.participantStaffIds : [];
     const targets = peers.length ? peers : staffIds;
+    const filtered = targets.filter((id) => !skipUserIds.has(id));
+    const staffTitle = `Risposta richiedente · ${label}`;
+    const staffBody = preview
+      ? `${authorName}: ${preview}`
+      : `${authorName} ha risposto nella chat.`;
+    const staffOpen = inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey));
     const staff = await notifyUsersList(
       guildId,
-      targets.filter((id) => !skipUserIds.has(id)),
+      filtered,
       {
-        title: `Risposta richiedente · ${label}`,
-        body: preview ? `${authorName}: ${preview}` : `${authorName} ha risposto nella chat.`,
+        title: staffTitle,
+        body: staffBody,
         kind: "mod",
         channel: "inbox",
-        openUrl: inboxOpenUrl(queue, itemHintFromDedupe(dedupeKey)),
+        openUrl: staffOpen,
         dedupeKey: `wfc:msg:staff:${dedupeKey}`,
         dedupeWindowMs: 90_000,
         replaceDedupe: true,
       },
       [subjectUserId, authorId],
     );
+    /* DM fallback solo per peer già in thread — mai a tutta la coda staff */
+    if (peers.length) {
+      for (const id of filtered) {
+        dmTargets.push({
+          userId: id,
+          openPath: staffOpen,
+          title: staffTitle,
+          body: staffBody,
+          kind: "mod",
+        });
+      }
+      scheduleWorkflowDmFallbacks(client, {
+        guildId,
+        dedupeKey,
+        messageId,
+        label,
+        targets: dmTargets,
+      });
+    }
     return { subject: false, staff };
   }
 
   return { subject: false, staff: 0 };
+}
+
+function scheduleWorkflowDmFallbacks(client, { guildId, dedupeKey, messageId, label, targets }) {
+  if (!client || !Array.isArray(targets) || !targets.length) return;
+  try {
+    const { scheduleChatDmFallback } = require("./siteChatDmFallback");
+    for (const t of targets) {
+      void scheduleChatDmFallback(client, {
+        scope: "workflow",
+        threadId: dedupeKey,
+        userId: t.userId,
+        guildId,
+        messageId,
+        openPath: t.openPath,
+        title: t.title,
+        body: t.body,
+        label,
+        kind: t.kind || "mod",
+      });
+    }
+  } catch (_) {}
 }
 
 async function notifyWorkflowMentions(opts = {}) {
@@ -553,6 +657,69 @@ async function notifyWorkflowSubjectDecision(opts = {}) {
   }).catch(() => false);
 }
 
+function workflowItemHintFromDoc(doc) {
+  const mid = String(doc?.workflowMessageId || "").trim();
+  if (/^\d{16,22}$/.test(mid) || /^[a-f0-9]{24}$/i.test(mid)) return mid;
+  const key = String(doc?.dedupeKey || "").trim();
+  const parts = key.split(":").filter(Boolean);
+  if (!parts.length) return "";
+  const last = parts[parts.length - 1];
+  if (/^\d{16,22}$/.test(last) || /^[a-f0-9]{24}$/i.test(last)) return last;
+  /* pause:<userId>:<pauseId> */
+  if (parts.length >= 3 && String(doc?.workflowQueue || "").toLowerCase() === "pause") {
+    return parts[parts.length - 1];
+  }
+  return last || "";
+}
+
+/**
+ * smartNotifLifecycle1: su decide/close → purge inbox staff + chat/mention workflow (+ dismiss OS).
+ */
+async function clearWorkflowLifecycleNotifs(doc) {
+  if (!doc) return { users: 0, removed: 0 };
+  try {
+    const { removeSiteInAppNotificationsMatching } = require("./siteInAppNotificationsService");
+    const queue = String(doc.workflowQueue || "").trim().toLowerCase();
+    const dedupeKey = String(doc.dedupeKey || "").trim();
+    const hint = workflowItemHintFromDoc(doc);
+    const subjectUserId = String(doc.userId || "").trim();
+    const exactKeys = [];
+    if (queue && hint) exactKeys.push(`inbox:${queue}:new:${hint}`);
+    if (queue === "pause" && hint) exactKeys.push(`inbox:pause:new:${hint}`);
+    if (dedupeKey) {
+      /* alcune code usano dedupeKey grezzo come item hint */
+      exactKeys.push(`inbox:${queue}:new:${dedupeKey}`);
+    }
+    const prefixes = [];
+    if (dedupeKey) {
+      prefixes.push(`wfc:msg:subj:${dedupeKey}`);
+      prefixes.push(`wfc:msg:staff:${dedupeKey}`);
+      prefixes.push(`wfc:mention:${dedupeKey}:`);
+      prefixes.push(`wfc:invite:subj:${dedupeKey}`);
+      prefixes.push(`wfc:invite:staff:${dedupeKey}`);
+      prefixes.push(`wfc:remove:subj:${dedupeKey}`);
+      prefixes.push(`wfc:remove:staff:${dedupeKey}`);
+    }
+    /* subject invite senza dedupe stabile */
+    if (subjectUserId && !dedupeKey) {
+      prefixes.push(`wfc:invite:subj:${subjectUserId}`);
+    }
+    const openUrls = [];
+    try {
+      if (queue && hint) openUrls.push(inboxOpenUrl(queue, hint, subjectUserId));
+    } catch (_) {}
+    return await removeSiteInAppNotificationsMatching({
+      exactKeys,
+      prefixes,
+      openUrls,
+      forceDismiss: true,
+    });
+  } catch (err) {
+    global.logger?.warn?.("[siteStaffWorkflowNotifications] clear lifecycle:", err?.message || err);
+    return { users: 0, removed: 0 };
+  }
+}
+
 module.exports = {
   inboxOpenUrl,
   getInboxRecipientUserIds,
@@ -563,6 +730,7 @@ module.exports = {
   notifyWorkflowChatNewMessage,
   notifyWorkflowMentions,
   notifyWorkflowSubjectDecision,
+  clearWorkflowLifecycleNotifs,
   subjectChatOpenUrl,
   practiceLabel,
 };

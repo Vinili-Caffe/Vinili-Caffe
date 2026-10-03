@@ -14,8 +14,23 @@ const PERSONALITY_CATEGORY_ROLE_IDS = {
   zodiac: ZODIAC_ROLE_IDS,
   mentions: [IDs.roles.ReviveChat, IDs.roles.ReviveVoc, IDs.roles.SerataFilm, IDs.roles.Partnership, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Notturno, IDs.roles.Live, IDs.roles.Updates].filter(Boolean),
   hobby: [IDs.roles.HobbyAnimeManga, IDs.roles.HobbyLettura, IDs.roles.HobbyScrittura, IDs.roles.HobbyFilmSerieTV, IDs.roles.HobbySport, IDs.roles.HobbyMusica, IDs.roles.HobbyGaming, IDs.roles.HobbyDisegno, IDs.roles.HobbyCucina, IDs.roles.HobbyFotografia].filter(Boolean),
+  gaming: [
+    IDs.roles.GameMinecraft,
+    IDs.roles.GameLeagueOfLegends,
+    IDs.roles.GameFortnite,
+    IDs.roles.GameRoblox,
+    IDs.roles.GameGrandTheftAuto,
+    IDs.roles.GameCallOfDuty,
+    IDs.roles.GameRocketLeague,
+    IDs.roles.GameAmongUs,
+    IDs.roles.GameOsu,
+    IDs.roles.GameTheSims,
+    IDs.roles.GameValorant,
+    IDs.roles.GameFifa,
+    IDs.roles.GameBrawlStars,
+  ].filter(Boolean),
   colors1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL,
-  colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus].filter(Boolean),
+  colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.brownPlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus].filter(Boolean),
 };
 
 const ALL_PERSONALITY_TRACKED_ROLE_IDS = [...new Set(Object.values(PERSONALITY_CATEGORY_ROLE_IDS).flat().map((x) => String(x || "").trim()).filter(Boolean))];
@@ -139,6 +154,7 @@ module.exports = {
   PERSONALITY_CATEGORY_ROLE_IDS,
   PERSONALITY_MENTION_ROLE_IDS: PERSONALITY_CATEGORY_ROLE_IDS.mentions,
   PERSONALITY_HOBBY_ROLE_IDS: PERSONALITY_CATEGORY_ROLE_IDS.hobby,
+  PERSONALITY_GAMING_ROLE_IDS: PERSONALITY_CATEGORY_ROLE_IDS.gaming,
   ALL_PERSONALITY_TRACKED_ROLE_IDS,
   REJOIN_EXCLUDED_PERSONALITY_ROLE_IDS,
   isTrackedPersonalityRoleId,

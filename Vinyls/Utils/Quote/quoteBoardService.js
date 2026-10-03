@@ -567,7 +567,7 @@ async function deleteUserQuoteEntry({ guild, quoteId, userId }) {
             { name: "Data rimozione", value: `${dateStr} ${timeStr}`, inline: true },
           )
           .setFooter({
-            text: `Puoi bloccare le future quote tramite il comando [profilo sul sito](https://www.viniliecaffe.it/personalizza/) • Oggi alle ${timeStr}`,
+            text: `Puoi bloccare le future quote tramite la pagina [Personalizza](https://www.viniliecaffe.it/personalizza/) • Oggi alle ${timeStr}`,
           });
         await boardMsg
           .edit({ embeds: [removedEmbed], components: [], files: [], attachments: [] })

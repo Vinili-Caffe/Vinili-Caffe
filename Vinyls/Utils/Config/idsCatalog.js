@@ -70,7 +70,7 @@ const channelsRaw = `
 ༄🍂︲Autumn waste -> 1543700565878505602
 ༄🖤︲Manicomio privato -> 1544315343697215580
 ༄🌴︲chat᲼subs -> 1539973769588908082
-༄🔴︲Streaming diunk17: OFF -> 1540424077255123096
+༄🔴︲Streaming diunk17 -> 1548393335557726272
 ༄🛁︲partnerships -> 1442569193470824448
 ༄🍋︲descrizione -> 1442569194905534494
 ༄🔅︲staff᲼news -> 1442569239063167139
@@ -265,6 +265,7 @@ const rolesRaw = `
 ༄ Green -> 1544831002076254238
 ༄ High Staff -> 1544831228690046976
 ༄ Staffer del mese -> 1544831233404575835
+༄ Staffer della settimana -> 1550462300291604551
 ༄ Senior Moderator -> 1544831236868931636
 ༄ Partner Manager -> 1544831242510270464
 ༄ Kick Moderator -> 1544831244640976917
@@ -278,6 +279,7 @@ const rolesRaw = `
 ༄ Black Gradientᵖˡᵘˢ -> 1544842943393959946
 ༄ Gray Gradientᵖˡᵘˢ -> 1544842946040307712
 ༄ White Gradientᵖˡᵘˢ -> 1544842948720594967
+༄ Brown Gradientᵖˡᵘˢ -> 1552347198715469995
 ༄ Aqua & Blackᵖˡᵘˢ -> 1544842951664996402
 ༄ Green & Blackᵖˡᵘˢ -> 1544842954458406912
 ༄ Orange & Blackᵖˡᵘˢ -> 1544842956975112292

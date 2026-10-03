@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-    var VER = "20260901guildSplitFix5b";
+    var VER = "20260914sitePerfW2a"; /* wave2DashSplit1: idle boot unchanged, bust sync */
   var loaded = false;
   var loading = false;
   var queue = [];

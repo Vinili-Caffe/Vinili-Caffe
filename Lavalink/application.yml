@@ -15,6 +15,9 @@ logging:
     dev.lavalink.youtube.http.YoutubeOauth2Handler: INFO
     com.sedmelluq.discord.lavaplayer: ERROR
     com.sedmelluq.discord.lavaplayer.track.playback: ERROR
+    # spsearchFix1: LavaSrc Spotify search timeout → stack enorme in PM2
+    com.github.topi314.lavasrc: ERROR
+    com.github.topi314.lavasrc.spotify: ERROR
   request:
     enabled: false
 
@@ -28,6 +31,8 @@ plugins:
       - "ytsearch:%QUERY%"
       - "scsearch:%QUERY%"
     sources:
+      # Link spotify:track/album/playlist restano ok; spsearch LavaSrc timeouta spesso
+      # (lookup embed fatto dal bot via Web API — vedi spsearchFix1).
       spotify: true
     spotify:
       clientId: "5e7d3614e8d94e008e0917f2e230d89b"
@@ -35,6 +40,7 @@ plugins:
       countryCode: "IT"
       playlistLoadLimit: 6
       albumLoadLimit: 6
+      # Preferisci resolve URL/URI; spsearch non è usato dal bot dopo spsearchFix1.
   youtube:
     enabled: true
     allowSearch: true

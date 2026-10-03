@@ -31,6 +31,7 @@ const {
   safeDisplayLabel,
 } = require("./siteWebUserIdentity");
 const mongoose = require("mongoose");
+const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag");
 
 const CAL_CACHE_TTL_MS = 45_000;
 const CAL_CACHE_MAX = 24;
@@ -526,7 +527,7 @@ async function buildStaffPauseCalendarPayload(client, year, month) {
 async function handleSiteStaffPauseGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,
@@ -550,8 +551,12 @@ async function handleSiteStaffPauseGet(client, req, res) {
         pendingRequest: serializePendingPauseChat(pendingChat),
       },
     };
-    res.setHeader("Cache-Control", "private, max-age=30");
-    return res.status(Number(payload.status) || 500).json(payload);
+    /* siteApiW6: ETag/304 on pause calendar GET */
+    return sendJsonWithEtag(req, res, payload, {
+      status: Number(payload.status) || 500,
+      cacheControl: "private, no-cache",
+      etag: weakEtagFromJson(payload),
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-pause:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -561,7 +566,7 @@ async function handleSiteStaffPauseGet(client, req, res) {
 async function handleSiteStaffPausePost(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,

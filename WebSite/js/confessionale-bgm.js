@@ -1,5 +1,7 @@
 (function () {
-  var VER = "20260909confessionalePerf4";
+  if (window.__vcConfessionaleBgmBooted) return;
+  window.__vcConfessionaleBgmBooted = true;
+  var VER = "20260917siteApiW10a";
   var VOL_PREF_KEY = "vc_confessionale_bgm_volume_v1";
   var MUTE_PREF_KEY = "vc_confessionale_bgm_muted_v1";
   var audio = null;
@@ -16,6 +18,11 @@
   var volRange = null;
   var HINT_AUTO_HIDE_MS = 5200;
   var audioEventsBound = false;
+  var syncSubBound = false;
+  var applyingRemotePrefs = false;
+  /* confessionaleClickFreeze1: evita play()/publish re-entrancy sul primo pointerdown */
+  var audibleInFlight = false;
+  var unlockConsumed = false;
 
   function cfg() {
     try {
@@ -49,10 +56,19 @@
     var got = false;
     try {
       var sync = window.__VC_CHROME_SYNC && window.__VC_CHROME_SYNC.get();
-      if (sync && sync.confessionaleBgm && Number.isFinite(Number(sync.confessionaleBgm.volume))) {
-        userVol = Math.min(1, Math.max(0, Number(sync.confessionaleBgm.volume)));
-        baseVol = userVol;
-        got = true;
+      if (sync && sync.confessionaleBgm && typeof sync.confessionaleBgm === "object") {
+        if (Number.isFinite(Number(sync.confessionaleBgm.volume))) {
+          userVol = Math.min(1, Math.max(0, Number(sync.confessionaleBgm.volume)));
+          baseVol = userVol;
+          got = true;
+        }
+        if (typeof sync.confessionaleBgm.muted === "boolean") {
+          mutedByUser = Boolean(sync.confessionaleBgm.muted);
+          try {
+            if (mutedByUser) localStorage.setItem(MUTE_PREF_KEY, "1");
+            else localStorage.removeItem(MUTE_PREF_KEY);
+          } catch (eM) {}
+        }
       }
     } catch (eSy) {}
     if (!got) {
@@ -72,26 +88,105 @@
       userVol = cfgVol;
       baseVol = cfgVol;
     }
+    try {
+      if (!mutedByUser && localStorage.getItem(MUTE_PREF_KEY) === "1") mutedByUser = true;
+    } catch (eMuteLs) {}
     /* Volume 0 senza mute esplicito = stato stale: riparti dal default. */
     try {
-      if (localStorage.getItem(MUTE_PREF_KEY) !== "1" && userVol < 0.02) {
+      if (!mutedByUser && userVol < 0.02) {
         userVol = cfgVol;
         baseVol = cfgVol;
       }
     } catch (eZ) {}
   }
 
-  function persistVolume(vol) {
-    userVol = Math.min(1, Math.max(0, Number(vol) || 0));
+  function persistPrefs(extra) {
+    userVol = Math.min(1, Math.max(0, Number(userVol) || 0));
     baseVol = userVol;
     try {
       localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
     } catch (eP) {}
     try {
+      if (mutedByUser) localStorage.setItem(MUTE_PREF_KEY, "1");
+      else localStorage.removeItem(MUTE_PREF_KEY);
+    } catch (eM) {}
+    if (applyingRemotePrefs) return;
+    try {
       if (window.__VC_CHROME_SYNC) {
-        window.__VC_CHROME_SYNC.publish({ confessionaleBgm: { volume: userVol } });
+        var payload = {
+          confessionaleBgm: Object.assign(
+            {
+              volume: userVol,
+              muted: Boolean(mutedByUser),
+            },
+            extra && typeof extra === "object" ? extra : {},
+          ),
+        };
+        window.__VC_CHROME_SYNC.publish(payload);
       }
     } catch (eS) {}
+  }
+
+  function persistVolume(vol) {
+    userVol = Math.min(1, Math.max(0, Number(vol) || 0));
+    baseVol = userVol;
+    if (userVol < 0.02) mutedByUser = true;
+    persistPrefs();
+  }
+
+  function applyRemoteConfessionalePrefs(prefs) {
+    if (!prefs || !prefs.confessionaleBgm || typeof prefs.confessionaleBgm !== "object") return;
+    var bgm = prefs.confessionaleBgm;
+    applyingRemotePrefs = true;
+    try {
+      if (Number.isFinite(Number(bgm.volume))) {
+        userVol = Math.min(1, Math.max(0, Number(bgm.volume)));
+        baseVol = userVol;
+        try {
+          localStorage.setItem(VOL_PREF_KEY, String(Math.round(userVol * 100) / 100));
+        } catch (eV) {}
+      }
+      if (typeof bgm.muted === "boolean") {
+        mutedByUser = Boolean(bgm.muted);
+        try {
+          if (mutedByUser) localStorage.setItem(MUTE_PREF_KEY, "1");
+          else localStorage.removeItem(MUTE_PREF_KEY);
+        } catch (eM2) {}
+      }
+      if (audio) {
+        try {
+          if (mutedByUser) {
+            audio.pause();
+            audio.muted = true;
+          } else {
+            audio.muted = false;
+            var nextVol = Math.max(0, Math.min(1, baseVol));
+            if (Math.abs(Number(audio.volume) - nextVol) > 0.001) {
+              audio.volume = nextVol;
+            }
+          }
+        } catch (eA) {}
+      }
+      updateUi();
+    } finally {
+      applyingRemotePrefs = false;
+    }
+  }
+
+  function bindChromeSync() {
+    if (syncSubBound) return;
+    if (!window.__VC_CHROME_SYNC || typeof window.__VC_CHROME_SYNC.subscribe !== "function") return;
+    syncSubBound = true;
+    try {
+      window.__VC_CHROME_SYNC.subscribe(function (prefs) {
+        applyRemoteConfessionalePrefs(prefs);
+      });
+    } catch (eSub) {}
+    try {
+      if (typeof window.__VC_CHROME_SYNC.pullServer === "function") {
+        window.__VC_CHROME_SYNC.pullServer();
+      }
+    } catch (ePull) {}
   }
 
   function clearHintAutoHide() {
@@ -140,8 +235,13 @@
     hintHideTimer = setTimeout(hideHint, HINT_AUTO_HIDE_MS);
   }
 
-  function ensureAudio() {
-    if (audio) return audio;
+  function ensureAudio(opts) {
+    opts = opts || {};
+    var wantSrc = Boolean(opts.src);
+    if (audio) {
+      if (wantSrc) assignAudioSrc(audio);
+      return audio;
+    }
     try {
       if (window.__VC_CONFESSIONALE_BGM_AUDIO) {
         audio = window.__VC_CONFESSIONALE_BGM_AUDIO;
@@ -157,35 +257,52 @@
         document.body.appendChild(audio);
       } catch (eApp) {}
     }
-    audio.preload = "auto";
+    // siteApiW10: nessun download finché non serve il play (preload none, src on-demand).
+    audio.preload = "none";
+    try {
+      audio.removeAttribute("preload");
+      audio.setAttribute("preload", "none");
+    } catch (ePreAttr) {}
     audio.loop = true;
     audio.setAttribute("loop", "");
     audio.setAttribute("playsinline", "");
-    audio.setAttribute("autoplay", "");
+    /* confessionalePlayCatch1: no autoplay attr — avoids console play() noise */
+    try {
+      audio.removeAttribute("autoplay");
+    } catch (eAp) {}
+    audio.autoplay = false;
     audio.playsInline = true;
-    if (!audio.getAttribute("src") && !audio.src) {
-      audio.src = trackUrl();
-    }
+    if (wantSrc) assignAudioSrc(audio);
     try {
       var alreadyAudible =
-        !audio.paused && !audio.muted && Number(audio.volume) > 0.001;
+        wantSrc && !audio.paused && !audio.muted && Number(audio.volume) > 0.001;
       if (alreadyAudible) {
         userVol = Math.min(1, Math.max(0, Number(audio.volume)));
         baseVol = userVol;
         started = true;
         mutedByUser = false;
-      } else if (!(Number(audio.volume) > 0.001) || audio.muted) {
+      } else if (wantSrc && (!(Number(audio.volume) > 0.001) || audio.muted)) {
         audio.muted = false;
         audio.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
       }
     } catch (eSync) {
       try {
-        audio.volume = Math.max(0, Math.min(1, baseVol));
+        if (wantSrc) audio.volume = Math.max(0, Math.min(1, baseVol));
       } catch (eV2) {}
     }
     window.__VC_CONFESSIONALE_BGM_AUDIO = audio;
     bindAudioUiEvents(audio);
     return audio;
+  }
+
+  function assignAudioSrc(el) {
+    if (!el) return;
+    try {
+      var cur = String(el.currentSrc || el.src || el.getAttribute("src") || "").trim();
+      if (cur && cur.indexOf("confessionale-bgm") >= 0) return;
+      if (cur && /^https?:/i.test(cur)) return;
+    } catch (eCur) {}
+    el.src = trackUrl();
   }
 
   function isAudibleNow() {
@@ -263,38 +380,59 @@
     return Boolean(playerEl && playerEl.classList.contains("is-open"));
   }
 
-  function applyAudible() {
-    var a = ensureAudio();
-    a.muted = false;
-    a.volume = Math.max(0, Math.min(1, baseVol));
-    var p = a.play();
-    if (p && typeof p.then === "function") {
-      return p.then(function () {
-        started = true;
-        mutedByUser = false;
-        hideHint();
-        updateUi();
-        if (typeof detachUnlock === "function") {
-          detachUnlock();
-          detachUnlock = null;
-        }
-      });
-    }
-    started = true;
-    mutedByUser = false;
-    hideHint();
-    updateUi();
-    return Promise.resolve();
-  }
-
-  function stopAudible() {
-    mutedByUser = true;
+  function clearUnlockGesture() {
+    unlockConsumed = true;
     if (typeof detachUnlock === "function") {
       try {
         detachUnlock();
       } catch (eD) {}
       detachUnlock = null;
     }
+  }
+
+  function applyAudible() {
+    if (audibleInFlight) return Promise.resolve();
+    if (isAudibleNow()) {
+      started = true;
+      clearUnlockGesture();
+      updateUi();
+      return Promise.resolve();
+    }
+    audibleInFlight = true;
+    var a = ensureAudio({ src: true });
+    try {
+      a.muted = false;
+      var nextVol = Math.max(0, Math.min(1, baseVol));
+      if (Math.abs(Number(a.volume) - nextVol) > 0.001) a.volume = nextVol;
+    } catch (eVolSet) {}
+    var p = a.play();
+    function finishOk() {
+      audibleInFlight = false;
+      started = true;
+      mutedByUser = false;
+      hideHint();
+      clearUnlockGesture();
+      updateUi();
+    }
+    function finishFail() {
+      audibleInFlight = false;
+      ensureHint("Tocca per attivare l’audio");
+      unlockConsumed = false;
+      armUnlockGesture();
+      updateUi();
+      return Promise.resolve();
+    }
+    if (p && typeof p.then === "function") {
+      return p.then(finishOk).catch(finishFail);
+    }
+    finishOk();
+    return Promise.resolve();
+  }
+
+  function stopAudible() {
+    mutedByUser = true;
+    audibleInFlight = false;
+    clearUnlockGesture();
     if (audio) {
       try {
         audio.pause();
@@ -303,19 +441,33 @@
         audio.muted = true;
       } catch (eM0) {}
     }
-    try {
-      localStorage.setItem(MUTE_PREF_KEY, "1");
-    } catch (eM) {}
+    persistPrefs();
     updateUi();
   }
 
   function startAudibleFromGesture() {
     if (mutedByUser) return Promise.resolve();
-    try {
-      localStorage.removeItem(MUTE_PREF_KEY);
-    } catch (eR) {}
+    if (audibleInFlight) return Promise.resolve();
+    if (isAudibleNow()) {
+      started = true;
+      clearUnlockGesture();
+      updateUi();
+      return Promise.resolve();
+    }
+    mutedByUser = false;
+    /* Persist fuori dal path critico del click UI (tab Leggi/Scrivi). */
+    window.setTimeout(function () {
+      try {
+        persistPrefs();
+      } catch (eP) {}
+    }, 0);
     return applyAudible().catch(function () {
       ensureHint("Tocca di nuovo per attivare l’audio");
+      /* Re-arma solo se l’utente non ha mutato. */
+      if (!mutedByUser && !isAudibleNow()) {
+        unlockConsumed = false;
+        armUnlockGesture();
+      }
     });
   }
 
@@ -388,6 +540,29 @@
       true,
     );
 
+    /* confBgmHoverClose1: desktop — esci col cursore = chiudi (anche se lo slider ha focus) */
+    wrap.addEventListener("pointerleave", function () {
+      if (isCoarseUi()) return;
+      setPlayerOpen(false);
+      try {
+        var ae = document.activeElement;
+        if (ae && wrap.contains(ae) && typeof ae.blur === "function") ae.blur();
+      } catch (eBlur) {}
+    });
+    wrap.addEventListener("focusout", function (ev) {
+      if (isCoarseUi()) return;
+      try {
+        var next = ev && ev.relatedTarget;
+        if (next && wrap.contains(next)) return;
+      } catch (eRel) {}
+      window.setTimeout(function () {
+        try {
+          if (wrap.matches(":hover")) return;
+        } catch (eH) {}
+        setPlayerOpen(false);
+      }, 0);
+    });
+
     btn.addEventListener(
       "click",
       function (ev) {
@@ -433,9 +608,7 @@
         return;
       }
       mutedByUser = false;
-      try {
-        localStorage.removeItem(MUTE_PREF_KEY);
-      } catch (eR2) {}
+      persistPrefs();
       if (audio && audio.paused) {
         startAudibleFromGesture();
       } else {
@@ -449,8 +622,17 @@
 
   function armUnlockGesture() {
     if (detachUnlock) return;
+    if (unlockConsumed) return;
     if (mutedByUser) return;
+    if (isAudibleNow()) {
+      unlockConsumed = true;
+      return;
+    }
     function onUnlock(ev) {
+      /* confessionaleClickFreeze1: stacca SUBITO il capture listener, poi unlock async.
+         Prima restava armato fino a play() ok → ogni click spam-mava play()/publish e
+         bloccava il main thread (dialog “pagina non risponde”). */
+      clearUnlockGesture();
       if (mutedByUser) return;
       try {
         if (localStorage.getItem(MUTE_PREF_KEY) === "1") {
@@ -466,7 +648,9 @@
           }
         }
       } catch (eT) {}
-      startAudibleFromGesture();
+      window.setTimeout(function () {
+        startAudibleFromGesture();
+      }, 0);
     }
     detachUnlock = function () {
       document.removeEventListener("pointerdown", onUnlock, true);
@@ -478,65 +662,25 @@
 
   function tryMutedAutoplayThenAudible() {
     var a = ensureAudio();
-    /* Prima prova autoplay udibile (Chrome a volte lo consente con gesture precedente / media engagement). */
-    a.muted = false;
-    a.volume = Math.max(0, Math.min(1, baseVol));
-    var pAud = a.play();
-    function okAudible() {
-      started = true;
-      mutedByUser = false;
-      try {
-        a.muted = false;
-        a.volume = Math.max(0, Math.min(1, baseVol));
-      } catch (eU) {}
-      hideHint();
+    /* confessionalePlayCatch2: never start unmuted — Chromium reports NotAllowedError
+       as pageerror even when the promise is caught. Mute-prime only; audible needs gesture. */
+    a.muted = true;
+    try {
+      var nextVol = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
+      if (Math.abs(Number(a.volume) - nextVol) > 0.001) a.volume = nextVol;
+    } catch (eV0) {}
+    /* confessionalePlayCatch2: never autoplay on boot — prime Audio only; gesture starts it.
+       Chromium headless still pageerrors on muted play() without user activation. */
+    function afterMutedPrime() {
+      ensureHint("Tocca per attivare l’audio");
+      unlockConsumed = false;
+      armUnlockGesture();
       updateUi();
-      if (typeof detachUnlock === "function") {
-        detachUnlock();
-        detachUnlock = null;
-      }
     }
-    function fallbackMutedPrime() {
-      /* muted=true ma volume resta baseVol: evita UI a 0 e slider a sinistra. */
-      a.muted = true;
-      a.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
-      var p = a.play();
-      function afterMutedPlay() {
-        started = true;
-        a.loop = true;
-        a.muted = false;
-        a.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
-        var p2 = a.play();
-        if (p2 && typeof p2.then === "function") {
-          p2
-            .then(okAudible)
-            .catch(function () {
-              try {
-                a.muted = true;
-              } catch (eM) {}
-              ensureHint("Tocca per attivare l’audio");
-              armUnlockGesture();
-              updateUi();
-            });
-        } else {
-          okAudible();
-        }
-      }
-      if (p && typeof p.then === "function") {
-        p.then(afterMutedPlay).catch(function () {
-          ensureHint("Tocca per attivare l’audio");
-          armUnlockGesture();
-          updateUi();
-        });
-      } else {
-        afterMutedPlay();
-      }
-    }
-    if (pAud && typeof pAud.then === "function") {
-      pAud.then(okAudible).catch(fallbackMutedPrime);
-    } else {
-      okAudible();
-    }
+    try {
+      a.pause();
+    } catch (ePause) {}
+    afterMutedPrime();
   }
 
   var playerBooted = false;
@@ -559,43 +703,30 @@
   }
 
   function forcePlayFromGesture() {
+    if (audibleInFlight) return Promise.resolve();
+    if (isAudibleNow()) {
+      started = true;
+      mutedByUser = false;
+      clearUnlockGesture();
+      updateUi();
+      return Promise.resolve();
+    }
     mutedByUser = false;
     try {
       localStorage.removeItem(MUTE_PREF_KEY);
     } catch (eR) {}
     if (document.body) ensurePlayer();
-    var a = ensureAudio();
-    try {
-      a.muted = false;
-      a.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
-    } catch (eV) {}
-    var p = a.play();
-    if (p && typeof p.then === "function") {
-      return p
-        .then(function () {
-          started = true;
-          mutedByUser = false;
-          hideHint();
-          updateUi();
-          if (typeof detachUnlock === "function") {
-            detachUnlock();
-            detachUnlock = null;
-          }
-        })
-        .catch(function () {
-          return applyAudible().catch(function () {
-            ensureHint("Tocca il player per attivare l’audio");
-            armUnlockGesture();
-          });
-        });
-    }
-    started = true;
-    updateUi();
-    return Promise.resolve();
+    clearUnlockGesture();
+    return applyAudible().catch(function () {
+      ensureHint("Tocca il player per attivare l’audio");
+      unlockConsumed = false;
+      armUnlockGesture();
+    });
   }
 
   function bootWhenReady() {
     if (!document.body || !document.body.classList.contains("vc-confessionale-page")) return false;
+    bindChromeSync();
     readVolumePrefs();
     ensurePlayer();
     var introDone =
@@ -606,16 +737,16 @@
     /* Non aspettare staff-revealed per l'audio: altrimenti si perde la gesture del click nav. */
     if (!playerBooted) {
       playerBooted = true;
-      try {
-        if (localStorage.getItem(MUTE_PREF_KEY) === "1") {
-          mutedByUser = true;
-          ensureAudio();
-          updateUi();
-        }
-      } catch (ePref0) {}
-      if (!mutedByUser) {
+      if (mutedByUser) {
+        ensureAudio();
+        updateUi();
+      } else if (isAudibleNow()) {
+        started = true;
+        clearUnlockGesture();
+        updateUi();
+      } else {
         tryMutedAutoplayThenAudible();
-        armUnlockGesture();
+        if (!unlockConsumed) armUnlockGesture();
         window.setTimeout(updateUi, 120);
         window.setTimeout(updateUi, 450);
         window.setTimeout(updateUi, 1200);
@@ -631,22 +762,20 @@
       updateUi();
       return true;
     }
-    try {
-      if (localStorage.getItem(MUTE_PREF_KEY) === "1") {
-        mutedByUser = true;
-        ensureAudio();
-        updateUi();
-        return true;
-      }
-    } catch (ePref) {}
+    if (mutedByUser) {
+      ensureAudio();
+      updateUi();
+      return true;
+    }
     if (started && audio && !audio.paused) {
       applyAudible().catch(function () {
         ensureHint("Tocca per attivare l’audio");
+        unlockConsumed = false;
         armUnlockGesture();
       });
       return true;
     }
-    if (!mutedByUser) tryMutedAutoplayThenAudible();
+    if (!mutedByUser && !audibleInFlight && !isAudibleNow()) tryMutedAutoplayThenAudible();
     return true;
   }
 
@@ -654,25 +783,63 @@
     function tick() {
       bootWhenReady();
     }
+    bindChromeSync();
     tick();
     window.addEventListener("vc:access-ok", function () {
-      window.setTimeout(tick, 40);
+      try {
+        if (window.__VC_CHROME_SYNC && typeof window.__VC_CHROME_SYNC.pullServer === "function") {
+          window.__VC_CHROME_SYNC.pullServer(true);
+        }
+      } catch (eP) {}
+      window.setTimeout(function () {
+        readVolumePrefs();
+        updateUi();
+        tick();
+      }, 120);
     });
     window.addEventListener("vc:confessionale-curtain-done", function () {
       window.setTimeout(function () {
-        if (!mutedByUser) {
+        if (!mutedByUser && !isAudibleNow() && !audibleInFlight) {
           forcePlayFromGesture();
-          unlockFromUserGesture();
         }
         tick();
       }, 20);
     });
+    window.addEventListener("vc-discord-profile", function () {
+      try {
+        if (window.__VC_CHROME_SYNC && typeof window.__VC_CHROME_SYNC.pullServer === "function") {
+          window.__VC_CHROME_SYNC.pullServer();
+        }
+      } catch (ePull2) {}
+      window.setTimeout(function () {
+        readVolumePrefs();
+        updateUi();
+      }, 80);
+    });
+    /* confessionalePerf5: niente poll 80ms×120 (jank avvio). Pochi retry soft. */
     var n = 0;
     var t = window.setInterval(function () {
       n += 1;
       tick();
-      if (n > 120) window.clearInterval(t);
-    }, 80);
+      if (n > 8 || started || mutedByUser || isAudibleNow()) window.clearInterval(t);
+    }, 450);
+
+    document.addEventListener("visibilitychange", function () {
+      var a = audio || document.getElementById("vc-confessionale-bgm-audio");
+      if (!a) return;
+      try {
+        if (document.visibilityState === "hidden") {
+          if (!a.paused) {
+            a.dataset.vcConfBgmWasPlaying = "1";
+            a.pause();
+          }
+        } else if (a.dataset.vcConfBgmWasPlaying === "1" && !mutedByUser) {
+          a.dataset.vcConfBgmWasPlaying = "";
+          var p = a.play();
+          if (p && p.catch) p.catch(function () {});
+        }
+      } catch (eVis) {}
+    });
   }
 
   if (document.readyState === "loading") {
@@ -681,24 +848,15 @@
     setup();
   }
 
-  /* Tentativo immediato (gesture navigazione ancora calda). */
+  /* confessionalePlayCatch2 / siteApiW10: create shell only — no src/load until gesture play. */
   try {
     readVolumePrefs();
     if (localStorage.getItem(MUTE_PREF_KEY) !== "1") {
       var a0 = ensureAudio();
-      a0.muted = false;
-      a0.volume = Math.max(0, Math.min(1, baseVol));
-      var p0 = a0.play();
-      if (p0 && typeof p0.then === "function") {
-        p0
-          .then(function () {
-            started = true;
-            mutedByUser = false;
-            if (document.body) ensurePlayer();
-            updateUi();
-          })
-          .catch(function () {});
-      }
+      a0.muted = true;
+      try {
+        a0.volume = Math.max(0.02, Math.min(1, baseVol < 0.02 ? 0.34 : baseVol));
+      } catch (eVol0) {}
     }
   } catch (eImm) {}
 

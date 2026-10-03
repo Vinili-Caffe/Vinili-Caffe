@@ -317,7 +317,7 @@
     if (list) {
       list.innerHTML =
         '<div class="vc-staff-inbox-loading" role="status"><div class="vc-staff-inbox-loading__head">' +
-        '<span class="vc-staff-inbox-loading__spinner" aria-hidden="true"></span>' +
+        '<img class="vc-staff-inbox-loading__emoji" src="/images/vc-loading.gif?v=20260920vcLoadingSpokes1" width="22" height="22" alt="" decoding="async" draggable="false" data-vc-emoji-skip="1" />' +
         "<p>Caricamento punti tolti\u2026</p></div></div>";
     }
     var before = state.cursors[state.page - 1] || null;

@@ -1,11 +1,12 @@
 const IDs = require("../Config/ids");
 
+/** Reviewer per-user vuoti: tutti i resoconti vanno all'High Staff (ruolo). */
 const RESOCONTO_SEGMENT_REVIEWER_USER_IDS = {
-  pm: ["778934882671656972"],
-  helper: ["778934882671656972"],
-  mod: ["778934882671656972"],
-  senior_moderator: ["778934882671656972"],
-  director: ["295500038401163264"],
+  pm: [],
+  helper: [],
+  mod: [],
+  senior_moderator: [],
+  director: [],
 };
 
 const RESOCONTO_REVIEWER_SHIFT_CHAIN = ["mod", "senior_moderator", "director"];
@@ -73,15 +74,25 @@ function getResocontoSegmentsForReviewerUserId(userId) {
   );
 }
 
-function getResocontoNotifyRoleIdForSegment(segment, staffRoleId = null) {
-  const users = getResocontoReviewerUserIdsForSegment(segment, staffRoleId);
-  return users[0] || null;
+function getResocontoReviewerRoleIds() {
+  const highStaffId = String(IDs.roles?.HighStaff || "").trim();
+  return [highStaffId].filter((id) => /^\d{16,22}$/.test(id));
+}
+
+function getResocontoNotifyRoleIdForSegment(_segment = null, _staffRoleId = null) {
+  return getResocontoReviewerRoleIds()[0] || null;
+}
+
+function memberHasResocontoReviewerRole(member) {
+  if (!member?.roles?.cache) return false;
+  return getResocontoReviewerRoleIds().some((roleId) => member.roles.cache.has(String(roleId)));
 }
 
 function memberIsResocontoReviewerForSegment(member, segment, staffRoleId = null) {
   const uid = String(member?.id || "").trim();
   if (!uid) return false;
-  return getResocontoReviewerUserIdsForSegment(segment, staffRoleId).includes(uid);
+  if (getResocontoReviewerUserIdsForSegment(segment, staffRoleId).includes(uid)) return true;
+  return memberHasResocontoReviewerRole(member);
 }
 
 function memberIsExcludedFromResocontoReviewerReward(member) {
@@ -98,7 +109,7 @@ function memberIsExcludedFromResocontoReviewerReward(member) {
 function getResocontoButtonAllowedRoleIds(payload = {}) {
   const managerId = String(IDs.roles?.Manager || "").trim();
   const founderId = String(IDs.roles?.Founder || "").trim();
-  return [managerId, founderId].filter((id) => /^\d{16,22}$/.test(id));
+  return [...new Set([managerId, founderId, ...getResocontoReviewerRoleIds()].filter((id) => /^\d{16,22}$/.test(id)))];
 }
 
 function memberHasResocontoButtonAccess(member, payload = {}) {
@@ -107,6 +118,7 @@ function memberHasResocontoButtonAccess(member, payload = {}) {
   if (member?.roles?.cache && alwaysRoleIds.some((roleId) => member.roles.cache.has(String(roleId)))) {
     return true;
   }
+  if (memberHasResocontoReviewerRole(member)) return true;
 
   const kind = String(payload.kind || "");
   if (kind === "p") {
@@ -199,7 +211,9 @@ module.exports = {
   removeResocontoReviewerUserId,
   getResocontoReviewerUserIdsForSegment,
   getResocontoSegmentsForReviewerUserId,
+  getResocontoReviewerRoleIds,
   getResocontoNotifyRoleIdForSegment,
+  memberHasResocontoReviewerRole,
   memberIsResocontoReviewerForSegment,
   memberIsExcludedFromResocontoReviewerReward,
   getResocontoButtonAllowedRoleIds,

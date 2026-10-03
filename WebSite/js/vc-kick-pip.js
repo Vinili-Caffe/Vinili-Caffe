@@ -14,6 +14,16 @@
   if (!isHomePage()) return;
   if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
   if (document.body && document.body.classList.contains("vc-seratafilm-page")) return;
+  /* pwaCpuNuke1: PWA desktop — niente poll Kick (CPU) */
+  try {
+    if (
+      window.__VC_PWA_CPU_NUKE ||
+      document.documentElement.classList.contains("vc-pwa-cpu-nuke") ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+    ) {
+      return;
+    }
+  } catch (eNukePip) {}
 
   var DISMISS_KEY = "vc_kick_pip_dismiss_v2";
   var USER_CLOSED_KEY = "vc_kick_pip_user_closed_v1";
@@ -441,7 +451,7 @@
       '"><i class="fa fa-times" aria-hidden="true"></i></button>' +
       "</div>" +
       '<div class="vc-kick-pip__media" id="vc-kick-pip-media">' +
-      '<img class="vc-kick-pip__thumb" id="vc-kick-pip-thumb" alt="" decoding="async" fetchpriority="high" />' +
+      '<img class="vc-kick-pip__thumb" id="vc-kick-pip-thumb" alt="" decoding="async" fetchpriority="low" loading="lazy" />' +
       '<video class="vc-kick-pip__video" id="vc-kick-pip-video" playsinline webkit-playsinline muted disablePictureInPicture></video>' +
       '<iframe class="vc-kick-pip__player" id="vc-kick-pip-player" title="' +
       t("kickPip.playerTitle", "Player live Kick") +
@@ -523,6 +533,7 @@
   var playBtn = root.querySelector("[data-vc-kick-pip-play]");
   var subBtn = root.querySelector("[data-vc-kick-pip-sub]");
   var subStatus = null;
+  var subFeatureDisabled = false;
   var subBusy = false;
   if (!root || !reopenBtn || !linkEl || !thumbEl || !videoEl || !nameEl || !titleEl || !categoryEl || !viewersEl || !gateEl) return;
 
@@ -577,6 +588,10 @@
   }
 
   function refreshSubStatus() {
+    if (subFeatureDisabled) {
+      syncSubButton();
+      return Promise.resolve(null);
+    }
     var token = getDiscordAccessToken();
     if (!token) {
       subStatus = null;
@@ -591,9 +606,19 @@
       .then(function (r) {
         return r.json().catch(function () {
           return null;
+        }).then(function (j) {
+          return { status: r.status, body: j };
         });
       })
-      .then(function (j) {
+      .then(function (pack) {
+        var j = pack && pack.body;
+        if (j && (j.enabled === false || j.error === "disabled")) {
+          subFeatureDisabled = true;
+          subStatus = null;
+          if (subBtn) subBtn.hidden = true;
+          syncSubButton();
+          return null;
+        }
         if (j && j.ok) subStatus = j;
         else subStatus = null;
         syncSubButton();
@@ -1939,29 +1964,42 @@
     }
   });
 
+  function pollJson(url) {
+    /* siteApiW7: stable URL + ETag via VcApiCache when present */
+    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+      var cacheKey = window.VcApiCache.keyFor(url, { scope: "live" });
+      return window.VcApiCache
+        .fetchWithCache(cacheKey, url, {
+          ttlMs: 30000,
+          staleMs: 3 * 60 * 1000,
+          timeoutMs: 12000,
+          fetchInit: { cache: "default", credentials: "omit" },
+        })
+        .then(function (payload) {
+          return payload && payload.body ? payload.body : null;
+        });
+    }
+    return fetch(url, { credentials: "omit", cache: "default" }).then(function (r) {
+      return r.json().catch(function () {
+        return null;
+      });
+    });
+  }
+
   function poll() {
     var u = resolvedApiUrl();
     if (!u) return;
-    var sep = u.indexOf("?") >= 0 ? "&" : "?";
-    fetch(u + sep + "_vck=" + encodeURIComponent(String(Date.now())), {
-      credentials: "omit",
-      cache: "no-store",
-    })
-      .then(function (r) {
-        return r.json().catch(function () {
-          return null;
-        });
-      })
+    pollJson(u)
       .then(function (j) {
         if (!j || j.ok !== true) {
-                    return;
+          return;
         }
         if (j.active && j.primary && j.primary.id) {
           pollMisses = 0;
           showStream(j.primary);
           return;
         }
-                pollMisses += 1;
+        pollMisses += 1;
         var sticky =
           lastPayload &&
           lastPayload.id &&
@@ -1973,16 +2011,15 @@
         if (sticky && pollMisses < POLL_HIDE_AFTER_MISSES) {
           return;
         }
-                lastPayload = null;
+        lastPayload = null;
         lastStreamId = "";
         pollMisses = 0;
         hideAll();
       })
-      .catch(function () {
-              });
+      .catch(function () {});
   }
 
-  ensureKickPreconnect();
+  /* lighthouseLhPip1: preconnect solo a mountPlayback, non al boot */
   restorePos();
   syncSoundButton();
   syncSubButton();

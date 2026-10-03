@@ -1,9 +1,11 @@
 const {
   listSiteInAppNotificationsForUser,
+  countSiteInAppUnreadForUser,
   markSiteInAppNotificationRead,
   markSiteInAppNotificationsReadMany,
   markAllSiteInAppNotificationsRead,
   markSiteInAppNotificationsReadForTicket,
+  markSiteInAppNotificationsReadForPage,
   deleteAllSiteInAppNotificationsForUser,
   deleteSiteInAppNotificationForUser,
 } = require("./siteInAppNotificationsService");
@@ -14,6 +16,8 @@ const {
   removeWebPushSubscription,
 } = require("./siteWebPushService");
 const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints");
+const { fetchDiscordOAuthMe } = require("./discordOauthMe");
+const { tryNotModified } = require("./siteHttpEtag");
 
 const BEARER_USER_CACHE_TTL_MS = 90_000;
 const bearerUserCache = new Map();
@@ -39,14 +43,15 @@ async function resolveUserIdFromBearer(accessToken) {
   }
   let meJson;
   try {
-    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!meRes.ok) {
+    const out = await fetchDiscordOAuthMe(token, { timeoutMs: 4500 });
+    if (!out.ok) {
       bearerUserCache.delete(token);
-      return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta." };
+      if (out.status === 401 || out.error === "invalid_token") {
+        return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta." };
+      }
+      return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord." };
     }
-    meJson = await meRes.json();
+    meJson = out.me;
   } catch {
     return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord." };
   }
@@ -74,13 +79,40 @@ async function handleSiteNotificationsGet(client, req, res) {
     const q = req.query || {};
     const perfTier = resolveSitePerfTier(req);
     const lite = isLitePerf(req);
+    const mode = String(q.mode || "").trim().toLowerCase();
+    /* siteNotifW2: badge poll uses mode=count (+ ETag/304) instead of full list */
+    if (mode === "count" || mode === "unread") {
+      const counted = await countSiteInAppUnreadForUser(resolved.userId);
+      /* siteApiDeviceEverywhere1: weak ETag + RFC If-None-Match (Safari/proxies) */
+      const etag = `W/"uc-${counted.revision}"`;
+      res.setHeader("Cache-Control", "private, no-cache");
+      res.setHeader("X-VC-Perf", perfTier);
+      if (tryNotModified(req, res, etag)) return res;
+      return res.status(200).json({
+        ok: true,
+        mode: "count",
+        unread: counted.unread,
+        total: counted.total,
+        revision: counted.revision,
+        latestAt: counted.latestAt || 0,
+        perf: perfTier,
+      });
+    }
     const rawLimit = Number(q.limit);
     const defaultLimit = lite ? 30 : perfTier === "mid" ? 50 : 100;
     const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(100, Math.floor(rawLimit)) : defaultLimit;
     const items = await listSiteInAppNotificationsForUser(resolved.userId, limit);
+    const counted = await countSiteInAppUnreadForUser(resolved.userId).catch(() => null);
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-VC-Perf", perfTier);
-    return res.status(200).json({ ok: true, items, perf: perfTier });
+    /* notifBadgeServerTruth1: unread anche sul full list così il badge non dipende solo dallo store client */
+    return res.status(200).json({
+      ok: true,
+      items,
+      unread: counted && Number.isFinite(Number(counted.unread)) ? Number(counted.unread) : undefined,
+      total: counted && Number.isFinite(Number(counted.total)) ? Number(counted.total) : undefined,
+      perf: perfTier,
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-notifications get:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -98,6 +130,16 @@ async function handleSiteNotificationsMarkReadPost(client, req, res) {
     if (body.all === true) {
       const modified = await markAllSiteInAppNotificationsRead(resolved.userId);
       return res.status(200).json({ ok: true, modified });
+    }
+    const pageUrl = String(body.pageUrl || body.href || "").trim();
+    if (pageUrl) {
+      /* pushBadgeVisitFix1: visita pagina → mark matching + dismiss altri device */
+      const modified = await markSiteInAppNotificationsReadForPage(resolved.userId, pageUrl, {
+        ids: Array.isArray(body.ids) ? body.ids : [],
+        ticketIds: Array.isArray(body.ticketIds) ? body.ticketIds : [],
+        openUrls: Array.isArray(body.openUrls) ? body.openUrls : [],
+      });
+      return res.status(200).json({ ok: true, modified, updated: modified > 0 });
     }
     const ticketId = String(body.ticketId || "").trim();
     if (/^[a-f0-9]{24}$/i.test(ticketId)) {
@@ -189,13 +231,18 @@ async function handleSiteNotificationsPushSubscribePost(client, req, res) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const subscription = body.subscription && typeof body.subscription === "object" ? body.subscription : body;
     const saved = await upsertWebPushSubscription(resolved.userId, subscription, {
-      userAgent: String(req.headers["user-agent"] || "").trim(),
+      userAgent: String(body.userAgent || req.headers["user-agent"] || "").trim(),
+      deviceClass: String(body.deviceClass || body.clientDevice || "").trim(),
     });
     if (!saved.ok) {
-      return res.status(400).json({
+      const recreate = saved.recreate === true || saved.error === "endpoint_gone";
+      return res.status(recreate ? 409 : 400).json({
         ok: false,
         error: saved.error || "invalid_subscription",
-        message: "Sottoscrizione push non valida.",
+        recreate: recreate || undefined,
+        message: recreate
+          ? "Endpoint push scaduto: ricrea la sottoscrizione."
+          : "Sottoscrizione push non valida.",
       });
     }
     return res.status(200).json({ ok: true });

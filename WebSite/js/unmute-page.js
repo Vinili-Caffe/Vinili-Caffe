@@ -7,9 +7,17 @@
     return document.getElementById(id);
   }
 
-  function t(key, vars) {
+  function t(key, varsOrFallback, maybeVars) {
+    var fallback = null;
+    var vars = null;
+    if (typeof varsOrFallback === "string") {
+      fallback = varsOrFallback;
+      vars = maybeVars && typeof maybeVars === "object" ? maybeVars : null;
+    } else if (varsOrFallback && typeof varsOrFallback === "object") {
+      vars = varsOrFallback;
+    }
     if (window.VcI18n && typeof window.VcI18n.t === "function") {
-      var v = window.VcI18n.t(key, vars);
+      var v = window.VcI18n.t(key, vars || undefined);
       if (v && v !== key) return v;
     }
     var fallbacks = {
@@ -21,6 +29,9 @@
       "unmute.canSubmitLead": "Compila il modulo qui sotto con calma e trasparenza.",
       "unmute.alreadySubmitted": "Richiesta già inviata. Prossimo invio disponibile: {date}",
       "unmute.alreadySubmittedLead": "Attendi la fine del cooldown prima di riprovare.",
+      "unmute.checkPending": "Verifica in corso…",
+      "unmute.checkPendingLead": "Attendere: Discord o la rete possono essere lenti.",
+      "unmute.checkSlow": "Rete lenta o Discord occupato. Riprova tra poco.",
       "unmute.checkError": "Impossibile verificare lo stato unmute. Riprova più tardi.",
       "unmute.checkErrorLead": "Controlla la connessione e riprova tra poco.",
       "unmute.statusKicker": "Stato account",
@@ -28,8 +39,8 @@
       "unmute.userFallback": "utente",
       "unmute.statusLoading": "Caricamento stato...",
     };
-    var raw = fallbacks[key] || key;
-    if (!vars || typeof vars !== "object") return raw;
+    var raw = fallbacks[key] || fallback || key;
+    if (!vars) return raw;
     return String(raw).replace(/\{(\w+)\}/g, function (_, k) {
       return vars[k] != null ? String(vars[k]) : "{" + k + "}";
     });
@@ -130,8 +141,9 @@
     var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
     var timer = null;
     if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (eT) {} }, ms);
-    return fetch("https://discord.com/api/v10/users/@me", {
+    return fetch("/webhooks/site-discord-me", {
       headers: { Authorization: "Bearer " + token },
+      credentials: "same-origin",
       signal: ctrl ? ctrl.signal : undefined,
     })
       .then(function (r) {
@@ -186,7 +198,35 @@
     }
   }
 
+  function showLoginGate() {
+    var g = byId("vc-appelli-gate");
+    if (!g) return false;
+    g.removeAttribute("hidden");
+    g.classList.remove("vc-reviews-gate--dismissed");
+    g.setAttribute("aria-hidden", "false");
+    return true;
+  }
+
+  function hideLoginGate() {
+    var g = byId("vc-appelli-gate");
+    if (!g) return;
+    g.setAttribute("hidden", "");
+    g.classList.add("vc-reviews-gate--dismissed");
+    g.setAttribute("aria-hidden", "true");
+  }
+
   function redirectToAccessRequired() {
+    /* loginRequiredModal1: modal sui bottoni, non gate fullscreen */
+    hideLoginGate();
+    if (window.VcLoginRequired && typeof window.VcLoginRequired.require === "function") {
+      window.VcLoginRequired.require({
+        title: "Appelli",
+        sub: "Unmute",
+        body: "Accedi con Discord per inviare un appello unmute.",
+      });
+      return;
+    }
+    if (showLoginGate()) return;
     var path = "";
     try {
       path = String(window.location.pathname || "");
@@ -584,6 +624,25 @@
     replayShuffle(statusTitle || null);
   }
 
+  function setGuestAppealUi() {
+    var wrap = byId("unmute-status-wrap");
+    if (wrap) {
+      wrap.hidden = true;
+      wrap.setAttribute("aria-hidden", "true");
+    }
+    try {
+      toggleForm(true);
+    } catch (eFormGuest) {}
+  }
+
+  function setLoggedInAppealUi() {
+    var wrap = byId("unmute-status-wrap");
+    if (wrap) {
+      wrap.hidden = false;
+      wrap.removeAttribute("aria-hidden");
+    }
+  }
+
   function init() {
     document.addEventListener("vc:appelli-tab", function (ev) {
       var tipo = ev && ev.detail && ev.detail.tipo;
@@ -613,9 +672,11 @@
         }
       }
       if (!currentUser) {
-        if (!getToken()) redirectToAccessRequired();
+        setGuestAppealUi();
         return;
       }
+      hideLoginGate();
+      setLoggedInAppealUi();
       scheduleEligRefresh(200);
     });
 
@@ -624,10 +685,12 @@
     }
 
     var accessToken = getToken();
+    hideLoginGate();
     if (!accessToken) {
-      redirectToAccessRequired();
+      setGuestAppealUi();
       return;
     }
+    setLoggedInAppealUi();
     setStatus(t("unmute.checkPending", "Verifica in corso…"), false);
     function bootMe(n) {
       return fetchMe(accessToken)

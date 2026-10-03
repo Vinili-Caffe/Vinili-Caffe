@@ -126,15 +126,14 @@ async function backupUserOnLeave(guildId, userId, member = null) {
     /* ignore */
   }
 
-  const refreshed = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
-    .select("profile.discordState")
-    .lean()
-    .catch(() => null);
+  // organicoLeaveRetain2: re-read after discordState persist so career retention from leave depex is included.
+  const fresh = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
+  const profileSource = fresh || source;
   const discordState =
-    refreshed?.profile?.discordState || source?.profile?.discordState || null;
+    fresh?.profile?.discordState || source?.profile?.discordState || null;
 
   const shouldUpsertBackup =
-    Boolean(source) || restoreRoleIds.length > 0 || trackedRoleIds.length > 0 || Boolean(discordState);
+    Boolean(profileSource) || restoreRoleIds.length > 0 || trackedRoleIds.length > 0 || Boolean(discordState);
 
   if (!shouldUpsertBackup) {
     await UserLeaveBackup.updateOne(
@@ -144,12 +143,12 @@ async function backupUserOnLeave(guildId, userId, member = null) {
     return false;
   }
 
-  const backupDoc = source
+  const backupDoc = profileSource
     ? {
-        ...source,
+        ...profileSource,
         profile: {
-          ...(source.profile || {}),
-          discordState: discordState || source.profile?.discordState || null,
+          ...(profileSource.profile || {}),
+          discordState: discordState || profileSource.profile?.discordState || null,
         },
       }
     : discordState

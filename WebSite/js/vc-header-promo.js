@@ -1,10 +1,43 @@
 (function () {
   /* candPillNoFlash2: default hidden until eligibility decided (no FOUC for staff) */
-  var PROMO_VER = "20260907candPillNoFlash2";
+  /* notif429Everywhere1: boot pass via rAF/idle — no setTimeout 200ms+ Violation */
+  var PROMO_VER = "20261001navBrandCandFix1";
   var layoutLock = false;
   var layoutCooldownUntil = 0;
   var marqueeSettledUntil = 0;
   var staffHoldUntil = 0;
+  var layoutRaf = 0;
+
+  function runLight(fn) {
+    try {
+      if (typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(function () {
+          try {
+            if (typeof window.requestIdleCallback === "function") {
+              window.requestIdleCallback(
+                function () {
+                  try {
+                    fn();
+                  } catch (eFn) {}
+                },
+                { timeout: 280 },
+              );
+              return;
+            }
+          } catch (eIdle) {}
+          try {
+            fn();
+          } catch (eFn2) {}
+        });
+        return;
+      }
+    } catch (eRaf) {}
+    window.setTimeout(function () {
+      try {
+        fn();
+      } catch (eT) {}
+    }, 0);
+  }
 
   function readCfg() {
     try {
@@ -15,25 +48,47 @@
   }
 
   function hasStaffSiteAccess() {
+    /* candPillGuest1: senza login Discord non nascondere (cache staff stale) */
+    /* swLsStorm2: memo 2s — boot/MO rileggevano Storage a raffica */
     try {
-      if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
-      var p = window.__VC_STAFF_PERMS;
-      if (p && typeof p === "object" && p.ok === true) return true;
-      var raw =
-        sessionStorage.getItem("vc_staff_access_ok_v2") ||
-        localStorage.getItem("vc_staff_access_ok_v2_local");
-      if (raw) {
-        var data = JSON.parse(raw);
-        if (data && data.ok === true && Number(data.exp || 0) > Date.now()) return true;
-      }
-      var menuRaw =
-        sessionStorage.getItem("vc_menu_staff_v1") || localStorage.getItem("vc_menu_staff_local_v1");
-      if (menuRaw) {
-        var menu = JSON.parse(menuRaw);
-        if (menu && menu.allowed === true) return true;
+      var memo = window.__vcPromoStaffMemo;
+      if (memo && Date.now() - Number(memo.at || 0) < 2000) return Boolean(memo.v);
+    } catch (eM) {}
+    var out = false;
+    if (!hasDiscordToken()) {
+      try {
+        window.__vcPromoStaffMemo = { v: false, at: Date.now() };
+      } catch (e0) {}
+      return false;
+    }
+    try {
+      if (window.__VC_STAFF_MENU_ALLOWED === true) out = true;
+      else {
+        var p = window.__VC_STAFF_PERMS;
+        if (p && typeof p === "object" && p.ok === true) out = true;
+        else {
+          var raw =
+            sessionStorage.getItem("vc_staff_access_ok_v2") ||
+            localStorage.getItem("vc_staff_access_ok_v2_local");
+          if (raw) {
+            var data = JSON.parse(raw);
+            if (data && data.ok === true && Number(data.exp || 0) > Date.now()) out = true;
+          }
+          if (!out) {
+            var menuRaw =
+              sessionStorage.getItem("vc_menu_staff_v1") || localStorage.getItem("vc_menu_staff_local_v1");
+            if (menuRaw) {
+              var menu = JSON.parse(menuRaw);
+              if (menu && menu.allowed === true) out = true;
+            }
+          }
+        }
       }
     } catch (e) {}
-    return false;
+    try {
+      window.__vcPromoStaffMemo = { v: out, at: Date.now() };
+    } catch (e1) {}
+    return out;
   }
 
   function hasDiscordToken() {
@@ -256,12 +311,10 @@
     if (promoMarqueeSignature(btn) !== btn.getAttribute("data-vc-promo-marquee-sig")) return false;
     var stored = Number(btn.getAttribute("data-vc-promo-marquee-dist") || 0);
     if (!Number.isFinite(stored) || stored <= 0) return false;
-    void unit.offsetWidth;
+    /* handlerPerf1: durante settle non forzare reflow (offsetWidth/getBCR) */
+    if (Date.now() < marqueeSettledUntil) return true;
     var liveDist = Math.max(Math.ceil(unit.getBoundingClientRect().width || 0), 36);
-    // Tolleranza più larga: su /personalizza/ il gate fa oscillare di pochi px e
-    // riavviare normalizePromoDom ferma il marquee (sembra statico).
-    var tol = Date.now() < marqueeSettledUntil ? 18 : 8;
-    return Math.abs(liveDist - stored) <= tol;
+    return Math.abs(liveDist - stored) <= 10;
   }
 
   function schedulePromoRetry(ms) {
@@ -281,6 +334,9 @@
   function layoutPromoMarquee(btn) {
     if (!btn || btn.hidden) return;
     if (layoutLock) return;
+    try {
+      if (document.hidden || document.visibilityState === "hidden") return;
+    } catch (eHid) {}
 
     if (!shouldPromoMarquee(btn)) {
       normalizePromoDom(btn);
@@ -289,76 +345,58 @@
 
     if (promoMarqueeStable(btn)) return;
 
-    layoutLock = true;
-    try {
-      normalizePromoDom(btn);
-
-      var clip = btn.querySelector(".vc-header-promo-btn__clip");
-      var track = clip && clip.querySelector(".vc-header-promo-btn__track");
-      var unit = track && track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
-      if (!clip || !track || !unit) {
-        schedulePromoRetry(220);
-        return;
-      }
-
-      void btn.offsetWidth;
-      var clipW = Math.floor(clip.getBoundingClientRect().width || clip.clientWidth || 0);
-      var unitW = Math.ceil(unit.scrollWidth || unit.getBoundingClientRect().width || 0);
-      if (unitW <= 0) {
-        // Header spesso display/visibility nascosti sotto gate/loading (es. /personalizza/)
-        schedulePromoRetry(280);
-        return;
-      }
-      if (!isCandidaturePromo(btn) && unitW <= clipW + 2) return;
-
-      // Gap fisso via CSS var (stesso su unit + clone). NON usare track.scrollWidth/2
-      // mentre il clone è ancora display:none → distanza errata e loop a scatti.
-      var gap = 16;
-      btn.style.setProperty("--vc-promo-marquee-gap", gap + "px");
-      unit.style.paddingInlineEnd = gap + "px";
-      void unit.offsetWidth;
-      var segment = Math.max(
-        Math.ceil(unit.getBoundingClientRect().width || unit.scrollWidth || unitW + gap),
-        unitW + gap,
-        36,
-      );
-
-      var cloneUnit = unit.cloneNode(true);
-      cloneUnit.classList.add("is-clone");
-      cloneUnit.setAttribute("aria-hidden", "true");
-      cloneUnit.style.paddingInlineEnd = gap + "px";
-      track.appendChild(cloneUnit);
-
-      btn.style.setProperty("--vc-promo-marquee-distance", segment + "px");
-      // ~28px/s: scorrevole senza essere frenetica
-      var duration = Math.max(6.5, Math.min(18, segment / 28));
-      btn.style.setProperty("--vc-promo-marquee-duration", duration.toFixed(2) + "s");
-      btn.classList.add("is-marquee");
-      if (isCandidaturePromo(btn)) {
-        btn.classList.add("vc-header-promo-btn--candidature-mobile-marquee");
-        btn.classList.add("vc-header-promo-btn--candidature-marquee");
-      }
-      if (isCompactNav()) btn.classList.add("vc-header-promo-btn--mobile-marquee");
-      btn.setAttribute("data-vc-promo-marquee-sig", promoMarqueeSignature(btn));
-      btn.setAttribute("data-vc-promo-marquee-dist", String(segment));
-
-      // Dopo is-marquee il clone diventa visibile: riallinea distanza se il layout è cambiato.
-      void track.offsetWidth;
-      var liveUnit = track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
-      if (liveUnit) {
-        var liveSeg = Math.max(Math.ceil(liveUnit.getBoundingClientRect().width || 0), 36);
-        if (Math.abs(liveSeg - segment) > 2) {
-          btn.style.setProperty("--vc-promo-marquee-distance", liveSeg + "px");
-          btn.setAttribute("data-vc-promo-marquee-dist", String(liveSeg));
-          var liveDur = Math.max(6.5, Math.min(18, liveSeg / 28));
-          btn.style.setProperty("--vc-promo-marquee-duration", liveDur.toFixed(2) + "s");
+    /* handlerPerf1: un solo passaggio misura in rAF (niente void offsetWidth a raffica) */
+    if (layoutRaf) return;
+    layoutRaf = window.requestAnimationFrame(function () {
+      layoutRaf = 0;
+      if (!btn || btn.hidden || layoutLock) return;
+      if (promoMarqueeStable(btn)) return;
+      layoutLock = true;
+      try {
+        normalizePromoDom(btn);
+        var clip = btn.querySelector(".vc-header-promo-btn__clip");
+        var track = clip && clip.querySelector(".vc-header-promo-btn__track");
+        var unit = track && track.querySelector(".vc-header-promo-btn__unit:not(.is-clone)");
+        if (!clip || !track || !unit) {
+          schedulePromoRetry(220);
+          return;
         }
+        var clipW = Math.floor(clip.getBoundingClientRect().width || clip.clientWidth || 0);
+        var unitW = Math.ceil(unit.getBoundingClientRect().width || unit.scrollWidth || 0);
+        if (unitW <= 0) {
+          schedulePromoRetry(280);
+          return;
+        }
+        if (!isCandidaturePromo(btn) && unitW <= clipW + 2) return;
+
+        var gap = 16;
+        btn.style.setProperty("--vc-promo-marquee-gap", gap + "px");
+        unit.style.paddingInlineEnd = gap + "px";
+        var segment = Math.max(unitW + gap, 36);
+
+        var cloneUnit = unit.cloneNode(true);
+        cloneUnit.classList.add("is-clone");
+        cloneUnit.setAttribute("aria-hidden", "true");
+        cloneUnit.style.paddingInlineEnd = gap + "px";
+        track.appendChild(cloneUnit);
+
+        btn.style.setProperty("--vc-promo-marquee-distance", segment + "px");
+        var duration = Math.max(16, Math.min(30, segment / 10));
+        btn.style.setProperty("--vc-promo-marquee-duration", duration.toFixed(2) + "s");
+        btn.classList.add("is-marquee");
+        if (isCandidaturePromo(btn)) {
+          btn.classList.add("vc-header-promo-btn--candidature-mobile-marquee");
+          btn.classList.add("vc-header-promo-btn--candidature-marquee");
+        }
+        if (isCompactNav()) btn.classList.add("vc-header-promo-btn--mobile-marquee");
+        btn.setAttribute("data-vc-promo-marquee-sig", promoMarqueeSignature(btn));
+        btn.setAttribute("data-vc-promo-marquee-dist", String(segment));
+        layoutCooldownUntil = Date.now() + 1600;
+        marqueeSettledUntil = Date.now() + 5000;
+      } finally {
+        layoutLock = false;
       }
-      layoutCooldownUntil = Date.now() + 1400;
-      marqueeSettledUntil = Date.now() + 4500;
-    } finally {
-      layoutLock = false;
-    }
+    });
   }
 
   function applyMode(btn, cfg, mode) {
@@ -380,13 +418,27 @@
     btn.classList.add(isEvent ? "vc-header-promo-btn--event" : "vc-header-promo-btn--candidature");
     if (isCompactNav()) btn.classList.add("vc-header-promo-btn--mobile-compact");
     btn.removeAttribute("aria-label");
+    btn.setAttribute(
+      "aria-label",
+      isEvent ? t("header.promo.eventAria", "Evento Hogwarts attivo – vai al calendario") : t("header.promo.appsAria", "Candidature staff aperte"),
+    );
+    btn.setAttribute("data-i18n-attr", isEvent ? "aria-label:header.promo.eventAria" : "aria-label:header.promo.appsAria");
     var labelEls = btn.querySelectorAll(".vc-header-promo-btn__label");
     var badgeEls = btn.querySelectorAll(".vc-header-promo-btn__badge");
     var label = labelTextForMode(isEvent);
     var badge = badgeTextForMode(isEvent);
     var i;
-    for (i = 0; i < labelEls.length; i += 1) labelEls[i].textContent = label;
-    for (i = 0; i < badgeEls.length; i += 1) badgeEls[i].textContent = badge;
+    for (i = 0; i < labelEls.length; i += 1) {
+      labelEls[i].textContent = label;
+      labelEls[i].setAttribute("data-i18n", isEvent ? "header.promo.eventLabel" : "header.promo.appsLabel");
+    }
+    for (i = 0; i < badgeEls.length; i += 1) {
+      badgeEls[i].textContent = badge;
+      badgeEls[i].setAttribute(
+        "data-i18n",
+        isEvent ? "header.promo.eventBadgeShort" : "header.promo.appsBadge",
+      );
+    }
     try {
       var path = String(window.location.pathname || "").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
       var target = String(href || "").replace(/^https?:\/\/[^/]+/i, "").replace(/\/index\.html$/i, "").replace(/\/+$/, "") || "/";
@@ -524,20 +576,26 @@
     boot();
     var btn0 = document.getElementById("vc-header-promo-btn");
     if (btn0) ensurePromoVisibilityWatch(btn0);
-    [180, 450, 900, 1200, 2400, 3600, 5200, 8000].forEach(function (ms) {
+    /* handlerPerf1 + notif429Everywhere1: pochi pass, lavoro pesante fuori dal timer sync */
+    [350, 1400, 4200].forEach(function (ms) {
       window.setTimeout(function () {
-        var btn = document.getElementById("vc-header-promo-btn");
-        if (btn) ensurePromoVisibilityWatch(btn);
-        if (shouldHoldCandidatureReveal() || hasStaffSiteAccess()) {
-          boot();
-          return;
-        }
-        if (btn && promoMarqueeStable(btn)) return;
-        if (btn && (btn.hidden || btn.classList.contains("vc-header-promo-btn--staff-hidden"))) {
-          boot();
-          return;
-        }
-        boot({ layoutOnly: true });
+        runLight(function () {
+          try {
+            if (document.hidden || document.visibilityState === "hidden") return;
+          } catch (eHid) {}
+          var btn = document.getElementById("vc-header-promo-btn");
+          if (btn) ensurePromoVisibilityWatch(btn);
+          if (shouldHoldCandidatureReveal() || hasStaffSiteAccess()) {
+            boot();
+            return;
+          }
+          if (btn && promoMarqueeStable(btn)) return;
+          if (btn && (btn.hidden || btn.classList.contains("vc-header-promo-btn--staff-hidden"))) {
+            boot();
+            return;
+          }
+          boot({ layoutOnly: true });
+        });
       }, ms);
     });
     watchPersonalizzaGate();
@@ -559,14 +617,19 @@
         }
         window.clearTimeout(window.__vcPromoGateBootT);
         window.__vcPromoGateBootT = window.setTimeout(function () {
+          if (window.__vcPromoGateBootedOnce && promoMarqueeStable(document.getElementById("vc-header-promo-btn"))) {
+            return;
+          }
           window.__vcPromoRetryCount = 0;
+          window.__vcPromoGateBootedOnce = true;
           boot({ layoutOnly: true });
           syncBrandMarquee();
-        }, 180);
+        }, 720);
       });
       mo.observe(root, { attributes: true, attributeFilter: ["class"] });
     } catch (eMo) {}
   }
+  /* handlerPerf1 marker */
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", scheduleBootPasses);

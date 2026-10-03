@@ -491,7 +491,7 @@ async function ensureOwnerCustomRoleActive(interaction, ownerId, expectedRoleId 
   const state = await resolveCustomRoleState({ guild: interaction.guild, userId: ownerId, client: interaction.client, cleanupExpired: true, });
 
   if (state.status === "none") {
-    await replyEphemeral(interaction, { content: "<:VC_Attention:1482534443632558151> Non hai un ruolo personalizzato attivo. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG });
+    await replyEphemeral(interaction, { content: "<:VC_Attention:1482534443632558151> Non hai un ruolo personalizzato attivo. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG });
     return { ok: false, state };
   }
 
@@ -500,7 +500,7 @@ async function ensureOwnerCustomRoleActive(interaction, ownerId, expectedRoleId 
       content: [
         "<a:VC_Alert:1482706673176150077> Il tuo ruolo personalizzato è scaduto.",
         `<:VC_Clock:1473359204189474886> Scadenza: ${buildExpiryText(state.doc)}`,
-        "<:VC_InactiveStatus:1482526984234860574> Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per crearne uno nuovo.",
+        "<:VC_InactiveStatus:1482526984234860574> Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) per crearne uno nuovo.",
       ].join("\n"),
       flags: PRIVATE_FLAG,
     });
@@ -510,7 +510,7 @@ async function ensureOwnerCustomRoleActive(interaction, ownerId, expectedRoleId 
   if (state.status === "missing_role") {
     await replyEphemeral(interaction, {
       content:
-        "<:VC_Attention:1482534443632558151> Ruolo personalizzato non trovato, ricrealo con [profilo sul sito](https://www.viniliecaffe.it/personalizza/).",
+        "<:VC_Attention:1482534443632558151> Ruolo personalizzato non trovato, ricrealo con [Personalizza](https://www.viniliecaffe.it/personalizza/).",
       flags: PRIVATE_FLAG,
     });
     return { ok: false, state };
@@ -521,7 +521,7 @@ async function ensureOwnerCustomRoleActive(interaction, ownerId, expectedRoleId 
     String(state.role?.id || "") !== String(expectedRoleId) &&
     String(state.secondaryRole?.id || "") !== String(expectedRoleId)
   ) {
-    await replyEphemeral(interaction, { content: "<:vegax:1443934876440068179> Questo pannello non è più allineato al tuo ruolo personalizzato attuale. Riapri con [profilo sul sito](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG });
+    await replyEphemeral(interaction, { content: "<:vegax:1443934876440068179> Questo pannello non è più allineato al tuo ruolo personalizzato attuale. Riapri con [Personalizza](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG });
     return { ok: false, state };
   }
   const resolvedRole = expectedRoleId && String(state.secondaryRole?.id || "") === String(expectedRoleId)
@@ -552,11 +552,11 @@ async function ensureOwnerCustomVocAccess(interaction, ownerId, expectedChannelI
     .catch(() => null);
   const storedChannelId = String(doc?.customVocChannelId || "").trim();
   if (!storedChannelId) {
-    await replyEphemeral(interaction, {content: "<:VC_Attention:1482534443632558151> Non hai una custom voc attiva. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG });
+    await replyEphemeral(interaction, {content: "<:VC_Attention:1482534443632558151> Non hai una custom voc attiva. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG });
     return { ok: false, doc: null, channelId: "" };
   }
   if (expectedChannelId && String(storedChannelId) !== String(expectedChannelId)) {
-    await replyEphemeral(interaction, { content: "<:vegax:1443934876440068179> Questo pannello non è più allineato alla tua custom voc. Riapri con [profilo sul sito](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG });
+    await replyEphemeral(interaction, { content: "<:vegax:1443934876440068179> Questo pannello non è più allineato alla tua custom voc. Riapri con [Personalizza](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG });
     return { ok: false, doc, channelId: storedChannelId };
   }
   return { ok: true, doc, channelId: storedChannelId };
@@ -938,7 +938,7 @@ async function handleRoleActionButton(interaction) {
     await interaction
       .reply({
         content:
-          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con [profilo sul sito](https://www.viniliecaffe.it/personalizza/).",
+          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con [Personalizza](https://www.viniliecaffe.it/personalizza/).",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -1130,7 +1130,7 @@ async function handleRoleActionModal(interaction) {
     await interaction
       .reply({
         content:
-          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con [profilo sul sito](https://www.viniliecaffe.it/personalizza/).",
+          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con [Personalizza](https://www.viniliecaffe.it/personalizza/).",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -1647,7 +1647,7 @@ async function handleAddRemoveSelectMenus(interaction) {
       await interaction
         .reply({
           content:
-            "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con [profilo sul sito](https://www.viniliecaffe.it/personalizza/).",
+            "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con [Personalizza](https://www.viniliecaffe.it/personalizza/).",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -2705,7 +2705,7 @@ async function handleCustomProfilePromptMessage(message) {
   if (type.startsWith("role_")) {
     const resolved = await resolvePromptRole(message, pending);
     if (!resolved.ok) {
-      return done(resolved.reason === "no_manage_role" ? "<:VC_Attention:1482534443632558151> Non posso modificare questo ruolo." : "<:VC_Attention:1482534443632558151> Ruolo non trovato, riapri [profilo sul sito](https://www.viniliecaffe.it/personalizza/).");
+      return done(resolved.reason === "no_manage_role" ? "<:VC_Attention:1482534443632558151> Non posso modificare questo ruolo." : "<:VC_Attention:1482534443632558151> Ruolo non trovato, riapri [Personalizza](https://www.viniliecaffe.it/personalizza/).");
     }
     const role = resolved.role;
     const refreshSection = customRolePanelSectionForRoleId(resolved.state, pending.roleId);

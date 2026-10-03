@@ -1,7 +1,7 @@
 (function (global) {
   "use strict";
 
-  var ASSET_VER = "20260907customModal1";
+  var ASSET_VER = "20260928sheetUnlock1";
   var scriptsLoaded = false;
   var scriptsLoading = null;
 
@@ -13,7 +13,37 @@
       .replace(/"/g, "&quot;");
   }
 
+  function unlockSheetPageChrome() {
+    try {
+      var root = global.document.documentElement;
+      root.classList.remove(
+        "vc-interaction-hold",
+        "vc-notif-staff-loading",
+        "vc-notif-early-staff",
+        "vc-loading-scroll-lock",
+        "vc-loader-blocking-live",
+        "vc-scroll-soft-lock",
+      );
+      root.classList.add("vc-soft-fx-ready", "vc-page-cine-ready");
+      root.style.setProperty("pointer-events", "auto", "important");
+      root.style.setProperty("touch-action", "manipulation", "important");
+      if (global.document.body) {
+        global.document.body.style.setProperty("pointer-events", "auto", "important");
+        global.document.body.style.setProperty("touch-action", "manipulation", "important");
+      }
+    } catch (eUnlock) {}
+    try {
+      global.__vcSheetCloseGuardUntil = 0;
+    } catch (eG) {}
+    try {
+      if (typeof global.__vcReleaseInteractionHold === "function") global.__vcReleaseInteractionHold();
+    } catch (eRel) {}
+  }
+
   function closeManageSheet() {
+    try {
+      if (typeof global.__vcArmSheetCloseGuard === "function") global.__vcArmSheetCloseGuard(520);
+    } catch (eGhost) {}
     var sheet = global.document.getElementById("vc-staff-manage-sheet");
     if (sheet) sheet.remove();
     try {
@@ -87,13 +117,13 @@
 
     var wrap = global.document.createElement("div");
     wrap.id = "vc-staff-manage-sheet";
-    wrap.className = "vc-staff-manage-sheet";
+    wrap.className = "vc-staff-manage-sheet vc-no-sfx";
     wrap.setAttribute("role", "dialog");
     wrap.setAttribute("aria-modal", "true");
     wrap.setAttribute("aria-label", "Gestione staff");
     wrap.innerHTML =
       '<button type="button" class="vc-staff-manage-sheet__backdrop" data-manage-close="1" aria-label="Chiudi"></button>' +
-      '<div class="vc-staff-manage-sheet__panel">' +
+      '<div class="vc-staff-manage-sheet__panel vc-no-sfx">' +
       '<header class="vc-staff-manage-sheet__head">' +
       '<div class="vc-staff-manage-sheet__head-copy">' +
       '<span class="vc-staff-manage-sheet__kicker"><i class="fa fa-sliders" aria-hidden="true"></i> Gestione carriera</span>' +
@@ -116,12 +146,15 @@
     try {
       global.document.documentElement.classList.add("vc-staff-manage-sheet-open");
     } catch (eOpen) {}
+    unlockSheetPageChrome();
     try {
       if (typeof global.__vcSyncLoaderScrollLock === "function") global.__vcSyncLoaderScrollLock();
       else if (typeof global.__vcPinPageScroll === "function") global.__vcPinPageScroll();
     } catch (ePin) {}
+    unlockSheetPageChrome();
     global.requestAnimationFrame(function () {
       wrap.classList.add("is-in");
+      unlockSheetPageChrome();
     });
 
     var panel = wrap.querySelector("#vc-staff-manage-detail");

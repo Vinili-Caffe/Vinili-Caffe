@@ -3,13 +3,18 @@ const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter");
+const { sendJsonWithEtag, weakEtagFromParts } = require("./siteHttpEtag");
 
 const CACHE_TTL_MS = 90_000;
 const STALE_KEEP_MS = 10 * 60 * 1000;
-const MEMBERS_FETCH_TIMEOUT_MS = 7_000;
 const IDENTITY_FETCH_TIMEOUT_MS = 4_500;
 const IDENTITY_BATCH_CONCURRENCY = 8;
+/* rolesMemberCountFix1: roster completo per conteggi reali (role.members cache era parziale) */
+const MEMBERS_HYDRATE_TTL_MS = 5 * 60 * 1000;
+const MEMBERS_FETCH_BUDGET_MS = 55_000;
 let cache = { at: 0, payload: null, refreshing: false };
+let membersHydratedAt = 0;
+let membersHydrating = null;
 const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
 
 function resolveGuildId(client) {
@@ -94,14 +99,14 @@ async function fetchUserIdentity(client, guild, userId) {
   const id = String(userId || "").trim();
   const out = emptyIdentity(id);
   if (!id) return out;
+  /* rolesOwnerHydrate1: cache first, then Discord fetch (prima tornava "Utente" se non in cache) */
   let member = guild?.members?.cache?.get(id) || null;
-  if (!member && guild?.members?.fetch) {
-    member = await withTimeout(
-      guild.members.fetch({ user: id, force: false }).catch(() => null),
-      IDENTITY_FETCH_TIMEOUT_MS,
-    );
+  let user = member?.user || client?.users?.cache?.get?.(id) || null;
+  if (!member && !user) {
+    user = await fetchDiscordUser(client, guild, id);
+    member = guild?.members?.cache?.get(id) || null;
+    if (!user && member?.user) user = member.user;
   }
-  const user = member?.user || (await fetchDiscordUser(client, guild, userId));
   out.inGuild = Boolean(member);
   if (!user) return out;
   out.ownerUsername = String(user.username || "").trim();
@@ -145,6 +150,7 @@ function staffBadgeRoleOrder(ids) {
     R.PartnerManager,
     R.Staff,
     R.StafferDelMese,
+    R.StafferDellaSettimana,
   ]
     .map((x) => String(x || "").trim())
     .filter(Boolean);
@@ -204,20 +210,104 @@ function isExpired(doc) {
   return Number.isFinite(t) && t <= Date.now();
 }
 
-async function ensureMembersCache(guild) {
-  if (guild.members?.cache?.size > 50) return;
-  await withTimeout(
-    guild.members.fetch().catch((err) => {
-      global.logger?.warn?.("[WEBHOOK] site-roles members.fetch failed:", err?.message || err);
-      return null;
-    }),
-    MEMBERS_FETCH_TIMEOUT_MS,
-  );
-  if (!(guild.members?.cache?.size > 1)) {
-    global.logger?.warn?.(
-      `[WEBHOOK] site-roles members cache thin: size=${guild.members?.cache?.size || 0}`,
-    );
+async function hydrateRoleOwners(client, guild, ownerIds) {
+  const ids = [...new Set((Array.isArray(ownerIds) ? ownerIds : []).map((id) => String(id || "").trim()).filter((id) => /^\d{17,22}$/.test(id)))];
+  if (!guild?.members?.fetch || !ids.length) return;
+  const missing = ids.filter((id) => !guild.members.cache.has(id) && !client?.users?.cache?.has?.(id));
+  if (!missing.length) return;
+  /* rolesOwnerHydrate1: soft budget 900ms + background rebuild cache */
+  const concurrency = 8;
+  const run = async () => {
+    for (let i = 0; i < missing.length; i += concurrency) {
+      const chunk = missing.slice(i, i + concurrency);
+      await Promise.all(
+        chunk.map((userId) =>
+          withTimeout(
+            guild.members.fetch({ user: userId, force: false }).catch(() => null),
+            IDENTITY_FETCH_TIMEOUT_MS,
+          ).then((member) => {
+            if (member?.user) return member;
+            return withTimeout(client.users.fetch(userId, { force: false }).catch(() => null), IDENTITY_FETCH_TIMEOUT_MS);
+          }),
+        ),
+      );
+    }
+  };
+  await Promise.race([run(), new Promise((r) => setTimeout(r, 900))]);
+  if (missing.some((id) => !guild.members.cache.has(id) && !client?.users?.cache?.has?.(id))) {
+    setImmediate(() => {
+      run()
+        .then(() => refreshSiteRolesCache(client).catch(() => {}))
+        .catch(() => {});
+    });
   }
+}
+
+function membersRosterLooksComplete(guild) {
+  const reported = Math.max(0, Number(guild?.memberCount || guild?.approximateMemberCount || 0));
+  const cached = Math.max(0, Number(guild?.members?.cache?.size || 0));
+  if (cached < 50) return false;
+  if (reported > 0) return cached >= Math.floor(reported * 0.8);
+  return cached >= 200;
+}
+
+async function ensureCustomRoleMemberRoster(guild) {
+  if (!guild?.members?.fetch) return;
+  const fresh = Date.now() - membersHydratedAt < MEMBERS_HYDRATE_TTL_MS;
+  if (fresh && membersRosterLooksComplete(guild)) return;
+  if (membersHydrating) {
+    await membersHydrating.catch(() => {});
+    return;
+  }
+  membersHydrating = (async () => {
+    try {
+      /* rolesMemberCountFix1: un fetch roster controllato (TTL 5m) — role.members da soli
+         contano solo chi è già in cache REST e sotto-stimano (es. 4/5 invece di 24). */
+      await Promise.race([
+        guild.members.fetch().catch((err) => {
+          global.logger?.warn?.("[WEBHOOK] site-roles members roster:", err?.message || err);
+          return null;
+        }),
+        new Promise((resolve) => setTimeout(resolve, MEMBERS_FETCH_BUDGET_MS)),
+      ]);
+      if (Number(guild?.members?.cache?.size || 0) > 0) {
+        membersHydratedAt = Date.now();
+      }
+    } finally {
+      membersHydrating = null;
+    }
+  })();
+  await membersHydrating;
+}
+
+function collectHumanMembersForRole(guild, role) {
+  const rid = String(role?.id || "").trim();
+  if (!rid) return [];
+  const out = [];
+  const seen = new Set();
+  const push = (m) => {
+    if (!m || m.user?.bot) return;
+    const id = String(m.id || m.user?.id || "").trim();
+    if (!id || seen.has(id)) return;
+    if (m.roles?.cache && typeof m.roles.cache.has === "function" && !m.roles.cache.has(rid)) return;
+    seen.add(id);
+    out.push(m);
+    try {
+      role.members?.set?.(id, m);
+    } catch (_) {}
+  };
+  /* Preferisci scan della cache guild (completa dopo ensureCustomRoleMemberRoster). */
+  if (guild?.members?.cache?.size) {
+    for (const m of guild.members.cache.values()) {
+      if (!m?.roles?.cache?.has?.(rid)) continue;
+      push(m);
+    }
+  }
+  if (out.length) return out;
+  if (role?.members) {
+    for (const m of role.members.values()) push(m);
+  }
+  return out;
 }
 
 async function buildSiteRolesPayload(client) {
@@ -242,11 +332,14 @@ async function buildSiteRolesPayload(client) {
   }
 
   await guild.roles.fetch().catch(() => null);
-  await ensureMembersCache(guild);
 
   const docs = await CustomRole.find({ guildId }).lean().catch(() => []);
   const filtered = (Array.isArray(docs) ? docs : []).filter((doc) => (doc?.roleId || doc?.secondaryRoleId) && !isExpired(doc));
   const ownerIds = filtered.map((doc) => doc.userId);
+  // rolesPrefetchNoise1: never guild.members.fetch() full roster on every page hit.
+  // rolesMemberCountFix1: fetch roster at most ogni MEMBERS_HYDRATE_TTL durante rebuild cache.
+  await ensureCustomRoleMemberRoster(guild);
+  await hydrateRoleOwners(client, guild, ownerIds);
   const identityByOwner = await fetchUserIdentitiesBatch(client, guild, ownerIds);
   const rows = [];
 
@@ -254,12 +347,6 @@ async function buildSiteRolesPayload(client) {
     const ownerId = String(doc.userId || "").trim();
     if (!ownerId) continue;
     let ownerMember = guild.members.cache.get(ownerId) || null;
-    if (!ownerMember && guild.members?.fetch) {
-      ownerMember = await withTimeout(
-        guild.members.fetch({ user: ownerId, force: false }).catch(() => null),
-        IDENTITY_FETCH_TIMEOUT_MS,
-      );
-    }
     const cachedUser = client?.users?.cache?.get?.(ownerId) || null;
     if (ownerMember?.user?.bot || cachedUser?.bot) continue;
 
@@ -286,17 +373,7 @@ async function buildSiteRolesPayload(client) {
         snowflakeDateIso(role.id) ||
         null;
       const expiresAt = doc.expiresAt ? new Date(doc.expiresAt).toISOString() : null;
-      let humanMembers = role.members
-        ? Array.from(role.members.values()).filter((m) => !m.user?.bot)
-        : [];
-      if (humanMembers.length === 0 && guild.members?.cache?.size) {
-        humanMembers = Array.from(guild.members.cache.values()).filter(
-          (m) => !m.user?.bot && m.roles?.cache?.has?.(role.id),
-        );
-        for (const m of humanMembers) {
-          role.members?.set?.(m.id, m);
-        }
-      }
+      const humanMembers = collectHumanMembersForRole(guild, role);
       const memberCount = humanMembers.length;
       const iconUrl = typeof role.iconURL === "function" ? role.iconURL({ size: 256 }) : "";
       const members = humanMembers
@@ -353,11 +430,22 @@ async function buildSiteRolesPayload(client) {
   };
 }
 
-function sendRolesPayload(res, payload, opts) {
+function sendRolesPayload(req, res, payload, opts) {
+  /* siteApiW6: ETag/304 on roles poll */
   const stale = Boolean(opts?.stale);
-  res.setHeader("Cache-Control", stale ? "public, max-age=5, stale-while-revalidate=120" : "public, max-age=20");
-  if (stale) res.setHeader("X-VC-Roles-Stale", "1");
-  return res.json(payload);
+  const cacheControl = stale ? "public, max-age=5, stale-while-revalidate=120" : "public, max-age=20";
+  const etag = weakEtagFromParts([
+    "roles",
+    cache.at || 0,
+    payload?.summary?.totalRoles || 0,
+    payload?.summary?.totalAssignments || 0,
+    stale ? "s" : "f",
+  ]);
+  return sendJsonWithEtag(req, res, payload, {
+    cacheControl,
+    etag,
+    extraHeaders: stale ? { "X-VC-Roles-Stale": "1" } : undefined,
+  });
 }
 
 async function refreshSiteRolesCache(client) {
@@ -385,7 +473,7 @@ async function handleSiteRolesGet(client, req, res) {
   try {
     const now = Date.now();
     if (cache.payload && now - cache.at < CACHE_TTL_MS) {
-      return sendRolesPayload(res, cache.payload);
+      return sendRolesPayload(req, res, cache.payload);
     }
 
     const stalePayload = cache.payload && now - cache.at < STALE_KEEP_MS ? cache.payload : null;
@@ -395,19 +483,19 @@ async function handleSiteRolesGet(client, req, res) {
           global.logger?.warn?.("[WEBHOOK] site-roles refresh:", err?.message || err);
         });
       }
-      return sendRolesPayload(res, stalePayload, { stale: true });
+      return sendRolesPayload(req, res, stalePayload, { stale: true });
     }
 
     if (cache.refreshing && stalePayload) {
-      return sendRolesPayload(res, stalePayload, { stale: true });
+      return sendRolesPayload(req, res, stalePayload, { stale: true });
     }
 
     const payload = await refreshSiteRolesCache(client);
-    return sendRolesPayload(res, payload);
+    return sendRolesPayload(req, res, payload);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-roles:", err);
     if (cache.payload) {
-      return sendRolesPayload(res, cache.payload, { stale: true });
+      return sendRolesPayload(req, res, cache.payload, { stale: true });
     }
     return res.status(500).json({ ok: false, error: "internal" });
   }
@@ -415,6 +503,7 @@ async function handleSiteRolesGet(client, req, res) {
 
 function invalidateSiteRolesCache() {
   cache = { at: 0, payload: null, refreshing: false };
+  membersHydratedAt = 0;
 }
 
 module.exports = { handleSiteRolesGet, invalidateSiteRolesCache, warmSiteRolesCache };

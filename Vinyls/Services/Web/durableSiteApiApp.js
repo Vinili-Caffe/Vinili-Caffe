@@ -180,24 +180,37 @@ async function main() {
   const config = loadVinylsConfig();
   const client = await createSiteApiRestClient(config, token);
   global.botClient = client;
+  /* siteApiW6: register handlers sync; await command loads after listen */
+  const { listFoldersIfExists } = require("../../../shared/runtime/fsRuntime");
+  let prefixRoot = "";
+  let folders = [];
+  let cmdRoot = "";
+  let cmdFolders = [];
   try {
     require("../../Handlers/prefixHandler")(client);
-    const { listFoldersIfExists } = require("../../../shared/runtime/fsRuntime");
-    const prefixRoot = path.join(ROOT, "Vinyls", "Prefix");
-    const folders = listFoldersIfExists(prefixRoot);
-    if (typeof client.prefixCommands === "function" && folders.length) {
-      await client.prefixCommands(folders, prefixRoot);
-      client.__prefixCommandsReady = true;
-    }
+    prefixRoot = path.join(ROOT, "Vinyls", "Prefix");
+    folders = listFoldersIfExists(prefixRoot);
     require("../../Handlers/commandHandler")(client);
-    const cmdRoot = path.join(ROOT, "Vinyls", "Commands");
-    const cmdFolders = listFoldersIfExists(cmdRoot);
-    if (typeof client.handleCommands === "function" && cmdFolders.length) {
-      await client.handleCommands(cmdFolders, cmdRoot);
-      client.__slashCommandsReady = true;
-    }
+    cmdRoot = path.join(ROOT, "Vinyls", "Commands");
+    cmdFolders = listFoldersIfExists(cmdRoot);
   } catch (err) {
-    console.warn("[SITE-API] prefix commands load:", err?.message || err);
+    console.warn("[SITE-API] command handlers bind:", err?.message || err);
+  }
+
+  async function loadSiteApiCommandsBg() {
+    try {
+      if (typeof client.prefixCommands === "function" && folders.length) {
+        await client.prefixCommands(folders, prefixRoot);
+        client.__prefixCommandsReady = true;
+      }
+      if (typeof client.handleCommands === "function" && cmdFolders.length) {
+        await client.handleCommands(cmdFolders, cmdRoot);
+        client.__slashCommandsReady = true;
+      }
+      console.log("[SITE-API] commands ready (bg)");
+    } catch (err) {
+      console.warn("[SITE-API] prefix commands load:", err?.message || err);
+    }
   }
 
   const app = express();
@@ -242,11 +255,13 @@ async function main() {
     const isSiteVote = pathStr.startsWith("/webhooks/site-vote");
     const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
     const isSiteKickLive = pathStr.startsWith("/webhooks/site-kick-live");
+    const isSiteTwitchLive = pathStr.startsWith("/webhooks/site-twitch-live");
     const isSiteKickSub = pathStr.startsWith("/webhooks/site-kick-sub");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteWikiHelp = pathStr.startsWith("/webhooks/site-wiki-help");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
+    const isSiteBoards = pathStr.startsWith("/webhooks/site-boards");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteBotFeedback = pathStr.startsWith("/webhooks/site-bot-feedback");
     const isSiteWebTickets = pathStr.startsWith("/webhooks/site-web-tickets");
@@ -262,9 +277,11 @@ async function main() {
       pathStr.startsWith("/webhooks/site-staff-manage") ||
       pathStr.startsWith("/webhooks/site-staff-organico") ||
       pathStr.startsWith("/webhooks/site-staff-pause") ||
+      pathStr.startsWith("/webhooks/site-staff-compiti") ||
       pathStr.startsWith("/webhooks/site-staff-profile") ||
       pathStr.startsWith("/webhooks/site-staff-pm-hub") ||
       pathStr.startsWith("/webhooks/site-staff-pm-points-removed") ||
+      pathStr.startsWith("/webhooks/site-staff-pm-shop") ||
       pathStr.startsWith("/webhooks/site-staff-pm-actions") ||
       pathStr.startsWith("/webhooks/site-staff-tickets") ||
       pathStr.startsWith("/webhooks/site-staff-seratafilm") ||
@@ -272,6 +289,13 @@ async function main() {
     const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
     const isSiteCustomProfile = pathStr.startsWith("/webhooks/site-custom-profile");
     const isSiteProfileExtras = pathStr.startsWith("/webhooks/site-profile-extras");
+    /* siteApiDeviceEverywhere1: chrome-prefs / discord-me / cookie / dashboard anche in CORS */
+    const isSiteChromePrefs = pathStr === "/webhooks/site-chrome-prefs";
+    const isSiteDiscordMe = pathStr === "/webhooks/site-discord-me";
+    const isSiteCookieConsent = pathStr === "/webhooks/site-cookie-consent";
+    const isSiteDashboard = pathStr.startsWith("/webhooks/site-dashboard");
+    const isSiteWelcomePronouns = pathStr.startsWith("/webhooks/site-welcome-pronouns");
+    const isSiteGuildJoin = pathStr.startsWith("/webhooks/site-guild-join");
     // appelliApi1: subject live chat on /appelli uses these user workflow endpoints
     const isSiteUserWorkflow =
       pathStr.startsWith("/webhooks/site-user-workflows") ||
@@ -289,11 +313,13 @@ async function main() {
       !isSiteVote &&
       !isSiteLiveEvent &&
       !isSiteKickLive &&
+      !isSiteTwitchLive &&
       !isSiteKickSub &&
       !isSiteRoles &&
       !isSiteRankCard &&
       !isSiteWikiHelp &&
       !isSiteReviews &&
+      !isSiteBoards &&
       !isSiteSuggestions &&
       !isSiteBotFeedback &&
       !isSiteWebTickets &&
@@ -305,6 +331,12 @@ async function main() {
       !isSiteHogwartsSorting &&
       !isSiteCustomProfile &&
       !isSiteProfileExtras &&
+      !isSiteChromePrefs &&
+      !isSiteDiscordMe &&
+      !isSiteCookieConsent &&
+      !isSiteDashboard &&
+      !isSiteWelcomePronouns &&
+      !isSiteGuildJoin &&
       !isSiteUserWorkflow &&
       !isSiteStaffWorkflow
     ) {
@@ -339,6 +371,7 @@ async function main() {
       isSiteRoles ||
       isSiteRankCard ||
       isSiteReviews ||
+      isSiteBoards ||
       isSiteSuggestions ||
       isSiteBotFeedback ||
       isSiteNotifications ||
@@ -352,9 +385,12 @@ async function main() {
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, Accept, Cache-Control, Pragma, Access-Control-Request-Private-Network",
+      /* siteApiDeviceEverywhere1: If-None-Match + X-VC-Perf (Safari/Firefox preflight) */
+      "Content-Type, Authorization, Accept, Cache-Control, Pragma, If-None-Match, If-Match, Access-Control-Request-Private-Network, X-VC-View-As, X-VC-Perf",
     );
     if (allowOrigin) res.setHeader("Access-Control-Allow-Private-Network", "true");
+    /* Expose ETag so browsers can cache validators for conditional GET */
+    res.setHeader("Access-Control-Expose-Headers", "ETag, X-VC-Perf, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After");
     if (req.method === "OPTIONS") {
       res.status(204).end();
       return;
@@ -365,6 +401,20 @@ async function main() {
   app.get("/webhooks/site-api/health", (_req, res) => {
     const { sendStackHealth } = require("../../Utils/Web/stackHealth");
     return sendStackHealth(client, _req, res, { service: "site-api", includeLavalink: false });
+  });
+  app.get("/webhooks/site-api/perf", (_req, res) => {
+    let oauth = { size: 0, inflight: 0, ttlMs: 0 };
+    try {
+      oauth = require("../../Utils/Web/discordOauthMe").getDiscordOAuthMeCacheStats();
+    } catch (_) {}
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({
+      ok: true,
+      service: "site-api",
+      uptimeSec: Math.floor(process.uptime()),
+      memMb: Math.round((process.memoryUsage().rss || 0) / (1024 * 1024)),
+      oauthMeCache: oauth,
+    });
   });
   app.get("/webhooks/health", (req, res) => {
     const { sendStackHealth } = require("../../Utils/Web/stackHealth");
@@ -411,6 +461,14 @@ async function main() {
         } catch {
                   }
       }
+      /* leaveProfileLive1: bots → site-api: wipe profile/staff/member caches before WS fanout */
+      if (type === "member_left") {
+        try {
+          const { invalidateLeftMemberSiteCaches } = require("../../Utils/Web/siteSuggestionsBroadcast");
+          invalidateLeftMemberSiteCaches(body.userId, body.guildId);
+        } catch {
+                  }
+      }
       const { broadcastSiteRealtime } = require("../../Utils/Web/siteSuggestionsBroadcast");
       broadcastSiteRealtime({ ...body, at: body.at || new Date().toISOString() });
     } catch (err) {
@@ -446,6 +504,13 @@ async function main() {
   });
 
   const server = http.createServer(app);
+  /* siteApiDeviceEverywhere1: evita 502 nginx su hang Discord/LTE lenti */
+  try {
+    server.requestTimeout = 65_000;
+    server.headersTimeout = 70_000;
+    server.keepAliveTimeout = 65_000;
+    server.maxHeadersCount = 100;
+  } catch (_) {}
   try {
     const { attachSiteSuggestionsWsServer } = require("../../Utils/Web/siteSuggestionsBroadcast");
     attachSiteSuggestionsWsServer(server);
@@ -454,6 +519,10 @@ async function main() {
   }
   server.listen(port, "0.0.0.0", () => {
     console.log(`[SITE-API] listening on 0.0.0.0:${port} as ${client.user?.tag || client.user?.username}`);
+    console.log("[SITE-API] siteApiDeviceEverywhere1 timeouts on");
+    setImmediate(() => {
+      loadSiteApiCommandsBg();
+    });
     try {
       const { warmSiteRolesCache } = require("../../Utils/Web/siteRolesApi");
       setTimeout(() => {
@@ -461,6 +530,25 @@ async function main() {
       }, 2500);
     } catch (err) {
       console.warn("[SITE-API] site-roles warm:", err?.message || err);
+    }
+    /* siteApiW4: warm users + live-event so first public hit isn't cold */
+    try {
+      const { warmSiteUsersLeaderboardCache } = require("../../Utils/Web/siteUsersLeaderboardApi");
+      setTimeout(() => {
+        warmSiteUsersLeaderboardCache(client).catch((e) => {
+          console.warn("[SITE-API] site-users warm:", e?.message || e);
+        });
+      }, 4500);
+    } catch (err) {
+      console.warn("[SITE-API] site-users warm init:", err?.message || err);
+    }
+    try {
+      const { warmSiteLiveEventCache } = require("../../Utils/Web/siteLiveEventApi");
+      setTimeout(() => {
+        warmSiteLiveEventCache(client);
+      }, 3000);
+    } catch (err) {
+      console.warn("[SITE-API] site-live-event warm:", err?.message || err);
     }
     try {
       const {

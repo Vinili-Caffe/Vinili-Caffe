@@ -41,6 +41,28 @@ function resolveLavalinkTarget() {
   return { host, port };
 }
 
+async function probeLavalinkHttpReady(host, port, timeoutMs = 1500) {
+  const password = String(process.env.LAVALINK_PASSWORD || "youshallnotpass").trim() || "youshallnotpass";
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = setTimeout(() => {
+    try {
+      ctrl?.abort?.();
+    } catch (_) {}
+  }, Math.max(250, Number(timeoutMs) || 1500));
+  try {
+    const res = await fetch(`http://${host}:${port}/version`, {
+      headers: { Authorization: password },
+      signal: ctrl?.signal,
+      cache: "no-store",
+    });
+    return Boolean(res?.ok);
+  } catch (_) {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function resolveCoffeeHealthTarget() {
   const host = String(process.env.COFFEE_HEALTH_HOST || "127.0.0.1").trim() || "127.0.0.1";
   const port = Number(process.env.COFFEE_HEALTH_PORT || 3011);
@@ -97,7 +119,8 @@ async function buildStackHealthPayload(client, opts = {}) {
   let lavalinkOk = null;
   if (includeLavalink) {
     const { host, port } = resolveLavalinkTarget();
-    lavalinkOk = await tcpProbe(host, port, 1500);
+    /* lavalinkAuthHealth1: /version con Authorization (TCP aperto ≠ Lavalink sano) */
+    lavalinkOk = await probeLavalinkHttpReady(host, port, 1500);
   }
 
   let coffee = null;
@@ -147,4 +170,5 @@ module.exports = {
   sendStackHealth,
   tcpProbe,
   probeCoffeeHealth,
+  probeLavalinkHttpReady,
 };

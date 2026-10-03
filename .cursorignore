@@ -1,0 +1,120 @@
+﻿# --- deps / env / cache ---
+node_modules/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.cache/
+.parcel-cache/
+.eslintcache/
+.stylelintcache/
+*.tsbuildinfo
+.npm/
+.yarn/
+.pnpm-store/
+
+# --- secrets / logs / runtime ---
+.env
+.env.*
+!.env.example
+*.log
+logs/
+*.pid
+*.seed
+*.wal
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# --- git / IDE noise ---
+.git/
+.cursor/
+.vscode-test/
+
+# --- one-shot deploy/probe junk (hundreds of _tmp_*) ---
+deploy/_tmp_*
+deploy/backups/
+deploy/atlas-dump/
+deploy/tools/
+deploy/.env.mongo
+.deploy/
+
+# --- build / mirror / generated site ---
+WebSite/dist/
+**/dist/
+coverage/
+.nyc_output/
+.next/
+.nuxt/
+.docusaurus/
+.serverless/
+
+# --- i18n extracts (generated; locales/*.json stay searchable) ---
+WebSite/js/i18n/_extracted/
+
+# --- huge / binary media (useless for code search) ---
+*.mp4
+*.mov
+*.webm
+*.mkv
+*.avi
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.gif
+*.webp
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.otf
+*.eot
+*.pdf
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+*.tgz
+*.jar
+
+WebSite/images/
+WebSite/**/images/
+Vinyls/assets/
+Coffee/assets/
+**/fonts/
+
+# --- Lavalink binaries ---
+Lavalink/Lavalink.jar
+Lavalink/plugins/
+Lavalink/**/*.jar
+
+# --- bot runtime data / dumps ---
+**/Data/Backups/
+**/Data/uploads/
+**/Data/markov/
+**/Data/*Snapshot*.json
+Vinyls/Data/Hogwarts/
+Vinyls/Data/noDmList.json*
+Vinyls/Data/ticketReopenOutsideSessions.json*
+Coffee/Data/
+shared/discord/chatHubPacing.snapshot.json
+Vinyls/Utils/Config/helpNewUntil.json
+restart_notify.json
+restart.json
+
+# --- backups / leftovers ---
+*.bak
+*.bak_*
+*.orig
+*.tmp
+*~
+*.swp
+*.swo
+
+# --- lockfiles rarely useful in chat context ---
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# --- bundled mega CSS duplicate (edit core/ext instead) ---
+WebSite/css/vc-landing.css

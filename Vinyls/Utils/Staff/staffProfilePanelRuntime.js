@@ -219,6 +219,7 @@ function staffProfileRoleBadgeKind(roleId) {
   if (IDs.roles.Manager && id === String(IDs.roles.Manager)) return "manager";
   if (IDs.roles.PartnerManager && id === String(IDs.roles.PartnerManager)) return "pm";
   if (IDs.roles.StafferDelMese && id === String(IDs.roles.StafferDelMese)) return "sdm";
+  if (IDs.roles.StafferDellaSettimana && id === String(IDs.roles.StafferDellaSettimana)) return "sdw";
   if (IDs.roles.HighStaff && id === String(IDs.roles.HighStaff)) return "highstaff";
   if (IDs.roles.Staff && id === String(IDs.roles.Staff)) return "staff";
   if (IDs.roles.Director && id === String(IDs.roles.Director)) return "director";
@@ -231,6 +232,7 @@ function staffProfileRoleBadgeIcon(kind) {
   if (kind === "manager") return "fa-briefcase";
   if (kind === "pm") return "fa-handshake-o";
   if (kind === "sdm") return "fa-trophy";
+  if (kind === "sdw") return "fa-star";
   if (kind === "highstaff") return "fa-shield";
   if (kind === "director") return "fa-shield";
   if (kind === "admin") return "fa-shield";
@@ -274,16 +276,33 @@ function appendStaffDelMeseBadge(guild, member, badges) {
   return list;
 }
 
+function appendStaffDelSettimanaBadge(guild, member, badges) {
+  const list = Array.isArray(badges) ? badges.slice() : [];
+  const sdwId = String(IDs.roles?.StafferDellaSettimana || "").trim();
+  if (!sdwId || !member?.roles?.cache?.has(sdwId)) return list;
+  if (list.some((b) => String(b?.roleId || "") === sdwId || String(b?.kind || "") === "sdw")) return list;
+  const discordRole = guild?.roles?.cache?.get(sdwId) || null;
+  list.unshift({
+    kind: "sdw",
+    icon: "fa-star",
+    label: discordRole?.name || "Staffer della Settimana",
+    color: staffProfileRoleColorHex(discordRole) || "#e8c49c",
+    roleId: sdwId,
+  });
+  return list;
+}
+
 function buildStaffProfileRoleBadges(guild, member) {
   if (!member?.roles?.cache || !guild?.roles?.cache) return [];
   const pmId = String(IDs.roles.PartnerManager || "").trim();
   const sdmId = String(IDs.roles?.StafferDelMese || "").trim();
+  const sdwId = String(IDs.roles?.StafferDellaSettimana || "").trim();
   const highStaffId = String(IDs.roles.HighStaff || "").trim();
   const staffId = String(IDs.roles.Staff || "").trim();
   const badges = [];
   for (const roleId of STAFF_PROFILE_DISPLAY_ROLE_PRIORITY) {
     const rid = String(roleId || "").trim();
-    if (!rid || rid === pmId || rid === sdmId || rid === highStaffId || rid === staffId) continue;
+    if (!rid || rid === pmId || rid === sdmId || rid === sdwId || rid === highStaffId || rid === staffId) continue;
     if (member.roles.cache.has(rid)) {
       pushRoleBadgeIfMissing(badges, guild, rid, "Staff");
       break;
@@ -298,7 +317,11 @@ function buildStaffProfileRoleBadges(guild, member) {
   if (pmId && member.roles.cache.has(pmId)) {
     pushRoleBadgeIfMissing(badges, guild, pmId, "Partner Manager");
   }
-  return appendStaffDelMeseBadge(guild, member, badges);
+  return appendStaffDelMeseBadge(
+    guild,
+    member,
+    appendStaffDelSettimanaBadge(guild, member, badges),
+  );
 }
 
 function hasDisplayTierStaffBeforePartnerManager(member) {
@@ -1391,6 +1414,7 @@ module.exports = {
   buildFullProfileRoleLabelForEmbed,
   buildStaffProfileRoleBadges,
   appendStaffDelMeseBadge,
+  appendStaffDelSettimanaBadge,
   resolveStaffProfileDisplayRoleId,
   viewerCanUsePartnerPointsPanel,
   viewerIsCoordinatorOrAbove,

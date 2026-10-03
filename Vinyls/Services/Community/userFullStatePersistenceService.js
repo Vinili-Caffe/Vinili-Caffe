@@ -247,6 +247,54 @@ async function persistUserFullState(guildId, userId, options = {}) {
     .catch(() => null);
 
   const state = await buildDiscordState(member, profileLean, options.reason || "persist");
+
+  // Non sovrascrivere un discordState ricco con lo strip mute (pochi ruoli).
+  let skipRoleShrink = false;
+  try {
+    const {
+      memberIsInMuteMirrorState,
+      hasPendingMuteMirrorSnapshot,
+    } = require("../Moderation/mutedMirrorRoleService");
+    if (memberIsInMuteMirrorState(member) || (await hasPendingMuteMirrorSnapshot(gid, uid).catch(() => false))) {
+      skipRoleShrink = true;
+    }
+  } catch (_) {}
+
+  if (!skipRoleShrink) {
+    const existing = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+      .select("profile.discordState.roleIds")
+      .lean()
+      .catch(() => null);
+    const existingIds = Array.isArray(existing?.profile?.discordState?.roleIds)
+      ? existing.profile.discordState.roleIds.map(String).filter(Boolean)
+      : [];
+    const nextIds = Array.isArray(state.roleIds) ? state.roleIds.map(String).filter(Boolean) : [];
+    if (existingIds.length >= 5 && nextIds.length < Math.max(2, Math.floor(existingIds.length * 0.35))) {
+      skipRoleShrink = true;
+      global.logger?.warn?.(
+        "[USER FULL STATE] skip discordState role shrink:",
+        gid,
+        uid,
+        `${nextIds.length}<${existingIds.length}`,
+      );
+    }
+  }
+
+  if (skipRoleShrink) {
+    const existing = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+      .select("profile.discordState")
+      .lean()
+      .catch(() => null);
+    const prev = existing?.profile?.discordState;
+    if (prev && Array.isArray(prev.roleIds) && prev.roleIds.length) {
+      state.roleIds = prev.roleIds.map(String).filter(Boolean);
+      if (Array.isArray(prev.roles) && prev.roles.length) state.roles = prev.roles;
+      if (Array.isArray(prev.personalityRoleIds) && prev.personalityRoleIds.length) {
+        state.personalityRoleIds = prev.personalityRoleIds;
+      }
+    }
+  }
+
   const setPayload = {
     "profile.discordState": state,
   };
@@ -461,9 +509,6 @@ async function runUserFullStateSweep(client, options = {}) {
       personality = await sweepPersonalityHoldersFromCache(client);
       lastLightSweepAtMs = Date.now();
       await saveMaintenanceTimestamps({ light: true });
-      global.logger?.info?.(
-        `[USER FULL STATE] light sweep custom=${custom.ok}/${custom.scanned} personality=${personality.ok}/${personality.scanned}`,
-      );
     }
 
     let full = null;

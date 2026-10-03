@@ -421,7 +421,14 @@ async function removeCustomRoleMember({ guild, ownerId, roleId, memberId }) {
   if (!target) return { ok: false, reason: "member_not_found" };
 
   const removed = await target.roles.remove(roleId, `Custom role member revoke via sito da ${ownerId}`).then(() => true).catch(() => false);
-  return removed ? { ok: true } : { ok: false, reason: "remove_failed" };
+  if (!removed) return { ok: false, reason: "remove_failed" };
+  try {
+    const { dropMemberFromRoleSnapshot } = require("../../Utils/Discord/threadRoleMembers");
+    dropMemberFromRoleSnapshot(guild.id, roleId, memberId);
+  } catch {
+    /* ignore */
+  }
+  return { ok: true };
 }
 
 async function addCustomRoleMember({ client, guild, ownerId, roleId, memberId }) {

@@ -113,8 +113,9 @@
     el.setAttribute("aria-busy", "true");
     el.innerHTML =
       '<div class="vc-session-verify-inner">' +
-      '<span class="vc-session-verify-spinner" aria-hidden="true"></span>' +
-      '<p class="vc-session-verify-text">Verifica sessione in corso...</p>' +
+      '<span class="vc-ul-loading-spinner vc-session-verify-spinner" aria-hidden="true"></span>' +
+      '<p class="vc-session-verify-text">Caricamento…</p>' +
+      '<p class="vc-session-verify-sub">Un momento…</p>' +
       "</div>";
     document.body.appendChild(el);
     return el;
@@ -136,8 +137,10 @@
     var el = ensureTxLoadingOverlay();
     var text = el.querySelector(".vc-session-verify-text");
     if (text) {
-      text.textContent = message || "Verifica sessione in corso...";
+      text.textContent = message || "Caricamento…";
     }
+    var sub = el.querySelector(".vc-session-verify-sub");
+    if (sub && !message) sub.textContent = "Un momento…";
     el.classList.remove("vc-session-verify-overlay--hidden");
     el.setAttribute("aria-busy", "true");
   }
@@ -303,7 +306,7 @@
     showTxLoading(
       remembered
         ? "Apertura transcript…"
-        : "Verifica sessione in corso...",
+        : "Caricamento…",
     );
     try {
       var res = await fetch("/ticket-transcript/" + encodeURIComponent(tokenParam), {
@@ -413,7 +416,7 @@
       showGate("");
       return;
     }
-    showTxLoading("Verifica sessione in corso...");
+    showTxLoading("Caricamento…");
     loadTranscript(tokenParam);
   }
 

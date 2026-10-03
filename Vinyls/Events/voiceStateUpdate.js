@@ -367,7 +367,10 @@ module.exports = {
     }
     try {
       const { handlePublicVoiceHubJoin, handlePublicVoiceHubEmpty } = require("../Services/Voice/publicVoiceHubService");
-      if (client?.config?.publicVoiceHubs?.enabled !== false) {
+      if (
+        client?.config?.publicVoiceHubs?.enabled !== false ||
+        client?.config?.gameVoiceHubs?.enabled !== false
+      ) {
         await handlePublicVoiceHubJoin(oldState, newState, client);
         await handlePublicVoiceHubEmpty(oldState, newState, client);
       }

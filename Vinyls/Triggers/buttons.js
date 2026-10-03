@@ -6,7 +6,7 @@ const IDs = require("../Utils/Config/ids");
 const { siteTicketsPageDiscordRef } = require("../../shared/web/siteTicketsPageRef");
 const { ZODIAC_ROLE_IDS } = require("../Utils/Community/zodiacRoles");
 const { PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL } = require("../Utils/Community/personalityColorUnlocks");
-const { PERSONALITY_MENTION_ROLE_IDS, PERSONALITY_HOBBY_ROLE_IDS } = require("../Utils/Community/personalityRolePersistence");
+const { PERSONALITY_MENTION_ROLE_IDS, PERSONALITY_HOBBY_ROLE_IDS, PERSONALITY_GAMING_ROLE_IDS } = require("../Utils/Community/personalityRolePersistence");
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPmUtils");
@@ -24,6 +24,7 @@ const { buildStaffGuideEmbed } = require("../Embeds/staff");
 const { applyDefaultFooter } = require("../Utils/Embeds/defaultFooter");
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
 const { buildStaffGuideSectionMarkdown } = require("../Utils/Staff/staffGuideContent");
+const { memberCanReadStaffGuideSection } = require("../Utils/Staff/staffGuideAccess");
 const {
   buildModerationGuideStickyPayload,
   moderationGuideEmbedColor,
@@ -104,8 +105,6 @@ function buildMiddleGuideNavRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("middle_ticket").setLabel("︲GESTIONE TICKET").setEmoji("<:VC_Ticket:1482535175283019888>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("middle_selfie").setLabel("︲VERIFICA SELFIE").setEmoji("<a:VC_Verified:1482532479637127188>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("middle_follower").setLabel("︲FOLLOWER & SUPPORTER").setEmoji("<a:VC_Verified:1482532479637127188>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("middle_partnership").setLabel("︲GESTIONE PARTNER").setEmoji("<:VC_Collab:1482534540089098260>").setStyle(ButtonStyle.Secondary),
   );
 }
 
@@ -132,6 +131,23 @@ async function handleStaffGuideSelectMenu(interaction) {
 
   const sectionId = String(interaction.values?.[0] || "").trim();
   if (!STAFF_GUIDE_SECTION_IDS.has(sectionId)) return false;
+
+  /* pmGuideOnly1: menu Discord è condiviso — blocca sezioni non leggibili (es. PM → solo Partners) */
+  if (!memberCanReadStaffGuideSection(interaction.member, sectionId)) {
+    const gate = {
+      allowed: false,
+      reason: "missing_role",
+      requiredRoles: null,
+      ownerId: null,
+    };
+    await panelSelectFollowUp(
+      interaction,
+      rebuildStaffGuideMenuComponents,
+      { embeds: [buildDeniedEmbedFromGate(gate, "menu", interaction)] },
+      staffGuidePanelResetOptions,
+    );
+    return true;
+  }
 
   const sectionInteraction = Object.assign(
     buildFollowUpInteractionProxy(interaction, { treatAsButton: true }),
@@ -438,15 +454,8 @@ async function handleStaffButtons(interaction) {
   }
 
   if (interaction.customId == "guidamiddle") {
-    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      `<:discordstaff:1443651872258003005> La **__guida middle__** di __Vinili & Caffè__ è dedicata a <@&${IDs.roles.SeniorModerator}> e <@&${IDs.roles.Director}>: qui trovate le procedure per i compiti di livello superiore che richiedono coordinamento e supervisione del low staff.
-
-> La guida si divide in **__\`4\` sezioni__** accessibili **schiacciando** i \`bottoni\` sottostanti:
-<:VC_1:1482706338021642333> **Gestione Ticket**
-<:VC_2:1482706376525611090> **Gestione Verifica Selfie**
-<:VC_3:1482706404773990460> **Gestione Follower & Supporter**
-<:VC_4:1482706432347344916> **Gestione Partnership**`,
-    );
+    const body = buildStaffGuideSectionMarkdown("guidamiddle");
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(body || "Sezione non disponibile.");
     const rowMiddle = buildMiddleGuideNavRow();
     await interaction.reply({ embeds: [embed], components: [rowMiddle], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -471,27 +480,9 @@ async function handleStaffButtons(interaction) {
     return true;
   }
 
-  if (interaction.customId == "middle_follower") {
-    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      "<a:VC_Calendar:1482706208149475358> Ogni settimana vi dovrete organizzare per decidere chi deve controllare queste due liste.\n\n" +
-      "<a:VC_Verified:1482532479637127188> Per controllare le liste dovrete usare [questo documento](<https://docs.google.com/spreadsheets/d/1rsyOqlveEraSv2YeSCY9Qg_xF3Rn6bqLj6G3-FI4Zu0/edit?usp=sharing>) chiedendo l'accesso a <@295500038401163264>.\n\n" +
-      "<:VC_Quest:1482534879257165865> Ognuno di voi può controllare al **massimo 1 lista** a settimana. Ogni Sabato in questo post uno di voi compilerà un modulo come questo:\n\n" +
-      "```\n@staffer -> lista che controlla\n@staff -> lista che controlla\n```\n\n" +
-      "<:VC_Ticket:1482535175283019888> Con l'aggiunta dei ticket `PERKS` tutti voi avrete accesso ad esso per gestire i ruoli <@&" + IDs.roles.Follower + "> & <@&" + IDs.roles.SocialSupporter + ">, quando un utente aprirà un ticket per chiedere uno di questi due ruoli accertatevi con delle prove e, se siete <@&" + IDs.roles.SeniorModerator + "> chiamate un <@&" + IDs.roles.Director + "> per assegnare il ruolo.\n" +
-      "> PS: Gentilmente, ogni volta che viene dato anche questo ruolo aggiornate le liste <a:VC_Alarm:1482706641618079816>\n\n" +
-      "<a:VC_Alert:1482706673176150077> Naturalmente, fare questo compito vi garantirà una **valutazione positiva**, non presentare la lista dei compiti il sabato o non fare il compito che vi siete assegnati comporterà a una **valutazione negativa**.",
-    );
-    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
-    return true;
-  }
-
-  if (interaction.customId == "middle_partnership") {
-    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      "<a:VC_Calendar:1482706208149475358> Ogni settimana un <@&" + IDs.roles.Director + "> dovrà controllare tutte le <#" + IDs.channels.partnerships + "> e assicurarsi che rispettino la guida partners\n\n" +
-      "<:VC_Quest:1482534879257165865> Qualsiasi partner che non rispetta quelle regole dovrà essere reportata qua settimanalmente tramite un semplice modulo\n\n" +
-      "```\nlink messaggio -> regola infranta -> @partner manager\n```\n\n" +
-      "<:VC_Attention:1482534443632558151> Molte regole sono già coperte da <@" + IDs.bots.ViniliCaffeBot + "> e prima di segnalare una partner controlla la pagina **Punti tolti PM** sul sito staff per capire se il bot ha già tolto il punto o meno.",
-    );
+  if (interaction.customId == "middle_follower" || interaction.customId == "middle_partnership") {
+    const body = buildStaffGuideSectionMarkdown(interaction.customId);
+    const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(body || "Sezione disattivata.");
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
@@ -707,7 +698,7 @@ module.exports = {
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
       const values = Array.isArray(interaction.values) ? interaction.values : [];
-      const categories = { personality_pronouns: ["1544830743296081960", "1544830740624183336", "1544830738556256256", "1544830736434069559",], personality_age: ["1544830751931899965", "1544830749268639744", "1544830746533957717", "1544830744914821181",], personality_region: ["1544830651033976872", "1544830648131395604", "1544830644516036611", "1544830642616012813",], personality_dm: ["1544830708340756621", "1544830706482413589", "1544830704477540393",], personality_relationship: ["1544830640971579462", "1544830638983614524",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: PERSONALITY_MENTION_ROLE_IDS, personality_hobby: PERSONALITY_HOBBY_ROLE_IDS, personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
+      const categories = { personality_pronouns: ["1544830743296081960", "1544830740624183336", "1544830738556256256", "1544830736434069559",], personality_age: ["1544830751931899965", "1544830749268639744", "1544830746533957717", "1544830744914821181",], personality_region: ["1544830651033976872", "1544830648131395604", "1544830644516036611", "1544830642616012813",], personality_dm: ["1544830708340756621", "1544830706482413589", "1544830704477540393",], personality_relationship: ["1544830640971579462", "1544830638983614524",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: PERSONALITY_MENTION_ROLE_IDS, personality_hobby: PERSONALITY_HOBBY_ROLE_IDS, personality_gaming: PERSONALITY_GAMING_ROLE_IDS, personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.brownPlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
       const colorMenuIds = ["personality_colors_1", "personality_colors_plus"];
       const colorUnlocksMod = require("../Utils/Community/personalityColorUnlocks");
       const allColorRoleIds = colorUnlocksMod.getAllPersonalityChatColorRoleIds();
@@ -958,7 +949,7 @@ module.exports = {
         },
       )
         .setFooter({
-          text: `Puoi bloccare le future quote tramite il comando [profilo sul sito](https://www.viniliecaffe.it/personalizza/) \u2022 Oggi alle ${timeStr}`,
+          text: `Puoi bloccare le future quote tramite la pagina [Personalizza](https://www.viniliecaffe.it/personalizza/) \u2022 Oggi alle ${timeStr}`,
         });
       if (originChannelId && originMessageId && originMessageId !== "0") {
         const originChannel = interaction.guild?.channels?.cache?.get(originChannelId) || (await interaction.guild?.channels?.fetch(originChannelId).catch((err) => { logButtonErr(err); return null; }));
@@ -1090,7 +1081,7 @@ module.exports = {
         "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
         "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
         "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
-        "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <:VC_New:1471891729471770819>",
+        "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in [Personalizza](https://www.viniliecaffe.it/personalizza/) <:VC_New:1471891729471770819>",
         "<:VC_Dot:1482532364222595303> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
         "<:VC_Dot:1482532364222595303> X4 EXP boost",
       ].join("\n");
@@ -1154,7 +1145,7 @@ module.exports = {
           "> Per riscattare eventuali premi bisognerà aprire un " + siteTicketsPageDiscordRef("HIGH STAFF") + "\n\n" +
           (discountBanner ? `${discountBanner}\n\n` : "") +
           tierLines.join("\n") +
-          `\n\n> Dal pannello [profilo sul sito](https://www.viniliecaffe.it/personalizza/) (High Staff): i riscatti **${autoRedeemCosts}** fanno in automatico **scalatura + premio** (CR+Voc/VIP 30 giorni). **Decorazione**, **Nitro** e **PayPal**: premio a mano.\n\n` +
+          `\n\n> Dal pannello [Personalizza](https://www.viniliecaffe.it/personalizza/) (High Staff): i riscatti **${autoRedeemCosts}** fanno in automatico **scalatura + premio** (CR+Voc/VIP 30 giorni). **Decorazione**, **Nitro** e **PayPal**: premio a mano.\n\n` +
           `<a:VC_Winner:1482535294757507255> Inoltre, ogni mese, il miglior <@&${IDs.roles.Staff}> riceverà un **Nitro __Boost__** come premio.\n\n` +
           "<a:flyingnitroboost:1443652205705170986> Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
         )
@@ -1220,7 +1211,7 @@ module.exports = {
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server",
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",
-          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <:VC_New:1471891729471770819>",
+          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in [Personalizza](https://www.viniliecaffe.it/personalizza/) <:VC_New:1471891729471770819>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
           MENTION_RESPONSE_PERK_LINE_DISCORD,
           "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote`, `+repost` e `+myrepost`",
@@ -1243,8 +1234,8 @@ module.exports = {
         .setColor("#6f4e37")
         .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
         .setDescription([
-          `Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
-          `Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
+          `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
+          `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
           "Digita \`+help\` per la lista completa dei comandi.",
         ].join("\n"));
 
@@ -1277,7 +1268,7 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
               "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
               "<:VC_DoubleReply:1482532332509466797> Sblocchi i comandi \`+quote\`, \`+repost\` e \`+myrepost\`",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [profilo sul sito](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv10}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv10}>`
             ].join("\n"),
             inline: true,
           },
@@ -1287,7 +1278,7 @@ module.exports = {
               `<@&${IDs.roles.Level20}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di aggiungere reazioni ai messaggi in chat",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [profilo sul sito](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv20}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv20}>`
             ].join("\n"),
             inline: true,
           },
@@ -1298,7 +1289,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare soundboard di altri server",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [profilo sul sito](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv30}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv30}>`
             ].join("\n"),
             inline: true,
           },
@@ -1309,7 +1300,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [profilo sul sito](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv50}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv50}>`
             ].join("\n"),
             inline: true,
           },
@@ -1320,7 +1311,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare sticker ed emoji di altri server",
               "<:VC_DoubleReply:1482532332509466797> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [profilo sul sito](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv70}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv70}>`
             ].join("\n"),
             inline: true,
           },
@@ -1333,7 +1324,7 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +15%",
               `<:VC_DoubleReply:1482532332509466797> ${MENTION_RESPONSE_PERK_BODY}`,
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [profilo sul sito](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv100}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv100}>`
             ].join("\n"),
             inline: true,
           },
@@ -1345,7 +1336,7 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +20%",
               "<:VC_DoubleReply:1482532332509466797> Sblocchi il secondo custom role",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.orangeBlackPlus}>`,
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.orangeBlackPlus}>`,
             ].join("\n"),
             inline: true,
           },
@@ -1355,7 +1346,7 @@ module.exports = {
               `<@&${IDs.roles.Level150}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.greenBlackPlus}>`,
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.greenBlackPlus}>`,
               "<:VC_DoubleReply:1482532332509466797> Decorazione a scelta riscattabile tramite ticket **HIGH STAFF**",
             ].join("\n"),
             inline: true,
@@ -1365,7 +1356,7 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level200}>`,
               "Tutte le ricompense precedenti",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [profilo sul sito](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.aquaBlackPlus}>`,
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.aquaBlackPlus}>`,
               "<:VC_DoubleReply:1482532332509466797> Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**",
             ].join("\n"),
             inline: true,
@@ -1375,8 +1366,8 @@ module.exports = {
         .setFooter({ text: "Se esci dal server o cambi account, i livelli ti verranno tolti e NON rimessi." });
 
       const howtoEmbed = new EmbedBuilder().setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
-        `Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
-        `Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
+        `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
+        `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));
 

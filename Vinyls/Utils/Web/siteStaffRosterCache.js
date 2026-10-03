@@ -4,6 +4,7 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const {
   accountUsername,
   userAvatarUrlDynamic,
+  sitePreferredAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
 const {
   STAFF_LIST_SECTION_ROLE_IDS,
@@ -24,10 +25,16 @@ const SNAPSHOT_REFRESH_AGE_MS = 90_000;
 const FULL_GUILD_FETCH_TIMEOUT_MS = 14_000;
 const STAFF_MEMBER_HYDRATE_BATCH = 25;
 const STAFF_DEL_MESE_ROLE_ID = String(IDs.roles?.StafferDelMese || "").trim();
+const STAFF_DEL_SETTIMANA_ROLE_ID = String(IDs.roles?.StafferDellaSettimana || "").trim();
 
 function memberIsStaffDelMese(member) {
   if (!STAFF_DEL_MESE_ROLE_ID || !member?.roles?.cache) return false;
   return member.roles.cache.has(STAFF_DEL_MESE_ROLE_ID);
+}
+
+function memberIsStaffDelSettimana(member) {
+  if (!STAFF_DEL_SETTIMANA_ROLE_ID || !member?.roles?.cache) return false;
+  return member.roles.cache.has(STAFF_DEL_SETTIMANA_ROLE_ID);
 }
 
 let rosterCache = null;
@@ -37,6 +44,10 @@ let pausedInflight = null;
 let ticketsCache = null;
 let ticketsInflight = null;
 let snapshotRefreshInflight = null;
+/* siteApiW3: pending pauses count TTL + singleflight */
+const PAUSES_COUNT_TTL_MS = 30_000;
+let pausesCountCache = null;
+let pausesCountInflight = null;
 
 function stripDiscordDecorations(text) {
   return String(text || "")
@@ -56,6 +67,8 @@ function identityFromMember(member) {
   const user = member?.user || member;
   const userId = String(member?.id || user?.id || "");
   const resolved =
+    sitePreferredAvatarUrl(member, { size: 128, preferAnimated: true, allowDefault: false }) ||
+    sitePreferredAvatarUrl(user, { size: 128, preferAnimated: true, allowDefault: false }) ||
     userAvatarUrlDynamic(member, { size: 128, allowDefault: false }) ||
     userAvatarUrlDynamic(user, { size: 128, allowDefault: false }) ||
     "";
@@ -124,6 +137,8 @@ async function loadRosterSnapshot(guildId) {
     byRole: Array.isArray(snap.byRole) ? snap.byRole : [],
     counts: snap.counts && typeof snap.counts === "object" ? snap.counts : { total: 0, onPause: 0 },
     staffDelMese: snap.staffDelMese && typeof snap.staffDelMese === "object" ? snap.staffDelMese : null,
+    staffDelSettimana:
+      snap.staffDelSettimana && typeof snap.staffDelSettimana === "object" ? snap.staffDelSettimana : null,
   };
 }
 
@@ -154,6 +169,7 @@ async function saveRosterSnapshot(guildId, built, extras = {}) {
     byRole: built.byRole || [],
     counts: built.counts || { total: userIds.length, onPause: 0 },
     staffDelMese: extras.staffDelMese || null,
+    staffDelSettimana: extras.staffDelSettimana || null,
   };
   await GlobalSettings.findOneAndUpdate(
     { guildId: String(guildId) },
@@ -273,6 +289,7 @@ function buildRosterFromGuild(guild, pausedSet) {
         isPm: memberIsPm(member),
         onPause: pausedNow,
         isStaffDelMese: memberIsStaffDelMese(member),
+        isStaffDelSettimana: memberIsStaffDelSettimana(member),
       };
       members.push(row);
       membersById.set(uid, row);
@@ -316,6 +333,11 @@ function builtFromSnapshotSections(snap, pausedSet) {
       .map((h) => String(h?.userId || "").trim())
       .filter(Boolean),
   );
+  const sdwIds = new Set(
+    (snap.staffDelSettimana?.holders || [])
+      .map((h) => String(h?.userId || "").trim())
+      .filter(Boolean),
+  );
   for (const sec of snap.sections || []) {
     const members = [];
     for (const m of sec.members || []) {
@@ -333,6 +355,7 @@ function builtFromSnapshotSections(snap, pausedSet) {
         isPm: Boolean(m.isPm),
         onPause: pausedNow,
         isStaffDelMese: Boolean(m.isStaffDelMese) || sdmIds.has(uid),
+        isStaffDelSettimana: Boolean(m.isStaffDelSettimana) || sdwIds.has(uid),
       };
       members.push(row);
       membersById.set(uid, row);
@@ -408,20 +431,36 @@ async function getOpenTicketStatsCached(guildId) {
 }
 
 async function countPendingPausesCached(guildId) {
-  const docs = await ActivityUserProfile.find(
-    { guildId, "staff.pauses.status": "pending" },
-    { "staff.pauses.status": 1 },
-  )
-    .lean()
-    .catch(() => []);
-  let count = 0;
-  for (const doc of docs || []) {
-    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
-    for (const p of pauses) {
-      if (String(p?.status || "") === "pending") count += 1;
-    }
+  const gid = String(guildId || "").trim();
+  if (!gid) return 0;
+  const now = Date.now();
+  if (pausesCountCache && pausesCountCache.guildId === gid && pausesCountCache.exp > now) {
+    return pausesCountCache.count;
   }
-  return count;
+  if (pausesCountInflight && pausesCountInflight.guildId === gid) {
+    return pausesCountInflight.promise;
+  }
+  const promise = (async () => {
+    const docs = await ActivityUserProfile.find(
+      { guildId: gid, "staff.pauses.status": "pending" },
+      { "staff.pauses.status": 1 },
+    )
+      .lean()
+      .catch(() => []);
+    let count = 0;
+    for (const doc of docs || []) {
+      const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
+      for (const p of pauses) {
+        if (String(p?.status || "") === "pending") count += 1;
+      }
+    }
+    pausesCountCache = { guildId: gid, count, exp: Date.now() + PAUSES_COUNT_TTL_MS };
+    return count;
+  })().finally(() => {
+    pausesCountInflight = null;
+  });
+  pausesCountInflight = { guildId: gid, promise };
+  return promise;
 }
 
 async function buildLiveRosterPayload(client, guild) {
@@ -429,10 +468,11 @@ async function buildLiveRosterPayload(client, guild) {
   const paused = await getPausedUserIdsCached(guild.id);
   const built = buildRosterFromGuild(guild, paused);
   const staffDelMese = buildStaffDelMeseFromGuild(guild);
+  const staffDelSettimana = buildStaffDelSettimanaFromGuild(guild);
   if ((built.counts?.total || 0) >= 3) {
-    await saveRosterSnapshot(guild.id, built, { staffDelMese }).catch(() => null);
+    await saveRosterSnapshot(guild.id, built, { staffDelMese, staffDelSettimana }).catch(() => null);
   }
-  return { ok: true, status: 200, guild, paused, staffDelMese, ...built };
+  return { ok: true, status: 200, guild, paused, staffDelMese, staffDelSettimana, ...built };
 }
 
 function buildStaffDelMeseFromGuild(guild) {
@@ -454,6 +494,25 @@ function buildStaffDelMeseFromGuild(guild) {
   };
 }
 
+function buildStaffDelSettimanaFromGuild(guild) {
+  const roleId = String(IDs.roles?.StafferDellaSettimana || "").trim();
+  const role = roleId && guild?.roles?.cache?.get(roleId) ? guild.roles.cache.get(roleId) : null;
+  const holders = [];
+  if (roleId && guild?.members?.cache) {
+    guild.members.cache.forEach((member) => {
+      if (!member?.roles?.cache?.has?.(roleId)) return;
+      if (member.user?.bot) return;
+      holders.push(identityFromMember(member));
+    });
+  }
+  holders.sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || ""), "it"));
+  return {
+    roleId: roleId || null,
+    roleLabel: role ? stripDiscordDecorations(role.name) || role.name : "Staffer della Settimana",
+    holders,
+  };
+}
+
 function scheduleRosterBackgroundRefresh(client, guildId) {
   if (snapshotRefreshInflight) return;
   snapshotRefreshInflight = (async () => {
@@ -470,13 +529,17 @@ function scheduleRosterBackgroundRefresh(client, guildId) {
         if (snap?.sections?.length) built = builtFromSnapshotSections(snap, paused);
       }
       const liveSdm = buildStaffDelMeseFromGuild(guild);
-      const snapSdm = (await loadRosterSnapshot(guildId).catch(() => null))?.staffDelMese || null;
+      const liveSdw = buildStaffDelSettimanaFromGuild(guild);
+      const snapExtra = (await loadRosterSnapshot(guildId).catch(() => null)) || null;
+      const snapSdm = snapExtra?.staffDelMese || null;
+      const snapSdw = snapExtra?.staffDelSettimana || null;
       const staffDelMese = liveSdm.holders?.length ? liveSdm : snapSdm || liveSdm;
+      const staffDelSettimana = liveSdw.holders?.length ? liveSdw : snapSdw || liveSdw;
       if ((built.counts?.total || 0) >= 3) {
-        await saveRosterSnapshot(guildId, built, { staffDelMese }).catch(() => null);
+        await saveRosterSnapshot(guildId, built, { staffDelMese, staffDelSettimana }).catch(() => null);
         rosterCache = {
           guildId,
-          payload: { ok: true, status: 200, guild, paused, staffDelMese, ...built },
+          payload: { ok: true, status: 200, guild, paused, staffDelMese, staffDelSettimana, ...built },
           exp: Date.now() + ROSTER_TTL_MS,
         };
       }
@@ -519,7 +582,15 @@ async function getCachedStaffRoster(client) {
       } else if (snap.userIds?.length && countCachedStaffMembers(guild) < 3) {
                 hydrateStaffMembersByIds(guild, snap.userIds).catch(() => null);
       }
-      const payload = { ok: true, status: 200, guild, paused, staffDelMese: snap.staffDelMese || null, ...built };
+      const payload = {
+        ok: true,
+        status: 200,
+        guild,
+        paused,
+        staffDelMese: snap.staffDelMese || null,
+        staffDelSettimana: snap.staffDelSettimana || null,
+        ...built,
+      };
       rosterCache = { guildId, payload, exp: Date.now() + ROSTER_TTL_MS };
       if (snapAge > SNAPSHOT_REFRESH_AGE_MS) {
         scheduleRosterBackgroundRefresh(client, guildId);
@@ -541,6 +612,7 @@ function invalidateStaffRosterCache() {
   rosterCache = null;
   pausedCache = null;
   ticketsCache = null;
+  pausesCountCache = null;
 }
 
 module.exports = {
@@ -556,4 +628,5 @@ module.exports = {
   saveRosterSnapshot,
   loadRosterSnapshot,
   buildStaffDelMeseFromGuild,
+  buildStaffDelSettimanaFromGuild,
 };

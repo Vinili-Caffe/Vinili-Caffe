@@ -74,6 +74,7 @@ const WORKFLOW_SITE_PATHS = {
   gestione: "/staff/organico/",
   puntiTolti: "/notifications/?view=staff&inbox=punti-tolti",
   guida: "/staff/guida/",
+  compiti: "/staff/compiti/",
   tickets: "/tickets/",
   ticketsStaff: "/tickets/?view=staff",
   userProfile: "/user/",
@@ -182,12 +183,20 @@ function workflowMovedToSiteMessage(kind) {
 
 async function replyWorkflowMovedToSite(interaction, kind) {
   const content = workflowMovedToSiteMessage(kind);
+  const path = siteWorkflowPath(kind);
+  const components = [buildSiteLinkRow(kind === "tickets" ? "Apri i ticket sul sito" : "Apri sul sito", path)];
+  const payload = { content, components, flags: EPHEMERAL };
+  try {
+    const { safeReply } = require("../../../shared/discord/replyRuntime");
+    const ok = await safeReply(interaction, payload).catch(() => false);
+    if (ok) return true;
+  } catch (_) {}
   try {
     if (interaction?.deferred || interaction?.replied) {
-      await interaction.followUp({ content, flags: EPHEMERAL }).catch(() => null);
+      await interaction.followUp(payload).catch(() => null);
       return true;
     }
-    await interaction.reply({ content, flags: EPHEMERAL }).catch(() => null);
+    await interaction.reply(payload).catch(() => null);
     return true;
   } catch {
     return false;

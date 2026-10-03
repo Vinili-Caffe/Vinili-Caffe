@@ -4,11 +4,14 @@ const WEBSITE_MEMBER_CACHE_TTL_MS = 120_000;
 const WEBSITE_MEMBER_NEGATIVE_CACHE_TTL_MS = 90_000;
 const WEBSITE_MEMBER_TIMEOUT_LOG_COOLDOWN_MS = 5 * 60 * 1000;
 const WEBSITE_MEMBER_SOFT_TIMEOUT_LOG_MS = 2_000;
+/* welcomePronounsFetchSoft1: max 1 warn globale / 3 min (altri ID non spammano) */
+const WEBSITE_MEMBER_TIMEOUT_GLOBAL_COOLDOWN_MS = 3 * 60 * 1000;
 
 const websiteMemberResolveCache = new Map();
 const websiteMemberNegativeCache = new Map();
 const memberFetchTimeoutLogAt = new Map();
 const websiteMemberFetchInflight = new Map();
+let memberFetchTimeoutGlobalLogAt = 0;
 
 function withTimeout(promise, timeoutMs, label) {
   let timer = null;
@@ -81,6 +84,14 @@ function clearWebsiteMemberCaches(userId) {
   websiteMemberNegativeCache.delete(uid);
 }
 
+/** leaveProfileLive1: positive cache drop + negative mark so profile APIs treat as left. */
+function markWebsiteMemberLeft(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
+  websiteMemberResolveCache.delete(uid);
+  markNegativeCache(uid);
+}
+
 function isUnknownMemberError(err) {
   const code = Number(err?.code ?? err?.rawError?.code ?? 0);
   const msg = String(err?.message || err || "");
@@ -91,13 +102,17 @@ function isMemberFetchTimeoutError(err) {
   return /member_fetch_timeout/i.test(String(err?.message || err || ""));
 }
 
-function logMemberFetchTimeout(uid, attempt, timeoutMs) {
+function logMemberFetchTimeout(uid, attempt, timeoutMs, { soft = false } = {}) {
+  /* soft callers (welcome pronouns, UI) — timeout atteso sotto carico, no warn spam */
+  if (soft) return;
   const ms = Number(timeoutMs) || 0;
-    if (ms > 0 && ms <= WEBSITE_MEMBER_SOFT_TIMEOUT_LOG_MS) return;
+  if (ms > 0 && ms <= WEBSITE_MEMBER_SOFT_TIMEOUT_LOG_MS) return;
   const now = Date.now();
+  if (now - memberFetchTimeoutGlobalLogAt < WEBSITE_MEMBER_TIMEOUT_GLOBAL_COOLDOWN_MS) return;
   const prev = Number(memberFetchTimeoutLogAt.get(uid) || 0);
   if (now - prev < WEBSITE_MEMBER_TIMEOUT_LOG_COOLDOWN_MS) return;
   memberFetchTimeoutLogAt.set(uid, now);
+  memberFetchTimeoutGlobalLogAt = now;
   pruneMapByExpiry(memberFetchTimeoutLogAt, now - WEBSITE_MEMBER_TIMEOUT_LOG_COOLDOWN_MS);
   global.logger?.warn?.(
     "[websiteGuildMemberFetch] member_fetch_timeout",
@@ -162,6 +177,7 @@ async function fetchWebsiteGuildMember(guild, userId, options = {}) {
       : WEBSITE_MEMBER_FETCH_TIMEOUT_MS;
     const doRetry =
       options.retry === true || (!hasExplicit && options.retry !== false);
+    const soft = Boolean(options.soft);
     try {
       let member = null;
       try {
@@ -173,14 +189,14 @@ async function fetchWebsiteGuildMember(guild, userId, options = {}) {
         }
         if (!isMemberFetchTimeoutError(err)) throw err;
         if (!options.soft && shouldMarkNegativeOnMemberTimeout(primaryTimeout)) markNegativeCache(uid);
-        logMemberFetchTimeout(uid, 1, primaryTimeout);
+        logMemberFetchTimeout(uid, 1, primaryTimeout, { soft });
         if (doRetry) {
           const retryMs = Math.max(primaryTimeout, WEBSITE_MEMBER_FETCH_RETRY_TIMEOUT_MS);
           member = await fetchMemberOnce(guild, uid, false, retryMs).catch((err2) => {
             if (isUnknownMemberError(err2)) return null;
             if (isMemberFetchTimeoutError(err2)) {
               if (!options.soft && shouldMarkNegativeOnMemberTimeout(retryMs)) markNegativeCache(uid);
-              logMemberFetchTimeout(uid, 2, retryMs);
+              logMemberFetchTimeout(uid, 2, retryMs, { soft });
               return null;
             }
             throw err2;
@@ -212,6 +228,7 @@ module.exports = {
   writeCachedWebsiteMember,
   clearNegativeWebsiteMember,
   clearWebsiteMemberCaches,
+  markWebsiteMemberLeft,
   ensureWebsiteGuild,
   fetchWebsiteGuildMember,
   isUnknownMemberError,

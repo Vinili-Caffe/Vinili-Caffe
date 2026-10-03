@@ -355,7 +355,10 @@ async function notifyStaffPexDepex(opts = {}) {
       title: `${kindLabel}: ${targetName}`,
       body: `${actorName}: ${fromLabel} → ${toLabel}${reason ? `. ${reason}` : ""}`,
       kind: STAFF_KIND,
-      openUrl: `/staff/organico/?userId=${encodeURIComponent(targetUserId)}`,
+      /* notifPexTeamInbox1: team "Pex: Name" → Staff inbox (Avvisi), not Personali → Eventi staff */
+      channel: "inbox",
+      /* organicoPexNotifCine1: senza ?userId= (filtrava a 1 + rompeva cine su tutti i device) */
+      openUrl: "/staff/organico/",
       dedupeKey: `${dedupeKey}:team`,
     },
     [targetUserId, actorUserId],
@@ -404,6 +407,9 @@ async function notifyResocontoOutcome(opts = {}) {
 
 module.exports = {
   STAFF_KIND,
+  getHighStaffRecipientUserIds,
+  getOrganicoViewerUserIds,
+  notifyUsers,
   notifyPuntiToltiPending,
   notifyPuntiToltiReviewed,
   notifyPuntiToltiPointsRemoved,

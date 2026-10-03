@@ -10,24 +10,35 @@ const { t } = require("../../Utils/Partner/tenantPartnershipI18n");
 const { resolveTenantLanguageForMessage } = require("../../Utils/Partner/tenantPartnershipPrefixMessages");
 
 function resolveBotClientId(client) {
-  return String(
-    client?.user?.id ||
+  /* botInviteFix2: always Vinili official — never Caffè/test (code-grant locked) */
+  const official = String(
+    process.env.DISCORD_CLIENT_ID_OFFICIAL ||
       process.env.DISCORD_CLIENT_ID ||
-      process.env.DISCORD_CLIENT_ID_OFFICIAL ||
       IDs?.bots?.ViniliCaffeBot ||
       "",
   ).trim();
+  if (/^\d{17,22}$/.test(official)) return official;
+  const live = String(client?.user?.id || "").trim();
+  if (/^\d{17,22}$/.test(live) && live !== String(IDs?.bots?.ViniliCaffeBotTest || "").trim()) {
+    return live;
+  }
+  return "";
 }
 
 function buildBotInviteUrl(client) {
   const clientId = resolveBotClientId(client);
   if (!clientId) return null;
+  /* botInviteScopes2: same as dashboard — code + guilds.join + prompt=none */
   const params = new URLSearchParams({
     client_id: clientId,
     permissions: String(PermissionFlagsBits.Administrator),
-    scope: "bot applications.commands",
+    response_type: "code",
+    redirect_uri: "https://viniliecaffe.it/",
+    integration_type: "0",
+    scope: "applications.commands.permissions.update bot applications.commands guilds.join",
+    prompt: "none",
   });
-  return `https://discord.com/api/oauth2/authorize?${params.toString()}`;
+  return `https://discord.com/oauth2/authorize?${params.toString()}`;
 }
 
 module.exports = {

@@ -4,7 +4,8 @@
   var profileRankObjectUrl = "";
   var profileRankRenderToken = 0;
   var liveProfilePollTimer = null;
-  var LIVE_PROFILE_POLL_MS = 60000;
+  var LIVE_PROFILE_POLL_MS = 45000; /* violPass5: era 15s — poll meno frequente */
+  var liveProfilePollBusy = false;
   var PROFILE_CACHE_TTL_MS = 90000;
   var PROFILE_CACHE_LOCAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   var PROFILE_CACHE_LOCAL_PREFIX = "vc:profilecache-local:v3:";
@@ -17,6 +18,9 @@
   var lastRankPreviewUserId = "";
   var lastRankPreviewLoadedAt = 0;
   var RANK_PREVIEW_RELOAD_MIN_MS = 5 * 60 * 1000;
+  /* rankFastPaint1: img.src stabile (no ?=) per paint immediato; fetch solo cache locale */
+  var rankPreviewInFlightByUid = Object.create(null);
+  var rankPreviewBlockedUntil = 0;
   var profileBootGaveUp = false;
   var profilePendingWatchdogTimer = null;
   var profilePendingWatchdogAttempts = 0;
@@ -24,19 +28,88 @@
   var profileBootSettled = false;
     var lockedCommunityUserId = "";
   var communityPaintSeq = 0;
+  /* profileHangFix2: deadline hard sul gate Community — evita freeze “pagina non risponde” */
+  /* profileRefreshGate1: su F5/reload hold molto più corto (il gate non serve al cold boot) */
+  var communitySwitchHoldSince = 0;
+  var COMMUNITY_SWITCH_HOLD_MAX_MS = 12000;
+  var COMMUNITY_SWITCH_HOLD_RELOAD_MS = 2500;
+
+  function isProfileReloadNavigation() {
+    try {
+      var nav =
+        window.performance && typeof window.performance.getEntriesByType === "function"
+          ? window.performance.getEntriesByType("navigation")[0]
+          : null;
+      if (nav && nav.type === "reload") return true;
+    } catch (eNav) {}
+    try {
+      if (window.performance && window.performance.navigation && window.performance.navigation.type === 1) {
+        return true;
+      }
+    } catch (eNav2) {}
+    return false;
+  }
+
+  function communitySwitchHoldLimitMs() {
+    return isProfileReloadNavigation() ? COMMUNITY_SWITCH_HOLD_RELOAD_MS : COMMUNITY_SWITCH_HOLD_MAX_MS;
+  }
 
   function armProfilePendingWatchdog() {
     if (profilePendingWatchdogTimer) return;
+    /* profileHangFix2: cap re-arm più stretto (prima 40×4s ≈ 160s) */
+    if (profilePendingWatchdogAttempts > 8) {
+      try {
+        document.documentElement.classList.remove(
+          "vc-user-profile-pending",
+          "vc-user-profile-comm-switch",
+          "vc-loading-scroll-lock",
+          "vc-loader-blocking-live",
+        );
+        communitySwitchHoldSince = 0;
+        clearProfileLoading();
+        unlockProfileChrome();
+      } catch (eCap) {}
+      return;
+    }
     profilePendingWatchdogTimer = window.setTimeout(function () {
       profilePendingWatchdogTimer = null;
       try {
         if (!document.documentElement.classList.contains("vc-user-profile-pending")) return;
         // staffCommSwitch2: non dismissare pending/loader se lo switch Community è ancora senza shell.
         if (shouldHoldCommunitySwitchLoader(byId("vc-user-profile-view"))) {
+          profilePendingWatchdogAttempts += 1;
           armProfilePendingWatchdog();
           return;
         }
         if (profileInitialLoadDone || profileBootSettled) {
+          /* staffSwitchIdLock1: non togliere pending/loader se tab=staff e pane ancora vuoto */
+          try {
+            var holdStaff =
+              parseWantsStaffTab() &&
+              document.documentElement.classList.contains("vc-user-profile-staff-tab-pending");
+            var staffRoot = byId("vc-user-profile-view");
+            var staffReady = Boolean(
+              staffRoot &&
+                staffRoot.querySelector(
+                  ".vc-user-profile-staff-pane .vc-user-profile-hero, .vc-user-profile-staff-pane .vc-staff-profile-panel, .vc-staff-prof-miss",
+                ),
+            );
+            /* staffRefreshUnstick1: su F5 non tenere pending oltre 1 re-arm (~4s) */
+            var staffHoldCap = isProfileReloadNavigation() ? 1 : 4;
+            if (holdStaff && !staffReady && profilePendingWatchdogAttempts < staffHoldCap) {
+              profilePendingWatchdogAttempts += 1;
+              armProfilePendingWatchdog();
+              return;
+            }
+            if (holdStaff && !staffReady) {
+              try {
+                document.documentElement.classList.remove(
+                  "vc-user-profile-staff-tab-pending",
+                  "vc-staff-boot-block",
+                );
+              } catch (eStaffOff) {}
+            }
+          } catch (eHold) {}
           clearProfilePending();
           clearProfileLoading();
           return;
@@ -334,6 +407,19 @@
     }
   }
 
+  function markCommunitySwitchHold() {
+    if (!communitySwitchHoldSince) communitySwitchHoldSince = Date.now();
+  }
+
+  function clearCommunitySwitchHoldClock() {
+    communitySwitchHoldSince = 0;
+  }
+
+  function communitySwitchHoldTimedOut() {
+    if (!communitySwitchHoldSince) return false;
+    return Date.now() - communitySwitchHoldSince >= communitySwitchHoldLimitMs();
+  }
+
   function dismissStuckProfileSpinners() {
     try {
       clearProfileLoading();
@@ -357,17 +443,42 @@
 
   function finishCommunitySwitchPaint(userId) {
     var id = String(userId || "").trim();
+    clearCommunitySwitchHoldClock();
+    /* staffReloadPaint1: su ?tab=staff non spezzare pending/body staff (prima → pane vuoto + footer). */
+    var staffIntent = false;
     try {
-      document.documentElement.classList.remove(
-        "vc-user-profile-comm-switch",
-        "vc-user-profile-staff-tab-pending",
-        "vc-staff-boot-block",
-      );
-      if (document.body) {
-        document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
+      staffIntent =
+        parseWantsStaffTab() ||
+        Boolean(document.documentElement.classList.contains("vc-user-profile-staff-tab-pending")) ||
+        Boolean(document.body && document.body.classList.contains("vc-user-profile-staff-tab"));
+    } catch (eIntent) {
+      staffIntent = false;
+    }
+    try {
+      document.documentElement.classList.remove("vc-user-profile-comm-switch");
+      if (!staffIntent) {
+        document.documentElement.classList.remove(
+          "vc-user-profile-staff-tab-pending",
+          "vc-staff-boot-block",
+        );
+        if (document.body) {
+          document.body.classList.remove("vc-user-profile-staff-tab", "vc-staff-profile-home");
+        }
       }
     } catch (eCls) {}
     dismissStuckProfileSpinners();
+    if (staffIntent) {
+      /* Staff reload: sblocca chrome ma lascia pending + sync al tab staff. */
+      try {
+        unlockProfileChrome();
+      } catch (eUn) {}
+      try {
+        if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.sync === "function") {
+          window.VCUserProfileStaffTab.sync(id, byId("vc-user-profile-view"));
+        }
+      } catch (eSync) {}
+      return;
+    }
     try {
       var root = byId("vc-user-profile-view");
       var shell = root && root.querySelector(":scope > .vc-user-profile-shell");
@@ -385,10 +496,32 @@
   }
 
   function shouldHoldCommunitySwitchLoader(root, userId) {
-    if (!communitySwitchGateActive()) return false;
+    if (!communitySwitchGateActive()) {
+      clearCommunitySwitchHoldClock();
+      return false;
+    }
+    markCommunitySwitchHold();
+    /* profileHangFix2 / profileRefreshGate1: dopo hold max sblocca sempre — meglio contenuto parziale che freeze */
+    if (communitySwitchHoldTimedOut()) return false;
     var id = String(userId || lockedCommunityUserId || parseProfileId() || "").trim();
     if (!/^\d{17,20}$/.test(id)) return true;
-    return !communityShellLooksReadyFor(root || byId("vc-user-profile-view"), id);
+    var view = root || byId("vc-user-profile-view");
+    /* profileHangFix1: empty/error già pitturati → non tenere il loader in loop */
+    try {
+      if (
+        view &&
+        view.querySelector(
+          ":scope > .vc-user-profile-shell .vc-user-profile-empty, :scope > .vc-user-profile-shell .vc-user-profile-notfound, :scope > .vc-user-profile-shell--notfound",
+        )
+      ) {
+        return false;
+      }
+    } catch (eEmpty) {}
+    /* profileHangFix2: se c’è già hero/shell, non tenere il gate solo per id text mismatch */
+    try {
+      if (view && profileViewLooksReady(view)) return false;
+    } catch (eReady) {}
+    return !communityShellLooksReadyFor(view, id);
   }
 
   // profileDataLock1: URL id + lock devono coincidere; mai dipingere un altro utente.
@@ -1200,6 +1333,13 @@
         body.style.removeProperty("touch-action");
       }
     } catch (eStyle) {}
+    // switcherReload1: pending alzato → switcher nascosto; al clear ripristina.
+    try {
+      if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.renderSwitcher === "function") {
+        var pid = parseProfileId();
+        if (pid) window.VCUserProfileStaffTab.renderSwitcher(byId("vc-user-profile-view"), pid);
+      }
+    } catch (eSw) {}
   }
 
   function unlockProfileChrome() {
@@ -1333,13 +1473,13 @@
     overlay.setAttribute("data-vc-profile-boot", "1");
     overlay.setAttribute("role", "status");
     overlay.setAttribute("aria-live", "polite");
-    overlay.setAttribute("aria-label", "Caricamento profilo");
+    overlay.setAttribute("aria-label", "Caricamento…");
     overlay.hidden = false;
     overlay.removeAttribute("hidden");
     overlay.innerHTML =
       '<span class="vc-user-profile-loader__spin" aria-hidden="true"></span>' +
-      '<p class="vc-user-profile-loader__title">Caricamento profilo</p>' +
-      '<p class="vc-user-profile-loader__sub">Sto recuperando le statistiche dell\'utente...</p>';
+      '<p class="vc-user-profile-loader__title">Caricamento…</p>' +
+      '<p class="vc-user-profile-loader__sub">Un momento…</p>';
         if (force || !profileViewLooksReady(root)) {
       if (opts.preserveStaffPane) {
         try {
@@ -1366,17 +1506,7 @@
       if (tab === "staff") return true;
       if (tab === "community") return false;
     } catch (e) {}
-    // staffTabOrganico1: fallback storage se URL senza ?tab= (reload senza query persa).
-    try {
-      var stored =
-        String(sessionStorage.getItem("vc_user_profile_tab_v1") || "").trim().toLowerCase() ||
-        String(localStorage.getItem("vc_user_profile_tab_v1") || "").trim().toLowerCase();
-      if (stored === "staff") return true;
-    } catch (eStore) {}
-    try {
-      if (document.body && document.body.classList.contains("vc-user-profile-staff-tab")) return true;
-      if (document.documentElement.classList.contains("vc-user-profile-staff-tab-pending")) return true;
-    } catch (eCls) {}
+    // profileTabDefaultCommunity1: solo URL ?tab=staff (no sticky storage / class).
     return false;
   }
 
@@ -1959,6 +2089,7 @@
     founder: "1442568886988963923",
     manager: "1521562607339704442",
     staffDelMese: "1544831233404575835",
+    staffDelSettimana: "1550462300291604551",
     director: "1502322782602530977",
     highStaff: "1544831228690046976",
     staff: "1442568910070349985",
@@ -2015,6 +2146,15 @@
       hasRoleId(roles, PROFILE_ROLE_IDS.staffDelMese) ||
       hasNormalizedRole(roleNames, function (name) {
         return name.indexOf("staffer del mese") !== -1 || name.indexOf("staff del mese") !== -1;
+      });
+    var hasStaffDelSettimana =
+      hasRoleId(roles, PROFILE_ROLE_IDS.staffDelSettimana) ||
+      hasNormalizedRole(roleNames, function (name) {
+        return (
+          name.indexOf("staffer della settimana") !== -1 ||
+          name.indexOf("staff della settimana") !== -1 ||
+          name.indexOf("staffer della sett") !== -1
+        );
       });
     var hasDirector =
       hasRoleId(roles, PROFILE_ROLE_IDS.director) ||
@@ -2086,6 +2226,7 @@
     if (hasFounder) add("founder", "fa-star-o", "Founder");
     if (hasManager) add("manager", "fa-briefcase", "Manager");
     if (hasStaffDelMese) add("sdm", "fa-trophy", "Staff del Mese");
+    if (hasStaffDelSettimana) add("sdw", "fa-star", "Staffer della Settimana");
     if (hasDirector) add("director", "fa-shield", "Director");
     if (hasHighStaff) add("highstaff", "fa-shield", "High Staff");
     if (
@@ -2238,7 +2379,8 @@
       userId,
       256,
     );
-    var progressPct = formatPct(level.progressPercent || 0);
+    /* levelBarWidthFix1: formatPct già include "%"; non concatenare un altro % (width:76%% → fill a 0) */
+    var progressPct = Math.max(0, Math.min(100, Math.round(Number(level.progressPercent) || 0)));
     var rankText = level.rank ? "#" + formatIntIt(level.rank) : "-";
     var weeklyRankText = weekly.rank ? "#" + formatIntIt(weekly.rank) : "-";
     var currentLevelExp = Number(level.currentLevelExp || 0);
@@ -2278,26 +2420,23 @@
 
     function sharedMembersMarkup(members, count, label) {
       var list = Array.isArray(members) ? members : [];
-      var total = Number(count || list.length || 0);
+      var total = Math.max(0, Number(count || list.length || 0));
+      var head =
+        '<details class="vc-user-profile-shared vc-user-profile-shared--foot">' +
+        '<summary class="vc-user-profile-shared__summary">' +
+        '<span class="vc-user-profile-shared__label"><i class="fa fa-users" aria-hidden="true"></i> ' +
+        esc(label || "Condiviso con") +
+        "</span>" +
+        '<span class="vc-user-profile-shared__count">' +
+        esc(formatIntIt(total)) +
+        "</span>" +
+        '<i class="fa fa-angle-down vc-user-profile-shared__chev" aria-hidden="true"></i>' +
+        "</summary>";
       if (!list.length) {
-        return (
-          '<details class="vc-user-profile-shared">' +
-          '<summary class="vc-user-profile-shared__summary"><span><i class="fa fa-users" aria-hidden="true"></i> ' +
-          esc(label || "Condiviso con") +
-          '</span><strong>' +
-          esc(formatIntIt(total)) +
-          '</strong><i class="fa fa-angle-down vc-user-profile-shared__chev" aria-hidden="true"></i></summary>' +
-          '<div class="vc-user-profile-shared__empty">Nessun utente mostrabile.</div>' +
-          "</details>"
-        );
+        return head + '<div class="vc-user-profile-shared__empty">Nessun utente mostrabile.</div></details>';
       }
       return (
-        '<details class="vc-user-profile-shared">' +
-        '<summary class="vc-user-profile-shared__summary"><span><i class="fa fa-users" aria-hidden="true"></i> ' +
-        esc(label || "Condiviso con") +
-        '</span><strong>' +
-        esc(formatIntIt(total)) +
-        '</strong><i class="fa fa-angle-down vc-user-profile-shared__chev" aria-hidden="true"></i></summary>' +
+        head +
         '<div class="vc-user-profile-shared__list">' +
         list
           .map(function (member) {
@@ -2326,7 +2465,9 @@
           })
           .join("") +
         "</div>" +
-        (total > list.length ? '<p class="vc-user-profile-shared__more">+' + esc(formatIntIt(total - list.length)) + " altri utenti</p>" : "") +
+        (total > list.length
+          ? '<p class="vc-user-profile-shared__more">+' + esc(formatIntIt(total - list.length)) + " altri utenti</p>"
+          : "") +
         "</details>"
       );
     }
@@ -2345,6 +2486,7 @@
         : '<article class="vc-user-profile-customcard">';
       var cardClose = viewerOwns ? "</a>" : "</article>";
       return (
+        '<div class="vc-user-profile-customstack">' +
         cardOpen +
         '<div class="vc-user-profile-customcard__main">' +
         '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice">' +
@@ -2363,7 +2505,8 @@
         esc(created) +
         "</strong></span>" +
         cardClose +
-        sharedMembersMarkup(voice.sharedMembers, count, "Utenti con accesso")
+        sharedMembersMarkup(voice.sharedMembers, count, "Utenti con accesso") +
+        "</div>"
       );
     }
 
@@ -2376,119 +2519,111 @@
           .join("")
       : '<span class="vc-user-profile-role vc-user-profile-role--muted">Nessun ruolo mostrabile</span>';
 
+    var customRolesSubParts = [];
+    if (customRole && customSecondaryRole) customRolesSubParts.push("Ruolo principale + secondario");
+    else if (customRole) customRolesSubParts.push("Ruolo principale");
+    else if (customSecondaryRole) customRolesSubParts.push("Ruolo secondario");
+    else if (viewerOwns) customRolesSubParts.push("Crea i tuoi custom");
+    if (customVoice) customRolesSubParts.push("vocale privata");
+    else if (viewerOwns && (customRole || customSecondaryRole)) customRolesSubParts.push("vocale");
+    var customRolesSub = customRolesSubParts.length ? customRolesSubParts.join(" · ") : "Nessun custom";
+
+    var customBadgeCount = customRoleCount + (customVoice ? 1 : 0);
     var customEconomyHtml =
       customRole || customSecondaryRole || customVoice || viewerOwns
         ? '<section class="vc-user-profile-block vc-user-profile-block--custom">' +
           '<div class="vc-user-profile-sectioneyebrow"><i class="fa fa-diamond" aria-hidden="true"></i> Ruoli & Vocale Custom</div>' +
-          '<details class="vc-user-profile-accordion vc-user-profile-accordion--role"' +
-              (viewerOwns ? " open" : "") +
+          // profileSharePanelBack1: riquadro + badge come prima; stack interni restano una card.
+          '<div class="vc-user-profile-custompanel">' +
+          '<div class="vc-user-profile-custompanel__head">' +
+          '<span class="vc-user-profile-custompanel__icon"><i class="fa fa-star" aria-hidden="true"></i></span>' +
+          '<span class="vc-user-profile-custompanel__copy">' +
+          '<span class="vc-user-profile-custompanel__title">Personalizzazioni</span>' +
+          '<span class="vc-user-profile-custompanel__sub">' +
+          esc(customRolesSub) +
+          "</span>" +
+          "</span>" +
+          '<span class="vc-user-profile-custompanel__badge">' +
+          esc(formatIntIt(customBadgeCount)) +
+          "</span>" +
+          "</div>" +
+          '<div class="vc-user-profile-custompanel__body">' +
+          (customRole
+            ? '<div class="vc-user-profile-customstack">' +
+              (viewerOwns
+                ? '<a class="vc-user-profile-customcard vc-user-profile-customcard--link" href="' +
+                  esc(customProfileEditorUrl("primary")) +
+                  '" title="Ruolo principale">'
+                : '<article class="vc-user-profile-customcard">') +
+              '<div class="vc-user-profile-customcard__main">' +
+              '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--role"' +
+              (customRole.color ? ' style="--vc-custom-dot:' + esc(customRole.color) + '"' : "") +
               ">" +
-              '<summary class="vc-user-profile-accordion__summary">' +
-              '<span class="vc-user-profile-accordion__icon"><i class="fa fa-star" aria-hidden="true"></i></span>' +
-              '<span class="vc-user-profile-accordion__copy">' +
-              '<span class="vc-user-profile-accordion__title">Ruoli Personalizzati</span>' +
-              '<span class="vc-user-profile-accordion__sub">' +
-              (customRole && customSecondaryRole
-                ? "Ruolo principale + 1 ruolo secondario"
-                : customRole
-                  ? "Ruolo principale"
-                  : customSecondaryRole
-                    ? "1 ruolo secondario"
-                    : viewerOwns
-                      ? "Crea il tuo ruolo custom"
-                      : "Nessun ruolo custom") +
+              customRoleIconHtml +
               "</span>" +
-              "</span>" +
-              '<span class="vc-user-profile-accordion__badge">' +
-              esc(formatIntIt(customRoleCount)) +
-              "</span>" +
-              '<i class="fa fa-angle-down vc-user-profile-accordion__chev" aria-hidden="true"></i>' +
-              "</summary>" +
-              '<div class="vc-user-profile-accordion__body">' +
-              (customRole
-                ? (viewerOwns ? '<a class="vc-user-profile-customcard vc-user-profile-customcard--link" href="' + esc(customProfileEditorUrl("primary")) + '" title="Ruolo principale">' : '<article class="vc-user-profile-customcard">') +
-                  '<div class="vc-user-profile-customcard__main">' +
-                  '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--role"' +
-                  (customRole.color ? ' style="--vc-custom-dot:' + esc(customRole.color) + '"' : "") +
-                  ">" +
-                  customRoleIconHtml +
-                  "</span>" +
-                  '<div class="vc-user-profile-customcard__copy">' +
-                  '<strong class="vc-user-profile-customcard__title">' +
-                  esc((customRole.emoji ? customRole.emoji + " " : "") + (customRole.name || "Ruolo personalizzato")) +
-                  "</strong>" +
-                  '<span class="vc-user-profile-customcard__meta">Ruolo Principale</span>' +
-                  "</div>" +
-                  "</div>" +
-                  '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
-                  esc(formatDateIt(customRole.createdAt)) +
-                  "</strong></span>" +
-                  (viewerOwns ? "</a>" : "</article>")
-                : viewerOwns
-                  ? createCustomCardHtml("primary", "Ruolo principale", "Crea direttamente dal profilo")
-                  : "") +
-              (customSecondaryRole
-                ? (viewerOwns ? '<a class="vc-user-profile-customcard vc-user-profile-customcard--secondary vc-user-profile-customcard--link" href="' + esc(customProfileEditorUrl("secondary")) + '" title="Ruolo secondario">' : '<article class="vc-user-profile-customcard vc-user-profile-customcard--secondary">') +
-                  '<div class="vc-user-profile-customcard__main">' +
-                  '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice">' +
-                  (customSecondaryRole.iconUrl
-                    ? '<img class="vc-user-profile-customicon__img" src="' + esc(customSecondaryRole.iconUrl) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
-                    : customSecondaryRole.emoji
-                      ? '<span class="vc-user-profile-customicon__emoji">' + esc(customSecondaryRole.emoji) + "</span>"
-                      : '<i class="fa fa-star" aria-hidden="true"></i>') +
-                  "</span>" +
-                  '<div class="vc-user-profile-customcard__copy">' +
-                  '<strong class="vc-user-profile-customcard__title">' +
-                  esc((customSecondaryRole.emoji ? customSecondaryRole.emoji + " " : "") + (customSecondaryRole.name || "Ruolo personalizzato secondario")) +
-                  "</strong>" +
-                  '<span class="vc-user-profile-customcard__meta">Ruolo Secondario</span>' +
-                  "</div>" +
-                  "</div>" +
-                  '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
-                  esc(formatDateIt(customSecondaryRole.createdAt)) +
-                  "</strong></span>" +
-                  (viewerOwns ? "</a>" : "</article>")
-                : viewerOwns && customRole
-                  ? createCustomCardHtml("secondary", "Ruolo secondario", "Serve VIP+ / Double Booster / Lv 120")
-                  : "") +
-              (customRole ? sharedMembersMarkup(customRole.sharedMembers, customRole.memberCount, "Condiviso con") : "") +
-              (customSecondaryRole ? sharedMembersMarkup(customSecondaryRole.sharedMembers, customSecondaryRole.memberCount, "Secondario condiviso con") : "") +
+              '<div class="vc-user-profile-customcard__copy">' +
+              '<strong class="vc-user-profile-customcard__title">' +
+              esc((customRole.emoji ? customRole.emoji + " " : "") + (customRole.name || "Ruolo personalizzato")) +
+              "</strong>" +
+              '<span class="vc-user-profile-customcard__meta">Ruolo Principale</span>' +
               "</div>" +
-              "</details>" +
-          (customVoice
-            ? '<details class="vc-user-profile-accordion vc-user-profile-accordion--voice"' +
-              (viewerOwns ? " open" : "") +
-              ">" +
-              '<summary class="vc-user-profile-accordion__summary">' +
-              '<span class="vc-user-profile-accordion__icon"><i class="fa fa-microphone" aria-hidden="true"></i></span>' +
-              '<span class="vc-user-profile-accordion__copy">' +
-              '<span class="vc-user-profile-accordion__title">Canale vocale privato</span>' +
-              '<span class="vc-user-profile-accordion__sub">' +
-              esc(customVoiceName || "1 canale vocale") +
-              "</span>" +
-              "</span>" +
-              '<span class="vc-user-profile-accordion__badge">1</span>' +
-              '<i class="fa fa-angle-down vc-user-profile-accordion__chev" aria-hidden="true"></i>' +
-              "</summary>" +
-              '<div class="vc-user-profile-accordion__body">' +
-              voiceStatsHtml(customVoice) +
               "</div>" +
-              "</details>"
+              '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
+              esc(formatDateIt(customRole.createdAt)) +
+              "</strong></span>" +
+              (viewerOwns ? "</a>" : "</article>") +
+              sharedMembersMarkup(customRole.sharedMembers, customRole.memberCount, "Primario condiviso con") +
+              "</div>"
             : viewerOwns
-              ? '<details class="vc-user-profile-accordion vc-user-profile-accordion--voice" open>' +
-                '<summary class="vc-user-profile-accordion__summary">' +
-                '<span class="vc-user-profile-accordion__icon"><i class="fa fa-microphone" aria-hidden="true"></i></span>' +
-                '<span class="vc-user-profile-accordion__copy">' +
-                '<span class="vc-user-profile-accordion__title">Canale vocale privato</span>' +
-                '<span class="vc-user-profile-accordion__sub">Crea la tua stanza</span>' +
-                "</span>" +
-                '<span class="vc-user-profile-accordion__badge">0</span>' +
-                '<i class="fa fa-angle-down vc-user-profile-accordion__chev" aria-hidden="true"></i>' +
-                "</summary>" +
-                '<div class="vc-user-profile-accordion__body">' +
-                createCustomCardHtml("voice", "Vocale privata", "Gestisci nome, emoji e accesso") +
-                "</div></details>"
+              ? createCustomCardHtml("primary", "Ruolo principale", "Crea direttamente dal profilo")
               : "") +
+          (customSecondaryRole
+            ? '<div class="vc-user-profile-customstack">' +
+              (viewerOwns
+                ? '<a class="vc-user-profile-customcard vc-user-profile-customcard--secondary vc-user-profile-customcard--link" href="' +
+                  esc(customProfileEditorUrl("secondary")) +
+                  '" title="Ruolo secondario">'
+                : '<article class="vc-user-profile-customcard vc-user-profile-customcard--secondary">') +
+              '<div class="vc-user-profile-customcard__main">' +
+              '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice">' +
+              (customSecondaryRole.iconUrl
+                ? '<img class="vc-user-profile-customicon__img" src="' +
+                  esc(customSecondaryRole.iconUrl) +
+                  '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+                : customSecondaryRole.emoji
+                  ? '<span class="vc-user-profile-customicon__emoji">' + esc(customSecondaryRole.emoji) + "</span>"
+                  : '<i class="fa fa-star" aria-hidden="true"></i>') +
+              "</span>" +
+              '<div class="vc-user-profile-customcard__copy">' +
+              '<strong class="vc-user-profile-customcard__title">' +
+              esc(
+                (customSecondaryRole.emoji ? customSecondaryRole.emoji + " " : "") +
+                  (customSecondaryRole.name || "Ruolo personalizzato secondario"),
+              ) +
+              "</strong>" +
+              '<span class="vc-user-profile-customcard__meta">Ruolo Secondario</span>' +
+              "</div>" +
+              "</div>" +
+              '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
+              esc(formatDateIt(customSecondaryRole.createdAt)) +
+              "</strong></span>" +
+              (viewerOwns ? "</a>" : "</article>") +
+              sharedMembersMarkup(
+                customSecondaryRole.sharedMembers,
+                customSecondaryRole.memberCount,
+                "Secondario condiviso con",
+              ) +
+              "</div>"
+            : viewerOwns && customRole
+              ? createCustomCardHtml("secondary", "Ruolo secondario", "Serve VIP+ / Double Booster / Lv 120")
+              : "") +
+          (customVoice
+            ? voiceStatsHtml(customVoice)
+            : viewerOwns
+              ? createCustomCardHtml("voice", "Vocale privata", "Gestisci nome, emoji e accesso")
+              : "") +
+          "</div>" +
+          "</div>" +
           "</section>"
         : "";
 
@@ -2574,40 +2709,37 @@
       "</span></article>" +
       "</div>" +
       "</section>" +
-      (viewerOwns
-        ? '<details class="vc-user-profile-block vc-user-profile-block--messages vc-user-profile-disclosure">' +
-          '<summary class="vc-user-profile-disclosure__summary"><span class="vc-user-profile-block__title">Statistiche messaggi</span><span class="vc-user-profile-block__sub">' +
-          esc(formatIntIt(messages.messagesTotal || 0)) +
-          ' messaggi totali</span><i class="fa fa-angle-down vc-user-profile-disclosure__chev" aria-hidden="true"></i></summary>' +
-          '<div class="vc-user-profile-grid3">' +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Totali</span><span class="vc-user-profile-mini__value">' +
-          esc(formatIntIt(messages.messagesTotal || 0)) +
-          "</span></div>" +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Settimanali</span><span class="vc-user-profile-mini__value">' +
-          esc(formatIntIt(messages.messagesWeekly || 0)) +
-          "</span></div>" +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Giornaliere</span><span class="vc-user-profile-mini__value">' +
-          esc(formatIntIt(messages.messagesDaily || 0)) +
-          "</span></div>" +
-          "</div></details>"
-        : "") +
-      (viewerOwns
-        ? '<details class="vc-user-profile-block vc-user-profile-block--voice vc-user-profile-disclosure">' +
-          '<summary class="vc-user-profile-disclosure__summary"><span class="vc-user-profile-block__title">Statistiche voice chat</span><span class="vc-user-profile-block__sub">' +
-          esc(formatHoursIt(voice.voiceTotalSeconds || 0)) +
-          ' totali</span><i class="fa fa-angle-down vc-user-profile-disclosure__chev" aria-hidden="true"></i></summary>' +
-          '<div class="vc-user-profile-grid3">' +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore totali</span><span class="vc-user-profile-mini__value">' +
-          esc(formatHoursIt(voice.voiceTotalSeconds || 0)) +
-          "</span></div>" +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore settimanali</span><span class="vc-user-profile-mini__value">' +
-          esc(formatHoursIt(voice.voiceWeeklySeconds || 0)) +
-          "</span></div>" +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore giornaliere</span><span class="vc-user-profile-mini__value">' +
-          esc(formatHoursIt(voice.voiceDailySeconds || 0)) +
-          "</span></div>" +
-          "</div></details>"
-        : "") +
+      // profilePeerParity1: messaggi/voice uguali per tutti (solo le CTA restano al proprietario).
+      '<details class="vc-user-profile-block vc-user-profile-block--messages vc-user-profile-disclosure">' +
+      '<summary class="vc-user-profile-disclosure__summary"><span class="vc-user-profile-block__title">Statistiche messaggi</span><span class="vc-user-profile-block__sub">' +
+      esc(formatIntIt(messages.messagesTotal || 0)) +
+      ' messaggi totali</span><i class="fa fa-angle-down vc-user-profile-disclosure__chev" aria-hidden="true"></i></summary>' +
+      '<div class="vc-user-profile-grid3">' +
+      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Totali</span><span class="vc-user-profile-mini__value">' +
+      esc(formatIntIt(messages.messagesTotal || 0)) +
+      "</span></div>" +
+      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Settimanali</span><span class="vc-user-profile-mini__value">' +
+      esc(formatIntIt(messages.messagesWeekly || 0)) +
+      "</span></div>" +
+      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Giornaliere</span><span class="vc-user-profile-mini__value">' +
+      esc(formatIntIt(messages.messagesDaily || 0)) +
+      "</span></div>" +
+      "</div></details>" +
+      '<details class="vc-user-profile-block vc-user-profile-block--voice vc-user-profile-disclosure">' +
+      '<summary class="vc-user-profile-disclosure__summary"><span class="vc-user-profile-block__title">Statistiche voice chat</span><span class="vc-user-profile-block__sub">' +
+      esc(formatHoursIt(voice.voiceTotalSeconds || 0)) +
+      ' totali</span><i class="fa fa-angle-down vc-user-profile-disclosure__chev" aria-hidden="true"></i></summary>' +
+      '<div class="vc-user-profile-grid3">' +
+      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore totali</span><span class="vc-user-profile-mini__value">' +
+      esc(formatHoursIt(voice.voiceTotalSeconds || 0)) +
+      "</span></div>" +
+      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore settimanali</span><span class="vc-user-profile-mini__value">' +
+      esc(formatHoursIt(voice.voiceWeeklySeconds || 0)) +
+      "</span></div>" +
+      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore giornaliere</span><span class="vc-user-profile-mini__value">' +
+      esc(formatHoursIt(voice.voiceDailySeconds || 0)) +
+      "</span></div>" +
+      "</div></details>" +
       '<section class="vc-user-profile-block vc-user-profile-block--rankcard">' +
       '<div class="vc-user-profile-block__head">' +
       '<span class="vc-user-profile-block__title">Rank card <code class="vc-user-profile-inlinecmd">+rank</code></span>' +
@@ -2816,6 +2948,7 @@
     if (cachedDataUrl) {
       releaseProfileRankObjectUrl();
       showImage(cachedDataUrl, true);
+      if (!force) return;
     } else if (!hasSrc || force) {
       setRankCardPreviewReady(img, false);
       status.hidden = true;
@@ -2823,16 +2956,49 @@
       status.className = "vc-rank-editor-preview__imagestatus";
       img.classList.add("is-rendering");
     }
-    var directUrl = url + (force ? (url.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now() : "");
-    showImage(directUrl, false);
-    fetch(url, { cache: "default", credentials: "omit" })
+
+    /* rankFastPaint1: URL stabile in img.src → bypass coda fetch/soft429 (API ~0.2s). */
+    if (!cachedDataUrl) {
+      releaseProfileRankObjectUrl();
+      showImage(url, false);
+    }
+
+    /* Cache locale in background; non blocca il paint. Soft429 = ignore. */
+    if (Date.now() < rankPreviewBlockedUntil) return;
+    try {
+      if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
+        if (window.VcApiCache.isWebhookBlocked(url)) return;
+      }
+    } catch (eBlk) {}
+    if (rankPreviewInFlightByUid[uid]) return;
+
+    rankPreviewInFlightByUid[uid] = fetch(url, {
+      cache: force ? "no-store" : "force-cache",
+      credentials: "omit",
+    })
       .then(function (r) {
+        if (r && r.status === 429) {
+          var soft = false;
+          try {
+            soft = String(r.headers && r.headers.get("X-VC-Soft429") || "") === "1";
+          } catch (eSoft) {}
+          if (!soft) {
+            rankPreviewBlockedUntil = Date.now() + 45000;
+            try {
+              if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
+                window.VcApiCache.noteWebhook429(30, url);
+              }
+            } catch (e429) {}
+          }
+          throw new Error("http_429");
+        }
         if (!r.ok) throw new Error("http_" + r.status);
         return r.blob();
       })
       .then(function (blob) {
         if (myToken !== profileRankRenderToken) return;
-        if (!blob || !blob.size) throw new Error("empty");
+        if (String(img.getAttribute("data-vc-rank-for") || "") !== uid) return;
+        if (!blob || !blob.size) return;
         if (blob.size < 380000) {
           blobToDataUrl(blob)
             .then(function (dataUrl) {
@@ -2840,19 +3006,46 @@
             })
             .catch(function () {});
         }
+        /* Solo su force: sostituisci con blob fresco (bypass HTTP cache). */
+        if (force) {
+          releaseProfileRankObjectUrl();
+          try {
+            profileRankObjectUrl = window.URL.createObjectURL(blob);
+            showImage(profileRankObjectUrl, false);
+          } catch (eObj) {}
+        }
       })
-      .catch(function () {
-        if (myToken !== profileRankRenderToken) return;
-        if (img.getAttribute("src")) return;
-        img.classList.remove("is-rendering");
-        setRankCardPreviewReady(img, false);
-        status.hidden = false;
-        status.textContent = "Anteprima non disponibile al momento.";
-        status.className = "vc-rank-editor-preview__imagestatus is-error";
+      .catch(function () {})
+      .finally(function () {
+        delete rankPreviewInFlightByUid[uid];
       });
   }
 
   var profileInitialLoadDone = false;
+
+  function patchSilentProfileStats(root, payload) {
+    if (!root || !payload) return;
+    var level = payload.level || {};
+    var weekly = payload.weekly || {};
+    var messages = payload.messages || {};
+    function setVal(sel, text) {
+      var el = root.querySelector(sel);
+      if (!el) return;
+      var next = String(text == null ? "" : text);
+      if (el.textContent !== next) el.textContent = next;
+    }
+    setVal(".vc-user-profile-stat--level .vc-user-profile-stat__value", formatIntIt(level.level || 0));
+    setVal(".vc-user-profile-stat--exp .vc-user-profile-stat__value", formatIntIt(level.exp || 0));
+    setVal(
+      ".vc-user-profile-stat--rank .vc-user-profile-stat__value",
+      level.rank != null && level.rank !== "" ? String(level.rank) : "—",
+    );
+    setVal(".vc-user-profile-stat--weekly .vc-user-profile-stat__value", formatIntIt(weekly.weeklyExp || 0));
+    setVal(
+      ".vc-user-profile-stat--messages .vc-user-profile-stat__value",
+      formatIntIt(messages.messagesTotal || 0),
+    );
+  }
 
   function applyProfileResult(root, userId, result, silent) {
     var level = result && result.level ? result.level : null;
@@ -2868,9 +3061,22 @@
     }
 
     if (result && result.notFound) {
-      if (silent) return false;
+      try {
+        document.documentElement.classList.remove("vc-user-profile-comm-switch");
+      } catch (eNfGate) {}
+      if (silent) {
+        /* leaveProfileLive1: silent poll after leave → drop ghost community+staff */
+        try {
+          if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.onMemberLeft === "function") {
+            window.VCUserProfileStaffTab.onMemberLeft(uid);
+          }
+        } catch (eLeft) {}
+        renderEmpty(root, uid);
+        return true;
+      }
       renderEmpty(root, uid);
-      return false;
+      /* profileHangFix1: notFound è terminale — non tenere pending/comm-switch */
+      return true;
     }
 
     if (!result || !result.ok) {
@@ -2969,21 +3175,45 @@
       profileInitialLoadDone = true;
       profileBootSettled = true;
       if (rankMismatch || !rankImg.getAttribute("src")) {
-        loadProfileRankCardPreview(uid, { force: true });
+        window.setTimeout(function () {
+          try {
+            loadProfileRankCardPreview(uid, { force: true });
+          } catch (eRk) {}
+        }, 0);
       }
+      return true;
+    }
+    /* violPass5: silent poll con DOM già ok → solo aggiorna signature, no full renderProfile */
+    if (silent && shellOk && Boolean(rankImg) && !rankMismatch) {
+      lastProfileRenderSignature = nextSig;
+      profileInitialLoadDone = true;
+      profileBootSettled = true;
+      try {
+        patchSilentProfileStats(root, lastRenderedProfile.payload);
+      } catch (ePatch) {}
       return true;
     }
     lastProfileRenderSignature = nextSig;
     try {
       var staffBusy =
         parseWantsStaffTab() &&
-        onStaffTab &&
         !root.querySelector(
           ".vc-user-profile-staff-pane .vc-user-profile-hero, .vc-user-profile-staff-pane .vc-staff-profile-panel",
         );
-      if (staffBusy && shellOk) {
-        profileInitialLoadDone = true;
-        profileBootSettled = true;
+      /* staffReloadPaint1 / staffSwitchIdLock1: tab=staff senza pane montato —
+         NON settare bootSettled (altrimenti watchdog toglie loader → blank). */
+      if (staffBusy) {
+        try {
+          document.documentElement.classList.add("vc-user-profile-staff-tab-pending");
+        } catch (ePend) {}
+        /* profileHangFix1: sblocca gate community anche se poi montiamo staff */
+        try {
+          finishCommunitySwitchPaint(uid);
+        } catch (eStaffGate) {
+          try {
+            document.documentElement.classList.remove("vc-user-profile-comm-switch");
+          } catch (eStaffGate2) {}
+        }
         try {
           if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.sync === "function") {
             window.VCUserProfileStaffTab.sync(uid, root);
@@ -2991,9 +3221,15 @@
         } catch (eStaffDefer) {}
         return true;
       }
+      var staffIntent =
+        parseWantsStaffTab() ||
+        Boolean(document.body && document.body.classList.contains("vc-user-profile-staff-tab"));
+      // switcherReload1: lockedCommunityUserId è il lock profilo generico — NON saltare sync
+      // su ogni paint community (prima azzerava lo switcher al reload di staff/PM).
       renderProfile(root, uid, lastRenderedProfile.payload, {
-        skipStaffSync: Boolean(lockedCommunityUserId),
-        communityOnly: Boolean(lockedCommunityUserId),
+        skipStaffSync: Boolean(lockedCommunityUserId) && staffIntent,
+        communityOnly: Boolean(lockedCommunityUserId) && staffIntent,
+        preserveStaffPane: Boolean(lockedCommunityUserId) && staffIntent,
       });
       profileInitialLoadDone = true;
       profileBootSettled = true;
@@ -3226,6 +3462,20 @@
             });
           });
         }
+        /* violPass5: apply silent fuori dal turn sync (cache hit = .then sync = Violation) */
+        if (silent) {
+          return new Promise(function (resolve) {
+            window.setTimeout(function () {
+              var ok = false;
+              try {
+                ok = applyProfileResult(root, userId, result, true);
+              } catch (eSil) {
+                ok = false;
+              }
+              resolve(ok);
+            }, 0);
+          });
+        }
         var applied = applyProfileResult(root, userId, result, silent);
         if (applied && !silent && !bypassCache) {
           scheduleProfileMemberEnrich(userId);
@@ -3255,6 +3505,24 @@
         if (silent || !parseProfileId()) return;
         var root = byId("vc-user-profile-view");
         // staffCommSwitch2: mai spegnere loader/pending se lo shell community target non c'è ancora.
+        /* profileHangFix1: se empty/notfound già in DOM, non rimettere il loader */
+        var terminalEmpty = false;
+        try {
+          terminalEmpty = Boolean(
+            root &&
+              root.querySelector(
+                ":scope > .vc-user-profile-shell .vc-user-profile-empty, :scope > .vc-user-profile-shell .vc-user-profile-notfound, :scope > .vc-user-profile-shell--notfound, :scope > .vc-user-profile-shell .vc-user-profile-hero",
+              ),
+          );
+        } catch (eTerm) {}
+        if (terminalEmpty) {
+          try {
+            document.documentElement.classList.remove("vc-user-profile-comm-switch");
+          } catch (eGateOff) {}
+          clearProfilePending();
+          clearProfileLoading();
+          return;
+        }
         if (shouldHoldCommunitySwitchLoader(root, userId)) {
           try {
             if (!byId("vc-user-profile-loading") || (byId("vc-user-profile-loading") && byId("vc-user-profile-loading").hidden)) {
@@ -3262,6 +3530,17 @@
             }
           } catch (eHold) {}
           return;
+        }
+        /* profileHangFix2: se eravamo in hold e ora timeout/ready → chiudi gate */
+        try {
+          if (communitySwitchGateActive()) {
+            finishCommunitySwitchPaint(userId);
+          }
+        } catch (eFin) {
+          try {
+            document.documentElement.classList.remove("vc-user-profile-comm-switch");
+            clearCommunitySwitchHoldClock();
+          } catch (eGateOff2) {}
         }
         if (profileInitialLoadDone || profileBootSettled) {
           clearProfilePending();
@@ -3292,7 +3571,10 @@
     if (profileMainInFlight && !force) {
       return Promise.resolve();
     }
-    if (force) profileMainInFlight = false;
+    if (force) {
+      profileMainInFlight = false;
+      profilePendingWatchdogAttempts = 0;
+    }
     profileMainInFlight = true;
     var bootId = parseProfileId();
     if (bootId) {
@@ -3340,9 +3622,20 @@
   function startLiveProfilePolling() {
     stopLiveProfilePolling();
     liveProfilePollTimer = setInterval(function () {
+      /* violPass5: interval torna subito — lavoro fuori dal handler (era ~2490ms Violation) */
+      if (liveProfilePollBusy || profileMainInFlight) return;
       if (document.visibilityState !== "visible") return;
       if (!parseProfileId()) return;
-      refreshProfileSilently();
+      liveProfilePollBusy = true;
+      window.setTimeout(function () {
+        try {
+          Promise.resolve(loadProfile({ silent: true })).finally(function () {
+            liveProfilePollBusy = false;
+          });
+        } catch (ePoll) {
+          liveProfilePollBusy = false;
+        }
+      }, 0);
     }, LIVE_PROFILE_POLL_MS);
   }
 
@@ -3452,7 +3745,27 @@
     window.setTimeout(function () {
       try {
         if (!document.documentElement.classList.contains("vc-user-profile-pending")) return;
+        /* staffSwitchIdLock1: non clear se staff ancora pending vuoto */
         if (profileInitialLoadDone) {
+          var holdStaffFs =
+            parseWantsStaffTab() &&
+            (document.documentElement.classList.contains("vc-user-profile-staff-tab-pending") ||
+              document.documentElement.classList.contains("vc-staff-boot-block"));
+          var staffReadyFs = Boolean(
+            document.querySelector(
+              ".vc-user-profile-staff-pane .vc-user-profile-hero, .vc-user-profile-staff-pane .vc-staff-profile-panel, .vc-staff-prof-miss",
+            ),
+          );
+          /* staffRefreshUnstick1: su reload sblocca anche se staff ancora vuoto */
+          if (holdStaffFs && !staffReadyFs && !isProfileReloadNavigation()) return;
+          if (holdStaffFs) {
+            try {
+              document.documentElement.classList.remove(
+                "vc-user-profile-staff-tab-pending",
+                "vc-staff-boot-block",
+              );
+            } catch (eStaffFs) {}
+          }
           clearProfilePending();
           clearProfileLoading();
           return;
@@ -3480,6 +3793,25 @@
 
   startLiveProfilePolling();
 
+  /* leaveProfileLive1: WS/bots → drop open profile immediately */
+  window.addEventListener("vc:member-left", function (ev) {
+    try {
+      var leftId = String((ev && ev.detail && ev.detail.userId) || "").trim();
+      var cur = String(parseProfileId() || "").trim();
+      if (!leftId || !cur || leftId !== cur) return;
+      var root = byId("vc-user-profile-view");
+      if (!root) return;
+      try {
+        if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.onMemberLeft === "function") {
+          window.VCUserProfileStaffTab.onMemberLeft(leftId);
+        }
+      } catch (eStaff) {}
+      clearProfileSessionCaches();
+      lastRenderedProfile = null;
+      renderEmpty(root, leftId);
+    } catch (eLeft) {}
+  });
+
   window.addEventListener("pageshow", function (ev) {
     if (!parseProfileId()) return;
         if (ev && ev.persisted) {
@@ -3492,14 +3824,36 @@
       if (!r) return;
       var pending = false;
       var staleStaff = false;
+      var stuckGate = false;
       try {
         pending = document.documentElement.classList.contains("vc-user-profile-pending");
+        stuckGate = document.documentElement.classList.contains("vc-user-profile-comm-switch");
         staleStaff =
           (document.body && document.body.classList.contains("vc-user-profile-staff-tab")) ||
           document.documentElement.classList.contains("vc-user-profile-staff-tab-pending");
       } catch (eCls) {}
       if (pending && !profileInitialLoadDone) {
         main({ force: false });
+        return;
+      }
+      /* profileRefreshGate1: pending già “fatto” ma gate ancora su → sblocca, non early-return forever */
+      if (pending && profileInitialLoadDone) {
+        try {
+          if (stuckGate) finishCommunitySwitchPaint(parseProfileId());
+          else {
+            clearProfilePending();
+            clearProfileLoading();
+            unlockProfileChrome();
+          }
+        } catch (eUnstick) {
+          try {
+            document.documentElement.classList.remove(
+              "vc-user-profile-pending",
+              "vc-user-profile-comm-switch",
+            );
+            unlockProfileChrome();
+          } catch (eUnstick2) {}
+        }
         return;
       }
       if (pending) return;
@@ -3512,6 +3866,63 @@
       }
     }, 100);
   });
+
+  /* profileRefreshGate1 / staffRefreshUnstick1: F5 — sblocca pending + staff-tab-pending */
+  try {
+    if (isProfileReloadNavigation() && parseProfileId()) {
+      window.setTimeout(function () {
+        try {
+          if (!parseProfileId()) return;
+          var stillPending = document.documentElement.classList.contains("vc-user-profile-pending");
+          var stillGate = document.documentElement.classList.contains("vc-user-profile-comm-switch");
+          var stillStaff =
+            document.documentElement.classList.contains("vc-user-profile-staff-tab-pending") ||
+            document.documentElement.classList.contains("vc-staff-boot-block");
+          if (!stillPending && !stillGate && !stillStaff) return;
+          var root = byId("vc-user-profile-view");
+          var staffReady = Boolean(
+            root &&
+              root.querySelector(
+                ".vc-user-profile-staff-pane .vc-user-profile-hero, .vc-user-profile-staff-pane .vc-staff-profile-panel, .vc-staff-prof-miss",
+              ),
+          );
+          if (root && (profileViewLooksReady(root) || staffReady)) {
+            try {
+              finishCommunitySwitchPaint(parseProfileId());
+            } catch (eFin) {}
+            try {
+              document.documentElement.classList.remove(
+                "vc-user-profile-staff-tab-pending",
+                "vc-staff-boot-block",
+              );
+            } catch (eStaffOk) {}
+            clearProfilePending();
+            clearProfileLoading();
+            unlockProfileChrome();
+            return;
+          }
+          document.documentElement.classList.remove(
+            "vc-user-profile-comm-switch",
+            "vc-user-profile-pending",
+            "vc-user-profile-staff-tab-pending",
+            "vc-staff-boot-block",
+            "vc-loading-scroll-lock",
+          );
+          clearCommunitySwitchHoldClock();
+          unlockProfileChrome();
+          clearProfileLoading();
+          if (parseWantsStaffTab() && root) {
+            try {
+              if (window.VCUserProfileStaffTab && typeof window.VCUserProfileStaffTab.sync === "function") {
+                window.VCUserProfileStaffTab.sync(parseProfileId(), root);
+              }
+            } catch (eSyncFs) {}
+          }
+          if (root && profileViewLooksBroken(root) && !staffReady) repairProfileAfterBack();
+        } catch (eReloadFs) {}
+      }, 3500);
+    }
+  } catch (eReloadArm) {}
 
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState !== "visible") return;
@@ -3576,6 +3987,8 @@
       if (!root) return false;
       opts = opts || {};
       var wipe = Boolean(opts.wipe);
+      /* profileRefreshGate1: gate chrome solo se richiesto (tab-switch), non su cold ensure */
+      var useSwitchGate = opts.switchGate !== undefined ? Boolean(opts.switchGate) : wipe;
 
       lockedCommunityUserId = id;
       communityPaintSeq += 1;
@@ -3705,7 +4118,13 @@
           window.__VC_PROFILE_PREFETCH_RESULT = null;
         } catch (eClrPref) {}
         try {
-          document.documentElement.classList.add("vc-user-profile-comm-switch");
+          if (useSwitchGate) {
+            document.documentElement.classList.add("vc-user-profile-comm-switch");
+            markCommunitySwitchHold();
+          } else {
+            document.documentElement.classList.remove("vc-user-profile-comm-switch");
+            clearCommunitySwitchHoldClock();
+          }
         } catch (eGateOn) {}
         // communityStaffSwitchFlash1: loader senza distruggere il pane staff
         renderLoading(root, { force: true, preserveStaffPane: true });
@@ -3736,3 +4155,6 @@
     finishCommunitySwitch: finishCommunitySwitchPaint,
   };
 })();
+/* rankFastPaint1 */
+/* violPass5 */
+

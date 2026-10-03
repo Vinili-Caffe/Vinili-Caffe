@@ -1,5 +1,5 @@
 (function () {
-  /* liveStatsMarqueeAll4: paint tab select first; marquee nomi su tutti i roster (data-vc-roster-marquee) */
+  /* liveStatsMarqueeFix4: gap padding !important (CSS non deve forzare 1.75rem); no observer loop */
   var cfg = typeof window !== "undefined" ? window.__VC_LIVE : null;
   if (!cfg || cfg.enabled !== true) return;
 
@@ -108,6 +108,34 @@
     inner._vcStatRaf = requestAnimationFrame(frame);
   }
 
+  function syncHomeMemberTitles(n) {
+    /* ogTitleMembers1: keep <title>/og/twitter in sync with live member count */
+    n = Math.floor(Number(n) || 0);
+    if (!Number.isFinite(n) || n < 1) return;
+    try {
+      if (!document.body || !document.body.classList.contains("vc-body--home")) return;
+    } catch (eBody) {
+      return;
+    }
+    var page = "Community Discord italiana · " + n + "+ membri";
+    try {
+      if (window.VcPageTitle && typeof window.VcPageTitle.set === "function") {
+        window.VcPageTitle.set(page);
+        return;
+      }
+    } catch (ePt) {}
+    var full = "Vinili & Caffè | " + page;
+    try {
+      if (document.title !== full) document.title = full;
+    } catch (eTitle) {}
+    try {
+      var og = document.querySelector('meta[property="og:title"]');
+      if (og) og.setAttribute("content", full);
+      var tw = document.querySelector('meta[name="twitter:title"]');
+      if (tw) tw.setAttribute("content", full);
+    } catch (eMeta) {}
+  }
+
   function setText(key, value) {
     var node = el(key);
     if (!node || value === undefined || value === null) return;
@@ -116,6 +144,7 @@
     n = Math.floor(n);
     var inner = statInnerNode(node);
     var cur = parseInt(String(inner.textContent || "").replace(/\D/g, ""), 10) || 0;
+    if (key === "members") syncHomeMemberTitles(n);
     if (cur === n) return;
     animateNumber(inner, cur, n, durationUpdate(cur, n), null);
   }
@@ -167,6 +196,7 @@
                   isNew: entry.isNew === true,
                   isPaused: entry.isPaused === true,
                   isStaffDelMese: entry.isStaffDelMese === true,
+                  isStaffDelSettimana: entry.isStaffDelSettimana === true,
                   roleId: String(entry.roleId || "").trim(),
                   roleLabel: String(entry.roleLabel || "").trim(),
                 };
@@ -180,6 +210,7 @@
                 isNew: false,
                 isPaused: false,
                 isStaffDelMese: false,
+                isStaffDelSettimana: false,
                 roleId: "",
                 roleLabel: "",
               };
@@ -386,9 +417,12 @@
   function syncRosterCell(cell, open, showLabel, hideLabel) {
     if (!cell) return;
     cell.setAttribute("aria-expanded", open ? "true" : "false");
-    var visible = cellVisibleName(cell);
     var action = open ? hideLabel : showLabel;
-    cell.setAttribute("aria-label", visible ? visible + ". " + action : action);
+    /* lighthouseLhSite1: no aria-label — name from visible text (avoids label-content mismatch) */
+    try {
+      cell.removeAttribute("aria-label");
+    } catch (eAria) {}
+    if (action) cell.setAttribute("title", action);
   }
 
   function invalidateRosterHtml(kind) {
@@ -637,34 +671,58 @@
     return Math.max(0, Math.floor(person.clientWidth - pad - used - gap * extra));
   }
 
-  function applyRosterNameMarquee(nameEl) {
-    if (!nameEl) return false;
-    var trackEl = nameEl.querySelector(".vc-marquee__track");
-    var textEl = trackEl && trackEl.querySelector(".vc-marquee__text:not(.is-clone)");
-    if (!trackEl || !textEl) return false;
+  function clearRosterNameMarquee(nameEl, trackEl, textEl) {
     var clones = trackEl.querySelectorAll(".vc-marquee__text.is-clone");
     for (var i = 0; i < clones.length; i += 1) clones[i].parentNode.removeChild(clones[i]);
     nameEl.classList.remove("is-marquee");
     nameEl.style.removeProperty("--vc-marquee-distance");
     nameEl.style.removeProperty("--vc-marquee-duration");
-    textEl.style.paddingInlineEnd = "";
+    nameEl.removeAttribute("data-vc-marquee-sig");
+    textEl.style.removeProperty("padding-inline-end");
     trackEl.style.transform = "";
     trackEl.style.removeProperty("width");
     trackEl.style.removeProperty("max-width");
     trackEl.style.removeProperty("overflow");
     trackEl.style.removeProperty("display");
+  }
 
-    var person = nameEl.closest ? nameEl.closest(".vc-home-staff-roster__person") : null;
+  function applyRosterNameMarquee(nameEl) {
+    if (!nameEl) return false;
+    var trackEl = nameEl.querySelector(".vc-marquee__track");
+    var textEl = trackEl && trackEl.querySelector(".vc-marquee__text:not(.is-clone)");
+    if (!trackEl || !textEl) return false;
+
+    var reduceMotion = false;
+    try {
+      reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    } catch (eRm) {}
+
     var boxW = Math.floor(nameEl.clientWidth || 0);
     var availW = rosterNameAvailableWidth(nameEl);
-    var personW = person ? Math.floor(person.clientWidth || 0) : 0;
-    var containerW = Math.max(boxW, availW, Math.floor(personW * 0.42), 56);
+    /* Usa la larghezza clip reale del nome — NON max(stime) (gonfiava e spegneva il marquee). */
+    var containerW = boxW > 8 ? boxW : Math.max(availW, 56);
 
-    /* Misura testo senza clamp width:100% del track. */
+    var rawText = String(textEl.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!rawText) {
+      clearRosterNameMarquee(nameEl, trackEl, textEl);
+      return false;
+    }
+
+    /* Misura solo il testo originale (nasconde clone temporaneamente). */
+    var cloneNodes = trackEl.querySelectorAll(".vc-marquee__text.is-clone");
+    var cloneDisplay = [];
+    for (var h = 0; h < cloneNodes.length; h += 1) {
+      cloneDisplay.push(cloneNodes[h].style.display);
+      cloneNodes[h].style.display = "none";
+    }
+    var prevPad = textEl.style.paddingInlineEnd;
+    textEl.style.paddingInlineEnd = "";
+    var prevDisp = trackEl.style.display;
     var prevW = trackEl.style.width;
     var prevMax = trackEl.style.maxWidth;
     var prevOv = trackEl.style.overflow;
-    var prevDisp = trackEl.style.display;
     trackEl.style.display = "inline-flex";
     trackEl.style.width = "max-content";
     trackEl.style.maxWidth = "none";
@@ -672,32 +730,46 @@
     var textW = Math.ceil(
       Math.max(textEl.scrollWidth || 0, textEl.getBoundingClientRect().width || 0, textEl.offsetWidth || 0),
     );
+    trackEl.style.display = prevDisp;
     trackEl.style.width = prevW;
     trackEl.style.maxWidth = prevMax;
     trackEl.style.overflow = prevOv;
-    trackEl.style.display = prevDisp;
+    textEl.style.paddingInlineEnd = prevPad;
+    for (var r = 0; r < cloneNodes.length; r += 1) {
+      cloneNodes[r].style.display = cloneDisplay[r] || "";
+    }
+    if (textW <= 0) textW = Math.max(48, Math.ceil(rawText.length * 7.2));
 
-    var rawLen = String(textEl.textContent || "")
-      .replace(/\s+/g, " ")
-      .trim().length;
-    if (rawLen < 1) return false;
-    /* liveStatsMarqueeAll1: marquee su TUTTI i nomi — niente early-return per clientWidth 0. */
-    if (textW <= 0) textW = Math.max(48, Math.ceil(rawLen * 7.2));
+    if (reduceMotion) {
+      clearRosterNameMarquee(nameEl, trackEl, textEl);
+      return false;
+    }
 
+    /*
+     * Sempre marquee: il clone deve partire FUORI dal box.
+     * segmentW >= containerW + gap → a transform 0 si vede una sola copia.
+     */
+    var gapPx = 32;
+    var segmentW = Math.max(textW + gapPx, containerW + gapPx);
+    var duration = Math.max(6, Math.min(16, segmentW / 34)).toFixed(1) + "s";
+    var sig = rawText + "|" + segmentW + "|" + duration + "|" + containerW;
+    if (
+      nameEl.getAttribute("data-vc-marquee-sig") === sig &&
+      nameEl.classList.contains("is-marquee") &&
+      trackEl.querySelector(".vc-marquee__text.is-clone")
+    ) {
+      return true;
+    }
+
+    clearRosterNameMarquee(nameEl, trackEl, textEl);
     var clone = textEl.cloneNode(true);
     clone.setAttribute("aria-hidden", "true");
     clone.classList.add("is-clone");
     trackEl.appendChild(clone);
-    textEl.style.paddingInlineEnd = "1.75rem";
-    var segmentW = Math.ceil(textEl.getBoundingClientRect().width || textEl.scrollWidth || textW);
-    if (segmentW <= 0) segmentW = textW + 28;
-    if (segmentW < textW) segmentW = textW + 28;
-    if (segmentW <= containerW + 2) segmentW = Math.max(segmentW, containerW + 12);
+    textEl.style.setProperty("padding-inline-end", Math.max(gapPx, segmentW - textW) + "px", "important");
     nameEl.style.setProperty("--vc-marquee-distance", segmentW + "px");
-    nameEl.style.setProperty(
-      "--vc-marquee-duration",
-      Math.max(5, Math.min(14, segmentW / 36)).toFixed(1) + "s",
-    );
+    nameEl.style.setProperty("--vc-marquee-duration", duration);
+    nameEl.setAttribute("data-vc-marquee-sig", sig);
     nameEl.classList.add("is-marquee");
     return true;
   }
@@ -710,22 +782,53 @@
       marqueeSyncTimer = null;
     }
     function runPass() {
-      var nodes = roster.querySelectorAll(".vc-home-staff-roster__name[data-vc-roster-marquee]");
-      for (var i = 0; i < nodes.length; i += 1) {
-        try {
-          applyRosterNameMarquee(nodes[i]);
-        } catch (eM) {}
+      var obs = roster._vcMarqueeObs;
+      roster._vcMarqueeApplying = true;
+      var nodes;
+      try {
+        if (obs) obs.disconnect();
+        nodes = roster.querySelectorAll(".vc-home-staff-roster__name[data-vc-roster-marquee]");
+      } catch (eQ) {
+        nodes = [];
       }
+      /* violPass9: un nome per macrotask — evita setTimeout 100ms+ + Forced reflow batch */
+      var idx = 0;
+      function done() {
+        roster._vcMarqueeApplying = false;
+        try {
+          if (obs) {
+            obs.observe(roster, {
+              subtree: true,
+              childList: true,
+              characterData: true,
+            });
+          }
+        } catch (eRe) {}
+      }
+      function step() {
+        if (idx >= nodes.length) {
+          done();
+          return;
+        }
+        try {
+          applyRosterNameMarquee(nodes[idx]);
+        } catch (eM) {}
+        idx += 1;
+        window.setTimeout(step, 0);
+      }
+      step();
     }
     function bindRemeasure() {
       try {
         if (!roster._vcMarqueeObs && typeof MutationObserver === "function") {
           roster._vcMarqueeObs = new MutationObserver(function () {
+            if (roster._vcMarqueeApplying) return;
             if (marqueeSyncTimer) clearTimeout(marqueeSyncTimer);
             marqueeSyncTimer = window.setTimeout(function () {
               marqueeSyncTimer = null;
+              if (roster._vcMarqueeApplying) return;
               runPass();
-            }, 80);
+            }, 160);
           });
           roster._vcMarqueeObs.observe(roster, {
             subtree: true,
@@ -740,21 +843,16 @@
           if (imgs[j].dataset.vcMarqueeBound === "1") continue;
           imgs[j].dataset.vcMarqueeBound = "1";
           imgs[j].addEventListener("load", function () {
+            if (roster._vcMarqueeApplying) return;
             runPass();
           });
         }
       } catch (eImg) {}
     }
-    /* subito + retry dopo layout/font/avatar */
     runPass();
-    marqueeSyncTimer = window.setTimeout(function () {
-      marqueeSyncTimer = null;
-      runPass();
-      bindRemeasure();
-      window.setTimeout(runPass, 120);
-      window.setTimeout(runPass, 320);
-      window.setTimeout(runPass, 700);
-    }, 0);
+    bindRemeasure();
+    window.setTimeout(runPass, 120);
+    window.setTimeout(runPass, 400);
     try {
       if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === "function") {
         document.fonts.ready.then(function () {
@@ -784,6 +882,9 @@
     var bestB = Boolean(member && member.isStaffDelMese === true)
       ? '<span class="vc-staff-best-badge" title="Best staff" aria-label="Best staff">Best</span>'
       : "";
+    var weekB = Boolean(member && member.isStaffDelSettimana === true)
+      ? '<span class="vc-staff-week-badge" title="Staffer della settimana" aria-label="Staffer della settimana">Week</span>'
+      : "";
     var groupRole = String((group && group.role) || "").replace(/^༄\s*/, "").trim().toLowerCase();
     var memberRole = String((member && member.roleLabel) || "").replace(/^༄\s*/, "").trim();
     var roleB = memberRole && memberRole.toLowerCase() !== groupRole
@@ -796,8 +897,8 @@
         "</span>"
       : "";
     var badges =
-      ownerB || newB || pauseB || bestB || roleB
-        ? '<span class="vc-staff-member-chip__badges">' + ownerB + newB + pauseB + bestB + roleB + "</span>"
+      ownerB || newB || pauseB || bestB || weekB || roleB
+        ? '<span class="vc-staff-member-chip__badges">' + ownerB + newB + pauseB + bestB + weekB + roleB + "</span>"
         : "";
     var inner =
       renderStaffAvatarHtml(member, hue) +
@@ -1123,7 +1224,25 @@
       if (root) root.classList.add("is-roster-swap");
     }
     body.innerHTML = html;
-    if (rosterKind === "staff" || rosterKind === "boost") syncRosterNameMarquees();
+    /* liveStatsGlowSepPerf1: marquee dopo paint — sync layout thrash = lag apertura */
+    if (rosterKind === "staff" || rosterKind === "boost") {
+      var rosterForMarquee = roster;
+      var schedule =
+        typeof window.requestIdleCallback === "function"
+          ? function (fn) {
+              window.requestIdleCallback(fn, { timeout: 220 });
+            }
+          : function (fn) {
+              window.setTimeout(fn, 80);
+            };
+      schedule(function () {
+        try {
+          if (rosterKind !== "staff" && rosterKind !== "boost") return;
+          if (rosterEl() !== rosterForMarquee) return;
+          syncRosterNameMarquees();
+        } catch (eMq) {}
+      });
+    }
     /* scan avatar deferred: non bloccare il paint del roster */
     window.setTimeout(function () {
       try {
@@ -1141,6 +1260,7 @@
   }
 
   function fetchNoStore(url) {
+    /* siteApiW7: prefer VcApiCache If-None-Match; stable URL */
     if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
       var cacheKey = window.VcApiCache.keyFor(url, { scope: "live" });
       return window.VcApiCache
@@ -1148,14 +1268,14 @@
           ttlMs: 45000,
           staleMs: 5 * 60 * 1000,
           timeoutMs: 12000,
-          fetchInit: { cache: "no-store", credentials: "omit" },
+          fetchInit: { cache: "default", credentials: "omit" },
         })
         .then(function (payload) {
           if (!payload || !payload.ok) throw new Error(String((payload && payload.status) || 0));
           return payload.body;
         });
     }
-    return fetch(url, { cache: "no-store", credentials: "omit" }).then(function (r) {
+    return fetch(url, { cache: "default", credentials: "omit" }).then(function (r) {
       if (!r.ok) throw new Error(String(r.status));
       return r.json();
     });
@@ -1171,11 +1291,14 @@
         list.push(new URL(String(proxy).trim(), location.origin).toString());
       } catch (e) {
               }
-      if (list.length) return list;
     }
-    list.push(
-      "https://discord.com/api/v10/invites/" + encodeURIComponent(code) + "?with_counts=true",
-    );
+    /* inviteCorsFix1: never hit discord.com from the browser (CORS console noise).
+       Prefer same-origin proxy; fall back to /discord-invite.json. */
+    if (!list.length) {
+      try {
+        list.push(new URL("/discord-invite.json", location.origin).toString());
+      } catch (eDef) {}
+    }
     return list;
   }
 
@@ -1243,6 +1366,7 @@
   }
 
     function tick() {
+    if (typeof document !== "undefined" && document.hidden) return;
     Promise.all([fetchExtraStatsJson(), refreshInvite().catch(function () {
       return null;
     })]).then(function (pair) {
@@ -1396,6 +1520,17 @@
 
   wireIntroObserver();
   bootstrapStaffList();
+  /* lighthouseLhA11y1: re-sync aria after i18n may swap MEMBERS/Membri */
+  function resyncStatAria() {
+    try {
+      ensureStatRosterUi();
+      setRosterOpen(rosterKind);
+    } catch (eRs) {}
+  }
+  window.setTimeout(resyncStatAria, 800);
+  window.setTimeout(resyncStatAria, 2200);
+  document.addEventListener("vc:langchange", resyncStatAria);
+  window.addEventListener("languagechange", resyncStatAria);
 })();
 (function () {
   var cfg = typeof window !== "undefined" ? window.__VC_LIVE : null;
@@ -1580,16 +1715,11 @@
   });
 
   function poll() {
+    if (typeof document !== "undefined" && document.hidden) return;
     var u = resolvedLiveEventUrl();
     if (!u) return;
-    var sep = u.indexOf("?") >= 0 ? "&" : "?";
-    u = u + sep + "_vct=" + encodeURIComponent(String(Date.now()));
-    fetch(u, { credentials: "omit", cache: "no-store" })
-      .then(function (r) {
-        return r.json().catch(function () {
-          return null;
-        });
-      })
+    /* siteApiW7: stable URL + ETag/304 (no Date.now bust) */
+    fetchNoStore(u)
       .then(function (j) {
         if (!j || j.ok !== true) return;
         var jid = j.event && j.event.id != null ? String(j.event.id).trim() : "";
@@ -1605,6 +1735,14 @@
       })
       .catch(function () {});
   }
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) {
+      try {
+        poll();
+      } catch (eVis) {}
+    }
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {

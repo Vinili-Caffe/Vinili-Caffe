@@ -457,8 +457,21 @@ function appealActorExtras(actorMember) {
   return { decidedBy: id, decidedByName: name };
 }
 
+/** unbanAcceptFix1: site-api REST espone bans.remove; gateway espone members.unban */
+async function guildUnbanUser(guild, userId, reason) {
+  const uid = String(userId || "").trim();
+  const why = reason ? String(reason).slice(0, 512) : undefined;
+  if (typeof guild?.members?.unban === "function") {
+    return guild.members.unban(uid, why);
+  }
+  if (typeof guild?.bans?.remove === "function") {
+    return guild.bans.remove(uid, why);
+  }
+  throw new Error("unban_unsupported");
+}
+
 async function decideUnbanAppeal(guild, userId, messageId, accept, actorMember = null) {
-  const channel = await resolveSubmissionChannel(guild);
+  const channel = await resolveSubmissionChannel(guild).catch(() => null);
   const msg = channel ? await channel.messages.fetch(String(messageId)).catch(() => null) : null;
   const extras = appealActorExtras(actorMember);
 
@@ -482,29 +495,37 @@ async function decideUnbanAppeal(guild, userId, messageId, accept, actorMember =
 
   if (accept) {
     let staffNote = "";
+    let unbannedOk = false;
     try {
-      await guild.members.unban(userId, "Richiesta unban accettata (sito)");
+      await guildUnbanUser(guild, userId, "Richiesta unban accettata (sito)");
+      unbannedOk = true;
       staffNote = "Unban completato.";
-      await notifyAppealSubject(guild.id, userId, {
-        title: "Richiesta unban accettata",
-        body: "Lo staff ha accettato la tua richiesta unban: puoi rientrare nel server con l'invito ufficiale o tramite il sito.",
-        dedupeKey: `unban-acc:${userId}:${messageId}`,
-        messageId,
-      });
     } catch (err) {
       const notBanned =
         err?.code === 10026 || String(err?.message || "").toLowerCase().includes("not banned");
       if (notBanned) {
-        await notifyAppealSubject(guild.id, userId, {
-          title: "Richiesta unban accettata",
-          body: "Lo staff ha accettato la tua richiesta: puoi rientrare nel server con l'invito ufficiale o tramite il sito.",
-          dedupeKey: `unban-acc:${userId}:${messageId}`,
-          messageId,
-        });
+        unbannedOk = true;
         staffNote = "L'utente non risultava bannato.";
       } else {
-        return { ok: false, status: 500, message: "Impossibile completare l'unban." };
+        global.logger?.error?.("[appeals] unban failed:", err?.code || err?.message || err);
+        return {
+          ok: false,
+          status: 500,
+          error: "unban_failed",
+          message: "Impossibile completare l'unban.",
+        };
       }
+    }
+    if (unbannedOk) {
+      await notifyAppealSubject(guild.id, userId, {
+        title: "Richiesta unban accettata",
+        body:
+          staffNote === "L'utente non risultava bannato."
+            ? "Lo staff ha accettato la tua richiesta: puoi rientrare nel server con l'invito ufficiale o tramite il sito."
+            : "Lo staff ha accettato la tua richiesta unban: puoi rientrare nel server con l'invito ufficiale o tramite il sito.",
+        dedupeKey: `unban-acc:${userId}:${messageId}`,
+        messageId,
+      }).catch(() => null);
     }
     await syncWorkflow(true);
     return { ok: true, status: 200, message: staffNote || "Unban completato." };
@@ -515,7 +536,7 @@ async function decideUnbanAppeal(guild, userId, messageId, accept, actorMember =
     body: "Lo staff ha rifiutato la tua richiesta unban. Puoi inviare una nuova richiesta dopo il cooldown di 15 giorni sul sito.",
     dedupeKey: `unban-rej:${userId}:${messageId}`,
     messageId,
-  });
+  }).catch(() => null);
   await syncWorkflow(false);
   return { ok: true, status: 200, message: "Richiesta unban rifiutata." };
 }

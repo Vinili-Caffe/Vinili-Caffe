@@ -12,6 +12,7 @@ const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("./staffWelcomeMessages");
 const { resolveStaffValutazioniChannel, resolveStaffPexDepexChannel } = require("./staffChannelUtils");
+const { stafferAwardRoleIds, stripStafferAwardRoles } = require("./staffRoleHierarchy");
 const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_STAFF = IDs.roles.Staff;
@@ -272,6 +273,7 @@ async function applyDepexSideEffects(member, roleId) {
   if (roleId === ROLE_HELPER) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
+    await stripStafferAwardRoles(member);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: helper/staff roles still present.");
     member = verification.member;
@@ -280,6 +282,7 @@ async function applyDepexSideEffects(member, roleId) {
   if (roleId === ROLE_MODERATOR || roleId === ROLE_SENIOR_MODERATOR) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
+    await stripStafferAwardRoles(member);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: moderator/staff roles still present.");
     member = verification.member;
@@ -288,6 +291,7 @@ async function applyDepexSideEffects(member, roleId) {
   if (roleId === ROLE_DIRECTOR) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
+    await stripStafferAwardRoles(member);
     const verification = await ensureMultipleRoleStates(member, [
       { roleId, shouldHaveRole: false },
       { roleId: ROLE_STAFF, shouldHaveRole: false },
@@ -300,6 +304,7 @@ async function applyDepexSideEffects(member, roleId) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
     await member.roles.remove(ROLE_HIGH_STAFF);
+    await stripStafferAwardRoles(member);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: admin/high staff/staff roles still present.");
     member = verification.member;
@@ -309,6 +314,7 @@ async function applyDepexSideEffects(member, roleId) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
     await member.roles.remove(ROLE_HIGH_STAFF);
+    await stripStafferAwardRoles(member);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: manager/high staff/staff roles still present.");
     member = verification.member;
@@ -318,6 +324,7 @@ async function applyDepexSideEffects(member, roleId) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
     await member.roles.remove(ROLE_HIGH_STAFF);
+    await stripStafferAwardRoles(member);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: co-owner/high staff/staff roles still present.");
   }
@@ -707,9 +714,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
     };
   }
 
-  const refreshedMember = (await resolveMember(targetUser.id)) || member;
-  await syncStaffDbAndPauseChannelAfterDepex(guild, targetUser.id, refreshedMember);
-
+  // History BEFORE sync/archive so the depex row lands in rolesHistory (and then retention).
   const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const s = ensureStaff(profileDoc);
   const histEntry = pushRolesHistoryWithActor(s, {
@@ -722,6 +727,9 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
   profileDoc.markModified("staff");
   await profileDoc.save().catch(() => null);
   await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "depex");
+
+  const refreshedMember = (await resolveMember(targetUser.id)) || member;
+  await syncStaffDbAndPauseChannelAfterDepex(guild, targetUser.id, refreshedMember);
 
   const oldRoleObj = guild.roles.cache.get(oldRoleForLog);
   const newRoleObj = newRoleForLog ? guild.roles.cache.get(newRoleForLog) : null;
@@ -961,7 +969,12 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
     return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo staff da depexare." };
   }
   const isAdminOrAbove = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
-  const roleIdsToRemove = [ROLE_STAFF, roleToRemove, ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : [])].filter(Boolean);
+  const roleIdsToRemove = [
+    ROLE_STAFF,
+    roleToRemove,
+    ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : []),
+    ...stafferAwardRoleIds(),
+  ].filter(Boolean);
   await member.roles.remove(roleIdsToRemove).catch(() => null);
   if (ROLE_MEMBER) await member.roles.add(ROLE_MEMBER).catch(() => null);
   const verification = await ensureMultipleRoleStates(
@@ -974,6 +987,20 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   if (!verification.ok) {
     return { ok: false, message: "<:vegax:1443934876440068179> Depex completo non applicato correttamente." };
   }
+  // History BEFORE sync/archive (complete depex previously skipped organico history entirely).
+  const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  const s = ensureStaff(profileDoc);
+  const histEntry = pushRolesHistoryWithActor(s, {
+    oldRole: roleToRemove,
+    newRole: ROLE_MEMBER || "",
+    reason,
+    kind: "depex",
+    actorUser,
+  });
+  profileDoc.markModified("staff");
+  await profileDoc.save().catch(() => null);
+  await mirrorTrackHistory(guild.id, targetUser.id, histEntry, "depex");
+
   const refreshedMember = (await resolveMember(targetUser.id)) || verification.member || member;
   await syncStaffDbAndPauseChannelAfterDepex(guild, targetUser.id, refreshedMember);
 

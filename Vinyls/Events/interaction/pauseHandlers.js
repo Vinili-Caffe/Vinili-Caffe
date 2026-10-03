@@ -13,7 +13,7 @@ const {
 } = require("../../Utils/Pause/pauseRequestSubmitRuntime");
 const PAUSE_REQUEST_MODAL_ID = "pause_request:modal";
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, getPausePhase, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, getValPosTradedPauseBonusDays, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
+const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, syncSingleAcceptedPauseMessage, getPausePhase, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, getStaffPauseBonusDaysTotal, getValPosTradedPauseBonusDays, grantBestStaffPauseBonusYear, computeStaffPauseDayBudget, allocateBestStaffWeekPauseBonusDays } = require("../../Utils/Pause/pauseHandlersUtils");
 const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
 const pauseActionLocks = new Set();
@@ -284,12 +284,13 @@ async function handlePauseButton(interaction) {
     scheduleStaffListRefresh(interaction.client, guildId, 800);
 
     const roleChoiceForPause = normalizePauseRoleChoice(targetPause?.ruolo || targetPause?.ruoloRichiesto) || PAUSE_ROLE_STAFF;
-    const baseLimit = getBasePauseLimit(member, roleChoiceForPause);
-    const bonusPause = member
-      ? getStaffPauseBonusDaysTotal(member, stafferRecord)
-      : getValPosTradedPauseBonusDays(stafferRecord);
-    const maxGiorni = baseLimit + bonusPause;
-    const giorniTotaliUsati = computeConsumedPauseDays(stafferRecord.staff?.pauses);
+    const budgetCancel = member
+      ? computeStaffPauseDayBudget(member, stafferRecord, roleChoiceForPause)
+      : null;
+    const maxGiorni = budgetCancel
+      ? budgetCancel.maxGiorni
+      : getBasePauseLimit(null, roleChoiceForPause) + getValPosTradedPauseBonusDays(stafferRecord);
+    const giorniTotaliUsati = budgetCancel ? budgetCancel.usedDays : computeConsumedPauseDays(stafferRecord.staff?.pauses);
     const giorniRimanenti = Math.max(0, maxGiorni - giorniTotaliUsati);
 
     const roleLabelForCancel = formatPauseRoleLabelForMessage(
@@ -374,24 +375,23 @@ async function handlePauseButton(interaction) {
     return true;
   }
 
+  const roleChoice = resolveAcceptedPauseRoleChoice(member, targetPause);
+  const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
+  const budget = computeStaffPauseDayBudget(member, stafferRecord, roleChoice);
+  const maxGiorni = budget.maxGiorni;
+  const usedBefore = budget.usedDays;
   const giorniRichiesti=getPauseDaysBetween(targetPause.dataRichiesta,targetPause.dataRitorno,);
   if (!giorniRichiesti) {
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Date pausa non valide.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
-
-  const roleChoice = resolveAcceptedPauseRoleChoice(member, targetPause);
-  const baseLimit = getBasePauseLimit(member, roleChoice);
-  const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
-  const bonusPause = getStaffPauseBonusDaysTotal(member, stafferRecord);
-  const maxGiorni = baseLimit + bonusPause;
-  const usedBefore = computeConsumedPauseDays(stafferRecord.staff?.pauses);
   const giorniUsati = usedBefore + giorniRichiesti;
   const giorniRimanenti = maxGiorni - giorniUsati;
   if (giorniRimanenti < 0) {
     await interaction.reply({ content: `<a:VC_Alert:1482706673176150077> Limite pause superato: disponibili \`${Math.max(0, maxGiorni - usedBefore)}\` su \`${maxGiorni}\`.`, flags: 1 << 6 }).catch(() => {});
     return true;
   }
+  const weekBonusOnAccept = allocateBestStaffWeekPauseBonusDays(stafferRecord, giorniRichiesti);
 
   let sameRoleActiveCount = 1;
   let sameRoleActiveCountStaff = null;
@@ -438,6 +438,7 @@ async function handlePauseButton(interaction) {
     ruoloGradeId: staffRankRoleId || null,
     giorniUsati,
     giorniAggiuntivi: bonusBestStaff,
+    giorniAggiuntiviSettimana: weekBonusOnAccept,
     stafferInPausa: sameRoleActiveCount,
     requestThreadId: null,
   });
@@ -450,6 +451,7 @@ async function handlePauseButton(interaction) {
   targetPause.ruoloGradeId = staffRankRoleId || null;
   targetPause.giorniUsati = giorniUsati;
   targetPause.giorniAggiuntivi = bonusBestStaff;
+  targetPause.giorniAggiuntiviSettimana = weekBonusOnAccept;
   targetPause.stafferInPausa = sameRoleActiveCount;
   targetPause.requestThreadId = null;
 

@@ -164,7 +164,7 @@ function buildDeniedEmbed(gate, controlLabel, viewer = null, customId = "") {
       .setColor("#6f4e37")
       .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
       .setDescription(
-        `<:VC_Attention:1482534443632558151> Puoi usare solo **il tuo** pannello profilo partner. Esegui di nuovo [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per aprirlo.`,
+        `<:VC_Attention:1482534443632558151> Puoi usare solo **il tuo** pannello profilo partner. Esegui di nuovo [Personalizza](https://www.viniliecaffe.it/personalizza/) per aprirlo.`,
       );
   }
 

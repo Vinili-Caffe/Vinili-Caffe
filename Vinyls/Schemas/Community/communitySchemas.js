@@ -171,6 +171,12 @@ const globalSettingsSchema = new Schema(
     channelSnapshots: { type: [channelSnapshotEntrySchema], default: [] },
     skullboardPosts: { type: [skullboardPostEntrySchema], default: [] },
         staffRosterSnapshot: { type: Schema.Types.Mixed, default: null },
+    /** Ultimo holder Staffer della settimana (weekKey domenica 21 Europe/Rome). */
+    stafferDellaSettimanaState: {
+      userId: { type: String, default: null },
+      weekKey: { type: String, default: null },
+      updatedAt: { type: Date, default: null },
+    },
   },
   { timestamps: true },
 );
@@ -279,6 +285,8 @@ const staffPauseEntrySchema = new Schema(
     motivazione: String,
     giorniUsati: { type: Number, default: 0 },
     giorniAggiuntivi: { type: Number, default: 0 },
+    /** Giorni bonus Staffer della settimana consumati su questa pausa (solo mese di grant). */
+    giorniAggiuntiviSettimana: { type: Number, default: 0 },
     ruoloRichiesto: String,
     ruolo: String,
         ruoloGradeId: { type: String, default: null },
@@ -345,6 +353,21 @@ const staffEmbeddedSchema = new Schema(
     partnerManagerCustomPerksUntil: { type: Date, default: null },
     partnerManagerVipUntil: { type: Date, default: null },
     bestStaffPauseBonusYears: { type: [Number], default: [] },
+    /** Grant settimanali: +1 giorno/settimana, spendibili nel mese del giovedì ISO della weekKey (bridge settimane a cavallo). */
+    bestStaffWeekPauseBonusWeeks: {
+      type: [
+        new Schema(
+          {
+            weekKey: { type: String, default: "" },
+            monthKey: { type: String, default: "" },
+            days: { type: Number, default: 1 },
+            grantedAt: { type: Date, default: Date.now },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     valPosTradedPauseBonusDays: { type: Number, default: 0 },
     pauses: { type: [staffPauseEntrySchema], default: [] },
     serataFilmAttendanceSaturdayKey: { type: String, default: null },
@@ -591,6 +614,15 @@ const activityUserProfileSchema = new Schema(
         type: Schema.Types.Mixed,
         default: () => ({}),
       },
+      siteStaffCompiti: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** Piano mensile compiti: { "YYYY-MM": { assignedAt, byWeek: { "YYYY-Www": taskId } } } */
+      siteStaffCompitiPlan: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
       tenantPartnership: {
         suppressManagerPing: { type: Boolean, default: false },
         ephemeralCommands: { type: Boolean, default: false },
@@ -684,6 +716,11 @@ const activityUserProfileSchema = new Schema(
 );
 activityUserProfileSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.totalExp": -1 });
+/* siteApiW5: board indexes for weekly/messages/voice/minigames sorts */
+activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.weeklyExp": -1 });
+activityUserProfileSchema.index({ guildId: 1, "profile.totals.messagesTotal": -1 });
+activityUserProfileSchema.index({ guildId: 1, "profile.totals.voiceTotalSeconds": -1 });
+activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.minigame.totalExp": -1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.birthday.month": 1, "profile.birthday.day": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.inviteTrack.inviterId": 1 });
 activityUserProfileSchema.index({ userId: 1, "profile.globalOneTimeReminder.entries.key": 1 });
@@ -775,7 +812,13 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
     MINIGAME_ROLE_PING: "minigame_role_ping",
     COUNTING_RESTORE_TOKEN: "counting_restore_token",
     WEB_PUSH_SUBSCRIPTION: "web_push_subscription",
+    /* pushGonePersist1: denylist FCM/WNS 410 — survvive restart site-api */
+    WEB_PUSH_GONE_ENDPOINT: "web_push_gone_endpoint",
     STAFF_WORKFLOW: "staff_workflow",
+    BOARD_LISTING: "board_listing",
+    BOARD_VOTE: "board_vote",
+    BOARD_BUMP: "board_bump",
+    BOARD_REPORT: "board_report",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -856,6 +899,7 @@ const siteDocumentSchema = new Schema(
         feedbackKind: { type: String, default: null, trim: true, maxlength: 24 },
         /* community | staff — staff board is ladder-only (excludes PM-only) */
         suggestionBoard: { type: String, default: null, trim: true, maxlength: 16 },
+        confessionBoard: { type: String, default: null, trim: true, maxlength: 16 },
         /* server | staff | sito | bots | eventi | altro — eventi only for ideas */
         topicTag: { type: String, default: null, trim: true, maxlength: 16 },
         missionRewardGrantedAt: { type: Date, default: null },
@@ -889,6 +933,8 @@ const siteDocumentSchema = new Schema(
     pushP256dh: { type: String, default: "", trim: true, maxlength: 512 },
     pushAuth: { type: String, default: "", trim: true, maxlength: 256 },
     pushUserAgent: { type: String, default: "", trim: true, maxlength: 300 },
+    /* pushMultiDevice3: mobile|desktop|tablet|unknown — diversity prune */
+    pushDeviceClass: { type: String, default: "", trim: true, maxlength: 16 },
 
         workflowQueue: { type: String, default: "", trim: true, maxlength: 24, index: true },
     workflowKind: { type: String, default: "", trim: true, maxlength: 32 },
@@ -904,6 +950,35 @@ const siteDocumentSchema = new Schema(
     workflowDecidedByName: { type: String, default: "", trim: true, maxlength: 120 },
     workflowSubjectName: { type: String, default: "", trim: true, maxlength: 120 },
     workflowSubjectAvatarUrl: { type: String, default: "", trim: true, maxlength: 512 },
+
+    /* Vinili Boards */
+    boardKind: { type: String, default: null, trim: true, maxlength: 16 },
+    boardDiscordId: { type: String, default: "", trim: true, maxlength: 32, index: true },
+    boardSlug: { type: String, default: "", trim: true, maxlength: 80, index: true },
+    boardTagline: { type: String, default: "", trim: true, maxlength: 160 },
+    boardTags: { type: [String], default: undefined },
+    boardInviteUrl: { type: String, default: "", trim: true, maxlength: 500 },
+    boardBotInviteUrl: { type: String, default: "", trim: true, maxlength: 500 },
+    boardBannerUrl: { type: String, default: "", trim: true, maxlength: 500 },
+    boardIconUrl: { type: String, default: "", trim: true, maxlength: 500 },
+    boardLocale: { type: String, default: "", trim: true, maxlength: 16 },
+    boardNsfw: { type: Boolean, default: false },
+    boardScore: { type: Number, default: 0, index: true },
+    boardVotes30d: { type: Number, default: 0 },
+    boardBumps7d: { type: Number, default: 0 },
+    boardBumpedAt: { type: Date, default: null, index: true },
+    boardAccent: { type: String, default: "", trim: true, maxlength: 32 },
+    boardMarkdown: { type: String, default: "", trim: true, maxlength: 4000 },
+    boardStats: { type: Schema.Types.Mixed, default: null },
+    boardModeration: { type: Schema.Types.Mixed, default: null },
+    boardListingId: { type: String, default: "", trim: true, maxlength: 32, index: true },
+    boardClientIpHash: { type: String, default: "", trim: true, maxlength: 80 },
+    /* boardsWizard1 */
+    boardCategories: { type: [String], default: undefined },
+    boardLocales: { type: [String], default: undefined },
+    boardVisitorNotes: { type: String, default: "", trim: true, maxlength: 1000 },
+    boardSiteUrl: { type: String, default: "", trim: true, maxlength: 500 },
+    boardSocials: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );
@@ -959,6 +1034,21 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, userId: 1 },
   { name: "web_push_user", partialFilterExpression: { docType: SITE_DOC.WEB_PUSH_SUBSCRIPTION } },
+);
+siteDocumentSchema.index(
+  { docType: 1, pushEndpoint: 1 },
+  {
+    unique: true,
+    name: "web_push_gone_endpoint_unique",
+    partialFilterExpression: {
+      docType: SITE_DOC.WEB_PUSH_GONE_ENDPOINT,
+      pushEndpoint: { $type: "string", $gt: "" },
+    },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, updatedAt: 1 },
+  { name: "web_push_gone_endpoint_ttl", partialFilterExpression: { docType: SITE_DOC.WEB_PUSH_GONE_ENDPOINT } },
 );
 siteDocumentSchema.index(
   { docType: 1, status: 1, expiresAt: 1 },
@@ -1084,6 +1174,49 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, workflowPauseId: 1, userId: 1 },
   { name: "staff_workflow_pause_lookup", partialFilterExpression: { docType: SITE_DOC.STAFF_WORKFLOW, workflowQueue: "pause" } },
+);
+siteDocumentSchema.index(
+  { docType: 1, status: 1, boardKind: 1, boardScore: -1, boardBumpedAt: -1 },
+  { name: "board_listing_browse", partialFilterExpression: { docType: SITE_DOC.BOARD_LISTING } },
+);
+siteDocumentSchema.index(
+  { docType: 1, boardDiscordId: 1 },
+  {
+    unique: true,
+    name: "board_listing_discord_unique",
+    partialFilterExpression: {
+      docType: SITE_DOC.BOARD_LISTING,
+      status: { $in: ["pending", "approved"] },
+      boardDiscordId: { $type: "string", $gt: "" },
+    },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, boardSlug: 1 },
+  {
+    unique: true,
+    name: "board_listing_slug_unique",
+    partialFilterExpression: {
+      docType: SITE_DOC.BOARD_LISTING,
+      boardSlug: { $type: "string", $gt: "" },
+    },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, userId: 1, updatedAt: -1 },
+  { name: "board_listing_owner", partialFilterExpression: { docType: SITE_DOC.BOARD_LISTING } },
+);
+siteDocumentSchema.index(
+  { docType: 1, dedupeKey: 1 },
+  {
+    unique: true,
+    name: "board_vote_dedupe_unique",
+    partialFilterExpression: { docType: SITE_DOC.BOARD_VOTE, dedupeKey: { $type: "string", $gt: "" } },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, boardListingId: 1, userId: 1, createdAt: -1 },
+  { name: "board_bump_listing_user", partialFilterExpression: { docType: SITE_DOC.BOARD_BUMP } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

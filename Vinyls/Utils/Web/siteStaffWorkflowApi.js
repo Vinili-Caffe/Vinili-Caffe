@@ -1,5 +1,5 @@
 const IDs = require("../Config/ids");
-const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
+const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanViewResocontiInbox } = require("./siteStaffAccessApi");
 const { memberIsHighStaffEligible, memberCanReviewAppelli, memberHasDirectorRole } = require("../Staff/staffRoleHierarchy");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const {
@@ -26,6 +26,34 @@ const { memberHasResocontoButtonAccess } = require("../Staff/resocontoAccess");
 
 const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
 const QUEUES = new Set(["summary", "pause", "candidature", "appelli", "resoconti"]);
+/* siteApiW3 / workflowCacheFix1 / workflowCacheFix2: solo globalThis (niente const locale → no TDZ) */
+const WORKFLOW_SUMMARY_TTL_MS = 15_000;
+
+function getWorkflowSummaryCache() {
+  if (!globalThis.__vcWorkflowSummaryCache) globalThis.__vcWorkflowSummaryCache = new Map();
+  return globalThis.__vcWorkflowSummaryCache;
+}
+function getWorkflowSummaryInflight() {
+  if (!globalThis.__vcWorkflowSummaryInflight) globalThis.__vcWorkflowSummaryInflight = new Map();
+  return globalThis.__vcWorkflowSummaryInflight;
+}
+
+function invalidateWorkflowSummaryCache() {
+  getWorkflowSummaryCache().clear();
+  getWorkflowSummaryInflight().clear();
+}
+
+function workflowSummaryCacheKey(member, canManageHighStaff, resocontoWeekKey, guild) {
+  const uid = String(member?.id || "").trim();
+  const bits = [
+    canManageHighStaff ? "1" : "0",
+    memberCanReviewAppelli(member) ? "1" : "0",
+    memberHasCandidatureReviewAccess(member, guild) ? "1" : "0",
+    memberCanViewResocontiInbox(member) ? "1" : "0",
+    String(resocontoWeekKey || ""),
+  ].join(":");
+  return `${uid}|${bits}`;
+}
 
 function stripDiscordDecorations(text) {
   return String(text || "")
@@ -49,12 +77,14 @@ function parseWorkflowListQuery(query) {
     .trim()
     .toLowerCase();
   const week = String(query?.week || query?.weekKey || "").trim();
+  const userId = String(query?.userId || query?.uid || "").trim();
   return {
     scope,
     page,
     pageSize,
     filter: filter === "all" ? "" : filter,
     week: /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : "",
+    userId: /^\d{16,22}$/.test(userId) ? userId : "",
   };
 }
 
@@ -84,14 +114,6 @@ async function buildWorkflowSummary(client, member, canManageHighStaff) {
     return { ok: false, status: 503, error: "guild_unavailable", message: "Server non disponibile." };
   }
 
-  const canReviewAppelli = memberCanReviewAppelli(member);
-  const summary = {
-    pause: 0,
-    candidature: 0,
-    appelli: 0,
-    resoconti: 0,
-  };
-
   let resocontoWeekKey = "";
   try {
     const { getResocontoCycleWeekKey } = require("../../Services/Staff/weeklyStaffResocontoService");
@@ -100,29 +122,66 @@ async function buildWorkflowSummary(client, member, canManageHighStaff) {
     resocontoWeekKey = "";
   }
 
-  const canReviewCandidature = memberHasCandidatureReviewAccess(member, guild);
-  const [pauseN, appelliN, candidatureN, resocontiN] = await Promise.all([
-    canManageHighStaff ? countPendingWorkflow(guild.id, "pause") : Promise.resolve(0),
-    canReviewAppelli ? countPendingWorkflow(guild.id, "appelli") : Promise.resolve(0),
-    canReviewCandidature ? countPendingWorkflow(guild.id, "candidature") : Promise.resolve(0),
-    countPendingWorkflow(guild.id, "resoconti", { weekKey: resocontoWeekKey }),
-  ]);
-  summary.pause = pauseN;
-  summary.appelli = appelliN;
-  summary.candidature = candidatureN;
-  summary.resoconti = resocontiN;
+  const cacheKey = workflowSummaryCacheKey(member, canManageHighStaff, resocontoWeekKey, guild);
+  const now = Date.now();
+  const hit = getWorkflowSummaryCache().get(cacheKey);
+  if (hit && now - hit.at < WORKFLOW_SUMMARY_TTL_MS) {
+    return { ...hit.payload, cached: true };
+  }
+  let inflight = getWorkflowSummaryInflight().get(cacheKey);
+  if (inflight) return inflight;
 
-  return {
-    ok: true,
-    status: 200,
-    summary,
-    permissions: {
-      highStaff: canManageHighStaff,
-      candidatureReview: canReviewCandidature,
-      appelliReview: canReviewAppelli,
-      director: memberHasDirectorRole(member),
-    },
-  };
+  inflight = (async () => {
+    const canReviewAppelli = memberCanReviewAppelli(member);
+    const summary = {
+      pause: 0,
+      candidature: 0,
+      appelli: 0,
+      resoconti: 0,
+    };
+
+    const canReviewCandidature = memberHasCandidatureReviewAccess(member, guild);
+    const canViewResoconti = memberCanViewResocontiInbox(member);
+    const [pauseN, appelliN, candidatureN, resocontiN] = await Promise.all([
+      canManageHighStaff ? countPendingWorkflow(guild.id, "pause") : Promise.resolve(0),
+      canReviewAppelli ? countPendingWorkflow(guild.id, "appelli") : Promise.resolve(0),
+      canReviewCandidature ? countPendingWorkflow(guild.id, "candidature") : Promise.resolve(0),
+      canViewResoconti
+        ? countPendingWorkflow(guild.id, "resoconti", { weekKey: resocontoWeekKey })
+        : Promise.resolve(0),
+    ]);
+    summary.pause = pauseN;
+    summary.appelli = appelliN;
+    summary.candidature = candidatureN;
+    summary.resoconti = resocontiN;
+
+    const payload = {
+      ok: true,
+      status: 200,
+      summary,
+      permissions: {
+        highStaff: canManageHighStaff,
+        candidatureReview: canReviewCandidature,
+        appelliReview: canReviewAppelli,
+        director: memberHasDirectorRole(member),
+        canViewResoconti,
+      },
+      revision: `${summary.pause}:${summary.candidature}:${summary.appelli}:${summary.resoconti}:${resocontoWeekKey}`,
+    };
+    getWorkflowSummaryCache().set(cacheKey, { at: Date.now(), payload });
+    if (getWorkflowSummaryCache().size > 200) {
+      const cutoff = Date.now() - WORKFLOW_SUMMARY_TTL_MS;
+      for (const [k, v] of getWorkflowSummaryCache()) {
+        if (!v || v.at < cutoff) getWorkflowSummaryCache().delete(k);
+      }
+    }
+    return payload;
+  })().finally(() => {
+    getWorkflowSummaryInflight().delete(cacheKey);
+  });
+
+  getWorkflowSummaryInflight().set(cacheKey, inflight);
+  return inflight;
 }
 
 async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, userId) {
@@ -140,6 +199,20 @@ async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, use
   }
   if (q === "appelli" && !memberCanReviewAppelli(access.member)) {
     return { ok: false, status: 403, error: "forbidden", message: "Solo High Staff o Director." };
+  }
+  if (q === "resoconti") {
+    const viewerId = String(access.member?.id || "").trim();
+    const subjectId = String(userId || "").trim();
+    const canInbox = memberCanViewResocontiInbox(access.member);
+    const isSelf = Boolean(viewerId && subjectId && viewerId === subjectId);
+    if (!canInbox && !isSelf) {
+      return {
+        ok: false,
+        status: 403,
+        error: "forbidden",
+        message: "Puoi vedere solo i tuoi resoconti, oppure avere accesso review.",
+      };
+    }
   }
 
       if (q === "candidature" && id && discordPosts) {
@@ -168,11 +241,18 @@ async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, use
           item: {
             ...detail,
             body: live.body,
+            content: live.body,
             preview: live.preview || detail.preview,
             title: live.title || detail.title,
             status: live.status || detail.status,
             canAct: live.status === "pending",
             type: live.type || detail.type,
+            fields:
+              Array.isArray(detail.fields) && detail.fields.length
+                ? detail.fields
+                : Array.isArray(live.fields)
+                  ? live.fields
+                  : detail.fields,
           },
         };
       }
@@ -207,6 +287,7 @@ async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, use
           item: {
             ...detail,
             body: live.body,
+            content: live.body,
             preview: live.preview || detail.preview,
             title: live.title || detail.title,
             status: live.status || detail.status,
@@ -231,7 +312,7 @@ async function fetchWorkflowItemDetail(client, guild, access, queue, itemId, use
 async function handleSiteStaffWorkflowGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -266,6 +347,15 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
 
     if (queue === "summary") {
       const out = await buildWorkflowSummary(client, access.member, canManageHighStaff);
+      if (out && out.ok && out.revision) {
+        const etag = `"wfs-${out.revision}"`;
+        res.setHeader("ETag", etag);
+        res.setHeader("Cache-Control", "private, no-cache");
+        const inm = String(req.headers["if-none-match"] || "").trim();
+        if (inm && inm === etag) {
+          return res.status(304).end();
+        }
+      }
       return res.status(Number(out.status) || 500).json(out);
     }
 
@@ -277,6 +367,23 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
     }
     if (queue === "appelli" && !memberCanReviewAppelli(access.member)) {
       return res.status(403).json({ ok: false, error: "forbidden", message: "Solo High Staff o Director." });
+    }
+    if (queue === "resoconti") {
+      const viewerId = String(access.member?.id || access.user?.id || "").trim();
+      const canInbox = memberCanViewResocontiInbox(access.member);
+      const scopedUid = String(listQuery.userId || "").trim();
+      const isSelfScoped = Boolean(scopedUid && viewerId && scopedUid === viewerId);
+      /* resoProfile1: self vede i propri; reviewer/HS la coda o qualsiasi profilo */
+      if (!canInbox && !isSelfScoped) {
+        return res.status(403).json({
+          ok: false,
+          error: "forbidden",
+          message: "Puoi vedere solo i tuoi resoconti, oppure avere accesso review.",
+        });
+      }
+      if (!canInbox && isSelfScoped) {
+        listQuery.scope = "all";
+      }
     }
 
     const [listOut, summaryOut] = await Promise.all([
@@ -291,6 +398,7 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
       queue,
       scope: listQuery.scope,
       filter: listQuery.filter || null,
+      userId: listQuery.userId || null,
       week: listOut.week || null,
       weeks: Array.isArray(listOut.weeks) ? listOut.weeks : undefined,
       source: "database",
@@ -310,7 +418,7 @@ async function handleSiteStaffWorkflowGet(client, req, res) {
 async function handleSiteStaffWorkflowPost(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -437,6 +545,7 @@ async function handleSiteStaffWorkflowPost(client, req, res) {
     }
 
     const status = Number(result?.status) || (result?.ok ? 200 : 400);
+    if (result?.ok) invalidateWorkflowSummaryCache();
     return res.status(status).json({
       ok: Boolean(result?.ok),
       message: stripDiscordDecorations(result?.message) || (result?.ok ? "Operazione completata." : "Operazione non riuscita."),
@@ -455,4 +564,5 @@ async function handleSiteStaffWorkflowPost(client, req, res) {
 module.exports = {
   handleSiteStaffWorkflowGet,
   handleSiteStaffWorkflowPost,
+  invalidateWorkflowSummaryCache,
 };

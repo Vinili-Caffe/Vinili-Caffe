@@ -1,3 +1,6 @@
+/**
+ * bakeEmoji1: sitewide Twemoji bake — unicode → <img.vc-emoji> (no soft-fx fill flatten)
+ */
 (function () {
   if (window.__vcEmojiRender) return;
   window.__vcEmojiRender = true;
@@ -68,14 +71,25 @@
     var style = document.createElement("style");
     style.id = "vc-emoji-size-css";
     style.textContent =
+      "html.vc-site-polish body.vc-body img.vc-emoji," +
+      "html.vc-site-polish body.vc-body img.vc-twemoji," +
+      "html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body img.vc-emoji," +
+      "html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body img.vc-twemoji," +
+      "html.vc-site-polish[data-vc-theme=light] body.vc-body img.vc-emoji," +
+      "html.vc-site-polish[data-vc-theme=light] body.vc-body img.vc-twemoji," +
       "img.vc-emoji,img.vc-twemoji,img.vc-discord-emoji,img.vc-staff-guide-emoji{" +
-      "height:1.25em!important;width:1.25em!important;" +
+      "height:1.2em!important;width:1.2em!important;" +
       "max-width:1.35em!important;max-height:1.35em!important;" +
       "margin:0 .08em!important;padding:0!important;" +
-      "display:inline-block!important;vertical-align:-.22em!important;" +
+      "display:inline-block!important;vertical-align:-.2em!important;" +
       "object-fit:contain!important;flex:0 0 auto!important;" +
-      "border-radius:0!important;box-shadow:none!important;" +
-      "background:transparent!important}";
+      "border:0!important;border-radius:0!important;box-shadow:none!important;" +
+      "background:transparent!important;background-image:none!important;" +
+      "-webkit-background-clip:border-box!important;background-clip:border-box!important;" +
+      "color:inherit!important;-webkit-text-fill-color:unset!important;" +
+      "filter:none!important;-webkit-filter:none!important;" +
+      "opacity:1!important;visibility:visible!important;" +
+      "text-shadow:none!important;transform:none!important}";
     (document.head || document.documentElement).appendChild(style);
   }
 

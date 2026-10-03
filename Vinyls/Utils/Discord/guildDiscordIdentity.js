@@ -59,13 +59,10 @@ function discordDefaultAvatarUrl(userLike, { size = 256 } = {}) {
 }
 
 function resolveGuildIdFromMemberLike(memberLike) {
+  /* organicoAvatarGlobal1: NON fallback su guild main — su User plain
+     costruiva /guilds/{main}/users/{id}/avatars/{hash} → CDN 404 (es. Pollo fuori server). */
   const fromGuild = String(memberLike?.guild?.id || memberLike?.guildId || "").trim();
   if (/^\d{16,22}$/.test(fromGuild)) return fromGuild;
-  try {
-    const IDs = require("../Config/ids");
-    const main = String(IDs?.guilds?.main || "").trim();
-    if (/^\d{16,22}$/.test(main)) return main;
-  } catch (_) {}
   return "";
 }
 
@@ -75,7 +72,12 @@ function resolveUserIdFromMemberLike(memberLike) {
   return "";
 }
 
+function isGuildMemberLike(memberLike) {
+  return Boolean(memberLike && (memberLike.guild || memberLike.guildId));
+}
+
 function guildMemberServerAvatarCdnUrl(memberLike, { size = 256, forceStatic = false } = {}) {
+  if (!isGuildMemberLike(memberLike)) return null;
   const hash = String(memberLike?.avatar || "").trim();
   if (!hash) return null;
   const guildId = resolveGuildIdFromMemberLike(memberLike);
@@ -87,6 +89,7 @@ function guildMemberServerAvatarCdnUrl(memberLike, { size = 256, forceStatic = f
 }
 
 function guildMemberServerAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
+  if (!isGuildMemberLike(memberLike)) return null;
   if (memberLike?.avatar == null || memberLike.avatar === "") return null;
   const animated = String(memberLike.avatar).startsWith("a_");
   if (typeof memberLike.avatarURL === "function") {
@@ -263,6 +266,29 @@ function accountUsername(userLike) {
 }
 
 /**
+ * avatarGlobalFirst1: sul sito preferisci avatar globale utente.
+ * Gli URL /guilds/.../avatars/ dal cache Discord.js sono spesso hash stale → CDN 404 → silhouette.
+ */
+function sitePreferredAvatarUrl(memberLike, { size = 128, preferAnimated = true, allowDefault = false } = {}) {
+  if (!memberLike) return allowDefault ? discordDefaultAvatarUrl(memberLike, { size }) : null;
+  const user = resolveUserFromLike(memberLike);
+  const global = userGlobalAvatarUrlDynamic(user || memberLike, { size });
+  if (global) {
+    return (
+      normalizeDiscordCdnAvatarUrl(global, { size, preferAnimated: Boolean(preferAnimated) }) || global
+    );
+  }
+  const server = guildMemberServerAvatarUrlDynamic(memberLike, { size });
+  if (server) {
+    return (
+      normalizeDiscordCdnAvatarUrl(server, { size, preferAnimated: Boolean(preferAnimated) }) || server
+    );
+  }
+  if (!allowDefault) return null;
+  return discordDefaultAvatarUrl(memberLike, { size });
+}
+
+/**
  * Nome primario come sul sito: nickname server → globalName → username.
  */
 function memberDisplayName(memberLike, fallbackUser) {
@@ -304,6 +330,7 @@ module.exports = {
   embedUserAvatarUrlDynamic,
   embedThumbnailAvatarUrl,
   resolveEmbedUserAvatarUrl,
+  remoteImageUrlLoads,
   userAvatarUrlDynamic,
   userAvatarUrlStatic,
   guildMemberDisplayAvatarUrlDynamic,
@@ -312,4 +339,5 @@ module.exports = {
   memberDisplayName,
   memberLabelWithUsername,
   guildFirstThumbnailUrl,
+  sitePreferredAvatarUrl,
 };

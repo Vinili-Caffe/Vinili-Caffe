@@ -6,6 +6,7 @@ const {
   guildMemberDisplayAvatarUrlDynamic,
   userAvatarUrlDynamic,
   normalizeDiscordCdnAvatarUrl,
+  sitePreferredAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
 const {
   getPauseStatusLabel,
@@ -515,21 +516,36 @@ function preferAnimatedStoredAvatarUrl(url, size = 128) {
   return raw;
 }
 
-/** Mai usare embed/default Discord: se manca il member, non deve coprire l'avatar salvato. */
+/** Mai usare embed/default Discord: se manca il member, non deve coprire l'avatar salvato.
+ *  avatarGlobalFirst1: globale prima del guild (CDN /guilds/... spesso 404). */
 function liveWorkflowAvatarUrl(member, user, size = 128) {
+  const fromPreferred =
+    sitePreferredAvatarUrl(member, { size, preferAnimated: true, allowDefault: false }) ||
+    sitePreferredAvatarUrl(user, { size, preferAnimated: true, allowDefault: false }) ||
+    "";
+  if (hasRealDiscordAvatarUrl(fromPreferred)) {
+    return preferAnimatedStoredAvatarUrl(fromPreferred, size) || fromPreferred;
+  }
   const fromMember = member
     ? guildMemberDisplayAvatarUrlDynamic(member, { size, allowDefault: false })
     : "";
-  if (hasRealDiscordAvatarUrl(fromMember)) return preferAnimatedStoredAvatarUrl(fromMember, size) || fromMember;
+  if (hasRealDiscordAvatarUrl(fromMember) && !/\/guilds\/\d+\/users\//i.test(String(fromMember))) {
+    return preferAnimatedStoredAvatarUrl(fromMember, size) || fromMember;
+  }
   const fromUser = user
     ? userAvatarUrlDynamic(user, { size, allowDefault: false })
     : "";
+  if (hasRealDiscordAvatarUrl(fromUser) && !/\/guilds\/\d+\/users\//i.test(String(fromUser))) {
+    return preferAnimatedStoredAvatarUrl(fromUser, size) || fromUser;
+  }
+  if (hasRealDiscordAvatarUrl(fromMember)) return preferAnimatedStoredAvatarUrl(fromMember, size) || fromMember;
   if (hasRealDiscordAvatarUrl(fromUser)) return preferAnimatedStoredAvatarUrl(fromUser, size) || fromUser;
   return "";
 }
 
-/* mobileStaffFast1: list enrichment must not Discord-fetch (timeouts on phone). Cache only. */
-async function resolveWorkflowSubject(client, guild, userId) {
+/* mobileStaffFast1: list enrichment default = cache only (no Discord-fetch).
+   inboxAvatarFetch1: detail può allowFetch → getUserCached (appelli/candidature fuori guild). */
+async function resolveWorkflowSubject(client, guild, userId, options = {}) {
   const uid = String(userId || "").trim();
   if (!/^\d{16,20}$/.test(uid)) return { displayName: "", avatarUrl: "" };
 
@@ -537,6 +553,16 @@ async function resolveWorkflowSubject(client, guild, userId) {
   let user = member?.user || null;
   if (!user && client?.users?.cache?.get) {
     user = client.users.cache.get(uid) || null;
+  }
+  if (!user && options.allowFetch && client) {
+    try {
+      user = await Promise.race([
+        getUserCached(client, uid),
+        new Promise((resolve) => setTimeout(() => resolve(null), Number(options.fetchTimeoutMs) || 1200)),
+      ]);
+    } catch (_) {
+      user = null;
+    }
   }
 
   const displayName = pickSubjectDisplayName(
@@ -553,20 +579,23 @@ async function resolveWorkflowSubject(client, guild, userId) {
   };
 }
 
-async function applyWorkflowSubjectToItem(client, guild, item) {
+async function applyWorkflowSubjectToItem(client, guild, item, options = {}) {
   if (!item) return item;
   const uid = String(item.userId || "").trim();
   if (!/^\d{16,20}$/.test(uid)) return item;
   const name = pickSubjectDisplayName(uid, item.displayName);
   const nameMissing = !name;
-  if (hasRealDiscordAvatarUrl(item.avatarUrl) && !nameMissing) return item;
+  const storedUrl = String(item.avatarUrl || "").trim();
+  /* avatarGlobalFirst1: URL guild salvati spesso 404 — ricalcola sempre dal member live. */
+  const storedIsGuild = /\/guilds\/\d+\/users\//i.test(storedUrl);
+  if (hasRealDiscordAvatarUrl(storedUrl) && !nameMissing && !storedIsGuild) return item;
 
-  const sub = await resolveWorkflowSubject(client, guild, uid);
+  const sub = await resolveWorkflowSubject(client, guild, uid, options);
   const resolvedName = pickSubjectDisplayName(uid, sub.displayName);
   return {
     ...item,
     displayName: name || resolvedName || "",
-        avatarUrl: sub.avatarUrl || (hasRealDiscordAvatarUrl(item.avatarUrl) ? item.avatarUrl : "") || "",
+    avatarUrl: sub.avatarUrl || (hasRealDiscordAvatarUrl(storedUrl) && !storedIsGuild ? storedUrl : "") || "",
   };
 }
 
@@ -1080,7 +1109,9 @@ function buildDetailFields(doc, member = null) {
     } else if (wf.ruoloRichiesto) {
       rows.push({ name: "Ruolo richiesto", value: String(wf.ruoloRichiesto) });
     }
-    const motivazione = stripDiscordDecorations(doc?.reason || doc?.body || "", { keepNewlines: true });
+    const motivazione = stripDiscordDecorations(doc?.content || doc?.reason || doc?.body || "", {
+      keepNewlines: true,
+    });
     if (motivazione) rows.push({ name: "Motivazione", value: motivazione });
     rows.push({
       name: "Stato",
@@ -1127,11 +1158,15 @@ function docToDetail(doc, member, memberCache) {
   return {
     ...item,
     body,
+    content: body,
     fields,
-    motivazione: stripDiscordDecorations(doc?.reason || doc?.body || item.motivazione || "", {
-      keepNewlines: true,
-      keepCustomEmoji: keepEmoji,
-    }),
+    motivazione: stripDiscordDecorations(
+      doc?.content || doc?.reason || doc?.body || item.motivazione || "",
+      {
+        keepNewlines: true,
+        keepCustomEmoji: keepEmoji,
+      },
+    ),
     timing: wf.timing || null,
     giorniScalati: wf.giorniScalati ?? null,
     costanzaChart,
@@ -1493,7 +1528,7 @@ async function upsertStaffWorkflowItem(payload) {
   const statusIncoming = normalizeStatus(payload?.status, "pending");
   const existing = await SiteDocument.findOne({ docType: WORKFLOW_DOC, guildId, dedupeKey })
     .select(
-      "workflowDecidedBy workflowDecidedByName decidedAt status workflowSubjectName workflowSubjectAvatarUrl createdAt workflowWeekKey workflowActionKey staffReason workflowFields",
+      "workflowDecidedBy workflowDecidedByName decidedAt status workflowSubjectName workflowSubjectAvatarUrl createdAt workflowWeekKey workflowActionKey staffReason workflowFields content body reason",
     )
     .lean()
     .catch(() => null);
@@ -1567,14 +1602,33 @@ async function upsertStaffWorkflowItem(payload) {
     body: stripDiscordDecorations(payload?.preview || payload?.body || "", {
       keepCustomEmoji: keepEmoji,
     }).slice(0, 500),
-    content: stripDiscordDecorations(payload?.content || payload?.bodyFull || payload?.body || "", {
-      keepNewlines: true,
-      keepCustomEmoji: keepEmoji,
-    }).slice(0, 50000),
-    reason: stripDiscordDecorations(payload?.reason || payload?.motivazione || "", {
-      keepNewlines: true,
-      keepCustomEmoji: keepEmoji,
-    }).slice(0, 500),
+    /* inboxSheetFullText1: non sovrascrivere content pieno con body/preview corti */
+    content: (() => {
+      const incoming = stripDiscordDecorations(
+        payload?.content || payload?.bodyFull || payload?.body || "",
+        { keepNewlines: true, keepCustomEmoji: keepEmoji },
+      ).slice(0, 50000);
+      const prev = stripDiscordDecorations(existing?.content || "", {
+        keepNewlines: true,
+        keepCustomEmoji: keepEmoji,
+      }).slice(0, 50000);
+      if (!incoming) return prev;
+      if (!prev) return incoming;
+      return incoming.length >= prev.length ? incoming : prev;
+    })(),
+    reason: (() => {
+      const incoming = stripDiscordDecorations(payload?.reason || payload?.motivazione || "", {
+        keepNewlines: true,
+        keepCustomEmoji: keepEmoji,
+      }).slice(0, 4000);
+      const prev = stripDiscordDecorations(existing?.reason || "", {
+        keepNewlines: true,
+        keepCustomEmoji: keepEmoji,
+      }).slice(0, 4000);
+      if (!incoming) return prev;
+      if (!prev) return incoming;
+      return incoming.length >= prev.length ? incoming : prev;
+    })(),
     status,
     workflowSubjectName:
       subjectDisplayName ||
@@ -1722,6 +1776,13 @@ async function updateStaffWorkflowStatusByDedupe(guildId, dedupeKey, status, ext
       const { broadcastSiteStaffWorkflowChanged } = require("./siteSuggestionsBroadcast");
       broadcastSiteStaffWorkflowChanged(String(doc.workflowQueue || ""));
     } catch (_) {}
+    /* smartNotifLifecycle1: decide/close → purge inbox+chat push residue */
+    if (["accepted", "rejected", "cancelled", "closed"].includes(String(next || "").toLowerCase())) {
+      try {
+        const { clearWorkflowLifecycleNotifs } = require("./siteStaffWorkflowNotifications");
+        void clearWorkflowLifecycleNotifs(doc).catch(() => null);
+      } catch (_) {}
+    }
   }
   return doc;
 }
@@ -2212,6 +2273,8 @@ async function listResocontiWeeks(guildId, opts = {}) {
   else if (roleFilter === "pm" || roleFilter === "p" || roleFilter === "partnermanager") {
     match.workflowKind = "p";
   }
+  const uid = String(opts.userId || "").trim();
+  if (/^\d{16,22}$/.test(uid)) match.userId = uid;
   const rows = await SiteDocument.aggregate([
     { $match: match },
     { $group: { _id: "$workflowWeekKey", count: { $sum: 1 } } },
@@ -2360,9 +2423,14 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
   const gid = String(guildId || "").trim();
   const q = String(queue || "").trim().toLowerCase();
   const filter = { docType: WORKFLOW_DOC, guildId: gid, workflowQueue: q };
+  const scopedUserId = String(opts.userId || "").trim();
+  /* resoProfile1: cronologia profilo — un solo staffer */
+  if (/^\d{16,22}$/.test(scopedUserId)) {
+    filter.userId = scopedUserId;
+  }
   if (scope === "pending") {
     filter.status = "pending";
-  } else if (q === "pause") {
+  } else if (q === "pause" && !filter.userId) {
         try {
       const { loadRosterSnapshot } = require("./siteStaffRosterCache");
       const snap = await loadRosterSnapshot(gid).catch(() => null);
@@ -2428,7 +2496,11 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
         week = "";
       }
     }
-    weeks = await listResocontiWeeks(gid, { scope, filter: roleFilter });
+    weeks = await listResocontiWeeks(gid, {
+      scope,
+      filter: roleFilter,
+      userId: scopedUserId || undefined,
+    });
     if (!week && weeks.length) week = String(weeks[0].weekKey || "");
     if (week) filter.workflowWeekKey = week;
   }
@@ -2569,16 +2641,20 @@ async function listStaffWorkflowFromDb(client, guildId, queue, opts = {}) {
       });
       const stillNeed = needIds.filter((uid) => {
         const hit = identityMap.get(uid);
-        if (!hit) return true;
-        const name = String(hit.displayName || "").trim();
-        return !name || name === FALLBACK_LABEL || name === uid;
+        const item = items.find((it) => String(it.userId || "").trim() === uid);
+        const avatarOk =
+          hasRealDiscordAvatarUrl(hit?.avatarUrl) || hasRealDiscordAvatarUrl(item?.avatarUrl);
+        const name = String(hit?.displayName || "").trim();
+        const nameBad = !name || name === FALLBACK_LABEL || name === uid;
+        /* inboxAvatarFetch1: fetch anche se manca solo l'avatar (prima solo il nome) */
+        return nameBad || !avatarOk;
       });
       if (stillNeed.length) {
-        /* mobileStaffFast1: keep list snappy on phone; stored names already cover most rows */
+        /* inboxAvatarFetch1: budget un po' più largo per avatar utenti fuori guild */
         const fetched = await resolveWebUserIdentitiesBatch(client, guild, stillNeed, {
-          cap: 24,
+          cap: 32,
           batchSize: 6,
-          budgetMs: 700,
+          budgetMs: 1400,
           skipGuildMember: true,
           fillFallback: false,
         });
@@ -2733,7 +2809,10 @@ async function getStaffWorkflowDetailFromDb(client, guildId, queue, itemId, user
   if (q === "resoconti") {
     detail = await enrichResocontoDetailChart(detail, doc, guild);
   }
-    const enriched = await applyWorkflowSubjectToItem(client, guild, detail);
+    const enriched = await applyWorkflowSubjectToItem(client, guild, detail, {
+      allowFetch: true,
+      fetchTimeoutMs: 1400,
+    });
         const resolvedName = pickSubjectDisplayName(enriched?.userId, enriched?.displayName);
     const resolvedAvatar = hasRealDiscordAvatarUrl(enriched?.avatarUrl) ? String(enriched.avatarUrl) : "";
     const storedName = pickSubjectDisplayName(doc.userId, doc.workflowSubjectName);
@@ -3198,7 +3277,8 @@ async function listStaffWorkflowForInbox(client, guild, viewerMember, queue, opt
         await Promise.race([
           syncPromise,
           new Promise((resolve) => {
-            setTimeout(resolve, 22000);
+            /* notifQueueFast1: 22s → 6s — lista DB non deve aspettare Discord sync */
+            setTimeout(resolve, 6000);
           }),
         ]);
       } else {

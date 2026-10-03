@@ -27,24 +27,35 @@ function partnerManagerVipActiveFromLean(lean) {
   return partnerManagerPerkDateActive(lean?.staff?.partnerManagerVipUntil);
 }
 
+function memberHasRemappedRoleIds(member, roleIds) {
+  try {
+    const { memberHasAnyRemappedRole } = require("../Config/emergencyRoleIdRemap");
+    return Boolean(memberHasAnyRemappedRole(member, roleIds));
+  } catch (_) {
+    const cache = member?.roles?.cache;
+    if (!cache || typeof cache.has !== "function") return false;
+    return (Array.isArray(roleIds) ? roleIds : [roleIds])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean)
+      .some((roleId) => cache.has(roleId));
+  }
+}
+
 function memberHasVipRole(member) {
-  if (!member?.roles?.cache) return false;
   const vipIds = [IDs.roles?.VIP, IDs.roles?.VIPplus, IDs.roles?.["VIP+"]]
     .map((id) => String(id || "").trim())
     .filter(Boolean);
-  return vipIds.some((roleId) => member.roles.cache.has(roleId));
+  return memberHasRemappedRoleIds(member, vipIds);
 }
 
 function memberHasVipPlusRole(member) {
-  if (!member?.roles?.cache) return false;
   const plusIds = [IDs.roles?.VIPplus, IDs.roles?.["VIP+"]]
     .map((id) => String(id || "").trim())
     .filter(Boolean);
-  return plusIds.some((roleId) => member.roles.cache.has(roleId));
+  return memberHasRemappedRoleIds(member, plusIds);
 }
 
 function memberHasCustomRoleOrVocPermission(member) {
-  if (!member?.roles?.cache) return false;
   try {
     const { memberHasCustomRolePanelAccess } = require("../Community/customRoleSlots");
     if (memberHasCustomRolePanelAccess(member)) return true;
@@ -58,7 +69,7 @@ function memberHasCustomRoleOrVocPermission(member) {
   ]
     .map((id) => String(id || "").trim())
     .filter(Boolean);
-  return vocRoleIds.some((roleId) => member.roles.cache.has(roleId));
+  return memberHasRemappedRoleIds(member, vocRoleIds);
 }
 
 function resolvePartnerManagerShopInstantBlocks(member, lean) {

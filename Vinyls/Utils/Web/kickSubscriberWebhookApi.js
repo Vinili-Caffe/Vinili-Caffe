@@ -191,7 +191,16 @@ async function handleKickSubEventsWebhook(client, req, res) {
 async function handleKickSubStatusGet(client, req, res) {
   try {
     const cfg = resolveSubSyncConfig(client);
-    if (!cfg.enabled) return res.status(503).json({ ok: false, error: "disabled" });
+    if (!cfg.enabled) {
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.status(200).json({
+        ok: true,
+        enabled: false,
+        linked: false,
+        subActive: false,
+        error: "disabled",
+      });
+    }
     const resolved = await resolveDiscordUserIdFromBearer(normalizeBearer(req));
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 401).json(resolved);
@@ -201,6 +210,7 @@ async function handleKickSubStatusGet(client, req, res) {
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({
       ok: true,
+      enabled: true,
       ...st,
       streamerSlug: slug,
       subscribeUrl: `https://kick.com/${encodeURIComponent(slug)}`,
@@ -214,7 +224,9 @@ async function handleKickSubStatusGet(client, req, res) {
 async function handleKickSubOAuthStartGet(client, req, res) {
   try {
     const cfg = resolveSubSyncConfig(client);
-    if (!cfg.enabled) return res.status(503).json({ ok: false, error: "disabled" });
+    if (!cfg.enabled) {
+      return res.status(200).json({ ok: false, enabled: false, error: "disabled" });
+    }
     const resolved = await resolveDiscordUserIdFromBearer(normalizeBearer(req));
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 401).json(resolved);
@@ -238,7 +250,7 @@ async function handleKickSubOAuthStartGet(client, req, res) {
 async function handleKickSubUnlinkPost(client, req, res) {
   try {
     const cfg = resolveSubSyncConfig(client);
-    if (!cfg.enabled) return res.status(503).json({ ok: false, error: "disabled" });
+    if (!cfg.enabled) return res.status(200).json({ ok: false, enabled: false, error: "disabled" });
     const resolved = await resolveDiscordUserIdFromBearer(normalizeBearer(req));
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 401).json(resolved);

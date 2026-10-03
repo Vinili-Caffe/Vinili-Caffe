@@ -12,6 +12,8 @@ const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const COUNTING_RESTORE_TIME_ZONE = "Europe/Rome";
 const EXPIRY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 const RESTORE_TOKEN_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+/** TEMP: ripristino counting disabilitato (sito + bot). Rimetti `true` per riattivare. */
+const COUNTING_RESTORE_ENABLED = false;
 
 const restoreTokens = new Map();
 const expiryTimers = new Map();
@@ -251,6 +253,7 @@ function scheduleRestoreTokenExpiry(client, entry) {
 }
 
 async function createRestoreToken({ guildId, lostCount, lostLastUser, channelId }) {
+  if (!COUNTING_RESTORE_ENABLED) return null;
   const token = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   const expiresAt = Date.now() + TOKEN_TTL_MS;
   const entry = {
@@ -369,6 +372,13 @@ function startCountingRestoreMaintenance(client) {
 }
 
 async function handleCountingRestoreButton(interaction, client, invalidateCountingConfig) {
+  if (!COUNTING_RESTORE_ENABLED) {
+    await interaction.reply({
+      content: "<:cancel:1461730653677551691> Il ripristino counting è temporaneamente disabilitato.",
+      flags: 1 << 6,
+    }).catch(() => null);
+    return;
+  }
   const token = String(interaction?.customId || "").slice(COUNTING_RESTORE_PREFIX.length);
   const entry = await getRestoreToken(token);
   if (!entry) {
@@ -437,6 +447,7 @@ async function handleCountingRestoreButton(interaction, client, invalidateCounti
 }
 
 module.exports = {
+  COUNTING_RESTORE_ENABLED,
   COUNTING_RESTORE_PREFIX,
   TOKEN_TTL_MS,
   memberCanRestoreCounting,

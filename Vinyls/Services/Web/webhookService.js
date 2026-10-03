@@ -497,6 +497,7 @@ async function startWebhookServer(client) {
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteWikiHelp = pathStr.startsWith("/webhooks/site-wiki-help");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
+    const isSiteBoards = pathStr.startsWith("/webhooks/site-boards");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteBotFeedback = pathStr.startsWith("/webhooks/site-bot-feedback");
     const isSiteWebTickets = pathStr.startsWith("/webhooks/site-web-tickets");
@@ -512,9 +513,11 @@ async function startWebhookServer(client) {
       pathStr.startsWith("/webhooks/site-staff-manage") ||
       pathStr.startsWith("/webhooks/site-staff-organico") ||
       pathStr.startsWith("/webhooks/site-staff-pause") ||
+      pathStr.startsWith("/webhooks/site-staff-compiti") ||
       pathStr.startsWith("/webhooks/site-staff-profile") ||
       pathStr.startsWith("/webhooks/site-staff-pm-hub") ||
       pathStr.startsWith("/webhooks/site-staff-pm-points-removed") ||
+      pathStr.startsWith("/webhooks/site-staff-pm-shop") ||
       pathStr.startsWith("/webhooks/site-staff-pm-actions") ||
       pathStr.startsWith("/webhooks/site-staff-tickets") ||
       pathStr.startsWith("/webhooks/site-staff-seratafilm") ||
@@ -544,6 +547,7 @@ async function startWebhookServer(client) {
       !isSiteRankCard &&
       !isSiteWikiHelp &&
       !isSiteReviews &&
+      !isSiteBoards &&
       !isSiteSuggestions &&
       !isSiteBotFeedback &&
       !isSiteWebTickets &&
@@ -578,11 +582,11 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteKickLive || isSiteKickSub || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteKickLive || isSiteKickSub || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteBoards || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSitePayments || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Cache-Control, Pragma, Access-Control-Request-Private-Network");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Cache-Control, Pragma, Access-Control-Request-Private-Network, X-VC-View-As");
     if (allowOrigin) res.setHeader("Access-Control-Allow-Private-Network", "true");
     if (req.method === "OPTIONS") {
       res.status(204).end();

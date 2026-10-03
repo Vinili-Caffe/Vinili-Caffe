@@ -1,9 +1,11 @@
 (function () {
+  /* viewAsGateDeny1 + viewAsAccessFreeze1 */
   if (window.__VC_ACCESS_GATE_LOADED) return;
   window.__VC_ACCESS_GATE_LOADED = true;
+  /* viewAsAccessFreeze1: Logout View As non manda a loginUrl / non lascia pending */
 
-  var STAFF_CACHE_KEY = "vc_staff_access_ok_v2";
-  var STAFF_CACHE_LOCAL_KEY = "vc_staff_access_ok_v2_local";
+  var STAFF_CACHE_KEY = "vc_staff_access_ok_v3";
+  var STAFF_CACHE_LOCAL_KEY = "vc_staff_access_ok_v3_local";
   var STAFF_CACHE_TTL_MS = 300000;
   var STAFF_CACHE_STALE_MS = 900000;
   var STAFF_CACHE_LOCAL_STALE_MS = 86400000;
@@ -48,19 +50,29 @@
     { re: /^\/dashboard\/transcript(?:\/|$)/i, require: "public" },
     { re: /^\/dashboard\/profilo(?:\/|$)/i, require: "public" },
     { re: /^\/staff\/gestione(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
+    { re: /^\/(?:bacheca|boards)\/(?:invia|submit|le-mie|manage)(?:\/|$)/i, require: "login", mode: "soft", denyFallback: "/" },
+    { re: /^\/(?:bacheca|boards)\/mod(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
+    { re: /^\/(?:bacheca|boards)(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
     { re: /^\/staff\/punti-tolti(?:\/|$)/i, require: "pmOrHighStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/user/" },
+    /* pmOpsNavHide1: deny → guida, mai /staff/ (redirecta al profilo) */
+    { re: /^\/staff\/confessionale(?:\/|$)/i, require: "login", mode: "soft" },
+    { re: /^\/staff\/compiti(?:\/|$)/i, require: "opsStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/staff/guida/" },
         { re: /^\/staff\/?$/i, require: "public" },
     { re: /^\/staff(?:\/|$)/i, require: "staff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
-    { re: /^\/confessionale(?:\/|$)/i, require: "public" },
+    { re: /^\/confessionale(?:\/|$)/i, require: "login", mode: "soft" },
     { re: /^\/dashboard(?:\/|$)/i, require: "highStaff", denyFallback: "/" },
     { re: /^\/seratafilm(?:\/|$)/i, require: "highStaff", loginUrl: "/seratafilm/accesso-richiesto/", denyFallback: "/" },
-    { re: /^\/candidature(?:\/|$)/i, require: "login", loginUrl: "/candidature/accesso-richiesto/", denyFallback: "/" },
-    { re: /^\/appelli(?:\/|$)/i, require: "login", loginUrl: "/appelli/accesso-richiesto/", denyFallback: "/" },
-    { re: /^\/(?:unban|unmute)(?:\/|$)/i, require: "login", loginUrl: "/appelli/accesso-richiesto/", denyFallback: "/" },
-    { re: /^\/user\/(?:personalizza|customize|custom)(?:\/|$)/i, require: "login", denyFallback: "/" },
-    { re: /^\/personalizza(?:\/|$)/i, require: "login", denyFallback: "/" },
+    /* puzzleHs8: prova jigsaw solo High Staff */
+    { re: /^\/puzzle(?:\/|$)/i, require: "highStaff", loginUrl: "/staff/accesso-richiesto/", denyFallback: "/" },
+    { re: /^\/candidature(?:\/|$)/i, require: "login", mode: "soft" },
+    { re: /^\/appelli(?:\/|$)/i, require: "login", mode: "soft" },
+    { re: /^\/(?:unban|unmute)(?:\/|$)/i, require: "login", mode: "soft" },
+    { re: /^\/user\/(?:personalizza|customize|custom)(?:\/|$)/i, require: "login", mode: "soft", denyFallback: "/" },
+    /* personalizzaRankFix1d: soft — resta sulla pagina con CTA login (niente bounce a /) */
+    { re: /^\/personalizza(?:\/|$)/i, require: "login", mode: "soft", denyFallback: "/" },
     { re: /^\/notifications(?:\/|$)/i, require: "login", denyFallback: "/" },
-    { re: /^\/dati(?:\/|$)/i, require: "login", denyFallback: "/" },
+    /* datiSoftGate1: resta su /dati/ con card login (come tickets), no kick a home */
+    { re: /^\/dati(?:\/|$)/i, require: "login", mode: "soft" },
     { re: /^\/tickets(?:\/|$)/i, require: "login", mode: "soft" },
     { re: /^\/recensioni(?:\/|$)/i, require: "login", mode: "soft" },
     { re: /^\/(?:feedback|suggerimenti)(?:\/|$)/i, require: "login", mode: "soft" },
@@ -83,6 +95,12 @@
     } catch (e) {
       return "/";
     }
+  }
+
+  function normPath(p) {
+    var s = String(p || "/");
+    if (s.length > 1 && s.charAt(s.length - 1) === "/") s = s.slice(0, -1);
+    return s || "/";
   }
 
   function matchPolicy() {
@@ -181,6 +199,7 @@
   }
 
   function navigateTo(target) {
+    clearAccessPending();
     hideStaffLoading();
     var dest = String(target || "").trim() || homeUrl();
     try {
@@ -192,22 +211,53 @@
     } catch (e1) {}
   }
 
+  function clearAccessPending() {
+    try {
+      var root = document.documentElement;
+      root.classList.remove("vc-staff-access-pending");
+      root.classList.remove("vc-dash-access-pending");
+      root.classList.remove("vc-loading-scroll-lock");
+    } catch (e0) {}
+    hideStaffLoading();
+    try {
+      var sfLoad = document.getElementById("vc-seratafilm-loading");
+      if (sfLoad) {
+        sfLoad.hidden = true;
+        sfLoad.setAttribute("hidden", "");
+      }
+      var dashLoad = document.getElementById("vc-dash-loading");
+      if (dashLoad) {
+        dashLoad.hidden = true;
+        dashLoad.setAttribute("hidden", "");
+      }
+    } catch (e1) {}
+    unlockStaffPageScroll();
+  }
+
   function denyRedirectUrl(policy) {
     var custom = String((policy && policy.denyFallback) || cfg().denyRedirect || "").trim();
     if (custom === "home") return homeUrl();
-    try {
-      var ref = String(document.referrer || "");
-      if (ref) {
-        var u = new URL(ref);
-        if (u.origin === window.location.origin) {
-          var path = String(u.pathname || "");
-          var here = pathName();
-          if (path && path !== here && path.indexOf("/accesso-richiesto") === -1 && path.indexOf("//") === -1) {
-            return path + (u.search || "");
+    /* View As: mai usare referrer (loop tra pagine hard-gated). */
+    if (!viewAsModeClient()) {
+      try {
+        var ref = String(document.referrer || "");
+        if (ref) {
+          var u = new URL(ref);
+          if (u.origin === window.location.origin) {
+            var path = String(u.pathname || "");
+            var here = pathName();
+            if (
+              path &&
+              normPath(path) !== normPath(here) &&
+              path.indexOf("/accesso-richiesto") === -1 &&
+              path.indexOf("//") === -1
+            ) {
+              return path + (u.search || "");
+            }
           }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
     if (custom && custom.charAt(0) === "/" && custom.indexOf("//") === -1) return custom;
     return homeUrl();
   }
@@ -236,9 +286,32 @@
     var isPm = Boolean(d.isPm || p.isPm);
     var isPmGestore = Boolean(d.isPmGestore || p.isPmGestore);
     var canManagePm = Boolean(d.canManagePm || p.canManagePm || isHs || isPmGestore);
+    /* inboxNoDirector1: punti tolti = PM + HS — non Director */
+    var isDirector = Boolean(d.director || p.director);
     var canViewPmPointsRemoved = Boolean(
-      d.canViewPmPointsRemoved || p.canViewPmPointsRemoved || isHs || isPm || isPmGestore || canManagePm,
+      d.canViewPmPointsRemoved || p.canViewPmPointsRemoved || isHs || ((!isDirector) && (isPm || isPmGestore || canManagePm)),
     );
+    if (isDirector && !isHs && !(d.canViewPmPointsRemoved || p.canViewPmPointsRemoved)) {
+      canViewPmPointsRemoved = false;
+    }
+    var hasResoFlag =
+      Object.prototype.hasOwnProperty.call(d, "canViewResoconti") ||
+      Object.prototype.hasOwnProperty.call(p, "canViewResoconti");
+    var canViewResoconti = hasResoFlag
+      ? Boolean(d.canViewResoconti || p.canViewResoconti)
+      : Boolean(isHs || ((!isDirector) && isPmGestore));
+    if (isDirector && !isHs && !(d.canViewResoconti || p.canViewResoconti)) {
+      canViewResoconti = false;
+    }
+    var hasOpsFlag =
+      Object.prototype.hasOwnProperty.call(d, "canCompiti") ||
+      Object.prototype.hasOwnProperty.call(d, "canConfessionale") ||
+      Object.prototype.hasOwnProperty.call(p, "canCompiti") ||
+      Object.prototype.hasOwnProperty.call(p, "canConfessionale");
+    /* pmOpsNavHide1: senza flag espliciti, solo HS/Director — mai default-true per staff generico/PM */
+    var canOpsStaff = hasOpsFlag
+      ? Boolean(d.canCompiti || d.canConfessionale || p.canCompiti || p.canConfessionale)
+      : Boolean(isHs || d.director || p.director);
     return {
       ok: Boolean(d.ok || d.allowed === true || isHs || isPm || d.candidatureReview || p.candidatureReview),
       isHighStaff: isHs,
@@ -246,6 +319,9 @@
       isPm: isPm,
       isPmGestore: isPmGestore,
       canManagePm: canManagePm,
+      canCompiti: canOpsStaff,
+      canConfessionale: canOpsStaff,
+      canViewResoconti: canViewResoconti,
       canViewPmPointsRemoved: canViewPmPointsRemoved,
       canReviewPmPointsRemoved: Boolean(
         d.canReviewPmPointsRemoved || p.canReviewPmPointsRemoved || isHs || isPmGestore,
@@ -260,6 +336,10 @@
       ),
       director: Boolean(d.director || p.director),
             allowed: Boolean(d.allowed === true),
+      viewAs: d.viewAs ? String(d.viewAs) : "",
+      viewAsActive: Boolean(d.viewAsActive),
+      viewAsAllowed: Boolean(d.viewAsAllowed || d.isFounder || p.viewAsAllowed),
+      isFounder: Boolean(d.isFounder || p.isFounder),
     };
   }
 
@@ -279,6 +359,16 @@
     }
     if (need === "pmmanage" || need === "pm_manage" || need === "managepm") {
       return Boolean(perms.canManagePm || perms.isHighStaff || perms.canManage || perms.isPmGestore);
+    }
+    if (
+      need === "opsstaff" ||
+      need === "ops" ||
+      need === "compiti" ||
+      need === "confessionale" ||
+      need === "cancompiti" ||
+      need === "canconfessionale"
+    ) {
+      return Boolean(perms.canCompiti || perms.canConfessionale);
     }
     return true;
   }
@@ -411,7 +501,10 @@
       return verifyStaffAccess(api, token, attempt, timeoutMs).then(function (out) {
         if (out.res && out.res.ok && out.data && (out.data.ok || out.data.allowed === true)) return out;
         if (isExplicitStaffDenied(out)) return out;
-                if (out.res && out.res.status === 401) {
+        var st = Number(out.res && out.res.status) || 0;
+        /* staffAccess429Calm1: primo 429 → stop (niente 2°/3° hit nello stesso burst) */
+        if (st === 429) return out;
+        if (out.res && out.res.status === 401) {
           authFails += 1;
           if (authFails < 3 && attempt < STAFF_VERIFY_ATTEMPTS) {
             return new Promise(function (resolve) {
@@ -422,7 +515,7 @@
         }
         if (attempt < STAFF_VERIFY_ATTEMPTS && isTransientAccessFailure(out)) {
           return new Promise(function (resolve) {
-            window.setTimeout(resolve, 400 + attempt * 300);
+            window.setTimeout(resolve, 700 + attempt * 450);
           }).then(step);
         }
         return out;
@@ -499,10 +592,20 @@
   function revealStaff(perms) {
     hideStaffLoading();
     try {
-      document.documentElement.classList.remove("vc-staff-access-pending");
-      document.documentElement.classList.remove("vc-staff-denied-open");
-      document.documentElement.classList.add("vc-staff-app-revealed");
+      var root = document.documentElement;
+      root.classList.remove("vc-staff-access-pending");
+      root.classList.remove("vc-staff-denied-open");
+      /* compitiScrollUnlock1: come /puzzle/ — togli hold/lock o restano rotellina + no scroll */
+      root.classList.remove(
+        "vc-loading-scroll-lock",
+        "vc-loader-blocking-live",
+        "vc-interaction-hold"
+      );
+      root.classList.add("vc-staff-app-revealed", "vc-page-cine-ready", "vc-cine-curtain-off");
       document.body.classList.add("vc-staff-app-revealed");
+      try {
+        document.body.style.pointerEvents = "auto";
+      } catch (ePe) {}
     } catch (e) {}
     unlockStaffPageScroll();
     window.setTimeout(unlockStaffPageScroll, 0);
@@ -539,11 +642,14 @@
   }
 
   function showStaffDenied(message) {
+    clearAccessPending();
     hideStaffLoading();
     try {
       document.documentElement.classList.remove("vc-staff-access-pending");
       document.documentElement.classList.remove("vc-staff-app-revealed");
+      document.documentElement.classList.remove("vc-dash-access-pending");
       document.documentElement.classList.add("vc-staff-denied-open");
+      document.documentElement.classList.add("vc-dash-access-ready");
       document.body.classList.remove("vc-staff-app-revealed");
     } catch (eDeny) {}
     window.__VC_STAFF_ACCESS_EVENT_SENT = false;
@@ -557,15 +663,123 @@
     if (panel) {
       panel.removeAttribute("hidden");
       panel.classList.add("vc-staff-denied--visible");
-    } else {
-      navigateTo(homeUrl());
+      try {
+        window.dispatchEvent(
+          new CustomEvent("vc:staff-access-ok", {
+            detail: window.__VC_STAFF_PERMS || { ok: false, viewAsActive: Boolean(viewAsModeClient()) },
+          }),
+        );
+      } catch (eOk) {}
+      return;
     }
+    /* Nessun pannello deny (dashboard/seratafilm). */
+    if (viewAsModeClient()) {
+      /* Dashboard deny in anteprima → homepage */
+      try {
+        if (/^\/dashboard(?:\/|$)/i.test(pathName())) {
+          navigateTo(homeUrl());
+          return;
+        }
+      } catch (eDashHome) {
+        navigateTo(homeUrl());
+        return;
+      }
+      try {
+        document.documentElement.classList.add("vc-dash-access-ready");
+        document.documentElement.classList.add("vc-seratafilm-loading-done");
+        window.dispatchEvent(
+          new CustomEvent("vc:staff-access-ok", {
+            detail: { ok: false, viewAs: viewAsModeClient(), viewAsActive: true, viewAsAllowed: true },
+          }),
+        );
+      } catch (eVa) {}
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+          window.VcSiteToast.show(String(message || "Preview: non hai accesso a questa pagina."), true);
+        }
+      } catch (eT) {}
+      return;
+    }
+    navigateTo(homeUrl());
+  }
+
+  function viewAsDenyMessage(policy) {
+    var m = viewAsModeClient() || "ruolo";
+    var label = m.charAt(0).toUpperCase() + m.slice(1);
+    var need = String((policy && policy.require) || "").toLowerCase();
+    if (need === "highstaff" || need === "high" || need === "canmanage") {
+      return "Preview (" + label + "): serve High Staff per questa pagina.";
+    }
+    if (need === "pmorhighstaff" || need === "pm_or_high" || need === "pmmanage") {
+      return "Preview (" + label + "): non hai accesso a questa pagina.";
+    }
+    if (
+      need === "opsstaff" ||
+      need === "ops" ||
+      need === "compiti" ||
+      need === "confessionale" ||
+      need === "cancompiti" ||
+      need === "canconfessionale"
+    ) {
+      return "Preview (" + label + "): pagina riservata allo staff operativo.";
+    }
+    return "Preview (" + label + "): non hai accesso a questa pagina.";
+  }
+
+  function denyAccess(policy, message) {
+    if (viewAsModeClient()) {
+      /* dashboard: sempre homepage, anche in anteprima */
+      try {
+        if (/^\/dashboard(?:\/|$)/i.test(pathName())) {
+          navigateTo(homeUrl());
+          return;
+        }
+      } catch (eDenyDash) {
+        navigateTo(homeUrl());
+        return;
+      }
+      showStaffDenied(message || viewAsDenyMessage(policy));
+      return;
+    }
+    /* Su dashboard con token: retry invece di kick immediato a / */
+    try {
+      if (/^\/dashboard(?:\/|$)/i.test(pathName()) && getToken()) {
+        var n = Number(window.__vcDashDenyRetry || 0);
+        if (n < 3) {
+          window.__vcDashDenyRetry = n + 1;
+          try {
+            document.documentElement.classList.add("vc-dash-access-pending");
+            document.documentElement.classList.remove("vc-dash-access-ready");
+          } catch (ePend) {}
+          window.setTimeout(function () {
+            runGate();
+          }, 700 + n * 500);
+          return;
+        }
+      }
+    } catch (eRetry) {}
+    navigateTo(denyRedirectUrl(policy));
   }
 
   function fetchJson(url, token, timeoutMs) {
     var ms = Math.max(2500, Math.min(28000, Number(timeoutMs) || FETCH_TIMEOUT_MS));
     var headers = {};
     if (token) headers.Authorization = "Bearer " + token;
+    try {
+      if (window.VcViewAs && typeof window.VcViewAs.applyHeader === "function") {
+        var patched = window.VcViewAs.applyHeader({ headers: headers });
+        headers = patched.headers || headers;
+        if (headers && typeof headers.forEach === "function") {
+          var plain = {};
+          headers.forEach(function (v, k) {
+            plain[k] = v;
+          });
+          headers = plain;
+        }
+      } else if (sessionStorage.getItem("vc_view_as")) {
+        headers["X-VC-View-As"] = String(sessionStorage.getItem("vc_view_as") || "");
+      }
+    } catch (eVa) {}
     if (typeof AbortController === "undefined") {
       return fetch(url, { method: "GET", headers: headers, mode: "cors", credentials: "omit", cache: "no-store" }).then(
         function (res) {
@@ -676,9 +890,51 @@
     }
   }
 
+  function isPuzzlePath(path) {
+    return /^\/puzzle(?:\/|$)/i.test(path || pathName());
+  }
+
   function admit(policy, perms) {
     if (hasCapability(perms, policy.require)) {
-      if (/^\/staff(?:\/|$)/i.test(pathName())) revealStaff(perms);
+      try {
+        window.__vcDashDenyRetry = 0;
+      } catch (eClr) {}
+      /* puzzleHs8: /puzzle/ revealStaff + togli sipario cine (senza aspettare puzzle-page.js) */
+      if (/^\/staff(?:\/|$)/i.test(pathName()) || isPuzzlePath()) {
+        revealStaff(perms);
+        if (isPuzzlePath()) {
+          try {
+            var root = document.documentElement;
+            root.classList.add("vc-page-cine-ready", "vc-cine-curtain-off", "vc-staff-app-revealed");
+            root.classList.remove(
+              "vc-page-cine-boot",
+              "vc-staff-access-pending",
+              "vc-loader-blocking-live",
+              "vc-loading-scroll-lock",
+              "vc-interaction-hold"
+            );
+            if (document.body) {
+              document.body.classList.add("vc-staff-app-revealed");
+              document.body.style.pointerEvents = "auto";
+            }
+            var loadEl = document.getElementById("vc-staff-loading");
+            if (loadEl) {
+              loadEl.hidden = true;
+              loadEl.setAttribute("hidden", "");
+              loadEl.classList.add("vc-staff-loading--hidden");
+              loadEl.style.display = "none";
+            }
+            var curtain = document.getElementById("vc-cine-boot-curtain");
+            if (curtain) {
+              curtain.hidden = true;
+              curtain.style.display = "none";
+              curtain.style.pointerEvents = "none";
+            }
+            if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+            if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+          } catch (ePzReveal) {}
+        }
+      }
       if (/^\/dashboard(?:\/|$)/i.test(pathName())) {
         window.__VC_DASHBOARD_ACCESS_OK = true;
         try {
@@ -697,8 +953,23 @@
       } catch (e2) {}
       return true;
     }
-    navigateTo(denyRedirectUrl(policy));
+    denyAccess(policy);
     return false;
+  }
+
+  function viewAsModeClient() {
+    try {
+      return String(sessionStorage.getItem("vc_view_as") || "")
+        .trim()
+        .toLowerCase();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function viewAsBlocksStaffArea() {
+    var m = viewAsModeClient();
+    return m === "logout" || m === "member";
   }
 
   function runGate() {
@@ -715,9 +986,24 @@
     var path = pathName();
     var isStaffArea = /^\/staff(?:\/|$)/i.test(path);
 
+    if (viewAsBlocksStaffArea() && (isStaffArea || need === "staff" || need === "highstaff" || need === "pmorhighstaff")) {
+      /* Non chiamare unrevealStaff: lascia pending/loading e freezza. */
+      showStaffDenied(
+        viewAsModeClient() === "logout"
+          ? "Preview Logout: area staff nascosta. Usa la barra ANTEPRIMA per tornare a Reale."
+          : "Preview Membro: area staff nascosta. Usa la barra ANTEPRIMA per tornare a Reale.",
+      );
+      return;
+    }
+
     if (need === "login") {
-      if (token) {
+      if (token && viewAsModeClient() !== "logout") {
         window.__VC_ACCESS_OK = true;
+        return;
+      }
+      if (viewAsModeClient() === "logout") {
+        /* Resta sulla pagina soft/login: niente freeze redirect. */
+        clearAccessPending();
         return;
       }
             var loginTries = 0;
@@ -739,6 +1025,14 @@
     }
 
     if (!token) {
+      if (viewAsModeClient() === "logout" || viewAsModeClient() === "member") {
+        showStaffDenied(
+          viewAsModeClient() === "logout"
+            ? "Preview Logout: area staff nascosta. Usa la barra ANTEPRIMA per tornare a Reale."
+            : "Preview Membro: area staff nascosta. Usa la barra ANTEPRIMA per tornare a Reale.",
+        );
+        return;
+      }
             if (isStaffArea || need === "highstaff" || need === "pm" || need === "pmorhighstaff" || need === "pmmanage") {
         unrevealStaff();
         var tokenTries = 0;
@@ -767,8 +1061,9 @@
 
     var revealedFromStale = false;
     var isSeratafilm = isSeratafilmPath(path);
+    var skipStaffCache = Boolean(viewAsModeClient());
 
-            if (needsStaffApi(need) && !needsDashboardApi(need, path)) {
+            if (needsStaffApi(need) && !needsDashboardApi(need, path) && !skipStaffCache) {
       var cached = readJsonCache(STAFF_CACHE_KEY, token);
       if (cached && cached.ok) {
         admit(policy, normalizePerms(cached));
@@ -782,7 +1077,7 @@
         }
       }
     }
-    if (needsDashboardApi(need, path)) {
+    if (needsDashboardApi(need, path) && !skipStaffCache) {
       var cachedDash = readJsonCache(DASH_CACHE_KEY, token);
       if (cachedDash && cachedDash.ok && cachedDash.allowed) {
         admit(policy, normalizePerms(cachedDash));
@@ -817,7 +1112,7 @@
 
     if (!api) {
       if (isStaffArea) showStaffDenied("API di accesso non configurata.");
-      else navigateTo(denyRedirectUrl(policy));
+      else denyAccess(policy, "API di accesso non configurata.");
       return;
     }
 
@@ -853,7 +1148,7 @@
       } else if (isSeratafilm && revealedFromStale) {
         return;
       } else {
-        navigateTo(denyRedirectUrl(policy));
+        denyAccess(policy, "Verifica accesso in timeout. Riprova.");
       }
     }
 
@@ -867,7 +1162,7 @@
           return;
         }
         if (isSeratafilm && revealedFromStale) return;
-        navigateTo(denyRedirectUrl(policy));
+        denyAccess(policy, "Connessione instabile. Riprova.");
         return;
       }
       if (out.res && out.res.status === 401) {
@@ -885,6 +1180,11 @@
             showStaffDenied("Sessione scaduta. Accedi di nuovo.");
             return;
           }
+          /* Dashboard → login, non home grezza */
+          if (/^\/dashboard(?:\/|$)/i.test(path)) {
+            navigateTo(policy.loginUrl ? loginRedirectUrl(policy) : homeUrl());
+            return;
+          }
           navigateTo(policy.loginUrl ? loginRedirectUrl(policy) : denyRedirectUrl(policy));
           return;
         }
@@ -893,12 +1193,17 @@
           showStaffDenied("Verifica Discord temporanea fallita. Tocca Riprova.");
           return;
         }
-        navigateTo(denyRedirectUrl(policy));
+        /* Errore temporaneo Discord → retry gate, non kick home */
+        if (/^\/dashboard(?:\/|$)/i.test(path) && getToken()) {
+          denyAccess(policy, "Verifica Discord temporanea fallita.");
+          return;
+        }
+        denyAccess(policy, "Verifica Discord temporanea fallita.");
         return;
       }
       if (out.res && out.res.ok && out.data && (out.data.ok || out.data.allowed === true)) {
         var permsOk = normalizePerms(out.data);
-                if (isSeratafilm && permsOk.ok && !permsOk.isHighStaff && !permsOk.canManage) {
+                if (isSeratafilm && permsOk.ok && !permsOk.isHighStaff && !permsOk.canManage && !viewAsModeClient()) {
           permsOk.isHighStaff = true;
           permsOk.canManage = true;
           permsOk.allowed = true;
@@ -907,8 +1212,10 @@
           applySeratafilmFilmUrl(out.data.filmStreamUrl);
         }
         if (needsDashboardApi(need, path)) {
-          writeJsonCache(DASH_CACHE_KEY, token, { ok: true, allowed: true, isHighStaff: true }, DASH_CACHE_TTL_MS);
-        } else {
+          if (!viewAsModeClient()) {
+            writeJsonCache(DASH_CACHE_KEY, token, { ok: true, allowed: true, isHighStaff: true }, DASH_CACHE_TTL_MS);
+          }
+        } else if (!out.data.viewAsActive && !viewAsModeClient()) {
           writeJsonCache(
             STAFF_CACHE_KEY,
             token,
@@ -919,6 +1226,8 @@
               isPm: permsOk.isPm,
               isPmGestore: permsOk.isPmGestore,
               canManagePm: permsOk.canManagePm,
+              canCompiti: permsOk.canCompiti,
+              canConfessionale: permsOk.canConfessionale,
               canViewPmPointsRemoved: permsOk.canViewPmPointsRemoved,
               canReviewPmPointsRemoved: permsOk.canReviewPmPointsRemoved,
               candidatureReview: permsOk.candidatureReview,
@@ -939,14 +1248,51 @@
         }
         if (revealedFromStale) return;
         if (isTransientAccessFailure(out)) {
+          var stFail = Number(out && out.res && out.res.status) || 0;
+          /* staffAccess429Calm1: 429 → prova cache lunga, un solo retry lento, niente storm */
+          if (stFail === 429) {
+            try {
+              if (typeof window.__vcNoteWebhook429Global === "function") {
+                window.__vcNoteWebhook429Global(16000);
+              }
+            } catch (e429n) {}
+            var stale429 = readJsonCacheStale(STAFF_CACHE_KEY, token, STAFF_CACHE_LOCAL_STALE_MS);
+            if (stale429 && stale429.ok) {
+              admit(policy, normalizePerms(stale429));
+              return;
+            }
+            var slow429 = Number(window.__vcAccessTransientSlow || 0);
+            if (slow429 < 1) {
+              window.__vcAccessTransientSlow = slow429 + 1;
+              setStaffLoadingHint("Troppe richieste, riprovo tra poco\u2026");
+              showStaffLoading();
+              window.setTimeout(function () {
+                verifyStaffAccess(api, token, 1, Math.max(fetchTimeoutMs, 16000)).then(handleAccessVerifyResult);
+              }, 4500);
+              return;
+            }
+            showStaffDenied("Troppe richieste. Aspetta qualche secondo e tocca Riprova.");
+            return;
+          }
+          /* accessGateQueueFix1: niente modal al primo paint se coda/429 soft */
+          var slowN = Number(window.__vcAccessTransientSlow || 0);
+          if (slowN < 2) {
+            window.__vcAccessTransientSlow = slowN + 1;
+            setStaffLoadingHint("Server lento, nuovo tentativo\u2026");
+            showStaffLoading();
+            window.setTimeout(function () {
+              verifyStaffAccessWithRetries(api, token, Math.max(fetchTimeoutMs, 16000)).then(handleAccessVerifyResult);
+            }, 1800 + slowN * 1200);
+            return;
+          }
           showStaffDenied("Il server impiega troppo. Riprova tra poco.");
           return;
         }
-                showStaffDenied(staffDeniedMessage(out, "Verifica non riuscita. Tocca Riprova."));
+        showStaffDenied(staffDeniedMessage(out, "Verifica non riuscita. Tocca Riprova."));
         return;
       }
       if (isSeratafilm && revealedFromStale) return;
-      navigateTo(denyRedirectUrl(policy));
+      denyAccess(policy, staffDeniedMessage(out, "Non puoi accedere a questa sezione."));
     }
 
     function mapPrefetch(raw) {

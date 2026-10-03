@@ -373,6 +373,7 @@
     var c = cfg();
     var isLocal = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
     var raw = String((isLocal && c.apiUrlLocal) ? c.apiUrlLocal : (c.apiUrl || "")).trim();
+    if (!raw || raw.indexOf("{{") !== -1) return "/webhooks/site-dashboard";
     return raw.replace(/\/+$/, "") || "/webhooks/site-dashboard";
   }
 
@@ -3642,6 +3643,13 @@
     if (!root) return;
     root.classList.remove("is-open");
     root.setAttribute("hidden", "");
+    try {
+      document.documentElement.classList.remove("vc-dash-confirm-open");
+    } catch (eCls) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      else if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+    } catch (eUnpin) {}
     document.removeEventListener("keydown", onBlacklistModalKey, true);
   }
 
@@ -3726,6 +3734,13 @@
     if (cancelBtn) cancelBtn.textContent = i18n("dash.bl.cancel", "Annulla");
     document.addEventListener("keydown", onBlacklistModalKey, true);
     root.removeAttribute("hidden");
+    try {
+      document.documentElement.classList.add("vc-dash-confirm-open");
+    } catch (eOpenCls) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      else if (typeof window.__vcPinPageScroll === "function") window.__vcPinPageScroll();
+    } catch (ePin) {}
     requestAnimationFrame(function () {
       root.classList.add("is-open");
       var okBtn = root.querySelector('[data-dash-confirm="ok"]');
@@ -3752,6 +3767,13 @@
     if (cancelBtn) cancelBtn.textContent = i18n("dash.bl.cancel", "Annulla");
     document.addEventListener("keydown", onBlacklistModalKey, true);
     root.removeAttribute("hidden");
+    try {
+      document.documentElement.classList.add("vc-dash-confirm-open");
+    } catch (eOpenCls) {}
+    try {
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      else if (typeof window.__vcPinPageScroll === "function") window.__vcPinPageScroll();
+    } catch (ePin) {}
     requestAnimationFrame(function () {
       root.classList.add("is-open");
       var okBtn = root.querySelector('[data-dash-confirm="ok"]');
@@ -7509,22 +7531,34 @@
     var attempts = (options && options.attempts) || 3;
     var method = (options && options.method) || "GET";
     var body = options && options.body;
+    var timeoutMs = Math.max(4000, Number(options && options.timeoutMs) || 14000);
     var lastRes = null;
     var lastData = {};
     for (var i = 0; i < attempts; i += 1) {
+      var ctrl = null;
+      var timer = null;
       try {
         var headers = { Authorization: "Bearer " + token };
         if (body != null) headers["Content-Type"] = "application/json";
+        ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+        if (ctrl) {
+          timer = setTimeout(function () {
+            try {
+              ctrl.abort();
+            } catch (eAb) {}
+          }, timeoutMs);
+        }
         lastRes = await fetch(url, {
           method: method,
           headers: headers,
           body: body != null ? body : undefined,
           cache: "no-store",
+          signal: ctrl ? ctrl.signal : undefined,
         });
         lastData = await lastRes.json().catch(function () {
           return {};
         });
-        if (lastRes.status === 502 || lastRes.status === 503 || lastRes.status === 504) {
+        if (lastRes.status === 502 || lastRes.status === 503 || lastRes.status === 504 || lastRes.status === 408) {
           if (i < attempts - 1) {
             await sleep(400 * (i + 1));
             continue;
@@ -7532,11 +7566,22 @@
         }
         return { res: lastRes, data: lastData };
       } catch (e) {
+        if (aborted) {
+          lastRes = { ok: false, status: 408 };
+          lastData = {
+            ok: false,
+            error: "timeout",
+            message: "Caricamento troppo lento. Riprova tra poco.",
+          };
+          return { res: lastRes, data: lastData };
+        }
         if (i < attempts - 1) {
           await sleep(400 * (i + 1));
           continue;
         }
         throw e;
+      } finally {
+        if (timer) clearTimeout(timer);
       }
     }
     return { res: lastRes || { ok: false, status: 0 }, data: lastData };

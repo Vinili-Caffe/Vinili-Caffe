@@ -4,8 +4,11 @@
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var CHIP_ID = "vc-dash-credits-chip";
-  var POLL_MS = 20000;
+  var POLL_MS = 45000;
   var loadSeq = 0;
+  var loadTimer = 0;
+  var blockedUntil = 0;
+  var inFlight = null;
 
   function byId(id) {
     return document.getElementById(id);
@@ -19,6 +22,7 @@
     var c = cfg();
     var isLocal = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
     var raw = String(isLocal && c.apiUrlLocal ? c.apiUrlLocal : c.apiUrl || "").trim();
+    if (!raw || raw.indexOf("{{") !== -1) return "/webhooks/site-dashboard";
     return raw.replace(/\/+$/, "") || "/webhooks/site-dashboard";
   }
 
@@ -75,9 +79,31 @@
     }
   }
 
+  function placeChipBeforeBell(chip) {
+    var actions = byId("header-quick-actions");
+    if (!actions || !chip) return chip;
+    var notif = byId("vc-notif-dropdown");
+    if (notif && notif.parentNode === actions) {
+      if (chip.nextElementSibling !== notif) actions.insertBefore(chip, notif);
+      return chip;
+    }
+    var loginState = byId("discord-login-state");
+    if (loginState && loginState.parentNode === actions) {
+      actions.insertBefore(chip, loginState);
+      return chip;
+    }
+    var loginBtn = byId("discord-login-btn");
+    if (loginBtn && loginBtn.parentNode === actions) {
+      actions.insertBefore(chip, loginBtn);
+      return chip;
+    }
+    if (chip.parentNode !== actions) actions.appendChild(chip);
+    return chip;
+  }
+
   function ensureChip() {
     var existing = byId(CHIP_ID);
-    if (existing) return existing;
+    if (existing) return placeChipBeforeBell(existing);
 
     var actions = byId("header-quick-actions");
     if (!actions) return null;
@@ -92,20 +118,10 @@
 
     a.innerHTML =
       '<span class="vc-dash-credits-chip__ico" aria-hidden="true"><i class="fa fa-money"></i></span>' +
-      '<span class="vc-dash-credits-chip__count" id="vc-dash-credits-count">—</span>' +
+      '<span class="vc-dash-credits-chip__count" id="vc-dash-credits-count">…</span>' +
       '<span class="vc-dash-credits-chip__label" data-i18n="dashCredits.label">crediti</span>';
 
-    var notif = byId("vc-notif-dropdown");
-    if (notif && notif.parentNode === actions) {
-      actions.insertBefore(a, notif);
-    } else {
-      var loginBtn = byId("discord-login-btn");
-      if (loginBtn && loginBtn.parentNode === actions) {
-        actions.insertBefore(a, loginBtn);
-      } else {
-        actions.insertBefore(a, actions.firstChild);
-      }
-    }
+    placeChipBeforeBell(a);
     return a;
   }
 
@@ -136,32 +152,82 @@
       setVisible(false);
       return null;
     }
+    if (Date.now() < blockedUntil) return null;
+    if (inFlight) return inFlight;
     ensureChip();
     setVisible(true);
     var seq = ++loadSeq;
-    try {
-      var res = await fetch(resolveApiBase() + "/credits", {
-        method: "GET",
-        headers: {
-          Authorization: "Bearer " + token,
-          Accept: "application/json",
-        },
-        credentials: "omit",
-        cache: "no-store",
-      });
-      if (seq !== loadSeq) return null;
-      if (!res.ok) return null;
-      var data = await res.json().catch(function () {
+    inFlight = (async function () {
+      var ctrl = null;
+      var timer = null;
+      try {
+        ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+        if (ctrl) {
+          timer = setTimeout(function () {
+            try {
+              ctrl.abort();
+            } catch (eAb) {}
+          }, 6500);
+        }
+        var res = await fetch(resolveApiBase() + "/credits", {
+          method: "GET",
+          headers: {
+            Authorization: "Bearer " + token,
+            Accept: "application/json",
+          },
+          credentials: "omit",
+          cache: "no-store",
+          signal: ctrl ? ctrl.signal : undefined,
+        });
+        if (seq !== loadSeq) return null;
+        if (res && res.status === 429) {
+          var ra = 0;
+          try {
+            ra = Number(res.headers.get("Retry-After") || "0");
+          } catch (eRa) {}
+          blockedUntil = Date.now() + Math.max(12000, (Number.isFinite(ra) && ra > 0 ? ra : 20) * 1000);
+          setCount(0);
+          return null;
+        }
+        if (!res || !res.ok) {
+          setCount(0);
+          scheduleLoadCredits(3500);
+          return null;
+        }
+        var data = await res.json().catch(function () {
+          return null;
+        });
+        if (seq !== loadSeq) return null;
+        if (!data || data.ok !== true) {
+          setCount(0);
+          scheduleLoadCredits(3500);
+          return null;
+        }
+        var credits = Math.max(0, Math.floor(Number(data.credits) || 0));
+        setCount(credits);
+        return credits;
+      } catch (e) {
+        if (seq === loadSeq) {
+          setCount(0);
+          scheduleLoadCredits(4000);
+        }
         return null;
-      });
-      if (seq !== loadSeq) return null;
-      if (!data || data.ok !== true) return null;
-      var credits = Math.max(0, Math.floor(Number(data.credits) || 0));
-      setCount(credits);
-      return credits;
-    } catch (e) {
-      return null;
-    }
+      } finally {
+        if (timer) clearTimeout(timer);
+        inFlight = null;
+      }
+    })();
+    return inFlight;
+  }
+
+  function scheduleLoadCredits(delayMs) {
+    try {
+      if (loadTimer) window.clearTimeout(loadTimer);
+    } catch (eClr) {}
+    loadTimer = window.setTimeout(function () {
+      loadTimer = 0;
+      loadCredits();
+    }, Math.max(0, Number(delayMs) || 0));
   }
 
   function emitChanged(credits) {
@@ -193,7 +259,7 @@
 
     ensureChip();
     refreshI18n();
-    loadCredits();
+    scheduleLoadCredits(0);
     document.addEventListener("vc:langchange", refreshI18n);
     window.addEventListener("vc:credits-changed", function (ev) {
       var detail = ev && ev.detail;
@@ -203,23 +269,38 @@
         setCount(detail.credits);
         return;
       }
-      loadCredits();
+      scheduleLoadCredits(180);
+    });
+    window.addEventListener("vc-discord-profile", function (ev) {
+      var u = ev && ev.detail ? ev.detail.user : null;
+      if (u) {
+        ensureChip();
+        scheduleLoadCredits(220);
+      }
+    });
+    window.addEventListener("vc-dashboard-access", function (ev) {
+      var d = ev && ev.detail;
+      if (d && d.allowed) {
+        ensureChip();
+        scheduleLoadCredits(220);
+      }
     });
     window.addEventListener("storage", function (ev) {
       if (!ev) return;
-      if (ev.key === ACCESS_TOKEN_KEY || ev.key === ACCESS_EXPIRES_KEY) loadCredits();
+      if (ev.key === ACCESS_TOKEN_KEY || ev.key === ACCESS_EXPIRES_KEY) scheduleLoadCredits(120);
     });
     window.addEventListener("focus", function () {
-      if (getToken()) loadCredits();
+      if (getToken()) scheduleLoadCredits(250);
     });
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden && getToken()) loadCredits();
+      if (!document.hidden && getToken()) scheduleLoadCredits(250);
     });
-        var loginBtn = byId("discord-login-btn");
+    var loginBtn = byId("discord-login-btn");
     var loginState = byId("discord-login-state");
     if (window.MutationObserver && (loginBtn || loginState)) {
       var mo = new MutationObserver(function () {
-        loadCredits();
+        ensureChip();
+        scheduleLoadCredits(400);
       });
       if (loginBtn) mo.observe(loginBtn, { attributes: true, attributeFilter: ["hidden", "class"] });
       if (loginState) mo.observe(loginState, { attributes: true, childList: true, subtree: true, attributeFilter: ["hidden", "class"] });
@@ -232,7 +313,8 @@
         return;
       }
       if (typeof document !== "undefined" && document.hidden) return;
-      loadCredits();
+      ensureChip();
+      scheduleLoadCredits(0);
     }, POLL_MS);
   }
 

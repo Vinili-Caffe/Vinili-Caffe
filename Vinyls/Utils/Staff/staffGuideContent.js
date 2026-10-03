@@ -12,7 +12,7 @@ const TOP_LEVEL_SECTION_META = [
   { id: "regolamento", label: "Regolamento", description: "Regole e sanzioni utenti", emoji: "<:rules:1443307208543703131>" },
   { id: "regole_staff", label: "Staff", description: "Regole di comportamento dello staff", emoji: "<:discordstaff:1443651872258003005>" },
   { id: "limiti", label: "Limiti", description: "Obiettivi di attività settimanale", emoji: "<:reportmessage:1443670575376765130>" },
-  { id: "compiti_fissi", label: "Compiti", description: "Compiti fissi da svolgere ogni settimana", emoji: "<:VC_Quest:1482534879257165865>" },
+  { id: "compiti_fissi", label: "Compiti", description: "Compiti settimanali sul sito", emoji: "<:VC_Quest:1482534879257165865>" },
   { id: "pause", label: "Pause", description: "Come funzionano le pause staff", emoji: "<:Clock:1330530065133338685>" },
   { id: "lineeguida", label: "Linee guida", description: "Comportamento e buone pratiche", emoji: "<:VC_PinkQuestionMark:1471892611026391306>" },
   { id: "comandi", label: "Comandi", description: "Comandi utili per lo staff", emoji: "<:VC_Bot:1482526555174604964>" },
@@ -59,26 +59,13 @@ const NESTED_SECTION_META = [
     parent: "guidamiddle",
     emoji: "<a:VC_Verified:1482532479637127188>",
   },
-  {
-    id: "middle_follower",
-    label: "Follower & Supporter",
-    description: "Liste follower e supporter",
-    parent: "guidamiddle",
-    emoji: "<a:VC_Verified:1482532479637127188>",
-  },
-  {
-    id: "middle_partnership",
-    label: "Gestione Partner",
-    description: "Controllo partnership settimanale",
-    parent: "guidamiddle",
-    emoji: "<:VC_Collab:1482534540089098260>",
-  },
 ];
 
 const SECTION_CHILDREN = {
-    regolamento: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
-    moderazione_staff: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
-  guidamiddle: ["middle_ticket", "middle_selfie", "middle_follower", "middle_partnership"],
+  regolamento: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
+  moderazione_staff: ["generalimoderazione", "testualimoderazione", "vocalimoderazione"],
+  /* middle_follower / middle_partnership disattivate (guideMdMiddleTrim1) */
+  guidamiddle: ["middle_ticket", "middle_selfie"],
 };
 
 function listStaffGuideSectionMeta() {
@@ -198,16 +185,33 @@ const SECTION_BUILDERS = {
   moderazione_staff: () => buildModerationStaffIntroMarkdown(),
 
   compiti_fissi: () =>
-    "<:VC_Quest:1482534879257165865> **__COMPITI FISSI__**\n\n" +
-    "<a:VC_NewsExclamation:1471891662786527253> Ogni staffer deve **svolgere** ogni settimana **ALMENO UNO** dei seguenti **compiti**:\n" +
-    "<:VC_Dot:1482532364222595303> **Trovare un nuovo staffer**\n" +
-    "<:VC_Dot:1482532364222595303> **Trovare un server che dovrà effettuare una sponsor con il nostro server**\n" +
-    "<:VC_Dot:1482532364222595303> **Trovare un server disponibili a effettuare un trasferimento nel nostro server**\n" +
-    "<:VC_Dot:1482532364222595303> **Invitare nuovi utenti tenedoli attivi**\n" +
-    "<:VC_Dot:1482532364222595303> **Convincere nuovi utenti a boostare il server o acquistare un pacchetto come Donator, VIP o VIP+**\n\n" +
-    "<:VC_bluthumbsup:1482458262401061044> Svolgere uno tra questi compiti ogni settimana garantirà una **valutazione positiva** e maggiore possibilità di essere pexato.\n" +
-    "<:VC_bluthumbsdown:1482458289131360306> Non farlo garantirà una **valutazione negativa** e maggiore possibilità di essere depexato.\n\n" +
-    `<:VC_Ticket:1482535175283019888> Per garantire la correttezza dei compiti è necessario allegare le prove aprendo un ticket **High Staff** sul sito: ${siteWorkflowUrl("tickets")}`,
+    "<:VC_Quest:1482534879257165865> **__COMPITI SETTIMANALI__**\n\n" +
+    `<a:VC_NewsExclamation:1471891662786527253> I compiti si gestiscono **solo sul sito**: ${siteWorkflowUrl("compiti")}\n\n` +
+    "<a:VC_Calendar:1482706208149475358> **Come funziona**\n" +
+    "<:VC_Dot:1482532364222595303> All'inizio di ogni **mese** ricevi un **set** di compiti (uno per ogni settimana del mese).\n" +
+    "<:VC_Dot:1482532364222595303> Ogni **settimana** scegli **1 compito** dal set (non puoi ripetere lo stesso compito nello stesso mese).\n" +
+    "<:VC_Dot:1482532364222595303> Compiti **manuali**: scrivi cosa hai fatto e/o allega le prove → **Invia prove**.\n" +
+    "<:VC_Dot:1482532364222595303> Compiti **automatici**: li selezioni e si completano da soli\n" +
+    "<:VC_Dot:1482532364222595303> Scadenza invio: **domenica ore 18**.\n" +
+    "<:VC_Dot:1482532364222595303> High Staff **Conferma** o **Rifiuta** sulla stessa pagina.\n" +
+    "<:VC_Dot:1482532364222595303> Se rifiutato puoi **riprovare**.\n\n" +
+    "<:VC_bluthumbsup:1482458262401061044> Compito **approvato** → **valutazione positiva**.\n" +
+    "<:VC_bluthumbsdown:1482458289131360306> Non inviato entro domenica 18 / rifiuto definitivo → **valutazione negativa**.\n\n" +
+    "<a:VC_Arrow:1482706699365257397> **Catalogo compiti**\n\n" +
+    "**Automatici**\n" +
+    "<:VC_Dot:1482532364222595303> Completare i limiti del triplo\n" +
+    "<:VC_Dot:1482532364222595303> Ottenere una recensione di se stessi da almeno 4 stelle\n" +
+    "<:VC_Dot:1482532364222595303> Ottenere una recensione per il server da almeno 4 stelle\n" +
+    "<:VC_Dot:1482532364222595303> Dare un'idea per il server/staff/sito/evento e non farsela rifiutare\n" +
+    "<:VC_Dot:1482532364222595303> Invitare almeno 1 utente e fargli scrivere 100 messaggi o 2 ore in vocale\n\n" +
+    "**Manuali**\n" +
+    "<:VC_Dot:1482532364222595303> Trovare un nuovo staffer\n" +
+    "<:VC_Dot:1482532364222595303> Trovare un server che compri una sponsor\n" +
+    "<:VC_Dot:1482532364222595303> Trovare un server che faccia trasferimento da noi\n" +
+    "<:VC_Dot:1482532364222595303> Far boostare il server da un utente\n" +
+    "<:VC_Dot:1482532364222595303> Convincere un utente a comprare un pacchetto Donator/VIP/VIP+\n" +
+    "<:VC_Dot:1482532364222595303> Far aggiungere il bot in un server e fargli fare il setup\n\n" +
+    `<:VC_Attention:1482534443632558151> Apri sempre la pagina **Compiti** sul sito per lo stato della settimana: ${siteWorkflowUrl("compiti")}`,
 
   pause: () =>
     "<:Clock:1330530065133338685> Vinili & Caffè presenta un **sistema** di **`pause`** _sofisticato_, infatti è tutto __organizzato__ per **garantire** al meglio l'__attività__ del server.\n" +
@@ -366,18 +370,18 @@ const SECTION_BUILDERS = {
       "> <a:VC_Cross:1482532424570376253> **Non ci sono requisiti per le partner**\n" +
       "> <a:VC_Verified:1482532479637127188> **Il manager deve aver completato l'inserimento o non si può fare la partner.**\n" +
       "> <a:VC_PepeExit:1446190735937245415> **Il manager non deve uscire dal server o la partner verrà cancellata.**\n" +
-      `> <:VC_Collab:1482534540089098260> **I ticket partnership si gestiscono sul sito (${siteWorkflowUrl("ticketsStaff")}): fatevi inviare la descrizione e usate i comandi direttamente lì.**`
+      `> <:VC_Collab:1482534540089098260> **I ticket partnership si gestiscono sul sito ${siteWorkflowUrl("ticketsStaff")}: fatevi inviare la descrizione e usate i comandi direttamente lì.**`
     );
   },
 
   guidamiddle: () =>
     `<:discordstaff:1443651872258003005> La **__guida middle__** di __Vinili & Caffè__ è dedicata a <@&${IDs.roles.SeniorModerator}> e <@&${IDs.roles.Director}>: qui trovate le procedure per i compiti di livello superiore che richiedono coordinamento e supervisione del low staff.
 
-> La guida si divide in **__\`4\` sezioni__**:
+> La guida si divide in **__\`2\` sezioni__**:
 <:VC_1:1482706338021642333> **Gestione Ticket**
 <:VC_2:1482706376525611090> **Gestione Verifica Selfie**
-<:VC_3:1482706404773990460> **Gestione Follower & Supporter**
-<:VC_4:1482706432347344916> **Gestione Partnership**`,
+
+<a:VC_Alert:1482706673176150077> Le sezioni **Follower & Supporter** e **Gestione Partner** sono **disattivate** (non più in uso dalla guida middle).`,
 
   middle_ticket: () =>
     `<:VC_Ticket:1482535175283019888> I ticket si gestiscono sul **sito**: ${siteWorkflowUrl("ticketsStaff")}. Essendo un ruolo superiore non vi è richiesto di rispondere subito a tutti: date supporto al low staff e intervenite quando serve.\n\n` +
@@ -400,30 +404,12 @@ const SECTION_BUILDERS = {
     ">, assegnate direttamente il ruolo.\n" +
     "> PS: Occhio a dare ruoli sbagliati, il bot potrebbe bannarvi <:VC_Eye:1331619214410383381>",
 
+  /* Sezioni disattivate: restano solo per eventuali deep-link legacy */
   middle_follower: () =>
-    "<a:VC_Calendar:1482706208149475358> Ogni settimana vi dovrete organizzare per decidere chi deve controllare queste due liste.\n\n" +
-    "<a:VC_Verified:1482532479637127188> Per controllare le liste dovrete usare [questo documento](<https://docs.google.com/spreadsheets/d/1rsyOqlveEraSv2YeSCY9Qg_xF3Rn6bqLj6G3-FI4Zu0/edit?usp=sharing>) chiedendo l'accesso a <@295500038401163264>.\n\n" +
-    "<:VC_Quest:1482534879257165865> Ognuno di voi può controllare al **massimo 1 lista** a settimana. Ogni sabato uno di voi comunica l'assegnazione (in staff chat / news) così:\n\n" +
-    "```\n@staffer -> lista che controlla\n@staff -> lista che controlla\n```\n\n" +
-    `<:VC_Ticket:1482535175283019888> I ticket **Perks** per <@&${IDs.roles.Follower}> e <@&${IDs.roles.SocialSupporter}> sono sul sito: ${siteWorkflowUrl("ticketsStaff")}. Controllate le prove e, se siete <@&` +
-    IDs.roles.SeniorModerator +
-    "> , chiamate un <@&" +
-    IDs.roles.Director +
-    "> per assegnare il ruolo.\n" +
-    "> PS: Gentilmente, ogni volta che viene dato anche questo ruolo aggiornate le liste <a:VC_Alarm:1482706641618079816>\n\n" +
-    "<a:VC_Alert:1482706673176150077> Naturalmente, fare questo compito vi garantirà una **valutazione positiva**, non presentare la lista dei compiti il sabato o non fare il compito che vi siete assegnati comporterà a una **valutazione negativa**.",
+    "<a:VC_Alert:1482706673176150077> Questa sezione (**Follower & Supporter**) è **disattivata** e non fa più parte della guida middle.",
 
   middle_partnership: () =>
-    "<a:VC_Calendar:1482706208149475358> Ogni settimana un <@&" +
-    IDs.roles.Director +
-    "> dovrà controllare tutte le <#" +
-    IDs.channels.partnerships +
-    "> e assicurarsi che rispettino la guida partners\n\n" +
-    "<:VC_Quest:1482534879257165865> Qualsiasi partner che non rispetta quelle regole dovrà essere reportata qua settimanalmente tramite un semplice modulo\n\n" +
-    "```\nlink messaggio -> regola infranta -> @partner manager\n```\n\n" +
-    "<:VC_Attention:1482534443632558151> Molte regole sono già coperte da <@" +
-    IDs.bots.ViniliCaffeBot +
-    "> e prima di segnalare una partner controlla la pagina **Punti tolti PM** sul sito staff per capire se il bot ha già tolto il punto o meno.",
+    "<a:VC_Alert:1482706673176150077> Questa sezione (**Gestione Partner**) è **disattivata** e non fa più parte della guida middle.",
 
   generalimoderazione: () => `<:rules:1443307208543703131> **__Regola \`1.1\`__**
 ${staffSanctionRuleIntro("1.1")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**

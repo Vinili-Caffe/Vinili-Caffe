@@ -39,6 +39,8 @@ const {
   getStaffPauseBonusDaysTotal,
   getValPosTradedPauseBonusDays,
   grantBestStaffPauseBonusYear,
+  computeStaffPauseDayBudget,
+  allocateBestStaffWeekPauseBonusDays,
 } = require("./pauseHandlersUtils");
 const { invalidateStaffPauseCalendarCache } = require("../Web/siteStaffPauseApi");
 
@@ -328,11 +330,10 @@ async function acceptPauseRequestWeb(client, guild, actorMember, userId, pauseId
     }
 
     const roleChoice = resolveAcceptedPauseRoleChoice(member, targetPause);
-    const baseLimit = getBasePauseLimit(member, roleChoice);
     const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
-    const bonusPause = getStaffPauseBonusDaysTotal(member, stafferRecord);
-    const maxGiorni = baseLimit + bonusPause;
-    const usedBefore = computeConsumedPauseDays(stafferRecord.staff?.pauses);
+    const budget = computeStaffPauseDayBudget(member, stafferRecord, roleChoice);
+    const maxGiorni = budget.maxGiorni;
+    const usedBefore = budget.usedDays;
     const giorniUsati = usedBefore + giorniRichiesti;
     const giorniRimanenti = maxGiorni - giorniUsati;
     if (giorniRimanenti < 0) {
@@ -342,6 +343,7 @@ async function acceptPauseRequestWeb(client, guild, actorMember, userId, pauseId
         message: `Limite pause superato: disponibili ${Math.max(0, maxGiorni - usedBefore)} su ${maxGiorni}.`,
       };
     }
+    const weekBonusOnAccept = allocateBestStaffWeekPauseBonusDays(stafferRecord, giorniRichiesti);
 
     let sameRoleActiveCount = 1;
     let sameRoleActiveCountStaff = null;
@@ -412,6 +414,7 @@ async function acceptPauseRequestWeb(client, guild, actorMember, userId, pauseId
       ruoloGradeId: staffRankRoleId || null,
       giorniUsati,
       giorniAggiuntivi: bonusBestStaff,
+      giorniAggiuntiviSettimana: weekBonusOnAccept,
       stafferInPausa: sameRoleActiveCount,
       requestThreadId: null,
     });

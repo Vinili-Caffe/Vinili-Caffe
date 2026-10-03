@@ -13,6 +13,8 @@ const {
   getBasePauseLimit,
   getStaffPauseBonusDaysTotal,
   getValPosTradedPauseBonusDays,
+  computeStaffPauseDayBudget,
+  getBestStaffWeekPauseBonusDaysRemaining,
   getPausePhase,
   getPauseStatusLabel,
   getTodayUtc,
@@ -22,7 +24,6 @@ const {
   roleChoiceAppliesTo,
 } = require("../Pause/pauseHandlersUtils");
 const {
-  resolveStaffPartnerPointsDisplay,
   resolveStaffProfileKind,
   buildFullProfileRoleLabelForEmbed,
   buildStaffProfileRoleBadges,
@@ -33,6 +34,7 @@ const {
   PROFILE_PM_ONLY,
   PROFILE_PROSPECT,
 } = require("../Staff/staffProfilePanelRuntime");
+const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../Staff/partnerPointsDisplayUtils");
 const { applyPronounGenderToTextForMember } = require("../Community/pronounGenderUtils");
 const { resolveSerataFilmAttendanceForWeek } = require("../Staff/serataFilmAttendanceUtils");
 const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../Staff/staffLegacyMerge");
@@ -46,10 +48,11 @@ const {
 const { memberIsHighStaffEligible } = require("./siteStaffDashboardApi");
 
 const PROFILE_CACHE_TTL_MS = 120_000;
-const PROFILE_STALE_CACHE_MS = 15 * 60 * 1000;
+const PROFILE_STALE_CACHE_MS = 45 * 60 * 1000;
 const PROFILE_CACHE_MAX = 200;
 const profileCache = new Map();
-const PROFILE_PAYLOAD_VERSION = 22;
+/* careerPinRecentPex2: ultimo pex Helper = qualsiasi →Helper (anche PM→Helper); niente Member→Helper stale */
+const PROFILE_PAYLOAD_VERSION = 25;
 const STAFF_MEMBER_SOFT_TIMEOUT_MS = 8000;
 const STAFF_MEMBER_HARD_TIMEOUT_MS = 14000;
 const STAFF_LEGACY_SOFT_TIMEOUT_MS = 350;
@@ -91,6 +94,38 @@ function readStaleProfileCache(viewerUserId, targetUserId) {
   const age = Date.now() - Number(entry.writtenAt || 0);
   if (!Number.isFinite(age) || age > PROFILE_STALE_CACHE_MS) return null;
   return { ...entry.payload, cached: true, stale: true };
+}
+
+/* peerProfileTimeout1: se Discord timeout, riusa qualsiasi payload fresco per lo stesso target
+   (anche cache di un altro viewer) così i peer-switch non restano vuoti. */
+function readAnyStaleProfileCacheForTarget(targetUserId) {
+  const uid = String(targetUserId || "").trim();
+  if (!uid) return null;
+  const guild = String(IDs.guilds.main || "");
+  const prefix = `v${PROFILE_PAYLOAD_VERSION}:${guild}:`;
+  let best = null;
+  for (const [key, entry] of profileCache) {
+    if (!entry?.payload?.ok || entry.payload.prospect) continue;
+    if (!String(key || "").startsWith(prefix)) continue;
+    if (!(key === `${prefix}${uid}` || key.endsWith(`->${uid}`))) continue;
+    const age = Date.now() - Number(entry.writtenAt || 0);
+    if (!Number.isFinite(age) || age > PROFILE_STALE_CACHE_MS) continue;
+    if (!best || age < best.age) best = { age, payload: entry.payload };
+  }
+  return best ? { ...best.payload, cached: true, stale: true } : null;
+}
+
+async function warmStaffRosterMembers(client, preferUserId) {
+  try {
+    const { getCachedStaffRoster } = require("./siteStaffRosterCache");
+    await Promise.race([
+      getCachedStaffRoster(client).catch(() => null),
+      new Promise((resolve) => setTimeout(resolve, 2800)),
+    ]);
+  } catch (_) {}
+  const uid = String(preferUserId || "").trim();
+  if (!uid) return null;
+  return readCachedWebsiteMember(uid) || null;
 }
 
 function writeProfileCache(viewerUserId, targetUserId, payload) {
@@ -403,8 +438,90 @@ function isPartnerManagerRole(token) {
   return token === "partner manager";
 }
 
+/* careerPinRecentPex2: scala attuale + ultimo pex PM + ultimo pex →Helper (anche da PM) */
+function isCareerTrackRole(token) {
+  return isOnStaffCareerLadder(token) || isPartnerManagerRole(token);
+}
+
 function isOutsideStaffCareerLadder(token) {
   return !isOnStaffCareerLadder(token);
+}
+
+function isPexToPartnerManager(from, to) {
+  return isPartnerManagerRole(to) && !isPartnerManagerRole(from);
+}
+
+function isPexToHelper(from, to) {
+  /* Ultimo arrivo a Helper: Member→Helper o PM→Helper (non restare su Helper→Helper). */
+  return to === "helper" && from !== "helper";
+}
+
+function rowCareerTokens(row) {
+  return {
+    to: normalizeCareerRoleToken(row?.newRole || row?.to),
+    from: normalizeCareerRoleToken(row?.oldRole || row?.from),
+  };
+}
+
+function sliceLatestStaffLadderStint(chrono, opts = {}) {
+  const stillActive = Boolean(opts.stillActive);
+  if (!Array.isArray(chrono) || !chrono.length) return [];
+  let startIdx = 0;
+  let found = false;
+  let onLadder = false;
+  for (let i = 0; i < chrono.length; i += 1) {
+    const { to, from } = rowCareerTokens(chrono[i]);
+    const toOn = isOnStaffCareerLadder(to);
+    const fromOut = isOutsideStaffCareerLadder(from);
+    if (toOn && (fromOut || !onLadder)) {
+      startIdx = i;
+      found = true;
+      onLadder = true;
+      continue;
+    }
+    if (onLadder && !toOn) onLadder = false;
+  }
+  if (!found) {
+    if (!stillActive) return [];
+    return [];
+  }
+  if (!onLadder && !stillActive) return [];
+  const kept = [];
+  for (let i = startIdx; i < chrono.length; i += 1) {
+    const { to, from } = rowCareerTokens(chrono[i]);
+    if (isOnStaffCareerLadder(to) || isOnStaffCareerLadder(from)) {
+      kept.push(chrono[i]);
+    }
+  }
+  return kept;
+}
+
+function pinLatestCareerPexRows(chrono) {
+  let lastPm = null;
+  let lastHelper = null;
+  for (let i = 0; i < chrono.length; i += 1) {
+    const { to, from } = rowCareerTokens(chrono[i]);
+    if (isPexToPartnerManager(from, to)) lastPm = chrono[i];
+    if (isPexToHelper(from, to)) lastHelper = chrono[i];
+  }
+  return [lastPm, lastHelper].filter(Boolean);
+}
+
+function mergeCareerRowSets(sets) {
+  const out = [];
+  const seen = new Set();
+  for (const rows of sets) {
+    for (const row of rows || []) {
+      if (!row) continue;
+      const { to, from } = rowCareerTokens(row);
+      const day = careerDayKey(row.dateIso || row.date || row._iso || "");
+      const key = `${day}|${from}|${to}|${String(row.reason || "").toLowerCase().trim()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(row);
+    }
+  }
+  return out;
 }
 
 function slicePartnerManagerCareer(rows, opts = {}) {
@@ -454,43 +571,22 @@ function sliceToLatestCareerStart(rows, opts = {}) {
     return slicePartnerManagerCareer(rows, opts);
   }
   const chrono = rows.slice().sort((a, b) => (a._sort || 0) - (b._sort || 0));
-  let startIdx = 0;
-  let found = false;
-  let onLadder = false;
-  for (let i = 0; i < chrono.length; i += 1) {
-    const to = normalizeCareerRoleToken(chrono[i]?.newRole);
-    const from = normalizeCareerRoleToken(chrono[i]?.oldRole);
-    const toOn = isOnStaffCareerLadder(to);
-    const fromOutside = isOutsideStaffCareerLadder(from);
-    if (toOn && (fromOutside || !onLadder)) {
-      startIdx = i;
-      found = true;
-      onLadder = true;
-      continue;
-    }
-    if (onLadder && !toOn) {
-      onLadder = false;
-    }
-  }
-  if (!found) {
+  /* careerPinRecentPex2: scala staff attuale + pin ultimo pex PM + ultimo pex →Helper */
+  const scala = sliceLatestStaffLadderStint(chrono, { stillActive });
+  const pins = pinLatestCareerPexRows(chrono);
+  const merged = mergeCareerRowSets([scala, pins]);
+  if (!merged.length) {
     if (!stillActive) return [];
-    startIdx = 0;
-  } else if (!onLadder && !stillActive) {
-        return [];
-  }
-
-  let endExclusive = chrono.length;
-    while (
-    endExclusive > startIdx &&
-    !isOnStaffCareerLadder(normalizeCareerRoleToken(chrono[endExclusive - 1]?.newRole))
-  ) {
-    endExclusive -= 1;
-  }
-  if (endExclusive <= startIdx) {
     return [];
   }
+  return merged.sort((a, b) => (b._sort || careerRowSortMsFallback(b)) - (a._sort || careerRowSortMsFallback(a)));
+}
 
-  return chrono.slice(startIdx, endExclusive).sort((a, b) => (b._sort || 0) - (a._sort || 0));
+function careerRowSortMsFallback(row) {
+  const iso = row?.dateIso || row?.date || row?._iso;
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : 0;
 }
 
 function dedupeCareerHistoryRows(rows) {
@@ -823,12 +919,14 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
   const staff = mergeStaffEmbedded(doc?.staff || {}, legacyMap.get(userId) || null);
 
   const pauseRole = profileKind === PROFILE_PM_ONLY ? PAUSE_ROLE_PM : PAUSE_ROLE_STAFF;
-  const baseLimit = getBasePauseLimit(member, pauseRole);
-  const bonus = getStaffPauseBonusDaysTotal(member, doc || { staff });
+  const budget = computeStaffPauseDayBudget(member, doc || { staff }, pauseRole);
+  const baseLimit = budget.baseLimit;
+  const bonus = budget.annualBonus + budget.weekRemaining;
   const tradedBonus = getValPosTradedPauseBonusDays(doc || { staff });
-  const maxDays = Math.max(0, baseLimit + bonus);
-  const usedDays = Math.max(0, computeConsumedPauseDays(staff.pauses));
-  const remainingDays = Math.max(0, maxDays - usedDays);
+  const weekBonus = budget.weekRemaining;
+  const maxDays = Math.max(0, budget.maxGiorni);
+  const usedDays = Math.max(0, budget.usedDays);
+  const remainingDays = Math.max(0, budget.remaining);
   const pauseSnap = resolvePauseSnapshot(staff, profileKind);
   if (pauseSnap?.statusLine) {
     pauseSnap.statusLine = applyPronounGenderToTextForMember(pauseSnap.statusLine, member);
@@ -891,8 +989,21 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
         bonus,
         base: baseLimit,
         tradedBonus,
+        weekBonus,
       },
       history: serializePauseHistory(staff, profileKind, 48),
+      pendingCount: Math.max(
+        0,
+        (
+          profileKind === PROFILE_PM_ONLY
+            ? (Array.isArray(staff?.pauses) ? staff.pauses : []).filter((p) =>
+                roleChoiceAppliesTo(PAUSE_ROLE_PM, p?.ruolo || p?.ruoloRichiesto),
+              )
+            : Array.isArray(staff?.pauses)
+              ? staff.pauses
+              : []
+        ).filter((p) => p && String(p.status || "").toLowerCase() === "pending").length,
+      ),
       calendarPath: "/staff/pause/",
     },
     valutazioni: {
@@ -910,12 +1021,16 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
     },
     partner: isPm
       ? (() => {
-          const points = Math.max(0, Math.floor(Number(resolveStaffPartnerPointsDisplay(staff) || 0)));
+          /* Punti PM = saldo spendibile (earned − spesi), non il totale guadagnato.
+             Altrimenti rimuovi/aggiungi punti non muove la card (solo Spesi in shop). */
+          const points = Math.max(0, Math.floor(Number(resolvePartnerPointsShown(staff) || 0)));
+          const pointsEarned = Math.max(0, Math.floor(Number(resolvePartnerTotalEarned(staff) || 0)));
           const partnerCount = Math.max(0, Math.floor(Number(staff.partnerCount || 0)));
           const redeemSpend = Math.max(0, Math.floor(Number(staff.partnerRedeemSpend || 0)));
           const { buildPmShopCatalogForWeb } = require("./siteStaffPmShopApi");
           return {
             points,
+            pointsEarned,
             partnerCount,
             redeemSpend,
             shop: buildPmShopCatalogForWeb(points, { member, lean: { staff } }),
@@ -944,7 +1059,7 @@ async function buildStaffProfilePayloadForWeb(client, member, user, opts = {}) {
 async function handleSiteStaffProfileGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,
@@ -987,9 +1102,14 @@ async function handleSiteStaffProfileGet(client, req, res) {
           message: "Server Discord temporaneamente non disponibile.",
         });
       }
+      /* peerProfileTimeout1: warm roster (riempie guild.members.cache) prima del fetch peer */
+      const warmed = wantFresh ? null : await warmStaffRosterMembers(client, targetUserId);
       const cachedMember = wantFresh
         ? null
-        : guild.members.cache.get(targetUserId) || readCachedWebsiteMember(targetUserId) || null;
+        : guild.members.cache.get(targetUserId) ||
+          readCachedWebsiteMember(targetUserId) ||
+          warmed ||
+          null;
             if (cachedMember) {
         targetMember = cachedMember;
       } else {
@@ -1012,16 +1132,52 @@ async function handleSiteStaffProfileGet(client, req, res) {
         }
       }
       if (!targetMember) {
-        const stale = readStaleProfileCache(viewerUserId, targetUserId);
-        if (stale) {
-          res.setHeader("Cache-Control", "private, max-age=5");
-          return res.status(200).json(stale);
+        const { isOnNegativeCache, isUnknownMemberError } = require("./websiteGuildMemberFetch");
+        /* leaveProfileLive1: known leave / unknown member → not staff (no stale paint) */
+        if (isOnNegativeCache(targetUserId)) {
+          return res.status(404).json({
+            ok: false,
+            error: "not_in_guild",
+            message: "Questo utente non è più nel server.",
+          });
         }
-        return res.status(503).json({
-          ok: false,
-          error: "member_unavailable",
-          message: "Discord non risponde: riprova tra pochi secondi.",
+        /* One hard force resolve before declaring left vs Discord timeout. */
+        const forced = await fetchWebsiteGuildMember(guild, targetUserId, {
+          timeoutMs: STAFF_MEMBER_HARD_TIMEOUT_MS,
+          retry: true,
+          soft: false,
+          force: true,
+        }).catch((err) => {
+          if (isUnknownMemberError(err)) return null;
+          return undefined;
         });
+        if (forced) {
+          targetMember = forced;
+        } else if (forced === null || isOnNegativeCache(targetUserId)) {
+          return res.status(404).json({
+            ok: false,
+            error: "not_in_guild",
+            message: "Questo utente non è più nel server.",
+          });
+        } else {
+          const stale =
+            readStaleProfileCache(viewerUserId, targetUserId) ||
+            readAnyStaleProfileCacheForTarget(targetUserId);
+          if (stale) {
+            res.setHeader("Cache-Control", "private, max-age=5");
+            return res.status(200).json({
+              ...stale,
+              isSelf: false,
+              viewerUserId,
+              targetUserId,
+            });
+          }
+          return res.status(503).json({
+            ok: false,
+            error: "member_unavailable",
+            message: "Discord non risponde: riprova tra pochi secondi.",
+          });
+        }
       }
       targetUser = targetMember.user || null;
     }
@@ -1043,6 +1199,58 @@ async function handleSiteStaffProfileGet(client, req, res) {
       payload.isSelf = true;
       payload.viewerUserId = viewerUserId;
       payload.targetUserId = targetUserId;
+    }
+
+    /* profilePendingBadges1: count pending legati alle card (pause / resoconti / punti tolti). */
+    try {
+      const guildId = String(IDs.guilds?.main || targetMember?.guild?.id || "").trim();
+      const uid = String(targetUserId || "").trim();
+      if (guildId && uid) {
+        const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+        const WORKFLOW_DOC = SITE_DOCUMENT_TYPE.STAFF_WORKFLOW;
+        let weekKey = "";
+        try {
+          const { getResocontoCycleWeekKey } = require("../../Services/Staff/weeklyStaffResocontoService");
+          weekKey = String(getResocontoCycleWeekKey() || "").trim();
+        } catch (_) {
+          weekKey = "";
+        }
+        const resoFilter = {
+          docType: WORKFLOW_DOC,
+          guildId,
+          workflowQueue: "resoconti",
+          status: "pending",
+          userId: uid,
+        };
+        if (weekKey) resoFilter.workflowWeekKey = weekKey;
+
+        const tasks = [
+          SiteDocument.countDocuments(resoFilter).catch(() => 0),
+        ];
+        if (payload.partner) {
+          const { SitePmPointsRemovedEntry } = require("../../Schemas/Web/sitePmPointsRemovedSchemas");
+          tasks.push(
+            SitePmPointsRemovedEntry.countDocuments({
+              guildId,
+              pmUserId: uid,
+              status: "pending",
+            }).catch(() => 0),
+          );
+        } else {
+          tasks.push(Promise.resolve(0));
+        }
+        const [resoPending, ptPending] = await Promise.all(tasks);
+        payload.resoconto = {
+          ...(payload.resoconto && typeof payload.resoconto === "object" ? payload.resoconto : {}),
+          pendingCount: Math.max(0, Math.floor(Number(resoPending) || 0)),
+          weekKey: weekKey || null,
+        };
+        if (payload.partner) {
+          payload.partner.pendingPuntiTolti = Math.max(0, Math.floor(Number(ptPending) || 0));
+        }
+      }
+    } catch (errPend) {
+      global.logger?.warn?.("[WEBHOOK] site-staff-profile pending badges:", errPend?.message || errPend);
     }
 
     writeProfileCache(viewerUserId, targetUserId, payload);

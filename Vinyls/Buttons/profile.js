@@ -1146,7 +1146,7 @@ async function ensureOwner(interaction, ownerId) {
     content: viewingOnly
       ? "<:vegax:1443934876440068179> Stai solo guardando questo profilo: puoi cambiare sezione, non modificarlo."
       : deniedOwnerId && String(interaction?.user?.id || "") !== String(deniedOwnerId)
-        ? `<:vegax:1443934876440068179> Questo pannello è del profilo di <@${deniedOwnerId}>. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per aprire il tuo.`
+        ? `<:vegax:1443934876440068179> Questo pannello è del profilo di <@${deniedOwnerId}>. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) per aprire il tuo.`
         : "<:vegax:1443934876440068179> Questo pannello non è tuo.",
     flags: PRIVATE_FLAG,
   }).catch(() => { });

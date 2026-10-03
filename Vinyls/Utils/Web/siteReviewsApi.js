@@ -33,6 +33,8 @@ const PUBLIC_REVIEWS_CACHE_TTL_MS = Math.max(
   Number(process.env.VC_SITE_REVIEWS_LIST_CACHE_MS || 20_000) || 20_000,
 );
 const publicReviewsListCache = new Map();
+/** Bumped on invalidate so in-flight list builders cannot re-poison TTL cache after a like. */
+let publicReviewsCacheGen = 0;
 
 let staffCache = {
   guildId: "",
@@ -46,6 +48,7 @@ function publicReviewsCacheKey(guildId, reviewKind) {
 }
 
 function invalidatePublicReviewsListCache(guildId = "") {
+  publicReviewsCacheGen += 1;
   const gid = String(guildId || "").trim();
   if (!gid) {
     publicReviewsListCache.clear();
@@ -152,7 +155,7 @@ async function getStaffTargets(client, guild) {
     return staffCache;
   }
 
-  if (!guild || !STAFF_ROLE_ID) {
+  if (!guild || (!STAFF_ROLE_ID && !HIGH_STAFF_ROLE_ID)) {
     staffCache = { guildId, expiresAt: Date.now() + STAFF_CACHE_TTL_MS, list: [], ids: new Set() };
     return staffCache;
   }
@@ -161,17 +164,26 @@ async function getStaffTargets(client, guild) {
     const { ensureGuildMembersLoaded } = require("./siteStaffRosterCache");
     await ensureGuildMembersLoaded(guild);
   } catch (_) {}
-  const role = guild.roles.cache.get(STAFF_ROLE_ID) || (await guild.roles.fetch(STAFF_ROLE_ID).catch(() => null));
-  const members = role ? Array.from(role.members.values()) : [];
-  const list = members
-    .filter((member) => !member.user?.bot)
-    .map((member) => ({
-      id: String(member.id),
-      name: displayNameForMember(member),
-      avatarUrl:
-        resolveSiteAvatarUrl(guild, member.id, "", { size: 128, preferAnimated: true }) || "",
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, "it", { sensitivity: "base" }));
+  const byId = new Map();
+  const roleIds = [STAFF_ROLE_ID, HIGH_STAFF_ROLE_ID].filter(Boolean);
+  for (const roleId of roleIds) {
+    const role = guild.roles.cache.get(roleId) || (await guild.roles.fetch(roleId).catch(() => null));
+    const members = role ? Array.from(role.members.values()) : [];
+    for (const member of members) {
+      if (!member || member.user?.bot) continue;
+      const id = String(member.id);
+      if (byId.has(id)) continue;
+      byId.set(id, {
+        id,
+        name: displayNameForMember(member),
+        avatarUrl:
+          resolveSiteAvatarUrl(guild, member.id, "", { size: 128, preferAnimated: true }) || "",
+      });
+    }
+  }
+  const list = Array.from(byId.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, "it", { sensitivity: "base" }),
+  );
   const ids = new Set(list.map((entry) => entry.id));
   staffCache = { guildId, expiresAt: Date.now() + STAFF_CACHE_TTL_MS, list, ids };
   return staffCache;
@@ -208,27 +220,60 @@ function normalizeContentLang(value) {
 
 function isPublicReviewKind(kind) {
   const k = String(kind || "").trim().toLowerCase();
-  return k === "server" || k === "bot";
+  return k === "server" || k === "bot" || k === "staff";
+}
+
+function memberHasStaffOrHighStaffRole(member) {
+  if (!member?.roles?.cache) return false;
+  if (STAFF_ROLE_ID && member.roles.cache.has(STAFF_ROLE_ID)) return true;
+  if (HIGH_STAFF_ROLE_ID && member.roles.cache.has(HIGH_STAFF_ROLE_ID)) return true;
+  return false;
+}
+
+function memberCanAccessStaffReviews(_member) {
+  // Tab Staff pubblica: leggibile da tutti (come recensioni server).
+  return true;
+}
+
+function memberCanWriteStaffReview(member) {
+  // Solo membri non-staff: staff/HS non recensiscono se stessi né altri staff/HS.
+  if (!member?.roles?.cache) return false;
+  return !memberHasStaffOrHighStaffRole(member);
 }
 
 function reviewPagePathForKind(kind) {
   return String(kind || "").trim().toLowerCase() === "bot" ? "/dashboard/recensioni/" : "/recensioni";
 }
 
-function reviewNotifOpenUrl(reviewId, kind) {
+function reviewNotifOpenUrl(reviewId, kind, opts = {}) {
   const id = String(reviewId || "").trim();
   const base = reviewPagePathForKind(kind);
-  return id ? `${base}#vc-review-${id}` : base;
+  const k = String(kind || "").trim().toLowerCase();
+  const hash = id ? `#vc-review-${id}` : "";
+  if (k === "staff") {
+    const params = new URLSearchParams({ board: "staff" });
+    const staffer = String(opts.stafferId || "").trim();
+    if (/^\d{5,32}$/.test(staffer)) params.set("staffer", staffer);
+    return `${base}?${params.toString()}${hash}`;
+  }
+  return id ? `${base}${hash}` : base;
 }
 
 async function notifyHighStaffNewReview(guild, review, authorName) {
   const rid = String(review?._id || "").trim();
   const kind = String(review?.reviewKind || "server");
   const isBot = kind === "bot";
-  const title = isBot ? "Nuova recensione bot" : "Nuova recensione community";
+  const isStaff = kind === "staff";
+  const title = isBot
+    ? "Nuova recensione bot"
+    : isStaff
+      ? "Nuova recensione staff"
+      : "Nuova recensione community";
   const body = isBot
     ? `${authorName || "Un utente"} ha pubblicato una recensione del bot.`
-    : `${authorName || "Un utente"} ha pubblicato una recensione della community.`;
+    : isStaff
+      ? `${authorName || "Un utente"} ha recensito uno staffer.`
+      : `${authorName || "Un utente"} ha pubblicato una recensione della community.`;
   const userIds = await getHighStaffUserIds(guild);
   for (const userId of userIds) {
     try {
@@ -247,20 +292,32 @@ async function notifyHighStaffNewReview(guild, review, authorName) {
   }
 }
 
+/** reviewsStaffReply1: the reviewed staffer gets an Inbox ping for their own review. */
+async function notifyReviewedStafferNewReview(guild, review, authorName) {
+  const rid = String(review?._id || "").trim();
+  const kind = String(review?.reviewKind || "").trim().toLowerCase();
+  if (kind !== "staff") return;
+  const staffUserId = String(review?.staffUserId || "").trim();
+  if (!staffUserId || !/^\d{5,32}$/.test(staffUserId)) return;
+  try {
+    await enqueueSiteInAppNotification({
+      guildId: guild.id,
+      userId: staffUserId,
+      title: "Nuova recensione su di te",
+      body: `${authorName || "Un utente"} ti ha lasciato una recensione.`,
+      kind: "review",
+      channel: "inbox",
+      openUrl: reviewNotifOpenUrl(rid, "staff", { stafferId: staffUserId }),
+      dedupeKey: `rev-staff-target:${rid}`,
+      dedupeWindowMs: 86_400_000,
+    });
+  } catch (_) {}
+}
+
 async function cleanupOrphanStaffReviews(client, guild) {
-  const staff = await getStaffTargets(client, guild);
-  const activeIds = Array.from(staff.ids);
-  if (!activeIds.length) {
-    await SiteDocument.deleteMany({ docType: RV, guildId: guild.id, reviewKind: "staff" }).catch(() => null);
-    return staff;
-  }
-  await SiteDocument.deleteMany({
-    docType: RV,
-    guildId: guild.id,
-    reviewKind: "staff",
-    staffUserId: { $nin: activeIds },
-  }).catch(() => null);
-  return staff;
+  /* reviewsStaffOrphanSafe1: never delete on read — incomplete Discord roster
+     used to wipe staff reviews ($nin / empty ids). Keep docs; UI still lists them. */
+  return getStaffTargets(client, guild);
 }
 
 function serializeReview(doc, staffMap) {
@@ -443,16 +500,26 @@ async function getSiteReviews(client, payload = {}) {
   }
 
   const wantKind = String(payload.kind || "server").trim().toLowerCase();
-  const reviewKind = wantKind === "bot" ? "bot" : "server";
+  const reviewKind = wantKind === "bot" ? "bot" : wantKind === "staff" ? "staff" : "server";
   const accessToken = String(payload.accessToken || "").trim();
   const staffMap = new Map();
+  let staffersList = [];
 
+  if (reviewKind === "staff") {
+    const staff = await cleanupOrphanStaffReviews(client, guild);
+    staffersList = Array.isArray(staff.list) ? staff.list.slice() : [];
+    for (const entry of staffersList) {
+      staffMap.set(String(entry.id), entry);
+    }
+  }
+
+  const cacheGenAtStart = publicReviewsCacheGen;
   let cachedBase = readPublicReviewsListCache(guild.id, reviewKind);
   const docsP = cachedBase
     ? Promise.resolve(null)
     : SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind })
         .sort({ createdAt: -1, _id: -1 })
-        .limit(reviewKind === "bot" ? 120 : 80)
+        .limit(reviewKind === "bot" ? 120 : reviewKind === "staff" ? 100 : 80)
         .lean()
         .catch(() => []);
   const viewerP = accessToken
@@ -471,7 +538,7 @@ async function getSiteReviews(client, payload = {}) {
         docType: RV,
         guildId: guild.id,
         userId: resolved.userId,
-        reviewKind,
+        reviewKind: reviewKind === "staff" ? "staff" : reviewKind,
       })
         .lean()
         .catch(() => [])
@@ -482,8 +549,6 @@ async function getSiteReviews(client, payload = {}) {
   }
 
   if (!cachedBase) {
-    // Sync avatar resolve (cache only) — no Discord REST fan-out on list load
-    // (prefetchUsers/Members caused multi-second cold hits → FE "Impossibile caricare le recensioni").
     afterResolveTasks.push(
       Promise.resolve().then(() => {
         cachedBase = sortSerializedReviewsNewestFirst(
@@ -501,18 +566,55 @@ async function getSiteReviews(client, payload = {}) {
             return entry;
           }),
         );
-        writePublicReviewsListCache(guild.id, reviewKind, cachedBase);
+        /* voteLikeStale1: never re-poison TTL cache after a concurrent like invalidate */
+        if (cacheGenAtStart === publicReviewsCacheGen) {
+          writePublicReviewsListCache(guild.id, reviewKind, cachedBase);
+        }
       }),
     );
   }
 
   if (afterResolveTasks.length) await Promise.all(afterResolveTasks);
 
+  if (cacheGenAtStart !== publicReviewsCacheGen) {
+    const hit = readPublicReviewsListCache(guild.id, reviewKind);
+    if (hit) {
+      cachedBase = hit;
+    } else {
+      const freshDocs = await SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(reviewKind === "bot" ? 120 : reviewKind === "staff" ? 100 : 80)
+        .lean()
+        .catch(() => []);
+      const rebuildGen = publicReviewsCacheGen;
+      cachedBase = sortSerializedReviewsNewestFirst(
+        (Array.isArray(freshDocs) ? freshDocs : []).map((doc) => {
+          const entry = applyLiveAvatarToSuggestionLike(
+            enrichPublicReviewDoc(doc, staffMap, ""),
+            guild,
+            { size: 128, preferAnimated: false, client },
+          );
+          entry._likedUserIds = Array.isArray(doc?.likedUserIds)
+            ? doc.likedUserIds.map((x) => String(x))
+            : [];
+          entry.likeCount = entry._likedUserIds.length;
+          entry.likedByViewer = false;
+          return entry;
+        }),
+      );
+      if (rebuildGen === publicReviewsCacheGen) {
+        writePublicReviewsListCache(guild.id, reviewKind, cachedBase);
+      }
+    }
+  }
+
   if (resolved && resolved.ok) {
     viewer = {
       id: resolved.userId,
       name: displayNameForMember(resolved.member),
       canReplyAsServer: memberCanReplyAsServer(resolved.member),
+      canAccessStaffReviews: true,
+      canWriteStaffReview: memberCanWriteStaffReview(resolved.member),
       serverReview: null,
       botReview: null,
       staffReviews: [],
@@ -525,6 +627,7 @@ async function getSiteReviews(client, payload = {}) {
       );
       if (entry.kind === "server") viewer.serverReview = entry;
       if (entry.kind === "bot") viewer.botReview = entry;
+      if (entry.kind === "staff") viewer.staffReviews.push(entry);
     }
   }
 
@@ -533,10 +636,10 @@ async function getSiteReviews(client, payload = {}) {
     ok: true,
     status: 200,
     externalReviewsUrl: String(client?.config?.disboardReviews?.reviewUrl || client?.config?.reviewsUrl || "").trim(),
-    staffers: [],
+    staffers: reviewKind === "staff" ? staffersList.filter((s) => String(s.id) !== viewerUserId) : [],
     reviews: {
       server: reviewKind === "server" ? serialized : [],
-      staff: [],
+      staff: reviewKind === "staff" ? serialized : [],
       bot: reviewKind === "bot" ? serialized : [],
     },
     viewer,
@@ -564,6 +667,14 @@ async function submitSiteReview(client, payload = {}) {
   let staffName = "";
   let staffAvatarUrl = "";
   if (reviewKind === "staff") {
+    if (!memberCanWriteStaffReview(resolved.member)) {
+      return {
+        ok: false,
+        status: 403,
+        error: "forbidden",
+        message: "Staff e High Staff non possono recensire se stessi o altri staffer.",
+      };
+    }
     const staff = await cleanupOrphanStaffReviews(client, resolved.guild);
     staffUserId = String(payload.staffUserId || "").trim();
     if (!staff.ids.has(staffUserId)) {
@@ -645,7 +756,10 @@ async function submitSiteReview(client, payload = {}) {
   }
   if (!existing) {
     await notifyHighStaffNewReview(resolved.guild, nextDoc, displayNameForMember(resolved.member));
+    await notifyReviewedStafferNewReview(resolved.guild, nextDoc, displayNameForMember(resolved.member));
   }
+
+  /* compitiReviewsManual1: review_self_4 / review_server_4 non auto-submit (prove manuali) */
 
   try {
     invalidatePublicReviewsListCache(resolved.guild.id);
@@ -678,7 +792,7 @@ async function deleteSiteReview(client, payload = {}) {
     _id: reviewId,
     guildId: resolved.guild.id,
     userId: resolved.userId,
-    reviewKind: { $in: ["server", "bot"] },
+    reviewKind: { $in: ["server", "bot", "staff"] },
   };
   const deleted = await SiteDocument.findOneAndDelete(query).lean().catch(() => null);
   if (!deleted) {
@@ -728,7 +842,7 @@ async function toggleSiteReviewLike(client, payload = {}) {
     docType: RV,
     _id: reviewId,
     guildId: resolved.guild.id,
-    reviewKind: { $in: ["server", "bot"] },
+    reviewKind: { $in: ["server", "bot", "staff"] },
   })
     .select("likedUserIds userId reviewKind")
     .lean()
@@ -744,7 +858,7 @@ async function toggleSiteReviewLike(client, payload = {}) {
   const likes = Array.isArray(review.likedUserIds) ? review.likedUserIds.map((x) => String(x)) : [];
   const has = likes.includes(uid);
   const updated = await SiteDocument.findOneAndUpdate(
-    { docType: RV, _id: reviewId, guildId: resolved.guild.id, reviewKind: { $in: ["server", "bot"] } },
+    { docType: RV, _id: reviewId, guildId: resolved.guild.id, reviewKind: { $in: ["server", "bot", "staff"] } },
     has ? { $pull: { likedUserIds: uid } } : { $addToSet: { likedUserIds: uid } },
     { new: true },
   )
@@ -795,9 +909,6 @@ async function upsertServerReviewReply(client, payload = {}) {
   const accessToken = String(payload.accessToken || "").trim();
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
-  if (!memberCanReplyAsServer(resolved.member)) {
-    return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per rispondere a nome del server." };
-  }
 
   const reviewId = String(payload.reviewId || "").trim();
   if (!reviewId || !mongoose.isValidObjectId(reviewId)) {
@@ -813,22 +924,39 @@ async function upsertServerReviewReply(client, payload = {}) {
     docType: RV,
     _id: reviewId,
     guildId: resolved.guild.id,
-    reviewKind: { $in: ["server", "bot"] },
+    reviewKind: { $in: ["server", "bot", "staff"] },
   })
-    .select("_id reviewKind")
+    .select("_id reviewKind staffUserId userId")
     .lean()
     .catch(() => null);
   if (!existing) {
     return { ok: false, status: 404, error: "review_not_found", message: "Recensione non trovata." };
   }
 
+  const replyKind = String(existing.reviewKind || "server").trim().toLowerCase();
+  const viewerId = String(resolved.userId || "").trim();
+  const targetStaffId = String(existing.staffUserId || "").trim();
+  /* reviewsStaffReply1: staff board → only the reviewed staffer; server/bot → HS as before */
+  if (replyKind === "staff") {
+    if (!targetStaffId || targetStaffId !== viewerId) {
+      return {
+        ok: false,
+        status: 403,
+        error: "forbidden",
+        message: "Puoi rispondere solo alle recensioni ricevute su di te.",
+      };
+    }
+  } else if (!memberCanReplyAsServer(resolved.member)) {
+    return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per rispondere a nome del server." };
+  }
+
   const nextDoc = await SiteDocument.findOneAndUpdate(
-    { docType: RV, _id: reviewId, guildId: resolved.guild.id, reviewKind: { $in: ["server", "bot"] } },
+    { docType: RV, _id: reviewId, guildId: resolved.guild.id, reviewKind: replyKind },
     {
       $set: {
         serverReplyContent: content,
         serverReplyAt: new Date(),
-        serverReplyAuthorId: String(resolved.userId),
+        serverReplyAuthorId: viewerId,
       },
     },
     { new: true },
@@ -840,8 +968,7 @@ async function upsertServerReviewReply(client, payload = {}) {
   }
 
   const reviewAuthorId = String(nextDoc.userId || "").trim();
-  const replyKind = String(nextDoc.reviewKind || existing.reviewKind || "server");
-  if (reviewAuthorId && reviewAuthorId !== String(resolved.userId)) {
+  if (reviewAuthorId && reviewAuthorId !== viewerId) {
     try {
       await enqueueSiteInAppNotification({
         guildId: resolved.guild.id,
@@ -850,7 +977,9 @@ async function upsertServerReviewReply(client, payload = {}) {
         body:
           replyKind === "bot"
             ? "Lo staff ha pubblicato una risposta ufficiale alla tua recensione del bot."
-            : "Lo staff ha pubblicato una risposta ufficiale alla tua recensione della community.",
+            : replyKind === "staff"
+              ? "Lo staffer ha risposto alla tua recensione."
+              : "Lo staff ha pubblicato una risposta ufficiale alla tua recensione della community.",
         kind: "review",
         channel: "personal",
         openUrl: reviewNotifOpenUrl(reviewId, replyKind),
@@ -868,8 +997,8 @@ async function upsertServerReviewReply(client, payload = {}) {
   return {
     ok: true,
     status: 200,
-    review: enrichServerReviewDoc(nextDoc, new Map(), resolved.userId),
-    message: "Risposta del server pubblicata.",
+    review: enrichPublicReviewDoc(nextDoc, new Map(), resolved.userId),
+    message: replyKind === "staff" ? "Risposta pubblicata." : "Risposta del server pubblicata.",
   };
 }
 

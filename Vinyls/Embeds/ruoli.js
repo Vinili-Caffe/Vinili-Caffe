@@ -68,6 +68,7 @@ async function run(client) {
         `<:VC_8:1482706553281708092> <@&${IDs.roles.blackPlus}>`,
         `<:VC_9:1482706583438889051> <@&${IDs.roles.grayPlus}>`,
         `<:VC_10:1482706613663174707> <@&${IDs.roles.whitePlus}>`,
+        `<:VC_1:1482706338021642333> <@&${IDs.roles.brownPlus}>`,
         `<:VC_2:1482706376525611090> <@&${IDs.roles.orangeBlackPlus}> — livello **120**`,
         `<:VC_4:1482706432347344916> <@&${IDs.roles.greenBlackPlus}> — livello **150**`,
         `<:VC_5:1482706459765637272> <@&${IDs.roles.aquaBlackPlus}> — livello **200**`,

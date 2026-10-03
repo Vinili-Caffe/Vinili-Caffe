@@ -9,7 +9,7 @@ const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../Utils/Discord/gatewayMemberFetch");
 const { addAllRoleMembersToThread, addUserIdsToThread } = require("../../Utils/Discord/threadRoleMembers");
-const { getResocontoReviewerUserIdsForSegment } = require("../../Utils/Staff/resocontoAccess");
+const { getResocontoReviewerUserIdsForSegment, getResocontoReviewerRoleIds } = require("../../Utils/Staff/resocontoAccess");
 const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const { applyPronounGenderToTextForMember } = require("../../Utils/Community/pronounGenderUtils");
@@ -101,6 +101,7 @@ function evaluateStaffWeeklyLimitsWithSwap(weeklyMessages, weeklyVoiceHours, lim
   };
 }
 
+/** Stesso swap del base (100 msg = 1h, illimitato), ma sui limiti ×multiplier (doppio = ×2 msg e ×2 h). */
 function evaluateStaffWeeklyLimitsAtMultiplier(weeklyMessages, weeklyVoiceHours, limits, multiplier = 1) {
   return evaluateStaffWeeklyLimitsWithSwap(
     weeklyMessages,
@@ -875,22 +876,22 @@ function compareResocontoMembers(a, b) {
 
 function computeActivityGrade(roleId, weeklyMessages, weeklyVoiceHours) {
   const limits = STAFF_ACTIVITY_LIMITS[String(roleId)];
-    if (!limits) return "Nessun limite";
+  if (!limits) return "Nessun limite";
 
   const rawMsg = Math.max(0, Math.floor(toSafeNumber(weeklyMessages)));
   const rawHours = Math.max(0, toSafeNumber(weeklyVoiceHours));
   const limMsg = Number(limits.messages || 0);
   const limHours = Number(limits.hours || 0);
 
-    const reaches = (targetMsg, targetHrs) =>
+  const reaches = (targetMsg, targetHrs) =>
     evaluateStaffWeeklyLimitsWithSwap(rawMsg, rawHours, {
       messages: targetMsg,
       hours: targetHrs,
     }).reached;
 
-  if (reaches(limMsg * 3, limHours * 3)) return "Eccellente";
+  if (evaluateStaffWeeklyLimitsAtMultiplier(rawMsg, rawHours, limits, 3).reached) return "Eccellente";
   if (reaches(limMsg * 2 + 300, limHours * 2 + 2)) return "Ottimo";
-  if (reaches(limMsg * 2, limHours * 2)) return "Buono";
+  if (evaluateStaffWeeklyLimitsAtMultiplier(rawMsg, rawHours, limits, 2).reached) return "Buono";
   if (reaches(limMsg + 150, limHours + 1.5)) return "Discreto";
   if (reaches(limMsg, limHours)) return "Sufficiente";
 
@@ -1122,15 +1123,15 @@ function shouldSkipManualResocontoVp(staffDoc, resocontoWeekKey, staffRoleId, re
   const reasonNorm = String(reason || "").toLowerCase();
   const since = getResocontoCycleMessagesSince();
   if (reasonNorm.includes("limiti settimanali")) {
+    if (/completati|rispettati/.test(reasonNorm) && !/doppio|triplo|×\s*2|x2/.test(reasonNorm)) {
+      /* Mai VP automatica/manuale solo per 1×. */
+      return true;
+    }
     if (hasStaffLimitsValutazioneForCycle(staffDoc, resocontoWeekKey, staffRoleId)) return true;
     return Boolean(
       findLogForReasonNeedlesSince(
         staffDoc,
-        [
-          "limiti settimanali completati",
-          "limiti settimanali rispettati",
-          "limiti settimanali superati almeno del doppio",
-        ],
+        ["limiti settimanali superati almeno del doppio"],
         "positive",
         since,
       ),
@@ -1302,14 +1303,8 @@ function buildStaffResocontoAzioneDisplay({
         );
       }
     } else if (reachedWeeklyLimits) {
-      pushPart(formatValutazioneLabel("positive", limitsByBot, "limiti settimanali completati"));
-      if (!limitsByBot) {
-        pushPendingManualAction(
-          pendingManualActions,
-          "vp",
-          "Limiti settimanali completati.",
-        );
-      }
+      /* Solo 1×: limiti ok, ma VP solo dal doppio (o da altri compiti). */
+      pushPart("Limiti settimanali rispettati (nessuna VP: serve almeno il doppio)");
     } else if (!inPauseDuringWeek) {
       pushPart(formatValutazioneLabel("negative", limitsByBot, "limiti settimanali non raggiunti"));
       if (!limitsByBot) {
@@ -2056,9 +2051,15 @@ async function applyWeeklyStaffAutoValutazioniForMember({
         STAFF_LIMITS_POSITIVE_MULTIPLIER,
       )
     : null;
+  const tripleLimitsEvaluation = limits
+    ? evaluateStaffWeeklyLimitsAtMultiplier(weeklyMessages, weeklyVoiceHours, limits, 3)
+    : null;
   const reachedWeeklyLimits = Boolean(canEvaluateWeeklyLimits && limitsEvaluation?.reached);
   const reachedDoubleWeeklyLimits = Boolean(
     canEvaluateWeeklyLimits && doubleLimitsEvaluation?.reached,
+  );
+  const reachedTripleWeeklyLimits = Boolean(
+    canEvaluateWeeklyLimits && tripleLimitsEvaluation?.reached,
   );
     await hydrateStaffPausesFromWorkflowIfMissing(guild?.id, userId, staffDoc).catch(() => null);
   const inPauseAtLeastOneDay = hadPauseAtLeastOneDayDuringWeek(
@@ -2087,8 +2088,6 @@ async function applyWeeklyStaffAutoValutazioniForMember({
         reason: "Limiti settimanali superati almeno del doppio.",
         equivalentReasonNeedles: [
           "limiti settimanali superati almeno del doppio",
-          "limiti settimanali completati",
-          "limiti settimanali rispettati",
         ],
         force,
       }).catch((err) => {
@@ -2144,6 +2143,20 @@ async function applyWeeklyStaffAutoValutazioniForMember({
       );
       return { ok: false };
     });
+  }
+
+  if (reachedTripleWeeklyLimits && !inPauseAtLeastOneDay && guild?.id && userId) {
+    try {
+      const { tryAutoSubmitCompito } = require("../../Utils/Web/siteStaffCompitiAutoComplete");
+      await tryAutoSubmitCompito(global.botClient || guild?.client, {
+        guildId: guild.id,
+        userId,
+        taskId: "limits_triple",
+        evidence: `Limiti ×3 raggiunti (${weeklyMessages} msg / ${weeklyVoiceHours.toFixed(1)}h) · ${resocontoWeekKey}`,
+      });
+    } catch (err) {
+      global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] compiti limits_triple:", err?.message || err);
+    }
   }
 
   return {
@@ -2336,6 +2349,11 @@ async function createResocontoThread(message, userId, userLabel = null, staffDoc
     if (activeReviewers.length) {
       await addUserIdsToThread(thread, activeReviewers, { logTag: "[WEEKLY STAFF RESOCONTO thread]" });
     }
+  }
+  for (const roleId of getResocontoReviewerRoleIds()) {
+    await addAllRoleMembersToThread(thread, roleId, {
+      logTag: "[WEEKLY STAFF RESOCONTO thread]",
+    }).catch(() => null);
   }
 
   await sendResocontoThreadSummary(thread, message?.guild, staffDoc);
@@ -3616,6 +3634,7 @@ module.exports = {
   runWeeklyLimitAutoValutazioniCatchupSegment,
   getPartnerLeaderboardWeekBoundsUtc,
   getCurrentResocontoPexWeekWindowUtc,
+  wasFirstStaffPromotionFromMemberInWindow,
   getStaffResocontoEvaluationWindow,
   buildResocontoActivityScope,
   getWeekStartDate,

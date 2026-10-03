@@ -1,0 +1,465 @@
+/* chromeGlowSoft3 / listRowFlat3 + inboxCardShell1 */
+/* listRowFlat3: cards keep shell for staff inbox; nested vote/notify stay flat */
+#vc-page-content #wiki-comandi-panel {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html.vc-site-polish body.vc-body :is(
+  .vc-home-panel:not(.vc-stat-strip):not(.vc-vote-live-stats),
+  .vc-fx-card,
+  .vc-wiki-cmd-shell,
+  .vc-faq-group,
+  .vc-legal-card,
+  .vc-reviews-card,
+  .vc-reviews-formcard,
+  .vc-perks-card,
+  .vc-sponsor-embed,
+  .vc-sponsor-card,
+  .vc-staff-block,
+  .vc-staff-hub-card,
+  .vc-candidature-card,
+  .vc-unban-before-card,
+  .vc-unmute-before-card,
+  .vc-auth-required-card,
+  .vc-support-donate-role,
+  .vc-vote-live-card,
+  .vc-vote-live-statbox,
+  .vc-vote-progress,
+  .vc-vote-platform-card,
+  .vc-regole-card,
+  .vc-ul-card,
+  .vc-role-card,
+  .vc-notify-stat,
+  .vc-user-profile-block,
+  .vc-user-profile-hero:not(.vc-page-cine-hero),
+  .vc-page-cine-card,
+  article.vc-vote-reveal
+):not(.vc-page-cine-hero):not(.vc-hero-head):not(.vc-wt-board):not(.vc-wt-sidebar):not(.vc-stat-strip):not(.vc-vote-live-stats):not(.vc-card-grid-wrap):not(:has(#vc-roles-grid)):not(:has(#vc-ul-grid)):not(:has(.vc-roles-grid)):not(:has(.vc-ul-grid)),
+#vc-page-content #wiki-comandi-panel > section.vc-wiki-cmd-shell,
+#vc-page-content #wiki-comandi-panel > .vc-wiki-cmd-shell {
+  filter: none !important;
+  -webkit-filter: none !important;
+  border-color: rgba(245, 214, 183, 0.22) !important;
+  /* chromeGlowSoft4: un solo alone sabbia (meno layer GPU), resta visibile */
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.48),
+    0 0 14px rgba(212, 168, 136, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+html.vc-perf-mid.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
+html.vc-site-polish body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
+html.vc-perf-mid.vc-site-polish body.vc-body--home .vc-home-cine-hero .vc-hero-head,
+html.vc-site-polish body.vc-body--home .vc-home-cine-hero .vc-hero-head,
+html.vc-site-polish body.vc-body .vc-hero-head.vc-glass,
+html.vc-site-polish body.vc-page-cine-layout .vc-hero-head {
+  filter: none !important;
+  border-color: rgba(245, 214, 183, 0.22) !important;
+  /* chromeFix3: restore soft sand alone around main cine card */
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.48),
+    0 0 28px rgba(212, 168, 136, 0.18),
+    0 0 56px rgba(212, 168, 136, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Nav + footer: soft sand whisper (visible, not neon)
+   ticketsGlowRestore1: nav aveva perso l'alone sand (restava solo drop nero) */
+html.vc-site-photo-bg.vc-site-polish body.vc-body > header .vc-nav-shell,
+html.vc-site-photo-bg.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass,
+html.vc-site-photo-bg.vc-site-polish body.vc-body > header .vc-nav-shell.vc-nav-shell--scrolled,
+html.vc-site-photo-bg.vc-site-polish body.vc-body header.fixed .vc-nav-shell,
+html.vc-site-photo-bg.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish body.vc-body > header .vc-nav-shell,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish body.vc-body header.fixed .vc-nav-shell,
+html.vc-site-photo-bg.vc-site-polish body.vc-body--home > header .vc-nav-shell,
+html.vc-site-photo-bg.vc-site-polish body.vc-dashboard-page > header .vc-nav-shell,
+html.vc-site-photo-bg body > header .vc-nav-shell,
+html.vc-site-polish body > header .vc-nav-shell,
+html body.vc-body > header .vc-nav-shell,
+html body.vc-body header.fixed .vc-nav-shell {
+  filter: none !important;
+  border-color: transparent !important;
+  /* navChromeGradBorder1: niente alone sand — bordo = ::after gradiente */
+  box-shadow: none !important;
+}
+
+html.vc-site-polish body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer,
+html.vc-site-polish body.vc-body--home > footer.vc-premium-footer .vc-premium-footer__outer {
+  filter: none !important;
+  border-color: rgba(245, 214, 183, 0.26) !important;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.46),
+    0 0 14px rgba(212, 168, 136, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+/* chromeGlowSoft4: in scroll spegne alone (resta solo drop soft) */
+html.vc-scroll-busy.vc-site-polish body.vc-body :is(
+  .vc-home-panel,
+  .vc-fx-card,
+  .vc-page-cine-card,
+  .vc-hero-head,
+  .vc-wiki-cmd-shell,
+  .vc-faq-group,
+  .vc-role-card,
+  .vc-ul-card,
+  .vc-reviews-card,
+  .vc-sponsor-card,
+  .vc-staff-hub-card
+),
+html.vc-scroll-busy body.vc-body > header .vc-nav-shell,
+html.vc-scroll-busy body.vc-body header.fixed .vc-nav-shell,
+html.vc-scroll-busy body.vc-body > footer.vc-premium-footer .vc-premium-footer__outer {
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* listRowFlat3: flat vote/notify rows — staff inbox cards MUST keep shell (were invisible on phone) */
+html.vc-site-polish body.vc-body :is(
+  .vc-vote-list-row,
+  .vc-vote-podium-row,
+  .vc-vote-podium-row--1,
+  .vc-vote-podium-row--2,
+  .vc-vote-podium-row--3,
+  .vc-vote-morelist,
+  .vc-notify-row:not(.vc-staff-inbox-item),
+  .vc-notify-row--read:not(.vc-staff-inbox-item),
+  .vc-notify-row--success:not(.vc-staff-inbox-item),
+  .vc-notify-row--link:not(.vc-staff-inbox-item),
+  .vc-notify-row-unread:not(.vc-staff-inbox-item),
+  li.vc-vote-list-row,
+  a.vc-vote-list-row,
+  a.vc-vote-podium-row
+),
+html.vc-site-photo-bg.vc-site-polish body.vc-body :is(
+  .vc-vote-list-row,
+  .vc-vote-podium-row,
+  .vc-vote-podium-row--1,
+  .vc-vote-podium-row--2,
+  .vc-vote-podium-row--3,
+  .vc-vote-morelist,
+  .vc-notify-row:not(.vc-staff-inbox-item),
+  .vc-notify-row--read:not(.vc-staff-inbox-item),
+  .vc-notify-row--success:not(.vc-staff-inbox-item),
+  .vc-notify-row--link:not(.vc-staff-inbox-item),
+  .vc-notify-row-unread:not(.vc-staff-inbox-item)
+),
+html.vc-site-polish body.vc-body.vc-notifications-page :is(
+  .vc-notify-row:not(.vc-staff-inbox-item),
+  .vc-notify-row.vc-home-panel:not(.vc-staff-inbox-item),
+  .vc-notify-row.vc-fx-card:not(.vc-staff-inbox-item),
+  .vc-notify-row.vc-home-rise:not(.vc-staff-inbox-item)
+),
+html.vc-site-photo-bg.vc-site-polish body.vc-body.vc-notifications-page :is(
+  .vc-notify-row:not(.vc-staff-inbox-item),
+  .vc-notify-row.vc-home-panel:not(.vc-staff-inbox-item),
+  .vc-notify-row.vc-fx-card:not(.vc-staff-inbox-item)
+),
+html.vc-site-polish body.vc-page-cine-layout :is(
+  .vc-vote-list-row,
+  .vc-vote-podium-row,
+  .vc-vote-morelist,
+  .vc-notify-row:not(.vc-staff-inbox-item)
+) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* inboxCardShell1 + listRowOpaque1: solid wash (niente cine sotto) */
+html.vc-site-polish body.vc-body :is(
+  .vc-staff-inbox-item,
+  .vc-staff-inbox-item--card,
+  .vc-staff-inbox-item--list-compact,
+  .vc-notify-row.vc-staff-inbox-item
+),
+html.vc-site-photo-bg.vc-site-polish body.vc-body :is(
+  .vc-staff-inbox-item,
+  .vc-staff-inbox-item--card,
+  .vc-notify-row.vc-staff-inbox-item
+),
+html.vc-site-polish body.vc-body.vc-notifications-page :is(
+  .vc-staff-inbox-item,
+  .vc-staff-inbox-item--card,
+  .vc-notify-row.vc-staff-inbox-item
+),
+html.vc-site-polish body.vc-staff-inbox-page :is(
+  .vc-staff-inbox-item,
+  .vc-staff-inbox-item--card
+) {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  border-radius: 1.05rem !important;
+  border: 1px solid rgba(245, 214, 183, 0.26) !important;
+  border-color: rgba(245, 214, 183, 0.26) !important;
+  border-width: 1px !important;
+  background-color: #100c09 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%),
+    radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%),
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%) !important;
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(212, 168, 136, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* accountMenuPolish1: avatar hover ring + denser menu + full-red logout */
+html.vc-site-polish body.vc-body header .discord-profile-link:hover,
+html.vc-site-polish body.vc-body header .discord-profile-link:focus-visible {
+  transform: translateZ(0) scale(1.06) !important;
+}
+html.vc-site-polish body.vc-body header .discord-profile-link:hover::before,
+html.vc-site-polish body.vc-body header .discord-profile-link:focus-visible::before {
+  opacity: 1 !important;
+  transform: scale(1.08) !important;
+}
+html.vc-site-polish body.vc-body header .discord-profile-link:hover::after,
+html.vc-site-polish body.vc-body header .discord-profile-link:focus-visible::after {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  border-color: rgba(245, 214, 183, 0.72) !important;
+  box-shadow:
+    0 0 0 3px rgba(122, 84, 58, 0.22),
+    0 0 20px rgba(212, 168, 136, 0.38),
+    0 0 36px rgba(212, 168, 136, 0.2) !important;
+}
+html.vc-site-polish body.vc-body header .discord-account-popover,
+html.vc-site-polish body.vc-body header .discord-account-menu:hover .discord-account-popover,
+html.vc-site-polish body.vc-body header .discord-account-menu:focus-within .discord-account-popover,
+html.vc-site-polish body.vc-body--home header .discord-account-popover,
+html body.vc-body header .discord-account-popover {
+  background: #100c09 !important;
+  background-color: #100c09 !important;
+  background-image: none !important;
+  border-color: rgba(245, 214, 183, 0.28) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.48),
+    0 0 18px rgba(212, 168, 136, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+html.vc-site-polish body.vc-body header .discord-account-popover::before,
+html body.vc-body header .discord-account-popover::before {
+  background: #100c09 !important;
+  background-image: none !important;
+  border-left-color: rgba(245, 214, 183, 0.28) !important;
+  border-top-color: rgba(245, 214, 183, 0.28) !important;
+}
+html.vc-site-polish body.vc-body header .discord-account-popover__item--danger,
+html.vc-site-polish body.vc-body header #discord-logout-btn,
+html body.vc-body header #discord-logout-btn {
+  margin-top: 0.45rem !important;
+  border-top: 0 !important;
+  border-radius: 0.85rem !important;
+  justify-content: center !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 48%, #b91c1c 100%) !important;
+  background-color: #dc2626 !important;
+  background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 48%, #b91c1c 100%) !important;
+  box-shadow:
+    0 8px 18px rgba(185, 28, 28, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+html.vc-site-polish body.vc-body header .discord-account-popover__item--danger i,
+html.vc-site-polish body.vc-body header #discord-logout-btn i,
+html body.vc-body header #discord-logout-btn i {
+  color: #fff !important;
+}
+html.vc-site-polish body.vc-body header .discord-account-popover__item--danger:hover,
+html.vc-site-polish body.vc-body header .discord-account-popover__item--danger:focus-visible,
+html.vc-site-polish body.vc-body header #discord-logout-btn:hover,
+html.vc-site-polish body.vc-body header #discord-logout-btn:focus-visible,
+html body.vc-body header #discord-logout-btn:hover,
+html body.vc-body header #discord-logout-btn:focus-visible {
+  color: #fff !important;
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 45%, #dc2626 100%) !important;
+  background-color: #ef4444 !important;
+  background-image: linear-gradient(135deg, #f87171 0%, #ef4444 45%, #dc2626 100%) !important;
+}
+/* navMobileShadow1: phone — no alone scuro sulla pill (override chrome glow) */
+@media (max-width: 1199.98px), (pointer: coarse) {
+  html.vc-site-photo-bg.vc-perf-mid.vc-site-polish body.vc-body > header .vc-nav-shell,
+  html.vc-site-photo-bg.vc-perf-mid.vc-site-polish body.vc-body header.fixed .vc-nav-shell,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body > header .vc-nav-shell,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body > header .vc-nav-shell.vc-glass,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body > header .vc-nav-shell.vc-nav-shell--scrolled,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body header.fixed .vc-nav-shell,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body header.fixed .vc-nav-shell.vc-glass,
+  html.vc-site-photo-bg.vc-site-polish body.vc-body--home > header .vc-nav-shell,
+  html.vc-site-photo-bg.vc-site-polish body.vc-dashboard-page > header .vc-nav-shell,
+  html.vc-site-photo-bg body > header .vc-nav-shell,
+  html.vc-site-polish body > header .vc-nav-shell,
+  html body.vc-body > header .vc-nav-shell,
+  html body.vc-body header.fixed .vc-nav-shell,
+  /* navMobileShadowClose1 / Kill2: anche dopo close hamburger / scroll-busy / scrolled */
+  html.vc-scroll-busy body.vc-body > header .vc-nav-shell,
+  html.vc-scroll-busy body.vc-body header.fixed .vc-nav-shell,
+  html.vc-nav-shell-scrolled body.vc-body > header .vc-nav-shell,
+  html.vc-nav-shell-scrolled body.vc-body header.fixed .vc-nav-shell,
+  html body.vc-body > header .vc-nav-shell.vc-nav-shell--scrolled,
+  html body.vc-body > header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+  html body.vc-body header.fixed .vc-nav-shell.vc-nav-shell--scrolled,
+  html body.vc-body header.fixed .vc-nav-shell.vc-glass.vc-nav-shell--scrolled,
+  html.vc-mobile-nav-open body.vc-body > header .vc-nav-shell,
+  body.vc-mobile-nav-open > header .vc-nav-shell {
+    box-shadow: none !important;
+    filter: none !important;
+  }
+}
+/* inboxBoardOpaque3 */
+html.vc-site-polish body.vc-body :is(
+  .vc-staff-inbox-item,
+  .vc-staff-inbox-item--card,
+  .vc-staff-inbox-item--list-compact,
+  .vc-notify-row.vc-staff-inbox-item,
+  .vc-staff-inbox-board-toolbar,
+  .vc-staff-inbox-unified-bar,
+  .vc-notif-cat-bar.vc-notif-bell-inbox__link,
+  .vc-notif-bell-inbox__link
+) {
+  background: #12100c !important;
+  background-color: #12100c !important;
+  background-image: linear-gradient(175deg, #1a1510 0%, #12100c 52%, #0c0907 100%) !important;
+  opacity: 1 !important;
+  isolation: isolate !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* heroGradAvatarRestore1: batte homeMatchCards3 piatto + soft-fx troncato;
+   dark only — light resta su theme-light. Caricato DOPO landing-ext. */
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-hero-head,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home .vc-home-cine-hero .vc-hero-head,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home .vc-home-cine-hero .vc-support-intro-shell .vc-hero-head,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-page-cine-layout .vc-page-cine-hero .vc-support-intro-shell .vc-hero-head,
+html.vc-site-photo-bg.vc-perf-mid.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home .vc-home-cine-hero .vc-hero-head,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top #intro .vc-hero-head {
+  background-color: #100c09 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.14), transparent 52%),
+    radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.18), transparent 48%),
+    radial-gradient(80% 60% at 50% 100%, rgba(212, 168, 136, 0.1), transparent 55%),
+    linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%) !important;
+  background-repeat: no-repeat !important;
+  background-size: auto !important;
+  filter: none !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body .vc-hero-head::before,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body--home .vc-home-cine-hero .vc-hero-head::before,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-page-cine-layout .vc-page-cine-hero .vc-hero-head::before,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top #intro .vc-hero-head::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 0.85 !important;
+  background-image:
+    radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.18), transparent 54%),
+    radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.22), transparent 50%),
+    radial-gradient(80% 60% at 50% 100%, rgba(212, 168, 136, 0.12), transparent 55%) !important;
+  background-repeat: no-repeat !important;
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+/* avatarCircleGlow restore — anello conic animato su foto profilo navbar */
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-profile-link,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #discord-login-state .discord-profile-link,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .discord-profile-link {
+  position: relative !important;
+  overflow: visible !important;
+  border-radius: 999px !important;
+  isolation: isolate !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-profile-link::before,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #discord-login-state .discord-profile-link::before,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .discord-profile-link::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: -7px !important;
+  z-index: 0 !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  opacity: 0.85 !important;
+  background: radial-gradient(
+    circle,
+    rgba(236, 205, 176, 0.42) 0%,
+    rgba(168, 118, 82, 0.22) 48%,
+    transparent 72%
+  ) !important;
+  filter: blur(9px) !important;
+  -webkit-filter: blur(9px) !important;
+  animation: none !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-profile-link::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #discord-login-state .discord-profile-link::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #header-quick-actions .discord-profile-link::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top header .discord-profile-link::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: -1px !important;
+  border-radius: inherit !important;
+  box-sizing: border-box !important;
+  padding: 1.45px !important;
+  pointer-events: none !important;
+  z-index: 3 !important;
+  opacity: 1 !important;
+  border: 0 !important;
+  filter: none !important;
+  box-shadow: none !important;
+  background: conic-gradient(
+    from var(--vc-nav-glow-angle, 0deg),
+    rgba(255, 247, 236, 0.95) 0deg,
+    rgba(255, 247, 236, 0.58) 18deg,
+    rgba(212, 168, 136, 0.16) 48deg,
+    rgba(212, 168, 136, 0.05) 90deg,
+    rgba(212, 168, 136, 0.05) 270deg,
+    rgba(212, 168, 136, 0.16) 312deg,
+    rgba(255, 247, 236, 0.58) 342deg,
+    rgba(255, 247, 236, 0.95) 360deg
+  ) !important;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0) !important;
+  mask-composite: exclude !important;
+  animation: vc-nav-glow-spin 8s linear infinite !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body header .discord-profile-link .discord-avatar-clip,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body #discord-login-state .discord-profile-link .discord-avatar-clip {
+  position: relative !important;
+  z-index: 1 !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+}
+

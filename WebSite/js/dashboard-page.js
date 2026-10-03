@@ -14,25 +14,39 @@
     var c = cfg();
     var isLocal = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
     var raw = String((isLocal && c.apiUrlLocal) ? c.apiUrlLocal : (c.apiUrl || "")).trim();
+    if (!raw || raw.indexOf("{{") !== -1) return "/webhooks/site-dashboard";
     return raw.replace(/\/+$/, "") || "/webhooks/site-dashboard";
-  }
-
-  function getToken() {
-    if (typeof window.__vcDiscordGetAccessToken === "function") {
-      var t = window.__vcDiscordGetAccessToken();
-      if (t) return t;
-    }
-    var t2 = localStorage.getItem(ACCESS_TOKEN_KEY);
-    var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
-    if (!t2 || !exp || Date.now() >= exp) return "";
-    return t2;
   }
 
   function hasGuildsScope() {
     if (typeof window.__vcDiscordTokenHasScope === "function") {
       return window.__vcDiscordTokenHasScope("guilds");
     }
-    return false;
+    /* Helper non ancora pronto: non bloccare (altrimenti lista vuota + errore). */
+    return true;
+  }
+
+  function getToken() {
+    try {
+      if (typeof window.__vcDiscordGetRealAccessToken === "function") {
+        var real = String(window.__vcDiscordGetRealAccessToken() || "").trim();
+        if (real) return real;
+      }
+    } catch (eReal) {}
+    if (typeof window.__vcDiscordGetAccessToken === "function") {
+      var t = window.__vcDiscordGetAccessToken();
+      if (t) return t;
+    }
+    try {
+      if (typeof window.__vcDiscordRawLocalStorageGetItem === "function") {
+        var raw = String(window.__vcDiscordRawLocalStorageGetItem(ACCESS_TOKEN_KEY) || "").trim();
+        if (raw) return raw;
+      }
+    } catch (eRaw) {}
+    var t2 = localStorage.getItem(ACCESS_TOKEN_KEY);
+    var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
+    if (!t2 || !exp || Date.now() >= exp) return "";
+    return t2;
   }
 
   function esc(s) {
@@ -68,16 +82,57 @@
     return "/";
   }
 
-  function obscureDashboard() {
-    if (typeof window.__vcDashboardObscureIfUnauthorized === "function") {
-      window.__vcDashboardObscureIfUnauthorized();
-      return;
-    }
+  function hasLikelySession() {
     try {
-      window.location.replace(homeUrl());
-    } catch (e2) {
-      window.location.href = homeUrl();
+      var t = localStorage.getItem(ACCESS_TOKEN_KEY);
+      if (!t) return false;
+      var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
+      if (exp && Date.now() >= exp) return false;
+      return true;
+    } catch (e) {
+      return false;
     }
+  }
+
+  function accessPending() {
+    try {
+      var root = document.documentElement;
+      return (
+        root.classList.contains("vc-dash-access-pending") &&
+        !root.classList.contains("vc-dash-access-ready")
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /* Soft obscure: non kickare a / mentre auth/gate stanno ancora partendo */
+  function softObscureDashboardUi() {
+    try {
+      /* Non cancellare una lista già caricata durante retry gate */
+      if (lastGuilds && lastGuilds.length) return;
+      var list = byId("vc-dashboard-guild-list");
+      if (list) list.innerHTML = "";
+      setLoading(true);
+      setError("");
+    } catch (eSoft) {}
+  }
+
+  window.__vcDashboardObscureIfUnauthorized = function () {
+    /* Solo UI soft: il redirect a home lo fa il gate dopo deny confermato. */
+    softObscureDashboardUi();
+  };
+
+  function obscureDashboard(opts) {
+    opts = opts || {};
+    if (!opts.force) {
+      if (accessPending() || hasLikelySession()) {
+        softObscureDashboardUi();
+        return;
+      }
+    }
+    softObscureDashboardUi();
+    /* Niente location.replace("/") qui: race token/gate → kick falso alla home */
   }
 
   function hideGate() {
@@ -88,7 +143,7 @@
   }
 
   function showGate() {
-        obscureDashboard();
+    obscureDashboard({ force: true });
   }
 
   function hideLocked() {
@@ -99,7 +154,7 @@
   }
 
   function showLocked() {
-    obscureDashboard();
+    obscureDashboard({ force: true });
   }
 
   function showApp() {
@@ -137,8 +192,15 @@
       el.textContent = "";
     }
     var text = String(msg || "").trim();
-    // toastOnlyAlerts1: errori dashboard → toast, non banner.
-    if (!text) return;
+    // Errori dashboard → toast, non banner. setError("") chiude il toast.
+    if (!text) {
+      try {
+        if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") {
+          window.VcSiteToast.hide();
+        }
+      } catch (eHide) {}
+      return;
+    }
     if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
       window.VcSiteToast.show(text, true, {
         sticky: Boolean(opts && opts.sticky) || undefined,
@@ -241,39 +303,120 @@
 
   function sleep(ms) {
     return new Promise(function (resolve) {
-      setTimeout(resolve, ms);
+      window.setTimeout(resolve, ms);
     });
+  }
+
+  function normalizeFetchHeaders(headers) {
+    var plain = { Accept: "application/json" };
+    try {
+      if (!headers) return plain;
+      if (typeof headers.forEach === "function") {
+        headers.forEach(function (v, k) {
+          plain[String(k)] = String(v);
+        });
+        return plain;
+      }
+      Object.keys(headers).forEach(function (k) {
+        plain[k] = String(headers[k]);
+      });
+    } catch (eNorm) {}
+    return plain;
   }
 
   async function fetchDashboardJson(url, token, options) {
     var attempts = (options && options.attempts) || 3;
+    var timeoutMs = Math.max(4000, Number(options && options.timeoutMs) || 14000);
     var lastRes = null;
     var lastData = {};
     for (var i = 0; i < attempts; i += 1) {
+      var ctrl = null;
+      var timer = null;
       try {
-        lastRes = await fetch(url, {
-          headers: { Authorization: "Bearer " + token },
+        var headers = {
+          Authorization: "Bearer " + token,
+          Accept: "application/json",
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        };
+        try {
+          if (window.VcViewAs && typeof window.VcViewAs.applyHeader === "function") {
+            var patched = window.VcViewAs.applyHeader({ headers: headers });
+            headers = normalizeFetchHeaders((patched && patched.headers) || headers);
+            if (!headers.Authorization && !headers.authorization) {
+              headers.Authorization = "Bearer " + token;
+            }
+          }
+        } catch (eVa) {}
+        // Bust cache + header plain (Headers object poteva perdere Authorization)
+        var bustUrl = String(url || "");
+        bustUrl += (bustUrl.indexOf("?") >= 0 ? "&" : "?") + "_=" + String(Date.now());
+        ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+        if (ctrl) {
+          timer = setTimeout(function () {
+            try {
+              ctrl.abort();
+            } catch (eAb) {}
+          }, timeoutMs);
+        }
+        lastRes = await fetch(bustUrl, {
+          method: "GET",
+          headers: headers,
           cache: "no-store",
+          credentials: "same-origin",
+          signal: ctrl ? ctrl.signal : undefined,
         });
-        lastData = await lastRes.json().catch(function () {
-          return {};
+        var rawText = await lastRes.text().catch(function () {
+          return "";
         });
-        if (lastRes.status === 502 || lastRes.status === 503 || lastRes.status === 504) {
+        try {
+          lastData = rawText ? JSON.parse(rawText) : {};
+        } catch (eJson) {
+          lastData = {};
+        }
+        if (lastRes.status === 429) {
+          if (i < attempts - 1) {
+            var ra = 0;
+            try {
+              ra = Number(lastRes.headers.get("Retry-After") || "0");
+            } catch (eRa) {}
+            await sleep(Math.max(800, (Number.isFinite(ra) && ra > 0 ? ra : 1.2) * 1000) * (i + 1));
+            continue;
+          }
+        }
+        if (lastRes.status === 502 || lastRes.status === 503 || lastRes.status === 504 || lastRes.status === 408) {
           if (i < attempts - 1) {
             await sleep(350 * (i + 1));
             continue;
           }
         }
-        return { res: lastRes, data: lastData };
+        return { res: lastRes, data: lastData, raw: rawText };
       } catch (e) {
+        if (aborted) {
+          lastRes = { ok: false, status: 408 };
+          lastData = {
+            ok: false,
+            error: "timeout",
+            message: "Caricamento troppo lento. Riprova tra poco.",
+          };
+          return { res: lastRes, data: lastData, raw: "" };
+        }
         if (i < attempts - 1) {
           await sleep(350 * (i + 1));
           continue;
         }
         throw e;
+      } finally {
+        if (timer) clearTimeout(timer);
       }
     }
-    return { res: lastRes || { ok: false, status: 0 }, data: lastData };
+    return { res: lastRes || { ok: false, status: 0 }, data: lastData, raw: "" };
+  }
+
+  function guildsPayloadOk(data) {
+    if (!data || typeof data !== "object") return false;
+    if (Array.isArray(data.guilds)) return data.ok !== false;
+    return data.ok === true;
   }
 
   async function loadGuilds() {
@@ -298,18 +441,34 @@
     try {
       var out = await fetchDashboardJson(resolveApiBase() + "/guilds", token, { attempts: 3 });
       if (seq !== loadSeq) return;
-      var res = out.res;
-      var data = out.data;
-      if (res.status === 403 && data && (data.error === "high_staff_only" || data.error === "forbidden")) {
+      var res = out.res || { ok: false, status: 0 };
+      var data = out.data || {};
+      var status = Number(res.status) || 0;
+      if (status === 403 && data && (data.error === "high_staff_only" || data.error === "forbidden")) {
         showLocked();
         return;
       }
-      if (res.status === 403 && data && data.error === "missing_guilds_scope") {
+      if (status === 403 && data && data.error === "missing_guilds_scope") {
         showScopeNotice();
         return;
       }
-      if (!res.ok || !data || data.ok === false) {
-        setError((data && data.message) || t("dash.errLoadServers", "Impossibile caricare i server."));
+      // Success se c'è guilds[] (anche se ok manca / body anomalo)
+      if (guildsPayloadOk(data)) {
+        setError("");
+        showApp();
+        renderGuilds(data.guilds || []);
+        return;
+      }
+      if (!res.ok || data.ok === false || !out.raw) {
+        var detail = "";
+        try {
+          if (data && data.error) detail = " (" + String(data.error) + ")";
+          else if (status) detail = " (HTTP " + status + ")";
+        } catch (eDet) {}
+        setError(
+          (data && data.message) ||
+            t("dash.errLoadServers", "Impossibile caricare i server.") + detail,
+        );
         return;
       }
       setError("");
@@ -343,12 +502,38 @@
 
   function boot() {
     wireGateLogin();
-    if (getToken()) {
-      loadGuilds();
+    var started = false;
+    function startOnce() {
+      if (started) return;
+      started = true;
+      if (getToken() || hasLikelySession()) {
+        loadGuilds();
+        return;
+      }
+      obscureDashboard({ force: true });
+    }
+    if (window.__VC_DASHBOARD_ACCESS_OK === true || document.documentElement.classList.contains("vc-dash-access-ready")) {
+      startOnce();
+    } else if (getToken() || hasLikelySession()) {
+      /* aspetta il gate, ma non kickare */
+      window.setTimeout(function () {
+        if (!started) startOnce();
+      }, 2800);
+    } else {
+      window.setTimeout(function () {
+        if (!started) startOnce();
+      }, 900);
+    }
+  }
+
+  window.addEventListener("vc-dashboard-access", function (ev) {
+    var d = ev && ev.detail;
+    if (d && d.allowed === false) {
+      obscureDashboard({ force: true });
       return;
     }
-    obscureDashboard();
-  }
+    if (getToken() || hasLikelySession()) loadGuilds();
+  });
 
   window.addEventListener("vc-discord-profile", function (ev) {
     var u = ev && ev.detail ? ev.detail.user : null;
@@ -356,7 +541,9 @@
       loadGuilds();
       return;
     }
-    obscureDashboard();
+    /* null durante refresh sessione ≠ logout */
+    if (accessPending() || hasLikelySession()) return;
+    obscureDashboard({ force: true });
   });
 
   document.addEventListener("vc:langchange", function () {

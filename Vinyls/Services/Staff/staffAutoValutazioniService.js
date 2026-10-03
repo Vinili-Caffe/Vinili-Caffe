@@ -751,9 +751,6 @@ function hydrateSerataFilmSessionsFromDisk() {
       }
       serataFilmSessions.set(key, session);
     }
-    if (list.length) {
-      global.logger?.info?.("[STAFF AUTO VALUTAZIONI] restored serata sessions from disk:", list.length);
-    }
   } catch (err) {
     global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] serata session hydrate failed:", err?.message || err);
   }
@@ -790,7 +787,6 @@ async function startSerataFilmSession(event) {
     }
   }
   persistSerataFilmSessionsSoon();
-  global.logger?.info?.("[STAFF AUTO VALUTAZIONI] serata film session started:", event.id);
 }
 
 function serataFilmEvalDateUtc(session) {
@@ -902,18 +898,6 @@ async function finishSerataFilmSession(event, opts = {}) {
       appliedUserIds.push(uid);
     }
   }
-  global.logger?.info?.(
-    "[STAFF AUTO VALUTAZIONI] serata film finish:",
-    session.eventId,
-    "negatives=",
-    applied,
-    "present=",
-    skippedPresent,
-    "excused=",
-    skippedExcused,
-    "pause=",
-    skippedPause,
-  );
   if (!serataFilmSessions.size) clearPersistedSerataFilmSessions();
   return {
     ok: true,

@@ -439,7 +439,7 @@
     if (data && typeof data === "object") {
       data.status = status;
       if (!data.message && !data.ok) {
-        if (status === 401) data.message = "Sessione Discord scaduta: effettua di nuovo il login.";
+        if (status === 401) data.message = "Sessione Discord scaduta in questo browser. Riaccedi qui (ogni browser ha login separato).";
         else if (status === 429) data.message = "Troppe richieste. Riprova tra poco.";
         else if (status >= 500) data.message = "Il server non risponde. Riprova tra poco.";
         else data.message = "Impossibile caricare (HTTP " + status + ").";
@@ -452,7 +452,7 @@
       status: status,
       message:
         status === 401
-          ? "Sessione Discord scaduta: effettua di nuovo il login."
+          ? "Sessione Discord scaduta in questo browser. Riaccedi qui (ogni browser ha login separato)."
           : status === 429
             ? "Troppe richieste. Riprova tra poco."
             : "Risposta non valida dal server (HTTP " + status + ").",
@@ -1337,7 +1337,7 @@
             '<button type="button" class="vc-cpf-emojibtn" data-cpf-emoji-pick="voc-emoji" title="Scegli emoji" aria-label="Scegli emoji">' +
             '<i class="fa fa-smile-o" aria-hidden="true"></i></button></div>' +
             '<div class="vc-cpf-actions vc-cpf-actions--field">' +
-            '<button type="button" class="vc-cpf-btn" data-action="emoji">Salva emoji</button></div></label>' +
+            '<button type="button" class="vc-cpf-btn vc-cpf-btn--primary" data-action="emoji">Salva emoji</button></div></label>' +
             "</div>",
         ) +
         block(
@@ -1446,6 +1446,18 @@
       applyStatePayload(out);
       var fresh = await apiGet();
       if (fresh && fresh.ok) applyStatePayload(fresh);
+      if (action === "members_remove" && extra && extra.memberId) {
+        var dropId = String(extra.memberId || "").trim();
+        var ent = entityFor(target);
+        if (ent && Array.isArray(ent.sharedMembers) && dropId) {
+          ent.sharedMembers = ent.sharedMembers.filter(function (m) {
+            return String(m && m.id) !== dropId;
+          });
+          if (typeof ent.sharedMembersCount === "number") {
+            ent.sharedMembersCount = Math.max(0, ent.sharedMembers.filter(function (m) { return !m.isOwner; }).length);
+          }
+        }
+      }
       showToast(out.message || "Salvato.");
       if (action === "members_add" || action === "members_remove") {
         refreshMembersUi(target);

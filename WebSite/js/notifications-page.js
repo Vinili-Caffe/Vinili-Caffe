@@ -3,6 +3,8 @@
   var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
   var NOTIF_SYNC_KEY = "vc_notifications_sync_v1";
   var PENDING_READ_PREFIX = "vc_notifications_pending_read_v1:";
+  /* notifSheetSync1: pending locale solo TTL — poi vince il server */
+  var PENDING_READ_TTL_MS = 18000;
   var CLEAR_ALL_AT_PREFIX = "vc_notifications_clear_all_at_v1:";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
@@ -126,6 +128,7 @@
     lastNotifyListRenderSig = "";
     renderList();
     refreshNotifBell();
+    dismissOsNotificationsLocal({ all: true });
     if (pageMarkReadTimer) clearTimeout(pageMarkReadTimer);
     pageMarkReadTimer = setTimeout(function () {
       pageMarkReadTimer = null;
@@ -203,6 +206,43 @@
       var here = window.location;
       var destPath = String(dest.pathname || "").replace(/\/+$/, "") || "/";
       var herePath = String(here.pathname || "").replace(/\/+$/, "") || "/";
+      /* notifSheetOpenFix1: soft open staff inbox sheet se già su /notifications */
+      if (/\/notifications$/i.test(destPath) && /\/notifications$/i.test(herePath)) {
+        var wantStaffNav = false;
+        try {
+          wantStaffNav = String(dest.searchParams.get("view") || "").toLowerCase() === "staff";
+        } catch (eVs) {}
+        if (wantStaffNav && typeof window.__vcStaffInboxOpenDeepLink === "function") {
+          var inboxQ = "";
+          var itemQ = "";
+          var scopeQ = "pending";
+          try {
+            inboxQ = String(dest.searchParams.get("inbox") || "").trim();
+            itemQ = String(dest.searchParams.get("item") || "").trim();
+            scopeQ = String(dest.searchParams.get("scope") || "pending").trim() || "pending";
+          } catch (eIq) {}
+          try {
+            if (window.VcNotifScope && typeof window.VcNotifScope.setScope === "function") {
+              window.VcNotifScope.setScope("staff", { push: false, remember: false });
+            }
+          } catch (eSetSc) {}
+          try {
+            var softOk = window.__vcStaffInboxOpenDeepLink({
+              inbox: inboxQ,
+              item: itemQ,
+              scope: scopeQ,
+            });
+            if (softOk) {
+              try {
+                window.dispatchEvent(
+                  new CustomEvent("vc:notif-scope", { detail: { scope: "staff", source: "notif-open" } }),
+                );
+              } catch (eSc) {}
+              return;
+            }
+          } catch (eSoft) {}
+        }
+      }
       var isTicketsDest = /\/tickets$/i.test(destPath);
       var onTicketsPage = /\/tickets$/i.test(herePath);
       if (isTicketsDest && onTicketsPage) {
@@ -235,6 +275,46 @@
             );
           } catch (eEv) {}
           return;
+        }
+      }
+      /* notifSheetFastOpen1: soft open feedback/confessionale già sulla pagina */
+      var isFeedbackDest = /\/feedback$/i.test(destPath) || /\/suggerimenti$/i.test(destPath);
+      var onFeedbackPage = /\/feedback$/i.test(herePath) || /\/suggerimenti$/i.test(herePath);
+      if (isFeedbackDest && onFeedbackPage) {
+        var sugId = "";
+        try {
+          var hSug = String(dest.hash || "").replace(/^#/, "").trim();
+          if (/^vc-suggestion-([a-f0-9]{24})$/i.test(hSug)) {
+            sugId = hSug.replace(/^vc-suggestion-/i, "");
+          }
+        } catch (eHs) {}
+        var wantFbBoard = "community";
+        try {
+          if (String(dest.searchParams.get("board") || "").toLowerCase() === "staff") wantFbBoard = "staff";
+        } catch (eFbB) {}
+        if (sugId && typeof window.__vcFeedbackOpenDeepLink === "function") {
+          try {
+            if (window.__vcFeedbackOpenDeepLink({ id: sugId, board: wantFbBoard })) return;
+          } catch (eSoftFb) {}
+        }
+      }
+      var isConfDest = /\/confessionale$/i.test(destPath);
+      var onConfPage = /\/confessionale$/i.test(herePath);
+      if (isConfDest && onConfPage) {
+        var confId = "";
+        try {
+          var hConf = String(dest.hash || "").replace(/^#/, "").trim();
+          var mConf = hConf.match(/^vc-conf-card-([a-f0-9]{24})$/i);
+          if (mConf) confId = mConf[1];
+        } catch (eHc) {}
+        var wantConfBoard = "community";
+        try {
+          if (String(dest.searchParams.get("board") || "").toLowerCase() === "staff") wantConfBoard = "staff";
+        } catch (eCb) {}
+        if (confId && typeof window.__vcConfessionaleOpenDeepLink === "function") {
+          try {
+            if (window.__vcConfessionaleOpenDeepLink({ id: confId, board: wantConfBoard })) return;
+          } catch (eSoftConf) {}
         }
       }
     } catch (eNav) {}
@@ -321,19 +401,36 @@
     }
   }
 
+  function markSelfNotifSync() {
+    /* handlerPerf1: evita eco BC tra notifications-page + landing-notif */
+    try {
+      window.__vcNotifSyncIgnoreUntil = Date.now() + 160;
+    } catch (eIgn) {}
+  }
+  function isSelfNotifSync() {
+    try {
+      return Date.now() < Number(window.__vcNotifSyncIgnoreUntil || 0);
+    } catch (eSelf) {
+      return false;
+    }
+  }
   function notifyNotifStorePeers() {
-    try {
-      localStorage.setItem(NOTIF_SYNC_KEY, String(Date.now()) + ":" + Math.random().toString(36).slice(2, 8));
-    } catch (ePing) {}
-    try {
-      if (notifSyncBc) notifSyncBc.postMessage({ t: Date.now() });
-    } catch (eBcPost) {}
+    markSelfNotifSync();
     ignoreSelfNotifSync += 1;
     try {
-      window.dispatchEvent(new CustomEvent("vc:notifications-sync"));
-    } catch (eEv) {
+      try {
+        localStorage.setItem(NOTIF_SYNC_KEY, String(Date.now()) + ":" + Math.random().toString(36).slice(2, 8));
+      } catch (ePing) {}
+      try {
+        if (notifSyncBc) notifSyncBc.postMessage({ t: Date.now() });
+      } catch (eBcPost) {}
+      try {
+        window.dispatchEvent(new CustomEvent("vc:notifications-sync"));
+      } catch (eEv) {}
     } finally {
-      ignoreSelfNotifSync -= 1;
+      window.setTimeout(function () {
+        ignoreSelfNotifSync = Math.max(0, ignoreSelfNotifSync - 1);
+      }, 0);
     }
   }
   function isNotifStorageSyncKey(key) {
@@ -344,21 +441,40 @@
     if (k.indexOf(DISMISSED_PREFIX) === 0) return true;
     return false;
   }
-  function onNotifStorePeerSync() {
-    if (ignoreSelfNotifSync > 0) return;
-    lastNotifyListRenderSig = "";
-    renderList();
+  function flushPageNotifPeerSync() {
     try {
-      if (window.vcNotify && typeof window.vcNotify.refresh === "function") {
-        window.vcNotify.refresh({ force: true });
+      if (document.hidden || document.visibilityState === "hidden") {
+        window.__vcPageNotifPeerSyncWhenVisible = 1;
+        return;
       }
-    } catch (eRefresh) {}
+    } catch (eHid) {}
+    lastNotifyListRenderSig = "";
+    try {
+      renderList();
+    } catch (eList) {}
+    /* handlerPerf1: niente vcNotify.refresh qui — lo fa già landing-notif nel coalesce */
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
     if (notifPeerSyncTimer) clearTimeout(notifPeerSyncTimer);
     notifPeerSyncTimer = setTimeout(function () {
       notifPeerSyncTimer = null;
       syncSiteNotificationsFromServer();
-    }, 250);
+    }, 320);
+  }
+  function onNotifStorePeerSync() {
+    if (ignoreSelfNotifSync > 0 || isSelfNotifSync()) return;
+    /* handlerPerf1: timer condiviso con landing-notif */
+    window.__vcNotifPeerNeedPage = 1;
+    if (typeof window.__vcArmNotifPeerSync === "function") {
+      window.__vcArmNotifPeerSync();
+      return;
+    }
+    if (window.__vcNotifPeerUiSyncTimer) return;
+    window.__vcNotifPeerUiSyncTimer = window.setTimeout(function () {
+      window.__vcNotifPeerUiSyncTimer = 0;
+      if (ignoreSelfNotifSync > 0 || isSelfNotifSync()) return;
+      window.__vcNotifPeerNeedPage = 0;
+      flushPageNotifPeerSync();
+    }, 90);
   }
   function saveDismissedSet(setLike, userId) {
     var key = userDismissedKey(userId);
@@ -490,37 +606,72 @@
   }
   function parsePendingIdMap(raw) {
     var map = {};
+    var now = Date.now();
     try {
-      var arr = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(arr)) {
-        for (var i = 0; i < arr.length; i += 1) {
-          var id = String(arr[i] || "").trim();
-          if (id) map[id] = true;
+      var data = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(data)) {
+        for (var i = 0; i < data.length; i += 1) {
+          var id = String(data[i] || "").trim();
+          if (id) map[id] = now;
+        }
+      } else if (data && typeof data === "object") {
+        for (var k in data) {
+          if (!Object.prototype.hasOwnProperty.call(data, k)) continue;
+          var sid = String(k || "").trim();
+          if (!sid) continue;
+          var ts = Number(data[k]);
+          map[sid] = Number.isFinite(ts) && ts > 0 ? ts : now;
         }
       }
     } catch (e) {}
     return map;
+  }
+  function isFreshPendingTs(ts) {
+    var n = Number(ts);
+    return Number.isFinite(n) && n > 0 && Date.now() - n < PENDING_READ_TTL_MS;
+  }
+  function prunePendingReadMap(map) {
+    var out = {};
+    var src = map && typeof map === "object" ? map : {};
+    for (var k in src) {
+      if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+      if (isFreshPendingTs(src[k])) out[k] = Number(src[k]);
+    }
+    return out;
   }
   function loadPendingReadMap() {
     var map = parsePendingIdMap(readPendingRaw(pendingReadKey()));
     var anon = parsePendingIdMap(readPendingRaw(PENDING_READ_PREFIX + "anon"));
     var k;
     for (k in anon) {
-      if (Object.prototype.hasOwnProperty.call(anon, k)) map[k] = true;
+      if (Object.prototype.hasOwnProperty.call(anon, k)) map[k] = anon[k];
     }
-    return map;
+    var pruned = prunePendingReadMap(map);
+    if (Object.keys(pruned).length !== Object.keys(map).length) {
+      savePendingReadMap(pruned);
+    }
+    return pruned;
   }
   function savePendingReadMap(map) {
-    writePendingRaw(pendingReadKey(), JSON.stringify(Object.keys(map || {})));
+    var pruned = prunePendingReadMap(map);
+    writePendingRaw(pendingReadKey(), JSON.stringify(pruned || {}));
     if (normalizeUserId(currentUserId)) {
-      writePendingRaw(PENDING_READ_PREFIX + "anon", "[]");
+      writePendingRaw(PENDING_READ_PREFIX + "anon", "{}");
     }
+  }
+  function migrateUnreadKeep1PendingClear() {
+    try {
+      if (localStorage.getItem("vc_notif_unread_keep1_mig") === "1") return;
+      savePendingReadMap({});
+      writePendingRaw(PENDING_READ_PREFIX + "anon", "{}");
+      localStorage.setItem("vc_notif_unread_keep1_mig", "1");
+    } catch (eMig) {}
   }
   function rememberPendingRead(id) {
     var sid = String(id || "").trim();
     if (!sid) return;
     var map = loadPendingReadMap();
-    map[sid] = true;
+    map[sid] = Date.now();
     savePendingReadMap(map);
   }
   function forgetPendingRead(id) {
@@ -544,7 +695,10 @@
         String((x && x.kind) || "info"),
         String((x && x.openUrl) || ""),
       );
-      if ((id && map[id] && !x.read) || (fp && map[fp] && !x.read)) {
+      if (
+        (id && isFreshPendingTs(map[id]) && !x.read) ||
+        (fp && isFreshPendingTs(map[fp]) && !x.read)
+      ) {
         return Object.assign({}, x, { read: true });
       }
       return x;
@@ -862,9 +1016,41 @@
       hay,
     );
   }
+  function isConfessionaleNotifPage(n) {
+    if (!n) return false;
+    var kind = String(n.kind || "").toLowerCase();
+    if (kind === "confessionale") return true;
+    var key = String(n.dedupeKey || "").toLowerCase();
+    if (/^confessionale:/.test(key)) return true;
+    var url = String(n.openUrl || "").toLowerCase();
+    if (/\/staff\/confessionale\//.test(url)) return true;
+    return false;
+  }
+  function isCompitiNotifPage(n) {
+    if (!n) return false;
+    var key = String(n.dedupeKey || "").toLowerCase();
+    if (/^compiti:/.test(key)) return true;
+    var url = String(n.openUrl || "").toLowerCase();
+    if (/\/staff\/compiti\/?/.test(url)) return true;
+    var title = String(n.title || "").toLowerCase();
+    if (/^compito\b/.test(title) || /scadenza compiti/.test(title)) return true;
+    return false;
+  }
+  function isStaffTeamPexDepexNotifPage(n) {
+    if (!n) return false;
+    var key = String(n.dedupeKey || "").toLowerCase();
+    if (/^staff-(pex|depex):.+:team$/.test(key)) return true;
+    var title = String(n.title || "").trim();
+    var url = String(n.openUrl || "").toLowerCase();
+    if (/\/staff\/organico\/?/.test(url) && /^(pex|depex):\s+\S/i.test(title)) return true;
+    return false;
+  }
   function isInboxLinkedNotifPage(n) {
     if (!n) return false;
     if (isWorkflowDecisionNotifPage(n) || isPersonalTicketOpenerNotifPage(n)) return false;
+    if (isStaffTeamPexDepexNotifPage(n)) return true;
+    if (isConfessionaleNotifPage(n)) return true;
+    if (isCompitiNotifPage(n)) return true;
     if (isPuntiToltiSubjectNotifPage(n)) return true;
     if (isStaffTicketSlaNotifPage(n)) return true;
     if (isStaffTicketNotifPage(n)) return true;
@@ -881,7 +1067,9 @@
       /^wfc:(invite|remove|msg):staff:/.test(key) ||
       /^wfc:mention:/.test(key) ||
       /^pt-pending:/.test(key) ||
-      /^web_ticket:sla:/.test(key)
+      /^web_ticket:sla:/.test(key) ||
+      /^compiti:/.test(key) ||
+      /^staff-(pex|depex):.+:team$/.test(key)
     ) {
       return true;
     }
@@ -901,6 +1089,7 @@
     }
     if (kind === "review") return "reviews";
     if (kind === "suggestion") return "feedback";
+    if (kind === "confessionale" || isConfessionaleNotifPage(n)) return "confessionale";
     if (kind === "staff") return "staff";
     if (kind === "mod" || kind === "success") return "community";
     return "system";
@@ -912,6 +1101,7 @@
     { id: "appelli", label: "Appelli", ico: "fa-gavel" },
     { id: "reviews", label: "Recensioni", ico: "fa-star" },
     { id: "feedback", label: "Feedback", ico: "fa-magic" },
+    { id: "confessionale", label: "Confessioni", ico: "fa-id-badge" },
     { id: "staff", label: "Eventi staff", ico: "fa-id-badge" },
     { id: "community", label: "Community", ico: "fa-users" },
     { id: "system", label: "Sistema", ico: "fa-bell-o" },
@@ -937,14 +1127,31 @@
       clearBtn = document.createElement("button");
       clearBtn.type = "button";
       clearBtn.className = "vc-notif-cat-clear";
+      if (opts.clearCatId) clearBtn.setAttribute("data-cat-clear", opts.clearCatId);
+      clearBtn.setAttribute("data-cat-scope", "personal");
       clearBtn.title = opts.clearTitle || "Elimina categoria";
       clearBtn.setAttribute("aria-label", opts.clearAriaLabel || clearBtn.title);
       clearBtn.innerHTML = '<i class="fa fa-trash-o" aria-hidden="true"></i>';
-      clearBtn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
+      var runClear = function (ev) {
+        try {
+          if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+          if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+        } catch (eS) {}
         opts.onClear(ev);
+      };
+      clearBtn.addEventListener("click", runClear);
+      clearBtn.addEventListener("pointerup", function (ev) {
+        if (Number(ev.button) > 0) return;
+        runClear(ev);
       });
+      clearBtn.addEventListener(
+        "touchend",
+        function (ev) {
+          if (ev.cancelable) ev.preventDefault();
+          runClear(ev);
+        },
+        { passive: false },
+      );
       actions.appendChild(clearBtn);
     }
     var chev = document.createElement("i");
@@ -994,6 +1201,7 @@
     if (kind === "review") return "fa-star";
     if (kind === "mod") return "fa-shield";
     if (kind === "staff") return "fa-id-badge";
+    if (kind === "confessionale") return "fa-id-badge";
     if (kind === "suggestion") return "fa-magic";
     return "fa-bell-o";
   }
@@ -1005,6 +1213,7 @@
     if (kind === "review") return t("notifPage.kind.review");
     if (kind === "mod") return t("notifPage.kind.mod");
     if (kind === "staff") return t("notifPage.kind.staff");
+    if (kind === "confessionale") return t("notifPage.kind.confessionale");
     if (kind === "suggestion") return t("notifPage.kind.suggestion");
     return t("notifPage.kind.info");
   }
@@ -1105,10 +1314,90 @@
     }
   }
 
+  /* notifReadDismissOs1: chiudi banner OS locali (come bell) */
+  function dismissOsNotificationsLocal(spec) {
+    spec = spec || {};
+    try {
+      if (typeof window.__vcDismissOsNotifs === "function") {
+        window.__vcDismissOsNotifs(spec);
+        return;
+      }
+    } catch (eBridge) {}
+    var payload = {
+      type: "vc:dismiss-notifs",
+      id: String(spec.id || "").trim(),
+      ids: Array.isArray(spec.ids) ? spec.ids.map(String).filter(Boolean) : [],
+      ticketId: String(spec.ticketId || "").trim(),
+      ticketIds: Array.isArray(spec.ticketIds) ? spec.ticketIds.map(String).filter(Boolean) : [],
+      openUrls: Array.isArray(spec.openUrls) ? spec.openUrls.map(String).filter(Boolean) : [],
+      pageUrl: String(spec.pageUrl || "").trim(),
+      all: spec.all === true,
+      closeOnly: true,
+    };
+    if (
+      !payload.all &&
+      !payload.id &&
+      !payload.ids.length &&
+      !payload.ticketId &&
+      !payload.ticketIds.length &&
+      !payload.openUrls.length &&
+      !payload.pageUrl
+    ) {
+      return;
+    }
+    function post(sw) {
+      try {
+        if (sw) sw.postMessage(payload);
+      } catch (ePost) {}
+    }
+    try {
+      post(navigator.serviceWorker && navigator.serviceWorker.controller);
+    } catch (e0) {}
+    try {
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.ready.then(function (reg) {
+        post(reg && reg.active);
+        try {
+          if (reg && typeof reg.getNotifications === "function") {
+            reg.getNotifications().then(function (list) {
+              var arr = Array.isArray(list) ? list : [];
+              for (var i = 0; i < arr.length; i += 1) {
+                var n = arr[i];
+                if (!n) continue;
+                var tag = String(n.tag || "");
+                var data = (n.data && typeof n.data === "object" ? n.data : {}) || {};
+                var nid = String(data.id || "").trim();
+                var nOpen = String(data.openUrl || data.url || "").trim();
+                var hit = false;
+                if (payload.all) hit = true;
+                if (!hit && payload.id && (nid === payload.id || tag === "vc-site-" + payload.id)) hit = true;
+                if (!hit && payload.ids.length && payload.ids.indexOf(nid) !== -1) hit = true;
+                if (!hit && payload.openUrls.length && nOpen) {
+                  for (var oi = 0; oi < payload.openUrls.length; oi += 1) {
+                    if (payload.openUrls[oi] && nOpen.indexOf(payload.openUrls[oi]) !== -1) {
+                      hit = true;
+                      break;
+                    }
+                  }
+                }
+                if (hit) {
+                  try {
+                    n.close();
+                  } catch (eClose) {}
+                }
+              }
+            }).catch(function () {});
+          }
+        } catch (eGet) {}
+      }).catch(function () {});
+    } catch (e1) {}
+  }
+
   function markRead(id, extra) {
     var sid = String(id || "").trim();
     var dest = String((extra && extra.openUrl) || "").trim();
     if (sid) rememberPendingRead(sid);
+    var idsHit = sid ? [sid] : [];
     var next = loadStored().map(function (x) {
       if (!x || x.read) return x;
       var xid = String((x && x.id) || "").trim();
@@ -1116,7 +1405,10 @@
       var match = Boolean(sid && xid === sid);
       if (!match && dest && xDest && dest === xDest && dest !== "/") match = true;
       if (!match) return x;
-      if (xid) rememberPendingRead(xid);
+      if (xid) {
+        rememberPendingRead(xid);
+        if (idsHit.indexOf(xid) === -1) idsHit.push(xid);
+      }
       var fp = buildNotifFingerprintId(
         x,
         normalizeUserId(currentUserId),
@@ -1127,6 +1419,11 @@
       return Object.assign({}, x, { read: true });
     });
     saveStored(next);
+    dismissOsNotificationsLocal({
+      id: sid,
+      ids: idsHit,
+      openUrls: dest ? [dest] : [],
+    });
   }
   function markReadOnServer(id) {
     var token = getDiscordAccessToken();
@@ -1325,21 +1622,16 @@
         if (isNewArrival) {
           justArrivedNotifIds.add(sid);
           scheduleJustArrivedCleanup(sid);
-          queuePageMarkReadOnServer(sid);
         }
-        if (!mapped.read || isNewArrival || !bootstrapped) {
-          mapped = Object.assign({}, mapped, { read: true });
-          rememberPendingRead(sid);
-          if (fpId) rememberPendingRead(fpId);
-        }
+        /* notifUnreadKeep1: restare unread finché click/openAndMarkRead — niente force-read su merge */
       }
       fromServer.push(
         Object.assign({}, mapped, {
+          /* notifSheetSync1: pending fresco solo TTL; stale → server unread */
           read:
             Boolean(mapped.read) ||
-            Boolean(oldReadMap[sid]) ||
-            Boolean(pendingReadMap[sid]) ||
-            Boolean(fpId && pendingReadMap[fpId]),
+            isFreshPendingTs(pendingReadMap[sid]) ||
+            isFreshPendingTs(fpId && pendingReadMap[fpId]),
         }),
       );
     }
@@ -1361,7 +1653,6 @@
       if (!bootstrapped) bootstrapPageNotifIds(merged);
       else rememberPageNotifIds(fromServer);
       refreshNotifBell();
-      flushPageMarkReadQueue();
     }
     return beforeSig !== buildNotifyPageSignature(merged, filteredRows(merged).length);
   }
@@ -1435,20 +1726,60 @@
 
   function bootNotifList() {
     resolveCurrentUserEarly();
-    markAllAsReadWhileOnPage({ immediate: true });
-    renderList();
+    /* notifUnreadKeep1: non segnare tutto letto al boot — badge/lista devono restare unread */
+    migrateUnreadKeep1PendingClear();
+    /* notifGetFix1: getNotifications/els were never defined → ReferenceError on /notifications */
+    var list = loadStored();
+    var listEl = byId("vc-notify-list");
+    var emptyEl = byId("vc-notify-empty");
+    if (!list.length && listEl) {
+      /* inboxEmptyNoSkel1: se empty già in vista, non ri-mettere skeleton */
+      var emptyAlready =
+        emptyEl &&
+        !emptyEl.hidden &&
+        emptyEl.getAttribute("hidden") == null &&
+        !listEl.querySelector(".vc-list-skel") &&
+        !listEl.querySelector(".vc-notify-row");
+      if (emptyAlready) {
+        renderList();
+      } else if (window.VcListSkeleton && typeof window.VcListSkeleton.fill === "function") {
+        window.VcListSkeleton.fill(listEl, { count: 5, mode: "rows" });
+      } else {
+        listEl.setAttribute("aria-busy", "true");
+      }
+      if (emptyEl && !emptyAlready) emptyEl.hidden = true;
+    } else {
+      renderList();
+    }
     waitForNotifSession().then(function (ok) {
-      if (!ok) return;
+      if (!ok) {
+        renderList();
+        return;
+      }
       syncSiteNotificationsFromServer();
     });
   }
 
   function syncSiteNotificationsFromServer() {
+    /* notifSheetSync1: se landing gestisce già sync/badge, riusa quello (stesso store) */
+    try {
+      if (window.vcNotify && typeof window.vcNotify.refresh === "function") {
+        window.vcNotify.refresh({ force: true, full: true });
+        renderList();
+        return;
+      }
+    } catch (eBellSync) {}
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
-    if (!token || !uid) return;
+    if (!token || !uid) {
+      renderList();
+      return;
+    }
     var url = resolvedSiteNotificationsUrl();
-    if (!url) return;
+    if (!url) {
+      renderList();
+      return;
+    }
     var headers = { Authorization: "Bearer " + token };
     try {
       if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
@@ -1467,11 +1798,15 @@
         return r.json();
       })
       .then(function (j) {
-        if (!j || j.ok !== true || !Array.isArray(j.items)) return;
-        var list = j.items.slice().reverse();
-        if (mergePageStoredWithServerList(list, uid)) renderList();
+        if (j && j.ok === true && Array.isArray(j.items)) {
+          var list = j.items.slice().reverse();
+          mergePageStoredWithServerList(list, uid);
+        }
+        renderList();
       })
-      .catch(function () {});
+      .catch(function () {
+        renderList();
+      });
   }
 
   function removeOne(id) {
@@ -1487,6 +1822,7 @@
     var dismissed = loadDismissedSet(uid);
     var sid = String(id || "").trim();
     if (sid) dismissed.add(sid);
+    var openUrl = item ? String(item.openUrl || "").trim() : "";
     if (item) {
       var fpId = buildNotifFingerprintId(item, uid, String(item.kind || "info"), String(item.openUrl || ""));
       if (fpId) dismissed.add(fpId);
@@ -1495,6 +1831,11 @@
     saveStored(items.filter(function (x) {
       return x.id !== id;
     }));
+    dismissOsNotificationsLocal({
+      id: sid,
+      ids: sid ? [sid] : [],
+      openUrls: openUrl ? [openUrl] : [],
+    });
     deleteSiteNotificationOnServer(id);
   }
 
@@ -1514,6 +1855,7 @@
     saveStored([]);
     lastNotifyListRenderSig = "";
     renderList();
+    dismissOsNotificationsLocal({ all: true });
     clearAllSiteNotificationsOnServer().finally(function () {
       window.setTimeout(function () {
         syncSiteNotificationsFromServer();
@@ -1545,16 +1887,51 @@
     var shown = filteredRows(all);
     setFilterButtons();
     renderStats(all);
+    var forcePaint =
+      list.getAttribute("aria-busy") === "true" || Boolean(list.querySelector(".vc-list-skel"));
     var sig = buildNotifyPageSignature(all, shown.length);
-    if (sig === lastNotifyListRenderSig) return;
+    /* emptyHiddenFix1: sync empty anche su early-return (CSS soft-fx vs [hidden]) */
+    function syncEmptyVisible(on) {
+      if (!empty) return;
+      if (on) {
+        empty.hidden = false;
+        empty.removeAttribute("hidden");
+        try {
+          empty.style.removeProperty("display");
+          empty.style.removeProperty("visibility");
+          empty.style.removeProperty("opacity");
+        } catch (eOn) {}
+      } else {
+        empty.hidden = true;
+        empty.setAttribute("hidden", "");
+        /* notifTapEmptyFix1 / emptyHiddenFix1: con soft-fx-off display:block!important
+           poteva lasciare "Nessuna notifica" sopra la lista */
+        try {
+          empty.style.setProperty("display", "none", "important");
+          empty.style.setProperty("visibility", "hidden", "important");
+          empty.style.setProperty("opacity", "0", "important");
+          empty.style.setProperty("pointer-events", "none", "important");
+          empty.style.setProperty("height", "0", "important");
+          empty.style.setProperty("overflow", "hidden", "important");
+        } catch (eOff) {}
+      }
+    }
+    if (!forcePaint && sig === lastNotifyListRenderSig) {
+      syncEmptyVisible(shown.length === 0);
+      return;
+    }
     lastNotifyListRenderSig = sig;
 
     list.innerHTML = "";
+    list.removeAttribute("aria-busy");
+    if (window.VcListSkeleton && typeof window.VcListSkeleton.clearBusy === "function") {
+      window.VcListSkeleton.clearBusy(list);
+    }
     if (shown.length === 0) {
-      empty.hidden = false;
+      syncEmptyVisible(true);
       return;
     }
-    empty.hidden = true;
+    syncEmptyVisible(false);
 
     var scrollToId = "";
 
@@ -1589,7 +1966,7 @@
 
       var iconWrap = document.createElement("span");
       iconWrap.className = "vc-notify-row-icon";
-      iconWrap.innerHTML = '<i class="fa ' + iconClass(n.kind) + '" aria-hidden="true"></i>';
+      iconWrap.innerHTML = '<i class="fa ' + iconClass(n.kind || (isConfessionaleNotifPage(n) ? "confessionale" : "info")) + '" aria-hidden="true"></i>';
 
       var main = document.createElement("div");
       main.className = "vc-notify-row-main";
@@ -1678,6 +2055,7 @@
           '<span class="vc-notify-cat-head__count vc-notif-bell-inbox__count">' +
           String(items.length) +
           "</span>",
+        clearCatId: cat.id,
         clearAriaLabel: "Elimina tutte in " + cat.label,
         onClear: function () {
           clearPageCategory(cat.id);
@@ -1778,6 +2156,7 @@
     perks: "Livelli e perk",
   };
   var notifPrefsState = { dm: null, siteNotif: null };
+  var notifPrefsLastFetchAt = 0;
   // site open by default so site toggles are visible under Filtri
   var notifPrefsOpenSections = { vote: true, discord: false, site: true };
   var notifPrefsWired = false;
@@ -2003,6 +2382,17 @@
   async function prefsRequest(body) {
     var token = prefsToken();
     if (!token) throw new Error("Accedi con Discord per gestire i filtri.");
+    if (!body) {
+      try {
+        if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
+          if (window.VcApiCache.isWebhookBlocked(prefsApiUrl())) {
+            throw new Error("Troppe richieste. Riprova tra poco.");
+          }
+        }
+      } catch (eBlk) {
+        if (eBlk && eBlk.message && eBlk.message.indexOf("Troppe") >= 0) throw eBlk;
+      }
+    }
     var res = await fetch(prefsApiUrl(), {
       method: body ? "POST" : "GET",
       headers: Object.assign(
@@ -2011,13 +2401,28 @@
       ),
       body: body ? JSON.stringify(body) : undefined,
     });
+    if (res && res.status === 429) {
+      try {
+        if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
+          window.VcApiCache.noteWebhook429(Number(res.headers.get("Retry-After") || "20"), prefsApiUrl());
+        }
+      } catch (e429) {}
+      throw new Error("Troppe richieste. Riprova tra poco.");
+    }
     var data = null;
     try {
       data = await res.json();
     } catch (e) {
       data = null;
     }
-    if (!data || !data.ok) throw new Error((data && data.message) || "Operazione non riuscita.");
+    if (!data || !data.ok) {
+      throw new Error(
+        (data && data.message) ||
+          (body
+            ? "Impossibile aggiornare i filtri notifiche."
+            : "Risposta non valida dal server sui filtri notifiche."),
+      );
+    }
     return data;
   }
 
@@ -2031,6 +2436,7 @@
     var data = await prefsRequest(null);
     notifPrefsState.dm = data.dm || null;
     notifPrefsState.siteNotif = data.siteNotif || null;
+    notifPrefsLastFetchAt = Date.now();
     renderNotifPrefs();
     setPrefsStatus("", false);
   }
@@ -2128,8 +2534,14 @@
     }
 
     if (!prefsToken()) return;
-    refreshNotifPrefs().catch(function (err) {
-      setPrefsStatus(err && err.message ? err.message : "Impossibile caricare i filtri.", true);
+    /* rateLimitCalm1: non ri-GET extras a ogni vc-discord-profile se freschi */
+    if (notifPrefsState.dm && notifPrefsState.siteNotif && Date.now() - notifPrefsLastFetchAt < 45000) {
+      renderNotifPrefs();
+      return;
+    }
+    /* notifPrefsBootToast1: boot GET fallito → solo pannello, niente toast
+       (prima: toast generico sopra al gate "Caricamento inbox staff…") */
+    refreshNotifPrefs().catch(function () {
       body.innerHTML = '<p class="vc-notif-prefs__empty">Impossibile caricare i filtri.</p>';
     });
   }
@@ -2159,6 +2571,18 @@
       onNotifStorePeerSync();
     });
   }
+  document.addEventListener("visibilitychange", function () {
+    try {
+      if (document.hidden || document.visibilityState === "hidden") return;
+      if (!window.__vcPageNotifPeerSyncWhenVisible) return;
+      window.__vcPageNotifPeerSyncWhenVisible = 0;
+      onNotifStorePeerSync();
+    } catch (eVisPeer) {}
+  });
+  window.addEventListener("vc:notifications-page-peer-sync", function () {
+    if (ignoreSelfNotifSync > 0 || isSelfNotifSync()) return;
+    flushPageNotifPeerSync();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
@@ -2166,3 +2590,6 @@
     init();
   }
 })();
+/* notifGetFix1 */
+/* handlerPerf1 */
+/* notifSheetSync1 */

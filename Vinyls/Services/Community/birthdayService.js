@@ -247,6 +247,10 @@ function startBirthdayLoop(client) {
     { timezone: DEFAULT_TIME_ZONE },
   );
 
+  global.logger?.info?.(
+    "[BIRTHDAY] loop started (00:00 + 00:15 Europe/Rome backup + recovery on boot)",
+  );
+
   setImmediate(() => {
     runBirthdayTick(client, { stripFlairFirst: false }).catch((err) =>
       global.logger?.warn?.("[BIRTHDAY] Recovery tick on start failed:", err?.message || err),

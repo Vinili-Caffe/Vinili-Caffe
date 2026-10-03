@@ -1,6 +1,11 @@
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const IDs = require("../Config/ids");
 const { isEconomyCommandsVisible } = require("../../Services/Community/activeEconomyService");
+const {
+  normalizeViewAs,
+  canUseViewAs,
+  roleIdsForViewAsPreset,
+} = require("./siteViewAsPreview");
 
 function collectMemberRoleIds(member) {
   try {
@@ -72,6 +77,7 @@ async function resolveWikiRoleContext(client, payload) {
   const memberRoleId = String(IDs?.roles?.Member || "").trim();
   const vipRoleId = String(IDs?.roles?.VIP || "").trim();
   const economyVisible = Boolean(isEconomyCommandsVisible(client));
+  const viewAs = normalizeViewAs(payload?.viewAs);
 
   if (!accessToken) {
     const roleIds = memberRoleId ? [memberRoleId] : [];
@@ -81,6 +87,7 @@ async function resolveWikiRoleContext(client, payload) {
       memberRoleId,
       vipRoleId,
       economyVisible,
+      viewAs: null,
     };
   }
 
@@ -94,18 +101,32 @@ async function resolveWikiRoleContext(client, payload) {
       vipRoleId,
       economyVisible,
       authError: resolved.error || "member_unresolved",
+      viewAs: null,
     };
   }
 
-  const roleIds = collectMemberRoleIds(resolved.member);
+  let roleIds = collectMemberRoleIds(resolved.member);
   if (memberRoleId && !roleIds.includes(memberRoleId)) roleIds.push(memberRoleId);
+
+  let guest = false;
+  let viewAsActive = null;
+  if (viewAs && canUseViewAs(resolved.member, { userId: resolved.userId, roleIds })) {
+    const fake = roleIdsForViewAsPreset(viewAs);
+    if (Array.isArray(fake)) {
+      roleIds = fake.length ? fake : memberRoleId ? [memberRoleId] : [];
+      guest = viewAs === "logout";
+      viewAsActive = viewAs;
+    }
+  }
+
   return {
-    guest: false,
+    guest,
     userId: resolved.userId,
     roleIds,
     memberRoleId,
     vipRoleId,
     economyVisible,
+    viewAs: viewAsActive,
   };
 }
 
@@ -129,6 +150,7 @@ async function getWikiHelpAccess(client, payload) {
         authError: ctx.authError,
         coffeeError: coffee.error || "coffee_catalog_failed",
         catalog: { categories: [], commandCount: 0 },
+        viewAs: ctx.viewAs || null,
       };
     }
     return {
@@ -143,6 +165,7 @@ async function getWikiHelpAccess(client, payload) {
       economyVisible: ctx.economyVisible,
       authError: ctx.authError,
       catalog: coffee.catalog,
+      viewAs: ctx.viewAs || null,
     };
   }
 
@@ -158,7 +181,11 @@ async function getWikiHelpAccess(client, payload) {
     vipRoleId: ctx.vipRoleId,
     economyVisible: catalog?.economyVisible ?? ctx.economyVisible,
     authError: ctx.authError,
-    catalog,
+    viewAs: ctx.viewAs || null,
+    /* mai null: il frontend trattava catalog null come errore “Impossibile caricare” */
+    catalog: catalog && typeof catalog === "object"
+      ? catalog
+      : { categories: [], commandCount: 0 },
   };
 }
 

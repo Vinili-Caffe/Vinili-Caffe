@@ -25,6 +25,26 @@ const TARGET_ROLE_IDS = [
 ].filter(Boolean);
 
 const KICK_REASON = "Accesso riservato: staff non presente nel server principale.";
+const notKickableLoggedUntil = new Map();
+
+function isStaffAccessMirrorEnabled(client) {
+  const raw =
+    client?.config?.staffAccessMirror && typeof client.config.staffAccessMirror === "object"
+      ? client.config.staffAccessMirror
+      : null;
+  /* testGuildOpsKill1: default off — solo report stats resta attivo su guild test */
+  if (!raw || typeof raw.enabled === "undefined") return false;
+  return Boolean(raw.enabled);
+}
+
+function resolveAccessGuildId(client) {
+  const raw =
+    client?.config?.staffAccessMirror && typeof client.config.staffAccessMirror === "object"
+      ? client.config.staffAccessMirror
+      : null;
+  const fromCfg = String(raw?.accessGuildId || "").trim();
+  return /^\d{16,22}$/.test(fromCfg) ? fromCfg : ACCESS_GUILD_ID;
+}
 
 function hasAnyRole(member, roleIds) {
   return roleIds.some((roleId) => member?.roles?.cache?.has?.(String(roleId)));
@@ -46,17 +66,52 @@ function qualifiesForAccess(mainMember) {
   return buildDesiredTargetRoles(mainMember).size > 0;
 }
 
+async function stripAccessRoles(member, reason) {
+  if (!member?.roles?.cache || !TARGET_ROLE_IDS.length) return false;
+  let removed = false;
+  for (const roleId of TARGET_ROLE_IDS) {
+    if (!member.roles.cache.has(roleId)) continue;
+    const ok = await member.roles
+      .remove(roleId, reason || "Sync accesso staff: rimozione ruoli (kick non disponibile)")
+      .then(() => true)
+      .catch(() => false);
+    if (ok) removed = true;
+  }
+  return removed;
+}
+
+function noteNotKickableOnce(guildId, userId) {
+  const key = `${guildId}:${userId}`;
+  const now = Date.now();
+  const until = Number(notKickableLoggedUntil.get(key) || 0);
+  if (until > now) return;
+  notKickableLoggedUntil.set(key, now + 6 * 60 * 60 * 1000);
+  /* logStormKill1: expected for higher roles / hierarchy — max 1 log / 6h */
+  global.logger?.debug?.("[STAFF ACCESS MIRROR] member not kickable (roles stripped if possible)", guildId, userId);
+}
+
 async function kickAccessMember(member, reason = KICK_REASON) {
   if (!member || member.user?.bot) return false;
   const fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member);
   if (!fresh?.kickable) {
-    global.logger?.warn?.("[STAFF ACCESS MIRROR] member not kickable", member.guild?.id, member.id);
+    noteNotKickableOnce(member.guild?.id, member.id);
+    /* Fallback: togli ruoli accesso se non possiamo kickare (gerarchia / owner). */
+    await stripAccessRoles(fresh || member, reason);
     return false;
   }
-  return fresh.kick(reason).then(() => true).catch((err) => {
-    global.logger?.warn?.("[STAFF ACCESS MIRROR] kick failed", member.guild?.id, member.id, err?.message || err);
-    return false;
-  });
+  return fresh
+    .kick(reason)
+    .then(() => true)
+    .catch(async (err) => {
+      const msg = String(err?.message || err || "");
+      if (/Missing Permissions|Hierarchy|kickable/i.test(msg)) {
+        noteNotKickableOnce(member.guild?.id, member.id);
+        await stripAccessRoles(fresh || member, reason);
+        return false;
+      }
+      global.logger?.warn?.("[STAFF ACCESS MIRROR] kick failed", member.guild?.id, member.id, msg);
+      return false;
+    });
 }
 
 async function syncTargetMemberFromMainMember(targetMember, mainMember) {
@@ -88,10 +143,12 @@ async function syncTargetMemberFromMainMember(targetMember, mainMember) {
 }
 
 async function syncAccessMember(client, userId) {
+  if (!isStaffAccessMirrorEnabled(client)) return { ok: false, skipped: "disabled" };
   const uid = String(userId || "").trim();
   if (!client || !/^\d{16,20}$/.test(uid)) return { ok: false, skipped: "invalid_user" };
 
-  const accessGuild = await getClientGuildCached(client, ACCESS_GUILD_ID).catch(() => null);
+  const accessGuildId = resolveAccessGuildId(client);
+  const accessGuild = await getClientGuildCached(client, accessGuildId).catch(() => null);
   if (!accessGuild) return { ok: false, skipped: "no_access_guild" };
   const targetMember = await getGuildMemberCached(accessGuild, uid, { preferFresh: true }).catch(() => null);
   if (!targetMember) return { ok: false, skipped: "not_in_access_guild" };
@@ -104,25 +161,31 @@ async function syncAccessMember(client, userId) {
 }
 
 async function handleAccessGuildMemberAdd(member) {
-  if (String(member?.guild?.id || "") !== ACCESS_GUILD_ID) return false;
+  if (!isStaffAccessMirrorEnabled(member?.client)) return false;
+  const accessGuildId = resolveAccessGuildId(member?.client);
+  if (String(member?.guild?.id || "") !== accessGuildId) return false;
   await syncAccessMember(member.client, member.id);
   return true;
 }
 
 async function handleMainGuildMemberUpdate(oldMember, newMember) {
+  if (!isStaffAccessMirrorEnabled(newMember?.client)) return;
   if (String(newMember?.guild?.id || "") !== MAIN_GUILD_ID) return;
   if (newMember?.user?.bot) return;
   await syncAccessMember(newMember.client, newMember.id);
 }
 
 async function handleMainGuildMemberRemove(member) {
+  if (!isStaffAccessMirrorEnabled(member?.client)) return;
   if (String(member?.guild?.id || "") !== MAIN_GUILD_ID) return;
   if (member?.user?.bot) return;
   await syncAccessMember(member.client, member.id);
 }
 
 async function sweepAccessGuild(client) {
-  const accessGuild = await getClientGuildCached(client, ACCESS_GUILD_ID).catch(() => null);
+  if (!isStaffAccessMirrorEnabled(client)) return { scanned: 0, skipped: "disabled" };
+  const accessGuildId = resolveAccessGuildId(client);
+  const accessGuild = await getClientGuildCached(client, accessGuildId).catch(() => null);
   if (!accessGuild?.members?.fetch) return { scanned: 0 };
   const members = await accessGuild.members.fetch().catch(() => null);
   if (!members?.size) return { scanned: 0 };
@@ -139,6 +202,7 @@ async function sweepAccessGuild(client) {
 
 module.exports = {
   ACCESS_GUILD_ID,
+  isStaffAccessMirrorEnabled,
   handleAccessGuildMemberAdd,
   handleMainGuildMemberUpdate,
   handleMainGuildMemberRemove,

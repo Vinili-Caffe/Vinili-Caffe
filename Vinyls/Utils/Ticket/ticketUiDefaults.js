@@ -5,11 +5,29 @@ const {
   mapDiscordLocaleToTenantLanguage,
 } = require("../Partner/tenantPartnershipI18n/languages");
 
-const DEFAULT_TICKET_PANEL_TITLE = "Open a ticket!";
+const DEFAULT_TICKET_PANEL_TITLE = "Apri un ticket";
 const DEFAULT_TICKET_PANEL_COLOR = "#6f4e37";
 const DEFAULT_TICKET_BUTTON_EMOJI = Object.freeze({ name: "📩" });
 const DEFAULT_TICKET_WELCOME_COLOR = "#6f4e37";
 const FALLBACK_TICKET_PANEL_FOOTER = "© 2026 Vinili & Caffè. Tutti i diritti riservati.";
+
+const DEFAULT_TICKET_PANEL_TITLE_BY_LANG = Object.freeze({
+  it: "Apri un ticket",
+  en: "Open a ticket",
+  es: "Abrir un ticket",
+  fr: "Ouvrir un ticket",
+  de: "Ticket öffnen",
+  pt: "Abrir um ticket",
+});
+
+const DEFAULT_TICKET_PANEL_DESC_BY_LANG = Object.freeze({
+  it: "Assistenza e supporto dallo staff.\nScegli la categoria e descrivi la richiesta.",
+  en: "Staff support and assistance.\nPick a category and describe your request.",
+  es: "Asistencia y soporte del staff.\nElige una categoría y describe tu solicitud.",
+  fr: "Assistance et support par le staff.\nChoisis une catégorie et décris ta demande.",
+  de: "Hilfe und Support vom Staff.\nWähle eine Kategorie und beschreibe dein Anliegen.",
+  pt: "Assistência e suporte da staff.\nEscolhe uma categoria e descreve o pedido.",
+});
 
 const DEFAULT_TICKET_WELCOME_BY_LANG = Object.freeze({
   it: "Grazie per aver contattato il supporto.\nDescrivi il problema e attendi una risposta.",
@@ -25,6 +43,32 @@ const DEFAULT_TICKET_WELCOME_DESCRIPTION = DEFAULT_TICKET_WELCOME_BY_LANG.it;
 const DEFAULT_WELCOME_DESC_SET = new Set(
   Object.values(DEFAULT_TICKET_WELCOME_BY_LANG).map((s) => String(s).trim()),
 );
+
+const DEFAULT_PANEL_TITLE_SET = new Set([
+  ...Object.values(DEFAULT_TICKET_PANEL_TITLE_BY_LANG).map((s) => String(s).trim()),
+  "Open a ticket!",
+  "Open a ticket",
+  "Apri un ticket",
+  "Apri un ticket!",
+]);
+
+function getDefaultTicketPanelTitle(lang = DEFAULT_LANGUAGE) {
+  const code = normalizeTenantLanguage(lang);
+  return (
+    DEFAULT_TICKET_PANEL_TITLE_BY_LANG[code] ||
+    DEFAULT_TICKET_PANEL_TITLE_BY_LANG.en ||
+    DEFAULT_TICKET_PANEL_TITLE
+  );
+}
+
+function getDefaultTicketPanelDescription(lang = DEFAULT_LANGUAGE) {
+  const code = normalizeTenantLanguage(lang);
+  return (
+    DEFAULT_TICKET_PANEL_DESC_BY_LANG[code] ||
+    DEFAULT_TICKET_PANEL_DESC_BY_LANG.en ||
+    DEFAULT_TICKET_PANEL_DESC_BY_LANG.it
+  );
+}
 
 function getDefaultWelcomeDescription(lang = DEFAULT_LANGUAGE) {
   const code = normalizeTenantLanguage(lang);
@@ -81,7 +125,7 @@ function isDefaultishSinglePanelEmbed(panel) {
     !content &&
     !panel.largeImageUrl &&
     !panel.smallImageUrl &&
-    (!title || title === DEFAULT_TICKET_PANEL_TITLE)
+    (!title || DEFAULT_PANEL_TITLE_SET.has(title))
   );
 }
 
@@ -107,7 +151,11 @@ module.exports = {
   DEFAULT_TICKET_WELCOME_DESCRIPTION,
   DEFAULT_TICKET_WELCOME_COLOR,
   DEFAULT_TICKET_WELCOME_BY_LANG,
+  DEFAULT_TICKET_PANEL_TITLE_BY_LANG,
+  DEFAULT_TICKET_PANEL_DESC_BY_LANG,
   getDefaultWelcomeDescription,
+  getDefaultTicketPanelTitle,
+  getDefaultTicketPanelDescription,
   getDefaultTicketPanelFooter,
   isDefaultWelcomeDescription,
   resolveTicketBotLanguage,

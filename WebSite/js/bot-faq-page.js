@@ -15,6 +15,10 @@
 
   function payload() {
     var raw = window.__VC_BOT_FAQ;
+    if ((!raw || typeof raw !== "object" || !Array.isArray(raw.categories) || !raw.categories.length) &&
+      window.__VC_BOT_FAQ_STATIC) {
+      raw = window.__VC_BOT_FAQ_STATIC;
+    }
     if (!raw || typeof raw !== "object") return { categories: [], items: [] };
     return {
       categories: Array.isArray(raw.categories) ? raw.categories : [],

@@ -542,11 +542,14 @@ async function updateStreamVoiceChannelById(client, channelId, streamer, mode) {
   if (!channel?.isVoiceBased?.()) return { ok: false, reason: "channel_unavailable" };
 
   const isOn = String(mode || "").toLowerCase() === "on";
-  const name = isOn
-    ? String(streamer.voiceNameOn || "").trim()
-    : String(streamer.voiceNameOff || "").trim();
+  const nameOn = String(streamer.voiceNameOn || "").trim();
+  const nameOff = String(streamer.voiceNameOff || "").trim();
+  /* streamNameNoOnOff1: se On/Off sono uguali → non rinominare a ogni live; solo status/topic. */
+  const canonical = nameOn || nameOff;
+  const renameOnToggle = Boolean(nameOn && nameOff && nameOn !== nameOff);
+  const name = renameOnToggle ? (isOn ? nameOn : nameOff) : canonical;
   if (name && String(channel.name || "") !== name.slice(0, 100)) {
-    await channel.setName(name.slice(0, 100), `Kick live ${isOn ? "ON" : "OFF"}`).catch((err) => {
+    await channel.setName(name.slice(0, 100), renameOnToggle ? `Kick live ${isOn ? "ON" : "OFF"}` : "Kick stream voice name").catch((err) => {
       global.logger?.warn?.("[KICK LIVE] rename failed:", channelId, err?.message || err);
     });
   }

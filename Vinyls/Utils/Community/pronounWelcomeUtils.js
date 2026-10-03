@@ -3,6 +3,7 @@ const {
   resolveMemberPronounGender,
   applyPronounGenderToText,
 } = require("./pronounGenderUtils");
+const IDs = require("../Config/ids");
 
 /** Inclusive homepage badge (matches live hero copy). */
 const WELCOME_BADGE_INCLUSIVE = "Benvenut* su";
@@ -28,6 +29,17 @@ function mapDiscordPronounsStringToGender(raw) {
   return null;
 }
 
+function resolveGenderFromRoleIds(roleIds) {
+  const set = new Set((Array.isArray(roleIds) ? roleIds : []).map((id) => String(id || "").trim()).filter(Boolean));
+  if (!set.size) return null;
+  const roles = IDs.roles || {};
+  if (roles.sheHer && set.has(String(roles.sheHer))) return "f";
+  if (roles.heHim && set.has(String(roles.heHim))) return "m";
+  if (roles.theyThem && set.has(String(roles.theyThem))) return "x";
+  if (roles.askMe && set.has(String(roles.askMe))) return "u";
+  return null;
+}
+
 function welcomeBadgeForGender(gender) {
   if (gender === "m") {
     return { gender: "m", text: WELCOME_BADGE_M, i18nKey: "home.welcomeM" };
@@ -39,16 +51,40 @@ function welcomeBadgeForGender(gender) {
 }
 
 /**
- * Prefer Discord profile `pronouns` string when present; else guild pronoun roles
- * (he/him · she/her · they/them · ask me).
+ * Prefer clear he/she guild roles over Discord profile strings.
+ * welcomePronouns4: profile "ask"/"any"/"they" used to win and lock Benvenut*.
  */
-function resolveWelcomeBadge(member, { discordPronouns } = {}) {
+function resolveWelcomeBadge(member, { discordPronouns, roleIds } = {}) {
   const fromProfile = mapDiscordPronounsStringToGender(discordPronouns);
-  const gender = fromProfile || resolveMemberPronounGender(member) || "u";
+  const fromRoleIds = resolveGenderFromRoleIds(roleIds);
+  const fromMember = resolveMemberPronounGender(member);
+
+  let gender = "u";
+  let source = "fallback";
+  if (fromRoleIds === "m" || fromRoleIds === "f") {
+    gender = fromRoleIds;
+    source = "role_ids";
+  } else if (fromMember === "m" || fromMember === "f") {
+    gender = fromMember;
+    source = "guild_roles";
+  } else if (fromProfile === "m" || fromProfile === "f") {
+    gender = fromProfile;
+    source = "discord_profile";
+  } else if (fromRoleIds) {
+    gender = fromRoleIds;
+    source = "role_ids";
+  } else if (fromMember && fromMember !== "u") {
+    gender = fromMember;
+    source = "guild_roles";
+  } else if (fromProfile) {
+    gender = fromProfile;
+    source = "discord_profile";
+  }
+
   const badge = welcomeBadgeForGender(gender);
   return {
     ...badge,
-    source: fromProfile ? "discord_profile" : "guild_roles",
+    source,
     pronouns: String(discordPronouns || "").trim() || null,
   };
 }
@@ -76,6 +112,7 @@ module.exports = {
   WELCOME_BADGE_M,
   WELCOME_BADGE_F,
   mapDiscordPronounsStringToGender,
+  resolveGenderFromRoleIds,
   welcomeBadgeForGender,
   resolveWelcomeBadge,
   resolveMemberWelcomeWord,

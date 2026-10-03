@@ -5,7 +5,7 @@
 (function (global) {
   "use strict";
 
-  var ASSET_V = "20260908subjectLiveChat1";
+  var ASSET_V = "20260929smartNotifLife1";
   var PAGE_QUEUE = detectPageQueue();
   var state = {
     loaded: false,

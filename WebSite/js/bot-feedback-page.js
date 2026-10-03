@@ -8,6 +8,7 @@
     draftKind: "suggestion",
     pollTimer: null,
     renderFingerprint: "",
+    fetchGen: 0,
   };
 
   function byId(id) {
@@ -38,8 +39,11 @@
     var host = String(window.location.hostname || "").toLowerCase();
     var local = String(conf.apiUrlLocal || "").trim();
     var remote = String(conf.apiUrl || "").trim();
+    if (remote === "#" || remote === "about:blank") remote = "";
+    if (local === "#" || local === "about:blank") local = "";
+    /* phoneApiSoft429Kill1: mai apiUrlLocal fuori da localhost */
     if ((host === "localhost" || host === "127.0.0.1") && local) return local;
-    return remote || local || "/webhooks/site-bot-feedback";
+    return remote || "/webhooks/site-bot-feedback";
   }
 
   function maxImages() {
@@ -114,10 +118,8 @@
   }
 
   function showGate() {
-    var g = byId("vc-bot-feedback-gate");
-    if (!g) return;
-    g.removeAttribute("hidden");
-    g.classList.remove("vc-reviews-gate--dismissed");
+    /* gateKill1: soft page — mai overlay fullscreen; login solo sui CTA */
+    hideGate();
   }
 
   function kindLabel(kind) {
@@ -150,8 +152,20 @@
       root.hidden = true;
     }
     try {
-      document.documentElement.classList.remove("vc-reviews-modal-open");
-    } catch (e) {}
+      if (typeof window.__vcReleaseModalScrollLock === "function") {
+        window.__vcReleaseModalScrollLock({
+          htmlClass: "vc-reviews-modal-open",
+          datasetKey: "vcReviewsScrollY",
+        });
+      } else {
+        document.documentElement.classList.remove("vc-reviews-modal-open");
+        var y = Number(document.documentElement.dataset.vcReviewsScrollY || "0") || 0;
+        delete document.documentElement.dataset.vcReviewsScrollY;
+        if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+        window.scrollTo(0, y);
+        if (typeof window.__vcHoldPageScroll === "function") window.__vcHoldPageScroll(280, y);
+      }
+    } catch (eUnpin) {}
   }
 
   function persistBotFeedbackDraft() {
@@ -162,10 +176,14 @@
       window.VcFormDrafts.clear("bot_feedback:new");
       return;
     }
-    window.VcFormDrafts.save("bot_feedback:new", {
-      content: content,
-      kind: state.draftKind === "bug" ? "bug" : "suggestion",
-    });
+    window.VcFormDrafts.save(
+      "bot_feedback:new",
+      {
+        content: content,
+        kind: state.draftKind === "bug" ? "bug" : "suggestion",
+      },
+      { notify: true },
+    );
   }
 
   function openModal() {
@@ -183,8 +201,29 @@
     root.hidden = false;
     root.className = "vc-reviews-modal vc-reviews-modal--open";
     try {
-      document.documentElement.classList.add("vc-reviews-modal-open");
-    } catch (e) {}
+      if (typeof window.__vcArmModalScrollLock === "function") {
+        window.__vcArmModalScrollLock({
+          htmlClass: "vc-reviews-modal-open",
+          datasetKey: "vcReviewsScrollY",
+        });
+      } else {
+        var y =
+          window.scrollY ||
+          (document.documentElement && document.documentElement.scrollTop) ||
+          0;
+        document.documentElement.dataset.vcReviewsScrollY = String(y);
+        if (typeof window.__vcResetPinnedPageScrollY === "function") {
+          window.__vcResetPinnedPageScrollY(y);
+        }
+        document.documentElement.classList.add("vc-reviews-modal-open");
+        if (typeof window.__vcPinPageScroll === "function") {
+          window.__vcPinPageScroll({ soft: true, forcePhoneLock: true });
+        }
+        if (typeof window.__vcHoldPageScroll === "function") {
+          window.__vcHoldPageScroll(280, y);
+        }
+      }
+    } catch (ePin) {}
     root.innerHTML =
       '<div class="vc-reviews-modal__backdrop" data-bf-dismiss tabindex="-1"></div>' +
       '<div class="vc-reviews-modal__panel" role="dialog" aria-modal="true" aria-labelledby="vc-bf-modal-title">' +
@@ -467,7 +506,7 @@
         '">Commento</label>' +
         '<textarea id="vc-bf-c-' +
         esc(item.id) +
-        '" class="vc-reviews-textarea" rows="2"></textarea>' +
+        '" class="vc-reviews-textarea" rows="2" enterkeyhint="send"></textarea>' +
         '<button type="button" class="vc-reviews-submit" style="margin-top:.5rem" data-bf-comment="' +
         esc(item.id) +
         '">Invia commento</button></div>';
@@ -510,6 +549,10 @@
     var list = byId("vc-bot-feedback-list");
     var openBtn = byId("vc-bot-feedback-open-form-btn");
     if (!list) return;
+    list.removeAttribute("aria-busy");
+    if (window.VcListSkeleton && typeof window.VcListSkeleton.clearBusy === "function") {
+      window.VcListSkeleton.clearBusy(list);
+    }
     var items = state.payload && Array.isArray(state.payload.items) ? state.payload.items : [];
     if (!items.length) {
       list.innerHTML =
@@ -532,6 +575,31 @@
   function fetchPayload(opts) {
     var force = Boolean(opts && opts.force);
     var url = apiUrl();
+    var list = byId("vc-bot-feedback-list");
+    var fetchGen = (state.fetchGen = Number(state.fetchGen || 0) + 1);
+    if (list && !state.payload) {
+      if (window.VcListSkeleton && typeof window.VcListSkeleton.fill === "function") {
+        window.VcListSkeleton.fill(list, { count: 4 });
+      } else {
+        list.setAttribute("aria-busy", "true");
+      }
+    }
+    function clearFeedbackListFail(msg) {
+      var host = byId("vc-bot-feedback-list");
+      if (!host) return;
+      if (window.VcListSkeleton && typeof window.VcListSkeleton.paintFail === "function") {
+        window.VcListSkeleton.paintFail(host, {
+          title: "Impossibile caricare i feedback",
+          text: msg || "Ricarica la pagina o riprova tra poco.",
+        });
+      } else {
+        host.removeAttribute("aria-busy");
+        host.innerHTML =
+          '<div class="vc-reviews-empty"><p class="vc-reviews-empty__title">Impossibile caricare i feedback</p><p class="vc-reviews-empty__text">' +
+          String(msg || "Ricarica la pagina o riprova tra poco.") +
+          "</p></div>";
+      }
+    }
     function applyBody(body) {
       if (!body || body.ok !== true) throw new Error((body && body.message) || "Caricamento non riuscito.");
       var fp = "";
@@ -542,29 +610,117 @@
       }
       if (!force && fp && fp === state.renderFingerprint && !state.modalOpen) {
         state.payload = body;
+        if (list && window.VcListSkeleton && typeof window.VcListSkeleton.clearBusy === "function") {
+          window.VcListSkeleton.clearBusy(list);
+        } else if (list) {
+          list.removeAttribute("aria-busy");
+        }
+        if (list && list.querySelector(".vc-list-skel")) render();
         return;
       }
       state.payload = body;
       render();
     }
-    if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
-      var token = getToken();
-      var cacheKey = window.VcApiCache.keyFor(url, { scope: "feedback", auth: token });
-      if (force) window.VcApiCache.invalidate(cacheKey);
-      return window.VcApiCache
-        .fetchWithCache(cacheKey, url, {
-          ttlMs: 25000,
-          staleMs: 120000,
-          useCache: !force,
-          fetchInit: { method: "GET", headers: authHeaders(), cache: "no-store" },
+    /* feedbackNotifColdOpen1: soft first-load retries (push/cold open). */
+    function isSoftLoadErr(err, body) {
+      var code = body && body.error ? String(body.error) : err && err.code ? String(err.code) : "";
+      if (
+        code === "timeout" ||
+        code === "network_error" ||
+        code === "invalid_json" ||
+        code === "empty_body" ||
+        code === "rate_limited" ||
+        code === "rate_limited_client"
+      ) {
+        return true;
+      }
+      var msg = err && err.message ? String(err.message) : "";
+      if (/timeout|connessione|instabile|troppe|network|rate.?limit|caricamento non riuscito/i.test(msg)) return true;
+      if (!state.payload && /impossibile caricare/i.test(msg)) return true;
+      return false;
+    }
+    function failOrRetry(err, attempt) {
+      if (fetchGen !== state.fetchGen) return null;
+      var delays = [500, 1200, 2400];
+      if (isSoftLoadErr(err, err && err.body) && attempt < delays.length) {
+        if (list && !state.payload) {
+          if (window.VcListSkeleton && typeof window.VcListSkeleton.fill === "function") {
+            window.VcListSkeleton.fill(list, { count: 4 });
+          }
+        }
+        return new Promise(function (resolve) {
+          window.setTimeout(function () {
+            if (fetchGen !== state.fetchGen) {
+              resolve(null);
+              return;
+            }
+            resolve(doFetch(attempt + 1));
+          }, delays[attempt]);
+        });
+      }
+      return onFail(err);
+    }
+    function onFail(err) {
+      if (state.payload) {
+        if (list && list.querySelector(".vc-list-skel")) render();
+        return state.payload;
+      }
+      clearFeedbackListFail(err && err.message ? err.message : "Caricamento non riuscito.");
+      setStatus(err && err.message ? err.message : "Impossibile caricare i feedback.", true);
+      return null;
+    }
+    function doFetch(attempt) {
+      attempt = Math.max(0, Math.floor(Number(attempt) || 0));
+      var retried = attempt > 0;
+      if (window.VcApiCache && typeof window.VcApiCache.fetchWithCache === "function") {
+        var token = getToken();
+        var cacheKey = window.VcApiCache.keyFor(url, { scope: "feedback", auth: token, v: "feedbackNotifColdOpen1" });
+        if (force || retried) {
+          try {
+            window.VcApiCache.invalidate(cacheKey);
+            if (typeof window.VcApiCache.clearWebhookBlock === "function") {
+              window.VcApiCache.clearWebhookBlock(url);
+            }
+          } catch (eInvBf) {}
+        }
+        return window.VcApiCache
+          .fetchWithCache(cacheKey, url, {
+            ttlMs: 25000,
+            staleMs: 120000,
+            timeoutMs: 24000,
+            useCache: !(force || retried),
+            forceNetwork: force || retried,
+            fetchInit: { method: "GET", headers: authHeaders(), cache: "no-store" },
+          })
+          .then(function (payload) {
+            if (fetchGen !== state.fetchGen) return null;
+            var body = payload && payload.body ? payload.body : null;
+            if (!body || body.ok !== true) {
+              var softErr = new Error((body && (body.message || body.error)) || "Caricamento non riuscito.");
+              softErr.code = body && body.error ? String(body.error) : "";
+              softErr.body = body;
+              softErr.soft = isSoftLoadErr(softErr, body);
+              throw softErr;
+            }
+            applyBody(body);
+            return body;
+          })
+          .catch(function (err) {
+            return failOrRetry(err, attempt);
+          });
+      }
+      return fetch(url, { method: "GET", headers: authHeaders(), cache: "no-store" })
+        .then(parseJson)
+        .then(function (body) {
+          if (fetchGen !== state.fetchGen) return null;
+          applyBody(body);
+          return body;
         })
-        .then(function (payload) {
-          applyBody(payload && payload.body ? payload.body : null);
+        .catch(function (err) {
+          return failOrRetry(err, attempt);
         });
     }
-    return fetch(url, { method: "GET", headers: authHeaders(), cache: "no-store" })
-      .then(parseJson)
-      .then(applyBody);
+    return doFetch(0);
   }
 
   function startPoll() {
@@ -584,6 +740,8 @@
         var dir = btn.getAttribute("data-dir");
         var token = getToken();
         if (!token) return setStatus("Accedi per votare.", true);
+        if (btn.disabled) return;
+        btn.disabled = true;
         fetch(apiUrl() + "/" + encodeURIComponent(id) + "/vote", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
@@ -592,10 +750,36 @@
           .then(parseJson)
           .then(function (body) {
             if (!body || body.ok !== true) throw new Error((body && body.message) || "Voto non riuscito.");
-            return fetchPayload();
+            /* voteStaleFix1 */
+            try {
+              if (window.VcApiCache) {
+                var cacheKey = window.VcApiCache.keyFor(apiUrl(), { scope: "feedback", auth: token });
+                window.VcApiCache.invalidate(cacheKey);
+                if (typeof window.VcApiCache.clearWebhookBlock === "function") {
+                  window.VcApiCache.clearWebhookBlock(apiUrl());
+                }
+              }
+            } catch (eInvB) {}
+            if (body.item && state.payload && Array.isArray(state.payload.items)) {
+              var list = state.payload.items;
+              for (var i = 0; i < list.length; i += 1) {
+                if (String((list[i] && list[i].id) || "") === String(id)) {
+                  list[i] = Object.assign({}, list[i], body.item);
+                  break;
+                }
+              }
+              /* voteLikeStale1 */
+              state.fetchGen = Number(state.fetchGen || 0) + 1;
+              render();
+              return;
+            }
+            return fetchPayload({ force: true });
           })
           .catch(function (err) {
             setStatus(err.message || "Errore voto.", true);
+          })
+          .then(function () {
+            btn.disabled = false;
           });
       });
     });
@@ -750,6 +934,17 @@
         });
     } else {
       showGate();
+      state.payload = null;
+      var list = byId("vc-bot-feedback-list");
+      if (list && window.VcListSkeleton && typeof window.VcListSkeleton.paintFail === "function") {
+        window.VcListSkeleton.paintFail(list, {
+          title: "Accedi per i feedback",
+          text: "Collega Discord per leggere e scrivere feedback.",
+        });
+      } else if (list) {
+        list.removeAttribute("aria-busy");
+        list.innerHTML = "";
+      }
     }
   }
 
@@ -763,6 +958,14 @@
     showGate();
     state.payload = null;
     render();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (!byId("vc-bot-feedback-list")) return;
+    if (state.payload) return;
+    if (!getToken()) return;
+    fetchPayload({ force: true }).then(startPoll).catch(function () {});
   });
 
   if (document.readyState === "loading") {

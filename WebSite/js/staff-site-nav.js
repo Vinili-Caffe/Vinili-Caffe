@@ -1,9 +1,31 @@
 (function () {
   "use strict";
-  /* staffFooter2: Area staff nav = Guida + Confessionale; footer Staff = 5ª colonna accanto a Richieste */
+  /* Footer Staff = Guida + Compiti (Confessionale → Community) */
+  /* pmOpsNavHide1: Compiti solo se canCompiti === true */
+  /* Niente "Area staff" sulla navbar dashboard */
+  /* confessionaleCommNav2: Confessionale mai nel menu Staff */
 
   function perms() {
     return (window.__VC_STAFF_PERMS && typeof window.__VC_STAFF_PERMS === "object" && window.__VC_STAFF_PERMS) || {};
+  }
+
+  function canShowCompitiNav() {
+    var p = perms();
+    /* pmOpsNavHide1: niente Compiti finché i perms non dicono sì (solo-PM / race cache) */
+    if (Object.prototype.hasOwnProperty.call(p, "canCompiti")) return Boolean(p.canCompiti);
+    if (p.permissions && Object.prototype.hasOwnProperty.call(p.permissions, "canCompiti")) {
+      return Boolean(p.permissions.canCompiti);
+    }
+    if (Object.prototype.hasOwnProperty.call(p, "canConfessionale")) return Boolean(p.canConfessionale);
+    if (p.permissions && Object.prototype.hasOwnProperty.call(p.permissions, "canConfessionale")) {
+      return Boolean(p.permissions.canConfessionale);
+    }
+    return false;
+  }
+
+  /* staffConfDropKill3 / confessionaleCommNav3: Confessionale MAI nel menu Staff */
+  function canShowConfessionaleNav() {
+    return false;
   }
 
   function isStaffNavContext() {
@@ -20,13 +42,25 @@
     return window.__VC_STAFF_MENU_ALLOWED === true;
   }
 
-    function isSpecializedSiteNav(snav) {
+    function isDashboardSiteNav() {
+    try {
+      var raw = String(location.pathname || "/").toLowerCase();
+      var p = raw.replace(/\/+$/, "") || "/";
+      if (p === "/dashboard" || p.indexOf("/dashboard/") === 0) return true;
+      if (document.body && document.body.classList.contains("vc-dashboard-page")) return true;
+    } catch (eDash) {}
+    return false;
+  }
+
+  function isSpecializedSiteNav(snav) {
     try {
       var raw = String(location.pathname || "/").toLowerCase();
       var p = raw.replace(/\/+$/, "") || "/";
       if (p === "/evento" || p.indexOf("/evento/") === 0 || raw.indexOf("/evento/") === 0 || raw === "/evento/") {
         return true;
       }
+      /* Area staff non va nella navbar dashboard */
+      if (isDashboardSiteNav()) return true;
       if (document.body) {
         if (document.body.classList.contains("vc-hw-page")) return true;
         if (document.body.classList.contains("vc-hw-points-page")) return true;
@@ -86,9 +120,11 @@
       var p = window.__VC_DISCORD_PROFILE;
       var id = p && p.id ? String(p.id) : "";
       if (!/^\d{17,20}$/.test(id)) id = readCachedDiscordUserId();
-      if (/^\d{17,20}$/.test(id)) return "/user/?id=" + encodeURIComponent(id) + "&tab=staff";
+      /* profileTabDefaultCommunity1: da menu staff apri Community (Staff resta switch manuale) */
+      if (/^\d{17,20}$/.test(id)) return "/user/?id=" + encodeURIComponent(id);
     } catch (e) {}
-    return "/user/?tab=staff";
+    /* profileHrefNoLeaderboard1: senza id non aprire la classifica */
+    return "#";
   }
 
   function pathName() {
@@ -115,9 +151,28 @@
     return p === h || p.indexOf(h + "/") === 0;
   }
 
-  function row(href, icon, label, show) {
+  function i18nT(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var v = window.VcI18n.t(key);
+        if (v && v !== key) return String(v);
+      }
+    } catch (eT) {}
+    return fallback;
+  }
+
+  function applyStaffI18n(root) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.apply === "function") {
+        window.VcI18n.apply(root || document);
+      }
+    } catch (eApply) {}
+  }
+
+  function row(href, icon, label, show, i18nKey) {
     if (show === false) return "";
     var active = isActive(href);
+    var lab = i18nKey ? i18nT(i18nKey, label) : label;
     return (
       '<a class="vc-snav-row' +
       (active ? " vc-snav-row--active" : "") +
@@ -127,8 +182,10 @@
       (active ? ' aria-current="page"' : "") +
       '><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-' +
       icon +
-      '"></i></span><span>' +
-      label +
+      '"></i></span><span' +
+      (i18nKey ? ' data-i18n="' + i18nKey + '"' : "") +
+      ">" +
+      lab +
       "</span></a>"
     );
   }
@@ -163,25 +220,140 @@
     return t === "guida" || t === "guida staff" || t === "staff guide";
   }
 
-  function isConfessionaleNavHref(href) {
-    var h = String(href || "").toLowerCase();
-    return h.indexOf("/staff/confessionale") >= 0 || h.indexOf("/confessionale") >= 0;
-  }
-
   function isConfessionaleNavLabel(label) {
     var t = String(label || "")
       .replace(/\s+/g, " ")
       .trim()
       .toLowerCase();
-    return t === "confessionale" || t === "il confessionale";
+    return (
+      t === "confessionale" ||
+      t === "il confessionale" ||
+      t === "confessional" ||
+      t === "confessionnal" ||
+      t === "confesionario" ||
+      t === "confessional" ||
+      t.indexOf("confessionale") >= 0 ||
+      t.indexOf("confessional") >= 0
+    );
+  }
+
+  function stripConfessionaleFromStaffMenus(root) {
+    try {
+      var scope = root || document;
+      var menus = scope.querySelectorAll(
+        "[data-vc-staff-tools-nav], .vc-snav-details--staff, [data-vc-footer-staff], .vc-mobile-nav-section--staff, .vc-mobile-nav-section--staff-guide, [data-vc-staff-section]",
+      );
+      for (var m = 0; m < menus.length; m += 1) {
+        var menu = menus[m];
+        var links = menu.querySelectorAll(
+          'a[href*="/confessionale"], a[href*="/staff/confessionale"], a[data-vc-mobile-staff-confessionale], a[data-i18n="staff.confessionale"], [data-i18n="staff.confessionale"]',
+        );
+        for (var i = 0; i < links.length; i += 1) {
+          var node = links[i];
+          var a = node && node.closest ? node.closest("a") : node;
+          if (a && a.parentNode) a.parentNode.removeChild(a);
+        }
+        var allA = menu.querySelectorAll("a");
+        for (var k = 0; k < allA.length; k += 1) {
+          var rowA = allA[k];
+          var lab = String(rowA.textContent || "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+          var i18n = "";
+          try {
+            var sp = rowA.querySelector("[data-i18n]");
+            i18n = sp ? String(sp.getAttribute("data-i18n") || "") : "";
+          } catch (eI) {}
+          if (
+            i18n === "staff.confessionale" ||
+            i18n === "nav.confessionale" ||
+            isConfessionaleNavLabel(lab) ||
+            isConfessionaleNavHref(rowA.getAttribute("href"))
+          ) {
+            if (rowA.parentNode) rowA.parentNode.removeChild(rowA);
+          }
+        }
+      }
+      /* confessionaleCommNav3: anche details snav col titolo Staff senza class marker */
+      var details = scope.querySelectorAll
+        ? scope.querySelectorAll("nav.vc-header-snav details.vc-snav-details, details.vc-snav-details")
+        : [];
+      for (var d = 0; d < details.length; d += 1) {
+        var det = details[d];
+        var sum = det.querySelector(".vc-snav-summary span, .vc-snav-summary");
+        var st = sum ? String(sum.textContent || "").replace(/\s+/g, " ").trim().toLowerCase() : "";
+        if (st.indexOf("community") >= 0) continue;
+        if (
+          !(
+            (det.classList && det.classList.contains("vc-snav-details--staff")) ||
+            det.hasAttribute("data-vc-staff-tools-nav") ||
+            st === "staff" ||
+            st.indexOf("staff") >= 0 ||
+            st === "area staff" ||
+            st.indexOf("strumenti staff") >= 0
+          )
+        ) {
+          continue;
+        }
+        var confRows = det.querySelectorAll(
+          'a[href*="/confessionale"], a[href*="/staff/confessionale"], a[data-i18n="staff.confessionale"]',
+        );
+        for (var cr = 0; cr < confRows.length; cr += 1) {
+          if (confRows[cr] && confRows[cr].parentNode) confRows[cr].parentNode.removeChild(confRows[cr]);
+        }
+      }
+    } catch (eStripConf) {}
+  }
+
+  function watchStaffConfessionaleStrip() {
+    try {
+      if (window.__vcStaffConfStripWatch) return;
+      window.__vcStaffConfStripWatch = true;
+      var kill = function () {
+        try {
+          stripConfessionaleFromStaffMenus(document);
+        } catch (eK) {}
+      };
+      kill();
+      window.setTimeout(kill, 0);
+      window.setTimeout(kill, 200);
+      window.setTimeout(kill, 800);
+      window.setTimeout(kill, 2000);
+      /* cpuIdleHard1: niente setInterval 1.5s + MO forever (picchi CPU in PWA) */
+      if (typeof MutationObserver === "function") {
+        var mo = new MutationObserver(function () {
+          kill();
+        });
+        mo.observe(document.documentElement, { childList: true, subtree: true });
+        window.setTimeout(function () {
+          try {
+            mo.disconnect();
+          } catch (eDisc) {}
+        }, 4000);
+      }
+    } catch (eWatch) {}
+  }
+
+  function isCompitiNavHref(href) {
+    var h = String(href || "").toLowerCase();
+    return h.indexOf("/staff/compiti") >= 0;
+  }
+
+  function isCompitiNavLabel(label) {
+    var t = String(label || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    return t === "compiti" || t === "compiti staff" || t === "compiti settimanali";
   }
 
   function isAllowedStaffMenuLink(href, label) {
+    if (isCompitiNavHref(href) || isCompitiNavLabel(label)) return canShowCompitiNav();
+    if (isConfessionaleNavHref(href) || isConfessionaleNavLabel(label)) return canShowConfessionaleNav();
     return (
       isStaffGuideNavHref(href) ||
-      isStaffGuideNavLabel(label) ||
-      isConfessionaleNavHref(href) ||
-      isConfessionaleNavLabel(label)
+      isStaffGuideNavLabel(label)
     );
   }
 
@@ -202,7 +374,7 @@
         var panel = menu.querySelector(".vc-snav-panel") || menu;
         var links = panel.querySelectorAll("a.vc-snav-row, a.vc-snav-item, a");
         var keptGuide = false;
-        var keptConf = false;
+        var keptCompiti = false;
         for (var i = 0; i < links.length; i++) {
           var a = links[i];
           var href = String(a.getAttribute("href") || "");
@@ -225,39 +397,48 @@
             continue;
           }
           if (isConfessionaleNavHref(href) || isConfessionaleNavLabel(lab)) {
-            if (keptConf) {
+            if (a.parentNode) a.parentNode.removeChild(a);
+            continue;
+          }
+          if (isCompitiNavHref(href) || isCompitiNavLabel(lab)) {
+            if (!canShowCompitiNav()) {
+              if (a.parentNode) a.parentNode.removeChild(a);
+            } else if (keptCompiti) {
               if (a.parentNode) a.parentNode.removeChild(a);
             } else {
-              keptConf = true;
+              keptCompiti = true;
               try {
-                a.setAttribute("href", "/staff/confessionale/");
-              } catch (eHref) {}
+                a.setAttribute("href", "/staff/compiti/");
+              } catch (eHref2) {}
             }
             continue;
           }
           if (a.parentNode) a.parentNode.removeChild(a);
         }
         if (!keptGuide && panel) {
-          panel.insertAdjacentHTML("afterbegin", row("/staff/guida/", "book", "Guida", true));
+          panel.insertAdjacentHTML(
+            "afterbegin",
+            row("/staff/guida/", "book", "Guida", true, "staff.guide"),
+          );
           keptGuide = true;
         }
-        if (!keptConf && panel) {
-          panel.insertAdjacentHTML("beforeend", row("/staff/confessionale/", "comments", "Confessionale", true));
+        if (!keptCompiti && panel && canShowCompitiNav()) {
+          panel.insertAdjacentHTML(
+            "beforeend",
+            row("/staff/compiti/", "check-square-o", "Compiti", true, "staff.compiti"),
+          );
         }
       }
+      stripConfessionaleFromStaffMenus(scope);
     } catch (eEnforce) {}
   }
 
   function staffFooterToolLinks() {
-    return [
-      { href: "/staff/guida/", label: "Guida" },
-      { href: "/staff/confessionale/", label: "Confessionale" },
-      { href: "/staff/pause/", label: "Pause" },
-      { href: "/staff/organico/", label: "Organico" },
-      { href: "/notifications/?view=staff", label: "Inbox" },
-      { href: "/notifications/?view=staff&inbox=punti-tolti", label: "Punti tolti" },
-      { href: "/staff/gestione/", label: "Gestione" },
-    ];
+    var links = [{ href: "/staff/guida/", label: "Guida", key: "staff.guide" }];
+    if (canShowCompitiNav()) {
+      links.push({ href: "/staff/compiti/", label: "Compiti", key: "staff.compiti" });
+    }
+    return links;
   }
 
   function ensureStaffFooterColCss() {
@@ -271,12 +452,12 @@
         "html body.vc-body>footer.vc-premium-footer .vc-premium-footer__navcols--with-staff," +
         "html body.vc-body>footer.vc-premium-footer .vc-premium-footer__navcols:has([data-vc-footer-staff='1']){" +
         "grid-template-columns:repeat(5,minmax(0,1fr))!important;" +
-        "gap:clamp(1rem,1.6vw,1.75rem)!important}" +
+        "width:100%!important;max-width:100%!important;min-width:0!important}" +
         "}" +
         "@media (min-width:1024px){" +
         "html body.vc-body>footer.vc-premium-footer .vc-premium-footer__grid:has(.vc-premium-footer__navcols--with-staff)," +
         "html body.vc-body>footer.vc-premium-footer .vc-premium-footer__grid:has([data-vc-footer-staff='1']){" +
-        "grid-template-columns:minmax(15rem,1.15fr) minmax(0,1.35fr)!important}" +
+        "grid-template-columns:minmax(12rem,1fr) minmax(0,1.4fr)!important;min-width:0!important}" +
         "}";
       document.head.appendChild(s);
     } catch (eCss) {}
@@ -309,16 +490,19 @@
       var lis = "";
       for (var i = 0; i < links.length; i++) {
         var item = links[i];
+        var lab = item.key ? i18nT(item.key, item.label) : item.label;
         lis +=
           '<li><a href="' +
           String(item.href) +
-          '">' +
-          String(item.label) +
-          "</a></li>";
+          '"><span' +
+          (item.key ? ' data-i18n="' + item.key + '"' : "") +
+          ">" +
+          String(lab) +
+          "</span></a></li>";
       }
       var colHtml =
         '<nav class="vc-premium-footer__col" data-vc-footer-staff="1" aria-label="Staff">' +
-        "<h4>Staff</h4>" +
+        '<h4 data-i18n="nav.staff">Staff</h4>' +
         "<ul>" +
         lis +
         "</ul></nav>";
@@ -328,8 +512,16 @@
         var navcols = footer.querySelector(".vc-premium-footer__navcols");
         if (!navcols) continue;
         navcols.classList.add("vc-premium-footer__navcols--with-staff");
-        if (footer.querySelector('[data-vc-footer-staff="1"]')) continue;
-        navcols.insertAdjacentHTML("beforeend", colHtml);
+        var existing = footer.querySelector('[data-vc-footer-staff="1"]');
+        if (existing) {
+          var wrap = document.createElement("div");
+          wrap.innerHTML = colHtml;
+          var nextCol = wrap.firstElementChild;
+          if (nextCol && existing.parentNode) existing.parentNode.replaceChild(nextCol, existing);
+        } else {
+          navcols.insertAdjacentHTML("beforeend", colHtml);
+        }
+        applyStaffI18n(footer.querySelector('[data-vc-footer-staff="1"]') || footer);
       }
     } catch (eFoot) {}
   }
@@ -421,10 +613,12 @@
     var staffOk = Boolean(p.ok) || window.__VC_STAFF_MENU_ALLOWED === true;
             var html =
       '<details class="vc-snav-details vc-snav-details--staff" data-vc-staff-tools-nav>' +
-      '<summary class="vc-snav-summary"><span>Area staff</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>' +
+      '<summary class="vc-snav-summary"><i class="fa fa-shield" aria-hidden="true"></i><span data-i18n="nav.staff">Staff</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>' +
       '<div class="vc-snav-panel">' +
-      row("/staff/guida/", "book", "Guida", true) +
-      row("/staff/confessionale/", "comments", "Confessionale", true) +
+      row("/staff/guida/", "book", "Guida", true, "staff.guide") +
+      (canShowCompitiNav()
+        ? row("/staff/compiti/", "check-square-o", "Compiti", true, "staff.compiti")
+        : "") +
       "</div></details>";
 
     var existing = header.querySelector("[data-vc-staff-tools-nav]");
@@ -434,12 +628,14 @@
       var next = wrap.firstElementChild;
       if (next && existing.parentNode) existing.parentNode.replaceChild(next, existing);
       stripLegacyStaffNavRows(header);
+      stripConfessionaleFromStaffMenus(header);
       return;
     }
 
     if (snav) {
       snav.insertAdjacentHTML("beforeend", html);
       stripLegacyStaffNavRows(header);
+      stripConfessionaleFromStaffMenus(header);
       return;
     }
 
@@ -447,7 +643,7 @@
     var nav = document.createElement("nav");
     nav.className =
       "vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center gap-0.5 px-1.5 py-1 sm:gap-1 sm:px-2";
-    nav.setAttribute("aria-label", "Area staff");
+    nav.setAttribute("aria-label", "Staff");
     nav.innerHTML = html;
     if (brandWrap && brandWrap.parentNode) {
       brandWrap.parentNode.insertBefore(nav, brandWrap.nextSibling);
@@ -455,6 +651,7 @@
       bar.appendChild(nav);
     }
     stripLegacyStaffNavRows(header);
+    stripConfessionaleFromStaffMenus(header);
   }
 
   function watchEventNavStaffStrip(header) {
@@ -596,18 +793,48 @@
       btn.innerHTML =
         '<span class="vc-header-promo-btn__dot" aria-hidden="true"></span>' +
         '<span class="vc-header-promo-btn__clip"><span class="vc-header-promo-btn__track">' +
-        '<span class="vc-header-promo-btn__unit"><span class="vc-header-promo-btn__label">' +
+        '<span class="vc-header-promo-btn__unit"><span class="vc-header-promo-btn__label" data-i18n="' +
+        (isEvent ? "header.promo.eventLabel" : "header.promo.appsLabel") +
+        '">' +
         (isEvent ? "Evento" : "Candidature") +
-        '</span><span class="vc-header-promo-btn__badge">' +
+        '</span><span class="vc-header-promo-btn__badge" data-i18n="' +
+        (isEvent ? "header.promo.eventBadgeShort" : "header.promo.appsBadge") +
+        '">' +
         (isEvent ? "ATTIVO" : "APERTE") +
         "</span></span></span></span>";
+      try {
+        if (window.VcI18n && typeof window.VcI18n.t === "function") {
+          var lab = btn.querySelector(".vc-header-promo-btn__label");
+          var bad = btn.querySelector(".vc-header-promo-btn__badge");
+          if (lab) {
+            lab.textContent = isEvent
+              ? window.VcI18n.t("header.promo.eventLabel") || lab.textContent
+              : window.VcI18n.t("header.promo.appsLabel") || lab.textContent;
+          }
+          if (bad) {
+            bad.textContent = isEvent
+              ? window.VcI18n.t("header.promo.eventBadgeShort") || bad.textContent
+              : window.VcI18n.t("header.promo.appsBadge") || bad.textContent;
+          }
+          btn.setAttribute(
+            "aria-label",
+            isEvent
+              ? window.VcI18n.t("header.promo.eventAria") || "Evento Hogwarts attivo – vai al calendario"
+              : window.VcI18n.t("header.promo.appsAria") || "Candidature staff aperte",
+          );
+          btn.setAttribute(
+            "data-i18n-attr",
+            isEvent ? "aria-label:header.promo.eventAria" : "aria-label:header.promo.appsAria",
+          );
+        }
+      } catch (eI18n) {}
     }
 
     normalizeHeaderQuickActionsOrder(actions);
 
     if (!document.querySelector('script[src*="vc-header-promo.js"]')) {
       var s = document.createElement("script");
-      s.src = "/js/vc-header-promo.js?v=20260904candPillUnify2";
+      s.src = "/js/vc-header-promo.js?v=20260926candPillGuest1";
       s.async = false;
       (document.head || document.body || document.documentElement).appendChild(s);
     } else {
@@ -665,11 +892,38 @@
 
     function addSection(title, items) {
       if (!items || !items.length) return;
-      var sec = document.createElement("section");
-      sec.className = "vc-mobile-nav-section";
-      var h = document.createElement("h3");
+      var titleUp = String(title || "MENU").toUpperCase();
+      var pinned =
+        (titleUp === "PRINCIPALE" || titleUp === "SITO" || titleUp === "MAIN") &&
+        titleUp !== "STAFF" &&
+        titleUp.indexOf("STAFF") !== 0;
+      var sec = document.createElement(pinned ? "section" : "details");
+      sec.className = "vc-mobile-nav-section" + (pinned ? " vc-mobile-nav-section--pinned" : "");
+      if (titleUp === "STAFF" || titleUp.indexOf("STAFF") === 0) {
+        sec.classList.add("vc-mobile-nav-section--staff-guide");
+        sec.setAttribute("data-vc-staff-section", "1");
+      }
+      if (!pinned) sec.setAttribute("open", "");
+      var h = document.createElement(pinned ? "h3" : "summary");
       h.className = "vc-mobile-nav-section-title";
-      h.textContent = String(title || "MENU").toUpperCase();
+      var txt = document.createElement("span");
+      txt.className = "vc-mobile-nav-section-title__txt";
+      txt.textContent = titleUp;
+      h.appendChild(txt);
+      if (!pinned) {
+        var chev = document.createElement("i");
+        chev.className = "fa fa-chevron-down vc-mobile-nav-section-chev";
+        chev.setAttribute("aria-hidden", "true");
+        h.appendChild(chev);
+        h.addEventListener("click", function (ev) {
+          try {
+            if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+          } catch (ePrev) {}
+          try {
+            sec.open = !sec.open;
+          } catch (eOpen) {}
+        });
+      }
       var g = document.createElement("div");
       g.className = "vc-mobile-nav-grid";
       for (var i = 0; i < items.length; i += 1) {
@@ -681,7 +935,9 @@
         a.innerHTML =
           '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa ' +
           (it.icon || "fa-circle-o") +
-          '"></i></span><span class="vc-mobile-nav-tile-label">' +
+          '"></i></span><span class="vc-mobile-nav-tile-label"' +
+          (it.i18nKey ? ' data-i18n="' + it.i18nKey + '"' : "") +
+          ">" +
           String(it.label || it.href) +
           "</span>";
         if (it.active || isActive(it.href)) {
@@ -735,12 +991,19 @@
               var labEl = el2.querySelector("span");
               var labMain = labEl ? String(labEl.textContent || "").trim() : String(el2.textContent || "").trim();
               var labMainNorm = labMain.replace(/\s+/g, " ").trim().toLowerCase();
+              /* hamFootOnly1: Bacheca/Dashboard fuori da PRINCIPALE (solo footer) */
               if (
                 String(href2).toLowerCase().indexOf("/staff/gestione") >= 0 ||
+                String(href2).toLowerCase().indexOf("/bacheca") >= 0 ||
+                String(href2).toLowerCase().indexOf("/boards") >= 0 ||
+                String(href2).toLowerCase().indexOf("/dashboard") >= 0 ||
                 labMainNorm === "gestione" ||
                 labMainNorm === "gestione staff" ||
                 labMainNorm === "area staff" ||
-                labMainNorm === "staff area"
+                labMainNorm === "staff area" ||
+                labMainNorm === "bacheca" ||
+                labMainNorm === "boards" ||
+                labMainNorm === "dashboard"
               ) {
                 i += 1;
                 continue;
@@ -790,13 +1053,33 @@
                 String(ghref).toLowerCase().indexOf("/staff/guida") >= 0 ||
                 glabNorm === "guida" ||
                 glabNorm === "guida staff" ||
-                String(ghref).toLowerCase().indexOf("/confessionale") >= 0 ||
-                glabNorm === "confessionale" ||
-                glabNorm === "il confessionale"
+                String(ghref).toLowerCase().indexOf("/staff/compiti") >= 0 ||
+                glabNorm === "compiti" ||
+                glabNorm === "compiti staff" ||
+                glabNorm === "compiti settimanali"
               ) {
+                var isConfItem =
+                  String(ghref).toLowerCase().indexOf("/confessionale") >= 0 ||
+                  glabNorm === "confessionale" ||
+                  glabNorm === "il confessionale" ||
+                  isConfessionaleNavLabel(glabNorm);
+                if (isConfItem) continue;
+                var isCompitiItem =
+                  String(ghref).toLowerCase().indexOf("/staff/compiti") >= 0 ||
+                  glabNorm === "compiti" ||
+                  glabNorm === "compiti staff" ||
+                  glabNorm === "compiti settimanali";
+                if (isCompitiItem && !canShowCompitiNav()) continue;
+                var itemLabel = glab || i18nT("staff.guide", "Guida");
+                var itemKey = "staff.guide";
+                if (isCompitiItem) {
+                  itemLabel = glab || i18nT("staff.compiti", "Compiti");
+                  itemKey = "staff.compiti";
+                }
                 guideItems.push({
                   href: ghref,
-                  label: glab || (String(ghref).toLowerCase().indexOf("/confessionale") >= 0 ? "Confessionale" : "Guida"),
+                  label: itemLabel,
+                  i18nKey: itemKey,
                   icon: iconFromEl(grow),
                   active:
                     grow.classList.contains("is-active") ||
@@ -809,24 +1092,24 @@
             if (!guideItems.length) {
               guideItems.push({
                 href: "/staff/guida/",
-                label: "Guida",
+                label: i18nT("staff.guide", "Guida"),
+                i18nKey: "staff.guide",
                 icon: "fa-book",
                 active: isActive("/staff/guida/"),
               });
             }
-            var hasConf = false;
+            var hasCompiti = false;
             for (var ci = 0; ci < guideItems.length; ci += 1) {
-              if (String(guideItems[ci].href || "").toLowerCase().indexOf("/confessionale") >= 0) {
-                hasConf = true;
-                break;
-              }
+              var giHref = String(guideItems[ci].href || "").toLowerCase();
+              if (giHref.indexOf("/staff/compiti") >= 0) hasCompiti = true;
             }
-            if (!hasConf) {
+            if (!hasCompiti && canShowCompitiNav()) {
               guideItems.push({
-                href: "/staff/confessionale/",
-                label: "Confessionale",
-                icon: "fa-comments",
-                active: isActive("/staff/confessionale/"),
+                href: "/staff/compiti/",
+                label: i18nT("staff.compiti", "Compiti"),
+                i18nKey: "staff.compiti",
+                icon: "fa-check-square-o",
+                active: isActive("/staff/compiti/"),
               });
             }
             addSection("Staff", guideItems);
@@ -871,6 +1154,11 @@
       }
     }
 
+    try {
+      stripConfessionaleFromStaffMenus(gridRoot);
+      stripConfessionaleFromStaffMenus(document);
+    } catch (eStripHam) {}
+
     if (filled < 1) {
       addSection("Principale", [
         { href: "/", label: "Home", icon: "fa-home" },
@@ -887,40 +1175,49 @@
           Boolean(perms().ok) ||
           Boolean(document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
         var hasGuide = Boolean(gridRoot.querySelector('a[href*="/staff/guida"]'));
-        var hasConf = Boolean(gridRoot.querySelector('a[href*="/confessionale"]'));
+        var hasCompiti = Boolean(gridRoot.querySelector('a[href*="/staff/compiti"]'));
         if (!hasGuide && staffOk) {
-          addSection("Staff", [
+          var staffTiles = [
             {
               href: "/staff/guida/",
-              label: "Guida",
+              label: i18nT("staff.guide", "Guida"),
+              i18nKey: "staff.guide",
               icon: "fa-book",
               active: isActive("/staff/guida/"),
             },
-            {
-              href: "/staff/confessionale/",
-              label: "Confessionale",
-              icon: "fa-comments",
-              active: isActive("/staff/confessionale/"),
-            },
-          ]);
-        } else if (hasGuide && !hasConf) {
+          ];
+          if (canShowCompitiNav()) {
+            staffTiles.push({
+              href: "/staff/compiti/",
+              label: i18nT("staff.compiti", "Compiti"),
+              i18nKey: "staff.compiti",
+              icon: "fa-check-square-o",
+              active: isActive("/staff/compiti/"),
+            });
+          }
+          addSection("Staff", staffTiles);
+        } else if (hasGuide && !hasCompiti && canShowCompitiNav()) {
           var guideLink = gridRoot.querySelector('a[href*="/staff/guida"]');
           var guideGrid = guideLink && guideLink.closest ? guideLink.closest(".vc-mobile-nav-grid") : null;
           if (guideGrid) {
-            var confA = document.createElement("a");
-            confA.className = "vc-mobile-nav-tile";
-            confA.href = "/staff/confessionale/";
-            confA.innerHTML =
-              '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
-              '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
-            if (isActive("/staff/confessionale/")) {
-              confA.classList.add("is-active");
-              confA.setAttribute("aria-current", "page");
+            if (!hasCompiti && canShowCompitiNav()) {
+              var compitiA = document.createElement("a");
+              compitiA.className = "vc-mobile-nav-tile";
+              compitiA.href = "/staff/compiti/";
+              compitiA.innerHTML =
+                '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>' +
+                '<span class="vc-mobile-nav-tile-label" data-i18n="staff.compiti">' +
+                i18nT("staff.compiti", "Compiti") +
+                "</span>";
+              if (isActive("/staff/compiti/")) {
+                compitiA.classList.add("is-active");
+                compitiA.setAttribute("aria-current", "page");
+              }
+              compitiA.addEventListener("click", function () {
+                setStaffDrawerOpen(false);
+              });
+              guideGrid.appendChild(compitiA);
             }
-            confA.addEventListener("click", function () {
-              setStaffDrawerOpen(false);
-            });
-            guideGrid.appendChild(confA);
           }
         }
       }
@@ -1099,19 +1396,98 @@
       who.appendChild(left);
       who.appendChild(meta);
       var actions = document.createElement("div");
-      actions.className = "vc-mobile-nav-footer__actions";
+      actions.className = "vc-mobile-nav-footer__actions is-trio";
       var prof = document.createElement("a");
-      prof.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--profile";
+      prof.className =
+        "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--profile vc-mobile-nav-footer__action--icon";
       var uid = String(profile.id || "").trim();
-      prof.href = /^\d{17,22}$/.test(uid) ? "/user/?id=" + encodeURIComponent(uid) : "/user";
-      prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i> Profilo';
-      prof.addEventListener("click", function () {
+      if (!/^\d{17,22}$/.test(uid)) {
+        try {
+          uid = String(readCachedDiscordUserId() || "").trim();
+        } catch (eUid) {}
+      }
+      prof.href = /^\d{17,22}$/.test(uid) ? "/user/?id=" + encodeURIComponent(uid) : "#";
+      prof.setAttribute("aria-label", "Profilo");
+      prof.title = "Profilo";
+      prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i>';
+      prof.addEventListener("click", function (ev) {
+        if (!/^\d{17,22}$/.test(uid)) {
+          try {
+            uid = String(
+              (window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) ||
+                readCachedDiscordUserId() ||
+                "",
+            ).trim();
+          } catch (eRe) {}
+          if (/^\d{17,22}$/.test(uid)) {
+            if (ev && ev.preventDefault) ev.preventDefault();
+            prof.href = "/user/?id=" + encodeURIComponent(uid);
+            try {
+              window.location.assign(prof.href);
+            } catch (eGo) {
+              window.location.href = prof.href;
+            }
+          }
+        }
         setStaffDrawerOpen(false);
       });
+      var bach = document.createElement("a");
+      bach.className =
+        "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--bacheca vc-mobile-nav-footer__action--icon";
+      bach.setAttribute("aria-label", "Bacheca");
+      bach.title = "Bacheca";
+      bach.setAttribute("data-vc-mobile-bacheca", "1");
+      var dash = document.createElement("a");
+      dash.className =
+        "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--dashboard vc-mobile-nav-footer__action--icon";
+      dash.setAttribute("aria-label", "Dashboard");
+      dash.title = "Dashboard";
+      dash.setAttribute("data-vc-mobile-dashboard", "1");
+      /* hamFootSoon1: come PC — founder unlock, altrimenti blur + soon */
+      var founderOk = false;
+      try {
+        if (window.__VC_VIEW_AS_ALLOWED === true) founderOk = true;
+        var sp = window.__VC_STAFF_PERMS || {};
+        if (sp && (sp.isFounder === true || sp.viewAsAllowed === true)) founderOk = true;
+        if (sessionStorage.getItem("vc_view_as_allowed") === "1") founderOk = true;
+      } catch (eFounder) {}
+      if (founderOk) {
+        bach.href = "/bacheca/";
+        dash.href = "/dashboard/";
+        bach.innerHTML = '<i class="fa fa-th-large" aria-hidden="true"></i>';
+        dash.innerHTML = '<i class="fa fa-tachometer" aria-hidden="true"></i>';
+        bach.addEventListener("click", function () {
+          setStaffDrawerOpen(false);
+        });
+        dash.addEventListener("click", function () {
+          setStaffDrawerOpen(false);
+        });
+      } else {
+        bach.classList.add("is-soon");
+        dash.classList.add("is-soon");
+        bach.setAttribute("aria-disabled", "true");
+        dash.setAttribute("aria-disabled", "true");
+        bach.innerHTML =
+          '<span class="vc-mobile-nav-footer__soon-inner" aria-hidden="true"><i class="fa fa-th-large" aria-hidden="true"></i></span>' +
+          '<span class="vc-mobile-nav-footer__soon-badge">soon</span>';
+        dash.innerHTML =
+          '<span class="vc-mobile-nav-footer__soon-inner" aria-hidden="true"><i class="fa fa-tachometer" aria-hidden="true"></i></span>' +
+          '<span class="vc-mobile-nav-footer__soon-badge">soon</span>';
+        bach.addEventListener("click", function (ev) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+        });
+        dash.addEventListener("click", function (ev) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+        });
+      }
       var lo = document.createElement("button");
       lo.type = "button";
-      lo.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--logout";
-      lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i> Esci';
+      /* hamFootOnly1: Esci a barra full-width sotto il trio */
+      lo.className =
+        "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--logout vc-mobile-nav-footer__action--logout-bar";
+      lo.setAttribute("aria-label", "Esci");
+      lo.title = "Esci";
+      lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i><span>Esci</span>';
       lo.addEventListener("click", function () {
         var logoutBtn = document.getElementById("discord-logout-btn");
         if (logoutBtn) logoutBtn.click();
@@ -1130,10 +1506,23 @@
         setStaffDrawerOpen(false);
       });
       actions.appendChild(prof);
-      actions.appendChild(lo);
+      actions.appendChild(bach);
+      actions.appendChild(dash);
+      var toolbar = document.createElement("div");
+      toolbar.className = "vc-mobile-nav-footer__toolbar";
+      toolbar.appendChild(actions);
+      toolbar.appendChild(lo);
       wrap.appendChild(who);
-      wrap.appendChild(actions);
+      wrap.appendChild(toolbar);
       foot.appendChild(wrap);
+      try {
+        /* hamEsciFull1 */
+        lo.classList.add("vc-mobile-nav-footer__action--logout-bar");
+        lo.classList.remove("vc-mobile-nav-footer__action--icon");
+        if (lo.closest && lo.closest(".vc-mobile-nav-footer__actions")) {
+          toolbar.appendChild(lo);
+        }
+      } catch (eEsci) {}
       return;
     }
 
@@ -1162,29 +1551,36 @@
             var grid = document.getElementById("vc-mobile-nav-drawer-grid");
       if (!grid || !grid.children.length) fillStaffDrawerFromNav();
       try {
+        stripConfessionaleFromStaffMenus(grid || document);
+        stripConfessionaleFromStaffMenus(document);
+      } catch (eStripOpen) {}
+      try {
         grid = document.getElementById("vc-mobile-nav-drawer-grid");
         if (
           grid &&
-          !grid.querySelector('a[href*="/confessionale"]') &&
           grid.querySelector('a[href*="/staff/guida"]')
         ) {
           var guideLink = grid.querySelector('a[href*="/staff/guida"]');
           var guideGrid = guideLink && guideLink.closest ? guideLink.closest(".vc-mobile-nav-grid") : null;
           if (guideGrid) {
-            var confA = document.createElement("a");
-            confA.className = "vc-mobile-nav-tile";
-            confA.href = "/staff/confessionale/";
-            confA.innerHTML =
-              '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
-              '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
-            if (isActive("/staff/confessionale/")) {
-              confA.classList.add("is-active");
-              confA.setAttribute("aria-current", "page");
+            if (!grid.querySelector('a[href*="/staff/compiti"]') && canShowCompitiNav()) {
+              var compitiA = document.createElement("a");
+              compitiA.className = "vc-mobile-nav-tile";
+              compitiA.href = "/staff/compiti/";
+              compitiA.innerHTML =
+                '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-check-square-o"></i></span>' +
+                '<span class="vc-mobile-nav-tile-label" data-i18n="staff.compiti">' +
+                i18nT("staff.compiti", "Compiti") +
+                "</span>";
+              if (isActive("/staff/compiti/")) {
+                compitiA.classList.add("is-active");
+                compitiA.setAttribute("aria-current", "page");
+              }
+              compitiA.addEventListener("click", function () {
+                setStaffDrawerOpen(false);
+              });
+              guideGrid.appendChild(compitiA);
             }
-            confA.addEventListener("click", function () {
-              setStaffDrawerOpen(false);
-            });
-            guideGrid.appendChild(confA);
           }
         }
       } catch (eConfFix) {}
@@ -1319,32 +1715,98 @@
       removeStaffFooterColumns();
       return;
     }
+    /* violPass2: upgrade a slice — idle non deve superare ~50ms */
     var header = document.querySelector("body > .vc-staff-app > header, body > header, .vc-staff-app header");
-    if (header) {
-      ensureSiteBrand(header);
-      injectStaffMenu(header);
-      stripLegacyStaffNavRows(header);
-      stripLegacyStaffNavRows(document);
-      enforceStaffMenuGuidaOnly(header);
-      enforceStaffMenuGuidaOnly(document);
-      if (isEventDedicatedNavPage()) {
-        watchEventNavStaffStrip(header);
-      }
-      ensureNotifSlot(header);
-      ensureHeaderPromo();
-      ensureStaffDrawerShell();
-      wireStaffHamburger();
+    function slice1() {
+      if (!header) return;
+      try {
+        ensureSiteBrand(header);
+        injectStaffMenu(header);
+        stripLegacyStaffNavRows(header);
+        stripLegacyStaffNavRows(document);
+      } catch (e1) {}
     }
-    injectStaffFooterColumns();
-    try {
-      document.body.classList.add("vc-staff-site-nav");
-    } catch (e) {}
-    try {
-      window.dispatchEvent(new CustomEvent("vc:staff-notif-ready"));
-    } catch (eNotif) {}
-    try {
-      if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
-    } catch (eRebuild) {}
+    function slice2() {
+      if (!header) return;
+      try {
+        enforceStaffMenuGuidaOnly(header);
+        enforceStaffMenuGuidaOnly(document);
+        stripConfessionaleFromStaffMenus(header);
+        stripConfessionaleFromStaffMenus(document);
+        watchStaffConfessionaleStrip();
+        if (isEventDedicatedNavPage()) watchEventNavStaffStrip(header);
+        ensureNotifSlot(header);
+        ensureHeaderPromo();
+      } catch (e2) {}
+    }
+    function slice3() {
+      try {
+        ensureStaffDrawerShell();
+        wireStaffHamburger();
+        injectStaffFooterColumns();
+        applyStaffI18n(document);
+        document.body.classList.add("vc-staff-site-nav");
+      } catch (e3) {}
+    }
+    function slice4() {
+      try {
+        window.dispatchEvent(new CustomEvent("vc:staff-notif-ready"));
+      } catch (eNotif) {}
+      try {
+        if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
+      } catch (eRebuild) {}
+      try {
+        if (window.VcNavBadges && typeof window.VcNavBadges.schedule === "function") {
+          window.VcNavBadges.schedule();
+        } else if (window.VcNavBadges && typeof window.VcNavBadges.apply === "function") {
+          window.VcNavBadges.apply(document);
+        }
+      } catch (eBadge) {}
+    }
+    function defer(fn, ms) {
+      /* violPass9/12: solo setTimeout (idle timeout marcava Violation) + gap più larghi */
+      window.setTimeout(function () {
+        try {
+          fn();
+        } catch (eF) {}
+      }, ms || 0);
+    }
+    /* violPass12: slice1 spezzato (era ~58ms+, con load storm sale) */
+    defer(function () {
+      try {
+        if (!header) return;
+        ensureSiteBrand(header);
+        injectStaffMenu(header);
+      } catch (e1a) {}
+    }, 0);
+    defer(function () {
+      try {
+        if (!header) return;
+        stripLegacyStaffNavRows(header);
+        stripLegacyStaffNavRows(document);
+      } catch (e1b) {}
+    }, 120);
+    defer(slice2, 320);
+    defer(slice3, 680);
+    defer(function () {
+      try {
+        window.dispatchEvent(new CustomEvent("vc:staff-notif-ready"));
+      } catch (eNotif) {}
+    }, 900);
+    defer(function () {
+      try {
+        if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
+      } catch (eRebuild) {}
+    }, 1200);
+    defer(function () {
+      try {
+        if (window.VcNavBadges && typeof window.VcNavBadges.schedule === "function") {
+          window.VcNavBadges.schedule();
+        } else if (window.VcNavBadges && typeof window.VcNavBadges.apply === "function") {
+          window.VcNavBadges.apply(document);
+        }
+      } catch (eBadge) {}
+    }, 1500);
   }
 
   function boot() {
@@ -1421,6 +1883,13 @@
   window.addEventListener("vc:staff-access-ok", function () {
     boot();
   });
+  window.addEventListener("vc:langchange", function () {
+    try {
+      if (!isStaffNavContext()) return;
+      injectStaffFooterColumns();
+      applyStaffI18n(document);
+    } catch (eLang) {}
+  });
   window.addEventListener("vc:auth-logout", function () {
     teardownStaffSiteNav();
   });
@@ -1430,7 +1899,14 @@
       teardownStaffSiteNav();
       return;
     }
-    if (window.__VC_STAFF_MENU_ALLOWED) boot();
+    if (!window.__VC_STAFF_MENU_ALLOWED) return;
+    /* handlerPerf2 + violKill1 + violPass2: profile boot deferred; upgrade è a slice */
+    var run = function () {
+      try {
+        boot();
+      } catch (eBoot) {}
+    };
+    window.setTimeout(run, 32);
   });
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", scheduleStaffNavBoot);
@@ -1438,3 +1914,10 @@
     scheduleStaffNavBoot();
   }
 })();
+/* violKill1 */
+/* extOnlyFix1 */
+/* violPass2 */
+/* violPass4 */
+/* violPass5 */
+/* violPass10 */
+/* violPass12 */

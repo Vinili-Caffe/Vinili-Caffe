@@ -70,7 +70,7 @@
       '<div class="tile" data-unit="seconds"><span class="num">' +
       pad2(secondi) +
       '</span><span class="lbl">Secondi</span></div>' +
-      '<div class="tile vc-seratafilm-thanks-next" style="grid-column: 1 / -1; padding: 14px 12px;">' +
+      '<div class="tile vc-seratafilm-thanks-next">' +
       '<span class="lbl">Prossima serata: <strong>' +
       (u ? u.escapeHtml(dateLabel) : dateLabel) +
       "</strong> · <strong>" +
@@ -89,8 +89,14 @@
       tickTimer = 0;
     }
     function tick() {
-      var next = u.resolveNextScreening(Date.now());
-      renderCountdown(claimTimerEl() || te, next, Date.now());
+      var now = Date.now();
+      var next = u.resolveNextScreening(now);
+      var atMs = Number(next && next.atMs) || 0;
+      var remaining = Math.max(0, atMs - now);
+      renderCountdown(claimTimerEl() || te, next, now);
+      if (typeof window.__vcSeratafilmBgmOnTick === "function") {
+        window.__vcSeratafilmBgmOnTick(remaining);
+      }
     }
     tick();
     tickTimer = setInterval(tick, 1000);

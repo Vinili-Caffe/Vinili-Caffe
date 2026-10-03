@@ -234,6 +234,10 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     const gid = String(doc?.guildId || guildId || "").trim();
     const staffBlock = doc.staff;
     const staffPendingPurgeAt = doc.staffPendingPurgeAt;
+    const rolesHistoryRetention = Array.isArray(doc.staffRolesHistoryRetention)
+      ? doc.staffRolesHistoryRetention.filter(Boolean)
+      : [];
+    const keepRolesHistoryRetention = rolesHistoryRetention.length > 0;
     const tenantPartnership =
       doc?.profile?.tenantPartnership && typeof doc.profile.tenantPartnership === "object"
         ? doc.profile.tenantPartnership
@@ -255,7 +259,8 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
       !keepEventWeekWinners &&
       !keepStaffGrace &&
       !keepHogwarts &&
-      !keepTenantPartnership
+      !keepTenantPartnership &&
+      !keepRolesHistoryRetention
     ) {
       deleted += 1;
       if (!dryRun) await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => null);
@@ -279,6 +284,8 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
     if (keepModeration) payload.moderation = doc.moderation;
     if (keepStaffGrace && staffBlock) payload.staff = staffBlock;
     if (staffPendingPurgeAt) payload.staffPendingPurgeAt = staffPendingPurgeAt;
+    // organicoLeaveRetain2: GDPR trim must not erase organico career history
+    if (keepRolesHistoryRetention) payload.staffRolesHistoryRetention = rolesHistoryRetention;
 
     const profile = {};
     if (keepEventWeekWinners) {
@@ -294,6 +301,12 @@ async function eraseActivityUserProfiles({ guildId, userId, client, dryRun }) {
         if (keepTenantPartnership) profile.tenantPartnership = tenantPartnership;
     if (Object.keys(profile).length) payload.profile = profile;
     await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => null);
+    if (keepRolesHistoryRetention) {
+      await ActivityUserProfile.updateOne(
+        { _id: doc._id },
+        { $set: { staffRolesHistoryRetention: rolesHistoryRetention } },
+      ).catch(() => null);
+    }
   }
 
   return {
@@ -435,7 +448,7 @@ async function eraseUserGdprData({ guildId, userId, client, dryRun = false }) {
     site,
     notes: [
       "I casi moderazione e i pagamenti non vengono cancellati automaticamente.",
-      "Storico partnership (staff.partnerActions) e progressi [profilo sul sito](https://www.viniliecaffe.it/personalizza/) pm restano conservati.",
+      "Storico partnership (staff.partnerActions) e progressi [Personalizza](https://www.viniliecaffe.it/personalizza/) pm restano conservati.",
       "Con guildId impostato, i profili ActivityUser degli altri server non vengono toccati.",
       "Durante l'evento Hogwarts attivo, smistamento e profilo evento possono restare conservati.",
       "I transcript ticket su disco non vengono eliminati: solo il testo descrizione nel DB viene oscurato.",

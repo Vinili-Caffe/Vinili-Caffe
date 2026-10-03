@@ -1,0 +1,131 @@
+/* wtPagerSeamFix2: kill soft-fx nested card on tickets sidebar; pager un po' più su.
+   Soft-fx :is() usa specificità MAX della lista (altissima) → serve #id + 2 id ancestor. */
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top #vc-page-content #vc-wt-sidebar,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-wt-sidebar,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar,
+html.vc-site-polish body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-sidebar,
+body.vc-web-tickets-page #vc-wt-sidebar {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  isolation: auto !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html.vc-site-polish[data-vc-theme="light"]:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-wt-sidebar,
+html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page #vc-wt-sidebar,
+html[data-vc-theme="light"] body.vc-web-tickets-page #vc-wt-sidebar {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border-right: 1px solid rgba(111, 78, 55, 0.16) !important;
+  box-shadow: none !important;
+}
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top #vc-page-content #vc-wt-sidebar::before,
+html.vc-site-polish:not(.vc-soft-fx-off):not([data-vc-theme="light"]) body.vc-body#top #vc-page-content #vc-wt-sidebar::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-wt-sidebar::before,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-wt-sidebar::after,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar::before,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-page-content #vc-wt-sidebar::after,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-sidebar::before,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-sidebar::after,
+body.vc-web-tickets-page #vc-wt-sidebar::before,
+body.vc-web-tickets-page #vc-wt-sidebar::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+}
+@media (max-width: 900px) {
+  html.vc-site-polish body.vc-web-tickets-page #vc-wt-sidebar,
+  body.vc-web-tickets-page #vc-wt-sidebar {
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  html.vc-site-polish[data-vc-theme="light"] body.vc-web-tickets-page #vc-wt-sidebar {
+    border-bottom: 1px solid rgba(111, 78, 55, 0.16) !important;
+  }
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body.vc-web-tickets-page#top #vc-wt-pager-wrap,
+html.vc-site-polish:not(.vc-soft-fx-off) body.vc-body#top #vc-page-content #vc-wt-pager-wrap {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  margin: 0 !important;
+  /* switcher un po' più su rispetto al bordo inferiore del pannello */
+  padding: 0.4rem 0.75rem 1.65rem !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  box-shadow: none !important;
+}
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager,
+body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager,
+html.vc-site-polish body.vc-web-tickets-page #vc-wt-pager-wrap .vc-wt-pager.vc-mini-pager {
+  margin: 0 auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-top: 0 !important;
+  box-shadow: none !important;
+}
+body.vc-web-tickets-page #vc-wt-list,
+body.vc-web-tickets-page .vc-wt-list,
+html.vc-site-polish body.vc-web-tickets-page .vc-wt-list {
+  background: transparent !important;
+  background-image: none !important;
+  padding-bottom: 0.15rem !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Fix2b nuclear: 3 IDs beat soft-fx/landing :is() max */
+html body#top #vc-page-content #vc-wt-sidebar,
+html body#top #vc-page-content aside#vc-wt-sidebar.vc-wt-sidebar {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-vc-theme="light"] body#top #vc-page-content #vc-wt-sidebar {
+  border-right: 1px solid rgba(111, 78, 55, 0.16) !important;
+}
+html body#top #vc-page-content #vc-wt-sidebar::before,
+html body#top #vc-page-content #vc-wt-sidebar::after,
+html body#top #vc-page-content aside#vc-wt-sidebar.vc-wt-sidebar::before,
+html body#top #vc-page-content aside#vc-wt-sidebar.vc-wt-sidebar::after {
+  content: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+}

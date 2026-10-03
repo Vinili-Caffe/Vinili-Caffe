@@ -64,9 +64,9 @@ function formatShopInventoryLines(inventory) {
   return lines;
 }
 
-function isHogwartsProfileSectionEnabled(client) {
-  const cfg = resolveHogwartsEventConfig(client);
-  return cfg?.enabled !== false;
+function isHogwartsProfileSectionEnabled(_client) {
+  /* Evento Hogwarts retired — keep finale roles, hide live event UI */
+  return false;
 }
 
 function buildHogwartsProfileHomeLines(hw) {

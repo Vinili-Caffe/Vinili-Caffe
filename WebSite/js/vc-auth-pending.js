@@ -144,11 +144,12 @@
     var coffee = avatarUrl(null);
     return (
       '<div class="discord-login-row vc-auth-pending-shell" aria-busy="true" title="Verifica sessione…">' +
+      '<span class="discord-profile-link" aria-hidden="true">' +
       '<span class="discord-avatar-clip">' +
       '<img class="discord-avatar-img vc-avatar vc-avatar--ready vc-avatar-fallback-img" data-vc-avatar="1" data-vc-avatar-fallback="1" src="' +
       escAttr(coffee) +
       '" alt="" width="38" height="38" decoding="async" aria-hidden="true" />' +
-      "</span></div>"
+      "</span></span></div>"
     );
   }
 
@@ -203,12 +204,16 @@
     return (
       '<div class="discord-login-row discord-login-row--profile vc-auth-early-shell" aria-busy="true">' +
       '<div class="discord-account-menu">' +
-      '<button type="button" class="discord-profile-link" aria-label="Menu account ' +
+      '<button type="button" class="discord-profile-link discord-profile-link--chip" aria-label="Menu account ' +
       label +
       '" aria-haspopup="true">' +
       '<span class="discord-avatar-clip">' +
       avatarVisual +
-      "</span></button></div></div>"
+      "</span>" +
+      '<span class="discord-profile-link__name">' +
+      label +
+      "</span>" +
+      "</button></div></div>"
     );
   }
 
@@ -326,6 +331,18 @@
     return Number(navigator.maxTouchPoints || 0) > 0;
   }
 
+  function isViewAsLogout() {
+    try {
+      return (
+        String(sessionStorage.getItem("vc_view_as") || "")
+          .trim()
+          .toLowerCase() === "logout"
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
   function isBlockingSessionVerifyPage() {
     try {
       try {
@@ -335,6 +352,8 @@
         if (navigator.standalone) return false;
       } catch (eIos) {}
             if (isCoarseMobile()) return false;
+      /* viewAsAccessFreeze1: Logout preview = guest UI, no blocking verify */
+      if (isViewAsLogout()) return false;
       if (!window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY) return false;
       var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
       if (p.indexOf("/dashboard") === 0) return true;
@@ -348,6 +367,9 @@
   }
 
   function hasLikelyDiscordSession() {
+    try {
+      if (isViewAsLogout()) return false;
+    } catch (eVa) {}
     try {
       var h = window.location.hash || "";
       if (h.indexOf("access_token=") !== -1) return true;
@@ -410,8 +432,9 @@
       el.setAttribute("aria-busy", "true");
       el.innerHTML =
         '<div class="vc-session-verify-inner">' +
-        '<span class="vc-session-verify-spinner" aria-hidden="true"></span>' +
-        '<p class="vc-session-verify-text">Verifica sessione in corso...</p>' +
+        '<span class="vc-ul-loading-spinner vc-session-verify-spinner" aria-hidden="true"></span>' +
+        '<p class="vc-session-verify-text">Caricamento…</p>' +
+        '<p class="vc-session-verify-sub">Un momento…</p>' +
         "</div>";
       document.body.appendChild(el);
     } catch (eOv) {}
@@ -442,10 +465,16 @@
   }
 
   function armSessionPendingFailsafe() {
+    /* ticketsBootHang1: failsafe corto + hard kill — overlay/opacity lock non devono restare neri */
+    function kill() {
+      try {
+        clearSessionPendingUi();
+      } catch (eKill) {}
+    }
     setTimeout(function () {
       try {
         if (window.__VC_DISCORD_PROFILE) {
-          clearSessionPendingUi();
+          kill();
           return;
         }
         var el = document.getElementById("vc-session-verify-overlay");
@@ -454,11 +483,12 @@
           pending = document.documentElement.classList.contains("vc-session-verify-pending");
         } catch (eP) {}
         if (!pending && !el) return;
-        clearSessionPendingUi();
+        kill();
       } catch (eFs) {
-        clearSessionPendingUi();
+        kill();
       }
     }, 280);
+    setTimeout(kill, 1600);
   }
 
   function armSessionPendingUi() {
@@ -476,7 +506,12 @@
 
   bootEarlyAuthHeader();
 
-  if (isBlockingSessionVerifyPage() && hasLikelyDiscordSession()) {
+  if (isViewAsLogout()) {
+    clearSessionPendingUi();
+    try {
+      document.documentElement.classList.remove("vc-auth-session-pending");
+    } catch (ePend) {}
+  } else if (isBlockingSessionVerifyPage() && hasLikelyDiscordSession()) {
     armSessionPendingUi();
   }
 })();

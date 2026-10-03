@@ -11,16 +11,37 @@
 
   function closePop(root) {
     if (!root) return;
-    var pop = root.querySelector(".vc-mini-pager__pop");
-    var jump = root.querySelector("[data-pager-jump]");
-    if (pop) pop.hidden = true;
-    if (jump) jump.setAttribute("aria-expanded", "false");
+    var wraps = root.querySelectorAll(".vc-mini-pager__jump, .vc-staff-inbox-pagination__jump");
+    for (var i = 0; i < wraps.length; i += 1) {
+      var wrap = wraps[i];
+      var jump = wrap.querySelector("[data-pager-jump]");
+      var input = wrap.querySelector("[data-pager-input]");
+      var pop = wrap.querySelector(".vc-mini-pager__pop");
+      if (pop) pop.hidden = true;
+      if (jump) {
+        jump.hidden = false;
+        jump.setAttribute("aria-expanded", "false");
+      }
+      if (input && !pop) {
+        input.hidden = true;
+        input.value = "";
+      }
+      wrap.classList.remove("is-editing");
+    }
+    try {
+      root.removeAttribute("data-pager-editing");
+    } catch (eAttr) {}
   }
 
   function closeAll(except) {
-    var nodes = document.querySelectorAll(".vc-mini-pager__pop:not([hidden])");
+    var nodes = document.querySelectorAll(
+      ".vc-mini-pager__pop:not([hidden]), .vc-staff-inbox-pagination__jump.is-editing"
+    );
     for (var i = 0; i < nodes.length; i++) {
-      var root = nodes[i].closest(".vc-mini-pager") || nodes[i].parentElement;
+      var root =
+        nodes[i].closest(".vc-mini-pager") ||
+        nodes[i].closest(".vc-staff-inbox-pagination") ||
+        nodes[i].parentElement;
       if (except && root === except) continue;
       closePop(root);
     }
@@ -108,7 +129,8 @@
   function wrapHandlers(root, handlers, opts) {
     handlers = handlers || {};
     opts = opts || {};
-    if (opts.scroll === false) return handlers;
+    /* scrollStayAll1: default = resta all'altezza attuale (no jump su freccette/tab) */
+    if (opts.scroll !== true) return handlers;
     var behavior = opts.scrollBehavior || "auto";
     function bump() {
       window.requestAnimationFrame(function () {
@@ -143,7 +165,29 @@
     return out;
   }
 
-  function html(page, total, opts) {
+  function pageWindow(page, totalPages, windowSize) {
+    var nums = [];
+    var ws = Math.max(3, Math.min(7, Number(windowSize) || 5));
+    if (totalPages <= ws + 2) {
+      for (var i = 1; i <= totalPages; i += 1) nums.push(i);
+      return nums;
+    }
+    var half = Math.floor(ws / 2);
+    var start = Math.max(2, page - half);
+    var end = Math.min(totalPages - 1, page + half);
+    if (page - half < 2) end = Math.min(totalPages - 1, ws + 1);
+    if (page + half > totalPages - 1) start = Math.max(2, totalPages - ws);
+    nums.push(1);
+    if (start > 2) nums.push("…");
+    for (var j = start; j <= end; j += 1) nums.push(j);
+    if (end < totalPages - 1) nums.push("…");
+    nums.push(totalPages);
+    return nums;
+  }
+
+  /* publicPagerClassic1: site pubblico = frecce + pagina corrente (jump);
+     staff/organico resta numerato (default). */
+  function htmlClassic(page, total, opts) {
     opts = opts || {};
     var p = Math.max(1, Number(page) || 1);
     var tp = Math.max(1, Number(total) || 1);
@@ -163,7 +207,11 @@
       prevAria +
       '"><i class="fa fa-chevron-left" aria-hidden="true"></i></button>' +
       '<div class="vc-mini-pager__jump">' +
-      '<button type="button" class="vc-mini-pager__now" data-pager-jump aria-haspopup="dialog" aria-expanded="false" aria-label="' +
+      '<button type="button" class="vc-mini-pager__now" data-pager-jump aria-haspopup="dialog" aria-expanded="false" title="' +
+      jumpAria +
+      '" aria-label="' +
+      String(p) +
+      " — " +
       jumpAria +
       '">' +
       String(p) +
@@ -178,7 +226,7 @@
       tp +
       '" value="' +
       p +
-      '" data-pager-input>' +
+      '" name="vcPagerPage" id="vc-mini-pager-input" data-pager-input>' +
       '<span class="vc-mini-pager__of">/ ' +
       tp +
       "</span>" +
@@ -203,59 +251,208 @@
     );
   }
 
+  /* organicoPagerEverywhere1: stessa pill organico/inbox (numeri + frecce) */
+  function html(page, total, opts) {
+    opts = opts || {};
+    if (opts.classic) return htmlClassic(page, total, opts);
+    var p = Math.max(1, Number(page) || 1);
+    var tp = Math.max(1, Number(total) || 1);
+    if (p > tp) p = tp;
+    var prevAttr = opts.prevAttr || "data-pager-prev";
+    var nextAttr = opts.nextAttr || "data-pager-next";
+    var goAttr = opts.goAttr || "data-pager-go";
+    var aria = opts.aria || (langEn() ? "Pagination" : "Paginazione");
+    var prevAria = langEn() ? "Previous page" : "Pagina precedente";
+    var nextAria = langEn() ? "Next page" : "Pagina successiva";
+
+    function gap() {
+      /* organicoPagerJump1: "…" → input pagina */
+      return (
+        '<span class="vc-mini-pager__jump vc-staff-inbox-pagination__jump">' +
+        '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__gap" data-pager-jump aria-label="' +
+        (langEn() ? "Go to page" : "Vai a pagina") +
+        '" title="' +
+        (langEn() ? "Go to page" : "Vai a pagina") +
+        '">\u2026</button>' +
+        '<input class="vc-staff-inbox-pagination__jump-input" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" min="1" max="' +
+        tp +
+        '" placeholder="' +
+        (langEn() ? "page #" : "pagina") +
+        '" name="vcPagerPage" data-pager-input hidden aria-label="' +
+        (langEn() ? "Page number" : "Numero pagina") +
+        '" />' +
+        "</span>"
+      );
+    }
+    function pageBtn(n, active) {
+      return (
+        '<button type="button" class="vc-staff-pt-seg__btn' +
+        (active ? " is-active" : "") +
+        '" ' +
+        goAttr +
+        '="' +
+        n +
+        '"' +
+        (active ? ' aria-current="page"' : "") +
+        ">" +
+        n +
+        "</button>"
+      );
+    }
+
+    var pagesHtml =
+      '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__navbtn" ' +
+      prevAttr +
+      (p <= 1 ? " disabled" : "") +
+      ' aria-label="' +
+      prevAria +
+      '">\u2190</button>';
+    pageWindow(p, tp, opts.windowSize).forEach(function (n) {
+      if (n === "…") pagesHtml += gap();
+      else pagesHtml += pageBtn(n, n === p);
+    });
+    pagesHtml +=
+      '<button type="button" class="vc-staff-pt-seg__btn vc-staff-inbox-pagination__navbtn" ' +
+      nextAttr +
+      (p >= tp ? " disabled" : "") +
+      ' aria-label="' +
+      nextAria +
+      '">\u2192</button>';
+
+    var inner =
+      '<div class="vc-staff-inbox-pagination__row">' +
+      '<div class="vc-staff-pt-seg vc-staff-inbox-pagination__seg" role="navigation" aria-label="' +
+      aria +
+      '">' +
+      pagesHtml +
+      "</div></div>";
+
+    if (opts.innerOnly) return inner;
+    return (
+      '<nav class="vc-mini-pager vc-pill-pager vc-staff-inbox-pagination" data-pager-page="' +
+      p +
+      '" data-pager-total="' +
+      tp +
+      '" aria-label="' +
+      aria +
+      '">' +
+      inner +
+      "</nav>"
+    );
+  }
+
   function commit(root, handlers) {
     if (!root || !handlers || typeof handlers.go !== "function") return;
     var input = root.querySelector("[data-pager-input]");
-    var total = Number(root.getAttribute("data-pager-total") || (input && input.max) || 1);
+    if (!input) return;
+    var total = Number(root.getAttribute("data-pager-total") || input.max || 1);
     var current = Number(root.getAttribute("data-pager-page") || 1);
-    var next = clampPage(input ? input.value : "", total);
+    var next = clampPage(input.value, total);
     closePop(root);
     if (!next || next === current) return;
     handlers.go(next);
   }
 
+  function liveHandlers(root) {
+    var raw = root && root.__vcPagerHandlers;
+    return wrapHandlers(root, raw || {}, root.__vcPagerOpts || {});
+  }
+
+  function openJumpEditor(root, jumpBtn) {
+    if (!root || !jumpBtn) return false;
+    var wrap =
+      jumpBtn.closest(".vc-mini-pager__jump") ||
+      jumpBtn.closest(".vc-staff-inbox-pagination__jump");
+    var input = wrap && wrap.querySelector("[data-pager-input]");
+    var pop = wrap && wrap.querySelector(".vc-mini-pager__pop");
+    closeAll(root);
+    if (pop) {
+      var open = pop.hidden;
+      pop.hidden = !open;
+      jumpBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open && input) {
+        input.value = String(root.getAttribute("data-pager-page") || input.value || "1");
+        try {
+          input.focus();
+          input.select();
+        } catch (eF) {}
+      }
+      return true;
+    }
+    if (!wrap || !input) return false;
+    jumpBtn.hidden = true;
+    jumpBtn.setAttribute("aria-expanded", "true");
+    input.hidden = false;
+    input.removeAttribute("hidden");
+    wrap.classList.add("is-editing");
+    root.setAttribute("data-pager-editing", "1");
+    input.value = "";
+    input.max = String(root.getAttribute("data-pager-total") || input.max || "1");
+    /* organicoPagerJump2: focus sync + retry (iOS/Safari hide-btn nello stesso gesto) */
+    function focusInput() {
+      try {
+        input.focus({ preventScroll: true });
+      } catch (eFocus) {
+        try {
+          input.focus();
+        } catch (eFocus2) {}
+      }
+      try {
+        input.select();
+      } catch (eSel) {}
+    }
+    focusInput();
+    window.requestAnimationFrame(focusInput);
+    window.setTimeout(focusInput, 30);
+    return true;
+  }
+
   function bind(root, handlers, opts) {
     if (!root || !handlers) return;
+    root.__vcPagerHandlers = handlers;
+    root.__vcPagerOpts = opts || {};
     if (root.dataset.vcMiniPager === "1") return;
     root.dataset.vcMiniPager = "1";
-    root.classList.add("vc-mini-pager");
-    var h = wrapHandlers(root, handlers, opts);
+    if (opts && opts.classic) {
+      root.classList.add("vc-mini-pager");
+      root.classList.remove("vc-pill-pager", "vc-staff-inbox-pagination");
+    } else {
+      root.classList.add("vc-mini-pager", "vc-pill-pager");
+    }
+    var goAttrName = (opts && opts.goAttr) || "data-pager-go";
 
+    /* organicoPagerJump2: click (no pointerdown preventDefault — spegneva focus su alcuni browser) */
     root.addEventListener("click", function (ev) {
       var t = ev.target && ev.target.closest ? ev.target.closest("button, input") : null;
-      if (!t || !root.contains(t)) return;
+      if (!t || !root.contains(t) || t.disabled) return;
+      var h = liveHandlers(root);
       if (t.matches("[data-pager-jump]")) {
         ev.preventDefault();
-        var pop = root.querySelector(".vc-mini-pager__pop");
-        var input = root.querySelector("[data-pager-input]");
-        var open = pop && pop.hidden;
-        closeAll(root);
-        if (pop) pop.hidden = !open;
-        t.setAttribute("aria-expanded", open ? "true" : "false");
-        if (open && input) {
-          input.value = String(root.getAttribute("data-pager-page") || input.value || "1");
-          window.setTimeout(function () {
-            try {
-              input.focus();
-              input.select();
-            } catch (eF) {}
-          }, 0);
-        }
+        ev.stopPropagation();
+        openJumpEditor(root, t);
+        return;
+      }
+      if (t.matches("[data-pager-input]")) {
+        ev.stopPropagation();
         return;
       }
       if (t.matches("[data-pager-prev]")) {
-        if (t.disabled) return;
         var cur = Number(root.getAttribute("data-pager-page") || 1);
         if (typeof h.prev === "function") h.prev();
         else if (typeof h.go === "function") h.go(Math.max(1, cur - 1));
         return;
       }
       if (t.matches("[data-pager-next]")) {
-        if (t.disabled) return;
         var curN = Number(root.getAttribute("data-pager-page") || 1);
         var tot = Number(root.getAttribute("data-pager-total") || 1);
         if (typeof h.next === "function") h.next();
         else if (typeof h.go === "function") h.go(Math.min(tot, curN + 1));
+        return;
+      }
+      if (t.hasAttribute(goAttrName) || t.hasAttribute("data-pager-go")) {
+        var n = Number(t.getAttribute(goAttrName) || t.getAttribute("data-pager-go") || "");
+        if (!Number.isFinite(n) || n < 1) return;
+        if (typeof h.go === "function") h.go(n);
       }
     });
 
@@ -263,13 +460,13 @@
       if (!ev || ev.key !== "Enter") return;
       if (!ev.target || !ev.target.matches || !ev.target.matches("[data-pager-input]")) return;
       ev.preventDefault();
-      commit(root, h);
+      commit(root, liveHandlers(root));
     });
     root.addEventListener("focusout", function (ev) {
       if (!ev || !ev.target || !ev.target.matches || !ev.target.matches("[data-pager-input]")) return;
       window.setTimeout(function () {
         if (root.contains(document.activeElement)) return;
-        commit(root, h);
+        commit(root, liveHandlers(root));
       }, 0);
     });
   }
@@ -277,7 +474,23 @@
   if (!window.__vcMiniPagerDocBound) {
     window.__vcMiniPagerDocBound = true;
     document.addEventListener("pointerdown", function (ev) {
-      var pop = ev.target && ev.target.closest ? ev.target.closest(".vc-mini-pager") : null;
+      var t = ev.target;
+      if (t && t.closest) {
+        /* non chiudere mentre apri/scrivi il jump */
+        if (
+          t.closest(
+            "[data-pager-jump], [data-pager-input], .vc-staff-inbox-pagination__jump.is-editing, .vc-mini-pager__pop:not([hidden])"
+          )
+        ) {
+          var keep =
+            t.closest(".vc-mini-pager") ||
+            t.closest(".vc-staff-inbox-pagination") ||
+            null;
+          closeAll(keep);
+          return;
+        }
+      }
+      var pop = t && t.closest ? t.closest(".vc-mini-pager") : null;
       closeAll(pop);
     });
     document.addEventListener("keydown", function (ev) {
@@ -290,26 +503,28 @@
     bind: bind,
     closeAll: closeAll,
     scrollToContent: scrollToPagerContent,
-    sync: function (root, page, total) {
+    sync: function (root, page, total, opts) {
       if (!root) return;
       var p = Math.max(1, Number(page) || 1);
       var tp = Math.max(1, Number(total) || 1);
       if (p > tp) p = tp;
       root.setAttribute("data-pager-page", String(p));
       root.setAttribute("data-pager-total", String(tp));
-      var now = root.querySelector("[data-pager-jump]");
-      if (now) now.textContent = String(p);
-      var input = root.querySelector("[data-pager-input]");
-      if (input) {
-        input.max = String(tp);
-        input.value = String(p);
+      var o = opts || {};
+      if (o.classic) {
+        root.classList.add("vc-mini-pager");
+        root.classList.remove("vc-pill-pager", "vc-staff-inbox-pagination");
+      } else {
+        root.classList.add("vc-mini-pager", "vc-pill-pager", "vc-staff-inbox-pagination");
       }
-      var of = root.querySelector(".vc-mini-pager__of");
-      if (of) of.textContent = "/ " + tp;
-      var prev = root.querySelector("[data-pager-prev]");
-      var next = root.querySelector("[data-pager-next]");
-      if (prev) prev.disabled = p <= 1;
-      if (next) next.disabled = p >= tp;
+      /* organicoPagerJump2: non distruggere l'input mentre l'utente digita */
+      if (root.getAttribute("data-pager-editing") === "1" || root.querySelector(".is-editing")) {
+        var liveIn = root.querySelector("[data-pager-input]");
+        if (liveIn) liveIn.max = String(tp);
+        return;
+      }
+      o.innerOnly = true;
+      root.innerHTML = html(p, tp, o);
     },
     fill: function (root, page, total, opts, handlers) {
       if (!root) return;
@@ -317,9 +532,25 @@
       opts.innerOnly = true;
       var p = Math.max(1, Number(page) || 1);
       var tp = Math.max(1, Number(total) || 1);
-      root.classList.add("vc-mini-pager");
+      if (opts.classic) {
+        root.classList.add("vc-mini-pager");
+        root.classList.remove("vc-pill-pager", "vc-staff-inbox-pagination");
+      } else {
+        root.classList.add("vc-mini-pager", "vc-pill-pager", "vc-staff-inbox-pagination");
+      }
       root.setAttribute("data-pager-page", String(p));
       root.setAttribute("data-pager-total", String(tp));
+      if (handlers) {
+        root.__vcPagerHandlers = handlers;
+        root.__vcPagerOpts = opts;
+      }
+      /* organicoPagerJump2: fill durante editing = aggiorna solo meta, non wipe HTML */
+      if (root.getAttribute("data-pager-editing") === "1" || root.querySelector(".is-editing")) {
+        var liveIn2 = root.querySelector("[data-pager-input]");
+        if (liveIn2) liveIn2.max = String(tp);
+        if (handlers) bind(root, handlers, opts);
+        return;
+      }
       root.innerHTML = html(p, tp, opts);
       if (handlers) bind(root, handlers, opts);
     },

@@ -1,0 +1,305 @@
+/* vcSiteChromeUi18  progress bar transform diretto + spring; cursore cheap */
+/* scrollPaintHoles1  durante scroll spegne backdrop-filter (buchi GPU) */
+:root {
+  --vc-chrome-progress-h: 3.5px;
+  --vc-chrome-sand: var(--vc-sand, #d4a888);
+  --vc-chrome-sand-rgb: 212, 168, 136;
+}
+
+#vc-site-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: var(--vc-chrome-progress-h);
+  z-index: 2147482500;
+  pointer-events: none;
+  background: transparent;
+  overflow: hidden;
+}
+html.vc-view-as-bar-on #vc-site-progress {
+  top: var(--vc-view-as-bar-h, 3.1rem);
+}
+#vc-site-progress__bar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  /* progBarGrad1: sand metal gradient */
+  background-color: #d4a888;
+  background-image: linear-gradient(
+    90deg,
+    #8f6b3f 0%,
+    #c49a72 18%,
+    #e8c9a8 42%,
+    #fffaf3 50%,
+    #e8c9a8 58%,
+    #d4a888 78%,
+    #b88968 100%
+  );
+  box-shadow: none;
+  filter: none;
+  transition: none !important;
+}
+
+/* fxAlignPhonePc1 / progNoBlurBg1: progress track  solo barra, zero sfondo/blur */
+#vc-site-progress {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+}
+#vc-site-progress::before,
+#vc-site-progress::after {
+  content: none !important;
+  display: none !important;
+}
+#vc-site-progress__bar {
+  box-shadow: none !important;
+  filter: none !important;
+  background-color: #d4a888 !important;
+  background-image: linear-gradient(
+    90deg,
+    #8f6b3f 0%,
+    #c49a72 18%,
+    #e8c9a8 42%,
+    #fffaf3 50%,
+    #e8c9a8 58%,
+    #d4a888 78%,
+    #b88968 100%
+  ) !important;
+}
+
+/*
+ * Alone sabbia cheap:
+ * - niente mix-blend / filter / will-change
+ * - niente var(--vc-cursor-*) su :root (invalidano tutto il documento)
+ * - posizione solo via transform inline sul nodo
+ */
+#vc-site-cursor-light {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 240px !important;
+  height: 240px !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  z-index: 2147480500;
+  pointer-events: none !important;
+  opacity: 0;
+  transform: translate3d(-9999px, -9999px, 0);
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(236, 205, 176, 0.42) 0%,
+    rgba(212, 168, 136, 0.22) 38%,
+    rgba(168, 118, 82, 0.08) 58%,
+    transparent 72%
+  ) !important;
+  box-shadow: none !important;
+  transition: opacity 0.12s ease;
+  contain: layout style paint size;
+  isolation: isolate;
+}
+html.vc-site-cursor-on #vc-site-cursor-light {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+#vc-site-cursor-light::before,
+#vc-site-cursor-light::after,
+html.vc-site-cursor-on #vc-site-cursor-light::before,
+html.vc-site-cursor-on #vc-site-cursor-light::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* backTopGlow1: alone cream sui bordi (come logo/nav) */
+#vc-site-back-top {
+  position: fixed;
+  right: max(0.9rem, env(safe-area-inset-right, 0px));
+  bottom: max(0.95rem, env(safe-area-inset-bottom, 0px));
+  z-index: 2147481800;
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 214, 183, 0.55);
+  background: linear-gradient(180deg, rgba(26, 20, 15, 0.94), rgba(16, 12, 9, 0.96));
+  color: #f7efe4;
+  box-shadow:
+    0 0 0 1.5px rgba(245, 214, 183, 0.42),
+    0 0 12px rgba(236, 205, 176, 0.48),
+    0 0 22px rgba(168, 118, 82, 0.28),
+    0 12px 28px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  appearance: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.55rem) scale(0.94);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease,
+    visibility 0.22s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    bottom 0.22s ease;
+  pointer-events: none;
+}
+#vc-site-back-top.is-on {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+}
+#vc-site-back-top:hover,
+#vc-site-back-top:focus-visible {
+  border-color: rgba(247, 236, 223, 0.78);
+  background: rgba(212, 168, 136, 0.16);
+  color: #fff8ee;
+  box-shadow:
+    0 0 0 1.5px rgba(247, 236, 223, 0.55),
+    0 0 16px rgba(236, 205, 176, 0.62),
+    0 0 28px rgba(168, 118, 82, 0.36),
+    0 12px 28px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+#vc-site-back-top .fa {
+  font-size: 1.05rem;
+  line-height: 1;
+  color: #f7efe4;
+  -webkit-text-fill-color: #f7efe4;
+  text-shadow: 0 0 8px rgba(245, 214, 183, 0.35);
+}
+
+body:has(#vc-type-sfx-player:not([hidden])) #vc-site-back-top,
+body:has(.vc-type-sfx-player:not([hidden])) #vc-site-back-top,
+html:has(#vc-type-sfx-player:not([hidden])) #vc-site-back-top {
+  bottom: calc(0.95rem + 3.85rem + env(safe-area-inset-bottom, 0px));
+}
+body:has(#vc-wfc-live-fab:not([hidden])) #vc-site-back-top,
+body:has(.vc-wfc-live-fab:not([hidden])) #vc-site-back-top {
+  bottom: calc(0.95rem + 3.85rem + env(safe-area-inset-bottom, 0px));
+}
+body:has(#vc-type-sfx-player:not([hidden])):has(#vc-wfc-live-fab:not([hidden])) #vc-site-back-top,
+body:has(.vc-type-sfx-player:not([hidden])):has(.vc-wfc-live-fab:not([hidden])) #vc-site-back-top {
+  bottom: calc(0.95rem + 7.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* footerLayoutAll1: cookie banner ? alza back-top, non coprire i legali */
+body:has(.vc-necessity-banner--visible) #vc-site-back-top,
+html:has(.vc-necessity-banner--visible) #vc-site-back-top {
+  bottom: calc(4.35rem + env(safe-area-inset-bottom, 0px));
+}
+body:has(.vc-necessity-banner--visible):has(#vc-type-sfx-player:not([hidden])) #vc-site-back-top,
+body:has(.vc-necessity-banner--visible):has(.vc-wfc-live-fab:not([hidden])) #vc-site-back-top {
+  bottom: calc(4.35rem + 3.85rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 640px) {
+  #vc-site-back-top {
+    width: 2.45rem;
+    height: 2.45rem;
+    right: max(0.7rem, env(safe-area-inset-right, 0px));
+  }
+  body:has(.vc-necessity-banner--visible) #vc-site-back-top,
+  html:has(.vc-necessity-banner--visible) #vc-site-back-top {
+    bottom: calc(5.1rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  html:not(.vc-site-cursor-ok) #vc-site-cursor-light,
+  html:not(.vc-site-cursor-ok).vc-site-cursor-on #vc-site-cursor-light {
+    display: none !important;
+    opacity: 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #vc-site-cursor-light {
+    transition: none !important;
+  }
+  #vc-site-back-top {
+    transition: opacity 0.15s ease, visibility 0.15s ease !important;
+  }
+}
+
+/* scrollPaintHoles1: Chrome/Edge compositor tiles with glass + animated bg while scrolling */
+html.vc-scroll-busy .vc-glass:not(.vc-nav-shell):not(.vc-header-snav),
+html.vc-scroll-busy .vc-fx-card,
+html.vc-scroll-busy .vc-home-panel,
+html.vc-scroll-busy .vc-page-cine-card,
+html.vc-scroll-busy .vc-faq-group,
+html.vc-scroll-busy .vc-sponsor-embed,
+html.vc-scroll-busy .vc-role-card,
+html.vc-scroll-busy .vc-ul-card,
+html.vc-scroll-busy .vc-reviews-card,
+html.vc-scroll-busy .vc-perks-card,
+html.vc-scroll-busy .vc-legal-card,
+html.vc-scroll-busy .vc-regole-card,
+html.vc-scroll-busy .vc-staff-hub-card,
+html.vc-scroll-busy .vc-vote-platform-card,
+html.vc-scroll-busy [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* uiGpuSoft2: marquee pi lenta + pausa tab nascosta / scroll / reduced-motion (non rimossa) */
+.vc-header-promo-btn__track {
+  will-change: auto;
+}
+.vc-header-promo-btn.is-marquee .vc-header-promo-btn__track {
+  will-change: transform;
+}
+html body .vc-header-promo-btn.is-marquee .vc-header-promo-btn__track,
+html body #header-quick-actions #vc-header-promo-btn.is-marquee .vc-header-promo-btn__track,
+html.vc-perf-mid .vc-header-promo-btn.is-marquee .vc-header-promo-btn__track,
+html.vc-perf-mid body #header-quick-actions #vc-header-promo-btn.is-marquee .vc-header-promo-btn__track {
+  animation-duration: calc(var(--vc-promo-marquee-duration, 7s) * 1.85) !important;
+}
+html.vc-page-hidden .vc-header-promo-btn.is-marquee .vc-header-promo-btn__track,
+html.vc-scroll-busy .vc-header-promo-btn.is-marquee .vc-header-promo-btn__track,
+html.vc-ui-gif-paused .vc-header-promo-btn.is-marquee .vc-header-promo-btn__track {
+  animation-play-state: paused !important;
+  will-change: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-header-promo-btn.is-marquee .vc-header-promo-btn__track {
+    animation: none !important;
+    /* candPillMotion1: niente transform:!important — blocca i keyframe anche se un altro CSS riattiva l’animation */
+    will-change: auto !important;
+  }
+  /* candPillMotion1: CTA Applications resta in marquee (testo lungo EN altrimenti resta tagliato statico) */
+  html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature.is-marquee .vc-header-promo-btn__track,
+  html body #header-quick-actions #vc-header-promo-btn.vc-header-promo-btn--candidature.vc-header-promo-btn--candidature-marquee.is-marquee .vc-header-promo-btn__track {
+    animation: vc-header-promo-marquee 6.5s linear infinite !important;
+    will-change: transform !important;
+  }
+}
+
+/* failsafe: rise cards must not stay invisible if IO/timers miss */
+@keyframes vc-rise-paint-failsafe {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+html.vc-home-motion-ready.vc-site-polish .vc-home-rise:not(.is-in) {
+  animation: vc-rise-paint-failsafe 0.22s ease 1.8s forwards;
+}
+
+/* fxAlignPhonePc1 */

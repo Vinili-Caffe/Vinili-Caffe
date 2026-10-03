@@ -7,36 +7,213 @@ const { buildRoster } = require("./siteStaffManageApi");
 const { isHiddenManualStaffCareerReason } = require("../Staff/staffTrackHistory");
 const {
   resolveWebUserIdentitiesBatch,
+  resolveWebUserIdentity,
   identityFallback,
   safeDisplayLabel,
   isSnowflakeLabel,
   FALLBACK_LABEL,
 } = require("./siteWebUserIdentity");
-const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const {
+  userAvatarUrlDynamic,
+  sitePreferredAvatarUrl,
+  normalizeDiscordCdnAvatarUrl,
+  remoteImageUrlLoads,
+} = require("../Discord/guildDiscordIdentity");
+const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag");
+const { remapKnownRoleSnowflake } = require("../Config/emergencyRoleIdRemap");
 
 const PM_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();
 const LADDER_IDS = staffLadderRoleIds();
-const ORGANICO_CACHE_TTL_MS = 45_000;
+const ORGANICO_CACHE_TTL_MS = 120_000;
 const organicoCache = new Map();
+/* siteApiW3: singleflight on organico cache miss */
+const organicoInflight = new Map();
 
-function defaultAvatarForUserId(_userId, _size = 128) {
-  // organicoAvatarSilhouette1: never Discord embed defaults — client uses site silhouette.
-  return "";
+function defaultAvatarForUserId(userId, size = 128) {
+  const uid = String(userId || "").trim();
+  let index = 0;
+  if (/^\d{16,22}$/.test(uid)) {
+    try {
+      index = Number((BigInt(uid) >> 22n) % 6n);
+    } catch {
+      index = 0;
+    }
+  }
+  return `https://cdn.discordapp.com/embed/avatars/${index}.png?size=${size}`;
+}
+
+/* organicoAvatarHeal1: a_*.png → a_*.gif + size=128 */
+function normalizeHistoryAvatarUrl(url) {
+  const raw = String(url || "").trim();
+  if (!raw || /\/embed\/avatars\//i.test(raw)) return "";
+  if (!/^https:\/\/cdn\.discordapp\.com\/(?:avatars|guilds)\//i.test(raw)) {
+    return /^https:\/\//i.test(raw) ? raw.slice(0, 512) : "";
+  }
+  return (
+    normalizeDiscordCdnAvatarUrl(raw, { size: 128, preferAnimated: true }) || raw
+  ).slice(0, 512);
 }
 
 function hasRealDiscordAvatarUrl(url) {
-  const s = String(url || "").trim();
+  const s = normalizeHistoryAvatarUrl(url);
   if (!s || /\/embed\/avatars\//i.test(s)) return false;
-  return /^https:\/\/cdn\.discordapp\.com\/avatars\//i.test(s);
+  return /^https:\/\/cdn\.discordapp\.com\/(?:avatars\/\d+\/|guilds\/\d+\/users\/\d+\/avatars\/)/i.test(s);
 }
 
 function isEmbedDiscordAvatarUrl(url) {
   return /cdn\.discordapp\.com\/embed\/avatars\//i.test(String(url || "").trim());
 }
 
-function pickHistoryAvatarUrl(_snapAvatar, _identityAvatar, _userId) {
-  // organicoSilhouette3: organico history never exposes Discord avatar URLs.
+function pickHistoryAvatarUrl(snapAvatar, identityAvatar, userId) {
+  const idAv = normalizeHistoryAvatarUrl(identityAvatar);
+  if (hasRealDiscordAvatarUrl(idAv)) return idAv;
+  /* organicoAvatarGlobal1: NON ripescare snap Mongo (spesso hash 404).
+     L’identity batch ha già scelto live/snap/vuoto. */
   return "";
+}
+
+/**
+ * organicoAvatarOutSync1 + FastPaint1: avatar live pagina-1, budget corto.
+ * skipGuildMember: fuori server members.fetch timeout ~6–9s.
+ */
+async function syncHealRecentHistoryAvatars(client, guild, items, opts = {}) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length || !client) return 0;
+  const cap = Math.max(1, Number(opts.cap) || 8);
+  const budgetMs = Math.max(500, Number(opts.budgetMs) || 2_200);
+  const need = [];
+  const seen = new Set();
+  for (const item of list) {
+    const uid = String(item?.userId || "").trim();
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    if (hasRealDiscordAvatarUrl(item?.avatarUrl)) continue;
+    need.push(uid);
+    if (need.length >= cap) break;
+  }
+  if (!need.length) return 0;
+
+  const healed = new Map();
+  const t0 = Date.now();
+  let n = 0;
+  const chunkSize = 4;
+
+  for (let i = 0; i < need.length; i += chunkSize) {
+    if (Date.now() - t0 > budgetMs) break;
+    const chunk = need.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map(async (uid) => {
+        let id = null;
+        const cachedMember = guild?.members?.cache?.get?.(uid);
+        if (cachedMember) {
+          const av = normalizeHistoryAvatarUrl(
+            sitePreferredAvatarUrl(cachedMember, {
+              size: 128,
+              preferAnimated: true,
+              allowDefault: false,
+            }) || "",
+          );
+          id = {
+            userId: uid,
+            displayName: safeDisplayLabel(
+              cachedMember.displayName || cachedMember.user?.username,
+              uid,
+              "",
+            ),
+            username: String(cachedMember.user?.username || "").trim(),
+            avatarUrl: hasRealDiscordAvatarUrl(av) ? av : "",
+          };
+        }
+        if (!id || !hasRealDiscordAvatarUrl(id.avatarUrl)) {
+          /* prima cache (veloce), poi force solo se manca avatar */
+          id = await resolveWebUserIdentity(client, guild, uid, {
+            preferFreshUser: false,
+            skipGuildMember: true,
+          }).catch(() => null);
+          if (!id || !hasRealDiscordAvatarUrl(id.avatarUrl)) {
+            id = await resolveWebUserIdentity(client, guild, uid, {
+              preferFreshUser: true,
+              skipGuildMember: true,
+            }).catch(() => null);
+          }
+        }
+        if (!id) return;
+        let finalAv = normalizeHistoryAvatarUrl(id.avatarUrl || "");
+        if (!hasRealDiscordAvatarUrl(finalAv)) finalAv = "";
+        for (const item of list) {
+          if (String(item?.userId || "") !== uid) continue;
+          if (hasRealDiscordAvatarUrl(item.avatarUrl)) continue;
+          item.avatarUrl = finalAv;
+        }
+        healed.set(uid, { ...id, avatarUrl: finalAv });
+        if (finalAv) n += 1;
+      }),
+    );
+  }
+
+  if (healed.size) {
+    void persistHistoryIdentitySnapshots(guild?.id, healed).catch(() => null);
+  }
+  return n;
+}
+
+/** organicoAvatarFast1 + OutSync1: HEAD 404 + fetch live in background */
+function warmHealHistoryAvatarUrls(client, guild, items) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length || !client) return;
+  void (async () => {
+    const byUid = new Map();
+    for (const item of list) {
+      const uid = String(item?.userId || "").trim();
+      if (!uid || byUid.has(uid)) continue;
+      const url = normalizeHistoryAvatarUrl(item?.avatarUrl);
+      if (!hasRealDiscordAvatarUrl(url)) {
+        byUid.set(uid, { url: "", need: true });
+        continue;
+      }
+      byUid.set(uid, { url, need: false });
+    }
+    const toCheck = [...byUid.entries()].filter(([, v]) => v.url);
+    const healed = new Map();
+    const t0 = Date.now();
+    const budgetMs = 90_000;
+    for (let i = 0; i < toCheck.length; i += 6) {
+      if (Date.now() - t0 > budgetMs) break;
+      const chunk = toCheck.slice(i, i + 6);
+      await Promise.all(
+        chunk.map(async ([uid, meta]) => {
+          const ok = await remoteImageUrlLoads(meta.url).catch(() => false);
+          if (ok) return;
+          meta.need = true;
+        }),
+      );
+    }
+    const needFetch = [...byUid.entries()].filter(([, v]) => v.need).map(([uid]) => uid);
+    if (!needFetch.length) return;
+    const cache = await resolveWebUserIdentitiesBatch(client, guild, needFetch, {
+      cap: 80,
+      budgetMs: 60_000,
+      batchSize: 3,
+      paceMs: 80,
+      preferFreshUser: true,
+      /* organicoAvatarOutSync1: fuori server — no members.fetch timeout */
+      skipGuildMember: true,
+    }).catch(() => null);
+    if (!cache?.size) return;
+    for (const [uid, id] of cache.entries()) {
+      const av = normalizeHistoryAvatarUrl(id?.avatarUrl || "");
+      if (hasRealDiscordAvatarUrl(av)) healed.set(uid, { ...id, avatarUrl: av });
+      else if (id && (id.username || id.displayName)) {
+        healed.set(uid, { ...id, avatarUrl: "" });
+      }
+    }
+    if (healed.size) {
+      await persistHistoryIdentitySnapshots(guild?.id, healed).catch(() => null);
+      try {
+        organicoCache.delete(organicoCacheKey(null));
+      } catch (_) {}
+    }
+  })();
 }
 
 function organicoCacheKey(filterUserId) {
@@ -49,7 +226,7 @@ function readOrganicoCache(filterUserId) {
     organicoCache.delete(organicoCacheKey(filterUserId));
     return null;
   }
-  return entry.payload;
+  return entry;
 }
 
 function writeOrganicoCache(filterUserId, payload) {
@@ -57,9 +234,11 @@ function writeOrganicoCache(filterUserId, payload) {
     const first = organicoCache.keys().next().value;
     if (first) organicoCache.delete(first);
   }
+  /* siteApiW6: store etag with organico cache */
   organicoCache.set(organicoCacheKey(filterUserId), {
     exp: Date.now() + ORGANICO_CACHE_TTL_MS,
     payload,
+    etag: weakEtagFromJson(payload),
   });
 }
 
@@ -79,28 +258,55 @@ function humanizeRoleKey(key) {
     .trim();
 }
 
+function roleNameFromRemapFile(roleId) {
+  const id = String(roleId || "").trim();
+  if (!/^\d{16,22}$/.test(id)) return "";
+  try {
+    const raw = require("../../Data/roleIdRemap.emergency.json");
+    const rows = Array.isArray(raw?.recreated) ? raw.recreated : [];
+    for (const row of rows) {
+      const oldId = String(row?.oldId || "").trim();
+      const newId = String(row?.newId || "").trim();
+      if (oldId !== id && newId !== id) continue;
+      const name = stripDiscordDecorations(String(row?.name || "").trim());
+      if (name) return name;
+    }
+  } catch (_) {
+    /* optional */
+  }
+  return "";
+}
+
 function roleNameFromId(guild, roleIdOrName) {
   const raw = String(roleIdOrName || "").trim();
   if (!raw || raw === "—" || raw === "-") return "—";
   if (!/^\d{16,22}$/.test(raw)) {
     return stripDiscordDecorations(raw) || raw;
   }
-  const live = guild?.roles?.cache?.get(raw)?.name;
+  /* organicoRoleRemap1: ID pre-disaster → ID live prima di risolvere il nome */
+  const remapped = remapKnownRoleSnowflake(raw) || raw;
+  const live =
+    guild?.roles?.cache?.get(remapped)?.name || guild?.roles?.cache?.get(raw)?.name;
   if (live) return stripDiscordDecorations(live) || live;
   const roles = IDs.roles || {};
   for (const [key, val] of Object.entries(roles)) {
-    if (String(val) === raw) {
+    if (String(val) === remapped || String(val) === raw) {
       const label = humanizeRoleKey(key);
       return label || raw;
     }
   }
-  return raw;
+  const fromFile = roleNameFromRemapFile(raw) || roleNameFromRemapFile(remapped);
+  if (fromFile) return fromFile;
+  return remapped !== raw ? remapped : raw;
 }
 
 function resolveRoleIdForWeight(guild, roleIdOrName) {
   const raw = String(roleIdOrName || "").trim();
   if (!raw) return "";
-  if (/^\d{16,22}$/.test(raw)) return raw;
+  if (/^\d{16,22}$/.test(raw)) {
+    /* organicoRoleRemap1: pesa/confronta sul ruolo live, non sull'ID morto */
+    return remapKnownRoleSnowflake(raw) || raw;
+  }
   const normalized = stripDiscordDecorations(raw)
     .toLowerCase()
     .replace(/\s+/g, " ")
@@ -156,7 +362,9 @@ function inferKindFromReason(reason) {
     .replace(/[\u0300-\u036f]/g, "");
   if (!r) return null;
   if (/\bdepex\b|\bretrocess/.test(r)) return "depex";
+  if (/\bdimission|\besce dal server|\buscita dal server/.test(r)) return "depex";
   if (/\bpex\b|\bpromoz/.test(r)) return "pex";
+  if (/\bcandidatura accettata|\braccomandazione|\bprova superata/.test(r)) return "pex";
   if (/warn staff|valutazioni negative|automatico/.test(r) && /depex|retrocess|rimosso|member/.test(r)) {
     return "depex";
   }
@@ -269,6 +477,14 @@ async function persistHistoryIdentitySnapshots(guildId, identityCache) {
             row.avatarUrl = String(id.avatarUrl).slice(0, 512);
             changed = true;
           }
+          /* organicoLiveAvatar1: sovrascrivi embed/vuoto con avatar CDN reale */
+          if (
+            hasRealDiscordAvatarUrl(id.avatarUrl) &&
+            (!hasRealDiscordAvatarUrl(row.avatarUrl) || isEmbedDiscordAvatarUrl(row.avatarUrl))
+          ) {
+            row.avatarUrl = String(id.avatarUrl).slice(0, 512);
+            changed = true;
+          }
         }
       };
       stamp(doc.staff?.rolesHistory);
@@ -290,77 +506,141 @@ async function resolveHistoryIdentitiesBatch(guild, client, userIds, rosterById 
     const uid = String(raw || "").trim();
     if (!uid) continue;
 
+    const snap = snapByUserId?.get?.(uid);
+    const snapName = snap ? safeDisplayLabel(snap.displayName || snap.username, uid, "") : "";
+    const snapAvRaw = String(snap?.avatarUrl || "").trim();
+    const snapAv = hasRealDiscordAvatarUrl(snapAvRaw) ? normalizeHistoryAvatarUrl(snapAvRaw) : "";
+
     const roster = rosterById?.get?.(uid);
     if (roster) {
-      const name = safeDisplayLabel(roster.displayName, uid, "");
-      if (name) {
+      const name = safeDisplayLabel(roster.displayName, uid, "") || snapName;
+      const rosterAv = normalizeHistoryAvatarUrl(roster.avatarUrl || "");
+      if (name && hasRealDiscordAvatarUrl(rosterAv)) {
         cache.set(uid, {
           userId: uid,
           displayName: name,
-          username: String(roster.username || "").trim(),
-          avatarUrl: String(roster.avatarUrl || "").trim() || defaultAvatarForUserId(uid, 128),
+          username: String(roster.username || snap?.username || "").trim(),
+          avatarUrl: rosterAv,
         });
         continue;
       }
-    }
-
-    const snap = snapByUserId?.get?.(uid);
-    if (snap) {
-      const name = safeDisplayLabel(snap.displayName || snap.username, uid, "");
-      if (name) {
+      if (name && !cache.has(uid)) {
         cache.set(uid, {
           userId: uid,
           displayName: name,
-          username: String(snap.username || "").trim(),
-          avatarUrl:
-            (/^https:\/\//i.test(String(snap.avatarUrl || ""))
-              ? String(snap.avatarUrl)
-              : "") || defaultAvatarForUserId(uid, 128),
+          username: String(roster.username || snap?.username || "").trim(),
+          /* organicoAvatarOutSync1: niente snap 404 come placeholder */
+          avatarUrl: "",
         });
-        continue;
       }
+      /* organicoLiveAvatar1: roster senza CDN reale → prova membro/fetch sotto */
     }
 
+    /* organicoLiveAvatar1: depexed ancora nel server — non fermarsi allo snap senza foto */
     try {
       const member = guild?.members?.cache?.get(uid);
       if (member) {
-        const name = safeDisplayLabel(member.displayName || member.user?.username, uid, "");
+        const name =
+          safeDisplayLabel(member.displayName || member.user?.username, uid, "") || snapName;
         if (name) {
-          const memberAvatar = String(userAvatarUrlDynamic(member, { size: 128 }) || "").trim();
+          const memberAvatar = normalizeHistoryAvatarUrl(
+            sitePreferredAvatarUrl(member, { size: 128, preferAnimated: true, allowDefault: false }) ||
+              userAvatarUrlDynamic(member, { size: 128, allowDefault: false }) ||
+              "",
+          );
+          const avatarUrl = hasRealDiscordAvatarUrl(memberAvatar) ? memberAvatar : "";
           cache.set(uid, {
             userId: uid,
             displayName: name,
-            username: String(member.user?.username || "").trim(),
-            avatarUrl:
-              (hasRealDiscordAvatarUrl(memberAvatar) ? memberAvatar : "") ||
-              defaultAvatarForUserId(uid, 128),
+            username: String(member.user?.username || snap?.username || "").trim(),
+            avatarUrl,
           });
-          continue;
+          if (hasRealDiscordAvatarUrl(memberAvatar)) continue;
         }
       }
     } catch {
           }
 
+    if (snapName && snapAv && !cache.has(uid)) {
+      cache.set(uid, {
+        userId: uid,
+        displayName: snapName,
+        username: String(snap.username || "").trim(),
+        /* organicoAvatarOutSync1: snap Mongo spesso hash 404 — nome ok, avatar solo dopo live */
+        avatarUrl: "",
+      });
+    } else if (snapName && !cache.has(uid)) {
+      cache.set(uid, {
+        userId: uid,
+        displayName: snapName,
+        username: String(snap.username || "").trim(),
+        avatarUrl: "",
+      });
+    }
+
     needFetch.push(uid);
   }
 
-      if (needFetch.length) {
-    const fetched = await resolveWebUserIdentitiesBatch(client, guild, needFetch, {
-      cap: 80,
-      budgetMs: 5_000,
-      batchSize: 4,
-      paceMs: 0,
-      skipGuildMember: false,
+  if (needFetch.length) {
+    /* organicoAvatarOutSync1: sync — fuori guild/roster senza avatar live devono stare in needLive
+       (prima lo snap 404 faceva avOk=true e saltava il fetch → silhouette). */
+    needFetch.sort((a, b) => {
+      const aOk = hasRealDiscordAvatarUrl(cache.get(a)?.avatarUrl) ? 1 : 0;
+      const bOk = hasRealDiscordAvatarUrl(cache.get(b)?.avatarUrl) ? 1 : 0;
+      const aName = cache.get(a)?.displayName ? 1 : 0;
+      const bName = cache.get(b)?.displayName ? 1 : 0;
+      return aOk - bOk || aName - bName;
     });
-    for (const [uid, id] of fetched.entries()) {
-      if (!id) continue;
-      const name = safeDisplayLabel(id.displayName, uid, "");
+    const needLive = needFetch.filter((uid) => {
+      const hit = cache.get(uid);
+      const nameOk =
+        hit?.displayName &&
+        hit.displayName !== FALLBACK_LABEL &&
+        !isSnowflakeLabel(hit.displayName, uid);
+      /* organicoAvatarOutSync1: qui solo nomi; avatar recenti → syncHealRecent */
+      return !nameOk;
+    });
+    const fetched = await resolveWebUserIdentitiesBatch(
+      client,
+      guild,
+      needLive.length ? needLive : [],
+      {
+        cap: 32,
+        budgetMs: 2_500,
+        batchSize: 4,
+        paceMs: 0,
+        /* già controllato members.cache sopra — no fetch membro timeout */
+        skipGuildMember: true,
+        preferFreshUser: true,
+      },
+    );
+    for (const uid of needFetch) {
+      const id = fetched.get(uid);
+      const prev = cache.get(uid);
+      const snap = snapByUserId?.get?.(uid);
+      const snapName = snap ? safeDisplayLabel(snap.displayName || snap.username, uid, "") : "";
+      if (!id && prev) continue;
+      const name =
+        (id && safeDisplayLabel(id.displayName, uid, "")) ||
+        (prev && safeDisplayLabel(prev.displayName, uid, "")) ||
+        snapName;
       if (!name) continue;
+      const fetchedAv = normalizeHistoryAvatarUrl(id?.avatarUrl || "");
+      const prevAv = normalizeHistoryAvatarUrl(prev?.avatarUrl || "");
+      let avatarUrl = "";
+      if (hasRealDiscordAvatarUrl(fetchedAv)) {
+        avatarUrl = fetchedAv;
+      } else if (hasRealDiscordAvatarUrl(prevAv)) {
+        avatarUrl = prevAv;
+      } else {
+        /* organicoAvatarOutSync1: mai ripescare snap Mongo 404 */
+        avatarUrl = "";
+      }
       cache.set(uid, {
         userId: uid,
         displayName: name,
-        username: String(id.username || "").trim(),
-        avatarUrl: String(id.avatarUrl || "").trim() || defaultAvatarForUserId(uid, 128),
+        username: String(id?.username || prev?.username || snap?.username || "").trim(),
+        avatarUrl,
       });
     }
   }
@@ -495,14 +775,17 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
         identity.displayName &&
         !isSnowflakeLabel(identity.displayName, uid) &&
         identity.displayName !== FALLBACK_LABEL;
-      const displayName = snapName || (liveOk ? identity.displayName : identity.displayName);
       const username = String(row.username || identity.username || "").trim();
+      /* organicoRoleRemap1: evita "Utente" se c'è username/live usable */
+      const displayName =
+        snapName ||
+        (liveOk ? identity.displayName : "") ||
+        safeDisplayLabel(username, uid, "") ||
+        safeDisplayLabel(identity.displayName, uid, "") ||
+        FALLBACK_LABEL;
       const snapAvatar = String(row.avatarUrl || "").trim();
-      const avatarUrl = pickHistoryAvatarUrl(
-        snapAvatar,
-        (liveOk && identity.avatarUrl) || identity.avatarUrl,
-        uid,
-      );
+      /* organicoAvatarGlobal1: identity batch è la fonte avatar (no row snap 404) */
+      const avatarUrl = pickHistoryAvatarUrl(snapAvatar, identity.avatarUrl, uid);
       const fromRoleId = resolveRoleIdForWeight(guild, row.oldRole);
       const toRoleId = resolveRoleIdForWeight(guild, row.newRole);
       rows.push({
@@ -511,6 +794,8 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
         displayName,
         username,
         avatarUrl,
+        /* organicoAvatarOutSync1: snap solo per HEAD fallback in syncHeal */
+        _snapAvatar: normalizeHistoryAvatarUrl(snapAvatar) || "",
         fromRoleId,
         toRoleId,
         fromRole: roleNameFromId(guild, fromRoleId || row.oldRole),
@@ -543,8 +828,12 @@ async function buildPexDepexHistory(guild, client, filterUserId, rosterById = nu
     void persistHistoryIdentitySnapshots(guildId, fetchedOnly).catch(() => null);
   }
 
+  /* organicoFastPaint1: sync corto pagina-1; resto in background */
+  await syncHealRecentHistoryAvatars(client, guild, deduped, { cap: 8, budgetMs: 2_200 });
+  warmHealHistoryAvatarUrls(client, guild, deduped);
+
   return {
-    items: deduped.map(({ _sort, fromRoleId, toRoleId, ...rest }) => rest),
+    items: deduped.map(({ _sort, fromRoleId, toRoleId, _snapAvatar, ...rest }) => rest),
     stats,
   };
 }
@@ -567,14 +856,32 @@ function buildStaffDelMeseBlock(guild) {
   };
 }
 
+function buildStaffDelSettimanaBlock(guild) {
+  const roleId = String(IDs.roles?.StafferDellaSettimana || "").trim();
+  const role = roleId && guild?.roles?.cache?.get(roleId) ? guild.roles.cache.get(roleId) : null;
+  const holders = [];
+  if (roleId && guild?.members?.cache) {
+    guild.members.cache.forEach((member) => {
+      if (!member?.roles?.cache?.has?.(roleId)) return;
+      holders.push(identityFromMember(member));
+    });
+  }
+  holders.sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || ""), "it"));
+  return {
+    roleId: roleId || null,
+    roleLabel: role ? stripDiscordDecorations(role.name) || role.name : "Staffer della Settimana",
+    holders,
+  };
+}
+
 function historyIdentityIncomplete(items) {
   const list = Array.isArray(items) ? items : [];
   if (!list.length) return false;
   let bad = 0;
   for (const it of list) {
     const name = String(it?.displayName || "").trim();
-    // organicoSilhouette3: missing avatar is expected (silhouette); only names matter.
     if (!name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId)) bad += 1;
+    else if (!hasRealDiscordAvatarUrl(it?.avatarUrl)) bad += 1;
   }
   return bad >= Math.max(3, Math.ceil(list.length * 0.12));
 }
@@ -585,8 +892,9 @@ function warmMissingHistoryIdentities(client, guild, items) {
       (items || [])
         .filter((it) => {
           const name = String(it?.displayName || "").trim();
-          // organicoSilhouette3: warm names only — avatars stay empty for silhouette UI.
-          return !name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId);
+          const nameBad = !name || name === FALLBACK_LABEL || isSnowflakeLabel(name, it?.userId);
+          const avBad = !hasRealDiscordAvatarUrl(it?.avatarUrl);
+          return nameBad || avBad;
         })
         .map((it) => String(it?.userId || "").trim())
         .filter(Boolean),
@@ -600,6 +908,7 @@ function warmMissingHistoryIdentities(client, guild, items) {
       batchSize: 2,
       paceMs: 150,
       skipGuildMember: true,
+      preferFreshUser: true,
     }).catch(() => null);
     if (!cache?.size) return;
     await persistHistoryIdentitySnapshots(guild?.id, cache).catch(() => null);
@@ -609,7 +918,7 @@ function warmMissingHistoryIdentities(client, guild, items) {
 async function handleSiteStaffOrganicoGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,
@@ -630,78 +939,136 @@ async function handleSiteStaffOrganicoGet(client, req, res) {
 
     const cacheKey = rosterOnly ? `roster:${filterUserId || "all"}` : filterUserId || null;
     const cached = readOrganicoCache(cacheKey);
-    if (cached) {
-      res.setHeader("Cache-Control", "private, max-age=20");
-      res.setHeader("X-VC-Organico-Ms", String(Date.now() - t0));
-      if (rosterOnly) res.setHeader("X-VC-Organico-Mode", "roster-cache");
-      return res.status(200).json({ ...cached, cached: true });
+    if (cached?.payload) {
+      return sendJsonWithEtag(req, res, { ...cached.payload, cached: true }, {
+        cacheControl: "private, no-cache",
+        etag: cached.etag || weakEtagFromJson(cached.payload),
+        extraHeaders: {
+          "X-VC-Organico-Ms": String(Date.now() - t0),
+          ...(rosterOnly ? { "X-VC-Organico-Mode": "roster-cache" } : {}),
+        },
+      });
     }
 
-    const guildId = String(IDs.guilds.main || "");
-    const guild =
-      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-    if (!guild) {
-      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
-    }
+    const flightKey = organicoCacheKey(cacheKey);
+    let inflight = organicoInflight.get(flightKey);
+    if (!inflight) {
+      inflight = (async () => {
+        const guildId = String(IDs.guilds.main || "");
+        const guild =
+          client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+        if (!guild) {
+          return {
+            __err: {
+              status: 503,
+              body: { ok: false, error: "guild_unavailable", message: "Server non disponibile." },
+            },
+          };
+        }
 
         const roster = await buildRoster(client);
 
-    if (rosterOnly) {
-      const lightPayload = {
-        ok: true,
-        rosterOnly: true,
-        viewer: identityFromMember(access.member),
-        counts: roster.counts,
-        sections: roster.sections,
-        staffDelMese: roster.staffDelMese || buildStaffDelMeseBlock(guild),
-        pexHistory: [],
-        historyStats: null,
-        historyFilterUserId: filterUserId || null,
-      };
-      writeOrganicoCache(cacheKey, lightPayload);
-      res.setHeader("Cache-Control", "private, max-age=20");
-      res.setHeader("X-VC-Organico-Ms", String(Date.now() - t0));
-      res.setHeader("X-VC-Organico-Mode", "roster");
-      return res.status(200).json(lightPayload);
-    }
+        if (rosterOnly) {
+          const lightPayload = {
+            ok: true,
+            rosterOnly: true,
+            viewer: identityFromMember(access.member),
+            counts: roster.counts,
+            sections: roster.sections,
+            staffDelMese: roster.staffDelMese || buildStaffDelMeseBlock(guild),
+            staffDelSettimana: roster.staffDelSettimana || buildStaffDelSettimanaBlock(guild),
+            pexHistory: [],
+            historyStats: null,
+            historyFilterUserId: filterUserId || null,
+          };
+          writeOrganicoCache(cacheKey, lightPayload);
+          return { payload: lightPayload, mode: "roster" };
+        }
 
-    const byId = rosterMembersById(roster);
-    const historyResult = await buildPexDepexHistory(guild, client, filterUserId || null, byId);
+        const byId = rosterMembersById(roster);
+        const historyResult = await buildPexDepexHistory(guild, client, filterUserId || null, byId);
 
         for (const item of historyResult.items || []) {
-      const live = byId.get(String(item.userId || ""));
-      item.displayName = safeDisplayLabel(item.displayName, item.userId);
-      if (live) {
-        if (isSnowflakeLabel(item.displayName, item.userId) || item.displayName === FALLBACK_LABEL) {
-          item.displayName = safeDisplayLabel(live.displayName, item.userId);
-          item.username = live.username || item.username;
+          const live = byId.get(String(item.userId || ""));
+          item.displayName = safeDisplayLabel(item.displayName, item.userId);
+          item.avatarUrl = normalizeHistoryAvatarUrl(item.avatarUrl);
+          if (live) {
+            if (isSnowflakeLabel(item.displayName, item.userId) || item.displayName === FALLBACK_LABEL) {
+              item.displayName = safeDisplayLabel(live.displayName, item.userId);
+              item.username = live.username || item.username;
+            }
+            const liveAvatar = normalizeHistoryAvatarUrl(live.avatarUrl || "");
+            if (hasRealDiscordAvatarUrl(liveAvatar)) {
+              item.avatarUrl = liveAvatar;
+            } else if (
+              /^https:\/\//i.test(liveAvatar) &&
+              (!hasRealDiscordAvatarUrl(item.avatarUrl) || isEmbedDiscordAvatarUrl(item.avatarUrl))
+            ) {
+              item.avatarUrl = liveAvatar;
+            } else if (!hasRealDiscordAvatarUrl(item.avatarUrl)) {
+              item.avatarUrl = pickHistoryAvatarUrl(item.avatarUrl, liveAvatar, item.userId);
+            }
+            continue;
+          }
+          /* organicoAvatarHeal1: in guild → sempre avatar live (anche se snap sembra CDN) */
+          try {
+            const member = guild.members?.cache?.get(String(item.userId || ""));
+            if (member) {
+              const memberAvatar = normalizeHistoryAvatarUrl(
+                sitePreferredAvatarUrl(member, { size: 128, preferAnimated: true, allowDefault: false }) ||
+                  userAvatarUrlDynamic(member, { size: 128, allowDefault: false }) ||
+                  "",
+              );
+              if (hasRealDiscordAvatarUrl(memberAvatar)) {
+                item.avatarUrl = memberAvatar;
+                const liveName = safeDisplayLabel(
+                  member.displayName || member.user?.username,
+                  item.userId,
+                  "",
+                );
+                if (liveName) item.displayName = liveName;
+                continue;
+              }
+            }
+          } catch {
+                      }
         }
-        // organicoSilhouette3: history list uses site silhouette only — never Discord CDN/embed.
-      }
-      item.avatarUrl = "";
+
+        const payload = {
+          ok: true,
+          viewer: identityFromMember(access.member),
+          counts: roster.counts,
+          sections: roster.sections,
+          staffDelMese: roster.staffDelMese || buildStaffDelMeseBlock(guild),
+          staffDelSettimana: roster.staffDelSettimana || buildStaffDelSettimanaBlock(guild),
+          pexHistory: historyResult.items,
+          historyStats: historyResult.stats,
+          historyFilterUserId: filterUserId || null,
+        };
+
+        writeOrganicoCache(cacheKey, payload);
+        if (historyIdentityIncomplete(historyResult.items)) {
+          warmMissingHistoryIdentities(client, guild, historyResult.items);
+        }
+        return { payload, mode: "full" };
+      })().finally(() => {
+        organicoInflight.delete(flightKey);
+      });
+      organicoInflight.set(flightKey, inflight);
     }
 
-    const payload = {
-      ok: true,
-      viewer: identityFromMember(access.member),
-      counts: roster.counts,
-      sections: roster.sections,
-      staffDelMese: roster.staffDelMese || buildStaffDelMeseBlock(guild),
-      pexHistory: historyResult.items,
-      historyStats: historyResult.stats,
-      historyFilterUserId: filterUserId || null,
-    };
-
-    if (historyIdentityIncomplete(historyResult.items)) {
-            warmMissingHistoryIdentities(client, guild, historyResult.items);
-    } else {
-      writeOrganicoCache(filterUserId || null, payload);
+    const built = await inflight;
+    if (built?.__err) {
+      return res.status(built.__err.status).json(built.__err.body);
     }
-
-    res.setHeader("Cache-Control", "private, max-age=20");
-    res.setHeader("X-VC-Organico-Ms", String(Date.now() - t0));
-    res.setHeader("X-VC-Organico-Mode", "full");
-    return res.status(200).json(payload);
+    return sendJsonWithEtag(req, res, built.payload, {
+      cacheControl: "private, no-cache",
+      etag: weakEtagFromJson(built.payload),
+      extraHeaders: {
+        "X-VC-Organico-Ms": String(Date.now() - t0),
+        "X-VC-Organico-Mode": built.mode === "roster" ? "roster" : "full",
+      },
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-organico GET:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });

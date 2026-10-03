@@ -5,6 +5,8 @@ const {
   guildMemberDisplayAvatarUrlForSite,
   memberDisplayName,
   normalizeDiscordCdnAvatarUrl,
+  sitePreferredAvatarUrl,
+  userGlobalAvatarUrlDynamic,
 } = require("../Discord/guildDiscordIdentity");
 
 function stabilizeDiscordCdnAvatarUrl(url, { size = 128 } = {}) {
@@ -17,6 +19,16 @@ function animatedDiscordCdnAvatarUrl(url, { size = 128 } = {}) {
 
 function liveAvatarFromMember(member, { size = 128, preferAnimated = true, allowDefault = true } = {}) {
   if (!member) return "";
+  /* avatarGlobalFirst1: globale prima del guild avatar (CDN guild spesso 404). */
+  const preferred = sitePreferredAvatarUrl(member, { size, preferAnimated, allowDefault: false });
+  if (preferred) {
+    if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(String(preferred))) {
+      return allowDefault ? preferred : "";
+    }
+    return preferAnimated
+      ? animatedDiscordCdnAvatarUrl(preferred, { size }) || preferred
+      : stabilizeDiscordCdnAvatarUrl(preferred, { size }) || preferred;
+  }
   const live = guildMemberDisplayAvatarUrlForSite(member, { size, preferAnimated, allowDefault });
   if (!live) return "";
   if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(String(live))) {
@@ -29,6 +41,15 @@ function liveAvatarFromMember(member, { size = 128, preferAnimated = true, allow
 
 function liveAvatarFromUser(user, { size = 128, preferAnimated = true, allowDefault = true } = {}) {
   if (!user) return "";
+  const preferred = sitePreferredAvatarUrl(user, { size, preferAnimated, allowDefault: false });
+  if (preferred) {
+    if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(String(preferred))) {
+      return allowDefault ? preferred : "";
+    }
+    return preferAnimated
+      ? animatedDiscordCdnAvatarUrl(preferred, { size }) || preferred
+      : stabilizeDiscordCdnAvatarUrl(preferred, { size }) || preferred;
+  }
   const live = guildMemberDisplayAvatarUrlForSite(user, { size, preferAnimated, allowDefault });
   if (!live) return "";
   if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(String(live))) {
@@ -57,16 +78,23 @@ function resolveSiteAvatarUrl(guild, userId, storedUrl, { size = 128, preferAnim
   if (/cdn\.discordapp\.com\/embed\/avatars\//i.test(storedRaw)) {
     return allowDefault ? discordDefaultAvatarUrl({ id: uid }, { size }) : "";
   }
+  /* avatarGlobalFirst1: stored guild URL senza member in cache → non fidarsi (spesso 404). */
+  if (/\/guilds\/\d+\/users\//i.test(storedRaw)) {
+    const globalOnly = userGlobalAvatarUrlDynamic(
+      guild?.client?.users?.cache?.get?.(uid) || null,
+      { size },
+    );
+    if (globalOnly) {
+      return preferAnimated
+        ? animatedDiscordCdnAvatarUrl(globalOnly, { size }) || globalOnly
+        : stabilizeDiscordCdnAvatarUrl(globalOnly, { size }) || globalOnly;
+    }
+    return allowDefault ? discordDefaultAvatarUrl({ id: uid }, { size }) : "";
+  }
   const stored = preferAnimated
     ? animatedDiscordCdnAvatarUrl(storedUrl, { size })
     : stabilizeDiscordCdnAvatarUrl(storedUrl, { size });
-  if (stored) {
-    if (/\/guilds\/\d+\/users\//i.test(String(stored))) {
-      // No member cache: guild avatar may be dead — don't keep it.
-      return allowDefault ? discordDefaultAvatarUrl({ id: uid }, { size }) : "";
-    }
-    return stored;
-  }
+  if (stored) return stored;
   if (uid && allowDefault) return discordDefaultAvatarUrl({ id: uid }, { size });
   return "";
 }

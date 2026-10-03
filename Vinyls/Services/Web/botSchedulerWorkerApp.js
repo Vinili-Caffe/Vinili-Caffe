@@ -18,6 +18,7 @@ const { startCustomRoleExpiryLoop } = require("../Community/customRoleExpiryServ
 const { runDueOneTimeReminders } = require("../Reminders/oneTimeReminderService");
 const { startTenantOfflineRecoveryLoop } = require("../Partner/tenantOfflineRecoveryService");
 const { isMultiGuildLayerEnabled } = require("../../MultiGuild/core/env");
+const { tickStaffCompitiDeadlines, tickStaffCompitiAssignments } = require("../../Utils/Web/siteStaffCompitiApi");
 
 loadDotEnv();
 process.env.BOT_SCHEDULER_WORKER = "1";
@@ -84,6 +85,23 @@ async function main() {
   reminderTick();
   const reminderTimer = setInterval(reminderTick, 30 * 1000);
   reminderTimer.unref?.();
+
+  let compitiBusy = false;
+  const compitiTick = async () => {
+    if (compitiBusy) return;
+    compitiBusy = true;
+    try {
+      await tickStaffCompitiDeadlines(client);
+      await tickStaffCompitiAssignments(client);
+    } catch (err) {
+      global.logger?.error?.("[BOT-SCHEDULER][COMPITI]", err?.message || err);
+    } finally {
+      compitiBusy = false;
+    }
+  };
+  compitiTick();
+  const compitiTimer = setInterval(compitiTick, 60 * 1000);
+  compitiTimer.unref?.();
 
   if (isMultiGuildLayerEnabled()) {
     startTenantOfflineRecoveryLoop(client, {

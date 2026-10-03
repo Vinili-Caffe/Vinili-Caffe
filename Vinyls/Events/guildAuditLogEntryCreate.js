@@ -4,6 +4,7 @@ const { handlePruneAction: antiNukeHandlePruneAction } = require("../Services/Mo
 const { resolveModLogChannel, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 const IDs = require("../Utils/Config/ids");
 const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
+const { onStafferDellaSettimanaRoleAdded } = require("../Services/Staff/stafferDellaSettimanaService");
 const { isViniliFullFeatureGuild } = require("../MultiGuild/core/guildFeatureScope");
 const MEMBER_ROLE_UPDATE_ACTION = AuditLogEvent.MemberRoleUpdate ?? 25;
 
@@ -33,6 +34,22 @@ async function maybeGrantBestStaffPauseBonusFromAudit(entry, guild) {
   });
 }
 
+async function maybeGrantStafferDellaSettimanaBonusFromAudit(entry, guild) {
+  if (String(guild?.id || "") !== String(IDs.guilds?.main || "")) return;
+  if (entry.action !== MEMBER_ROLE_UPDATE_ACTION) return;
+  const roleId = String(IDs.roles?.StafferDellaSettimana || "").trim();
+  if (!roleId || !auditEntryChangeAddsRoleId(entry, roleId)) return;
+  const userId = String(entry.targetId ?? entry.target?.id ?? "").trim();
+  if (!/^\d{17,20}$/.test(userId)) return;
+  await onStafferDellaSettimanaRoleAdded(guild.id, userId).catch((err) => {
+    global.logger?.warn?.(
+      "[guildAuditLogEntryCreate] stafferDellaSettimanaBonus:",
+      userId,
+      err?.message || err,
+    );
+  });
+}
+
 module.exports = {
   name: "guildAuditLogEntryCreate",
   async execute(entry, guild) {
@@ -41,6 +58,7 @@ module.exports = {
       if (!isViniliFullFeatureGuild(guild.id)) return;
 
       await maybeGrantBestStaffPauseBonusFromAudit(entry, guild);
+      await maybeGrantStafferDellaSettimanaBonusFromAudit(entry, guild);
 
       if (entry.action !== AuditLogEvent.MemberPrune) return;
 

@@ -64,7 +64,8 @@ const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;
 let countersLoaded = false;
 let draftsLoaded = false;
-const WEBSITE_AUTH_TIMEOUT_MS = 2800; // mobileApisFast2: was 10s — hung candidature/appelli on phones
+const WEBSITE_AUTH_TIMEOUT_MS = 4500; // rolesPrefetchNoise1: UA + slightly longer; was bare abort@2800
+let lastDiscordMeWarnAt = 0;
 const {
   readCachedWebsiteMember,
   writeCachedWebsiteMember,
@@ -72,6 +73,7 @@ const {
   fetchWebsiteGuildMember,
   isUnknownMemberError,
 } = require("../../Utils/Web/websiteGuildMemberFetch");
+const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("../../Utils/Web/discordOauthMe");
 
 function withTimeout(promise, timeoutMs, label) {
   let timer = null;
@@ -86,16 +88,20 @@ function withTimeout(promise, timeoutMs, label) {
 }
 
 async function fetchDiscordMe(accessToken) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), WEBSITE_AUTH_TIMEOUT_MS);
-  try {
-    return await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      signal: ctrl.signal,
-    });
-  } finally {
-    clearTimeout(timer);
+  const out = await fetchDiscordOAuthMe(accessToken, { timeoutMs: WEBSITE_AUTH_TIMEOUT_MS });
+  if (!out.ok) {
+    const err = new Error(out.message || out.error || "discord_unreachable");
+    err.name = out.error === "discord_timeout" ? "AbortError" : "Error";
+    err.oauth = out;
+    throw err;
   }
+  return {
+    ok: true,
+    status: 200,
+    async json() {
+      return out.me;
+    },
+  };
 }
 
 /**
@@ -118,6 +124,7 @@ async function fetchOAuthGuildMemberResult(accessToken, guildId, timeoutMs = 250
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
+        "User-Agent": DISCORD_OAUTH_UA,
       },
       signal: ctrl ? ctrl.signal : undefined,
     });
@@ -688,16 +695,18 @@ function recolorEmbeds(embeds, color) {
 }
 
 async function setApplicationMessageStatusColor(message, color, decidedBy = "", decidedByName = "") {
-  if (!message?.editable) return;
-  const embeds = recolorEmbeds(message.embeds, color);
-  await message.edit({ embeds, components: [] }).catch(() => null);
+  /* notifCandRejectClear1: workflow/clear anche se msg non editable */
+  if (message?.editable) {
+    const embeds = recolorEmbeds(message.embeds, color);
+    await message.edit({ embeds, components: [] }).catch(() => null);
+  }
   try {
     const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
     const status =
       String(color || "").toLowerCase() === String(APPLICATION_ACCEPTED_COLOR).toLowerCase()
         ? "accepted"
         : "rejected";
-    await updateStaffWorkflowFromMessage(message.guild?.id, "candidature", message.id, status, {
+    await updateStaffWorkflowFromMessage(message?.guild?.id, "candidature", message?.id, status, {
       decidedBy: String(decidedBy || ""),
       decidedByName: String(decidedByName || ""),
     });
@@ -763,11 +772,23 @@ function buildModal(type, step, prefillAnswers = {}) {
     .setTitle(String(`${cfg.label}- Modulo ${step}/${chunks.length}`).slice(0, 45));
 
   const rows = selected.map((q) => {
-    const maxLen = q.style === TextInputStyle.Short ? 120 : 1000; const input = new TextInputBuilder().setCustomId(q.id).setLabel(String(q.modalLabel || q.text || "Domanda").replace(/\s+/g, " ").trim().slice(0, 45)).setStyle(q.style || TextInputStyle.Paragraph).setRequired(true).setPlaceholder(`${String(q.text || q.modalLabel || "Domanda").replace(/\s+/g, " ").trim()} — ${String(q.placeholder || "Rispondi qui").replace(/\s+/g, " ").trim()}`
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 100),
-    )
+    /* inboxSheetFullText1: Discord Short=400 / Paragraph=4000 (prima 120/1000 tagliava i campi) */
+    const maxLen = q.style === TextInputStyle.Short ? 400 : 4000;
+    const input = new TextInputBuilder()
+      .setCustomId(q.id)
+      .setLabel(String(q.modalLabel || q.text || "Domanda").replace(/\s+/g, " ").trim().slice(0, 45))
+      .setStyle(q.style || TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setPlaceholder(
+        `${String(q.text || q.modalLabel || "Domanda").replace(/\s+/g, " ").trim()} — ${String(
+          q.placeholder || "Rispondi qui",
+        )
+          .replace(/\s+/g, " ")
+          .trim()}`
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 100),
+      )
       .setMaxLength(maxLen);
     const saved = String(prefillAnswers?.[q.id] || "").trim();
     if (saved) input.setValue(saved.slice(0, maxLen));
@@ -1158,8 +1179,36 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
     }
     meJson = await meRes.json();
   } catch (err) {
-    global.logger?.warn?.("[candidature-site] Discord /users/@me timeout/unreachable:", err?.message || err);
-    return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord. Riprova tra poco." };
+    const oauth = err && err.oauth && typeof err.oauth === "object" ? err.oauth : null;
+    const oauthErr = String(oauth?.error || "").trim().toLowerCase();
+    const oauthStatus = Number(oauth?.status) || 0;
+    /* invalid/expired session is not a Discord outage — return 401, don't warn as unreachable */
+    if (oauthErr === "invalid_token" || oauthErr === "missing_token" || oauthStatus === 401) {
+      return {
+        ok: false,
+        status: 401,
+        error: oauthErr || "invalid_token",
+        message:
+          String(oauth?.message || "").trim() ||
+          "Sessione Discord non valida o scaduta: effettua di nuovo il login.",
+      };
+    }
+    const now = Date.now();
+    if (now - lastDiscordMeWarnAt > 60_000) {
+      lastDiscordMeWarnAt = now;
+      global.logger?.warn?.(
+        "[candidature-site] Discord /users/@me timeout/unreachable:",
+        oauthErr || err?.message || err,
+      );
+    }
+    /* 503 not 502: Cloudflare replaces origin 502 with plain text (no JSON). */
+    return {
+      ok: false,
+      status: 503,
+      error: oauthErr === "discord_timeout" ? "discord_timeout" : "discord_unreachable",
+      message:
+        String(oauth?.message || "").trim() || "Impossibile contattare Discord. Riprova tra poco.",
+    };
   }
 
   const userId = String(meJson?.id || "").trim();
@@ -1193,7 +1242,7 @@ async function resolveWebsiteCandidatureMember(client, accessToken) {
   // mobileStaffFast1: one short bot fetch max — second 6s retry killed phones (appelli/staff/candidature).
   if (!member && guild && !oauth.notInGuild) {
     try {
-      member = await fetchWebsiteGuildMember(guild, userId, { timeoutMs: 2200, retry: false });
+      member = await fetchWebsiteGuildMember(guild, userId, { timeoutMs: 2200, retry: false, soft: true });
     } catch (err) {
       if (isUnknownMemberError(err)) {
         return notInGuildPayload;
@@ -2023,15 +2072,36 @@ async function webRejectCandidateApplication(guild, actorMember, messageId, type
   if (msg) {
     await setApplicationMessageStatusColor(msg, APPLICATION_REJECTED_COLOR, decidedBy, decidedByName);
     await deleteThreadForMessage(guild, msg);
-  } else {
-    try {
-      const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
-      await updateStaffWorkflowFromMessage(guild.id, "candidature", String(messageId), "rejected", {
-        decidedBy,
-        decidedByName,
-      });
-    } catch (_) {}
   }
+  /* notifCandRejectClear1: sempre workflow + purge inbox staff (come accept) */
+  try {
+    const { updateStaffWorkflowFromMessage } = require("../../Utils/Web/siteStaffWorkflowStore");
+    await updateStaffWorkflowFromMessage(guild.id, "candidature", String(messageId), "rejected", {
+      decidedBy,
+      decidedByName,
+    });
+  } catch (_) {}
+  try {
+    const {
+      clearWorkflowLifecycleNotifs,
+      inboxOpenUrl,
+    } = require("../../Utils/Web/siteStaffWorkflowNotifications");
+    const { removeSiteInAppNotificationsMatching } = require("../../Utils/Web/siteInAppNotificationsService");
+    const mid = String(messageId || "").trim();
+    const openUrls = mid ? [inboxOpenUrl("candidature", mid)] : [];
+    await clearWorkflowLifecycleNotifs({
+      workflowQueue: "candidature",
+      dedupeKey: mid,
+      userId: String(userId || ""),
+    }).catch(() => null);
+    if (mid) {
+      await removeSiteInAppNotificationsMatching({
+        exactKeys: [`inbox:candidature:new:${mid}`],
+        openUrls,
+        forceDismiss: true,
+      }).catch(() => null);
+    }
+  } catch (_) {}
   const rejType = String(type || "").trim();
   const rejUid = String(userId || "").trim();
   if (rejUid && ["helper", "partnermanager"].includes(rejType)) {

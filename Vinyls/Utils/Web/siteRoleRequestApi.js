@@ -6,12 +6,17 @@ const { createSiteRoleJoinRequest } = require("../../Events/interaction/customRo
 const { isHogwartsSystemRoleId } = require("./hogwartsSortingConfig");
 const { collectBlockedSystemRoleIds, isListableUserCustomRole } = require("../Community/userCustomRoleFilter");
 const { fetchWebsiteGuildMember, isOnNegativeCache, readCachedWebsiteMember, writeCachedWebsiteMember, ensureWebsiteGuild } = require("./websiteGuildMemberFetch");
+const { DISCORD_OAUTH_UA, fetchDiscordOAuthMe } = require("./discordOauthMe");
 
 const ROLE_REQUEST_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const BLOCKED_ROLE_IDS = collectBlockedSystemRoleIds();
 const RESOLVE_MEMBER_TTL_MS = 5 * 60_000;
 const resolveMemberCache = new Map();
 const resolveMemberInflight = new Map();
+const OAUTH_GUILD_MEMBER_TTL_MS = 90_000;
+const OAUTH_GUILD_MEMBER_NEG_TTL_MS = 20_000;
+const oauthGuildMemberCache = new Map();
+const oauthGuildMemberInflight = new Map();
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -21,49 +26,88 @@ function resolveMemberCacheKey(token) {
   return `${String(token || "").length}:${String(token || "").slice(-20)}`;
 }
 
-async function fetchDiscordMeFast(accessToken, timeoutMs = 2500) {
-  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
-  const timer = setTimeout(() => {
-    try {
-      ctrl?.abort?.();
-    } catch (_) {}
-  }, Math.max(600, Number(timeoutMs) || 2500));
-  try {
-    return await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      signal: ctrl ? ctrl.signal : undefined,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
+function oauthGuildMemberCacheKey(token, guildId) {
+  return `${String(guildId || "")}:${String(token || "").length}:${String(token || "").slice(-24)}`;
 }
 
-async function fetchOAuthGuildMemberFast(accessToken, guildId, timeoutMs = 2200) {
+async function fetchDiscordMeFast(accessToken, timeoutMs = 4500) {
+  const out = await fetchDiscordOAuthMe(accessToken, { timeoutMs: Math.max(800, Number(timeoutMs) || 4500) });
+  return {
+    ok: Boolean(out.ok),
+    status: Number(out.status) || (out.ok ? 200 : 502),
+    error: out.error || null,
+    async json() {
+      return out.me;
+    },
+  };
+}
+
+async function fetchOAuthGuildMemberFast(accessToken, guildId, timeoutMs = 3500) {
   const token = String(accessToken || "").trim();
   const gid = String(guildId || "").trim();
   if (!token || !gid) {
     return { json: null, notInGuild: false, unreachable: true };
   }
-  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
-  const timer = setTimeout(() => {
-    try {
-      ctrl?.abort?.();
-    } catch (_) {}
-  }, Math.max(600, Number(timeoutMs) || 2200));
-  try {
-    const res = await fetch(`https://discord.com/api/v10/users/@me/guilds/${gid}/member`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      signal: ctrl ? ctrl.signal : undefined,
-    });
-    if (res.status === 404) return { json: null, notInGuild: true, unreachable: false };
-    if (!res.ok) return { json: null, notInGuild: false, unreachable: res.status >= 500 };
-    const json = await res.json().catch(() => null);
-    return { json: json || null, notInGuild: false, unreachable: !json };
-  } catch (_) {
-    return { json: null, notInGuild: false, unreachable: true };
-  } finally {
-    clearTimeout(timer);
+  const cacheKey = oauthGuildMemberCacheKey(token, gid);
+  const now = Date.now();
+  const cached = oauthGuildMemberCache.get(cacheKey);
+  if (cached && Number(cached.exp || 0) > now) {
+    return cached.value;
   }
+  if (oauthGuildMemberInflight.has(cacheKey)) {
+    return oauthGuildMemberInflight.get(cacheKey);
+  }
+
+  const work = (async () => {
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      try {
+        ctrl?.abort?.();
+      } catch (_) {}
+    }, Math.max(600, Number(timeoutMs) || 3500));
+    try {
+      const res = await fetch(`https://discord.com/api/v10/users/@me/guilds/${gid}/member`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "User-Agent": DISCORD_OAUTH_UA,
+        },
+        signal: ctrl ? ctrl.signal : undefined,
+      });
+      let value;
+      if (res.status === 404) value = { json: null, notInGuild: true, unreachable: false };
+      else if (!res.ok) value = { json: null, notInGuild: false, unreachable: res.status >= 500 };
+      else {
+        const json = await res.json().catch(() => null);
+        value = { json: json || null, notInGuild: false, unreachable: !json };
+      }
+      const ttl = value.unreachable
+        ? 0
+        : value.notInGuild
+          ? OAUTH_GUILD_MEMBER_NEG_TTL_MS
+          : OAUTH_GUILD_MEMBER_TTL_MS;
+      if (ttl > 0) {
+        oauthGuildMemberCache.set(cacheKey, { value, exp: Date.now() + ttl });
+        if (oauthGuildMemberCache.size > 600) {
+          const cutoff = Date.now();
+          for (const [k, v] of oauthGuildMemberCache) {
+            if (!v || Number(v.exp || 0) <= cutoff) oauthGuildMemberCache.delete(k);
+          }
+        }
+      }
+      return value;
+    } catch (_) {
+      return { json: null, notInGuild: false, unreachable: true };
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  oauthGuildMemberInflight.set(cacheKey, work);
+  work.finally(() => {
+    if (oauthGuildMemberInflight.get(cacheKey) === work) oauthGuildMemberInflight.delete(cacheKey);
+  }).catch(() => {});
+  return work;
 }
 
 function synthMemberFromOAuth(guild, meJson, oauthMember) {
@@ -154,12 +198,15 @@ async function resolveWebsiteGuildMember(client, accessToken) {
       return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
     }
 
-    const oauthPromise = fetchOAuthGuildMemberFast(token, guildId, 2200);
+    const oauthPromise = fetchOAuthGuildMemberFast(token, guildId, 3500);
     let meJson;
     try {
-      const meRes = await fetchDiscordMeFast(token, 2500);
+      const meRes = await fetchDiscordMeFast(token, 4500);
       if (!meRes.ok) {
-        return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
+        if (meRes.status === 401 || meRes.error === "invalid_token") {
+          return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
+        }
+        return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord in questo momento." };
       }
       meJson = await meRes.json();
     } catch {
@@ -185,20 +232,15 @@ async function resolveWebsiteGuildMember(client, accessToken) {
       null;
 
     const oauth = await oauthPromise;
-    if (!member && oauth.json) {
+    /* ticketStaffRolesOauth2: OAuth-first sui ruoli (cache Discord spesso incompleta/timeout → staffAccess false + toast) */
+    if (oauth.json) {
       member = synthMemberFromOAuth(guild, meJson, oauth.json);
-    }
-
-    if (!member && !oauth.notInGuild) {
+    } else if (!member && !oauth.notInGuild) {
       member = await fetchWebsiteGuildMember(guild, userId, {
         timeoutMs: 2000,
         retry: false,
         soft: true,
       }).catch(() => null);
-    }
-
-    if (!member && oauth.json) {
-      member = synthMemberFromOAuth(guild, meJson, oauth.json);
     }
 
     if (!member) {

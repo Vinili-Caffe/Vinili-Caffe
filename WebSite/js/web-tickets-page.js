@@ -1,4 +1,9 @@
 (function () {
+  /* ticketMsgEmojiFix1: emoji/mentions/markdown in link embeds + reply + composer */
+  /* siteApiW8: ETag/304 on quiet list/detail polls */
+  /* ticketPhoneFirst1: phone first-paint staff chrome + lista (ruoli/filter/cine) */
+  /* ticket429Flash1: no 429 storm + no force soft-fx (flash flat) */
+  /* composerMdCaret1: no auto-<a> su markdown link (caret bug) */
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var cfg = (typeof window !== "undefined" && window.__VC_WEB_TICKETS) || {};
@@ -10,6 +15,16 @@
     high: "Donazioni, sponsor a pagamento o per parlare con un amministratore.",
     perks: "Verifica selfie o riscatto ruoli Supporter / Follower.",
   };
+
+  function i18nFallback(key, fallback) {
+    try {
+      if (window.VcI18n && typeof window.VcI18n.t === "function") {
+        var out = window.VcI18n.t(key);
+        if (out && out !== key) return out;
+      }
+    } catch (e0) {}
+    return fallback;
+  }
 
   var state = {
     tickets: [],
@@ -30,6 +45,10 @@
     listTotal: 0,
     listTotalPages: 1,
     viewMode: "user",
+    /* ticketScopeClick2: scelta esplicita Personali/Staff — non farla override da ?view=staff */
+    viewPinnedByUser: "",
+    staffAccessResolved: false,
+    viewModeDelegated: false,
     listQuietTimer: null,
     listQuietGen: 0,
     presenceTimer: null,
@@ -52,6 +71,8 @@
     ws: null,
     wsReconnectTimer: null,
     pollTimer: null,
+    listEtags: {},
+    detailEtags: {},
     seenMessageIds: {},
     deletedMessageIds: {},
     guildEmojis: [],
@@ -92,6 +113,14 @@
     tokenWaitTimer: null,
     authBootTimer: null,
     listLoadGen: 0,
+    listHardPromise: null,
+    listHardKey: "",
+    listHardStartedAt: 0,
+    listBusyWatchTimer: null,
+    listQuietTimer: null,
+    /* ticketSwitchFast1: cache lista per scope (Personali/Staff) — switch istantaneo */
+    scopeCache: { user: null, staff: null },
+    scopePrefetchTimer: null,
   };
 
   function byId(id) {
@@ -108,9 +137,25 @@
 
   function getToken() {
     try {
-      var t = localStorage.getItem(ACCESS_TOKEN_KEY);
-      var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
+      /* ticketNotifGate1: rispetta view-as logout; altrimenti raw LS (bypassa mask rotta) */
+      var va = "";
+      try {
+        va = String(sessionStorage.getItem("vc_view_as") || "")
+          .trim()
+          .toLowerCase();
+      } catch (eVa) {}
+      if (va === "logout") return "";
+      var t = "";
+      var expRaw = "0";
+      if (typeof window.__vcDiscordRawLocalStorageGetItem === "function") {
+        t = String(window.__vcDiscordRawLocalStorageGetItem(ACCESS_TOKEN_KEY) || "").trim();
+        expRaw = String(window.__vcDiscordRawLocalStorageGetItem(ACCESS_EXPIRES_KEY) || "0");
+      } else {
+        t = String(localStorage.getItem(ACCESS_TOKEN_KEY) || "").trim();
+        expRaw = String(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
+      }
       if (!t) return "";
+      var exp = Number(expRaw || "0");
       if (exp && Date.now() >= exp) return "";
       return t;
     } catch (e) {
@@ -152,14 +197,14 @@
   }
 
   function ticketPollIntervalMs() {
-    // Con WS aperto resta un backup più lento; senza WS poll più aggressivo.
+    // ticketsCpuHard2: poll più lento — WS copre il realtime
     var wsOpen = state.ws && state.ws.readyState === 1;
-    if (isCoarseMobile()) return wsOpen ? 14000 : 9000;
-    return wsOpen ? 10000 : 4500;
+    if (isCoarseMobile()) return wsOpen ? 22000 : 14000;
+    return wsOpen ? 16000 : 9000;
   }
 
   function ticketPresenceIntervalMs() {
-    return isCoarseMobile() ? 45000 : 20000;
+    return isCoarseMobile() ? 75000 : 45000;
   }
 
   function toastHostEl() {
@@ -189,18 +234,45 @@
     return /[…]$|\.\.\.$/.test(s);
   }
 
+  /* ticketPhoneBtnFix1: normalizza message API (string | system object) per toast */
+  function apiErrorText(msg, fallback) {
+    if (typeof msg === "string") {
+      var s = msg.trim();
+      if (s && s !== "[object Object]") return s;
+      return String(fallback || "").trim();
+    }
+    if (msg && typeof msg === "object") {
+      /* system/message payload: non è un errore testuale */
+      if (typeof msg.content === "string" || msg.id || msg.authorKind) return String(fallback || "").trim();
+      if (typeof msg.message === "string" && msg.message.trim()) return msg.message.trim();
+      return String(fallback || "").trim();
+    }
+    if (msg == null) return String(fallback || "").trim();
+    var raw = String(msg).trim();
+    if (!raw || raw === "[object Object]") return String(fallback || "").trim();
+    return raw;
+  }
+
+  /* ticketClaimHard1: 2xx + ok:true oppure ticket = successo (message system object non è errore) */
+  function apiActionFailed(out) {
+    if (!out || !out.res) return true;
+    var status = Number(out.res.status || 0);
+    var data = out.data;
+    if (status >= 200 && status < 300) {
+      if (data && data.ok === true) return false;
+      if (data && data.ticket && data.ok !== false) return false;
+    }
+    return !out.res.ok || !data || data.ok !== true;
+  }
+
   function setStatus(msg, isError) {
     var el = byId("vc-wt-status");
     if (el) {
       el.textContent = "";
       el.hidden = true;
     }
-    /* ticketActionFail1: message API a volte è oggetto (system msg) — non toastarlo */
-    var text = "";
-    if (typeof msg === "string") text = msg.trim();
-    else if (msg && typeof msg === "object" && typeof msg.content === "string") text = "";
-    else if (msg != null) text = String(msg).trim();
-    if (text === "[object Object]") text = "";
+    /* ticketActionFail1 + ticketPhoneBtnFix1: message API a volte è oggetto (system msg) */
+    var text = apiErrorText(msg, "");
     if (window.VcSiteToast) {
       if (!text) window.VcSiteToast.hide();
       else window.VcSiteToast.show(text, Boolean(isError));
@@ -258,14 +330,30 @@
     g.setAttribute("hidden", "");
     g.classList.add("vc-reviews-gate--dismissed");
     document.body.classList.remove("vc-wt-gate-open");
+    /* ticketPhoneCine2: dopo login ripristina cine layout */
+    try {
+      document.documentElement.classList.add("vc-site-photo-bg", "vc-cine-static-bg", "vc-home-cine-live");
+      if (!document.body.classList.contains("vc-page-cine-layout")) {
+        document.body.classList.add("vc-page-cine-layout");
+      }
+      var hero = document.querySelector(".vc-support-page-hero, .vc-wt-page-hero, .vc-page-cine-hero");
+      if (hero) {
+        hero.classList.add("vc-page-cine-hero", "vc-home-cine-hero");
+      }
+      document.dispatchEvent(new CustomEvent("vc:cine-refresh"));
+    } catch (eCine) {}
+    ensureTicketsPageVisible();
   }
 
   function showGate() {
-    var g = byId("vc-wt-gate");
-    if (!g) return;
-    g.removeAttribute("hidden");
-    g.classList.remove("vc-reviews-gate--dismissed");
-    document.body.classList.add("vc-wt-gate-open");
+    /* loginRequiredModal1: niente overlay fullscreen — shell guest + login sui CTA */
+    hideGate();
+    try {
+      clearTicketsBusyState();
+    } catch (eBusy) {}
+    try {
+      renderShell();
+    } catch (eShell) {}
   }
 
   function formatTime(iso) {
@@ -324,8 +412,29 @@
     return "is-open";
   }
 
+  /* ticketsCpuHard3: GIF avatar/emoji Discord = decode continuo (~30% CPU tab) */
+  function stillDiscordMediaUrl(url, size) {
+    var raw = String(url || "").trim();
+    if (!raw) return "";
+    try {
+      if (window.VcDiscordAvatar && typeof window.VcDiscordAvatar.preferStaticUrl === "function") {
+        var still = window.VcDiscordAvatar.preferStaticUrl(raw, size || 0);
+        if (still) raw = still;
+      } else {
+        raw = raw.replace(/\.(gif|webp)(\?|#|$)/i, ".png$2");
+      }
+    } catch (eStill) {
+      raw = raw.replace(/\.gif(\?|#|$)/i, ".png$1");
+    }
+    raw = raw.replace(/([?&])animated=true(&|$)/gi, function (_m, sep, trail) {
+      return trail === "&" ? sep : "";
+    });
+    raw = raw.replace(/[?&]$/, "");
+    return raw;
+  }
+
   function avatarHtml(url, name, cls) {
-    var src = String(url || "").trim();
+    var src = stillDiscordMediaUrl(String(url || "").trim(), 64);
     var letter = String(name || "?").trim().charAt(0).toUpperCase() || "?";
     if (src) {
       return (
@@ -333,18 +442,18 @@
         esc(cls || "vc-wt-avatar") +
         '" src="' +
         esc(src) +
-        '" alt="" width="36" height="36" loading="lazy" decoding="async" data-vc-avatar-fallback="1" />'
+        '" alt="" width="36" height="36" loading="lazy" decoding="async" data-vc-avatar-fallback="1" data-vc-avatar-static="1" />'
       );
     }
     return '<span class="' + esc(cls || "vc-wt-avatar") + ' vc-wt-avatar--fallback" aria-hidden="true">' + esc(letter) + "</span>";
   }
 
   var VINILI_BOT_AVATAR_URL =
-    "https://cdn.discordapp.com/avatars/1329118940110127204/a_2f3825915a41d0f9bcbf9f2675e6d6f0.gif?size=128";
+    "https://cdn.discordapp.com/avatars/1329118940110127204/a_2f3825915a41d0f9bcbf9f2675e6d6f0.png?size=128";
   var VINILI_BOT_USER_ID = "1329118940110127204";
 
   function resolveMessageAvatarUrl(m) {
-    var url = String((m && m.authorAvatarUrl) || "").trim();
+    var url = stillDiscordMediaUrl(String((m && m.authorAvatarUrl) || "").trim(), 64);
     if (url) return url;
     var kind = String((m && m.authorKind) || "");
     var name = String((m && m.authorName) || "");
@@ -357,7 +466,7 @@
 
   function rememberUserAvatar(userId, avatarUrl, userName) {
     var id = String(userId || "").trim();
-    var url = String(avatarUrl || "").trim();
+    var url = stillDiscordMediaUrl(String(avatarUrl || "").trim(), 64);
     if (!url) return;
     if (!state.avatarByUserId) state.avatarByUserId = {};
     if (!state.avatarByUserName) state.avatarByUserName = {};
@@ -487,11 +596,45 @@
     }
   }
 
+  /* ticketViewPersist1: salva ?view=staff|user + hash ticket al reload */
+  function writeTicketsViewUrl(viewMode) {
+    try {
+      var u = new URL(location.href);
+      var mode = viewMode === "staff" ? "staff" : "user";
+      if (mode === "staff") u.searchParams.set("view", "staff");
+      else u.searchParams.delete("view");
+      var next = u.pathname + u.search + u.hash;
+      if (next !== location.pathname + location.search + location.hash) {
+        history.replaceState(null, "", next);
+      }
+    } catch (eUrl) {}
+  }
+
+  function readTicketsViewFromUrl() {
+    try {
+      return new URLSearchParams(location.search || "").get("view") === "staff" ? "staff" : "user";
+    } catch (e) {
+      return "user";
+    }
+  }
+
     function redirectAwayFromStaffView() {
+    /* ticketViewSwitch3: non lasciare lista staff sotto chrome Personali */
     try {
       if (!hasStaffViewQuery() && state.viewMode !== "staff") return;
       state.viewMode = "user";
+      state.viewPinnedByUser = "user";
       syncStaffMode();
+      invalidateTicketsListInflight();
+      state.tickets = [];
+      /* ticketListEmptyPager1: no pager fantasma con lista vuota */
+      state.listTotal = 0;
+      state.listTotalPages = 1;
+      state.listPage = 1;
+      state.detail = null;
+      state.messages = [];
+      clearTicketSelection();
+      clearTicketsBusyState();
       var hash = "";
       try {
         hash = String(location.hash || "").trim();
@@ -499,6 +642,13 @@
       var path = String(location.pathname || "/tickets/").replace(/\/?$/, "/") || "/tickets/";
       if (path.indexOf("/tickets") < 0) path = "/tickets/";
       history.replaceState(null, "", path + hash);
+      writeTicketsViewUrl("user");
+      syncTicketsChrome();
+      showTicketsLoadingShell("Caricamento ticket…", { force: true, watchdogMs: 12000 });
+      void loadList({ forceShell: true }).then(function () {
+        clearTicketsBusyState();
+        syncTicketsChrome();
+      });
     } catch (e) {
       try {
         location.replace("/tickets/");
@@ -514,10 +664,127 @@
   }
 
   function denyStaffViewIfUnauthorized() {
+    /* ticketListEmptyPager1: aspetta il primo payload lista (evita bounce prematuro al refresh) */
+    if (!state.staffAccessResolved) return false;
     if (!wantsStaffInbox() && !hasStaffViewQuery()) return false;
     if (hasStaffInboxAccess()) return false;
+    /* ticketNotifStaffOpen1 + ticketPhoneFirst1: ruoli Discord lenti su telefono → più retry */
+    var hasDeeplink = false;
+    try {
+      hasDeeplink = Boolean(resolveHashTicketId()) || hasStaffViewQuery();
+    } catch (eDl) {
+      hasDeeplink = hasStaffViewQuery();
+    }
+    var maxDeny = isCoarseMobile() ? 3 : 1;
+    var denyN = Number(state._staffDenyRetries) || 0;
+    if (denyN < maxDeny && (hasDeeplink || wantsStaffInbox())) {
+      state._staffDenyRetries = denyN + 1;
+      state.staffAccessResolved = false;
+      window.setTimeout(function () {
+        if (hasStaffInboxAccess()) return;
+        void loadList({ soft: false, forceShell: true, skipOpen: false });
+      }, isCoarseMobile() ? 900 + denyN * 350 : 500);
+      return false;
+    }
     redirectAwayFromStaffView();
     return true;
+  }
+
+  function ensureTicketsPageVisible() {
+    /* ticket429Flash1: NON forzare soft-fx/curtain — rivelava layout flat pre-gradient.
+       Solo hold/lock; cine-boot alza il sipario quando i gradienti sono pronti. */
+    try {
+      var root = document.documentElement;
+      root.classList.remove("vc-interaction-hold", "vc-loading-scroll-lock", "vc-session-verify-pending");
+      document.body.classList.remove("vc-loading-scroll-lock", "vc-wt-gate-open");
+      if (root.classList.contains("vc-soft-fx-ready") || root.classList.contains("vc-soft-fx-off")) {
+        root.classList.add("vc-page-cine-ready");
+      }
+    } catch (eVis) {}
+  }
+
+  function ticketsRateLimitedNow() {
+    return Date.now() < (Number(state._tickets429Until) || 0);
+  }
+
+  function markTicketsRateLimited(retryAfterMs) {
+    var wait = Math.max(4000, Math.min(20000, Number(retryAfterMs) || (isCoarseMobile() ? 9000 : 6000)));
+    var until = Date.now() + wait;
+    if (until > (Number(state._tickets429Until) || 0)) state._tickets429Until = until;
+  }
+
+  function probeStaffAccessAfterPersonalList() {
+    /* ticketPhoneFirst1 + ticket429Flash1: 1 probe soft, stop su 429 (no storm) */
+    if (!getToken() || wantsStaffInbox() || hasStaffInboxAccess()) return;
+    if (state._staffProbeBusy || ticketsRateLimitedNow()) return;
+    state._staffProbeBusy = true;
+    function finish() {
+      state._staffProbeBusy = false;
+    }
+    window.setTimeout(function () {
+      if (!getToken() || wantsStaffInbox() || hasStaffInboxAccess() || ticketsRateLimitedNow()) {
+        finish();
+        return;
+      }
+      var url = apiBase() + "?scope=staff&status=all&page=1&limit=5";
+      fetchJson(url, {
+        method: "GET",
+        headers: authHeaders(),
+        cache: "no-store",
+        timeoutMs: isCoarseMobile() ? 12000 : 8000,
+      })
+        .then(function (out) {
+          if (!getToken() || wantsStaffInbox() || hasStaffInboxAccess()) {
+            finish();
+            return;
+          }
+          if (out && out.res && out.res.status === 429) {
+            markTicketsRateLimited(out.data && out.data.retryAfterMs);
+            finish();
+            return;
+          }
+          if (!out || !out.res || !out.res.ok || !out.data || !out.data.ok) {
+            finish();
+            return;
+          }
+          if (out.data.viewerId) state.viewerId = out.data.viewerId || state.viewerId;
+          var got =
+            Boolean(out.data.staffAccess || out.data.isStaff) ||
+            (Array.isArray(out.data.staffCategories) && out.data.staffCategories.length > 0);
+          if (got) {
+            state.staffAccess = true;
+            if (Array.isArray(out.data.staffCategories) && out.data.staffCategories.length) {
+              state.staffCategories = out.data.staffCategories;
+            } else if (!state.staffCategories.length) {
+              state.staffCategories = ["supporto"];
+            }
+            state.staffAccessResolved = true;
+            syncStaffMode();
+            try {
+              syncTicketsChrome();
+              wireViewModeSwitcher();
+            } catch (eChrome) {}
+            schedulePrefetchOppositeScope();
+          }
+          finish();
+        })
+        .catch(function () {
+          finish();
+        });
+    }, isCoarseMobile() ? 1200 : 600);
+  }
+
+  function scheduleMobileEmptyListRetry() {
+    /* ticketPhoneFirst1 + ticket429Flash1: 1 reload solo se non siamo in 429 */
+    if (!isCoarseMobile() || !getToken() || wantsStaffInbox()) return;
+    if (state.tickets && state.tickets.length) return;
+    if (state._mobileEmptyRetry || ticketsRateLimitedNow()) return;
+    state._mobileEmptyRetry = true;
+    window.setTimeout(function () {
+      if (!getToken() || wantsStaffInbox() || ticketsRateLimitedNow()) return;
+      if (Array.isArray(state.tickets) && state.tickets.length) return;
+      void loadList({ soft: false, forceShell: true, skipOpen: true });
+    }, 2200);
   }
 
   function syncStaffMode() {
@@ -530,7 +797,8 @@
 
   function listQuery() {
     var q = [];
-        if (isStaffMode || wantsStaffInbox()) {
+    /* ticketViewSwitch3: scope solo da viewMode (mai isStaffMode stale) */
+    if (wantsStaffInbox()) {
       q.push("scope=staff");
       if (state.filter) q.push("status=" + encodeURIComponent(state.filter));
       if (state.categoryFilter) q.push("category=" + encodeURIComponent(state.categoryFilter));
@@ -563,16 +831,34 @@
     }
     var req = Object.assign({}, opts);
     delete req.timeoutMs;
+    delete req.ifNoneMatch;
     if (ctrl) req.signal = ctrl.signal;
+    var headers = Object.assign({}, opts.headers || {});
+    if (opts.ifNoneMatch) headers["If-None-Match"] = String(opts.ifNoneMatch);
+    req.headers = headers;
     return fetch(url, req)
       .then(function (res) {
+        var etag = "";
+        try {
+          etag = String((res.headers && res.headers.get("ETag")) || "").trim();
+        } catch (eEt) {
+          etag = "";
+        }
+        if (res.status === 304) {
+          return {
+            res: res,
+            data: null,
+            etag: etag || String(opts.ifNoneMatch || ""),
+            notModified: true,
+          };
+        }
         return res
           .json()
           .then(function (data) {
-            return { res: res, data: data };
+            return { res: res, data: data, etag: etag, notModified: false };
           })
           .catch(function () {
-            return { res: res, data: null };
+            return { res: res, data: null, etag: etag, notModified: false };
           });
       })
       .finally(function () {
@@ -598,13 +884,17 @@
     if (!D) return;
     var id = String(state.selectedId || "").trim();
     if (!id) {
-      D.clear("web_ticket_ui");
+      D.save("web_ticket_ui", { selectedId: "", viewMode: state.viewMode === "staff" ? "staff" : "user" });
       return;
     }
     var text = String(state.composerText || "");
     if (!text.trim()) D.clear(ticketComposerDraftKey(id));
     else D.save(ticketComposerDraftKey(id), text);
-    D.save("web_ticket_ui", { selectedId: id });
+    /* ticketNoAutoOpen1: non persistare selectedId (no reopen all'ingresso pagina) */
+    D.save("web_ticket_ui", {
+      selectedId: "",
+      viewMode: state.viewMode === "staff" ? "staff" : "user",
+    });
   }
 
   function loadTicketComposerDraft(id) {
@@ -622,7 +912,7 @@
     D.clear(ticketComposerDraftKey(id || state.selectedId));
   }
 
-    function clearTicketSelection(opts) {
+  function clearTicketSelection(opts) {
     opts = opts || {};
     if (state.selectedId) {
       flushComposerTextFromDom();
@@ -632,11 +922,19 @@
       var D = draftsApi();
       if (D) {
         if (keepText.trim()) D.save(ticketComposerDraftKey(keepId), keepText);
-        D.clear("web_ticket_ui");
+        D.save("web_ticket_ui", {
+          selectedId: "",
+          viewMode: state.viewMode === "staff" ? "staff" : "user",
+        });
       }
     } else {
       var D2 = draftsApi();
-      if (D2) D2.clear("web_ticket_ui");
+      if (D2) {
+        D2.save("web_ticket_ui", {
+          selectedId: "",
+          viewMode: state.viewMode === "staff" ? "staff" : "user",
+        });
+      }
     }
     state.detail = null;
     state.messages = [];
@@ -652,41 +950,382 @@
 
   function restoreTicketUiSelection() {
     if (state.selectedId) return;
-    var hashId = resolveHashTicketId();
-    if (hashId) {
-      state.selectedId = hashId;
+    /* ticketNoAutoOpen1: apri solo con ?ticketId= (notif/deeplink), non da #hash/draft */
+    var fromQuery = "";
+    try {
+      fromQuery = String(new URLSearchParams(location.search || "").get("ticketId") || "").trim();
+    } catch (eQ) {
+      fromQuery = "";
+    }
+    if (/^[a-f0-9]{24}$/i.test(fromQuery)) {
+      state.selectedId = fromQuery;
       return;
     }
+    try {
+      var h = String(location.hash || "").replace(/^#/, "").trim();
+      if (h && /^[a-f0-9]{24}$/i.test(h) && h.indexOf("access_token=") < 0) {
+        setHashTicket("");
+      }
+    } catch (eH) {}
     var D = draftsApi();
-    var ui = D && D.load("web_ticket_ui");
-    if (!ui || !ui.selectedId) return;
-    var id = String(ui.selectedId);
-        if (state.tickets.some(function (t) { return t.id === id; })) {
-      state.selectedId = id;
-    } else if (D) {
-      D.clear("web_ticket_ui");
+    if (D) {
+      var ui = D.load("web_ticket_ui") || {};
+      D.save("web_ticket_ui", {
+        selectedId: "",
+        viewMode: state.viewMode === "staff" ? "staff" : ui.viewMode === "staff" ? "staff" : "user",
+      });
     }
   }
 
-  function showTicketsLoadingShell(message) {
+  function ticketsListSkelHtml(count) {
+    /* ticketSkelWFix1: w non definito nello scope — usa window */
+    if (window.VcListSkeleton && typeof window.VcListSkeleton.rowsHtml === "function") {
+      return window.VcListSkeleton.rowsHtml(count || 5, "div");
+    }
+    var n = Math.max(1, Math.min(8, Number(count) || 5));
+    var out = [];
+    for (var i = 0; i < n; i += 1) {
+      out.push(
+        '<div class="vc-list-skel vc-list-skel--row vc-wt-skel-row" aria-hidden="true">' +
+          '<span class="vc-list-skel__avatar"></span>' +
+          '<span class="vc-list-skel__lines"><i></i><i></i></span></div>',
+      );
+    }
+    return out.join("");
+  }
+
+  function clearTicketsBusyState() {
+    clearTicketsBusyWatchdog();
+    try {
+      var app = byId("vc-wt-app");
+      if (app) {
+        app.removeAttribute("aria-busy");
+        app.classList.remove("is-loading", "is-refreshing");
+      }
+      var list = byId("vc-wt-list");
+      if (list) {
+        list.classList.remove("is-loading", "is-refreshing");
+        list.removeAttribute("aria-busy");
+        list.removeAttribute("data-inbox-loading");
+      }
+      document.querySelectorAll(".vc-wt-filter-menu--loading").forEach(function (el) {
+        el.classList.remove("vc-wt-filter-menu--loading");
+      });
+    } catch (eClr) {}
+    try {
+      document.documentElement.classList.remove(
+        "vc-interaction-hold",
+        "vc-loading-scroll-lock",
+        "vc-notif-staff-loading",
+      );
+      document.body.classList.remove("vc-loading-scroll-lock");
+    } catch (eHold) {}
+    /* ticketListStuckFix1: toast pending (rotellina) non deve restare appeso */
+    try {
+      if (window.VcSiteToast && typeof window.VcSiteToast.hide === "function") window.VcSiteToast.hide();
+    } catch (eToast) {}
+    try {
+      hideStatusToast();
+    } catch (eToast2) {}
+  }
+
+  function clearTicketsBusyWatchdog() {
+    if (state.listBusyWatchTimer) {
+      try {
+        clearTimeout(state.listBusyWatchTimer);
+      } catch (eClr) {}
+      state.listBusyWatchTimer = null;
+    }
+  }
+
+  function isTicketsListHardLoading() {
+    try {
+      var app = byId("vc-wt-app");
+      return Boolean(app && app.getAttribute("aria-busy") === "true");
+    } catch (eBusy) {
+      return false;
+    }
+  }
+
+  function invalidateTicketsListInflight(opts) {
+    /* ticketViewSwitch2: invalida hard+quiet in volo (anti flash lista sbagliata / spinner stuck) */
+    opts = opts || {};
+    state.listLoadGen = (Number(state.listLoadGen) || 0) + 1;
+    state.listQuietGen = (Number(state.listQuietGen) || 0) + 1;
+    state.listHardPromise = null;
+    state.listHardKey = "";
+    state.listHardStartedAt = 0;
+    if (state.listQuietTimer) {
+      try {
+        clearTimeout(state.listQuietTimer);
+      } catch (eQt) {}
+      state.listQuietTimer = null;
+    }
+    /* ticketSwitchFast1: keepEtags su switch scope — 304/quiet più veloci */
+    if (!opts.keepEtags) {
+      try {
+        state.listEtags = {};
+      } catch (eEt) {}
+    }
+  }
+
+  function scopeCacheBucket(mode) {
+    return mode === "staff" ? "staff" : "user";
+  }
+
+  function snapshotScopeCache(mode) {
+    try {
+      if (!state.scopeCache) state.scopeCache = { user: null, staff: null };
+      var key = scopeCacheBucket(mode != null ? mode : state.viewMode);
+      state.scopeCache[key] = {
+        at: Date.now(),
+        tickets: Array.isArray(state.tickets) ? state.tickets.slice() : [],
+        listPage: Number(state.listPage) || 1,
+        listTotal: Number(state.listTotal) || 0,
+        listTotalPages: Number(state.listTotalPages) || 1,
+        listPageSize: Number(state.listPageSize) || 20,
+        filter: state.filter || "all",
+        categoryFilter: state.categoryFilter || "",
+      };
+    } catch (eSnap) {}
+  }
+
+  function restoreScopeCache(mode) {
+    try {
+      if (!state.scopeCache) return false;
+      var key = scopeCacheBucket(mode);
+      var snap = state.scopeCache[key];
+      if (!snap || !Array.isArray(snap.tickets)) return false;
+      var age = Date.now() - Number(snap.at || 0);
+      if (!Number.isFinite(age) || age < 0 || age > 90000) return false;
+      state.tickets = snap.tickets.slice();
+      state.listPage = Number(snap.listPage) || 1;
+      state.listTotal = Number(snap.listTotal) || state.tickets.length;
+      state.listTotalPages = Number(snap.listTotalPages) || 1;
+      state.listPageSize = Number(snap.listPageSize) || 20;
+      return true;
+    } catch (eRest) {
+      return false;
+    }
+  }
+
+  function schedulePrefetchOppositeScope() {
+    if (!hasStaffInboxAccess() || !getToken()) return;
+    if (state.scopePrefetchTimer) {
+      try {
+        clearTimeout(state.scopePrefetchTimer);
+      } catch (eClr) {}
+      state.scopePrefetchTimer = null;
+    }
+    state.scopePrefetchTimer = window.setTimeout(function () {
+      state.scopePrefetchTimer = null;
+      void prefetchOppositeScopeList();
+    }, 450);
+  }
+
+  function prefetchOppositeScopeList() {
+    /* ticketSwitchFast1: precarica l'altra vista in background */
+    if (!getToken() || !hasStaffInboxAccess()) return Promise.resolve();
+    if (isTicketsListHardLoading() || state.listHardPromise) return Promise.resolve();
+    var opposite = state.viewMode === "staff" ? "user" : "staff";
+    try {
+      var existing = state.scopeCache && state.scopeCache[opposite];
+      if (existing && Date.now() - Number(existing.at || 0) < 40000) return Promise.resolve();
+    } catch (eAge) {}
+    var limit = Math.max(5, Math.min(50, Number(state.listPageSize) || 20));
+    var parts = opposite === "staff" ? ["scope=staff", "status=all"] : ["status=all"];
+    parts.push("page=1");
+    parts.push("limit=" + encodeURIComponent(String(limit)));
+    var url = apiBase() + "?" + parts.join("&");
+    var viewWhenStarted = state.viewMode === "staff" ? "staff" : "user";
+    return fetchJson(url, {
+      method: "GET",
+      headers: authHeaders(),
+      cache: "default",
+      timeoutMs: 14000,
+    })
+      .then(function (out) {
+        if (!out || !out.res || !out.res.ok || !out.data || !out.data.ok) return;
+        /* se l'utente è già passato sull'altra vista, non sovrascrivere la cache fresca da loadList */
+        if ((state.viewMode === "staff" ? "staff" : "user") !== viewWhenStarted) return;
+        var incoming = Array.isArray(out.data.tickets) ? out.data.tickets.slice() : [];
+        if (opposite === "user") {
+          var vidPref = String(state.viewerId || "").trim();
+          if (vidPref) {
+            incoming = incoming.filter(function (t) {
+              return viewerIsOnTicket(t);
+            });
+          }
+        }
+        if (!state.scopeCache) state.scopeCache = { user: null, staff: null };
+        state.scopeCache[opposite] = {
+          at: Date.now(),
+          tickets: sortTicketsInPlace(incoming),
+          listPage: Math.max(1, Number(out.data.page) || 1),
+          listTotal: Math.max(0, Number(out.data.total) || incoming.length),
+          listTotalPages: Math.max(1, Number(out.data.totalPages) || 1),
+          listPageSize: Math.max(5, Math.min(50, Number(out.data.pageSize) || limit)),
+          filter: "all",
+          categoryFilter: "",
+        };
+        if (out.etag && state.listEtags) {
+          try {
+            var q = "?" + parts.join("&");
+            state.listEtags[q] = out.etag;
+          } catch (eEt) {}
+        }
+      })
+      .catch(function () {});
+  }
+
+  function armTicketsBusyWatchdog(timeoutMs) {
+    /* ticketSkelStuck1 + ticketStaffSwitch1 + ticketSkelOrphan2: sblocca UI se lo skeleton resta appeso */
+    clearTicketsBusyWatchdog();
+    var ms = Math.max(8000, Math.min(22000, Number(timeoutMs) || 12000));
+    state.listBusyWatchTimer = window.setTimeout(function () {
+      state.listBusyWatchTimer = null;
+      var app = byId("vc-wt-app");
+      if (!app) return;
+      var stillBusy =
+        app.getAttribute("aria-busy") === "true" ||
+        Boolean(app.querySelector(".vc-wt-skel-row, .vc-wt-skel-chat, .vc-wt-list.is-loading, .vc-wt-filter-menu--loading"));
+      if (!stillBusy) return;
+      state.listLoadGen = (Number(state.listLoadGen) || 0) + 1;
+      state.listHardPromise = null;
+      state.listHardKey = "";
+      state.listHardStartedAt = 0;
+      state.tickets = Array.isArray(state.tickets) ? state.tickets : [];
+      clearTicketsBusyState();
+      setStatus("Caricamento ticket troppo lento. Riprovo.", true);
+      try {
+        renderShell();
+      } catch (ePaint) {}
+      window.setTimeout(function () {
+        if (getToken()) void loadList({ soft: false, forceShell: true, skipOpen: !state.selectedId });
+      }, 400);
+    }, ms);
+  }
+
+  function showTicketsLoadingShell(message, opts) {
+    opts = opts || {};
     var app = byId("vc-wt-app");
     if (!app) return;
     app.hidden = false;
+    /* ticketViewPersist1: force remount su switch tab (evita lista/chat stale) */
+    if (
+      !opts.force &&
+      app.querySelector(".vc-wt-skel-row, .vc-wt-skel-chat") &&
+      app.getAttribute("aria-busy") === "true"
+    ) {
+      armTicketsBusyWatchdog(opts.watchdogMs);
+      syncTicketsChrome();
+      wireViewModeSwitcher();
+      wireFilterDelegation();
+      return;
+    }
+    app.setAttribute("aria-busy", "true");
+    /* ticketListChrome1: niente titolo Staff/Personali in sidebar */
     app.innerHTML =
-      '<div class="vc-wt-chrome">' +
+      '<div class="vc-wt-chrome vc-wt-chrome--skel">' +
       scopeSwitcherHtml() +
-      '<div class="vc-wt-filter-menu vc-wt-filter-menu--loading" aria-hidden="true"></div>' +
-      '<div class="vc-wt-layout"><aside class="vc-wt-sidebar">' +
-      '<div class="vc-wt-sidebar__top"><h2>' +
-      (wantsStaffInbox() ? "Staff" : "Personali") +
-      "</h2></div>" +
-      '<div class="vc-wt-empty vc-wt-empty--loading"><span class="vc-ui-spinner vc-ui-spinner--on-dark" aria-hidden="true"></span>' +
-      "<p>" +
+      filtersHtml() +
+      '<div class="vc-wt-layout"><aside id="vc-wt-sidebar" class="vc-wt-sidebar">' +
+      '<div id="vc-wt-list" class="vc-wt-list is-loading" aria-busy="true" aria-label="' +
       esc(message || "Caricamento ticket…") +
-      "</p></div></aside>" +
-      '<section class="vc-wt-main"><div class="vc-wt-chat vc-wt-chat--empty">' +
-      '<div class="vc-wt-chat-empty"><span class="vc-wt-chat-empty__icon" aria-hidden="true"><i class="fa fa-comments-o"></i></span>' +
-      "<strong>Caricamento…</strong></div></div></section></div></div>";
+      '">' +
+      ticketsListSkelHtml(5) +
+      "</div></aside>" +
+      '<section class="vc-wt-main"><div class="vc-wt-chat vc-wt-chat--empty vc-wt-skel-chat" aria-hidden="true">' +
+      '<div class="vc-wt-skel-chat__block"></div>' +
+      '<div class="vc-wt-skel-chat__lines"><i></i><i></i><i></i></div>' +
+      "</div></section></div></div>";
+    try {
+      var list = byId("vc-wt-list");
+      if (list) {
+        list.setAttribute("aria-busy", "true");
+        list.classList.add("is-loading");
+      }
+    } catch (eW) {}
+    wireViewModeSwitcher();
+    wireFilterDelegation();
+    /* loginRequiredModal2: CTA Nuovo ticket presente già nello skel */
+    try {
+      wireChatActions();
+    } catch (eWireSkel) {}
+    armTicketsBusyWatchdog(opts.watchdogMs || (opts.force ? 12000 : 16000));
+  }
+
+  function syncTicketsChrome() {
+    var app = byId("vc-wt-app");
+    if (!app) return;
+    var scopeHtml = scopeSwitcherHtml();
+    var dock = app.querySelector(".vc-wt-scope-dock");
+    if (!scopeHtml) {
+      if (dock) dock.remove();
+    } else if (dock) {
+      dock.outerHTML = scopeHtml;
+    } else {
+      var chrome = app.querySelector(".vc-wt-chrome");
+      if (chrome) chrome.insertAdjacentHTML("afterbegin", scopeHtml);
+    }
+    var filters = filtersHtml();
+    var filterMenu = app.querySelector(".vc-wt-filter-menu");
+    if (filterMenu) {
+      filterMenu.outerHTML = filters;
+    } else {
+      var chrome2 = app.querySelector(".vc-wt-chrome");
+      var layout = app.querySelector(".vc-wt-layout");
+      if (chrome2 && layout) layout.insertAdjacentHTML("beforebegin", filters);
+      else if (chrome2) chrome2.insertAdjacentHTML("beforeend", filters);
+    }
+    try {
+      var top = app.querySelector(".vc-wt-sidebar__top");
+      if (top) top.remove();
+    } catch (eH2) {}
+    /* ticketStaffSwitch1: bottone attivo deve riflettere viewMode anche se lo shell non è remountato */
+    try {
+      app.querySelectorAll("[data-view-mode]").forEach(function (btn) {
+        var on = btn.getAttribute("data-view-mode") === (state.viewMode === "staff" ? "staff" : "user");
+        btn.classList.toggle("is-active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+    } catch (eBtn) {}
+    /* ticketCatFilter1: chip stato/categoria sempre allineati a state (anche se outerHTML non remounta) */
+    try {
+      var curFilter = String(state.filter || "all");
+      var curCat = String(state.categoryFilter || "");
+      app.querySelectorAll("[data-filter]").forEach(function (btn) {
+        var id = String(btn.getAttribute("data-filter") || "all");
+        btn.classList.toggle("is-active", id === curFilter);
+      });
+      app.querySelectorAll("[data-cat-filter]").forEach(function (btn) {
+        var id = String(btn.getAttribute("data-cat-filter") || "");
+        btn.classList.toggle("is-active", id === curCat);
+      });
+    } catch (eChip) {}
+    /* loginRequiredModal2: outerHTML filtri ricrea Nuovo ticket → rewire CTA */
+    try {
+      wireChatActions();
+    } catch (eWire) {}
+  }
+
+  function syncScopeSwitcherChrome() {
+    syncTicketsChrome();
+  }
+
+  function focusTicketsBoardTop() {
+    /* ticketPhoneTabList1: dopo switch Personali/Staff/filtri resta sulla lista, non sul pane vuoto */
+    try {
+      if (!isCoarseMobile()) return;
+      var el = byId("vc-wt-app") || document.querySelector(".vc-wt-chrome");
+      if (!el) return;
+      var y = pageScrollY();
+      var rect = el.getBoundingClientRect();
+      var topGap = 72;
+      if (rect.top >= topGap && rect.top < (window.innerHeight || 0) * 0.55) return;
+      var absTop = y + rect.top - topGap;
+      restorePageScroll(Math.max(0, Math.round(absTop)));
+    } catch (eFocus) {}
   }
 
   function ticketActivityMs(t) {
@@ -713,81 +1352,215 @@
 
   function applyListPayload(data) {
     if (!data || !data.ok) return false;
-    state.tickets = sortTicketsInPlace(data.tickets || []);
-    var pageSize = Math.max(5, Math.min(50, Number(data.pageSize) || Number(state.listPageSize) || 20));
-    var total = Math.max(0, Number(data.total));
-    if (!Number.isFinite(total)) total = state.tickets.length;
-    var totalPages = Math.max(1, Number(data.totalPages) || Math.ceil(total / pageSize) || 1);
-    var page = Math.max(1, Number(data.page) || Number(state.listPage) || 1);
-    if (page > totalPages) page = totalPages;
-    state.listPageSize = pageSize;
-    state.listTotal = total;
-    state.listTotalPages = totalPages;
-    state.listPage = page;
     if (data.viewerId) state.viewerId = data.viewerId || state.viewerId;
     if (data.viewerName != null) state.viewerName = data.viewerName || "";
     if (data.viewerAvatarUrl != null) state.viewerAvatarUrl = data.viewerAvatarUrl || "";
     if (data.categories) state.categories = data.categories;
-    state.staffAccess = Boolean(data.staffAccess || data.isStaff);
-    if (Array.isArray(data.staffCategories) && data.staffCategories.length) {
-      state.staffCategories = data.staffCategories;
-    } else if (state.staffAccess) {
-            if (!state.staffCategories.length) {
+    /* ticketPhoneFirst1: upgrade staffAccess, mai downgrade da payload Personali
+       (ruoli soft assenti → isStaff false cancellava tab Staff dopo il primo paint). */
+    var upgradeStaff =
+      Boolean(data.staffAccess || data.isStaff) ||
+      (Array.isArray(data.staffCategories) && data.staffCategories.length > 0);
+    if (upgradeStaff) {
+      state.staffAccess = true;
+      if (Array.isArray(data.staffCategories) && data.staffCategories.length) {
+        state.staffCategories = data.staffCategories;
+      } else if (!state.staffCategories.length) {
         state.staffCategories = ["supporto"];
       }
-    } else if (Array.isArray(data.staffCategories)) {
-      state.staffCategories = [];
+    } else if (wantsStaffInbox()) {
+      state.staffAccess = false;
+      if (Array.isArray(data.staffCategories)) state.staffCategories = data.staffCategories;
+      else state.staffCategories = [];
+    } else if (Array.isArray(data.staffCategories) && data.staffCategories.length) {
+      state.staffCategories = data.staffCategories;
+      state.staffAccess = true;
     }
     if (data.guildId) state.guildId = String(data.guildId);
     syncStaffMode();
-        if (denyStaffViewIfUnauthorized()) {
-          }
+    var incoming = Array.isArray(data.tickets) ? data.tickets.slice() : [];
+    /* ticketViewSwitch3 + ticketPhoneFirst1: in Personali scarta inbox staff solo se viewerId noto.
+       Senza viewerId il filter azzerava tutta la lista al primo paint. */
+    if (!wantsStaffInbox()) {
+      var vidReady = String(state.viewerId || "").trim();
+      if (vidReady) {
+        incoming = incoming.filter(function (t) {
+          return viewerIsOnTicket(t);
+        });
+      }
+    }
+    state.tickets = sortTicketsInPlace(incoming);
+    var pageSize = Math.max(5, Math.min(50, Number(data.pageSize) || Number(state.listPageSize) || 20));
+    var total = Math.max(0, Number(data.total));
+    if (!Number.isFinite(total)) total = state.tickets.length;
+    if (!wantsStaffInbox() && incoming.length < (Array.isArray(data.tickets) ? data.tickets.length : 0)) {
+      total = state.tickets.length;
+    }
+    var totalPages = Math.max(1, Number(data.totalPages) || Math.ceil(total / pageSize) || 1);
+    var page = Math.max(1, Number(data.page) || Number(state.listPage) || 1);
+    if (page > totalPages) page = totalPages;
+    /* ticketListEmptyPager1: payload inconsistente (0 ticket ma total alto) → allinea + retry */
+    if (!state.tickets.length && total > 0 && page <= 1) {
+      total = 0;
+      totalPages = 1;
+      page = 1;
+      if (!state._emptyListRetry) {
+        state._emptyListRetry = true;
+        window.setTimeout(function () {
+          state._emptyListRetry = false;
+          if (!Array.isArray(state.tickets) || state.tickets.length) return;
+          void loadList({ soft: false, forceShell: true, skipOpen: true });
+        }, 450);
+      }
+    }
+    state.listPageSize = pageSize;
+    state.listTotal = total;
+    state.listTotalPages = totalPages;
+    state.listPage = page;
+    state.staffAccessResolved = true;
+    /* ticketNotifStaffOpen1 + ticketSkelOrphan2: ruoli lenti → ritenta SENZA clear busy
+       (clearTicketsBusyState spegneva watchdog e lasciava skeleton orfano forever). */
+    if (
+      wantsStaffInbox() &&
+      !hasStaffInboxAccess() &&
+      String(data.error || "") === "staff_roles_unavailable" &&
+      !state._staffRolesRetry
+    ) {
+      state._staffRolesRetry = true;
+      state.staffAccessResolved = false;
+      window.setTimeout(function () {
+        state._staffRolesRetry = false;
+        if (!wantsStaffInbox() || hasStaffInboxAccess()) return;
+        void loadList({ soft: false, forceShell: true, skipOpen: false });
+      }, isCoarseMobile() ? 1100 : 650);
+      snapshotScopeCache();
+      ensureTicketsPageVisible();
+      try {
+        armTicketsBusyWatchdog(isCoarseMobile() ? 14000 : 11000);
+      } catch (eArm) {}
+      return true;
+    }
+    if (denyStaffViewIfUnauthorized()) {
+      clearTicketsBusyState();
+    }
+    snapshotScopeCache();
+    ensureTicketsPageVisible();
+    if (!wantsStaffInbox() && !hasStaffInboxAccess()) {
+      probeStaffAccessAfterPersonalList();
+    }
+    scheduleMobileEmptyListRetry();
     return true;
   }
 
   function loadList(opts) {
     opts = opts || {};
     if (!getToken()) {
-      if (!isStaffMode && !wantsStaffInbox()) showGate();
-      if (!opts.silentNoToken) setStatus("Sessione Discord assente.", true);
+      /* loginRequiredModal1: shell vuota senza gate; CTA apre modal */
+      hideGate();
+      if (!opts.silentNoToken && !state.tokenWaitTimer) {
+        /* no toast spam on boot */
+      }
+      clearTicketsBusyState();
+      try {
+        renderShell();
+      } catch (eShell) {}
       return Promise.resolve(false);
     }
-    if (!isStaffMode) hideGate();
-    var loadGen = (state.listLoadGen = (Number(state.listLoadGen) || 0) + 1);
+    /* ticketScopeClick1: anche in vista Staff togli il gate (prima restava sopra e mangiava i click) */
+    hideGate();
     var soft = opts.soft === true && Array.isArray(state.tickets) && state.tickets.length > 0;
     var attempt = Math.max(0, Number(opts.attempt) || 0);
-    if (!soft) showTicketsLoadingShell("Caricamento ticket…");
-    return fetchJson(apiBase() + listQuery(), {
+    var isRetry = opts._retry === true && Number(opts._loadGen) > 0;
+    var forceShell = opts.forceShell === true;
+    var viewSnap = state.viewMode === "staff" ? "staff" : "user";
+    var reqKey = apiBase() + listQuery();
+    /* ticketSwitchFreeze2: dedupe solo se stesso key E promise viva; forceShell sempre fresh */
+    if (
+      !soft &&
+      !isRetry &&
+      !forceShell &&
+      state.listHardPromise &&
+      state.listHardKey === reqKey
+    ) {
+      return state.listHardPromise;
+    }
+    var loadGen = isRetry
+      ? Number(opts._loadGen)
+      : (state.listLoadGen = (Number(state.listLoadGen) || 0) + 1);
+    if (!soft) {
+      state.listHardStartedAt = Date.now();
+      showTicketsLoadingShell(
+        wantsStaffInbox() ? "Caricamento inbox staff…" : "Caricamento ticket…",
+        { force: forceShell, watchdogMs: forceShell ? 10000 : 16000 },
+      );
+    }
+    var p = fetchJson(reqKey, {
       method: "GET",
       headers: authHeaders(),
       cache: "no-store",
-      timeoutMs: isCoarseMobile() ? 28000 : 24000,
+      timeoutMs: isCoarseMobile() ? 22000 : 18000,
     })
       .then(function (out) {
         if (loadGen !== state.listLoadGen) return false;
+        if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
         if (!out.res.ok || !out.data || !out.data.ok) {
           var authFail = out.res.status === 401 || out.res.status === 403;
           if (authFail) {
             if (!wantsStaffInbox()) showGate();
           }
+          var errCode = String((out.data && out.data.error) || "");
+          var is429 = out.res.status === 429 || errCode === "rate_limited";
+          if (is429) {
+            markTicketsRateLimited(out.data && out.data.retryAfterMs);
+          }
           var transient =
             !authFail &&
+            !is429 &&
             (out.res.status === 0 ||
               out.res.status === 408 ||
-              out.res.status === 429 ||
               out.res.status === 502 ||
               out.res.status === 503 ||
               out.res.status === 504 ||
-              String((out.data && out.data.error) || "") === "member_unavailable" ||
-              String((out.data && out.data.error) || "") === "discord_unreachable" ||
-              String((out.data && out.data.error) || "") === "guild_unavailable");
-          /* ticketsListHang1: first-stamp Discord member resolve often 503 — retry more before emptying UI */
-          if (!soft && attempt < (transient ? 3 : 1) && !authFail) {
+              !out.data ||
+              errCode === "member_unavailable" ||
+              errCode === "discord_unreachable" ||
+              errCode === "guild_unavailable" ||
+              errCode === "staff_roles_unavailable");
+          /* ticket429Flash1: su 429 backoff lungo (no storm); altri transient ritentano */
+          if (is429 && attempt < 2 && !authFail) {
+            return new Promise(function (resolve) {
+              window.setTimeout(
+                resolve,
+                Math.max(4500, (Number(state._tickets429Until) || Date.now()) - Date.now()),
+              );
+            }).then(function () {
+              if (loadGen !== state.listLoadGen) return false;
+              if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
+              return loadList({
+                soft: soft && Array.isArray(state.tickets) && state.tickets.length > 0,
+                attempt: attempt + 1,
+                _retry: true,
+                _loadGen: loadGen,
+                forceShell: opts.forceShell,
+                skipOpen: opts.skipOpen,
+              });
+            });
+          }
+          /* ticketsListHang1 + ticketFilterOpenPhone1: anche soft (filtri) deve ritentare su 503/timeout telefono */
+          if (attempt < (transient ? 4 : 1) && !authFail) {
             return new Promise(function (resolve) {
               window.setTimeout(resolve, isCoarseMobile() ? 700 + attempt * 400 : 350 + attempt * 250);
             }).then(function () {
               if (loadGen !== state.listLoadGen) return false;
-              return loadList({ soft: false, attempt: attempt + 1 });
+              if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
+              return loadList({
+                soft: soft && attempt < 2,
+                attempt: attempt + 1,
+                _retry: true,
+                _loadGen: loadGen,
+                forceShell: opts.forceShell || (!soft && attempt >= 1),
+                skipOpen: opts.skipOpen,
+              });
             });
           }
           if (!soft && attempt < 2 && authFail && getToken()) {
@@ -795,54 +1568,95 @@
               window.setTimeout(resolve, isCoarseMobile() ? 900 : 450);
             }).then(function () {
               if (loadGen !== state.listLoadGen) return false;
-              return loadList({ soft: false, attempt: attempt + 1 });
+              if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
+              return loadList({ soft: false, attempt: attempt + 1, _retry: true, _loadGen: loadGen, forceShell: opts.forceShell });
             });
           }
-          setStatus((out.data && out.data.message) || "Impossibile caricare i ticket.", true);
-          if (!soft) {
+          clearTicketsBusyState();
+          setStatus(
+            is429
+              ? "Troppe richieste, riprovo tra poco…"
+              : (out.data && out.data.message) || "Impossibile caricare i ticket.",
+            true,
+          );
+          /* ticket429Flash1: su 429 non azzerare lista già dipinta */
+          if (!soft && !(is429 && Array.isArray(state.tickets) && state.tickets.length)) {
             state.tickets = [];
+            state.listTotal = 0;
+            state.listTotalPages = 1;
+            state.listPage = 1;
+            renderShell();
+          } else if (!soft) {
             renderShell();
           }
           return false;
         }
+        clearTicketsBusyState();
         applyListPayload(out.data);
+        /* ticketNotifStaffOpen1: ok:true ma staff_roles_unavailable → ritenta (no toast) */
+        if (
+          wantsStaffInbox() &&
+          !hasStaffInboxAccess() &&
+          String((out.data && out.data.error) || "") === "staff_roles_unavailable" &&
+          attempt < 3
+        ) {
+          return new Promise(function (resolve) {
+            window.setTimeout(resolve, isCoarseMobile() ? 900 + attempt * 400 : 500 + attempt * 250);
+          }).then(function () {
+            if (loadGen !== state.listLoadGen) return false;
+            if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
+            return loadList({
+              soft: false,
+              attempt: attempt + 1,
+              _retry: true,
+              _loadGen: loadGen,
+              forceShell: true,
+              skipOpen: opts.skipOpen,
+            });
+          });
+        }
         setStatus("");
         var app = byId("vc-wt-app");
         if (app) app.hidden = false;
-        restoreTicketUiSelection();
-        queueMissingAvatarsFromMessages([]);
-        var hashId = resolveHashTicketId();
-        if (hashId && !state.selectedId) state.selectedId = hashId;
-        if (
-          state.selectedId &&
-          !state.tickets.some(function (t) {
-            return t.id === state.selectedId;
-          })
-        ) {
-          // Keep deeplink selection even if the ticket is not on the first list page.
-          if (hashId && hashId === state.selectedId) {
-            /* keep */
-          } else if (hashId !== state.selectedId) {
-            clearTicketSelection({ keepHash: true });
+        /* ticketSwitchFast1: su switch scope non riaprire ticket (costa detail GET) */
+        if (!opts.skipOpen) {
+          restoreTicketUiSelection();
+          queueMissingAvatarsFromMessages([]);
+          /* ticketNoAutoOpen1: hash solo se già scelto da ?ticketId= sopra */
+          if (
+            state.selectedId &&
+            !state.tickets.some(function (t) {
+              return t.id === state.selectedId;
+            })
+          ) {
+            /* deeplink ticket fuori dalla pagina corrente: tieni id, openTicket gestirà */
           }
+        } else {
+          queueMissingAvatarsFromMessages([]);
         }
         renderShell();
-        if (state.selectedId) return openTicket(state.selectedId, true).then(function () {
-          return true;
-        });
+        schedulePrefetchOppositeScope();
+        if (!opts.skipOpen && state.selectedId) {
+          return openTicket(state.selectedId, true).then(function () {
+            return true;
+          });
+        }
         return true;
       })
       .catch(function (err) {
         if (loadGen !== state.listLoadGen) return false;
+        if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
         var aborted = err && (err.name === "AbortError" || err.code === 20);
         if (!soft && attempt < 2) {
           return new Promise(function (resolve) {
             window.setTimeout(resolve, isCoarseMobile() ? 800 + attempt * 400 : 400 + attempt * 250);
           }).then(function () {
             if (loadGen !== state.listLoadGen) return false;
-            return loadList({ soft: false, attempt: attempt + 1 });
+            if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return false;
+            return loadList({ soft: false, attempt: attempt + 1, _retry: true, _loadGen: loadGen, forceShell: opts.forceShell });
           });
         }
+        clearTicketsBusyState();
         /* notifApiErr1: abort/superseded → no error toast */
         if (aborted) {
           state.tickets = state.tickets || [];
@@ -853,7 +1667,40 @@
         state.tickets = state.tickets || [];
         if (!soft) renderShell();
         return false;
+      })
+      .finally(function () {
+        /* ticketSwitchFreeze2: superseduta → non toccare UI (il load nuovo la possiede) */
+        if (loadGen !== state.listLoadGen) return;
+        if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return;
+        if (isTicketsListHardLoading()) clearTicketsBusyState();
+        try {
+          var appFin = byId("vc-wt-app");
+          /* ticketSkelOrphan2: se resta skel senza busy, paint subito (no hang forever) */
+          if (
+            appFin &&
+            appFin.querySelector(".vc-wt-skel-row, .vc-wt-skel-chat")
+          ) {
+            clearTicketsBusyState();
+            renderShell();
+            syncTicketsChrome();
+          }
+        } catch (eFin) {}
       });
+
+    if (!soft && !isRetry) {
+      /* ticketSwitchFreeze2: salva p (non p.finally) altrimenti promise zombie eterna */
+      state.listHardKey = reqKey;
+      state.listHardPromise = p;
+      p.finally(function () {
+        if (state.listHardPromise === p) {
+          state.listHardPromise = null;
+          state.listHardKey = "";
+          state.listHardStartedAt = 0;
+        }
+      });
+      return p;
+    }
+    return p;
   }
 
   function markOpenTicketNotificationsRead(ticketId) {
@@ -870,6 +1717,31 @@
     }
     if (run()) return;
     window.setTimeout(run, 400);
+  }
+
+  function paintOpenTicketPending(id) {
+    id = String(id || "").trim();
+    if (!id) return;
+    var fromList = null;
+    try {
+      fromList = (state.tickets || []).find(function (t) {
+        return String((t && t.id) || "") === id;
+      });
+    } catch (eFind) {
+      fromList = null;
+    }
+    var base = fromList && typeof fromList === "object" ? Object.assign({}, fromList) : { id: id };
+    base.id = id;
+    base._openPending = true;
+    if (!base.subject) base.subject = "…";
+    if (!base.status) base.status = "open";
+    if (!base.permissions || typeof base.permissions !== "object") base.permissions = {};
+    state.detail = mergeTicketDetail(base, { trustPermissions: true });
+    state.messages = [];
+    state.seenMessageIds = {};
+    withPageScrollPreserved(function () {
+      refreshChatPane();
+    });
   }
 
   function openTicket(id, quiet, opts) {
@@ -905,42 +1777,108 @@
     state.rateDraftStaffer = 0;
     setHashTicket(id);
     saveTicketComposerDraft();
-    markOpenTicketNotificationsRead(id);
+    /* ticketPhoneOpenWait1: su telefono defer mark-read (POST notif) così non arma 429
+       mentre stiamo ancora aprendo il dettaglio ticket. */
+    if (isCoarseMobile()) {
+      window.setTimeout(function () {
+        if (state.selectedId === id) markOpenTicketNotificationsRead(id);
+      }, 900);
+    } else {
+      markOpenTicketNotificationsRead(id);
+    }
     refreshListActiveState();
     restorePageScroll(yHold);
     var seq = (state.openTicketSeq = (Number(state.openTicketSeq) || 0) + 1);
-    if (!quiet && attempt === 0) setStatus("Apertura chat…", false);
+    /* ticketSwitchToastRace2: niente "Apertura…" / "non disponibile" a metà retry —
+       lo switch lista faceva toast 403 (ruoli lenti) e poi apriva dopo pochi secondi. */
+    if (!quiet && attempt === 0) {
+      try {
+        hideStatusToast();
+      } catch (eHideOpen) {}
+    }
+    /* ticketDetailFast1: paint immediato da lista (header + loading) — niente schermo morto */
+    if (attempt === 0) {
+      try {
+        paintOpenTicketPending(id);
+      } catch (ePaint) {}
+    }
+    /* ticketDetailFast1: cool-down max 2s (ticket senza nginx limit) */
+    if (ticketsRateLimitedNow() && attempt < 10) {
+      var coolWait = Math.max(
+        400,
+        Math.min(2000, (Number(state._tickets429Until) || Date.now()) - Date.now() + 40),
+      );
+      return new Promise(function (resolve) {
+        window.setTimeout(resolve, coolWait);
+      }).then(function () {
+        if (seq !== state.openTicketSeq || state.selectedId !== id) return;
+        return openTicket(id, quiet, { attempt: attempt + 1 });
+      });
+    }
     return fetchJson(apiBase() + "/" + encodeURIComponent(id), {
       method: "GET",
       headers: authHeaders(),
       cache: "no-store",
-      timeoutMs: attempt === 0 ? 18000 : 22000,
+      timeoutMs: isCoarseMobile() ? (attempt === 0 ? 14000 : 18000) : attempt === 0 ? 18000 : 22000,
     })
       .then(function (out) {
         if (seq !== state.openTicketSeq || state.selectedId !== id) return;
         if (!out.res.ok || !out.data || !out.data.ok) {
           var status = Number((out.res && out.res.status) || 0);
           var errCode = String((out.data && out.data.error) || "");
+          var rolesLag =
+            status === 403 ||
+            errCode === "forbidden" ||
+            errCode === "forbidden_category" ||
+            errCode === "staff_roles_unavailable";
+          var is429 = status === 429 || errCode === "rate_limited" || errCode === "rate_limited_client";
+          if (is429) {
+            markTicketsRateLimited(out.data && out.data.retryAfterMs);
+          }
           var retryable =
             !out.data ||
             status === 0 ||
             status === 401 ||
             status === 408 ||
-            status === 429 ||
+            is429 ||
             status >= 500 ||
+            rolesLag ||
+            (status === 404 && attempt < 3) ||
             errCode === "missing_token" ||
             errCode === "invalid_token" ||
             errCode === "unauthorized";
-          if (retryable && attempt < 5) {
+          var maxAttempts = isCoarseMobile()
+            ? rolesLag || wantsStaffInbox() || is429
+              ? 9
+              : 7
+            : rolesLag || wantsStaffInbox()
+              ? 6
+              : 5;
+          if (retryable && attempt < maxAttempts) {
+            var waitMs = is429
+              ? Math.max(
+                  isCoarseMobile() ? 2200 : 1800,
+                  Math.min(6000, (Number(state._tickets429Until) || Date.now()) - Date.now() + 40),
+                )
+              : rolesLag
+                ? (isCoarseMobile() ? 550 : 450) * (attempt + 1)
+                : (isCoarseMobile() ? 400 : 350) * (attempt + 1);
             return new Promise(function (resolve) {
-              window.setTimeout(resolve, 350 * (attempt + 1));
+              window.setTimeout(resolve, waitMs);
             }).then(function () {
               return openTicket(id, quiet, { attempt: attempt + 1 });
             });
           }
-          if (!quiet || attempt > 0) {
-            setStatus((out.data && out.data.message) || "Ticket non disponibile.", true);
-          }
+          /* toast solo a fine retry (click lista + notifica) */
+          setStatus(
+            (out.data && out.data.message) ||
+              (is429
+                ? "Troppe richieste, riprovo tra poco…"
+                : quiet
+                  ? "Ticket non ancora pronto. Riprova tra un attimo."
+                  : "Ticket non disponibile."),
+            true,
+          );
           restorePageScroll(yHold);
           return;
         }
@@ -1001,8 +1939,11 @@
         }
         if (state.detail && state.detail.permissions && state.detail.permissions.canUseCommands) {
           void ensureCommandCatalog();
-        } else if (isStaffMode && state.staffCategories.length) {
-          void ensureCommandCatalog();
+        } else {
+          state.commandCatalog = [];
+          state.slashCatalog = [];
+          state.commandCatalogLoaded = false;
+          state.commandCatalogTicketId = "";
         }
       })
       .catch(function (err) {
@@ -1080,6 +2021,7 @@
       if (node) {
         wireMessageReactions(node);
         wireMessageTools(node);
+        freezeTicketsAnimatedMedia(node);
       }
       scrollChatBottom(false);
     } else {
@@ -1087,6 +2029,9 @@
     }
     if (ticket) refreshTicketInList(ticket);
     if (msg && msg.content) hydrateContentRefs([msg]);
+    if (msg && !msg.pending && !isOwnMessage(msg) && effectiveAuthorKind(msg) !== "system") {
+      markSelectedTicketRead([msg.id]);
+    }
   }
 
   function mergeTicketDetail(ticket, opts) {
@@ -1188,15 +2133,21 @@
       var start = typeof el.selectionStart === "number" ? el.selectionStart : String(el.value || "").length;
       raw = String(el.value || "").slice(0, start);
     }
-    var line = activeInputLine(raw);
+    /* ticketMentionTrigger1: non matchare @/# dentro markup già inserito (<@id>, <#id>, emoji) */
+    var stripped = String(raw || "")
+      .replace(/<(a?):([a-zA-Z0-9_]{1,32}):(\d{5,32})>/g, "\uFFFC")
+      .replace(/<@!?\d{5,32}>/g, "\uFFFC")
+      .replace(/<@&\d{5,32}>/g, "\uFFFC")
+      .replace(/<#\d{5,32}>/g, "\uFFFC");
+    var line = activeInputLine(stripped);
     /* Channel solo con # singolo (non ## heading / markdown). */
-    var channel = line.match(/(^|[^#])#([^\s#]*)$/);
+    var channel = line.match(/(^|[^\uFFFC#])#([^\s#\uFFFC]*)$/);
     if (channel) {
       return { kind: "channel", q: channel[2] || "", line: line };
     }
-    var mention = line.match(/@([^\s@]*)$/);
+    var mention = line.match(/(^|[^\uFFFC])@([^\s@\uFFFC]*)$/);
     if (mention) {
-      return { kind: "mention", q: mention[1] || "", line: line };
+      return { kind: "mention", q: mention[2] || "", line: line };
     }
     var perms = effectivePermissions();
     var cmd = line.match(/^([+!/])([^\s]*)$/);
@@ -1242,7 +2193,7 @@
     var cat = String(ticket.category || "").trim();
     var filter = String(state.filter || "all");
 
-    if (isStaffMode) {
+    if (wantsStaffInbox()) {
       if (state.categoryFilter && cat !== String(state.categoryFilter)) return false;
       if (
         state.staffCategories &&
@@ -1374,6 +2325,8 @@
     var total = Math.max(0, Number(state.listTotal) || 0);
     var totalPages = Math.max(1, Number(state.listTotalPages) || 1);
     var page = Math.max(1, Math.min(totalPages, Number(state.listPage) || 1));
+    /* ticketListEmptyPager1: lista vuota → niente pager (anche se totalPages stale) */
+    if (!Array.isArray(state.tickets) || !state.tickets.length) return "";
     if (total <= 0 || totalPages <= 1) {
       if (total <= 0) return "";
       return (
@@ -1388,7 +2341,7 @@
     var nextDisabled = page >= totalPages ? " disabled" : "";
     var mp = window.__vcMiniPager;
     if (mp && typeof mp.html === "function") {
-      return mp.html(page, totalPages, { aria: "Paginazione ticket" }).replace(
+      return mp.html(page, totalPages, { aria: "Paginazione ticket", windowSize: 3 }).replace(
         'class="vc-mini-pager"',
         'class="vc-wt-pager vc-mini-pager"'
       );
@@ -1423,7 +2376,9 @@
   }
 
   function scopeSwitcherHtml() {
-    if (!hasStaffInboxAccess()) return "";
+    /* ticketNotifStaffTab2: tab Staff anche su deeplink/push prima che staffAccess arrivi
+       (prima: hasStaffInboxAccess false → niente tab + skeleton “cieco”). */
+    if (!hasStaffInboxAccess() && !wantsStaffInbox() && !hasStaffViewQuery()) return "";
     var userOn = state.viewMode !== "staff";
     return (
       '<div class="vc-wt-scope-dock">' +
@@ -1443,7 +2398,9 @@
   }
 
   function filtersHtml() {
-    var filters = isStaffMode
+    /* ticketViewPersist1: filtri da vista scelta (non solo isStaffMode post-API) */
+    var staffUi = wantsStaffInbox();
+    var filters = staffUi
       ? [
           { id: "all", label: "Tutti" },
           { id: "open", label: "Aperti" },
@@ -1476,7 +2433,7 @@
         .join("") +
       "</div></div>";
     var catRow = "";
-    if (isStaffMode && state.staffCategories.length) {
+    if (staffUi && state.staffCategories.length) {
       catRow =
         '<div class="vc-wt-filter-group">' +
         '<span class="vc-wt-filter-group__label">Categorie</span>' +
@@ -1500,7 +2457,7 @@
         "</div></div>";
     }
     var cta = "";
-    if (!isStaffMode) {
+    if (!wantsStaffInbox()) {
       cta =
         '<div class="vc-wt-filter-menu__toolbar">' +
         '<button type="button" class="vc-wt-new-btn vc-wt-new-btn--cta" data-act="compose" title="Nuovo ticket">' +
@@ -2162,6 +3119,82 @@
     return s;
   }
 
+  function decodeDiscordEntities(raw) {
+    return String(raw == null ? "" : raw)
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&");
+  }
+
+  function normalizeDiscordMarkup(raw) {
+    return decodeDiscordEntities(raw)
+      .replace(/[\u200B\u200C\u200D\uFEFF\u00AD\u2060]/g, "")
+      .replace(/[\uFF1C\uFE64]/g, "<")
+      .replace(/[\uFF1E\uFE65]/g, ">")
+      .replace(/[\uFF1A]/g, ":");
+  }
+
+  var DISCORD_CUSTOM_TOKEN_RE =
+    /<(a?):([a-zA-Z0-9_]{1,32}):(\d{5,32})>|<@!?(\d{5,32})>|<@&(\d{5,32})>|<#(\d{5,32})>/g;
+
+  function stashDiscordCustomTokens(raw, stashFn, opts) {
+    opts = opts || {};
+    var still = !!opts.still;
+    var size = opts.size || 32;
+    var asSpans = !!opts.asSpans;
+    return String(raw || "").replace(DISCORD_CUSTOM_TOKEN_RE, function (_all, anim, name, eid, uid, rid, cid) {
+      if (uid) {
+        if (!(state.userResolveAttempted && state.userResolveAttempted[uid])) {
+          queueContentResolve({ userIds: [uid] });
+        }
+        return stashFn(plainUserMentionHtml(resolveMentionName("user", uid), uid));
+      }
+      if (rid) {
+        if (!(state.roleResolveAttempted && state.roleResolveAttempted[rid])) {
+          queueContentResolve({ roleIds: [rid] });
+        }
+        return stashFn(
+          '<span class="vc-wt-msg-mention vc-wt-msg-mention--role" data-mention-role="' +
+            esc(rid) +
+            '" data-mention-type="role" data-mention-id="' +
+            esc(rid) +
+            '">@' +
+            esc(resolveMentionName("role", rid)) +
+            "</span>",
+        );
+      }
+      if (cid) {
+        if (!(state.channelResolveAttempted && state.channelResolveAttempted[cid])) {
+          queueContentResolve({ channelIds: [cid] });
+        }
+        var href = asSpans ? "" : guildDiscordChannelUrl(cid);
+        return stashFn(
+          (href
+            ? '<a class="vc-wt-msg-mention vc-wt-msg-mention--channel" href="' +
+              esc(href) +
+              '" target="_blank" rel="noopener noreferrer" data-mention-channel="' +
+              esc(cid) +
+              '" data-mention-type="channel" data-mention-id="' +
+              esc(cid) +
+              '">'
+            : '<span class="vc-wt-msg-mention vc-wt-msg-mention--channel" data-mention-channel="' +
+              esc(cid) +
+              '" data-mention-type="channel" data-mention-id="' +
+              esc(cid) +
+              '">') +
+            "#" +
+            esc(resolveMentionName("channel", cid)) +
+            (href ? "</a>" : "</span>"),
+        );
+      }
+      var em = { id: eid, name: name, animated: anim === "a" };
+      var html = guildEmojiImgHtml(em, still, size);
+      return stashFn(html || ":" + name + ":");
+    });
+  }
+
   function formatDiscordInline(raw, opts) {
     opts = opts || {};
     var tokens = [];
@@ -2175,44 +3208,11 @@
         return tokens[Number(idx)] || "";
       });
     }
-    var s = String(raw || "").replace(/[\u200B\u200C\u200D\uFEFF]/g, "");
-
-        s = s.replace(/<(a?):([a-zA-Z0-9_]+):(\d{5,32})>/g, function (_all, anim, name, eid) {
-      var em = { id: eid, name: name, animated: anim === "a" };
-      var html = guildEmojiImgHtml(em, false, 32);
-      return html ? stash(html) : stash(":" + name + ":");
-    });
-    s = s.replace(/<@!?(\d{5,32})>/g, function (_all, uid) {
-      if (!(state.userResolveAttempted && state.userResolveAttempted[uid])) {
-        queueContentResolve({ userIds: [uid] });
-      }
-      return stash(plainUserMentionHtml(resolveMentionName("user", uid), uid));
-    });
-    s = s.replace(/<@&(\d{5,32})>/g, function (_all, rid) {
-      if (!(state.roleResolveAttempted && state.roleResolveAttempted[rid])) {
-        queueContentResolve({ roleIds: [rid] });
-      }
-      return stash(
-        '<span class="vc-wt-msg-mention vc-wt-msg-mention--role">@' +
-          esc(resolveMentionName("role", rid)) +
-          "</span>",
-      );
-    });
-    s = s.replace(/<#(\d{5,32})>/g, function (_all, cid) {
-      if (!(state.channelResolveAttempted && state.channelResolveAttempted[cid])) {
-        queueContentResolve({ channelIds: [cid] });
-      }
-      var href = guildDiscordChannelUrl(cid);
-      return stash(
-        (href
-          ? '<a class="vc-wt-msg-mention vc-wt-msg-mention--channel" href="' +
-            esc(href) +
-            '" target="_blank" rel="noopener noreferrer">'
-          : '<span class="vc-wt-msg-mention vc-wt-msg-mention--channel">') +
-          "#" +
-          esc(resolveMentionName("channel", cid)) +
-          (href ? "</a>" : "</span>"),
-      );
+    var s = normalizeDiscordMarkup(raw);
+    s = stashDiscordCustomTokens(s, stash, {
+      still: !!opts.still,
+      size: opts.size || 32,
+      asSpans: !!opts.asSpans,
     });
 
         s = s.replace(/``([^`\n]+)``/g, function (_m, code) {
@@ -2365,12 +3365,16 @@
         return tokens[Number(idx)] || "";
       });
     }
-    var s = String(raw || "").replace(/[\u200B\u200C\u200D\uFEFF]/g, "");
+    var s = normalizeDiscordMarkup(raw);
+    s = stashDiscordCustomTokens(s, stash, { still: true, size: 22, asSpans: true });
+    s = replaceEmojiShortcodes(s, stash, true, 22);
+    s = replacePlainTranscriptMentions(s, stash);
     s = s.replace(/\[([^\]]+)\]\(\s*<?(https?:\/\/[^)\s>]+)>?\s*\)/gi, function (_m, label, url) {
+      /* composerMdCaret1: span non <a> — overlay only; niente focus/navigazione sul live */
       return stash(
-        '<a class="vc-wt-link vc-wt-link--composer" href="' +
+        '<span class="vc-wt-link vc-wt-link--composer" data-href="' +
           esc(url) +
-          '" tabindex="-1">' +
+          '">' +
           mdMark("[") +
           restore(formatDiscordInlineKeepMarks(label)) +
           mdMark("](") +
@@ -2378,7 +3382,7 @@
           esc(url) +
           "</span>" +
           mdMark(")") +
-          "</a>",
+          "</span>",
       );
     });
     s = s.replace(/``([^`\n]+)``/g, function (_m, code) {
@@ -2389,11 +3393,11 @@
     });
     s = s.replace(/https?:\/\/[^\s<>"']+/gi, function (url) {
       return stash(
-        '<a class="vc-wt-link vc-wt-link--composer" href="' +
+        '<span class="vc-wt-link vc-wt-link--composer" data-href="' +
           esc(url) +
-          '" tabindex="-1">' +
+          '">' +
           esc(url) +
-          "</a>",
+          "</span>",
       );
     });
     s = esc(s);
@@ -2500,7 +3504,7 @@
   function buildComposerLiveHtml(text) {
     var s = String(text || "");
     if (!s) return "";
-    var re = /<(a?):([a-zA-Z0-9_]+):(\d{5,32})>|<@!?(\d{5,32})>|<@&(\d{5,32})>|<#(\d{5,32})>/g;
+    var re = /<(a?):([a-zA-Z0-9_]{1,32}):(\d{5,32})>|<@!?(\d{5,32})>|<@&(\d{5,32})>|<#(\d{5,32})>/g;
     var parts = [];
     var last = 0;
     var m;
@@ -2697,25 +3701,22 @@
       .map(function (f) {
         return (
           '<div class="vc-wt-discord-embed__field"><span class="vc-wt-discord-embed__field-name">' +
-          formatDiscordInline(f.name || "") +
+          formatMessageContent(f.name || "", { still: true, singleLine: true }) +
           '</span><span class="vc-wt-discord-embed__field-value">' +
-          formatDiscordInline(f.value || "") +
+          formatMessageContent(f.value || "", { still: true }) +
           "</span></div>"
         );
       })
       .join("");
     return (
       '<div class="vc-wt-discord-embed">' +
-      (title ? '<div class="vc-wt-discord-embed__title">' + formatDiscordInline(title) + "</div>" : "") +
-      (desc
-        ? '<div class="vc-wt-discord-embed__desc">' +
-          desc
-            .split("\n")
-            .map(function (line) {
-              return formatDiscordInline(line);
-            })
-            .join("<br>") +
+      (title
+        ? '<div class="vc-wt-discord-embed__title">' +
+          formatMessageContent(title, { still: true, singleLine: true }) +
           "</div>"
+        : "") +
+      (desc
+        ? '<div class="vc-wt-discord-embed__desc">' + formatMessageContent(desc, { still: true }) + "</div>"
         : "") +
       (fieldsHtml ? '<div class="vc-wt-discord-embed__fields">' + fieldsHtml + "</div>" : "") +
       (imageUrl
@@ -2796,16 +3797,46 @@
 
   function renderDiscordMessageEmbed(item) {
     if (!item) return "";
-    var body = item.content ? esc(item.content) : "<em>Messaggio Discord</em>";
+    var body = item.content
+      ? formatMessageContent(item.content, { still: true })
+      : "<em>Messaggio Discord</em>";
     var img = item.imageUrl
       ? '<img class="vc-wt-msg-embed__img" src="' + esc(item.imageUrl) + '" alt="" loading="lazy" decoding="async" />'
       : "";
+    var channelId = String(item.channelId || "").trim();
+    if (channelId && /^\d{5,32}$/.test(channelId)) {
+      if (item.channelName) rememberMentionName("channel", channelId, item.channelName);
+      if (
+        resolveMentionName("channel", channelId) === "canale" &&
+        !(state.channelResolveAttempted && state.channelResolveAttempted[channelId])
+      ) {
+        queueContentResolve({ channelIds: [channelId] });
+      }
+    }
+    var channelLabel = channelId
+      ? resolveMentionName("channel", channelId)
+      : String(item.channelName || "canale").replace(/^#/, "");
+    if (channelLabel === "canale" && item.channelName) {
+      channelLabel = String(item.channelName).replace(/^#/, "");
+    }
+    var headChannel = channelId
+      ? '<span class="vc-wt-msg-mention vc-wt-msg-mention--channel" data-mention-channel="' +
+        esc(channelId) +
+        '" data-mention-type="channel" data-mention-id="' +
+        esc(channelId) +
+        '">#' +
+        esc(channelLabel) +
+        "</span>"
+      : "#" + esc(channelLabel);
+    var href = String(item.url || "").trim();
     return (
-      '<a class="vc-wt-msg-embed" href="' +
-      esc(item.url || "#") +
-      '" target="_blank" rel="noopener noreferrer">' +
-      '<span class="vc-wt-msg-embed__head">#' +
-      esc(item.channelName || "canale") +
+      '<div class="vc-wt-msg-embed" role="link" tabindex="0" data-open-url="' +
+      esc(href || "#") +
+      '"' +
+      (href ? ' title="Apri su Discord"' : "") +
+      ">" +
+      '<span class="vc-wt-msg-embed__head">' +
+      headChannel +
       " · " +
       esc(item.authorName || "Utente") +
       "</span>" +
@@ -2813,7 +3844,7 @@
       body +
       "</span>" +
       img +
-      "</a>"
+      "</div>"
     );
   }
 
@@ -3007,10 +4038,10 @@
           state.linkCache[url] = links[url];
           if (JSON.stringify(prevL || null) !== JSON.stringify(links[url] || null)) linksChanged = true;
         });
-                if (linksChanged || avatarsChanged) {
+                if (linksChanged || avatarsChanged || namesChanged) {
           refreshListPane();
           refreshChatLogMarkup();
-        } else if (namesChanged) refreshMentionTokenLabels();
+        }
       })
       .catch(function () {
         state.resolveInflight = false;
@@ -3082,6 +4113,7 @@
     wireMessageReactions(log);
     wireMessageTools(log);
     wireEmojiImgFallback(log);
+    freezeTicketsAnimatedMedia(log);
     scrollChatBottom(false);
   }
 
@@ -3100,11 +4132,7 @@
     var previewTicket = opts.ticket || null;
     var s = String(content || "");
     if (!s) return "";
-    s = s
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&amp;/g, "&");
+    s = normalizeDiscordMarkup(s);
     if (plainPreview) {
       s = cleanImportedTranscriptPreview(s);
       s = stripDiscordMarkdown(s);
@@ -3122,7 +4150,7 @@
       tokens.push(html);
       return key;
     }
-    s = s.replace(/<(a?):([a-zA-Z0-9_]+):(\d{5,32})>|<@!?(\d{5,32})>|<@&(\d{5,32})>|<#(\d{5,32})>/g, function (all, anim, name, eid, uid, rid, cid) {
+    s = s.replace(/<(a?):([a-zA-Z0-9_]{1,32}):(\d{5,32})>|<@!?(\d{5,32})>|<@&(\d{5,32})>|<#(\d{5,32})>/g, function (all, anim, name, eid, uid, rid, cid) {
       if (uid) {
         var userHref = userProfileUrl(uid);
         var roleName = resolveStaffRoleName(uid);
@@ -3210,14 +4238,14 @@
         );
       }
       var isAnimated = anim === "a";
-      var wantAnimated = isAnimated && !still;
+      /* ticketsCpuHard3: mai emoji animate in chat (CPU continuo) */
+      var wantAnimated = false;
+      void isAnimated;
       var size = still ? 32 : 48;
       var url =
         window.VcEmojiPicker && typeof window.VcEmojiPicker.customUrl === "function"
           ? window.VcEmojiPicker.customUrl(eid, wantAnimated, size)
-          : wantAnimated
-            ? "https://cdn.discordapp.com/emojis/" + eid + ".webp?size=" + size + "&animated=true"
-            : "https://cdn.discordapp.com/emojis/" + eid + ".webp?size=" + size;
+          : "https://cdn.discordapp.com/emojis/" + eid + ".webp?size=" + size;
       return stash(
         '<img class="vc-wt-inline-emoji' +
           (still ? " vc-wt-inline-emoji--sm" : "") +
@@ -3590,6 +4618,21 @@
     return "Messaggio";
   }
 
+  function formatReplySnippetHtml(reply, opts) {
+    opts = opts || {};
+    if (!reply) return "";
+    if (reply.deleted) return esc("Messaggio originale eliminato");
+    var text = String(reply.content || "").replace(/\s+/g, " ").trim();
+    if (!text) {
+      if (reply.hasMedia) return esc("Allegato");
+      return esc("Messaggio");
+    }
+    return formatMessageContent(text, {
+      still: true,
+      singleLine: opts.singleLine !== false,
+    });
+  }
+
   function replyPreviewHtml(m) {
     var reply = resolveReplySnippet(m);
     if (!reply || !reply.id) return "";
@@ -3602,7 +4645,7 @@
       esc(name) +
       "</strong>" +
       "<span>" +
-      esc(replyPreviewText(reply)) +
+      formatReplySnippetHtml(reply) +
       "</span></button>"
     );
   }
@@ -3692,7 +4735,7 @@
       esc(String(reply.authorName || "Utente")) +
       "</strong>" +
       "<span>" +
-      esc(replyPreviewText(reply)) +
+      formatReplySnippetHtml(reply) +
       "</span></div>" +
       '<button type="button" class="vc-wt-composer__reply-close" data-reply-cancel title="Annulla risposta" aria-label="Annulla risposta">&times;</button></div>'
     );
@@ -3819,6 +4862,7 @@
       ">" +
       esc(when.label) +
       "</time>" +
+      receiptTicksHtml(m, mine, pending) +
       (m.editedAt ? '<span class="vc-wt-msg__edited">(modificato)</span>' : "") +
       "</div>" +
       (m.content ? '<div class="vc-wt-msg__text">' + formatMessageContent(m.content) + "</div>" : "") +
@@ -3828,6 +4872,95 @@
       tools +
       "</div></div></div>"
     );
+  }
+
+  function receiptTicksHtml(m, mine, pending) {
+    if (!mine || pending) return "";
+    var kind = effectiveAuthorKind(m);
+    if (kind === "system" || kind === "bot") return "";
+    var read =
+      m.read === true ||
+      String(m.receiptStatus || "").toLowerCase() === "read" ||
+      (Array.isArray(m.readBy) &&
+        m.readBy.some(function (r) {
+          return String((r && r.userId) || "") && String(r.userId) !== String(m.authorId || "");
+        }));
+    var label = read ? "Letto" : "Inviato";
+    return (
+      '<span class="vc-msg-ticks' +
+      (read ? " is-read" : " is-sent") +
+      '" title="' +
+      label +
+      '" aria-label="' +
+      label +
+      '">' +
+      '<svg class="vc-msg-ticks__svg" viewBox="0 0 16 11" width="16" height="11" aria-hidden="true" focusable="false">' +
+      (read
+        ? '<path d="M11.1 1.1 5.6 7.2 3.1 4.8l-1.2 1.2 3.7 3.7 6.7-7.4z"/><path d="M14.4 1.1 8.9 7.2 7.6 5.9l-1.1 1.2 2.4 2.4 6.7-7.4z"/>'
+        : '<path d="M13.2 1.1 6.5 8.5 2.8 4.9 1.6 6.1 6.5 11l8-8.7z"/>') +
+      "</svg></span>"
+    );
+  }
+
+  function applyReceiptsToOwnMessages(messageIds, readerId) {
+    var ids = Array.isArray(messageIds) ? messageIds : [];
+    if (!ids.length) return;
+    var idSet = {};
+    for (var i = 0; i < ids.length; i += 1) idSet[String(ids[i])] = 1;
+    var reader = String(readerId || "").trim();
+    var changed = false;
+    state.messages = state.messages.map(function (m) {
+      if (!m || !idSet[String(m.id || "")]) return m;
+      if (!isOwnMessage(m)) return m;
+      if (m.read === true || String(m.receiptStatus || "") === "read") return m;
+      changed = true;
+      var next = Object.assign({}, m, { read: true, receiptStatus: "read" });
+      if (reader) {
+        var rb = Array.isArray(m.readBy) ? m.readBy.slice() : [];
+        if (
+          !rb.some(function (r) {
+            return String((r && r.userId) || "") === reader;
+          })
+        ) {
+          rb.push({ userId: reader, at: new Date().toISOString() });
+        }
+        next.readBy = rb;
+      }
+      return next;
+    });
+    if (!changed) return;
+    for (var j = 0; j < ids.length; j += 1) {
+      var mid = String(ids[j] || "");
+      var msg = state.messages.find(function (x) {
+        return String((x && x.id) || "") === mid;
+      });
+      if (!msg || !isOwnMessage(msg)) continue;
+      var node = document.querySelector('.vc-wt-msg[data-msg-id="' + mid + '"] .vc-msg-ticks');
+      if (node) {
+        node.classList.remove("is-sent");
+        node.classList.add("is-read");
+        node.setAttribute("title", "Letto");
+        node.setAttribute("aria-label", "Letto");
+        node.innerHTML =
+          '<svg class="vc-msg-ticks__svg" viewBox="0 0 16 11" width="16" height="11" aria-hidden="true" focusable="false">' +
+          '<path d="M11.1 1.1 5.6 7.2 3.1 4.8l-1.2 1.2 3.7 3.7 6.7-7.4z"/><path d="M14.4 1.1 8.9 7.2 7.6 5.9l-1.1 1.2 2.4 2.4 6.7-7.4z"/>' +
+          "</svg>";
+      } else {
+        patchMessageInState(msg);
+      }
+    }
+  }
+
+  function markSelectedTicketRead(messageIds) {
+    if (!state.selectedId || !getToken()) return;
+    var body = {};
+    if (Array.isArray(messageIds) && messageIds.length) body.messageIds = messageIds.slice(0, 80);
+    fetchJson(apiBase() + "/" + encodeURIComponent(state.selectedId) + "/read", {
+      method: "POST",
+      headers: authHeaders(true),
+      body: JSON.stringify(body),
+      timeoutMs: 12000,
+    }).catch(function () {});
   }
 
   function staffAvgStarsHtml(avg) {
@@ -3895,7 +5028,7 @@
       }
     }
     return (
-      '<div id="vc-wt-chat-top">' +
+      '<div id="vc-wt-chat-top" class="vc-wt-chat__top">' +
       '<header id="vc-wt-chat-head" class="vc-wt-chat__head">' +
       '<div class="vc-wt-chat__title">' +
       "<h2>" +
@@ -4013,13 +5146,13 @@
       '<button type="button" class="vc-wt-composer__emoji" id="vc-wt-composer-emoji" title="Emoji" aria-label="Emoji"><i class="fa fa-smile-o" aria-hidden="true"></i></button>' +
       '<div class="vc-wt-composer__editor">' +
       '<div class="vc-wt-composer__md-live" aria-hidden="true"></div>' +
-      '<div id="vc-wt-composer-text" class="vc-wt-composer__input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="' +
+      '<div id="vc-wt-composer-text" class="vc-wt-composer__input" contenteditable="plaintext-only" role="textbox" aria-multiline="true" enterkeyhint="send" data-placeholder="' +
       esc(
         (state.detail && state.detail.permissions && state.detail.permissions.canUseCommands
           ? "Scrivi un messaggio… (@ utenti, # canali, +desc / /partnership)"
           : "Scrivi un messaggio… (@ utenti, # canali)") ,
       ) +
-      '" spellcheck="true"></div></div>' +
+      '" spellcheck="false" autocomplete="off"></div></div>' +
       '<button type="submit" class="vc-wt-composer__send" aria-label="Invia"><i class="fa fa-paper-plane" aria-hidden="true"></i></button>' +
       "</div>" +
       '<div id="vc-wt-typing" class="vc-chat-typing" hidden aria-live="polite"></div>' +
@@ -4226,8 +5359,15 @@
   }
 
   function chatPaneHtml() {
-    if (state.composeOpen && !isStaffMode) return composePanelHtml();
+    if (state.composeOpen && !isStaffMode) {
+      return composePanelHtml();
+    }
     if (!state.detail) {
+      var openBtn = "";
+      if (!isStaffMode) {
+        openBtn =
+          '<button type="button" class="vc-reviews-submit" data-act="compose">Apri un ticket</button>';
+      }
       return (
         '<div class="vc-wt-chat vc-wt-chat--empty">' +
         '<div class="vc-wt-chat-empty">' +
@@ -4240,25 +5380,30 @@
           ? "Apri una conversazione dalla lista per rispondere in tempo reale."
           : "Scegli un ticket a sinistra, oppure usa + per aprirne uno nuovo.") +
         "</p>" +
-        (!isStaffMode
-          ? '<button type="button" class="vc-reviews-submit" data-act="compose">Apri un ticket</button>'
-          : "") +
+        openBtn +
         "</div></div>"
       );
     }
     var closed = state.detail.status === "closed";
+    var pendingOpen = Boolean(state.detail._openPending) && !(state.messages && state.messages.length);
+    var logHtml = pendingOpen
+      ? '<div class="vc-wt-chat-loading" aria-busy="true" aria-live="polite">' +
+        '<span class="vc-wt-chat-loading__spin" aria-hidden="true"></span>' +
+        "<p>Caricamento messaggi…</p></div>"
+      : state.messages.map(messageHtml).join("");
     return (
       '<div class="vc-wt-chat' +
       (closed ? " vc-wt-chat--closed" : "") +
+      (pendingOpen ? " vc-wt-chat--pending" : "") +
       '">' +
       chatHeadHtml(state.detail) +
       '<div class="vc-wt-chat__stage">' +
       '<div id="vc-wt-chat-log" class="vc-wt-chat__log">' +
-      state.messages.map(messageHtml).join("") +
-      "</div>" +
+      logHtml +
       "</div>" +
       (closed ? ratingDockHtml(state.detail, { settled: true }) : "") +
-      composerHtml() +
+      "</div>" +
+      (pendingOpen ? "" : composerHtml()) +
       "</div>"
     );
   }
@@ -4316,7 +5461,7 @@
         renderShell();
         return;
       }
-      main.classList.toggle("vc-wt-main--active", Boolean(state.selectedId));
+      main.classList.toggle("vc-wt-main--active", Boolean(state.selectedId || state.composeOpen));
       main.innerHTML = chatPaneHtml();
       wireChatPaneOnly();
       refreshListActiveState();
@@ -4327,6 +5472,8 @@
     withPageScrollPreserved(function () {
       dismissFloatingUi();
       hideStatusToast();
+      clearTicketsBusyState();
+      ensureTicketsPageVisible();
       var app = byId("vc-wt-app");
       if (!app) return;
       app.hidden = false;
@@ -4335,12 +5482,7 @@
         scopeSwitcherHtml() +
         filtersHtml() +
         '<div class="vc-wt-layout">' +
-        '<aside class="vc-wt-sidebar">' +
-        '<div class="vc-wt-sidebar__top">' +
-        "<h2>" +
-        (isStaffMode ? "Staff" : "Personali") +
-        "</h2>" +
-        "</div>" +
+        '<aside id="vc-wt-sidebar" class="vc-wt-sidebar">' +
         '<div id="vc-wt-list" class="vc-wt-list">' +
         ticketListHtml() +
         "</div>" +
@@ -4348,7 +5490,7 @@
         ticketListPagerHtml() +
         "</div></aside>" +
         '<section class="vc-wt-main' +
-        (state.selectedId ? " vc-wt-main--active" : "") +
+        (state.selectedId || state.composeOpen ? " vc-wt-main--active" : "") +
         '">' +
         chatPaneHtml() +
         "</section></div></div>";
@@ -4469,14 +5611,25 @@
   }
 
   function wireListClicks() {
-    var list = byId("vc-wt-list");
-    if (!list) return;
-    list.querySelectorAll("[data-ticket-id]").forEach(function (btn) {
-      btn.addEventListener("click", function (ev) {
-        if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+    /* ticketFilterOpenPhone1: delegation (remount lista/filtri non perde i click su telefono) */
+    if (state.listClickDelegated) return;
+    state.listClickDelegated = true;
+    document.addEventListener(
+      "click",
+      function (ev) {
+        var btn =
+          ev.target && ev.target.closest ? ev.target.closest("[data-ticket-id]") : null;
+        if (!btn) return;
+        var list = byId("vc-wt-list");
+        if (!list || !list.contains(btn)) return;
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (eStop) {}
         var y = pageScrollY();
         var listY = Number(list.scrollTop) || 0;
-        openTicket(btn.getAttribute("data-ticket-id"));
+        /* ticketSwitchToastRace2: quiet — toast solo se fallisce dopo i retry */
+        openTicket(btn.getAttribute("data-ticket-id"), true);
         restorePageScroll(y);
         try {
           list.scrollTop = listY;
@@ -4488,8 +5641,9 @@
             if (list2) list2.scrollTop = listY;
           } catch (eList2) {}
         });
-      });
-    });
+      },
+      true,
+    );
   }
 
   function wireListPager() {
@@ -4516,9 +5670,20 @@
   }
 
   function refreshListPane() {
+    /* ticketFilterPaint1: durante hard load aggiorna solo se non c'è skeleton (altrimenti lascia skel) */
+    if (isTicketsListHardLoading()) {
+      var listBusy = byId("vc-wt-list");
+      if (listBusy && (listBusy.classList.contains("is-loading") || listBusy.querySelector(".vc-wt-skel-row"))) {
+        return;
+      }
+    }
     var list = byId("vc-wt-list");
     if (list) {
       list.innerHTML = ticketListHtml();
+      list.classList.remove("is-loading");
+      try {
+        list.removeAttribute("aria-busy");
+      } catch (eA) {}
       wireListClicks();
       wireEmojiImgFallback(list);
     }
@@ -4530,10 +5695,23 @@
   }
 
   function wireChatActions() {
-    /* ticketActionFail1 */
+    /* ticketActionFail1 + ticketPhoneBtnFix1 */
     document.querySelectorAll("[data-act]").forEach(function (btn) {
       if (btn._vcWired) return;
       btn._vcWired = true;
+      /* ticketPhoneBtnFix1: su touch lock immediato anti double-tap */
+      btn.addEventListener(
+        "pointerdown",
+        function () {
+          var act = btn.getAttribute("data-act");
+          if (!act || act === "compose" || act === "cancel-compose") return;
+          if (state.busy) return;
+          try {
+            btn.setAttribute("aria-busy", "true");
+          } catch (eBusy) {}
+        },
+        { passive: true },
+      );
       btn.addEventListener("click", function (ev) {
         if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
         if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
@@ -4550,6 +5728,16 @@
           act === "rate-ticket";
         var run = function () {
         if (act === "compose") {
+          if (!getToken()) {
+            if (window.VcLoginRequired && typeof window.VcLoginRequired.require === "function") {
+              window.VcLoginRequired.require({
+                title: "Nuovo ticket",
+                sub: "Tickets",
+                body: "Accedi con Discord per aprire un ticket.",
+              });
+            }
+            return;
+          }
           state.composeOpen = true;
           clearTicketSelection();
           state.composeOpen = true;
@@ -4585,6 +5773,7 @@
           pickTicketUser({
             title: "Aggiungi utente",
             message: "Cerca e scegli chi aggiungere a questo ticket.",
+            guildSearch: true,
           }).then(function (userId) {
             restorePageScroll(y);
             if (userId) postAction("/members", { userId: userId }, y);
@@ -4977,6 +6166,8 @@
           "&ticketId=" +
           encodeURIComponent(state.selectedId || "");
         if (opts.claimEligible) url += "&claimEligible=1";
+        /* ticketAddUserSearch1: cerca in guild, non solo partecipanti ticket */
+        if (opts.guildSearch) url += "&guildSearch=1";
         fetchJson(url, { method: "GET", headers: authHeaders(), cache: "no-store" })
           .then(function (out) {
             if (settled) return;
@@ -5054,13 +6245,43 @@
 
   function customEmojiUrl(id, animated, size) {
     var sz = size || 32;
+    /* ticketsCpuHard3: ignore animated flag */
     if (window.VcEmojiPicker && typeof window.VcEmojiPicker.customUrl === "function") {
-      return window.VcEmojiPicker.customUrl(id, Boolean(animated), sz);
-    }
-    if (animated) {
-      return "https://cdn.discordapp.com/emojis/" + id + ".webp?size=" + sz + "&animated=true";
+      return window.VcEmojiPicker.customUrl(id, false, sz);
     }
     return "https://cdn.discordapp.com/emojis/" + id + ".webp?size=" + sz;
+  }
+
+  function freezeTicketsAnimatedMedia(root) {
+    try {
+      var imgs;
+      if (root && root.tagName === "IMG") {
+        imgs = [root];
+      } else {
+        var scope = root && root.querySelectorAll ? root : document;
+        imgs = scope.querySelectorAll("img");
+      }
+      for (var i = 0; i < imgs.length; i += 1) {
+        var img = imgs[i];
+        if (!img || img.getAttribute("data-vc-tickets-still") === "1") continue;
+        var src = String(img.getAttribute("src") || img.currentSrc || "").trim();
+        if (!src) continue;
+        if (!/cdn\.discordapp\.com|media\.discordapp\.net/i.test(src)) continue;
+        if (!/\.gif(?:$|[?#])/i.test(src) && !/[?&]animated=true/i.test(src)) {
+          img.setAttribute("data-vc-tickets-still", "1");
+          continue;
+        }
+        var next = stillDiscordMediaUrl(src, 0);
+        if (next && next !== src) {
+          img.setAttribute("data-vc-avatar-static", "1");
+          img.setAttribute("src", next);
+          try {
+            img.src = next;
+          } catch (eSrc) {}
+        }
+        img.setAttribute("data-vc-tickets-still", "1");
+      }
+    } catch (eFreeze) {}
   }
 
   function makeEmojiTokenEl(markup, name, id, animated) {
@@ -5099,9 +6320,8 @@
     return span;
   }
 
-  function serializeRichInput(el) {
-    if (!el) return "";
-    if (!isRichInput(el)) return String(el.value || "");
+  function serializeRichRoot(root) {
+    if (!root) return "";
     var out = "";
     function walk(node) {
       if (!node) return;
@@ -5127,10 +6347,125 @@
       }
       var kids = node.childNodes;
       for (var i = 0; i < kids.length; i += 1) walk(kids[i]);
-      if ((tag === "DIV" || tag === "P") && node !== el) out += "\n";
+      if ((tag === "DIV" || tag === "P") && node !== root) out += "\n";
     }
-    walk(el);
+    walk(root);
     return out.replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").replace(/\s+$/g, "").slice(0, 2000);
+  }
+
+  function getRichCaretSerializeOffset(el) {
+    if (!el || !isRichInput(el)) return -1;
+    try {
+      var sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return -1;
+      var node = sel.focusNode;
+      var off = sel.focusOffset;
+      if (!node || (node !== el && !el.contains(node))) return -1;
+      var range = document.createRange();
+      range.selectNodeContents(el);
+      range.setEnd(node, off);
+      var wrap = document.createElement("div");
+      wrap.appendChild(range.cloneContents());
+      return serializeRichRoot(wrap).length;
+    } catch (eOff) {
+      return -1;
+    }
+  }
+
+  function setRichCaretSerializeOffset(el, offset) {
+    if (!el || !isRichInput(el)) return;
+    var target = Math.max(0, Number(offset) || 0);
+    try {
+      var range = document.createRange();
+      var placed = false;
+      var seen = 0;
+      function visit(n) {
+        if (placed || !n) return;
+        if (n.nodeType === 3) {
+          var tlen = String(n.nodeValue || "").length;
+          if (seen + tlen >= target) {
+            var at = Math.max(0, Math.min(tlen, target - seen));
+            range.setStart(n, at);
+            range.collapse(true);
+            placed = true;
+            return;
+          }
+          seen += tlen;
+          return;
+        }
+        if (n.nodeType !== 1) return;
+        var mention = n.getAttribute && n.getAttribute("data-mention-markup");
+        var emoji = n.getAttribute && n.getAttribute("data-emoji-markup");
+        var tag = String(n.tagName || "").toUpperCase();
+        if (mention || emoji || tag === "BR") {
+          var tok = mention ? String(mention) : emoji ? String(emoji) : "\n";
+          var tokLen = tok.length;
+          if (seen + tokLen >= target) {
+            try {
+              range.setStartAfter(n);
+              range.collapse(true);
+              placed = true;
+            } catch (eAfter) {
+              seen += tokLen;
+            }
+            return;
+          }
+          seen += tokLen;
+          return;
+        }
+        var kids = n.childNodes;
+        for (var i = 0; i < kids.length && !placed; i += 1) visit(kids[i]);
+        if (!placed && (tag === "DIV" || tag === "P") && n !== el) seen += 1;
+      }
+      visit(el);
+      if (!placed) {
+        range.selectNodeContents(el);
+        range.collapse(false);
+      }
+      var sel = window.getSelection();
+      if (!sel) return;
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (eSet) {}
+  }
+
+  function unwrapComposerAutolinks(el) {
+    /* composerMdCaret1: Chrome/Safari auto-<a> dopo URL/markdown completo → caret rotto */
+    if (!el || !isRichInput(el) || !el.querySelector) return false;
+    var links = el.querySelectorAll("a");
+    if (!links.length) return false;
+    var caret = getRichCaretSerializeOffset(el);
+    for (var i = links.length - 1; i >= 0; i -= 1) {
+      var a = links[i];
+      if (!a || !a.parentNode) continue;
+      if (a.getAttribute && (a.getAttribute("data-mention-markup") || a.getAttribute("data-emoji-markup"))) {
+        continue;
+      }
+      var text = document.createTextNode(String(a.textContent || ""));
+      a.parentNode.replaceChild(text, a);
+    }
+    if (caret >= 0) setRichCaretSerializeOffset(el, caret);
+    return true;
+  }
+
+  function applyRichInputPlaintextMode(el) {
+    if (!el || !el.setAttribute) return;
+    try {
+      el.setAttribute("contenteditable", "plaintext-only");
+      if (String(el.contentEditable || "").toLowerCase() === "false") {
+        el.setAttribute("contenteditable", "true");
+      }
+    } catch (ePl) {
+      try {
+        el.setAttribute("contenteditable", "true");
+      } catch (e2) {}
+    }
+  }
+
+  function serializeRichInput(el) {
+    if (!el) return "";
+    if (!isRichInput(el)) return String(el.value || "");
+    return serializeRichRoot(el);
   }
 
   function fillRichInput(el, text) {
@@ -5139,6 +6474,7 @@
       el.value = String(text || "");
       return;
     }
+    applyRichInputPlaintextMode(el);
     el.innerHTML = "";
     var s = String(text || "");
     if (!s) {
@@ -5422,7 +6758,7 @@
     return window.innerHeight || 0;
   }
 
-  /* ticketMentionPos2: room solo sul lato scelto; sopra = bottom-anchor (no clamp/flicker) */
+  /* ticketComposerEmptyMenu1: empty /+/#/@ menu height must not inflate to 140 */
   function positionFloatingMenu(menu, el, maxHeight) {
     if (!menu || !el || menu.hidden) return;
     var inputRect = el.getBoundingClientRect();
@@ -5443,40 +6779,112 @@
       preferAbove = false;
     }
     var room = Math.max(0, (preferAbove ? spaceAbove : spaceBelow) - gap);
-    var maxH = Math.min(wantMax, Math.max(72, room || 72));
-    var left = Math.max(vp.left + gap, Math.min(widthRect.left, vp.left + vp.width - 280));
+    var maxH = Math.min(wantMax, Math.max(96, room || 96));
     var width = Math.min(
-      360,
-      Math.max(220, Math.min(widthRect.width || inputRect.width || 240, vp.width - gap * 2)),
+      Math.max(widthRect.width || inputRect.width || 240, 240),
+      Math.max(200, vp.width - gap * 2),
+    );
+    var left = Math.max(
+      vp.left + gap,
+      Math.min(widthRect.left, vp.left + vp.width - width - gap),
     );
     menu.style.position = "fixed";
     menu.style.zIndex = "200000";
     menu.style.left = Math.round(left) + "px";
     menu.style.width = Math.round(width) + "px";
+    menu.style.maxWidth = Math.round(vp.width - gap * 2) + "px";
+    menu.style.bottom = "auto";
     menu.style.maxHeight = Math.round(maxH) + "px";
+    menu.style.visibility = "hidden";
+    menu.style.opacity = "0";
+    menu.style.pointerEvents = "none";
+    /* Misura altezza reale del contenuto (1 riga ≠ maxH) così non fluttua a metà chat.
+       Non gonfiare gli empty state (~hint): altrimenti top = input - 140 e la barra
+       sottile resta sospesa in mezzo alla chat. */
+    var menuH = 0;
+    try {
+      menuH = Math.ceil(menu.getBoundingClientRect().height || menu.offsetHeight || 0);
+    } catch (eH) {
+      menuH = 0;
+    }
+    if (!menuH) {
+      /* Misura fallita: fallback solo se zero, non se compact empty */
+      menuH = Math.min(maxH, 56);
+    }
+    menuH = Math.min(menuH, maxH);
+
+    var top;
+    if (preferAbove) {
+      top = inputRect.top - menuH - gap;
+      if (top < visibleTop) {
+        if (spaceBelow > spaceAbove + 16) {
+          preferAbove = false;
+          top = inputRect.bottom + gap;
+          maxH = Math.min(wantMax, Math.max(96, spaceBelow - gap));
+          menu.style.maxHeight = Math.round(maxH) + "px";
+          try {
+            menuH = Math.min(
+              Math.ceil(menu.getBoundingClientRect().height || menu.offsetHeight || menuH),
+              maxH,
+            );
+          } catch (eH2) {}
+        } else {
+          top = visibleTop;
+          maxH = Math.max(72, Math.min(maxH, inputRect.top - gap - top));
+          menu.style.maxHeight = Math.round(maxH) + "px";
+          top = Math.max(visibleTop, inputRect.top - Math.min(menuH, maxH) - gap);
+        }
+      }
+    } else {
+      top = inputRect.bottom + gap;
+      if (top + Math.min(96, menuH) > visibleBottom) {
+        if (spaceAbove > spaceBelow + 16) {
+          preferAbove = true;
+          maxH = Math.min(wantMax, Math.max(96, spaceAbove - gap));
+          menu.style.maxHeight = Math.round(maxH) + "px";
+          try {
+            menuH = Math.min(
+              Math.ceil(menu.getBoundingClientRect().height || menu.offsetHeight || menuH),
+              maxH,
+            );
+          } catch (eH3) {}
+          top = Math.max(visibleTop, inputRect.top - menuH - gap);
+        } else {
+          top = Math.max(visibleTop, visibleBottom - maxH);
+          maxH = Math.max(72, Math.min(maxH, visibleBottom - top));
+          menu.style.maxHeight = Math.round(maxH) + "px";
+        }
+      }
+    }
+    menu.style.top = Math.round(top) + "px";
     menu.style.visibility = "visible";
     menu.style.opacity = "1";
-    var placeKey;
-    if (preferAbove) {
-      var bottom = Math.max(gap, layoutH - inputRect.top + gap);
-      menu.style.top = "auto";
-      menu.style.bottom = Math.round(bottom) + "px";
-      placeKey = "b:" + Math.round(bottom) + ":" + Math.round(maxH) + ":" + Math.round(left);
-    } else {
-      var top = inputRect.bottom + gap;
-      if (top + Math.min(96, maxH) > visibleBottom) {
-        top = Math.max(visibleTop, visibleBottom - maxH);
-      }
-      menu.style.bottom = "auto";
-      menu.style.top = Math.round(top) + "px";
-      placeKey = "t:" + Math.round(top) + ":" + Math.round(maxH) + ":" + Math.round(left);
-    }
-    if (menu.getAttribute("data-vc-float-place") === placeKey) return;
+    menu.style.pointerEvents = "auto";
+    var placeKey =
+      (preferAbove ? "a:" : "b:") +
+      Math.round(top) +
+      ":" +
+      Math.round(maxH) +
+      ":" +
+      Math.round(left) +
+      ":" +
+      Math.round(width) +
+      ":" +
+      Math.round(menuH);
     menu.setAttribute("data-vc-float-place", placeKey);
   }
 
   var floatMenuSyncTimer = 0;
   function syncFloatingMenus() {
+    if (!(state.mentionMenu.open || state.commandMenu.open)) return;
+    if (window.__vcWtFloatMenuRaf) return;
+    window.__vcWtFloatMenuRaf = window.requestAnimationFrame(function () {
+      window.__vcWtFloatMenuRaf = 0;
+      syncFloatingMenusNow();
+    });
+  }
+
+  function syncFloatingMenusNow() {
     if (floatMenuSyncTimer) return;
     floatMenuSyncTimer = window.setTimeout(function () {
       floatMenuSyncTimer = 0;
@@ -5629,8 +7037,17 @@
         var item = (state.mentionMenu.items || [])[i];
         applyMentionPick(item);
       }
+      /* ticketMentionTab1: solo mousedown (no click doppio → doppio insert) */
       btn.addEventListener("mousedown", pick);
-      btn.addEventListener("click", pick);
+      btn.addEventListener("mouseenter", function () {
+        var i = Number(btn.getAttribute("data-mention-idx"));
+        if (!Number.isFinite(i) || i < 0) return;
+        if (state.mentionMenu.index === i) return;
+        state.mentionMenu.index = i;
+        menu.querySelectorAll("[data-mention-idx]").forEach(function (b) {
+          b.classList.toggle("is-active", Number(b.getAttribute("data-mention-idx")) === i);
+        });
+      });
     });
     positionMentionMenu(byId(state.mentionMenu.elId || "vc-wt-composer-text"));
   }
@@ -5645,7 +7062,11 @@
         ev.stopPropagation();
         var next = String(btn.getAttribute("data-mention-filter") || "all");
         if (next === String(state.mentionMenu.filter || "all")) return;
+        /* ticketPhoneTabList1: forza reload (prima sameOpen restava true perché filter già aggiornato) */
         state.mentionMenu.filter = next;
+        state.mentionMenu.items = [];
+        state.mentionMenu.loading = true;
+        state.mentionMenu.index = 0;
         fetchMentions(state.mentionMenu.q || "", state.mentionMenu.elId, state.mentionMenu.mode || "user");
       });
     });
@@ -5674,28 +7095,48 @@
 
     var trigger = type === "channel" ? "#" : "@";
     var q = String(state.mentionMenu.q != null ? state.mentionMenu.q : "");
-    var full = serializeRichInput(el).replace(/\u00a0/g, " ");
+    /* ticketMentionTab1: sostituisci solo il trigger sotto il caret (no append cieco) */
+    var before = (isRichInput(el) ? textBeforeCaret(el) : String(el.value || "").slice(0, el.selectionStart || 0)).replace(
+      /\u00a0/g,
+      " ",
+    );
+    var after = (isRichInput(el) ? textAfterCaret(el) : String(el.value || "").slice(el.selectionStart || 0)).replace(
+      /\u00a0/g,
+      " ",
+    );
+    if (!before && !after) {
+      before = serializeRichInput(el).replace(/\u00a0/g, " ");
+      after = "";
+    }
+    var needle = trigger + q;
+    var idx = before.lastIndexOf(needle);
     var replaced = false;
-    var trailing = new RegExp(escapeRegExp(trigger) + escapeRegExp(q) + "\\s*$");
-    if (trailing.test(full)) {
-      full = full.replace(trailing, markup + " ");
-      replaced = true;
-    } else {
-      var lines = full.split("\n");
-      var last = lines[lines.length - 1] || "";
-      var m =
-        type === "channel"
-          ? last.match(/^(.*)#([^\s#]*)$/)
-          : last.match(/^(.*)@([^\s@]*)$/);
-      if (m) {
-        lines[lines.length - 1] = m[1] + markup + " ";
-        full = lines.join("\n");
+    if (idx >= 0 && before.slice(idx) === needle) {
+      var prev = idx > 0 ? before.charAt(idx - 1) : "";
+      var insideMarkup = prev === "<" || (trigger === "@" && prev === "!");
+      if (!insideMarkup) {
+        before = before.slice(0, idx) + markup + " ";
         replaced = true;
       }
     }
     if (!replaced) {
-      full = (full ? full.replace(/\s*$/, "") + " " : "") + markup + " ";
+      /* fallback: fine del testo serializzato (mousedown può aver perso il caret) */
+      var fullFallback = serializeRichInput(el).replace(/\u00a0/g, " ");
+      var tIdx = fullFallback.lastIndexOf(needle);
+      if (tIdx >= 0 && fullFallback.slice(tIdx) === needle) {
+        var tPrev = tIdx > 0 ? fullFallback.charAt(tIdx - 1) : "";
+        if (!(tPrev === "<" || (trigger === "@" && tPrev === "!"))) {
+          before = fullFallback.slice(0, tIdx) + markup + " ";
+          after = "";
+          replaced = true;
+        }
+      }
     }
+    if (!replaced) {
+      hideMentionMenu();
+      return;
+    }
+    var full = before + after;
 
     fillRichInput(el, full);
     placeCaretAtEnd(el);
@@ -5833,6 +7274,15 @@
       state.slashCatalog = [];
       state.commandCatalogLoaded = false;
       state.commandCatalogTicketId = "";
+      return Promise.resolve(state.commandCatalog);
+    }
+    /* ticketCommandsSoft1: fetch solo se partnership / canUseCommands */
+    var perms = effectivePermissions();
+    if (!perms || !perms.canUseCommands) {
+      state.commandCatalog = [];
+      state.slashCatalog = [];
+      state.commandCatalogLoaded = true;
+      state.commandCatalogTicketId = ticketId;
       return Promise.resolve(state.commandCatalog);
     }
     if (state.commandCatalogLoaded && state.commandCatalogTicketId === ticketId) {
@@ -5996,8 +7446,17 @@
         var item = (state.commandMenu.items || [])[i];
         applyCommandPick(item);
       }
+      /* ticketMentionTab1: solo mousedown; hover aggiorna selezione Tab/Enter */
       btn.addEventListener("mousedown", pick);
-      btn.addEventListener("click", pick);
+      btn.addEventListener("mouseenter", function () {
+        var i = Number(btn.getAttribute("data-cmd-idx"));
+        if (!Number.isFinite(i) || i < 0) return;
+        if (state.commandMenu.index === i) return;
+        state.commandMenu.index = i;
+        menu.querySelectorAll("[data-cmd-idx]").forEach(function (b) {
+          b.classList.toggle("is-active", Number(b.getAttribute("data-cmd-idx")) === i);
+        });
+      });
     });
     positionCommandMenu(byId(state.commandMenu.elId || "vc-wt-composer-text"));
   }
@@ -6227,7 +7686,7 @@
     )
       .then(function (out) {
         if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus((out.data && out.data.message) || "Reazione fallita.", true);
+          setStatus(apiErrorText(out.data && out.data.message, "Reazione fallita."), true);
           return;
         }
         if (out.data.message) patchMessageInState(out.data.message);
@@ -6409,7 +7868,7 @@
       .then(function (out) {
         state.busy = false;
         if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus((out.data && out.data.message) || "Modifica fallita.", true);
+          setStatus(apiErrorText(out.data && out.data.message, "Modifica fallita."), true);
           return;
         }
         if (out.data.deleted && out.data.messageId) {
@@ -6452,7 +7911,7 @@
             out.data &&
             (out.data.error === "not_found" || /non trovato/i.test(String(out.data.message || "")));
           if ((!out.res.ok || !out.data || !out.data.ok) && !alreadyGone) {
-            setStatus((out.data && out.data.message) || "Eliminazione fallita.", true);
+            setStatus(apiErrorText(out.data && out.data.message, "Eliminazione fallita."), true);
             return;
           }
           removeMessageFromUi(messageId);
@@ -6572,6 +8031,39 @@
         jumpToMessage(btn.getAttribute("data-jump-msg"));
       });
     });
+    root.querySelectorAll(".vc-wt-msg-embed[data-open-url]").forEach(function (el) {
+      if (el._vcWired) return;
+      el._vcWired = true;
+      function openEmbed(ev) {
+        if (ev && ev.target && ev.target.closest && ev.target.closest("a,button")) return;
+        var url = String(el.getAttribute("data-open-url") || "").trim();
+        if (!url || url === "#") return;
+        if (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+        try {
+          window.open(url, "_blank", "noopener,noreferrer");
+        } catch (eOpen) {}
+      }
+      el.addEventListener("click", openEmbed);
+      el.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") openEmbed(ev);
+      });
+    });
+  }
+
+  function ensureChatLogScroll() {
+    var log = byId("vc-wt-chat-log");
+    if (!log) return;
+    log.style.minHeight = "0";
+    log.style.overflowY = "scroll";
+    var stage = log.closest(".vc-wt-chat__stage");
+    if (stage) {
+      stage.style.minHeight = "0";
+      stage.style.flex = "1 1 auto";
+      stage.style.overflow = "hidden";
+    }
   }
 
   function patchComposerHtml() {
@@ -6583,6 +8075,7 @@
     if (!lock && existing && existing.id === "vc-wt-composer") {
       syncComposerReplyBar();
       wireComposer();
+      ensureChatLogScroll();
       return;
     }
     if (existing) {
@@ -6600,15 +8093,18 @@
       patchRateDock({ settled: true });
       wireChatActions();
       wireRatingPanel();
+      ensureChatLogScroll();
       return;
     }
     if (lock === "claimed" || lock === "unclaimed") {
       wireChatActions();
+      ensureChatLogScroll();
       return;
     }
     var oldDockOpen = byId("vc-wt-rate-dock");
     if (oldDockOpen) oldDockOpen.remove();
     wireComposer();
+    ensureChatLogScroll();
   }
 
   function patchRateDock(opts) {
@@ -6619,14 +8115,20 @@
     var html = ratingDockHtml(state.detail, { settled: Boolean(opts.settled || existing) });
     if (!html) {
       if (existing) existing.remove();
+      ensureChatLogScroll();
       return;
     }
     var tmp = document.createElement("div");
     tmp.innerHTML = html;
     var next = tmp.firstElementChild;
     if (!next) return;
+    var stage = chat.querySelector(".vc-wt-chat__stage");
+    var log = byId("vc-wt-chat-log");
     if (existing) {
       existing.replaceWith(next);
+    } else if (stage && log) {
+      if (log.nextSibling) stage.insertBefore(next, log.nextSibling);
+      else stage.appendChild(next);
     } else {
       var composer = chat.querySelector(".vc-wt-composer, form.vc-wt-composer");
       if (composer) chat.insertBefore(next, composer);
@@ -6634,6 +8136,7 @@
     }
     wireChatActions();
     wireRatingPanel();
+    ensureChatLogScroll();
   }
 
   function wireRatingPanel() {
@@ -6668,7 +8171,7 @@
       .then(function (out) {
         state.busy = false;
         if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus((out.data && out.data.message) || "Valutazione non inviata.", true);
+          setStatus(apiErrorText(out.data && out.data.message, "Valutazione non inviata."), true);
           return;
         }
         state.rateDraftTicket = 0;
@@ -6715,25 +8218,42 @@
     if (!scrollY) scrollY = capturePageScrollY();
     state.busy = true;
     setChatActionsBusy(true);
-    fetchJson(apiBase() + "/" + encodeURIComponent(state.selectedId) + suffix, {
+    /* ticketCloseTimeout1: 35s anche desktop — Discord member resolve può superare 18s */
+    var actionId = String(state.selectedId || "");
+    fetchJson(apiBase() + "/" + encodeURIComponent(actionId) + suffix, {
       method: "POST",
       headers: authHeaders(true),
       body: JSON.stringify(body || {}),
-      timeoutMs: 18000,
+      timeoutMs: 35000,
     })
       .then(function (out) {
-        if (!out.res.ok || !out.data || !out.data.ok) {
-          var apiMsg = out.data && typeof out.data.message === "string" ? out.data.message : "";
+        if (apiActionFailed(out)) {
+          var apiMsg = apiErrorText(out.data && out.data.message, "");
           var code = String((out.data && out.data.error) || "");
           var status = Number((out.res && out.res.status) || 0);
           var fallback =
             status === 401 || code === "unauthorized" || code === "missing_token" || code === "invalid_token"
-              ? "Sessione Discord scaduta. Ricarica o accedi di nuovo."
+              ? "Sessione Discord scaduta in questo browser. Riaccedi qui (ogni browser ha login separato)."
               : status === 403 || code === "forbidden"
                 ? "Non hai i permessi per questa azione."
-                : status >= 500 || code === "internal"
-                  ? "Errore server. Riprova tra poco."
-                  : "Operazione fallita.";
+                : status === 409
+                  ? apiMsg || "Azione non disponibile (ticket già aggiornato)."
+                  : status === 429 || code === "rate_limited"
+                    ? "Troppe richieste. Riprova tra poco."
+                    : status >= 500 || code === "internal" || code === "member_unavailable" || code === "discord_unreachable"
+                      ? "Discord lento o errore server. Riprova tra poco."
+                      : status
+                        ? "Operazione non riuscita (" + status + "). Riprova."
+                        : "Operazione non riuscita. Riprova.";
+          if (status === 401 || code === "unauthorized" || code === "missing_token" || code === "invalid_token") {
+            try {
+              if (typeof window.__vcNotifyAuthFailure === "function") {
+                window.__vcNotifyAuthFailure(status, out.data, { reason: "web-tickets-401", skipRedirect: true });
+              } else if (typeof window.__vcDiscordCompleteLogout === "function") {
+                window.__vcDiscordCompleteLogout({ reason: "web-tickets-401", forceToast: true, skipRedirect: true });
+              }
+            } catch (eAuth) {}
+          }
           setStatus(apiMsg || fallback, true);
           return;
         }
@@ -6752,10 +8272,78 @@
         if (suffix === "/claim") setStatus("Ticket claimato.", false);
         else if (suffix === "/unclaim") setStatus("Ticket rilasciato.", false);
         else if (suffix === "/close" || suffix.indexOf("/close-request") === 0) setStatus("Operazione completata.", false);
+        else setStatus("Operazione completata.", false);
       })
       .catch(function (err) {
         var aborted = err && (err.name === "AbortError" || err.code === 20);
-        setStatus(aborted ? "Timeout: riprova." : "Errore di rete.", true);
+        var shouldReconcile =
+          aborted &&
+          actionId &&
+          (suffix === "/close" ||
+            suffix === "/claim" ||
+            suffix === "/unclaim" ||
+            suffix.indexOf("/close-request") === 0);
+        if (!shouldReconcile) {
+          setStatus(aborted ? "Timeout: riprova (rete lenta)." : "Errore di rete. Riprova.", true);
+          return;
+        }
+        /* ticketCloseTimeout1: server spesso ha già chiuso/claimato mentre il client abortiva */
+        setStatus("Verifico stato ticket…", false);
+        return fetchJson(apiBase() + "/" + encodeURIComponent(actionId), {
+          method: "GET",
+          headers: authHeaders(),
+          cache: "no-store",
+          timeoutMs: 12000,
+        })
+          .then(function (out) {
+            if (!(out.res && out.res.ok && out.data && out.data.ok && out.data.ticket)) {
+              setStatus("Timeout: riprova (rete lenta).", true);
+              return;
+            }
+            if (state.selectedId !== actionId) return;
+            withPageScrollPreserved(function () {
+              state.detail = mergeTicketDetail(out.data.ticket, { trustPermissions: true });
+              if (Array.isArray(out.data.messages)) {
+                state.messages = out.data.messages;
+                state.seenMessageIds = {};
+                state.messages.forEach(function (m) {
+                  if (m && m.id) state.seenMessageIds[m.id] = true;
+                });
+              }
+              refreshTicketInList(state.detail);
+              refreshChatPane();
+              patchComposerHtml();
+              scrollChatBottom(true);
+            });
+            var st = String((state.detail && state.detail.status) || "");
+            if (suffix === "/close" && st === "closed") {
+              setStatus("Operazione completata.", false);
+              return;
+            }
+            if (suffix === "/claim" && String((state.detail && state.detail.claimedBy) || "").trim()) {
+              setStatus("Ticket claimato.", false);
+              return;
+            }
+            if (suffix === "/unclaim" && !String((state.detail && state.detail.claimedBy) || "").trim()) {
+              setStatus("Ticket rilasciato.", false);
+              return;
+            }
+            if (suffix === "/close-request" && state.detail && state.detail.closeRequestedAt) {
+              setStatus("Operazione completata.", false);
+              return;
+            }
+            if (
+              (suffix === "/close-request/accept" && st === "closed") ||
+              (suffix === "/close-request/reject" && state.detail && !state.detail.closeRequestedAt)
+            ) {
+              setStatus("Operazione completata.", false);
+              return;
+            }
+            setStatus("Timeout: riprova (rete lenta).", true);
+          })
+          .catch(function () {
+            setStatus("Timeout: riprova (rete lenta).", true);
+          });
       })
       .finally(function () {
         state.busy = false;
@@ -6813,9 +8401,11 @@
     var ta = byId("vc-wt-composer-text");
     if (ta && !ta._vcWired) {
       ta._vcWired = true;
+      applyRichInputPlaintextMode(ta);
       fillRichInput(ta, state.composerText || "");
       syncComposerAutosize(ta);
       ta.addEventListener("input", function () {
+        unwrapComposerAutolinks(ta);
         syncRichInputEmptyState(ta);
         state.composerText = serializeRichInput(ta);
         saveTicketComposerDraft();
@@ -6823,6 +8413,15 @@
         scheduleComposerSuggest(ta, false);
         syncComposerAutosize(ta);
         pulseTicketTyping(Boolean(String(state.composerText || "").trim()));
+      });
+      ta.addEventListener("paste", function () {
+        window.setTimeout(function () {
+          unwrapComposerAutolinks(ta);
+          syncRichInputEmptyState(ta);
+          state.composerText = serializeRichInput(ta);
+          scheduleComposerLivePreview(ta);
+          syncComposerAutosize(ta);
+        }, 0);
       });
       ta.addEventListener("scroll", function () {
         syncComposerLivePreview(ta);
@@ -6832,6 +8431,9 @@
       });
       ta.addEventListener("keyup", function (ev) {
         var key = String(ev.key || "");
+        if (key === ")" || key === " " || key === "Enter") {
+          unwrapComposerAutolinks(ta);
+        }
         if (
           key === "ArrowDown" ||
           key === "ArrowUp" ||
@@ -6856,7 +8458,19 @@
       ta.addEventListener("focus", function () {
         if (effectivePermissions().canUseCommands) void ensureCommandCatalog();
       });
-      ta.addEventListener("keydown", function (ev) {
+      ta.addEventListener(
+        "keydown",
+        function (ev) {
+        /* ticketMentionTab1: capture + sync index da .is-active (hover) prima di Tab/Enter */
+        function activeMenuIndex(menuId, attr, fallback) {
+          var menu = byId(menuId);
+          var active = menu && menu.querySelector(".is-active[" + attr + "]");
+          if (active) {
+            var i = Number(active.getAttribute(attr));
+            if (Number.isFinite(i) && i >= 0) return i;
+          }
+          return Math.max(0, Number(fallback) || 0);
+        }
         if (state.commandMenu.open && state.commandMenu.items.length) {
           if (ev.key === "ArrowDown") {
             ev.preventDefault();
@@ -6875,6 +8489,12 @@
           }
           if (ev.key === "Enter" || ev.key === "Tab") {
             ev.preventDefault();
+            ev.stopPropagation();
+            state.commandMenu.index = activeMenuIndex(
+              "vc-wt-command-menu",
+              "data-cmd-idx",
+              state.commandMenu.index,
+            );
             applyCommandPick(state.commandMenu.items[state.commandMenu.index]);
             return;
           }
@@ -6902,7 +8522,19 @@
           }
           if ((ev.key === "Enter" || ev.key === "Tab") && state.mentionMenu.items.length) {
             ev.preventDefault();
+            ev.stopPropagation();
+            state.mentionMenu.index = activeMenuIndex(
+              "vc-wt-mention-menu",
+              "data-mention-idx",
+              state.mentionMenu.index,
+            );
             applyMentionPick(state.mentionMenu.items[state.mentionMenu.index]);
+            return;
+          }
+          if (ev.key === "Tab" && state.mentionMenu.open) {
+            /* menu aperto ma ancora loading: non togliere focus dal composer */
+            ev.preventDefault();
+            ev.stopPropagation();
             return;
           }
           if (ev.key === "Escape") {
@@ -6931,7 +8563,9 @@
           ev.preventDefault();
           sendMessage();
         }
-      });
+      },
+        true,
+      );
       ta.addEventListener("paste", function (ev) {
         var cd = ev.clipboardData || window.clipboardData || null;
         var files = [];
@@ -7068,7 +8702,7 @@
           return;
         }
         if (!out.res.ok || !out.data || !out.data.ok) {
-          var errMsg = (out.data && out.data.message) || "Comando fallito.";
+          var errMsg = apiErrorText(out.data && out.data.message, "Comando fallito.");
           setStatus(errMsg, true);
           appendMessage(
             {
@@ -7238,13 +8872,17 @@
             state.replyTo = replyTo;
             syncComposerReplyBar();
           }
-          setStatus((out.data && out.data.message) || "Invio fallito.", true);
+          setStatus(apiErrorText(out.data && out.data.message, "Invio fallito."), true);
           focusComposerSoon();
           return;
         }
         if (out.data.claimMessage) appendMessage(out.data.claimMessage, out.data.ticket);
         if (out.data.message) appendMessage(out.data.message, out.data.ticket);
         else if (!out.data.claimMessage && out.data.ticket) refreshTicketInList(out.data.ticket);
+        try {
+          if (state.detailEtags && state.selectedId) delete state.detailEtags[state.selectedId];
+          state.listEtags = {};
+        } catch (eEt) {}
         scrollChatBottom(true);
         focusComposerSoon();
       })
@@ -7275,7 +8913,7 @@
       .then(function (out) {
         state.busy = false;
         if (!out.res.ok || !out.data || !out.data.ok) {
-          setStatus((out.data && out.data.message) || "Creazione fallita.", true);
+          setStatus(apiErrorText(out.data && out.data.message, "Creazione fallita."), true);
           return;
         }
         state.composeOpen = false;
@@ -7305,24 +8943,8 @@
   }
 
   function wireAll() {
-    document.querySelectorAll("[data-filter]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        state.filter = btn.getAttribute("data-filter") || "all";
-        state.listPage = 1;
-        clearTicketSelection();
-        renderShell();
-        loadList({ soft: true });
-      });
-    });
-    document.querySelectorAll("[data-cat-filter]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        state.categoryFilter = btn.getAttribute("data-cat-filter") || "";
-        state.listPage = 1;
-        clearTicketSelection();
-        renderShell();
-        loadList({ soft: true });
-      });
-    });
+    /* ticketFilterReload1: filtri via delegation (niente rebind multiplo su remount) */
+    wireFilterDelegation();
     document.querySelectorAll("[data-cat-dd-toggle]").forEach(function (el) {
       el.addEventListener("click", function (ev) {
         ev.preventDefault();
@@ -7363,6 +8985,92 @@
         },
         true,
       );
+      /* ticketMentionTab1: Tab/Enter anche se focus non è sul composer */
+      document.addEventListener(
+        "keydown",
+        function (ev) {
+          function activeIdx(menuId, attr, fallback) {
+            var menu = byId(menuId);
+            var active = menu && menu.querySelector(".is-active[" + attr + "]");
+            if (active) {
+              var i = Number(active.getAttribute(attr));
+              if (Number.isFinite(i) && i >= 0) return i;
+            }
+            return Math.max(0, Number(fallback) || 0);
+          }
+          if (state.commandMenu.open && state.commandMenu.items.length) {
+            if (ev.key === "Tab" || ev.key === "Enter") {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              state.commandMenu.index = activeIdx(
+                "vc-wt-command-menu",
+                "data-cmd-idx",
+                state.commandMenu.index,
+              );
+              applyCommandPick(state.commandMenu.items[state.commandMenu.index]);
+              return;
+            }
+            if (ev.key === "ArrowDown") {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              state.commandMenu.index = (state.commandMenu.index + 1) % state.commandMenu.items.length;
+              renderCommandMenu();
+              return;
+            }
+            if (ev.key === "ArrowUp") {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              state.commandMenu.index =
+                (state.commandMenu.index - 1 + state.commandMenu.items.length) %
+                state.commandMenu.items.length;
+              renderCommandMenu();
+              return;
+            }
+            if (ev.key === "Escape") {
+              ev.preventDefault();
+              hideCommandMenu();
+              return;
+            }
+          }
+          if (state.mentionMenu.open && state.mentionMenu.items.length) {
+            if (ev.key === "Tab" || ev.key === "Enter") {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              state.mentionMenu.index = activeIdx(
+                "vc-wt-mention-menu",
+                "data-mention-idx",
+                state.mentionMenu.index,
+              );
+              applyMentionPick(state.mentionMenu.items[state.mentionMenu.index]);
+              return;
+            }
+            if (ev.key === "ArrowDown") {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              state.mentionMenu.index = (state.mentionMenu.index + 1) % state.mentionMenu.items.length;
+              renderMentionMenu();
+              return;
+            }
+            if (ev.key === "ArrowUp") {
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
+              state.mentionMenu.index =
+                (state.mentionMenu.index - 1 + state.mentionMenu.items.length) %
+                state.mentionMenu.items.length;
+              renderMentionMenu();
+              return;
+            }
+            if (ev.key === "Escape") {
+              ev.preventDefault();
+              hideMentionMenu();
+            }
+          } else if (state.mentionMenu.open && ev.key === "Tab") {
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
+          }
+        },
+        true,
+      );
     }
     if (!state.floatMenuScrollWired) {
       state.floatMenuScrollWired = true;
@@ -7393,42 +9101,8 @@
         }
       } catch (eVvWire) {}
     }
-    document.querySelectorAll("[data-view-mode]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var next = btn.getAttribute("data-view-mode") === "staff" ? "staff" : "user";
-        if (next === "staff" && !hasStaffInboxAccess()) {
-          redirectAwayFromStaffView();
-          return;
-        }
-        state.viewMode = next;
-        state.listPage = 1;
-                if (next === "user" && state.filter !== "closed" && state.filter !== "open" && state.filter !== "all") {
-          state.filter = "all";
-        }
-        if (next === "user") {
-                    try {
-            if (hasStaffViewQuery()) {
-              var hash = String(location.hash || "").trim();
-              var path = String(location.pathname || "/tickets/").replace(/\/?$/, "/") || "/tickets/";
-              history.replaceState(null, "", path + hash);
-            }
-          } catch (eUrl) {}
-        } else {
-          try {
-            if (!hasStaffViewQuery()) {
-              var u = new URL(location.href);
-              u.searchParams.set("view", "staff");
-              history.replaceState(null, "", u.pathname + u.search + u.hash);
-            }
-          } catch (eStaffUrl) {}
-        }
-        syncStaffMode();
-        clearTicketSelection();
-        renderShell();
-        loadList();
-        sendTicketPresence({ force: true });
-      });
-    });
+    wireViewModeSwitcher();
+    wireFilterDelegation();
     wireListClicks();
     wireListPager();
     wireChatActions();
@@ -7438,6 +9112,215 @@
     wireMessageReactions(document);
     wireMessageTools(document);
     void ensureGuildEmojis();
+  }
+
+  function onFilterChipClick(btn) {
+    /* ticketFilterReload1 + ticketCatFilter1 + ticketFilterPaint1 */
+    var nextFilter = btn.getAttribute("data-filter");
+    var nextCat = btn.getAttribute("data-cat-filter");
+    var changed = false;
+    if (nextFilter != null) {
+      var f = String(nextFilter || "all");
+      if (f !== String(state.filter || "all")) {
+        state.filter = f;
+        changed = true;
+      }
+    }
+    if (btn.hasAttribute("data-cat-filter")) {
+      var c = String(nextCat || "");
+      if (c !== String(state.categoryFilter || "")) {
+        state.categoryFilter = c;
+        changed = true;
+      }
+    }
+    if (!changed) {
+      /* click ripetuto → riallinea chip; non killare un load già in volo */
+      syncTicketsChrome();
+      if (!isTicketsListHardLoading()) clearTicketsBusyState();
+      return;
+    }
+    state.listPage = 1;
+    clearTicketSelection();
+    /* ticketFilterPaint1: paint ottimistico subito, MAI wipe tickets=[] (lasciava lista vuota se fetch scartata) */
+    var optimistic = (Array.isArray(state.tickets) ? state.tickets : []).filter(function (t) {
+      return ticketMatchesCurrentList(t);
+    });
+    state.tickets = optimistic;
+    try {
+      refreshListPane();
+    } catch (eOpt) {}
+    invalidateTicketsListInflight();
+    syncTicketsChrome();
+    focusTicketsBoardTop();
+    var needShell = optimistic.length === 0;
+    void loadList({ soft: !needShell, forceShell: needShell, skipOpen: true }).then(function (ok) {
+      clearTicketsBusyState();
+      try {
+        if (ok) {
+          var listEl = byId("vc-wt-list");
+          if (!listEl || listEl.querySelector(".vc-wt-skel-row") || listEl.classList.contains("is-loading")) {
+            renderShell();
+          } else {
+            refreshListPane();
+          }
+        } else if (!Array.isArray(state.tickets) || !state.tickets.length) {
+          /* fetch fallita e lista vuota → riprova hard una volta */
+          void loadList({ soft: false, forceShell: true, skipOpen: true }).then(function () {
+            clearTicketsBusyState();
+            syncTicketsChrome();
+            try {
+              renderShell();
+            } catch (eRe) {}
+          });
+          return;
+        }
+      } catch (ePaint) {
+        try {
+          renderShell();
+        } catch (ePaint2) {}
+      }
+      syncTicketsChrome();
+      focusTicketsBoardTop();
+    });
+  }
+
+  function wireFilterDelegation() {
+    if (state.filterDelegated) return;
+    state.filterDelegated = true;
+    document.addEventListener(
+      "click",
+      function (ev) {
+        var btn =
+          ev.target && ev.target.closest
+            ? ev.target.closest("[data-filter], [data-cat-filter]")
+            : null;
+        if (!btn) return;
+        var app = byId("vc-wt-app");
+        if (!app || !app.contains(btn)) return;
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (eStop) {}
+        onFilterChipClick(btn);
+      },
+      true,
+    );
+  }
+
+  function onViewModeClick(btn) {
+    var next = btn.getAttribute("data-view-mode") === "staff" ? "staff" : "user";
+    /* ticketStaffProbe1: senza staffAccess ancora noto → prova load staff, non bounce immediato */
+    if (next === "staff" && !hasStaffInboxAccess()) {
+      snapshotScopeCache(state.viewMode === "staff" ? "staff" : "user");
+      state.viewMode = "staff";
+      state.viewPinnedByUser = "staff";
+      state.listPage = 1;
+      state.filter = "all";
+      state.categoryFilter = "";
+      state.openTicketSeq = (Number(state.openTicketSeq) || 0) + 1;
+      invalidateTicketsListInflight({ keepEtags: true });
+      writeTicketsViewUrl("staff");
+      syncStaffMode();
+      clearTicketSelection();
+      state.detail = null;
+      state.messages = [];
+      state.tickets = [];
+      state.listTotal = 0;
+      state.listTotalPages = 1;
+      state.listPage = 1;
+      syncTicketsChrome();
+      focusTicketsBoardTop();
+      void loadList({ soft: false, forceShell: true, skipOpen: true }).then(function () {
+        clearTicketsBusyState();
+        if (!hasStaffInboxAccess()) {
+          redirectAwayFromStaffView();
+          return;
+        }
+        syncTicketsChrome();
+      });
+      sendTicketPresence({ force: true });
+      return;
+    }
+    var cur = state.viewMode === "staff" ? "staff" : "user";
+    /* ticketListStuckFix1: tab già attiva → quiet refresh (no hard reload loop / spinner stuck) */
+    if (next === cur) {
+      clearTicketsBusyState();
+      syncTicketsChrome();
+      if (Array.isArray(state.tickets) && state.tickets.length) {
+        void scheduleLoadListQuiet();
+      } else {
+        void loadList({ soft: false, forceShell: true, skipOpen: true });
+      }
+      return;
+    }
+    /* ticketSwitchFast1: salva scope corrente, paint cache se fresca, refresh soft in bg */
+    snapshotScopeCache(cur);
+    state.viewMode = next;
+    state.viewPinnedByUser = next;
+    state.listPage = 1;
+    state.filter = "all";
+    state.categoryFilter = "";
+    state.openTicketSeq = (Number(state.openTicketSeq) || 0) + 1;
+    invalidateTicketsListInflight({ keepEtags: true });
+    writeTicketsViewUrl(next);
+    syncStaffMode();
+    clearTicketSelection();
+    state.detail = null;
+    state.messages = [];
+    var hadCache = restoreScopeCache(next);
+    if (!hadCache) {
+      state.tickets = [];
+      state.listTotal = 0;
+      state.listTotalPages = 1;
+      state.listPage = 1;
+    }
+    syncTicketsChrome();
+    focusTicketsBoardTop();
+    if (hadCache) {
+      clearTicketsBusyState();
+      try {
+        renderShell();
+      } catch (ePaint) {}
+      void loadList({ soft: true, skipOpen: true }).then(function () {
+        clearTicketsBusyState();
+        syncTicketsChrome();
+      });
+      sendTicketPresence({ force: true });
+      return;
+    }
+    void loadList({ soft: false, forceShell: true, skipOpen: true }).then(function () {
+      clearTicketsBusyState();
+      syncTicketsChrome();
+      focusTicketsBoardTop();
+      try {
+        var appDone = byId("vc-wt-app");
+        if (appDone && (appDone.querySelector(".vc-wt-skel-row") || appDone.getAttribute("aria-busy") === "true")) {
+          renderShell();
+        }
+      } catch (eDone) {}
+    });
+    sendTicketPresence({ force: true });
+  }
+
+  function wireViewModeSwitcher() {
+    /* ticketScopeClick2: un solo listener in capture — sopravvive ai remount skel/shell */
+    if (state.viewModeDelegated) return;
+    state.viewModeDelegated = true;
+    document.addEventListener(
+      "click",
+      function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-view-mode]") : null;
+        if (!btn) return;
+        var app = byId("vc-wt-app");
+        if (!app || !app.contains(btn)) return;
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (eStop) {}
+        onViewModeClick(btn);
+      },
+      true,
+    );
   }
 
   function wsUrl() {
@@ -7483,17 +9366,47 @@
     });
   }
 
+  /* consoleStormKill3 + consoleErrFix1 */
   function connectWs() {
     if (typeof WebSocket === "undefined") return;
     var url = wsUrl();
     if (!url) return;
+    try {
+      if (document.visibilityState === "hidden") {
+        startPoll();
+        return;
+      }
+    } catch (eVis) {}
+    /* consoleStormKill3: non martellare WS durante cool-down 429 */
+    try {
+      if (typeof window.__vcWebhookGlobalBlockedUntil === "function") {
+        var until = Number(window.__vcWebhookGlobalBlockedUntil() || 0);
+        if (Date.now() < until) {
+          var wait = Math.min(60000, Math.max(4000, until - Date.now() + 800));
+          if (!state.wsReconnectTimer) {
+            state.wsReconnectTimer = setTimeout(function () {
+              state.wsReconnectTimer = null;
+              connectWs();
+            }, wait);
+          }
+          startPoll();
+          return;
+        }
+      }
+    } catch (eBlk) {}
+    /* consoleErrFix1: se già aperto/connecting non riaprire (evita Failed WS in console) */
+    try {
+      if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) return;
+    } catch (eRs) {}
     disconnectWs();
     try {
       var ws = new WebSocket(url);
       state.ws = ws;
       state.lastWsEventAt = 0;
+      state._wsFailStreak = 0;
       ws.onopen = function () {
         state.lastWsEventAt = Date.now();
+        state._wsFailStreak = 0;
         // Non spegnere del tutto il poll: se il WS resta “aperto” ma muto, i messaggi non arrivano.
         startPoll();
         if (state.selectedId) void refreshDetailQuiet();
@@ -7513,6 +9426,12 @@
               void scheduleLoadListQuiet();
             }
             tryRequestTicketWindowAttention(data.message);
+            return;
+          }
+          if (type === "web_ticket_receipts") {
+            if (data.ticketId && data.ticketId === state.selectedId) {
+              applyReceiptsToOwnMessages(data.messageIds, data.readerId);
+            }
             return;
           }
           if (type === "web_ticket_reaction") {
@@ -7569,10 +9488,21 @@
       ws.onclose = function () {
         state.ws = null;
         startPoll();
-        state.wsReconnectTimer = setTimeout(function () {
-          state.wsReconnectTimer = null;
-          connectWs();
-        }, 4000);
+        var streak = Number(state._wsFailStreak || 0) + 1;
+        state._wsFailStreak = streak;
+        var delay = Math.min(60000, 4000 * Math.pow(2, Math.min(4, streak - 1)));
+        try {
+          if (typeof window.__vcWebhookGlobalBlockedUntil === "function") {
+            var until2 = Number(window.__vcWebhookGlobalBlockedUntil() || 0);
+            if (Date.now() < until2) delay = Math.max(delay, until2 - Date.now() + 1000);
+          }
+        } catch (eD) {}
+        if (!state.wsReconnectTimer) {
+          state.wsReconnectTimer = setTimeout(function () {
+            state.wsReconnectTimer = null;
+            connectWs();
+          }, delay);
+        }
       };
       ws.onerror = function () {
         try {
@@ -7614,30 +9544,58 @@
     }, ticketPollIntervalMs());
   }
 
-  function loadListQuiet() {
-    if (!getToken()) return Promise.resolve();
-    var quietGen = (state.listQuietGen = (Number(state.listQuietGen) || 0) + 1);
-    return fetchJson(apiBase() + listQuery(), {
-      method: "GET",
-      headers: authHeaders(),
-      cache: "no-store",
-      timeoutMs: 18000,
-    })
-      .then(function (out) {
-        if (quietGen !== state.listQuietGen) return;
-        if (!out.res.ok || !out.data || !out.data.ok) return;
-        applyListPayload(out.data);
-        refreshListPane();
-      })
-      .catch(function () {});
-  }
-
   function scheduleLoadListQuiet() {
+    /* ticketFilterReload1: era chiamato ma non definito → crash silenzioso su WS/refresh */
     if (state.listQuietTimer) clearTimeout(state.listQuietTimer);
     state.listQuietTimer = setTimeout(function () {
       state.listQuietTimer = null;
       void loadListQuiet();
     }, 250);
+  }
+
+  function loadListQuiet() {
+    if (!getToken()) return Promise.resolve();
+    /* ticketSwitchFreeze2: quiet solo se nessun hard load vivo (promise o aria-busy) */
+    if (isTicketsListHardLoading() || state.listHardPromise) {
+      var started = Number(state.listHardStartedAt || 0);
+      var zombie = started && Date.now() - started > 12000;
+      if (zombie || (!isTicketsListHardLoading() && !started)) {
+        /* promise zombie (settled ma non nullata) o busy >12s → unlock */
+        state.listHardPromise = null;
+        state.listHardKey = "";
+        state.listHardStartedAt = 0;
+        clearTicketsBusyState();
+      } else {
+        return Promise.resolve();
+      }
+    }
+    var quietGen = (state.listQuietGen = (Number(state.listQuietGen) || 0) + 1);
+    var viewSnap = state.viewMode === "staff" ? "staff" : "user";
+    var q = listQuery();
+    var url = apiBase() + q;
+    if (!state.listEtags) state.listEtags = {};
+    return fetchJson(url, {
+      method: "GET",
+      headers: authHeaders(),
+      cache: "default",
+      ifNoneMatch: state.listEtags[q] || "",
+      timeoutMs: 18000,
+    })
+      .then(function (out) {
+        if (quietGen !== state.listQuietGen) return;
+        if ((state.viewMode === "staff" ? "staff" : "user") !== viewSnap) return;
+        if (isTicketsListHardLoading() || state.listHardPromise) return;
+        if (out.etag) state.listEtags[q] = out.etag;
+        if (out.notModified || (out.res && out.res.status === 304)) return;
+        if (!out.res.ok || !out.data || !out.data.ok) return;
+        applyListPayload(out.data);
+        refreshListPane();
+      })
+      .catch(function (err) {
+        try {
+          console.warn("[vc-tickets] listQuiet failed", err);
+        } catch (eW) {}
+      });
   }
 
   function ensureTicketTypingRoom() {
@@ -7689,6 +9647,8 @@
   function sendTicketPresence(opts) {
     opts = opts || {};
     if (!getToken()) return;
+    /* ticket429Flash1: non martellare presence durante backoff 429 */
+    if (ticketsRateLimitedNow() && opts.clear !== true) return;
     var clear = opts.clear === true;
     var ticketId = clear ? "" : String(state.selectedId || "").trim();
     var inbox = !clear && state.viewMode === "staff";
@@ -7709,6 +9669,17 @@
       };
       if (typeof window.__vcPingSwClientFocus === "function") {
         window.__vcPingSwClientFocus();
+      } else if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        /* ticketsPageSilencePush1: ping SW anche senza vc-landing.js */
+        try {
+          navigator.serviceWorker.controller.postMessage({
+            type: "vc:client-focus",
+            focused: focused,
+            ticketId: focused && !clear ? String(ticketId || "") : "",
+            onTicketsPage: focused === true,
+            token: getToken(),
+          });
+        } catch (ePing) {}
       }
     } catch (eWatch) {}
     var body = clear
@@ -7719,16 +9690,27 @@
       headers: authHeaders(true),
       body: JSON.stringify(body),
       timeoutMs: 8000,
-    }).catch(function () {});
+    })
+      .then(function (out) {
+        if (out && out.res && out.res.status === 429) {
+          markTicketsRateLimited(out.data && out.data.retryAfterMs);
+        }
+      })
+      .catch(function () {});
   }
 
   function startTicketPresence() {
     stopTicketPresence(false);
-    sendTicketPresence({ force: true });
+    /* ticket429Flash1: presence dopo un beat (lascia finire list), interval più largo su mobile */
+    window.setTimeout(function () {
+      if (!getToken()) return;
+      sendTicketPresence({ force: true });
+    }, isCoarseMobile() ? 1800 : 600);
     state.presenceTimer = setInterval(function () {
       if (document.visibilityState === "hidden") return;
+      if (ticketsRateLimitedNow()) return;
       sendTicketPresence({ force: true });
-    }, ticketPresenceIntervalMs());
+    }, Math.max(ticketPresenceIntervalMs(), isCoarseMobile() ? 60000 : 30000));
   }
 
   function stopTicketPresence(clearRemote) {
@@ -7744,49 +9726,73 @@
 
   function refreshDetailQuiet() {
     if (!state.selectedId || !getToken()) return Promise.resolve();
-    return fetchJson(apiBase() + "/" + encodeURIComponent(state.selectedId), {
+    var id = String(state.selectedId || "");
+    if (!state.detailEtags) state.detailEtags = {};
+    return fetchJson(apiBase() + "/" + encodeURIComponent(id), {
       method: "GET",
       headers: authHeaders(),
-      cache: "no-store",
-    }).then(function (out) {
-      if (!out.res.ok || !out.data || !out.data.ok) return;
-      state.detail = mergeTicketDetail(out.data.ticket, { trustPermissions: true });
-      var incoming = out.data.messages || [];
-      var byIdMap = {};
-      state.messages.forEach(function (m) {
-        if (m && m.id) byIdMap[m.id] = m;
-      });
-      var added = 0;
-      incoming.forEach(function (m) {
-        if (!m || !m.id) return;
-        if (state.deletedMessageIds[m.id]) return;
-        if (!state.seenMessageIds[m.id]) {
-          state.seenMessageIds[m.id] = true;
-          state.messages.push(m);
-          added += 1;
-          var log = byId("vc-wt-chat-log");
-          if (log) {
-            log.insertAdjacentHTML("beforeend", messageHtml(m));
-            var node = log.querySelector('[data-msg-id="' + m.id + '"]');
-            if (node) {
-              wireMessageReactions(node);
-              wireMessageTools(node);
+      cache: "default",
+      ifNoneMatch: state.detailEtags[id] || "",
+    })
+      .then(function (out) {
+        if (out.etag) state.detailEtags[id] = out.etag;
+        if (out.notModified || (out.res && out.res.status === 304)) return;
+        if (!out.res.ok || !out.data || !out.data.ok) return;
+        state.detail = mergeTicketDetail(out.data.ticket, { trustPermissions: true });
+        var incoming = out.data.messages || [];
+        var byIdMap = {};
+        state.messages.forEach(function (m) {
+          if (m && m.id) byIdMap[m.id] = m;
+        });
+        var added = 0;
+        incoming.forEach(function (m) {
+          if (!m || !m.id) return;
+          if (state.deletedMessageIds[m.id]) return;
+          if (!state.seenMessageIds[m.id]) {
+            state.seenMessageIds[m.id] = true;
+            state.messages.push(m);
+            added += 1;
+            var log = byId("vc-wt-chat-log");
+            if (log) {
+              log.insertAdjacentHTML("beforeend", messageHtml(m));
+              var node = log.querySelector('[data-msg-id="' + m.id + '"]');
+              if (node) {
+                wireMessageReactions(node);
+                wireMessageTools(node);
+              }
             }
+            return;
           }
-          return;
+          var prev = byIdMap[m.id];
+          var prevJson = JSON.stringify((prev && prev.reactions) || []);
+          var nextJson = JSON.stringify(m.reactions || []);
+          if (prevJson !== nextJson) patchMessageInState(m);
+        });
+        if (added > 0) {
+          scrollChatBottom(false);
+          hydrateContentRefs(incoming);
         }
-        var prev = byIdMap[m.id];
-        var prevJson = JSON.stringify((prev && prev.reactions) || []);
-        var nextJson = JSON.stringify(m.reactions || []);
-        if (prevJson !== nextJson) patchMessageInState(m);
-      });
-      if (added > 0) {
-        scrollChatBottom(false);
-        hydrateContentRefs(incoming);
-      }
-      refreshTicketInList(out.data.ticket);
-      refreshChatChrome();
-    }).catch(function () {});
+        refreshTicketInList(out.data.ticket);
+        /* ticketsCpuHard2: non ricostruire chrome/composer a ogni quiet poll */
+        try {
+          var prevSig = String(state._chatChromeSig || "");
+          var t = out.data.ticket || state.detail || {};
+          var nextSig = [
+            t.id || "",
+            t.status || "",
+            t.claimedBy || t.assigneeId || "",
+            t.updatedAt || t.updated_at || "",
+            (t.subject || t.title || "").slice(0, 80),
+          ].join("|");
+          if (nextSig !== prevSig) {
+            state._chatChromeSig = nextSig;
+            refreshChatChrome();
+          }
+        } catch (eChrome) {
+          refreshChatChrome();
+        }
+      })
+      .catch(function () {});
   }
 
   function wireGate() {
@@ -7811,6 +9817,15 @@
       var params = new URLSearchParams(location.search || "");
       if (params.get("view") === "staff") forceStaff = true;
     } catch (eView) {}
+    /* ticketScopeClick2: se l'utente ha scelto Personali, non ripristinare Staff da URL. */
+    if (forceStaff && state.viewPinnedByUser === "user") {
+      forceStaff = false;
+      try {
+        var hashKeep = String(location.hash || "").trim();
+        var pathKeep = String(location.pathname || "/tickets/").replace(/\/?$/, "/") || "/tickets/";
+        history.replaceState(null, "", pathKeep + hashKeep);
+      } catch (eClr) {}
+    }
     if (forceStaff && state.viewMode !== "staff") {
       state.viewMode = "staff";
       syncStaffMode();
@@ -7821,14 +9836,82 @@
       return Promise.resolve();
     }
     state.selectedId = hashId;
-    if (forceStaff && hasStaffInboxAccess()) {
-      state.viewMode = "staff";
-      syncStaffMode();
-      return loadListQuiet().then(function () {
-        return openTicket(hashId, true);
-      });
+    if (forceStaff) {
+      return openStaffTicketFromNotif(hashId);
     }
     return openTicket(hashId, true);
+  }
+
+  function openStaffTicketFromNotif(id) {
+    id = String(id || "").trim();
+    var wasStaff = state.viewMode === "staff";
+    var sameDeeplink =
+      !id ||
+      state.selectedId === id ||
+      (function () {
+        try {
+          return resolveHashTicketId() === id;
+        } catch (eSame) {
+          return false;
+        }
+      })();
+    state.viewMode = "staff";
+    state.viewPinnedByUser = "staff";
+    state.filter = "all";
+    state.categoryFilter = "";
+    state.listPage = 1;
+    /* ticketNotifStaffTab2: se boot sta già caricando la stessa inbox staff, non invalidare
+       (invalidate + secondo loadList lasciava skeleton orfano / tab Staff assente). */
+    var alreadyStaffLoad =
+      wasStaff && state.listHardPromise && isTicketsListHardLoading() && sameDeeplink;
+    if (id) state.selectedId = id;
+    try {
+      var u = new URL(location.href);
+      u.searchParams.set("view", "staff");
+      if (id && /^[a-f0-9]{24}$/i.test(id)) {
+        u.searchParams.set("ticketId", id);
+      }
+      var next =
+        u.pathname + u.search + (id && /^[a-f0-9]{24}$/i.test(id) ? "#" + id : u.hash || "");
+      if (next !== location.pathname + location.search + location.hash) {
+        history.replaceState(null, "", next);
+      }
+    } catch (eUrl) {
+      writeTicketsViewUrl("staff");
+      if (id) setHashTicket(id);
+    }
+    syncStaffMode();
+    syncTicketsChrome();
+    if (alreadyStaffLoad) {
+      return state.listHardPromise.then(function () {
+        clearTicketsBusyState();
+        syncTicketsChrome();
+        if (id) return openTicket(id, true);
+        return null;
+      });
+    }
+    state.openTicketSeq = (Number(state.openTicketSeq) || 0) + 1;
+    invalidateTicketsListInflight({ keepEtags: true });
+    /* già in staff con lista viva → open diretto + quiet refresh */
+    if (hasStaffInboxAccess() && Array.isArray(state.tickets) && state.tickets.length) {
+      var openP = id ? openTicket(id, true) : Promise.resolve();
+      void loadListQuiet();
+      return openP;
+    }
+    state.detail = null;
+    state.messages = [];
+    if (!hasStaffInboxAccess()) {
+      state.tickets = [];
+      state.listTotal = 0;
+      state.listTotalPages = 1;
+    }
+    return loadList({ soft: false, forceShell: true, skipOpen: !id }).then(function () {
+      clearTicketsBusyState();
+      syncTicketsChrome();
+      if (id && hasStaffInboxAccess()) return openTicket(id, true);
+      if (id) return openTicket(id, true);
+      return null;
+    });
   }
 
   function wireTicketsUrlListeners() {
@@ -7843,18 +9926,15 @@
     window.addEventListener("vc:web-tickets-open", function (ev) {
       var id = ev && ev.detail && ev.detail.id ? String(ev.detail.id) : "";
       var staff = ev && ev.detail && ev.detail.staff === true;
+      /* ticketNotifStaffOpen1: da notifica staff → hard switch (loadListQuiet lasciava Personali + toast) */
       if (staff) {
-        state.viewMode = "staff";
-        syncStaffMode();
+        void openStaffTicketFromNotif(id);
+        return;
       }
       if (id) {
         state.selectedId = id;
         setHashTicket(id);
-        void (staff
-          ? loadListQuiet().then(function () {
-              return openTicket(id, true);
-            })
-          : openTicket(id, true));
+        void openTicket(id, true);
       } else {
         void applyTicketsUrlState({ force: true });
       }
@@ -7864,6 +9944,7 @@
   function scheduleTokenWaitBoot() {
     if (state.tokenWaitTimer) return;
     var tries = 0;
+    var maxTries = isCoarseMobile() ? 40 : 24;
     function tick() {
       state.tokenWaitTimer = null;
       tries += 1;
@@ -7871,8 +9952,12 @@
         boot();
         return;
       }
-      if (tries >= 24) return;
-      state.tokenWaitTimer = window.setTimeout(tick, tries < 6 ? 250 : 500);
+      /* ticketNotifGate1 + ticketPhoneFirst1: Accedi solo dopo attesa auth (phone più lento) */
+      if (tries >= maxTries) {
+        teardownTicketsAfterLogout();
+        return;
+      }
+      state.tokenWaitTimer = window.setTimeout(tick, tries < 8 ? 250 : 500);
     }
     state.tokenWaitTimer = window.setTimeout(tick, 200);
   }
@@ -7923,9 +10008,27 @@
   }
 
   function boot() {
+    try {
+      freezeTicketsAnimatedMedia(document);
+      if (!window.__vcTicketsStillMo && typeof MutationObserver === "function") {
+        window.__vcTicketsStillMo = new MutationObserver(function (muts) {
+          for (var i = 0; i < muts.length; i += 1) {
+            var nodes = muts[i].addedNodes;
+            for (var j = 0; j < nodes.length; j += 1) {
+              var n = nodes[j];
+              if (!n || n.nodeType !== 1) continue;
+              if (n.tagName === "IMG" || (n.querySelector && n.querySelector("img"))) {
+                freezeTicketsAnimatedMedia(n.tagName === "IMG" ? n.parentNode || document : n);
+              }
+            }
+          }
+        });
+        window.__vcTicketsStillMo.observe(document.documentElement, { childList: true, subtree: true });
+      }
+    } catch (eStillBoot) {}
     if (state.bootWired) {
       if (!getToken()) {
-        teardownTicketsAfterLogout();
+        /* ticketNotifGate1: niente Accedi immediato su late auth miss */
         scheduleTokenWaitBoot();
         return;
       }
@@ -7934,7 +10037,15 @@
       if (rebootReply) pendingReplyToId = rebootReply;
       // Soft refresh on late auth events so deeplink openTicket isn't wiped mid-flight.
       var softReboot = Array.isArray(state.tickets) && state.tickets.length > 0;
-      loadList({ soft: softReboot }).then(function () {
+      /* ticketSwitchFreeze2: riusa hard solo se davvero in volo (aria-busy); mai promise zombie */
+      var listP =
+        !softReboot && state.listHardPromise && isTicketsListHardLoading()
+          ? state.listHardPromise
+          : loadList({ soft: softReboot, forceShell: !softReboot && !state.listHardPromise });
+      try {
+        ensureGuildEmojis();
+      } catch (eEm2) {}
+      listP.then(function () {
         connectWs();
         startPoll();
         startTicketPresence();
@@ -7985,22 +10096,47 @@
       }, isCoarseMobile() ? 900 : 350);
     });
     try {
-      var params = new URLSearchParams(location.search || "");
-      if (params.get("view") === "staff") {
+      /* ticketStaffRemember2: Staff SOLO se ?view=staff (eri lì + refresh).
+         /tickets/ pulito o link menu → sempre Personali (niente default Staff da draft). */
+      var urlView = readTicketsViewFromUrl();
+      if (urlView === "staff") {
         state.viewMode = "staff";
-        syncStaffMode();
+        state.viewPinnedByUser = "staff";
+      } else {
+        state.viewMode = "user";
+        state.viewPinnedByUser = "";
+        writeTicketsViewUrl("user");
       }
-    } catch (eView) {}
+      /* ticketNotifStaffTab2: pin deeplink ticketId subito (prima del load) */
+      try {
+        var bootTid = resolveHashTicketId();
+        if (bootTid) state.selectedId = bootTid;
+      } catch (eBootTid) {}
+      syncStaffMode();
+    } catch (eView) {
+      state.viewMode = "user";
+      syncStaffMode();
+    }
     if (!getToken()) {
-      teardownTicketsAfterLogout();
+      /* ticketNotifGate1: aspetta token prima di Accedi (notif → /tickets flash) */
+      try {
+        showTicketsLoadingShell("Verifica sessione…");
+      } catch (eWaitSkel) {}
       scheduleTokenWaitBoot();
       return;
     }
     hideGate();
     showTicketsLoadingShell("Caricamento ticket…");
+    ensureTicketsPageVisible();
     var bootReply = consumeReplyToFromUrl();
     if (bootReply) pendingReplyToId = bootReply;
-    loadList().then(function () {
+    /* siteApiW5: list + emoji catalog in parallel; WS/presence after list */
+    var listP = loadList();
+    try {
+      ensureGuildEmojis();
+    } catch (eEm) {}
+    listP.then(function () {
+      ensureTicketsPageVisible();
       connectWs();
       startPoll();
       startTicketPresence();

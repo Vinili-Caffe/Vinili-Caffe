@@ -319,24 +319,31 @@ module.exports = {
           const nativeSlots = Math.max(1, Number(nativeBoost.slots || 1));
           const combinedBurst = nativeSlots >= 2;
           const nativeTs = Number(message.createdTimestamp || Date.now());
-                    void guildMemberUpdateExtras
+          void guildMemberUpdateExtras
             .recoverMissingBoostEmbedsForUser(message.guild, nativeBoost.userId, {
               knownNativeSlots: nativeSlots,
               expectedSlots: nativeSlots,
               nativeEventSlots: nativeSlots,
               nativeEventIncrement: !combinedBurst,
+              /* boostDedup1: 2° embed solo se il messaggio nativo è davvero multi-slot */
               allowSecondRecovery: combinedBurst,
               startedAt: Math.max(0, nativeTs - 30_000),
               skipNativeScan: combinedBurst,
+              nativeLookbackMs: 6 * 60 * 60 * 1000,
+              maxSend: nativeSlots,
             })
             .catch(() => null);
           const boostChannelId = require("../Utils/Config/ids").channels?.supporters;
           const boostChannel =
             (boostChannelId && message.guild.channels.cache.get(boostChannelId)) ||
             message.channel;
+          /* boostDedup1: concurrent recover solo per altri booster nella finestra, skip dello stesso user appena gestito */
           setTimeout(() => {
             guildMemberUpdateExtras
-              .recoverConcurrentNativeBoosts(message.guild, boostChannel, { windowMs: 3 * 60 * 1000 })
+              .recoverConcurrentNativeBoosts(message.guild, boostChannel, {
+                windowMs: 3 * 60 * 1000,
+                skipUserId: nativeBoost.userId,
+              })
               .catch(() => null);
           }, 2500).unref?.();
         }
@@ -474,7 +481,9 @@ module.exports = {
           !hasMediaPermission(message.member) &&
           !channelAllowsMedia(message) &&
           message.channel?.parentId !== MEDIA_BLOCK_EXEMPT_CATEGORY_ID &&
-          !MEDIA_BLOCK_EXEMPT_CHANNEL_IDS.has(message.channel?.id)
+          !MEDIA_BLOCK_EXEMPT_CHANNEL_IDS.has(message.channel?.id) &&
+          /* picPermsCmdExempt1: +play/+… con URL non devono essere bloccati come "link" */
+          !resolveOfficialPrefixCommandFromMessage(message, resolvedClient, defaultPrefix)
         ) {
           setImmediate(() => {
             recordMessageActivity(message).catch((err) => logEventError(resolvedClient, "ACTIVITY MESSAGE ERROR", err));
@@ -482,7 +491,7 @@ module.exports = {
           await message.delete().catch(() => { });
           const embed = new EmbedBuilder()
             .setColor("#6f4e37")
-            .setDescription([`<:VC_Attention:1482534443632558151> Ciao ${message.author}, __non hai i permessi__ per inviare \`FOTO, GIF, LINK, VIDEO O AUDIO\` in chat.`, "", "<a:VC_StarPink:1330194976440848500> <a:VC_Arrow:1482706699365257397> **Sblocca il permesso:**", `<a:VC_Arrow:1482706699365257397> Ottieni il ruolo: <@&${IDs.roles.PicPerms}>.\n\n<a:VC_spongebobdance:1494319630771032084> **Scopri di più sul nostro sito:** [viniliecaffe.it](https://viniliecaffe.it)`,
+            .setDescription([`<:VC_Attention:1482534443632558151> Ciao ${message.author}, __non hai i permessi__ per inviare \`FOTO, GIF, LINK, VIDEO O AUDIO\` in chat.`, "", "<a:VC_StarPink:1330194976440848500> <a:VC_Arrow:1482706699365257397> **Sblocca il permesso:**", `<a:VC_Arrow:1482706699365257397> Ottieni il ruolo: <@&${IDs.roles.PicPerms}>.\n\n<a:VC_spongebobdance:1494319630771032084> **Scopri di più sul nostro sito:** [viniliecaffe.it](https://www.viniliecaffe.it/)`,
             ].join("\n"));
           await message.channel
             .send({ content: `${message.author}`, embeds: [embed] })

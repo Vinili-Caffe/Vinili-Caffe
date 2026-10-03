@@ -820,6 +820,39 @@ function wrapChannel(raw, guild, clientRef) {
       const created = await rest.post(Routes.channelMessages(channelId), { body });
       return wrapMessage(created, restClient, { channelId, channel });
     },
+    /* boardsGenInvite5: site-api REST client — createInvite via POST /channels/{id}/invites */
+    createInvite: async (options = {}) => {
+      const rest = restClient?._rest;
+      if (!rest) throw new Error("REST unavailable");
+      const body = {
+        max_age: options.maxAge != null ? Number(options.maxAge) : 86400,
+        max_uses: options.maxUses != null ? Number(options.maxUses) : 0,
+        unique: Boolean(options.unique),
+        temporary: Boolean(options.temporary),
+      };
+      if (options.targetUser != null) {
+        body.target_user_id = String(options.targetUser?.id || options.targetUser);
+      }
+      if (options.targetApplication != null) {
+        body.target_application_id = String(
+          options.targetApplication?.id || options.targetApplication,
+        );
+      }
+      const data = await rest.post(Routes.channelInvites(channelId), {
+        body,
+        reason: options.reason ? String(options.reason).slice(0, 512) : undefined,
+      });
+      const code = String(data?.code || "").trim();
+      return {
+        code,
+        url: code ? `https://discord.gg/${code}` : "",
+        channelId,
+        maxAge: Number(data?.max_age ?? body.max_age),
+        maxUses: Number(data?.max_uses ?? body.max_uses),
+        temporary: Boolean(data?.temporary ?? body.temporary),
+        unique: Boolean(body.unique),
+      };
+    },
     delete: async (reason) => {
       const rest = restClient?._rest;
       if (!rest) throw new Error("REST unavailable");
@@ -1169,6 +1202,39 @@ function wrapGuild(raw, client) {
             .filter(Boolean),
         );
       },
+      /* boardsGenInvite5 */
+      create: async (channelOrId, options = {}) => {
+        const chId = String(channelOrId?.id || channelOrId || "").trim();
+        if (!/^\d{17,22}$/.test(chId)) throw new Error("missing_channel");
+        let ch = guild.channels.cache.get(chId);
+        if (!ch && typeof guild.channels.fetch === "function") {
+          ch = await guild.channels.fetch(chId).catch(() => null);
+        }
+        if (ch && typeof ch.createInvite === "function") {
+          return ch.createInvite(options);
+        }
+        const rest = client._rest;
+        if (!rest) throw new Error("REST unavailable");
+        const body = {
+          max_age: options.maxAge != null ? Number(options.maxAge) : 86400,
+          max_uses: options.maxUses != null ? Number(options.maxUses) : 0,
+          unique: Boolean(options.unique),
+          temporary: Boolean(options.temporary),
+        };
+        const data = await rest.post(Routes.channelInvites(chId), {
+          body,
+          reason: options.reason ? String(options.reason).slice(0, 512) : undefined,
+        });
+        const code = String(data?.code || "").trim();
+        return {
+          code,
+          url: code ? `https://discord.gg/${code}` : "",
+          channelId: chId,
+          maxAge: Number(data?.max_age ?? body.max_age),
+          maxUses: Number(data?.max_uses ?? body.max_uses),
+          temporary: Boolean(data?.temporary ?? body.temporary),
+        };
+      },
     },
     fetchIntegrations: async () => {
       const list = await client._rest.get(guildIntegrationsPath(guild.id)).catch(() => []);
@@ -1371,10 +1437,43 @@ function wrapGuild(raw, client) {
   guild.members = {
     me: null,
     cache: asCacheMap(),
+    /* guildJoinAuto1: OAuth guilds.join → PUT /guilds/{id}/members/{user} */
+    add: async (userId, options = {}) => {
+      const uid = String(userId || "").trim();
+      if (!uid || !/^\d{5,24}$/.test(uid)) throw new Error("invalid_user");
+      const accessToken = String(options.accessToken || options.access_token || "").trim();
+      if (!accessToken) throw new Error("missing_access_token");
+      const body = { access_token: accessToken };
+      if (Array.isArray(options.roles)) {
+        body.roles = options.roles.map((r) => String(r)).filter((id) => /^\d{5,24}$/.test(id));
+      }
+      if (options.nick != null) body.nick = String(options.nick).slice(0, 32);
+      if (options.mute != null) body.mute = Boolean(options.mute);
+      if (options.deaf != null) body.deaf = Boolean(options.deaf);
+      const raw = await client._rest.put(Routes.guildMember(guild.id, uid), {
+        body,
+        reason: options.reason ? String(options.reason).slice(0, 512) : undefined,
+      });
+      if (!raw) {
+        return guild.members.fetch(uid).catch(() => ({ id: uid, user: { id: uid }, guild }));
+      }
+      const member = wrapMember(raw, guild, wrapUser(raw.user || { id: uid }, client));
+      guild.members.cache.set(uid, member);
+      return member;
+    },
     fetchMe: async () => {
       const meId = String(client.user?.id || "").trim();
       if (!meId) return null;
       return guild.members.fetch(meId);
+    },
+    /* unbanAcceptFix1: decideUnbanAppeal chiama members.unban (discord.js); REST aveva solo bans.remove */
+    unban: async (userId, reason) => {
+      const uid = String(userId || "").trim();
+      if (!uid || !/^\d{5,24}$/.test(uid)) throw new Error("invalid_user");
+      await client._rest.delete(Routes.guildBan(guild.id, uid), {
+        reason: reason ? String(reason).slice(0, 512) : undefined,
+      });
+      return { user: { id: uid } };
     },
     fetch: async (opts = {}) => {
       const force = opts?.force === true;
@@ -1533,7 +1632,28 @@ async function createSiteApiRestClient(config, token, options = {}) {
     version: "10",
         timeout: Math.max(3000, Number(options.restTimeoutMs) || 8000),
   }).setToken(token);
-  const me = await rest.get(Routes.user("@me"));
+  /* siteApiMeRetry1: Discord a volte risponde 500 su /users/@me → non far crashare site-api */
+  let me = null;
+  let lastErr = null;
+  const attempts = Math.max(1, Math.min(8, Number(options.meAttempts) || 5));
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      me = await rest.get(Routes.user("@me"));
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      const st = Number(err?.status || err?.statusCode || 0);
+      const retryable = st === 500 || st === 502 || st === 503 || st === 504 || st === 429 || !st;
+      if (!retryable || i === attempts - 1) throw err;
+      const waitMs = Math.min(12_000, 800 * Math.pow(2, i));
+      console.warn(
+        `[SITE-API] Discord /users/@me attempt ${i + 1}/${attempts} failed (${st || err?.message || "err"}); retry in ${waitMs}ms`,
+      );
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+  if (!me) throw lastErr || new Error("discord_me_unavailable");
   const guildCache = asCacheMap();
 
   const client = {

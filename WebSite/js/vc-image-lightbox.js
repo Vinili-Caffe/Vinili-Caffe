@@ -1,11 +1,11 @@
-/* 20260908imgLightbox2 — in-site image viewer (close / prev / next / zoom); beats PWA _blank assign */
+/* 20260927compitiUx1 — in-site image viewer + compiti proofs gallery */
 (function (global) {
   "use strict";
 
-  if (global.VcImageLightbox && global.VcImageLightbox.__vcImgLightbox2) return;
+  if (global.VcImageLightbox && global.VcImageLightbox.__vcImgLightboxCompiti1) return;
 
   var ROOT_ID = "vc-image-lightbox";
-  var CSS_HREF = "/css/vc-image-lightbox.css?v=20260908imgLightbox2";
+  var CSS_HREF = "/css/vc-image-lightbox.css?v=20260927compitiUx1";
   var state = {
     open: false,
     items: [],
@@ -17,9 +17,9 @@
   };
 
   var GALLERY_SEL =
-    ".vc-wt-msg__gallery, .vc-bot-feedback-images, .vc-wfc-media, [data-vc-lightbox-gallery]";
+    ".vc-wt-msg__gallery, .vc-bot-feedback-images, .vc-wfc-media, [data-vc-lightbox-gallery], #vc-compiti-proofs, .vc-compiti-proofs";
   var MEDIA_ANCHOR_SEL =
-    "a.vc-wt-msg__img, a.vc-wt-msg__img-inline, a.vc-wfc-media__img, .vc-bot-feedback-images > a, a[data-vc-lightbox]";
+    "a.vc-wt-msg__img, a.vc-wt-msg__img-inline, a.vc-wfc-media__img, .vc-bot-feedback-images > a, a[data-vc-lightbox], a.vc-compiti-proof";
   var SKIP_SEL =
     [
       "a.vc-header-logo-link",
@@ -443,6 +443,7 @@
   }
 
   var api = {
+    __vcImgLightboxCompiti1: true,
     __vcImgLightbox2: true,
     __vcImgLightbox1: true,
     open: open,

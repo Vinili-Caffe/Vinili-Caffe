@@ -15,10 +15,7 @@ function buildHelperStaffWelcomeBody() {
   lines.push(`<:VC_DoubleReply:1482532332509466797> Guida staff: ${siteWorkflowUrl("guida")}`);
   if (staffNews) lines.push(`<:VC_DoubleReply:1482532332509466797> News staff: <#${staffNews}>`);
   lines.push(
-    `<:VC_DoubleReply:1482532332509466797> Area staff (profilo, organico, gestione): ${siteWorkflowUrl("staff")}`,
-    `<:VC_Reply:1482532158080942191> Organico e Staff del Mese: ${siteWorkflowUrl("organico")}`,
-    "",
-    "Ricordati di entrare in [questo server](https://discord.gg/7eUKb48tPW), è __**obbligatorio**__",
+    `<:VC_DoubleReply:1482532332509466797> Area Staff: ${siteWorkflowUrl("staff")}`,
     "",
     "__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>",
   );

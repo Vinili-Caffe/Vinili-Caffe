@@ -242,7 +242,7 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette, avatarImageOverri
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.clip();
 
-  const avatar = avatarImageOverride || (avatarUrl ? await safeLoadImage(avatarUrl) : null);
+  const avatar = avatarImageOverride || (avatarUrl ? await safeLoadImage(avatarUrl, { suppressWarning: true }) : null);
   if (avatar) {
     drawCoverImage(ctx, avatar, x, y, size, size);
   } else {

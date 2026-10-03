@@ -130,7 +130,7 @@
     if (data && typeof data === "object") {
       data.status = status;
       if (!data.message && !data.ok) {
-        if (status === 401) data.message = "Sessione Discord scaduta: effettua di nuovo il login.";
+        if (status === 401) data.message = "Sessione Discord scaduta in questo browser. Riaccedi qui (ogni browser ha login separato).";
         else if (status === 429) data.message = "Troppe richieste. Riprova tra poco.";
         else if (status >= 500) data.message = "Il server non risponde. Riprova tra poco.";
         else data.message = "Impossibile caricare (HTTP " + status + ").";
@@ -143,7 +143,7 @@
       status: status,
       message:
         status === 401
-          ? "Sessione Discord scaduta: effettua di nuovo il login."
+          ? "Sessione Discord scaduta in questo browser. Riaccedi qui (ogni browser ha login separato)."
           : status === 429
             ? "Troppe richieste. Riprova tra poco."
             : "Risposta non valida dal server (HTTP " + status + ").",
@@ -1181,7 +1181,7 @@
       : selected && selected !== "remove"
         ? [selected]
         : [];
-    var multi = Boolean(current.multi) || cat === "mentions" || cat === "hobby";
+    var multi = Boolean(current.multi) || cat === "mentions" || cat === "hobby" || cat === "gaming";
     var catLabel = current.label || (cats.find(function (c) { return c.key === cat; }) || {}).label || "Ruoli";
     var selectedLabel = "Nessuna selezione";
     var options = Array.isArray(current.options) ? current.options : [];
@@ -1236,7 +1236,7 @@
       })
       .join("");
     var hint = multi
-      ? "Tocca per aggiungere o togliere. Ping e Hobby: puoi sceglierne più di uno."
+      ? "Tocca per aggiungere o togliere. Ping, Hobby e Gaming: puoi sceglierne più di uno."
       : cat.indexOf("colors") === 0
         ? "Un solo colore tra Base, Livelli e Plus. Il tocco lo applica subito."
         : "Il tocco applica subito il ruolo su Discord.";
@@ -1624,7 +1624,7 @@
     attempt = Number(attempt) || 0;
     var app = byId("vc-custom-profile-app");
     if (!app) return;
-    setExtrasLoaderCopy("Caricamento Personalizza", "Sto recuperando le impostazioni…");
+    setExtrasLoaderCopy("Caricamento…", "Un momento…");
     app.hidden = true;
     if (!getToken()) {
       showExtrasFatal("Accedi con Discord per gestire queste impostazioni.");
@@ -1634,8 +1634,8 @@
       var data = await apiGet();
       if ((!data || !data.ok) && isRetryableExtrasError(data) && attempt < 3) {
         setExtrasLoaderCopy(
-          "Caricamento Personalizza",
-          (data && data.message) || "Connessione lenta, riprovo…",
+          "Caricamento…",
+          (data && data.message) || "Un momento…",
         );
         await new Promise(function (resolve) {
           setTimeout(resolve, 500 + attempt * 400);

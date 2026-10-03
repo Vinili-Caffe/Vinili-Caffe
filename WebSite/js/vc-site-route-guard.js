@@ -1,17 +1,17 @@
+/* routeGuard1: cache-bust friendly; aliases + path allowlist */
 (function () {
   "use strict";
   var cfg = window.__VC_SITE_ROUTES;
   if (!cfg || typeof cfg !== "object") return;
 
-  
   var DEFAULT_ALIASES = {
     "/richieste": "/staff/pause/",
     "/richieste/stato": "/staff/pause/",
-    "/staff/ticket": "/tickets/?view=staff",
-    "/staff/tickets": "/tickets/?view=staff",
+    "/staff/ticket": "/tickets/",
+    "/staff/tickets": "/tickets/",
     "/staff/directory": "/staff/organico/",
-    "/staff/valutazioni": "/user/?tab=staff",
-    "/staff/profilo": "/user/?tab=staff",
+    "/staff/valutazioni": "/user/",
+    "/staff/profilo": "/user/",
     "/staff/pm": "/staff/organico/",
     "/staff/moderazione": "/staff/organico/",
     "/user/personalizza": "/personalizza/",

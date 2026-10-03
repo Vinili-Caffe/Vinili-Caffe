@@ -1,9 +1,12 @@
 const { redeemPartnerManagerPointsForDisplay, getPartnerRewardPointCost } = require("./partnerPointsUtils");
 const { applyPartnerManagerRedeem50, applyPartnerManagerRedeem100 } = require("./partnerManagerTimedPerks");
 const { PARTNER_REWARD_LABELS } = require("../../../shared/partner/partnerManagerRewardTiers");
-const IDs = require("../Config/ids");
 
-async function completePartnerManagerRedeemForGuild(guild, client, { targetUserId, redeemTier, actorUser }) {
+async function completePartnerManagerRedeemForGuild(
+  guild,
+  client,
+  { targetUserId, redeemTier, actorUser, reason = "", source = "discord_hs" } = {},
+) {
   const gid = String(guild?.id || "").trim();
   const uid = String(targetUserId || "").trim();
   const tier = Math.floor(Number(redeemTier) || 0);
@@ -61,6 +64,26 @@ async function completePartnerManagerRedeemForGuild(guild, client, { targetUserI
     postRedeemNote = " Premio **5 € PayPal** consegnato manualmente.";
   }
 
+  const reasonText = String(reason || "").trim().slice(0, 400);
+  const actorId = String(actorUser?.id || "").trim() || null;
+  try {
+    const { logPmShopRedeem } = require("../Partner/pmShopRedeemStore");
+    await logPmShopRedeem({
+      guildId: gid,
+      pmUserId: uid,
+      actorUserId: actorId,
+      tier,
+      pointCost,
+      rewardLabel: PARTNER_REWARD_LABELS[tier] || `premio ${tier}`,
+      reason: reasonText,
+      pointsBefore: ptsBefore,
+      pointsAfter: ptsAfter,
+      source: String(source || "discord_hs"),
+    });
+  } catch (logErr) {
+    global.logger?.warn?.("[partnerManagerRedeem] history log failed:", logErr?.message || logErr);
+  }
+
   const { getPartnershipLogChannelIds } = require("../Partner/partnershipConfigResolver");
   const { primary: logChannelId } = getPartnershipLogChannelIds(guild?.id);
   const removedPointsChannel = logChannelId ? guild.channels?.cache?.get(logChannelId) : null;
@@ -74,8 +97,9 @@ async function completePartnerManagerRedeemForGuild(guild, client, { targetUserI
         content:
           `<:VC_PartnerManager:1494286911286808576> Partner Manager\: ${pmMention}\n` +
           `<:VC_Staff:1494286904089247754> Staffer: ${actor}\n` +
-          `<:VC_reason:1478517122929004544> **Premio riscattato** (\`${pointCost}\` punti — ${rewardName}).\n` +
-          `<:VC_Partner:1482527213780729896> Nuovo Saldo: \`${ptsBefore}\` → \`${ptsAfter}\`` +
+          `<:VC_reason:1478517122929004544> **Premio riscattato** (\`${pointCost}\` punti — ${rewardName}).` +
+          (reasonText ? `\n<:VC_Dot:1482532364222595303> Motivo: ${reasonText}` : "") +
+          `\n<:VC_Partner:1482527213780729896> Nuovo Saldo: \`${ptsBefore}\` → \`${ptsAfter}\`` +
           (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
           (autoApplySummary ? `\n${autoApplySummary}` : ""),
       })
@@ -84,10 +108,21 @@ async function completePartnerManagerRedeemForGuild(guild, client, { targetUserI
 
   const userMessage =
     `<a:VC_Verified:1482532479637127188> Riscattati **${pointCost}** punti a ${pmMention} (${rewardName}). Nuovo saldo: \`${ptsAfter}\`.` +
+    (reasonText ? `\nMotivo: ${reasonText}` : "") +
     (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
     (autoApplySummary ? `\n${autoApplySummary}` : "");
 
-  return { ok: true, tier, ptsBefore, ptsAfter, postRedeemNote, autoApplySummary, userMessage };
+  return {
+    ok: true,
+    tier,
+    pointCost,
+    ptsBefore,
+    ptsAfter,
+    postRedeemNote,
+    autoApplySummary,
+    userMessage,
+    reason: reasonText,
+  };
 }
 
 module.exports = { completePartnerManagerRedeemForGuild };

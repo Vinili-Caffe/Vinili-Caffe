@@ -15,10 +15,8 @@
     var lb = payload.leaderboard || {};
     var bl = payload.blacklist || {};
 
+    /* partnerPtChrono1: link punti tolti rimosso — cronologia sulla card Partner */
     var html =
-      '<a class="vc-staff-pm-pt-link" href="/notifications/?view=staff&inbox=punti-tolti">' +
-      '<div><strong>Punti tolti PM</strong><span>Registro delle segnalazioni partnership</span></div>' +
-      '<i class="fa fa-chevron-right" aria-hidden="true"></i></a>' +
       '<div class="vc-staff-profile-stats">' +
       '<div class="vc-staff-profile-stat"><p class="vc-staff-profile-stat__value">' +
       T.esc(me.pointsSpendable || 0) +

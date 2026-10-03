@@ -307,8 +307,22 @@ async function archiveStaffRolesHistoryThenUnsetStaff(guildId, userId) {
   }
 
   const incoming = Array.isArray(prev.staff?.rolesHistory) ? prev.staff.rolesHistory : [];
+  const fromTrack = (Array.isArray(prev.staff?.trackHistory) ? prev.staff.trackHistory : [])
+    .filter((row) => {
+      const k = String(row?.kind || "").toLowerCase();
+      return k === "pex" || k === "depex";
+    })
+    .map((row) => ({
+      oldRole: row.oldRole != null ? String(row.oldRole) : "",
+      newRole: row.newRole != null ? String(row.newRole) : "",
+      reason: row.reason != null ? String(row.reason) : null,
+      kind: String(row.kind || "").toLowerCase(),
+      date: row.date || new Date(),
+      actorId: row.actorId != null ? String(row.actorId) : null,
+      actorName: row.actorName != null ? String(row.actorName) : null,
+    }));
   const existing = Array.isArray(prev.staffRolesHistoryRetention) ? prev.staffRolesHistoryRetention : [];
-  const merged = [...existing, ...incoming].slice(-STAFF_ROLES_HISTORY_RETENTION_CAP);
+  const merged = [...existing, ...incoming, ...fromTrack].slice(-STAFF_ROLES_HISTORY_RETENTION_CAP);
   const partnerRetention = extractPartnershipStaffRetention(prev.staff);
 
   const update = { $set: { staffRolesHistoryRetention: merged } };
@@ -381,6 +395,7 @@ const STAFF_LADDER_TRACK_RESET_SET = {
   "staff.webTicketRatingCount": 0,
   "staff.valPosTradedPauseBonusDays": 0,
   "staff.bestStaffPauseBonusYears": [],
+  "staff.bestStaffWeekPauseBonusWeeks": [],
   "staff.serataFilmAttendanceSaturdayKey": null,
   "staff.serataFilmWillAttend": null,
     };
@@ -407,6 +422,7 @@ function applyStaffLadderTrackResetToObject(staffObj) {
   staffObj.webTicketRatingCount = 0;
   staffObj.valPosTradedPauseBonusDays = 0;
   staffObj.bestStaffPauseBonusYears = [];
+  staffObj.bestStaffWeekPauseBonusWeeks = [];
   staffObj.serataFilmAttendanceSaturdayKey = null;
   staffObj.serataFilmWillAttend = null;
   }

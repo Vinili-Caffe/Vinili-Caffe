@@ -267,33 +267,45 @@ function guildIconUrlFromPartial(guild) {
 }
 
 function resolveBotClientId(client) {
-  return String(
-    client?.user?.id ||
+  /* botInviteFix2: always Vinili official — never Caffè/test (code-grant locked) */
+  const official = String(
+    process.env.DISCORD_CLIENT_ID_OFFICIAL ||
       process.env.DISCORD_CLIENT_ID ||
-      process.env.DISCORD_CLIENT_ID_OFFICIAL ||
       IDs?.bots?.ViniliCaffeBot ||
       "",
   ).trim();
+  if (/^\d{17,22}$/.test(official)) return official;
+  const live = String(client?.user?.id || "").trim();
+  if (/^\d{17,22}$/.test(live) && live !== String(IDs?.bots?.ViniliCaffeBotTest || "").trim()) {
+    return live;
+  }
+  return "";
 }
 
 function buildBotInviteUrl(client, guildId = null) {
   const clientId = resolveBotClientId(client);
   if (!clientId) return null;
+  /* botInviteScopes2: portal link — admin + cmd + guilds.join + code redirect */
   const params = new URLSearchParams({
     client_id: clientId,
     permissions: String(PermissionFlagsBits.Administrator),
-    scope: "bot applications.commands",
+    response_type: "code",
+    redirect_uri: "https://viniliecaffe.it/",
+    integration_type: "0",
+    scope: "applications.commands.permissions.update bot applications.commands guilds.join",
+    prompt: "none",
   });
   const gid = String(guildId || "").trim();
   if (/^\d{17,22}$/.test(gid)) {
     params.set("guild_id", gid);
     params.set("disable_guild_select", "true");
   }
-    return `https://discord.com/oauth2/authorize?${params.toString()}`;
+  return `https://discord.com/oauth2/authorize?${params.toString()}`;
 }
 
 const DISCORD_USER_CACHE_TTL_MS = 60_000;
 const DISCORD_GUILDS_CACHE_TTL_MS = 45_000;
+const DISCORD_HTTP_TIMEOUT_MS = 8_000;
 const discordUserCache = new Map();
 const discordUserInflight = new Map();
 const discordGuildsCache = new Map();
@@ -303,6 +315,34 @@ function pruneTokenCache(map, maxSize) {
   if (map.size <= maxSize) return;
   const oldest = map.keys().next().value;
   if (oldest) map.delete(oldest);
+}
+
+function discordFetchSignal(ms = DISCORD_HTTP_TIMEOUT_MS) {
+  try {
+    if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+      return AbortSignal.timeout(Math.max(1000, Number(ms) || DISCORD_HTTP_TIMEOUT_MS));
+    }
+  } catch (_) {}
+  return undefined;
+}
+
+async function withTimeout(promise, ms, label) {
+  const timeoutMs = Math.max(1000, Number(ms) || DISCORD_HTTP_TIMEOUT_MS);
+  let timer = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          const err = new Error(label ? `${label}_timeout` : "timeout");
+          err.code = "ETIMEDOUT";
+          reject(err);
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 async function fetchDiscordUser(accessToken) {
@@ -322,6 +362,7 @@ async function fetchDiscordUser(accessToken) {
     try {
       const meRes = await fetch("https://discord.com/api/v10/users/@me", {
         headers: { Authorization: `Bearer ${token}` },
+        signal: discordFetchSignal(),
       });
       if (!meRes.ok) {
         return {
@@ -385,6 +426,7 @@ async function fetchUserGuilds(accessToken) {
     try {
       const res = await fetch("https://discord.com/api/v10/users/@me/guilds", {
         headers: { Authorization: `Bearer ${token}` },
+        signal: discordFetchSignal(),
       });
       if (res.status === 401) {
         return {
@@ -459,9 +501,13 @@ async function fetchGuildCounts(client, guildId) {
   const rest = client?._rest || client?.rest;
   if (!rest) return { memberCount: null, onlineCount: null };
   try {
-    const raw = await rest.get(Routes.guild(String(guildId)), {
-      query: new URLSearchParams({ with_counts: "true" }),
-    });
+    const raw = await withTimeout(
+      rest.get(Routes.guild(String(guildId)), {
+        query: new URLSearchParams({ with_counts: "true" }),
+      }),
+      6000,
+      "guild_counts",
+    );
     const members = Number(raw?.approximate_member_count ?? raw?.member_count);
     const online = Number(raw?.approximate_presence_count);
     return {
@@ -561,13 +607,13 @@ async function isBotInGuild(client, guildId, opts = {}) {
     try {
     const meId = String(client?.user?.id || "").trim();
     if (client?._rest && /^\d{17,22}$/.test(meId)) {
-      await client._rest.get(Routes.guildMember(gid, meId));
+      await withTimeout(client._rest.get(Routes.guildMember(gid, meId)), 6000, "bot_member");
       return true;
     }
   } catch (_) {}
 
   try {
-    const guild = await client.guilds.fetch(gid);
+    const guild = await withTimeout(client.guilds.fetch(gid), 6000, "guild_fetch");
     if (guild) return true;
   } catch (_) {}
   return false;
@@ -852,8 +898,10 @@ async function getDashboardGuildOverview(client, accessToken, guildId) {
   }
 
   const [guild] = await Promise.all([
-    Promise.resolve(client.guilds.cache.get(gid)).then(
-      (cached) => cached || client.guilds.fetch(gid).catch(() => null),
+    Promise.resolve(client.guilds.cache.get(gid)).then((cached) =>
+      cached
+        ? cached
+        : withTimeout(client.guilds.fetch(gid), 6000, "overview_guild_fetch").catch(() => null),
     ),
     refreshPartnershipConfigCache().catch(() => null),
   ]);
@@ -935,4 +983,6 @@ module.exports = {
   guildMemberHasRole,
   guildMemberHasAnyRole,
   hasManageServerPermission,
+  buildKnownBotGuildIdSet,
+  syncKnownBotGuildIdsFromRest,
 };

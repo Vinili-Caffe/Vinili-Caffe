@@ -1,5 +1,6 @@
 (function () {
   "use strict";
+  /* avatarGlobalFirst1: skip soft-wait on already-failed CDN (guild 404 → coffee subito) */
 
   var FALLBACK_MARK = "vcAvatarFallbackApplied";
   var FINAL_MARK = "vcAvatarFallbackFinal";
@@ -285,25 +286,34 @@
       img.dataset[FALLBACK_MARK] !== "3" &&
       img.dataset.vcAvatarRetry !== "1"
     ) {
-      /* avatarReal1: NON sostituire il CDN con silhouette mentre carica — aspetta. */
-      img.dataset.vcAvatarRetry = "1";
-      var softMs = 2800;
+      /* avatarGlobalFirst1: se già fallito (error/complete+0) non aspettare soft timeout. */
+      var alreadyFailed = false;
       try {
-        if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) softMs = 4500;
-      } catch (eSoft) {}
-      window.setTimeout(function () {
-        if (!img || !img.isConnected) return;
-        if (img.naturalWidth > 0) {
-          img.dataset.vcAvatarOk = "1";
-          try {
-            delete img.dataset.vcAvatarRetry;
-          } catch (eClr) {}
-          markReady(img);
-          return;
-        }
-        applyFallback(img);
-      }, softMs);
-      return;
+        alreadyFailed = Boolean(img.complete && Number(img.naturalWidth || 0) === 0);
+      } catch (eFail) {
+        alreadyFailed = false;
+      }
+      if (!alreadyFailed) {
+        /* avatarReal1: NON sostituire il CDN con silhouette mentre carica — aspetta. */
+        img.dataset.vcAvatarRetry = "1";
+        var softMs = 2800;
+        try {
+          if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) softMs = 4500;
+        } catch (eSoft) {}
+        window.setTimeout(function () {
+          if (!img || !img.isConnected) return;
+          if (img.naturalWidth > 0) {
+            img.dataset.vcAvatarOk = "1";
+            try {
+              delete img.dataset.vcAvatarRetry;
+            } catch (eClr) {}
+            markReady(img);
+            return;
+          }
+          applyFallback(img);
+        }, softMs);
+        return;
+      }
     }
 
     var stage = Number(img.dataset[FALLBACK_MARK] || "0");

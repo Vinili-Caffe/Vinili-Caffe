@@ -28,25 +28,114 @@ function channelCategorySortPosition(ch) {
   return Number.isFinite(pos) ? pos : -1;
 }
 
+/** Marker deploy: stanze sotto hub "crea una stanza", non in coda (sotto squad). */
+const STANZA_UNDER_HUB_STACK_MARKER = "stanzaUnderHubCoffee1";
+
+function getKnownPublicHubOrPinIds() {
+  const ids = [
+    STANZA_LOBBY_VOICE_ID,
+    IDs.channels?.vocaleLounge1,
+    IDs.channels?.serataFilm,
+    IDs.channels?.vocaleDuo1,
+    IDs.channels?.vocaleTrio1,
+    IDs.channels?.vocaleQuad1,
+    IDs.channels?.vocaleSquad1,
+    IDs.channels?.vocalePenta1,
+    IDs.channels?.vocaleHexa1,
+    IDs.channels?.vocaleSetta1,
+    IDs.channels?.vocaleOcta1,
+  ];
+  if (Array.isArray(IDs.publicVoiceHubChannelIds)) {
+    for (const x of IDs.publicVoiceHubChannelIds) ids.push(x);
+  }
+  return new Set(ids.map((x) => String(x || "").trim()).filter(Boolean));
+}
+
+function isPublicHubOrPinVoiceChannel(ch) {
+  const id = String(ch?.id || "").trim();
+  if (!id) return false;
+  if (getKnownPublicHubOrPinIds().has(id)) return true;
+  if (/crea una\s/i.test(String(ch?.name || ""))) return true;
+  return false;
+}
+
+function isManagedStanzaRoomChannel(ch, parentId = "") {
+  if (!ch?.isVoiceBased?.()) return false;
+  if (parentId && String(ch.parentId || "") !== String(parentId)) return false;
+  if (isPublicHubOrPinVoiceChannel(ch)) return false;
+  if (stanzaChannelMeta.has(String(ch.id))) return true;
+  if (/Stanza di\s+/i.test(String(ch.name || ""))) return true;
+  try {
+    return Boolean(parseStanzaVoiceName(ch.name));
+  } catch (_) {
+    return false;
+  }
+}
+
 function resolveStanzaVoiceCreatePlacement(guild, lobbyCh) {
   const parentId = getStanzaCategoryParentId() || String(lobbyCh?.parentId || "").trim() || null;
-  let tailPos = -1;
-  if (guild?.channels?.cache && parentId) {
-    for (const ch of guild.channels.cache.values()) {
-      if (!ch || String(ch.parentId || "") !== String(parentId)) continue;
-      const pos = channelCategorySortPosition(ch);
-      if (pos > tailPos) tailPos = pos;
-    }
+  const lobby =
+    String(lobbyCh?.id || "") === STANZA_LOBBY_VOICE_ID
+      ? lobbyCh
+      : guild?.channels?.cache?.get(STANZA_LOBBY_VOICE_ID) || lobbyCh;
+  if (!guild?.channels?.cache || !parentId || !lobby) {
+    return { parentId, position: channelCategorySortPosition(lobby) + 1 };
   }
-  if (tailPos < 0) {
-    const lobby =
-      String(lobbyCh?.id || "") === STANZA_LOBBY_VOICE_ID
-        ? lobbyCh
-        : guild?.channels?.cache?.get(STANZA_LOBBY_VOICE_ID) || lobbyCh;
-    tailPos = channelCategorySortPosition(lobby);
+  const siblings = [...guild.channels.cache.values()]
+    .filter((ch) => ch?.isVoiceBased?.() && String(ch.parentId || "") === String(parentId))
+    .sort(
+      (a, b) =>
+        channelCategorySortPosition(a) - channelCategorySortPosition(b) ||
+        String(a.id).localeCompare(String(b.id)),
+    );
+  const lobbyIdx = siblings.findIndex((ch) => String(ch.id) === String(lobby.id));
+  if (lobbyIdx < 0) {
+    return { parentId, position: channelCategorySortPosition(lobby) + 1 };
   }
-  const position = tailPos + 1;
-  return { parentId, position };
+  /* Sotto hub crea-una-stanza / ultima stanza del gruppo — mai dopo duo/trio/squad. */
+  let insertAt = lobbyIdx + 1;
+  for (let i = lobbyIdx + 1; i < siblings.length; i += 1) {
+    const ch = siblings[i];
+    if (isPublicHubOrPinVoiceChannel(ch)) break;
+    if (!isManagedStanzaRoomChannel(ch, parentId)) break;
+    insertAt = i + 1;
+  }
+  const prev = siblings[insertAt - 1] || lobby;
+  const prevPos = channelCategorySortPosition(prev);
+  return { parentId, position: prevPos >= 0 ? prevPos + 1 : 0 };
+}
+
+async function placeStanzaAfterGroupTail(created, guild, reason) {
+  if (!created?.id || !guild) return false;
+  const parentId = getStanzaCategoryParentId() || String(created.parentId || "").trim();
+  const lobby = guild.channels.cache.get(STANZA_LOBBY_VOICE_ID);
+  if (!lobby || !parentId) return false;
+  await guild.channels.fetch(undefined, { force: true }).catch(() => null);
+  const freshCreated = guild.channels.cache.get(created.id) || created;
+  const siblings = [...guild.channels.cache.values()]
+    .filter((ch) => ch?.isVoiceBased?.() && String(ch.parentId || "") === String(parentId))
+    .sort(
+      (a, b) =>
+        channelCategorySortPosition(a) - channelCategorySortPosition(b) ||
+        String(a.id).localeCompare(String(b.id)),
+    );
+  const lobbyIdx = siblings.findIndex((ch) => String(ch.id) === String(lobby.id));
+  if (lobbyIdx < 0) return false;
+  let anchor = lobby;
+  for (let i = lobbyIdx + 1; i < siblings.length; i += 1) {
+    const ch = siblings[i];
+    if (String(ch.id) === String(freshCreated.id)) continue;
+    if (isPublicHubOrPinVoiceChannel(ch)) break;
+    if (!isManagedStanzaRoomChannel(ch, parentId)) break;
+    anchor = ch;
+  }
+  const anchorPos = channelCategorySortPosition(guild.channels.cache.get(anchor.id) || anchor);
+  if (anchorPos < 0) return false;
+  return applyStanzaVoiceCreatePosition(
+    freshCreated,
+    anchorPos + 1,
+    reason || "Stanza temporanea sotto hub",
+  ).then(() => true);
 }
 
 async function applyStanzaVoiceCreatePosition(voiceChannel, position, reason) {
@@ -54,7 +143,7 @@ async function applyStanzaVoiceCreatePosition(voiceChannel, position, reason) {
   const target = Number(position);
   if (!Number.isFinite(target)) return;
   const ok = await voiceChannel
-    .setPosition(target, { reason: reason || "Stanza temporanea in coda categoria" })
+    .setPosition(target, { reason: reason || "Stanza temporanea sotto hub crea una stanza" })
     .then(() => true)
     .catch((err) => {
       global.logger?.warn?.("[stanza] setPosition failed:", err?.message || err);
@@ -103,8 +192,11 @@ const stanzaBotRenameUntil = new Map();
 
 const STANZA_NAME_LEAD = "༄";
 const STANZA_DEFAULT_EMOJI = "🏠";
-const STANZA_ANCHOR = "︲Stanza di ";
-const STANZA_CONNECTOR = STANZA_ANCHOR.charAt(0);
+/** Create only: ༄emoji︲Stanza di label. Rename/enforce: ༄emoji︲label (no "Stanza di"). */
+const STANZA_CONNECTOR = "︲";
+const STANZA_CREATE_MIDDLE = `${STANZA_CONNECTOR}Stanza di `;
+const STANZA_ANCHOR = STANZA_CREATE_MIDDLE;
+const STANZA_LEGACY_MIDDLE_RE = /[︲╵｜|]\s*Stanza di\s+/iu;
 const STANZA_VC_NAME_MAX = 100;
 const STANZA_VC_VOICE_STATUS_MAX = 500;
 const STANZA_RENAME_PROMPT_MS = 90_000;
@@ -113,7 +205,7 @@ const STANZA_EMPTY_TEARDOWN_MS = 10 * 60 * 1000;
 const STANZA_SNAPSHOT_VERSION = 1;
 const STANZA_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "stanzaVoiceRoomsSnapshot.json");
 /** Marker used in deploy/probe asserts — do not remove. */
-const STANZA_NAME_ENFORCE_MARKER = "stanzaNameEnforceChannelUpdate1";
+const STANZA_NAME_ENFORCE_MARKER = "stanzaCreateOnlyStanzaDi1";
 
 const stanzaEmptyTeardownTimers = new Map();
 
@@ -222,12 +314,21 @@ function isStanzaBotRename(channelId) {
 
 function findStanzaAnchorIndex(afterLead) {
   const s = String(afterLead || "");
-  const exact = s.indexOf(STANZA_ANCHOR);
-  if (exact !== -1) return { idx: exact, len: STANZA_ANCHOR.length };
-  // Tolerate lookalike connectors Discord UI/audit may show (╵｜|) while canonical remains ︲.
-  const loose = s.match(/[︲╵｜|]\s*Stanza di\s+/iu);
-  if (!loose || loose.index == null) return null;
-  return { idx: loose.index, len: loose[0].length };
+  // Legacy rooms: ༄emoji︲Stanza di label — consume middle so label is clean.
+  const legacy = s.match(STANZA_LEGACY_MIDDLE_RE);
+  if (legacy && legacy.index != null) {
+    return { idx: legacy.index, len: legacy[0].length };
+  }
+  // Canonical: emoji then connector ︲ (tolerate lookalike separators).
+  const emojiMatch = s.match(/^((?:\p{Extended_Pictographic}(?:\u200D\p{Extended_Pictographic})*)+\uFE0F?)/u);
+  if (emojiMatch) {
+    const rest = s.slice(emojiMatch[1].length);
+    const conn = rest.match(/^[︲╵｜|]/);
+    if (conn) return { idx: emojiMatch[1].length, len: conn[0].length };
+  }
+  const exact = s.indexOf(STANZA_CONNECTOR);
+  if (exact !== -1) return { idx: exact, len: STANZA_CONNECTOR.length };
+  return null;
 }
 
 function parseStanzaVoiceName(name) {
@@ -265,8 +366,16 @@ function isVoiceChannelDiscoveryRenamedStanzaCandidate(voiceChannel) {
   return true;
 }
 
+function buildStanzaCreateName(emojiPart, labelPart) {
+  return `${STANZA_NAME_LEAD}${String(emojiPart || STANZA_DEFAULT_EMOJI)}${STANZA_CREATE_MIDDLE}${String(labelPart || "")}`.slice(
+    0,
+    STANZA_VC_NAME_MAX,
+  );
+}
+
+/** Rename / emoji / enforce — never inject "Stanza di". */
 function buildStanzaFullName(emojiPart, labelPart) {
-  return `${STANZA_NAME_LEAD}${String(emojiPart || STANZA_DEFAULT_EMOJI)}${STANZA_ANCHOR}${String(labelPart || "")}`.slice(
+  return `${STANZA_NAME_LEAD}${String(emojiPart || STANZA_DEFAULT_EMOJI)}${STANZA_CONNECTOR}${String(labelPart || "")}`.slice(
     0,
     STANZA_VC_NAME_MAX,
   );
@@ -277,10 +386,12 @@ function isCanonicalStanzaVoiceName(name) {
   if (!parsed?.hasAnchor) return false;
   const label = normalizeStanzaUserLabel(parsed.labelPart);
   if (!label) return false;
-  return buildStanzaFullName(parsed.emojiPart, label) === String(name || "");
+  const n = String(name || "");
+  // Create form (with Stanza di) OR renamed form (connector only) are both OK.
+  return buildStanzaCreateName(parsed.emojiPart, label) === n || buildStanzaFullName(parsed.emojiPart, label) === n;
 }
 
-/** Strip connector / accidental "Stanza di" so rename never duplicates the fixed middle. */
+/** Strip connector / legacy "Stanza di" so rename never duplicates the prefix middle. */
 function normalizeStanzaUserLabel(raw) {
   let s = String(raw || "")
     .replace(/[\n\r\t]/g, " ")
@@ -293,9 +404,8 @@ function normalizeStanzaUserLabel(raw) {
   while (s.startsWith(STANZA_CONNECTOR) || s.startsWith("╵") || s.startsWith("｜") || s.startsWith("|")) {
     s = s.slice(1).trimStart();
   }
-  const anchorPlain = String(STANZA_ANCHOR || "").replace(STANZA_CONNECTOR, "").trim();
-  if (anchorPlain && s.toLowerCase().startsWith(anchorPlain.toLowerCase())) {
-    s = s.slice(anchorPlain.length).trimStart();
+  if (/^stanza di\s+/i.test(s)) {
+    s = s.replace(/^stanza di\s+/i, "").trimStart();
   }
   while (s.startsWith(STANZA_CONNECTOR) || s.startsWith("╵") || s.startsWith("｜") || s.startsWith("|")) {
     s = s.slice(1).trimStart();
@@ -308,17 +418,18 @@ function buildStanzaVoiceNameFromUserPart(userInput, currentVoiceName) {
   const emojiPart = parsed?.emojiPart || STANZA_DEFAULT_EMOJI;
   const maxLabel = Math.max(
     1,
-    STANZA_VC_NAME_MAX - STANZA_NAME_LEAD.length - String(emojiPart).length - STANZA_ANCHOR.length,
+    STANZA_VC_NAME_MAX - STANZA_NAME_LEAD.length - String(emojiPart).length - STANZA_CONNECTOR.length,
   );
   const part = sanitizeStanzaNamePart(normalizeStanzaUserLabel(userInput), maxLabel);
   if (!part) return null;
-  // Always keep ༄ + emoji + "︲Stanza di " (do not drop the fixed middle on rename).
+  // Rename: ༄ + emoji + ︲ + label (no "Stanza di").
   return buildStanzaFullName(emojiPart, part);
 }
 
 /**
  * Recompute required channel name after any rename (panel or Discord UI).
- * Returns null when newName is already canonical.
+ * Enforces ༄{emoji}︲{label} — never injects "Stanza di" on rename.
+ * Returns null when newName is already canonical (create or renamed form).
  */
 function resolveEnforcedStanzaVoiceName(oldName, newName) {
   const next = String(newName || "");
@@ -329,11 +440,11 @@ function resolveEnforcedStanzaVoiceName(oldName, newName) {
   const labelSource = newParsed ? newParsed.labelPart : next;
   const maxLabel = Math.max(
     1,
-    STANZA_VC_NAME_MAX - STANZA_NAME_LEAD.length - String(emojiPart).length - STANZA_ANCHOR.length,
+    STANZA_VC_NAME_MAX - STANZA_NAME_LEAD.length - String(emojiPart).length - STANZA_CONNECTOR.length,
   );
   const part = sanitizeStanzaNamePart(normalizeStanzaUserLabel(labelSource), maxLabel);
   if (!part) {
-    // Empty/invalid strip: restore previous canonical label if possible.
+    // Empty/invalid strip: restore previous label if possible (renamed form, no Stanza di).
     const fallbackLabel = sanitizeStanzaNamePart(
       normalizeStanzaUserLabel(oldParsed?.labelPart || "utente"),
       maxLabel,
@@ -849,7 +960,7 @@ function registerStanzaDescPending(guildId, userId, voiceChannelId) {
 
 function buildStanzaChannelName(member) {
   const label = sanitizeStanzaLabel(accountUsername(member?.user) || member?.displayName || member?.user?.username);
-  return buildStanzaFullName(STANZA_DEFAULT_EMOJI, label);
+  return buildStanzaCreateName(STANZA_DEFAULT_EMOJI, label);
 }
 
 function resolveVoicePrivacyLines(voiceChannel, guild) {
@@ -1578,8 +1689,27 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
     await applyStanzaVoiceCreatePosition(
       voiceChannel,
       position,
-      `Stanza temporanea in coda categoria per ${member.user?.tag || uid}`,
+      `Stanza temporanea sotto hub per ${member.user?.tag || uid}`,
     );
+    await placeStanzaAfterGroupTail(
+      voiceChannel,
+      guild,
+      `Stanza temporanea sotto gruppo per ${member.user?.tag || uid}`,
+    ).catch((err) => {
+      global.logger?.warn?.("[stanza] place under hub failed:", err?.message || err);
+    });
+    try {
+      const { reorderLimitateCategory } = require("../../../Vinyls/Services/Voice/publicVoiceHubService");
+      await reorderLimitateCategory(guild, client, {
+        parentId: parentId || getStanzaCategoryParentId(),
+        forceFetch: true,
+      });
+      await placeStanzaAfterGroupTail(voiceChannel, guild, "Stanza temporanea ri-ancora sotto hub").catch(
+        () => null,
+      );
+    } catch (eReorder) {
+      global.logger?.warn?.("[stanza] hub reorder after create failed:", eReorder?.message || eReorder);
+    }
 
     stanzaPendingOwnerVoiceId.set(uid, voiceChannel.id);
 
@@ -3052,7 +3182,9 @@ async function handleStanzaPanelPromptMessageCreate(message) {
 }
 
 /**
- * Enforce ༄{emoji}︲Stanza di {label} after manual Discord renames (and any other name edits).
+ * Enforce ༄{emoji}︲{label} after manual Discord renames (and any other name edits).
+ * Only for tracked stanza rooms (meta/snapshot) — never other ༄ voice/stage channels.
+ * Never injects "Stanza di" on rename (create-only).
  * Bot-initiated setName is ignored via stanzaBotRenameUntil to avoid loops.
  */
 async function handleStanzaChannelUpdate(oldChannel, newChannel) {
@@ -3072,13 +3204,9 @@ async function handleStanzaChannelUpdate(oldChannel, newChannel) {
   if (!oldName || oldName === newName) return false;
 
   const guild = newChannel.guild;
-  let meta = await getStanzaMetaOrRehydrate(guild, cid);
-  if (!meta) {
-    const oldLooksManaged =
-      isVoiceChannelProbablyStanza({ name: oldName }) ||
-      isVoiceChannelDiscoveryStanzaCandidate({ name: oldName });
-    if (!oldLooksManaged) return false;
-  }
+  const meta = await getStanzaMetaOrRehydrate(guild, cid);
+  /* Meta-only: do not infer "stanza" from ༄ prefix (Streaming / duo / stage, etc.). */
+  if (!meta) return false;
 
   const enforced = resolveEnforcedStanzaVoiceName(oldName, newName);
   if (!enforced || enforced === newName) return false;
@@ -3092,7 +3220,6 @@ async function handleStanzaChannelUpdate(oldChannel, newChannel) {
 
   await syncStanzaCompanionTextName(guild, cid, enforced);
   await refreshStanzaPanelEmbedsIfPossible(guild, cid).catch(() => {});
-  global.logger?.info?.(`[stanza] name enforced ${cid}: ${JSON.stringify(newName)} -> ${JSON.stringify(enforced)}`);
   return true;
 }
 
@@ -3143,5 +3270,9 @@ module.exports = {
   buildStanzaChannelName,
   resolveEnforcedStanzaVoiceName,
   isCanonicalStanzaVoiceName,
+  resolveStanzaVoiceCreatePlacement,
+  placeStanzaAfterGroupTail,
+  isManagedStanzaRoomChannel,
   STANZA_NAME_ENFORCE_MARKER,
+  STANZA_UNDER_HUB_STACK_MARKER,
 };

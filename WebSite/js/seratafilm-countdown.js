@@ -222,8 +222,14 @@
     return strip(a) === strip(b);
   }
 
-  function injectFilmPreloadLink(url) {
+  function injectFilmPreloadLink(url, mode) {
     if (!url) return;
+    // siteApiW9: preload <link as=video> solo a ridosso (auto) — altrimenti scarica GB a vuoto.
+    if (mode !== "auto") {
+      var stale = document.getElementById("vc-seratafilm-film-preload");
+      if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+      return;
+    }
     var id = "vc-seratafilm-film-preload";
     var existing = document.getElementById(id);
     if (existing) {
@@ -243,7 +249,8 @@
   function resolveFilmPreloadMode(distanzaMs, forced) {
     if (forced) return "auto";
     if (!Number.isFinite(distanzaMs)) return "metadata";
-    if (distanzaMs <= 7200000) return "auto";
+    // siteApiW9: era 2h → 20 min (Accept-Ranges già ok; evita auto-download anticipato).
+    if (distanzaMs <= 1200000) return "auto";
     return "metadata";
   }
 
@@ -1192,6 +1199,109 @@
     });
   }
 
+  function parseCreditsClock(value) {
+    var s = String(value || "").trim();
+    if (!s) return NaN;
+    if (/^\d+(\.\d+)?$/.test(s)) return Number(s);
+    var m = s.match(/^(\d{1,2}):([0-5]\d)(?::([0-5]\d(?:\.\d+)?))?$/);
+    if (!m) return NaN;
+    var hh = Number(m[1]);
+    var mm = Number(m[2]);
+    var ss = m[3] != null ? Number(m[3]) : 0;
+    if (![hh, mm, ss].every(function (n) {
+      return Number.isFinite(n);
+    })) {
+      return NaN;
+    }
+    return hh * 3600 + mm * 60 + ss;
+  }
+
+  function resolveCreditsSkipConfig() {
+    var raw = eventCfg().creditsSkip;
+    if (!raw || raw.enabled === false) return null;
+    var startFromSeconds = Number(raw.startSeconds);
+    var startFromAt = parseCreditsClock(raw.startAt || raw.start || "");
+    var startSeconds = Number.isFinite(startFromSeconds)
+      ? Math.max(0, startFromSeconds)
+      : Number.isFinite(startFromAt)
+        ? Math.max(0, startFromAt)
+        : NaN;
+    if (!Number.isFinite(startSeconds)) return null;
+    return {
+      startSeconds: startSeconds,
+      label: String(raw.label || "Salta titoli di coda").trim() || "Salta titoli di coda",
+    };
+  }
+
+  function creditsSkipButton() {
+    return document.getElementById("vc-seratafilm-credits-skip");
+  }
+
+  function setCreditsSkipVisible(show, label) {
+    var btn = creditsSkipButton();
+    if (!btn) return;
+    if (label) {
+      try {
+        btn.textContent = label;
+      } catch (eLabel) {}
+    }
+    if (show) {
+      btn.hidden = false;
+      btn.removeAttribute("hidden");
+      btn.setAttribute("aria-hidden", "false");
+      return;
+    }
+    btn.hidden = true;
+    btn.setAttribute("hidden", "");
+    btn.setAttribute("aria-hidden", "true");
+  }
+
+  function syncCreditsSkipButton(video) {
+    if (filmThanksRedirected || !filmStarted || adBreakRunning) {
+      setCreditsSkipVisible(false);
+      return;
+    }
+    var cfg = resolveCreditsSkipConfig();
+    if (!cfg || !video) {
+      setCreditsSkipVisible(false);
+      return;
+    }
+    var current = Number(video.currentTime);
+    if (!Number.isFinite(current)) {
+      setCreditsSkipVisible(false);
+      return;
+    }
+    var inCredits = current + 0.15 >= cfg.startSeconds;
+    setCreditsSkipVisible(inCredits, cfg.label);
+  }
+
+  function bindCreditsSkipButton(video) {
+    var btn = creditsSkipButton();
+    if (btn && btn.dataset.vcCreditsSkipBound !== "1") {
+      btn.dataset.vcCreditsSkipBound = "1";
+      btn.addEventListener("click", function (e) {
+        try {
+          e.preventDefault();
+          e.stopPropagation();
+        } catch (eClick) {}
+        var cfg = resolveCreditsSkipConfig();
+        if (!cfg) return;
+        var v = document.getElementById("vc-seratafilm-film-video");
+        var current = v ? Number(v.currentTime) : NaN;
+        if (!Number.isFinite(current) || current + 0.15 < cfg.startSeconds) return;
+        redirectToThanksPage();
+      });
+    }
+    if (!video || video.dataset.vcCreditsSkipWatch === "1") return;
+    video.dataset.vcCreditsSkipWatch = "1";
+    ["timeupdate", "seeked", "play", "pause", "ended"].forEach(function (evName) {
+      video.addEventListener(evName, function () {
+        syncCreditsSkipButton(video);
+      });
+    });
+    syncCreditsSkipButton(video);
+  }
+
   function setFilmLoading(show, message) {
     var el = document.getElementById("vc-seratafilm-film-loading");
     if (!el) return;
@@ -1571,9 +1681,10 @@
     bindInlineFilmPlaybackHelpers(video);
     bindAdBreakWatcher(video);
     var adCfg = resolveAdBreakConfig();
-    if (adCfg) preloadAdBreakVideo(adCfg.videoUrl);
-    injectFilmPreloadLink(url);
     var preloadMode = resolveFilmPreloadMode(distanzaMs, forced);
+    // siteApiW9: ad solo a ridosso / forced (no fetch blob GB in anticipo).
+    if (adCfg && preloadMode === "auto") preloadAdBreakVideo(adCfg.videoUrl);
+    injectFilmPreloadLink(url, preloadMode);
     if (preloadMode === "auto" && !filmStarted) {
       setFilmRootStage("preload");
       pauseCompetingMediaForFilmPreload();
@@ -1648,7 +1759,9 @@
     video.playsInline = true;
     video.controls = true;
     video.preload = "auto";
+    setCreditsSkipVisible(false);
     bindInlineFilmEndRedirect(video);
+    bindCreditsSkipButton(video);
     bindInlineFilmPlaybackHelpers(video);
     bindAdBreakWatcher(video);
     bindFilmStallWatch(video);
@@ -1753,11 +1866,17 @@
 
   var countdownAudioEl = null;
   var tenSecondsAudioTriggered = false;
+  var countdownAudioPlayArmed = false;
   var fsRequested = false;
   var countdownAudioArmTimer = 0;
   var countdownAudioFastGuardInterval = 0;
+  var countdownAudioWarmPromise = null;
   var MAX_SET_TIMEOUT_MS = 2147483647;
   var finalFullscreenScrollLockBound = false;
+  /* sfCountdownSync3: mp3 first beep ~1.14s; align that to visual "10" (T-10000) */
+  var COUNTDOWN_FIRST_BEEP_SEC = 1.141;
+  var COUNTDOWN_LEAD_MS = Math.round(10000 + COUNTDOWN_FIRST_BEEP_SEC * 1000);
+  var COUNTDOWN_BEEP_AT_SEC = [1.141, 2.073, 3.212, 4.099, 5.155, 6.312, 7.382, 8.354, 9.407, 10.36];
 
   function onFinalFullscreenScrollBlock(e) {
     try {
@@ -1803,12 +1922,13 @@
     function step() {
       if (tenSecondsAudioTriggered) return;
       var film = getFilmAtForCountdown(Date.now());
-      var ms = film - Date.now() - 10250;
+      var ms = film - Date.now() - COUNTDOWN_LEAD_MS;
       if (!Number.isFinite(ms)) return;
       if (ms <= 0) {
         tryPlayCountdownLead();
         return;
       }
+      if (ms <= 180000) warmCountdownAudio();
       var wait = Math.min(ms, MAX_SET_TIMEOUT_MS);
       countdownAudioArmTimer = setTimeout(function () {
         countdownAudioArmTimer = 0;
@@ -1819,11 +1939,19 @@
   }
 
   function countdownMp3Url() {
+    var href = "countdown.mp3";
     try {
-      return new URL("countdown.mp3", window.location.href).href;
-    } catch (e) {
-      return "countdown.mp3";
-    }
+      href = new URL("countdown.mp3", window.location.href).href;
+    } catch (e) {}
+    try {
+      var ver = String(window.__vcSeratafilmAssetVersion || "").trim();
+      if (ver) {
+        var u = new URL(href, window.location.href);
+        u.searchParams.set("v", ver);
+        return u.href;
+      }
+    } catch (eV) {}
+    return href;
   }
 
   function ensureCountdownAudio() {
@@ -1832,25 +1960,138 @@
       countdownAudioEl = new Audio();
       countdownAudioEl.preload = "auto";
       countdownAudioEl.src = countdownMp3Url();
+      try {
+        countdownAudioEl.load();
+      } catch (eLoad) {}
     } catch (e2) {
       countdownAudioEl = null;
     }
     return countdownAudioEl;
   }
 
+  function warmCountdownAudio() {
+    var a = ensureCountdownAudio();
+    if (!a) return Promise.resolve(false);
+    if (countdownAudioWarmPromise) return countdownAudioWarmPromise;
+    countdownAudioWarmPromise = new Promise(function (resolve) {
+      var done = false;
+      function finish(ok) {
+        if (done) return;
+        done = true;
+        resolve(Boolean(ok));
+      }
+      try {
+        if (Number(a.readyState) >= 3) {
+          finish(true);
+          return;
+        }
+      } catch (eRs) {}
+      var onReady = function () {
+        cleanup();
+        finish(true);
+      };
+      var onErr = function () {
+        cleanup();
+        finish(false);
+      };
+      function cleanup() {
+        try {
+          a.removeEventListener("canplaythrough", onReady);
+          a.removeEventListener("canplay", onReady);
+          a.removeEventListener("error", onErr);
+        } catch (eC) {}
+      }
+      try {
+        a.addEventListener("canplaythrough", onReady);
+        a.addEventListener("canplay", onReady);
+        a.addEventListener("error", onErr);
+        a.load();
+      } catch (eWarm) {
+        finish(false);
+        return;
+      }
+      try {
+        fetch(countdownMp3Url(), { credentials: "same-origin", cache: "force-cache" })
+          .then(function (res) {
+            if (!res || !res.ok) return null;
+            return res.blob();
+          })
+          .then(function (blob) {
+            if (!blob) return;
+            try {
+              var obj = URL.createObjectURL(blob);
+              a.src = obj;
+              a.load();
+            } catch (eBlob) {}
+          })
+          .catch(function () {});
+      } catch (eFetch) {}
+      setTimeout(function () {
+        finish(Number(a.readyState) >= 2);
+      }, 8000);
+    });
+    return countdownAudioWarmPromise;
+  }
+
+  function syncCountdownAudioOffset(a, remainingMs) {
+    if (!a) return;
+    var r = Number(remainingMs);
+    if (!Number.isFinite(r) || r <= 0) return;
+    var n = Math.max(1, Math.min(10, Math.ceil(r / 1000)));
+    var idx = 10 - n;
+    var beepAt = COUNTDOWN_BEEP_AT_SEC[idx];
+    if (!Number.isFinite(beepAt)) return;
+    var target = Math.max(0, beepAt - 0.08);
+    try {
+      if (Math.abs((Number(a.currentTime) || 0) - target) > 0.35) {
+        a.currentTime = target;
+      }
+    } catch (eSeek) {}
+  }
+
+  function hushBgmForCountdownLead() {
+    try {
+      if (typeof window.__vcSeratafilmBgmStop === "function") {
+        window.__vcSeratafilmBgmStop();
+      }
+    } catch (eStop) {}
+  }
+
   function tryPlayCountdownLead() {
     if (tenSecondsAudioTriggered) return;
     var a = ensureCountdownAudio();
     if (!a) return;
-    tenSecondsAudioTriggered = true;
+    countdownAudioPlayArmed = true;
     clearCountdownAudioArm();
-    clearCountdownAudioFastGuard();
+    warmCountdownAudio();
+    hushBgmForCountdownLead();
+    var remaining = getFilmAtForCountdown(Date.now()) - Date.now();
+    if (remaining < COUNTDOWN_LEAD_MS - 250) {
+      syncCountdownAudioOffset(a, remaining);
+    } else {
+      try {
+        a.currentTime = 0;
+      } catch (eCt) {}
+    }
+    var markPlaying = function () {
+      if (tenSecondsAudioTriggered) return;
+      tenSecondsAudioTriggered = true;
+      clearCountdownAudioFastGuard();
+      try {
+        a.removeEventListener("playing", markPlaying);
+      } catch (eRm) {}
+    };
     try {
-      a.currentTime = 0;
-    } catch (eCt) {}
+      a.addEventListener("playing", markPlaying);
+    } catch (ePlayEv) {}
     var p = a.play();
-    if (p && typeof p.catch === "function") {
-      p.catch(function () {});
+    if (p && typeof p.then === "function") {
+      p.then(function () {
+        markPlaying();
+      }).catch(function () {
+        /* keep retrying via fast guard until film starts */
+        countdownAudioPlayArmed = true;
+      });
     }
   }
 
@@ -1876,6 +2117,8 @@
 
   window.__vcSeratafilmStartCountdown = function () {
     tenSecondsAudioTriggered = false;
+    countdownAudioPlayArmed = false;
+    countdownAudioWarmPromise = null;
     fsRequested = false;
     filmStarted = false;
     adBreakDone = false;
@@ -1952,13 +2195,13 @@
 
       if (usableInlineFilmUrl(filmUrl)) {
         if (distanza <= 600000) {
-                    injectFilmPreloadLink(filmUrl);
+          injectFilmPreloadLink(filmUrl, "auto");
           preloadInlineFilm(filmUrl, { forceAuto: true, distanzaMs: distanza });
           if (distanza <= 180000) {
             var adCfgTick = resolveAdBreakConfig();
             if (adCfgTick) preloadAdBreakVideo(adCfgTick.videoUrl);
           }
-        } else if (distanza <= 7200000) {
+        } else if (distanza <= 1200000) {
           preloadInlineFilm(filmUrl, { distanzaMs: distanza });
         }
       }
@@ -1988,9 +2231,10 @@
         return;
       }
 
-      ensureCountdownAudio();
+      if (distanza <= 180000) warmCountdownAudio();
+      else ensureCountdownAudio();
 
-      if (distanza <= 10250) {
+      if (distanza <= COUNTDOWN_LEAD_MS) {
         tryPlayCountdownLead();
       }
 
@@ -2002,8 +2246,15 @@
               return;
             }
             var d = getFilmAtForCountdown(Date.now()) - Date.now();
-            if (d <= 10250) tryPlayCountdownLead();
+            if (d <= COUNTDOWN_LEAD_MS) tryPlayCountdownLead();
             if (d <= 0) clearCountdownAudioFastGuard();
+            /* keep FS digit in sync while audio retries */
+            try {
+              var fsN = document.getElementById("vc-seratafilm-fs-number");
+              if (fsN && d > 0 && d <= 10000) {
+                fsN.textContent = String(Math.max(0, Math.ceil(d / 1000)));
+              }
+            } catch (eFsFast) {}
           }, 100);
         }
       } else if (distanza > 30000) {
@@ -2093,10 +2344,11 @@
     window.addEventListener("vc:access-ok", function () {
       var url = resolveFilmUrl(linkFilmUrl());
       if (!usableInlineFilmUrl(url)) return;
-      injectFilmPreloadLink(url);
+      injectFilmPreloadLink(url, "auto");
       preloadInlineFilm(url, { forceAuto: true });
       try {
         var due = getFilmAtForCountdown(Date.now()) - Date.now();
+        if (due <= 180000) warmCountdownAudio();
         if (due <= 0 && !filmStarted) openFilm(true);
       } catch (eDue) {}
     });

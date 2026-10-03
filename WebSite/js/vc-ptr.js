@@ -25,9 +25,26 @@
   var suppressClickUntil = 0;
 
   function pagePath() {
-    var p = String(window.location.pathname || "") + String(window.location.search || "");
+    /* boardsScrollPath1: su /bacheca ignore query volatile */
+    var path = String(window.location.pathname || "") || "/";
+    if (path.length > 1 && path.charAt(path.length - 1) === "/") path = path.slice(0, -1);
+    if (/^\/bacheca(\/|$)/i.test(path)) return path || "/";
+    var p = path + String(window.location.search || "");
     if (p.length > 1 && p.charAt(p.length - 1) === "/") p = p.slice(0, -1);
     return p || "/";
+  }
+
+  function pathMatches(saved) {
+    var cur = pagePath();
+    if (!saved) return false;
+    if (saved === cur) return true;
+    try {
+      var sp = String(saved).split("?")[0];
+      if (sp.length > 1 && sp.charAt(sp.length - 1) === "/") sp = sp.slice(0, -1);
+      return sp === cur;
+    } catch (ePm) {
+      return false;
+    }
   }
 
   function saveScrollForReload() {
@@ -38,6 +55,21 @@
         (document.body && document.body.scrollTop) ||
         0;
       y = Math.max(0, Math.round(Number(y) || 0));
+      if (y < 2) {
+        try {
+          var prevRaw =
+            sessionStorage.getItem("vc_scroll_restore_anchor_v1") ||
+            sessionStorage.getItem(SCROLL_KEY);
+          if (prevRaw) {
+            var prev = JSON.parse(prevRaw);
+            if (prev && pathMatches(prev.p) && Number(prev.y) >= 2) {
+              var age = Date.now() - (Number(prev.t) || 0);
+              if (age >= 0 && age < 4000) y = Math.round(Number(prev.y) || 0);
+            }
+          }
+        } catch (eKeep) {}
+      }
+      if (y < 2) return;
       sessionStorage.setItem(
         SCROLL_KEY,
         JSON.stringify({ p: pagePath(), y: y, t: Date.now() }),
@@ -47,11 +79,26 @@
 
   function cleanupScrollRestore() {
     try {
+      window.__vcPtrRestoreDone = true;
+    } catch (eDone) {}
+    try {
       sessionStorage.removeItem(SCROLL_KEY);
     } catch (eRm) {}
     try {
+      sessionStorage.removeItem("vc_scroll_restore_anchor_v1");
+    } catch (eRmA) {}
+    try {
       delete window.__vcPtrRestoreY;
     } catch (eDel) {}
+    try {
+      delete window.__vcViewStateRestoreY;
+    } catch (eDelVs) {}
+    try {
+      delete window.__vcPtrRestoreTargetY;
+    } catch (eDelT) {}
+    try {
+      document.documentElement.removeAttribute("data-vc-ptr-restore-y");
+    } catch (eAttr) {}
     try {
       window.__vcPtrRestoreArmed = false;
     } catch (eArm) {}
@@ -63,9 +110,12 @@
     } catch (eMo) {}
     try {
       document.documentElement.classList.remove("vc-ptr-scroll-restore-pending");
+      document.documentElement.classList.remove("vc-scroll-reload-top-lock");
     } catch (eCls) {}
     var css = document.getElementById("vc-ptr-scroll-restore-css");
     if (css && css.parentNode) css.parentNode.removeChild(css);
+    var topLockCss = document.getElementById("vc-scroll-reload-top-lock-css");
+    if (topLockCss && topLockCss.parentNode) topLockCss.parentNode.removeChild(topLockCss);
     var body = document.body;
     if (body) {
       body.style.removeProperty("position");
@@ -75,6 +125,31 @@
       body.style.removeProperty("width");
       body.style.removeProperty("margin");
     }
+  }
+
+  function hasActiveScrollRestoreTarget() {
+    try {
+      if (window.__vcPtrRestoreDone) return false;
+      if (window.__vcPtrRestoreUnpinStarted) return true;
+      if (document.documentElement.classList.contains("vc-ptr-scroll-restore-pending")) return true;
+      if (Number(window.__vcPtrRestoreY || 0) >= 2) return true;
+      if (Number(window.__vcViewStateRestoreY || 0) >= 2) return true;
+      if (Number(window.__vcPtrRestoreTargetY || 0) >= 2) return true;
+      var attr = document.documentElement.getAttribute("data-vc-ptr-restore-y");
+      if (Math.max(0, Number(attr || 0) || 0) >= 2) return true;
+      if (sessionStorage.getItem(PTR_KEY) === "1") return true;
+    } catch (eHas) {}
+    return false;
+  }
+
+  function applyScrollYOnce(y) {
+    y = Math.max(0, Math.round(Number(y) || 0));
+    if (y < 2) return;
+    try {
+      window.scrollTo(0, y);
+      if (document.documentElement) document.documentElement.scrollTop = y;
+      if (document.body) document.body.scrollTop = y;
+    } catch (eScr) {}
   }
 
   function pageScrollY() {
@@ -126,8 +201,51 @@
     } catch (eUn) {}
   }
 
+  function pageReadyForScrollRestore() {
+    try {
+      var root = document.documentElement;
+      if (root.classList.contains("vc-loader-blocking-live")) return false;
+      if (root.classList.contains("vc-loading-scroll-lock")) return false;
+      if (root.classList.contains("vc-interaction-hold")) return false;
+      if (root.classList.contains("vc-chrome-bar-loading")) return false;
+      if (root.classList.contains("vc-session-verify-pending")) return false;
+      if (root.classList.contains("vc-user-leader-pending")) return false;
+      if (root.classList.contains("vc-user-profile-pending")) return false;
+      if (root.classList.contains("vc-rank-customize-pending")) return false;
+      if (
+        root.classList.contains("vc-page-cine-boot") &&
+        !root.classList.contains("vc-page-cine-ready")
+      ) {
+        return false;
+      }
+      /* aspetta sipario giù — altrimenti landBootScrollAfterReveal azzera e combattono */
+      if (
+        root.classList.contains("vc-page-cine-boot") &&
+        !root.classList.contains("vc-cine-curtain-off")
+      ) {
+        return false;
+      }
+      /* boardsScrollPath1: aspetta render async lista/wizard */
+      try {
+        if (
+          document.body &&
+          document.body.classList.contains("vc-boards-page") &&
+          !window.__vcBoardsContentReady
+        ) {
+          return false;
+        }
+      } catch (eBd) {}
+      if (root.classList.contains("vc-page-cine-ready")) return true;
+      if (document.readyState === "complete") return true;
+      return document.readyState === "interactive" && !root.classList.contains("vc-page-cine-boot");
+    } catch (eReady) {
+      return document.readyState === "complete";
+    }
+  }
+
   function finalizeScrollRestore() {
-    /* notifSidebar4: PTR restore must not fight notif body scroll lock. */
+    /* scrollReloadNoBounce3: UN solo handoff dopo unlock — zero soft-retry / zero re-scroll */
+    if (window.__vcPtrRestoreDone || window.__vcPtrRestoreUnpinStarted) return;
     try {
       var rootN = document.documentElement;
       if (
@@ -139,16 +257,35 @@
       var ddN = document.getElementById("vc-notif-dropdown");
       if (ddN && (ddN.open || ddN.hasAttribute("open"))) return;
     } catch (eNotifSkip) {}
+
+    if (!hasActiveScrollRestoreTarget()) {
+      cleanupScrollRestore();
+      return;
+    }
+
     var y = 0;
     try {
-      y = Math.max(0, Math.round(Number(window.__vcPtrRestoreY) || 0));
+      y = Math.max(
+        0,
+        Math.round(Number(window.__vcPtrRestoreTargetY) || 0),
+        Math.round(Number(window.__vcPtrRestoreY) || 0),
+        Math.round(Number(window.__vcViewStateRestoreY) || 0),
+      );
     } catch (eY) {}
     if (y < 2) {
       try {
-        var raw = sessionStorage.getItem(SCROLL_KEY);
+        var attrY = document.documentElement.getAttribute("data-vc-ptr-restore-y");
+        y = Math.max(0, Math.round(Number(attrY || 0) || 0));
+      } catch (eAttrY) {}
+    }
+    if (y < 2) {
+      try {
+        var raw =
+          sessionStorage.getItem("vc_scroll_restore_anchor_v1") ||
+          sessionStorage.getItem(SCROLL_KEY);
         if (raw) {
           var data = JSON.parse(raw);
-          if (data && data.p === pagePath()) y = Math.max(0, Math.round(Number(data.y) || 0));
+          if (data && pathMatches(data.p)) y = Math.max(0, Math.round(Number(data.y) || 0));
         }
       } catch (eRead) {}
     }
@@ -157,51 +294,93 @@
       return;
     }
 
-    if (maxPageScrollY() < y - 12) {
-      pinScrollRestore(y);
-      return;
-    }
-
-    unpinScrollRestore();
     try {
-      window.scrollTo(0, y);
-      if (document.documentElement) document.documentElement.scrollTop = y;
-      if (document.body) document.body.scrollTop = y;
-    } catch (eFin) {}
+      window.__vcPtrRestoreTargetY = y;
+      window.__vcPtrRestoreY = y;
+      window.__vcViewStateRestoreY = y;
+    } catch (eKeepY) {}
 
-    var now = pageScrollY();
-    if (Math.abs(now - y) <= 8) {
-      cleanupScrollRestore();
-      return;
+    /* Durante boot: aspetta — resta in alto bloccato dal cine, zero su/giù */
+    if (!pageReadyForScrollRestore()) return;
+
+    var maxY = maxPageScrollY();
+    if (maxY < y - 12) {
+      /* boardsScrollPath1: su bacheca aspetta più a lungo l'altezza post-render */
+      var waitMs = 2200;
+      try {
+        if (document.body && document.body.classList.contains("vc-boards-page")) waitMs = 6500;
+      } catch (eWm) {}
+      try {
+        if (!window.__vcPtrRestoreWaitSince) window.__vcPtrRestoreWaitSince = Date.now();
+        if (Date.now() - Number(window.__vcPtrRestoreWaitSince || 0) < waitMs) return;
+      } catch (eWait) {
+        return;
+      }
+      y = Math.max(0, Math.round(maxY));
+      if (y < 2) {
+        cleanupScrollRestore();
+        return;
+      }
     }
 
-    pinScrollRestore(y);
+    try {
+      window.__vcPtrRestoreUnpinStarted = true;
+      window.__vcPtrRestoreDone = true;
+    } catch (eMark) {}
+    try {
+      if (window.__vcPtrRestoreMo) {
+        window.__vcPtrRestoreMo.disconnect();
+        window.__vcPtrRestoreMo = null;
+      }
+    } catch (eMoOff) {}
+
+    try {
+      document.documentElement.classList.remove("vc-scroll-reload-top-lock");
+    } catch (eUnlock) {}
+    unpinScrollRestore();
+    applyScrollYOnce(y);
+    try {
+      window.requestAnimationFrame(function () {
+        applyScrollYOnce(y);
+      });
+    } catch (eRaf) {}
+    window.setTimeout(function () {
+      cleanupScrollRestore();
+    }, 280);
   }
 
   function armScrollRestoreFinalize() {
+    /* scrollReloadNoBounce3: arm solo se restore attivo; aspetta eventi ready */
+    if (window.__vcPtrRestoreDone || window.__vcPtrRestoreUnpinStarted) return;
+    if (!hasActiveScrollRestoreTarget()) return;
     if (window.__vcPtrRestoreArmed) {
       finalizeScrollRestore();
       return;
     }
     window.__vcPtrRestoreArmed = true;
     finalizeScrollRestore();
-    var delays = [60, 150, 320, 640, 980, 1400, 2000, 2800, 3800, 5200];
+    /* pochi check — niente storm 80ms da MutationObserver */
+    var delays = [400, 900, 1800, 3200, 5200, 7800];
     for (var i = 0; i < delays.length; i += 1) {
       window.setTimeout(finalizeScrollRestore, delays[i]);
     }
-    try {
-      if (typeof MutationObserver === "function") {
-        var mo = new MutationObserver(function () {
-          finalizeScrollRestore();
-        });
-        mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-        window.__vcPtrRestoreMo = mo;
-      }
-    } catch (eMo) {}
-    window.addEventListener("load", finalizeScrollRestore, { passive: true });
+    window.addEventListener(
+      "load",
+      function () {
+        /* violPass10: load handler corto — finalize in macrotask */
+        window.setTimeout(finalizeScrollRestore, 0);
+      },
+      { passive: true },
+    );
     document.addEventListener("vc:page-cine-ready", finalizeScrollRestore, { passive: true });
     document.addEventListener("vc:access-ok", finalizeScrollRestore, { passive: true });
-    window.setTimeout(cleanupScrollRestore, 12000);
+    document.addEventListener(
+      "vc:cine-curtain-off",
+      finalizeScrollRestore,
+      { passive: true },
+    );
+    document.addEventListener("vc:boards-content-ready", finalizeScrollRestore, { passive: true });
+    window.setTimeout(cleanupScrollRestore, 14000);
   }
 
   function injectCss() {
@@ -210,10 +389,11 @@
     style.id = "vc-ptr-css";
     style.textContent =
       "html.vc-ptr-ready,html.vc-ptr-ready body{overscroll-behavior-y:contain;}" +
-      ".vc-ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 4.85rem);z-index:10240;width:6.1rem;margin:0;display:flex;flex-direction:column;align-items:center;gap:.38rem;pointer-events:none;opacity:0;transform:translate3d(-50%,-5.6rem,0);transition:opacity .2s ease,transform .28s cubic-bezier(.22,1,.36,1);}" +
-      ".vc-ptr.is-on{opacity:1;transform:translate3d(-50%,calc(-5.6rem + var(--vc-ptr-y,0px)),0);transition:none;}" +
-      ".vc-ptr.is-snap{opacity:0;transform:translate3d(-50%,-5.6rem,0);}" +
-      ".vc-ptr.is-refreshing{opacity:1;transform:translate3d(-50%,.15rem,0);transition:transform .22s cubic-bezier(.22,1,.36,1),opacity .16s ease;}" +
+      ".vc-ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 4.85rem);z-index:10240;width:6.1rem;margin:0;display:flex;flex-direction:column;align-items:center;gap:.38rem;pointer-events:none;opacity:0;visibility:hidden;transform:translate3d(-50%,-5.6rem,0);transition:opacity .2s ease,transform .28s cubic-bezier(.22,1,.36,1);}" +
+      ".vc-ptr.is-on{opacity:1;visibility:visible;transform:translate3d(-50%,calc(-5.6rem + var(--vc-ptr-y,0px)),0);transition:none;}" +
+      ".vc-ptr.is-snap{opacity:0;visibility:hidden;transform:translate3d(-50%,-5.6rem,0);}" +
+      ".vc-ptr.is-refreshing{opacity:1;visibility:visible;transform:translate3d(-50%,.15rem,0);transition:transform .22s cubic-bezier(.22,1,.36,1),opacity .16s ease;}" +
+      ".vc-ptr:not(.is-on):not(.is-refreshing) .vc-ptr__disc,.vc-ptr.is-snap:not(.is-refreshing) .vc-ptr__disc{box-shadow:none!important;filter:none!important;opacity:0!important;visibility:hidden!important;}" +
       ".vc-ptr__disc{position:relative;width:3.45rem;height:3.45rem;border-radius:9999px;background:radial-gradient(circle at 50% 50%,transparent 0 .46rem,#1a120e .46rem .64rem,transparent .65rem),repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.06) 0 1px,transparent 1px 3px),radial-gradient(circle at 32% 28%,rgba(255,255,255,.16),transparent 42%),radial-gradient(circle at 50% 50%,#2a1c16 0 38%,#120c0a 62%,#070504 100%);box-shadow:0 10px 26px rgba(0,0,0,.46),0 0 0 1px rgba(212,168,136,.34),0 0 22px rgba(212,168,136,.2);transform:rotate(var(--vc-ptr-rot,0deg)) scale(var(--vc-ptr-scale,.86));transform-origin:50% 50%;}" +
       ".vc-ptr.is-on .vc-ptr__disc{transform:rotate(var(--vc-ptr-rot,0deg)) scale(var(--vc-ptr-scale,1));}" +
       ".vc-ptr.is-armed .vc-ptr__disc{box-shadow:0 12px 30px rgba(0,0,0,.5),0 0 0 1px rgba(212,168,136,.58),0 0 30px rgba(212,168,136,.46);}" +
@@ -455,6 +635,14 @@
     if (node && node.nodeType === 3) node = node.parentElement;
     if (node && node.closest) {
       if (node.closest("input, textarea, select, [contenteditable='true'], [role='slider'], .vc-no-ptr")) {
+        return true;
+      }
+      /* voteTapNav4: tap su link/CTA (Top.gg/Discadia in hero) non deve armare PTR → suppress click */
+      if (
+        node.closest(
+          "a[href], button, [role='button'], summary, .vc-vote-platform-card, .vc-vote-platform-cta, .vc-btn-sand, .horiz-cta, .vc-header-pill",
+        )
+      ) {
         return true;
       }
       if (
@@ -763,7 +951,7 @@
 
   function repairPtrAfterNavigation() {
     resetPtrUi();
-    armScrollRestoreFinalize();
+    if (hasActiveScrollRestoreTarget()) armScrollRestoreFinalize();
     try {
       var drawer = document.getElementById("vc-mobile-nav-drawer");
       var navOpen = drawer && drawer.classList.contains("vc-mobile-nav-drawer--open");
@@ -807,7 +995,7 @@
   function tryInitPtrIfNeeded() {
     if (window.__vcPtrListenersBound) return;
     if (!isTouchUi() && !(Number(navigator.maxTouchPoints || 0) > 0)) {
-      armScrollRestoreFinalize();
+      if (hasActiveScrollRestoreTarget()) armScrollRestoreFinalize();
       return;
     }
         if (shouldDeferPtr()) {
@@ -834,6 +1022,19 @@
       function (ev) {
         if (!suppressClickUntil || Date.now() > suppressClickUntil) return;
         try {
+          var t = ev.target;
+          if (
+            t &&
+            t.closest &&
+            t.closest(
+              "a[href], button, [role='button'], summary, input, textarea, select, .vc-vote-platform-card, .vc-vote-platform-cta",
+            )
+          ) {
+            /* mai bloccare navigazione/CTA reali (es. Top.gg su /vota/) */
+            return;
+          }
+        } catch (eSkip) {}
+        try {
           ev.preventDefault();
           ev.stopPropagation();
         } catch (eClick) {}
@@ -849,13 +1050,28 @@
     );
     window.addEventListener("pagehide", function () {
       resetPtrUi();
+      saveScrollForReload();
     });
     window.addEventListener("pageshow", function () {
-      repairPtrAfterNavigation();
+      window.setTimeout(function () {
+        try {
+          repairPtrAfterNavigation();
+          if (hasActiveScrollRestoreTarget()) armScrollRestoreFinalize();
+        } catch (ePs) {}
+      }, 0);
     });
     document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "hidden") abortPull(false);
-      else if (document.visibilityState === "visible") repairPtrAfterNavigation();
+      if (document.visibilityState === "hidden") {
+        abortPull(false);
+        saveScrollForReload();
+      } else if (document.visibilityState === "visible") {
+        window.setTimeout(function () {
+          try {
+            repairPtrAfterNavigation();
+            if (hasActiveScrollRestoreTarget()) armScrollRestoreFinalize();
+          } catch (eVis) {}
+        }, 0);
+      }
     });
   }
 
@@ -894,4 +1110,12 @@
     armScrollRestoreFinalize();
     initPtr();
   }
+
+  /* scrollReloadNoYank1 */
+  try {
+    window.__vcPtrFinalizeScroll = finalizeScrollRestore;
+    window.armScrollRestoreFinalize = armScrollRestoreFinalize;
+  } catch (eExp) {}
 })();
+/* extOnlyFix1 */
+/* violPass10 */

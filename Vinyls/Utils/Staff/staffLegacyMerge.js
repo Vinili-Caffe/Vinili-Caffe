@@ -35,6 +35,7 @@ function legacyStaffDocToEmbedded(legacy) {
     partnerManagerCustomPerksUntil: legacy.partnerManagerCustomPerksUntil || null,
     partnerManagerVipUntil: legacy.partnerManagerVipUntil || null,
     bestStaffPauseBonusYears: arr(legacy.bestStaffPauseBonusYears),
+    bestStaffWeekPauseBonusWeeks: arr(legacy.bestStaffWeekPauseBonusWeeks),
     valPosTradedPauseBonusDays: num(legacy.valPosTradedPauseBonusDays),
     pauses: arr(legacy.pauses),
     serataFilmAttendanceSaturdayKey: legacy.serataFilmAttendanceSaturdayKey || null,
@@ -88,6 +89,7 @@ function mergeStaffEmbedded(primary, fallback) {
     "pauses",
     "partnerActions",
     "bestStaffPauseBonusYears",
+    "bestStaffWeekPauseBonusWeeks",
     "partnerMilestoneDmSent",
   ];
   for (const key of listFields) {

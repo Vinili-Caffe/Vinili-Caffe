@@ -103,8 +103,99 @@
     return token === "partner manager";
   }
 
+  /* careerPinRecentPex2: scala attuale + ultimo pex PM + ultimo pex →Helper (anche da PM) */
+  function isCareerTrackRole(token) {
+    return isOnStaffCareerLadder(token) || isPartnerManagerRole(token);
+  }
+
   function isOutsideStaffCareerLadder(token) {
     return !isOnStaffCareerLadder(token);
+  }
+
+  function isPexToPartnerManager(from, to) {
+    return isPartnerManagerRole(to) && !isPartnerManagerRole(from);
+  }
+
+  function isPexToHelper(from, to) {
+    /* Ultimo arrivo a Helper: Member→Helper o PM→Helper (niente Helper stale prima dell’ultimo pex). */
+    return to === "helper" && from !== "helper";
+  }
+
+  function rowCareerTokens(row) {
+    return {
+      to: normalizeCareerRoleToken(row && (row.newRole != null ? row.newRole : row.to)),
+      from: normalizeCareerRoleToken(row && (row.oldRole != null ? row.oldRole : row.from)),
+    };
+  }
+
+  function sliceLatestStaffLadderStint(chrono, opts) {
+    opts = opts || {};
+    var stillActive = Boolean(opts.stillActive);
+    if (!Array.isArray(chrono) || !chrono.length) return [];
+    var startIdx = 0;
+    var found = false;
+    var onLadder = false;
+    for (var i = 0; i < chrono.length; i += 1) {
+      var tok = rowCareerTokens(chrono[i]);
+      var toOn = isOnStaffCareerLadder(tok.to);
+      var fromOut = isOutsideStaffCareerLadder(tok.from);
+      if (toOn && (fromOut || !onLadder)) {
+        startIdx = i;
+        found = true;
+        onLadder = true;
+        continue;
+      }
+      if (onLadder && !toOn) onLadder = false;
+    }
+    if (!found) return [];
+    if (!onLadder && !stillActive) return [];
+    var kept = [];
+    for (var j = startIdx; j < chrono.length; j += 1) {
+      var tokJ = rowCareerTokens(chrono[j]);
+      if (isOnStaffCareerLadder(tokJ.to) || isOnStaffCareerLadder(tokJ.from)) {
+        kept.push(chrono[j]);
+      }
+    }
+    return kept;
+  }
+
+  function pinLatestCareerPexRows(chrono) {
+    var lastPm = null;
+    var lastHelper = null;
+    for (var i = 0; i < chrono.length; i += 1) {
+      var tok = rowCareerTokens(chrono[i]);
+      if (isPexToPartnerManager(tok.from, tok.to)) lastPm = chrono[i];
+      if (isPexToHelper(tok.from, tok.to)) lastHelper = chrono[i];
+    }
+    return [lastPm, lastHelper].filter(Boolean);
+  }
+
+  function mergeCareerRowSets(sets) {
+    var out = [];
+    var seen = Object.create(null);
+    for (var s = 0; s < sets.length; s += 1) {
+      var rows = sets[s] || [];
+      for (var i = 0; i < rows.length; i += 1) {
+        var row = rows[i];
+        if (!row) continue;
+        var tok = rowCareerTokens(row);
+        var day = careerDayKey(row.dateIso || row.date || "");
+        var key =
+          day +
+          "|" +
+          tok.from +
+          "|" +
+          tok.to +
+          "|" +
+          String(row.reason || "")
+            .toLowerCase()
+            .trim();
+        if (seen[key]) continue;
+        seen[key] = 1;
+        out.push(row);
+      }
+    }
+    return out;
   }
 
     function slicePartnerManagerCareer(rows, opts) {
@@ -158,41 +249,12 @@
     var chrono = rows.slice().sort(function (a, b) {
       return careerRowSortMs(a) - careerRowSortMs(b);
     });
-    var start = 0;
-    var found = false;
-    var onLadder = false;
-    for (var i = 0; i < chrono.length; i += 1) {
-      var to = normalizeCareerRoleToken(chrono[i].newRole);
-      var from = normalizeCareerRoleToken(chrono[i].oldRole);
-      var toOn = isOnStaffCareerLadder(to);
-      var fromOutside = isOutsideStaffCareerLadder(from);
-      if (toOn && (fromOutside || !onLadder)) {
-        start = i;
-        found = true;
-        onLadder = true;
-        continue;
-      }
-      if (onLadder && !toOn) {
-        onLadder = false;
-      }
-    }
-    if (!found) {
-      if (!stillActive) return [];
-      start = 0;
-    } else if (!onLadder && !stillActive) {
-      return [];
-    }
-
-    var endExclusive = chrono.length;
-    while (
-      endExclusive > start &&
-      !isOnStaffCareerLadder(normalizeCareerRoleToken(chrono[endExclusive - 1].newRole))
-    ) {
-      endExclusive -= 1;
-    }
-    if (endExclusive <= start) return [];
-
-    return chrono.slice(start, endExclusive).sort(function (a, b) {
+    /* careerPinRecentPex2: scala staff attuale + pin ultimo pex PM + ultimo pex →Helper */
+    var scala = sliceLatestStaffLadderStint(chrono, { stillActive: stillActive });
+    var pins = pinLatestCareerPexRows(chrono);
+    var merged = mergeCareerRowSets([scala, pins]);
+    if (!merged.length) return [];
+    return merged.sort(function (a, b) {
       return careerRowSortMs(b) - careerRowSortMs(a);
     });
   }
@@ -247,10 +309,27 @@
     return out;
   }
 
+  function pendingBadgeHtml(count) {
+    var n = Math.max(0, Math.floor(Number(count) || 0));
+    if (!n) return "";
+    var label = n > 99 ? "99+" : String(n);
+    return (
+      '<span class="vc-staff-profile-pending" title="' +
+      esc(label) +
+      " in attesa" +
+      '" aria-label="' +
+      esc(label) +
+      ' in attesa">' +
+      esc(label) +
+      "</span>"
+    );
+  }
+
   function statCard(value, label, opts) {
     opts = opts || {};
     var action = opts.action ? String(opts.action) : "";
     var tip = opts.title ? String(opts.title) : "";
+    var pending = Math.max(0, Math.floor(Number(opts.pending) || 0));
     var attrs =
       (action
         ? ' data-vc-stat="' +
@@ -262,9 +341,11 @@
     return (
       '<article class="vc-user-profile-stat' +
       (action ? " vc-user-profile-stat--action" : "") +
+      (pending ? " has-pending" : "") +
       '"' +
       attrs +
       ">" +
+      pendingBadgeHtml(pending) +
       '<span class="vc-user-profile-stat__label">' +
       esc(label) +
       "</span>" +
@@ -402,8 +483,11 @@
     if (!payload.identity || typeof payload.identity !== "object") payload.identity = {};
     var id = payload.identity;
     var payloadId = String(id.userId || id.id || payload.targetUserId || "").trim();
-    // staffPeerFix2: stamp expected id when API/cache omitted identity.userId (empty HTML / mismatch).
+    /* staffSwitchIdLock1: se manca identity, stamp only when targetUserId matches expected
+       (mai sovrascrivere un body di un altro user con l'id richiesto). */
     if (expectedId && !payloadId) {
+      var tidEmpty = String(payload.targetUserId || "").trim();
+      if (tidEmpty && tidEmpty !== expectedId) return "";
       id.userId = expectedId;
       payload.targetUserId = expectedId;
       return expectedId;
@@ -415,6 +499,8 @@
         id.userId = expectedId;
         return expectedId;
       }
+      /* staffSwitchIdLock1: mismatch → reject (prima stampava expectedId sul body sbagliato
+         → “te stesso” sotto id peer). */
       return "";
     }
     if (!payload.targetUserId && payloadId) payload.targetUserId = payloadId;
@@ -448,7 +534,8 @@
       );
     }
 
-    var isSelf = payload.isSelf !== false && opts.isSelf !== false;
+    /* staffSwitchIdLock1: isSelf solo se esplicito (undefined ≠ self) */
+    var isSelf = payload.isSelf === true && opts.isSelf !== false;
     var pmOnly = String(role.kind || "").toLowerCase() === "pm_only";
     var isFounder = roleLooksFounder(role);
 
@@ -466,25 +553,50 @@
 
     var stats = [];
     var canManagePmPointsTop = canWriteStaffManage();
-    var showPmTopStats = Boolean(partner) && (pmOnly || isFounder);
+    /* Fan#1 shopSpendFix1: Spesi/Punti/Partner sempre in top se c'e' blocco partner (anche staff+PM) */
+    var showPmTopStats = Boolean(partner);
     if (!isFounder) {
       stats.push(
+        /* pauseReviewProfile1: HS → form inbox; altri → calendario */
+        /* profilePendingBadges1: badge pending pause */
         statCard(quota.remaining != null ? quota.remaining : "\u2014", "Giorni di pausa rimanenti", {
           action: "pause",
-          title: "Apri mini calendario pause",
+          title: canWriteStaffManage()
+            ? "Richiesta pausa (revisione High Staff)"
+            : "Apri mini calendario pause",
+          pending: pause.pendingCount,
         }),
       );
+      /* resoInGestisci1: Resoconto non più card — voce del menu Gestisci */
     }
-        if (showPmTopStats) {
-      stats.push(statCard(partner.redeemSpend != null ? partner.redeemSpend : 0, "Spesi in shop"));
+    if (showPmTopStats) {
+      stats.push(
+        statCard(partner.redeemSpend != null ? partner.redeemSpend : 0, "Spesi in shop", {
+          action: "pm-shop-spend",
+          title: canManagePmPointsTop
+            ? "Riscatta premi e storico shop"
+            : "Storico riscatti shop",
+        }),
+      );
       stats.push(
         statCard(partner.points != null ? partner.points : 0, "Punti PM", {
           action: "pm-points",
           title: canManagePmPointsTop ? "Gestisci punti PM" : "Punti PM",
         }),
       );
-      stats.push(statCard(partner.partnerCount != null ? partner.partnerCount : 0, "Partner"));
-    } else if (!pmOnly && !isFounder) {
+      /* partnerPtChrono1: Partner → cronologia punti tolti (self + HS) */
+      (function () {
+        var canPt = canOpenPmPuntiTolti(payload);
+        stats.push(
+          statCard(partner.partnerCount != null ? partner.partnerCount : 0, "Partner", {
+            action: canPt ? "pm-punti-tolti" : "",
+            title: canPt ? "Cronologia punti tolti" : "",
+            pending: canPt ? partner.pendingPuntiTolti : 0,
+          }),
+        );
+      })();
+    }
+    if (!pmOnly && !isFounder) {
       stats.push(
         statCard(val.positive != null ? val.positive : 0, "Valutazioni Positive", {
           action: "val-pos",
@@ -679,17 +791,28 @@
           '<span class="vc-user-profile-block__title">Partner Manager</span>' +
           "</div>" +
           '<div class="vc-user-profile-grid3">' +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Spesi in shop</span><span class="vc-user-profile-mini__value">' +
+          '<article class="vc-user-profile-mini vc-user-profile-mini--action" data-vc-stat="pm-shop-spend" role="button" tabindex="0" title="' +
+          (canManagePmPoints ? "Riscatta premi e storico shop" : "Storico riscatti shop") +
+          '"><span class="vc-user-profile-mini__label">Spesi in shop</span><span class="vc-user-profile-mini__value">' +
           esc(partner.redeemSpend || 0) +
-          "</span></div>" +
+          "</span></article>" +
           '<article class="vc-user-profile-mini vc-user-profile-mini--action" data-vc-stat="pm-points" role="button" tabindex="0" title="' +
           (canManagePmPoints ? "Gestisci punti PM" : "Punti PM") +
           '"><span class="vc-user-profile-mini__label">Punti PM</span><span class="vc-user-profile-mini__value">' +
           esc(partner.points != null ? partner.points : 0) +
           "</span></article>" +
-          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Partner</span><span class="vc-user-profile-mini__value">' +
-          esc(partner.partnerCount != null ? partner.partnerCount : 0) +
-          "</span></div></div></section>";
+          (canOpenPmPuntiTolti(payload)
+            ? '<article class="vc-user-profile-mini vc-user-profile-mini--action' +
+              (Number(partner.pendingPuntiTolti) > 0 ? " has-pending" : "") +
+              '" data-vc-stat="pm-punti-tolti" role="button" tabindex="0" title="Cronologia punti tolti">' +
+              pendingBadgeHtml(partner.pendingPuntiTolti) +
+              '<span class="vc-user-profile-mini__label">Partner</span><span class="vc-user-profile-mini__value">' +
+              esc(partner.partnerCount != null ? partner.partnerCount : 0) +
+              "</span></article>"
+            : '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Partner</span><span class="vc-user-profile-mini__value">' +
+              esc(partner.partnerCount != null ? partner.partnerCount : 0) +
+              "</span></div>") +
+          "</div></section>";
       }
       if (partner.shop && global.VCStaffPmShop) {
         html += global.VCStaffPmShop.renderShopSection(partner.shop, { readOnly: !isSelf });
@@ -713,7 +836,39 @@
     return html;
   }
 
+  function unlockSheetPageChrome() {
+    /* sheetUnlock1: stesso sblocco inbox — hold/loader lasciano touch-action:none e click morti */
+    try {
+      var root = global.document.documentElement;
+      root.classList.remove(
+        "vc-interaction-hold",
+        "vc-notif-staff-loading",
+        "vc-notif-early-staff",
+        "vc-loading-scroll-lock",
+        "vc-loader-blocking-live",
+        "vc-scroll-soft-lock",
+      );
+      root.classList.add("vc-soft-fx-ready", "vc-page-cine-ready");
+      root.style.setProperty("pointer-events", "auto", "important");
+      root.style.setProperty("touch-action", "manipulation", "important");
+      if (global.document.body) {
+        global.document.body.style.setProperty("pointer-events", "auto", "important");
+        global.document.body.style.setProperty("touch-action", "manipulation", "important");
+      }
+    } catch (eUnlock) {}
+    try {
+      global.__vcSheetCloseGuardUntil = 0;
+    } catch (eG) {}
+    try {
+      if (typeof global.__vcReleaseInteractionHold === "function") global.__vcReleaseInteractionHold();
+    } catch (eRel) {}
+  }
+
   function closeStatSheet() {
+    try {
+      if (typeof global.__vcArmSheetCloseGuard === "function") global.__vcArmSheetCloseGuard(520);
+    } catch (eGhost) {}
+    try { closeProfileResoSheet(); } catch (eResoClose) {}
     var existing = global.document.getElementById("vc-staff-stat-sheet");
     if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
     try {
@@ -1357,6 +1512,21 @@
     return Boolean(p.canManage || p.isHighStaff || p.highStaff);
   }
 
+  /* partnerPtChrono1 */
+  function canOpenPmPuntiTolti(payload) {
+    if (canWriteStaffManage()) return true;
+    return isOwnStaffProfile(payload);
+  }
+
+  /* resoProfile1 */
+  function canOpenResoconto(payload) {
+    if (canWriteStaffManage()) return true;
+    var p = global.__VC_STAFF_PERMS || {};
+    if (p.canViewResoconti === true || p.resocontiReview === true) return true;
+    if (p.isPmGestore || p.canManagePm) return true;
+    return isOwnStaffProfile(payload);
+  }
+
   function isOwnStaffProfile(payload) {
     if (payload && payload.isSelf === true) return true;
     if (payload && payload.isSelf === false) return false;
@@ -1404,6 +1574,1375 @@
     var token = getStaffToken();
     if (!token) return Promise.reject(new Error("no_token"));
     return fetch(pmActionsApiBase(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(body || {}),
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { res: res, data: data };
+      });
+    });
+  }
+
+  function pmShopApiBase() {
+    var c = global.__VC_STAFF_PM_SHOP || {};
+    var T = global.VCStaffTools;
+    if (T && typeof T.resolveApiUrl === "function") {
+      return T.resolveApiUrl(c, "/webhooks/site-staff-pm-shop");
+    }
+    var local = String(c.apiUrlLocal || "").trim();
+    var base = String(c.apiUrl || "/webhooks/site-staff-pm-shop").trim();
+    try {
+      var h = String(global.location.hostname || "").toLowerCase();
+      if ((h === "localhost" || h === "127.0.0.1") && local && !/\{\{/.test(local)) base = local;
+    } catch (eShop) {}
+    if (/\{\{/.test(base)) base = "/webhooks/site-staff-pm-shop";
+    return base;
+  }
+
+  function pmPuntiToltiApiBase() {
+    var T = global.VCStaffTools;
+    var c = global.__VC_STAFF_PM_POINTS_REMOVED || {};
+    if (T && typeof T.resolveApiUrl === "function") {
+      return T.resolveApiUrl(c, "/webhooks/site-staff-pm-points-removed");
+    }
+    var base = String(c.apiUrl || "/webhooks/site-staff-pm-points-removed").trim();
+    try {
+      var h = String(global.location.hostname || "").toLowerCase();
+      var local = String(c.apiUrlLocal || "").trim();
+      if ((h === "localhost" || h === "127.0.0.1") && local && !/\{\{/.test(local)) base = local;
+    } catch (eLoc) {}
+    if (/\{\{/.test(base)) base = "/webhooks/site-staff-pm-points-removed";
+    return base;
+  }
+
+  function fetchPmPuntiTolti(userId) {
+    var token = getStaffToken();
+    if (!token) return Promise.reject(new Error("no_token"));
+    var url =
+      pmPuntiToltiApiBase() +
+      "?pmUserId=" +
+      encodeURIComponent(String(userId || "")) +
+      "&limit=30";
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer =
+      ctrl &&
+      global.setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (eAb) {}
+      }, 12000);
+    return fetch(url, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { res: res, data: data };
+        });
+      })
+      .finally(function () {
+        if (timer) global.clearTimeout(timer);
+      });
+  }
+
+  function postPmPuntiToltiReview(messageId, action) {
+    var token = getStaffToken();
+    if (!token) return Promise.reject(new Error("no_token"));
+    return fetch(pmPuntiToltiApiBase(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({ action: action, messageId: messageId }),
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { res: res, data: data };
+      });
+    });
+  }
+
+  function ptStatusLabel(status) {
+    if (status === "pending") return "In attesa";
+    if (status === "confirmed") return "Confermata";
+    if (status === "denied") return "Negata";
+    return "Registrata";
+  }
+
+  function ptStatusClass(status) {
+    if (status === "pending") return "vc-staff-pt-status--pending";
+    if (status === "confirmed") return "vc-staff-pt-status--confirmed";
+    if (status === "denied") return "vc-staff-pt-status--denied";
+    return "vc-staff-pt-status--logged";
+  }
+
+  function pmPuntiToltiSheetHtml() {
+    return (
+      '<div class="vc-staff-pm-punti-tolti vc-no-sfx" data-pm-punti-tolti-host>' +
+      '<p class="vc-staff-stat-sheet__hint">Carico cronologia…</p></div>'
+    );
+  }
+
+  function renderPmPuntiToltiChronology(items, canReview) {
+    var rows = Array.isArray(items) ? items : [];
+    if (!rows.length) {
+      return (
+        '<div class="vc-staff-pm-shop-spend__empty">' +
+        "<p>Nessun punto tolto registrato ancora.</p></div>"
+      );
+    }
+    return (
+      '<ul class="vc-staff-pm-shop-spend__history vc-staff-pm-punti-tolti__list" data-pm-punti-tolti-list>' +
+      rows
+        .map(function (item) {
+          var who = "";
+          if (item.reporter && item.reporter.displayName) {
+            who = "Segnalato da " + String(item.reporter.displayName);
+          } else if (item.actor && item.actor.displayName) {
+            who = "Rimosso da " + String(item.actor.displayName);
+          }
+          var links = "";
+          if (item.messageLink) {
+            links +=
+              '<a class="vc-staff-pt-card__link" href="' +
+              esc(item.messageLink) +
+              '" target="_blank" rel="noopener noreferrer">Partnership</a>';
+          }
+          if (item.discordMessageUrl) {
+            links +=
+              '<a class="vc-staff-pt-card__link" href="' +
+              esc(item.discordMessageUrl) +
+              '" target="_blank" rel="noopener noreferrer">Messaggio</a>';
+          }
+          var actions = "";
+          if (canReview && item.canReview && item.status === "pending" && item.messageId) {
+            actions =
+              '<div class="vc-staff-pt-card__actions">' +
+              '<button type="button" class="vc-staff-pt-btn vc-staff-pt-btn--deny" data-pt-deny="' +
+              esc(item.messageId) +
+              '">Nega</button>' +
+              '<button type="button" class="vc-staff-pt-btn vc-staff-pt-btn--ok" data-pt-confirm="' +
+              esc(item.messageId) +
+              '">Conferma</button></div>';
+          }
+          return (
+            '<li class="vc-staff-pm-shop-spend__row' +
+            (item.status === "pending" ? " is-pending" : "") +
+            '">' +
+            '<div class="vc-staff-pm-shop-spend__row-main">' +
+            '<div class="vc-staff-pm-punti-tolti__head">' +
+            "<strong>" +
+            esc(item.rule || "Punto tolto") +
+            '</strong><span class="vc-staff-pt-status ' +
+            ptStatusClass(item.status) +
+            '">' +
+            esc(ptStatusLabel(item.status)) +
+            "</span></div>" +
+            '<span class="vc-staff-pm-shop-spend__meta">' +
+            esc(formatShopRedeemWhen(item.createdAt)) +
+            (who ? " · " + esc(who) : "") +
+            (item.invite ? " · " + esc(String(item.invite)) : "") +
+            "</span>" +
+            (links ? '<div class="vc-staff-pt-card__links">' + links + "</div>" : "") +
+            actions +
+            "</div></li>"
+          );
+        })
+        .join("") +
+      "</ul>"
+    );
+  }
+
+  function wirePmPuntiToltiSheet(wrap) {
+    if (!wrap || wrap.__vcPtWired) return;
+    wrap.__vcPtWired = true;
+    wrap.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var conf = t.closest("[data-pt-confirm]");
+      var deny = t.closest("[data-pt-deny]");
+      var btn = conf || deny;
+      if (!btn || !wrap.contains(btn)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (btn.disabled || wrap.__vcPtBusy) return;
+      var messageId = String(
+        btn.getAttribute(conf ? "data-pt-confirm" : "data-pt-deny") || "",
+      ).trim();
+      if (!messageId) return;
+      var action = conf ? "confirm" : "deny";
+      wrap.__vcPtBusy = true;
+      btn.disabled = true;
+      postPmPuntiToltiReview(messageId, action)
+        .then(function (out) {
+          wrap.__vcPtBusy = false;
+          if (!wrap.isConnected) return;
+          if (!out.res.ok || !out.data || !out.data.ok) {
+            try {
+              if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
+                global.VcSiteToast.show(
+                  (out.data && out.data.message) || "Operazione non riuscita.",
+                  true,
+                );
+              }
+            } catch (eT) {}
+            btn.disabled = false;
+            return;
+          }
+          loadPmPuntiToltiIntoSheet(wrap);
+        })
+        .catch(function () {
+          wrap.__vcPtBusy = false;
+          btn.disabled = false;
+        });
+    });
+  }
+
+  function loadPmPuntiToltiIntoSheet(wrap) {
+    if (!wrap) return;
+    var payload = wrap.__vcStatPayload || {};
+    var uid = targetUserIdFromPayload(payload);
+    var host = wrap.querySelector("[data-pm-punti-tolti-host]");
+    if (!host) return;
+    if (!/^\d{17,20}$/.test(uid)) {
+      host.innerHTML =
+        '<p class="vc-staff-stat-sheet__hint is-error">Profilo non valido.</p>';
+      return;
+    }
+    host.innerHTML = '<p class="vc-staff-stat-sheet__hint">Carico cronologia…</p>';
+    fetchPmPuntiTolti(uid)
+      .then(function (out) {
+        if (!wrap.isConnected) return;
+        var hostEl = wrap.querySelector("[data-pm-punti-tolti-host]");
+        if (!hostEl) return;
+        if (!out.res.ok || !out.data || !out.data.ok) {
+          hostEl.innerHTML =
+            '<p class="vc-staff-stat-sheet__hint is-error">' +
+            esc((out.data && out.data.message) || "Cronologia non disponibile.") +
+            "</p>";
+          return;
+        }
+        hostEl.innerHTML = renderPmPuntiToltiChronology(
+          out.data.items || [],
+          Boolean(out.data.canReview),
+        );
+        wirePmPuntiToltiSheet(wrap);
+      })
+      .catch(function () {
+        if (!wrap.isConnected) return;
+        var hostEl2 = wrap.querySelector("[data-pm-punti-tolti-host]");
+        if (hostEl2) {
+          hostEl2.innerHTML =
+            '<p class="vc-staff-stat-sheet__hint is-error">Errore nel caricamento.</p>';
+        }
+      });
+  }
+
+  function workflowsApiBase() {
+    var T = global.VCStaffTools;
+    var c = global.__VC_STAFF_WORKFLOWS || {};
+    if (T && typeof T.resolveApiUrl === "function") {
+      return T.resolveApiUrl(c, "/webhooks/site-staff-workflows");
+    }
+    var base = String(c.apiUrl || "/webhooks/site-staff-workflows").trim();
+    if (/\{\{/.test(base)) base = "/webhooks/site-staff-workflows";
+    return base;
+  }
+
+  /* resoInboxUi1: stesso sheet UI dell'inbox (hero/tip/costanza/forge), + freccia settimana/traccia */
+  function formatResoVoiceHours(sec) {
+    var s = Math.max(0, Number(sec) || 0);
+    if (!s) return "0h";
+    var h = s / 3600;
+    if (h >= 10) return h.toFixed(1).replace(/\.0$/, "") + "h";
+    return h.toFixed(2).replace(/0+$/, "").replace(/\.$/, "") + "h";
+  }
+
+  function formatHoursLimit(h) {
+    var n = Number(h);
+    if (!Number.isFinite(n)) return "—";
+    if (Math.abs(n - Math.round(n)) < 0.01) return String(Math.round(n));
+    return String(n).replace(".", ",");
+  }
+
+  var RESOCONTO_ROLE_LIMITS = {
+    "1442568904311570555": { label: "Helper", messages: 400, hours: 4, sanctions: 1 },
+    "1442568901887000618": { label: "Mod", messages: 500, hours: 5, sanctions: 2 },
+    "1544831236868931636": { label: "Senior Moderator", messages: 600, hours: 6, sanctions: 2 },
+    "1502322782602530977": { label: "Director", messages: 550, hours: 5.5, sanctions: 1 },
+    "1544831242510270464": { label: "Partner Manager", messages: 0, hours: 0, sanctions: 0 },
+    "1442568910070349985": { label: "Staff", messages: 0, hours: 0, sanctions: 0 },
+  };
+
+  function resoTipHtml(text) {
+    var tip = String(text || "").trim();
+    if (!tip) return "";
+    return (
+      '<span class="vc-staff-reso-tip">' +
+      '<button type="button" class="vc-staff-reso-tip__btn" aria-label="Info">i</button>' +
+      '<span class="vc-staff-reso-tip__pop" role="tooltip">' +
+      esc(tip) +
+      "</span></span>"
+    );
+  }
+
+  function resocontoRoleLimits(item) {
+    var wfLimits =
+      item && item.activityLimits && typeof item.activityLimits === "object"
+        ? item.activityLimits
+        : null;
+    var byId = RESOCONTO_ROLE_LIMITS[String((item && item.roleId) || "")] || null;
+    var label =
+      String((item && item.roleLabel) || "").trim() ||
+      (byId && byId.label) ||
+      "questo ruolo";
+    var messages =
+      wfLimits && wfLimits.messages != null
+        ? Number(wfLimits.messages)
+        : byId
+          ? byId.messages
+          : null;
+    var hours =
+      wfLimits && wfLimits.hours != null ? Number(wfLimits.hours) : byId ? byId.hours : null;
+    var sanctions =
+      item && item.sanctionLimit != null && Number.isFinite(Number(item.sanctionLimit))
+        ? Number(item.sanctionLimit)
+        : byId
+          ? byId.sanctions
+          : null;
+    return { label: label, messages: messages, hours: hours, sanctions: sanctions };
+  }
+
+  function pickResoItem(items, track) {
+    var rows = Array.isArray(items) ? items : [];
+    if (!rows.length) return null;
+    var want = String(track || "").toLowerCase();
+    if (want === "p" || want === "pm") {
+      return (
+        rows.find(function (it) {
+          return String(it.kind || "").toLowerCase() === "p";
+        }) || null
+      );
+    }
+    if (want === "s" || want === "staff") {
+      return (
+        rows.find(function (it) {
+          return String(it.kind || "").toLowerCase() === "s";
+        }) ||
+        rows.find(function (it) {
+          return String(it.kind || "").toLowerCase() !== "p";
+        }) ||
+        null
+      );
+    }
+    return rows[0];
+  }
+
+  function availableResoTracks(items) {
+    var hasS = false;
+    var hasP = false;
+    (Array.isArray(items) ? items : []).forEach(function (it) {
+      var k = String(it.kind || "").toLowerCase();
+      if (k === "p") hasP = true;
+      else hasS = true;
+    });
+    return { staff: hasS, pm: hasP, dual: hasS && hasP };
+  }
+
+  function niceChartCeil(value, kind) {
+    var v = Math.max(0, Number(value) || 0);
+    if (kind === "voice") {
+      var paddedV = Math.max(v * 1.55, v + 0.45, 2.5);
+      return Math.ceil(paddedV * 4) / 4;
+    }
+    var padded = Math.max(v * 1.45, v + 18, 50);
+    if (padded <= 80) return Math.ceil(padded / 10) * 10;
+    if (padded <= 200) return Math.ceil(padded / 25) * 25;
+    return Math.ceil(padded / 50) * 50;
+  }
+
+  function weekdayShortFromDayKey(dayKey) {
+    try {
+      var parts = String(dayKey || "").split("-");
+      if (parts.length !== 3) return "—";
+      var dt = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12));
+      return dt.toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "");
+    } catch (e) {
+      return "—";
+    }
+  }
+
+  function renderProfileCostanzaChart(chart) {
+    var points = Array.isArray(chart)
+      ? chart
+          .slice()
+          .sort(function (a, b) {
+            return String(a.dayKey || "").localeCompare(String(b.dayKey || ""));
+          })
+          .slice(-7)
+      : [];
+    if (!points.length) {
+      return (
+        '<div class="vc-staff-reso-chart vc-staff-reso-chart--empty">' +
+        "<p>Costanza non disponibile per questo resoconto.</p></div>"
+      );
+    }
+    var maxMsgRaw = 0;
+    var maxVoiceRaw = 0;
+    points.forEach(function (p) {
+      maxMsgRaw = Math.max(maxMsgRaw, Number(p.text) || 0);
+      maxVoiceRaw = Math.max(maxVoiceRaw, (Number(p.voiceSeconds) || 0) / 3600);
+    });
+    var maxMsg = niceChartCeil(maxMsgRaw, "msg");
+    var maxVoiceH = niceChartCeil(maxVoiceRaw, "voice");
+    var bars = points
+      .map(function (p) {
+        var msg = Math.max(0, Number(p.text) || 0);
+        var voiceH = Math.max(0, (Number(p.voiceSeconds) || 0) / 3600);
+        var msgPct = msg > 0 ? Math.max(3, Math.round((100 * msg) / maxMsg)) : 0;
+        var voicePct = voiceH > 0.004 ? Math.max(3, Math.round((100 * voiceH) / maxVoiceH)) : 0;
+        var label = weekdayShortFromDayKey(p.dayKey);
+        var dayNum = String(p.dayKey || "").slice(8, 10);
+        var voiceLabel = formatResoVoiceHours(p.voiceSeconds);
+        return (
+          '<div class="vc-staff-reso-chart__col" title="' +
+          esc(label + " " + dayNum + " · " + msg + " msg · " + voiceLabel) +
+          '">' +
+          '<div class="vc-staff-reso-chart__pair">' +
+          '<div class="vc-staff-reso-chart__slot">' +
+          '<span class="vc-staff-reso-chart__val vc-staff-reso-chart__val--msg' +
+          (msg > 0 ? "" : " is-empty") +
+          '">' +
+          esc(msg > 0 ? String(msg) : "0") +
+          "</span>" +
+          '<div class="vc-staff-reso-chart__track">' +
+          '<span class="vc-staff-reso-chart__bar vc-staff-reso-chart__bar--msg" style="height:' +
+          msgPct +
+          '%"></span></div></div>' +
+          '<div class="vc-staff-reso-chart__slot">' +
+          '<span class="vc-staff-reso-chart__val vc-staff-reso-chart__val--voice' +
+          (voiceH > 0.004 ? "" : " is-empty") +
+          '">' +
+          esc(voiceH > 0.004 ? voiceLabel : "0h") +
+          "</span>" +
+          '<div class="vc-staff-reso-chart__track">' +
+          '<span class="vc-staff-reso-chart__bar vc-staff-reso-chart__bar--voice" style="height:' +
+          voicePct +
+          '%"></span></div></div></div>' +
+          '<div class="vc-staff-reso-chart__day"><b>' +
+          esc(label) +
+          "</b><span>" +
+          esc(dayNum) +
+          "</span></div></div>"
+        );
+      })
+      .join("");
+    var active = points.filter(function (p) {
+      return (Number(p.text) || 0) > 0 || (Number(p.voiceSeconds) || 0) >= 600;
+    }).length;
+    return (
+      '<section class="vc-staff-reso-section vc-staff-reso-section--chart">' +
+      '<div class="vc-staff-reso-section__head">' +
+      "<h3>Costanza</h3>" +
+      '<span class="vc-staff-reso-pill">' +
+      esc(String(active) + "/" + String(points.length) + " giorni attivi") +
+      "</span></div>" +
+      '<div class="vc-staff-reso-chart__legend">' +
+      '<span><i class="vc-staff-reso-chart__swatch vc-staff-reso-chart__swatch--msg"></i> Messaggi</span>' +
+      '<span><i class="vc-staff-reso-chart__swatch vc-staff-reso-chart__swatch--voice"></i> Ore in voc</span>' +
+      "</div>" +
+      '<div class="vc-staff-reso-chart" role="img" aria-label="Grafico costanza messaggi e ore vocali">' +
+      bars +
+      "</div></section>"
+    );
+  }
+
+  function splitAutoValutazioneParts(azione) {
+    var raw = String(azione || "").trim();
+    if (!raw || /^—$|^-$|^nulla$/i.test(raw)) return [];
+    return raw
+      .split(/\s*\+\s*/)
+      .map(function (part) {
+        return String(part || "").trim();
+      })
+      .filter(Boolean);
+  }
+
+  function renderPmEsitoBox(azione) {
+    var raw = String(azione || "").trim() || "Nulla";
+    raw = String(raw)
+      .replace(/(?:^|\s*)nulla(?:\s*[+—–-]\s*nulla)+/gi, "Nulla")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    var label = "Nulla";
+    var hint =
+      "Esito automatico Partner Manager: sotto 30 partner → Richiamo; sotto soglia critica → Depex; altrimenti Nulla (o promozione in finestra).";
+    if (/^depex\b/i.test(raw) || /\bdepex\b/i.test(raw)) label = "Depex";
+    else if (/^richiamo\b/i.test(raw) || /\brichiamo\b/i.test(raw)) label = "Richiamo";
+    else if (/^pex\b/i.test(raw) || /\bpex\b/i.test(raw)) label = "Pex";
+    else if (/^nulla\b/i.test(raw) || /^—$|^-$/i.test(raw)) label = "Nulla";
+    else label = raw.slice(0, 64) || "Nulla";
+    return (
+      '<article id="vc-staff-reso-auto-box" class="vc-staff-reso-grade vc-staff-reso-grade--action vc-staff-reso-grade--wide vc-staff-reso-auto vc-staff-reso-auto--pm">' +
+      '<div class="vc-staff-reso-grade__head"><span>Esito proposto</span>' +
+      resoTipHtml(hint) +
+      "</div>" +
+      '<p class="vc-staff-reso-auto__pm-outcome"><strong>' +
+      esc(label) +
+      "</strong></p></article>"
+    );
+  }
+
+  function renderAutoValutazioniBox(item, isPm) {
+    var azione = String(item.azioneDisplay || item.proposedLabel || "").trim() || "—";
+    if (isPm) return renderPmEsitoBox(azione);
+    var parts = splitAutoValutazioneParts(azione);
+    if (!parts.length && azione && !/^—$/.test(azione)) parts = [azione];
+    var autoTip =
+      "Proposte automatiche da attività/condotta, limiti, pause e compito sanzioni. Conferma o rifiuta sotto.";
+    var rows =
+      parts.length > 0
+        ? parts
+            .map(function (part) {
+              var isNeg = /valutazione negativa/i.test(part);
+              var isCompito = /compito sanzioni/i.test(part);
+              var isPos = /valutazione positiva/i.test(part) || isCompito;
+              var tone = isNeg ? "is-neg" : isPos ? "is-pos" : "is-neutral";
+              var title = isNeg
+                ? "Valutazione negativa"
+                : isCompito
+                  ? "Compito sanzioni"
+                  : isPos
+                    ? "Valutazione positiva"
+                    : /^nulla\b/i.test(part)
+                      ? "Nulla"
+                      : /^richiamo\b/i.test(part)
+                        ? "Richiamo"
+                        : /^depex\b/i.test(part)
+                          ? "Depex"
+                          : "Esito";
+              var already = /gi[aà]\s*registrat/i.test(part);
+              var detail = String(part || "")
+                .replace(/^Valutazione (Positiva|Negativa)\s*[—–-]?\s*/i, "")
+                .replace(/\(\s*gi[aà]\s*registrat[aoe]?\s*\)/gi, "")
+                .replace(/\bgi[aà]\s*registrat[aoe]?\b/gi, "")
+                .replace(/\s{2,}/g, " ")
+                .trim();
+              if (!detail || detail.toLowerCase() === title.toLowerCase()) {
+                return (
+                  '<li class="vc-staff-reso-auto__item ' +
+                  tone +
+                  ' is-simple"><strong>' +
+                  esc(title) +
+                  "</strong>" +
+                  (already
+                    ? '<span class="vc-staff-reso-flag vc-staff-reso-flag--done">già registrata</span>'
+                    : "") +
+                  "</li>"
+                );
+              }
+              return (
+                '<li class="vc-staff-reso-auto__item ' +
+                tone +
+                '"><span class="vc-staff-reso-auto__kind">' +
+                esc(title) +
+                (already
+                  ? '<span class="vc-staff-reso-flag vc-staff-reso-flag--done">già registrata</span>'
+                  : "") +
+                "</span><strong>" +
+                esc(detail) +
+                "</strong></li>"
+              );
+            })
+            .join("")
+        : '<li class="vc-staff-reso-auto__item is-neutral is-simple"><strong>Nulla</strong></li>';
+    return (
+      '<article id="vc-staff-reso-auto-box" class="vc-staff-reso-grade vc-staff-reso-grade--action vc-staff-reso-grade--wide vc-staff-reso-auto">' +
+      '<div class="vc-staff-reso-grade__head"><span>Valutazioni automatiche</span>' +
+      resoTipHtml(autoTip) +
+      "</div>" +
+      '<ul class="vc-staff-reso-auto__list">' +
+      rows +
+      "</ul></article>"
+    );
+  }
+
+  function renderProfileResoDecisionMeta(item) {
+    if (!item || item.canAct) return "";
+    var status = String(item.status || "").toLowerCase();
+    if (status === "pending") return "";
+    var by = String(
+      (item.decidedBy && (item.decidedBy.displayName || item.decidedBy.username)) ||
+        item.decidedByLabel ||
+        item.decidedByName ||
+        "",
+    ).trim();
+    var when = "";
+    try {
+      if (item.decidedAt) {
+        when = new Date(item.decidedAt).toLocaleString("it-IT", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+    } catch (eWhen) {}
+    if (!by && !when) return "";
+    var verb =
+      status === "rejected"
+        ? "Rifiutata"
+        : status === "accepted"
+          ? "Accettata"
+          : status === "cancelled"
+            ? "Annullata"
+            : "Gestita";
+    var heading = by ? verb + " da " + by : verb;
+    return (
+      '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa vc-staff-inbox-detail__field--decision"><h4>' +
+      esc(heading) +
+      "</h4>" +
+      (when ? "<p>" + esc(when) + "</p>" : "") +
+      "</div>"
+    );
+  }
+
+  function renderProfileResoRolesChrono(item, payload) {
+    /* careerKeepPmHistory2: stessa finestra di Carriera — preferisci career.rolesHistory
+       (già slice lato profilo), non la cronologia grezza del workflow. */
+    var careerHist =
+      payload &&
+      payload.career &&
+      Array.isArray(payload.career.rolesHistory) &&
+      payload.career.rolesHistory.length
+        ? payload.career.rolesHistory
+        : null;
+    var raw =
+      careerHist ||
+      (item && Array.isArray(item.rolesHistory) && item.rolesHistory) ||
+      (payload && Array.isArray(payload.rolesHistory) && payload.rolesHistory) ||
+      [];
+    if (!raw.length) return "";
+    var role = (payload && payload.role) || {};
+    var roleKind = String(role.kind || "").toLowerCase();
+    var currentCareerRole =
+      (payload && payload.career && payload.career.currentRole) ||
+      (roleKind === "pm_only" ? "Partner Manager" : "") ||
+      (role && role.label) ||
+      (item && item.roleLabel) ||
+      "";
+    var track =
+      roleKind === "pm_only" || String((item && item.kind) || "").toLowerCase() === "p"
+        ? "pm"
+        : "staff";
+    var rows = dedupeCareerRows(
+      sliceToLatestCareer(raw, {
+        stillActive: true,
+        currentRole: currentCareerRole,
+        track: track,
+      }),
+    ).slice(0, 12);
+    if (!rows.length) return "";
+    var items = rows
+      .map(function (row) {
+        var to = String(row.to || row.newRole || row.role || "").trim();
+        var from = String(row.from || row.oldRole || "").trim();
+        if (/^\d{16,22}$/.test(to)) to = "";
+        if (/^\d{16,22}$/.test(from)) from = "";
+        if (!to && !from) return "";
+        var when = String(row.dateLabel || "").trim();
+        var label = to ? (from ? from + " → " + to : to) : from;
+        return (
+          "<li><span class=\"vc-staff-reso-hero__role-name\">" +
+          esc(label) +
+          "</span>" +
+          (when ? '<span class="vc-staff-reso-hero__role-date">' + esc(when) + "</span>" : "") +
+          "</li>"
+        );
+      })
+      .filter(Boolean)
+      .join("");
+    if (!items) return "";
+    return (
+      '<div class="vc-staff-reso-hero__roles" aria-label="Cronologia ruoli">' +
+      '<p class="vc-staff-reso-hero__roles-kicker">Cronologia ruoli</p>' +
+      '<ul class="vc-staff-reso-hero__roles-list">' +
+      items +
+      "</ul></div>"
+    );
+  }
+
+  function profileResoAvatarHtml(payload, item) {
+    var id = (payload && payload.identity) || {};
+    var uid = String((item && item.userId) || targetUserIdFromPayload(payload) || "").trim();
+    var url = String((item && item.avatarUrl) || resolveProfileAvatarUrl(id) || id.avatarUrl || "").trim();
+    if (global.VCStaffTools && typeof global.VCStaffTools.avatarImgHtml === "function") {
+      return global.VCStaffTools.avatarImgHtml(url, uid, { width: 64, height: 64 });
+    }
+    if (url) {
+      return (
+        '<img src="' +
+        esc(url) +
+        '" alt="" width="64" height="64" loading="eager" data-vc-avatar="1" data-user-id="' +
+        esc(uid) +
+        '" />'
+      );
+    }
+    return '<span class="vc-staff-avatar-fallback"><i class="fa fa-user" aria-hidden="true"></i></span>';
+  }
+
+  function profileResoActionButtons(item) {
+    if (!item || !item.canAct) return "";
+    var mid = esc(item.messageId || "");
+    var uid = esc(item.userId || "");
+    var kind = esc(item.kind || "");
+    var roleId = esc(item.roleId || "");
+    var actionKey = esc(item.actionKey || "");
+    var isPm = String(item.kind || "").toLowerCase() === "p";
+    var attrs =
+      ' data-message-id="' +
+      mid +
+      '" data-user-id="' +
+      uid +
+      '" data-kind="' +
+      kind +
+      '" data-role-id="' +
+      roleId +
+      '" data-action-key="' +
+      actionKey +
+      '"';
+    var alts = isPm
+      ? [
+          { key: "rc", label: "Richiamo", reason: "" },
+          { key: "dp", label: "Depex", reason: "" },
+        ]
+      : [
+          {
+            key: "vp",
+            label: "Valutazione positiva · limiti raggiunti",
+            reason: "Limiti settimanali completati.",
+          },
+          {
+            key: "vp",
+            label: "Valutazione positiva · limiti doppi",
+            reason: "Limiti settimanali superati almeno del doppio.",
+          },
+          {
+            key: "vn",
+            label: "Valutazione negativa · limiti non raggiunti",
+            reason: "Limiti settimanali non raggiunti.",
+          },
+          {
+            key: "vp",
+            label: "Valutazione positiva · compito sanzioni",
+            reason: "Compito sanzioni completato.",
+          },
+          {
+            key: "vp",
+            label: "Valutazione positiva · griglia",
+            reason: "Valutazione positiva da griglia attività/condotta.",
+          },
+          {
+            key: "vn",
+            label: "Valutazione negativa · griglia",
+            reason: "Valutazione negativa da griglia attività/condotta.",
+          },
+          { key: "nl", label: "Nulla", reason: "" },
+        ];
+    return (
+      '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--resoconti vc-staff-inbox-actions--forge" data-reso-actions="1">' +
+      '<p class="vc-staff-inbox-actions__hint">' +
+      esc(
+        isPm
+          ? "Conferma l’esito automatico oppure rifiuta per scegliere Richiamo o Depex."
+          : "Conferma le valutazioni automatiche oppure rifiuta per sceglierne altre.",
+      ) +
+      "</p>" +
+      '<div class="vc-staff-rank-forge__rail vc-staff-inbox-actions__decide vc-staff-inbox-actions__decide--pair">' +
+      '<button type="button" class="vc-staff-rank-forge__card is-up vc-staff-inbox-btn--confirm" data-reso-act="accept"' +
+      attrs +
+      ">" +
+      '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
+      '<span class="vc-staff-rank-forge__name">Conferma</span>' +
+      '<span class="vc-staff-rank-forge__hint">' +
+      esc(isPm ? "Applica l’esito proposto" : "Conferma le proposte automatiche") +
+      "</span></button>" +
+      '<button type="button" class="vc-staff-rank-forge__card is-down" data-reso-reject-ui="1"' +
+      attrs +
+      ">" +
+      '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-times"></i></span>' +
+      '<span class="vc-staff-rank-forge__name">Rifiuta</span>' +
+      '<span class="vc-staff-rank-forge__hint">' +
+      esc(isPm ? "Scegli Richiamo o Depex" : "Scegli un’altra valutazione") +
+      "</span></button>" +
+      "</div>" +
+      '<div class="vc-staff-inbox-alt vc-staff-inbox-alt--reso" hidden data-reso-alts="1" aria-label="Valutazioni alternative">' +
+      '<span class="vc-staff-inbox-alt__label">' +
+      esc(isPm ? "Scegli azione" : "Valutazioni alternative") +
+      "</span>" +
+      '<div class="vc-staff-inbox-alt__pills">' +
+      alts
+        .map(function (alt) {
+          return (
+            '<button type="button" class="vc-staff-inbox-btn vc-staff-inbox-btn--alt" data-reso-act="accept" data-override-key="' +
+            esc(alt.key) +
+            '"' +
+            (alt.reason ? ' data-reason="' + esc(alt.reason) + '"' : "") +
+            attrs +
+            ">" +
+            esc(alt.label) +
+            "</button>"
+          );
+        })
+        .join("") +
+      "</div></div></div>"
+    );
+  }
+
+  function renderProfileResoToolbar(state) {
+    var weeks = Array.isArray(state.weeks) ? state.weeks : [];
+    var weekIdx = -1;
+    weeks.forEach(function (w, i) {
+      if (String(w.weekKey || "") === String(state.week || "")) weekIdx = i;
+    });
+    var item = pickResoItem(state.items, state.track);
+    var weekLabel =
+      (item && item.weekLabel) ||
+      (weekIdx >= 0 && weeks[weekIdx] && weeks[weekIdx].label) ||
+      state.week ||
+      "—";
+    var tracks = availableResoTracks(state.items);
+    var html =
+      '<div class="vc-staff-profile-reso__toolbar" data-profile-reso-toolbar="1">' +
+      '<div class="vc-staff-profile-reso__week">' +
+      '<button type="button" class="vc-staff-profile-reso__nav" data-reso-week="-1" aria-label="Settimana precedente"' +
+      (weekIdx < 0 || weekIdx >= weeks.length - 1 ? " disabled" : "") +
+      ">\u2039</button>" +
+      '<span class="vc-staff-profile-reso__week-label">' +
+      esc(weekLabel) +
+      "</span>" +
+      '<button type="button" class="vc-staff-profile-reso__nav" data-reso-week="1" aria-label="Settimana successiva"' +
+      (weekIdx <= 0 ? " disabled" : "") +
+      ">\u203A</button></div>";
+    if (tracks.dual) {
+      var isPm = String(state.track || "").toLowerCase() === "p";
+      html +=
+        '<div class="vc-staff-profile-reso__track">' +
+        '<button type="button" class="vc-staff-profile-reso__nav" data-reso-track="prev" aria-label="Cambia traccia">\u2039</button>' +
+        '<span class="vc-staff-profile-reso__track-label">' +
+        (isPm ? "Partner Manager" : "Staff") +
+        "</span>" +
+        '<button type="button" class="vc-staff-profile-reso__nav" data-reso-track="next" aria-label="Cambia traccia">\u203A</button></div>';
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function renderProfileResoInboxBody(state, payload) {
+    var item = pickResoItem(state.items, state.track);
+    if (!item) {
+      return (
+        renderProfileResoToolbar(state) +
+        '<div class="vc-staff-pm-shop-spend__empty"><p>Nessun resoconto per questa settimana.</p></div>'
+      );
+    }
+    var isPm = String(item.kind || "").toLowerCase() === "p";
+    var kindLabel = isPm ? "Partner Manager" : "Staff";
+    var limits = resocontoRoleLimits(item);
+    var id = (payload && payload.identity) || {};
+    var displayName =
+      String(item.displayName || id.displayName || id.username || "Resoconto").trim() || "Resoconto";
+    var roleLabel =
+      String(item.roleLabel || "").trim() ||
+      (RESOCONTO_ROLE_LIMITS[String(item.roleId || "")] &&
+        RESOCONTO_ROLE_LIMITS[String(item.roleId || "")].label) ||
+      kindLabel;
+    var msgTip =
+      limits.messages != null
+        ? "Limite settimanale " +
+          limits.label +
+          ": " +
+          limits.messages +
+          " messaggi. Scambio ammesso: 100 msg ↔ 1 ora vocale."
+        : isPm
+          ? "I Partner Manager non hanno limite messaggi settimanale."
+          : "Nessun limite messaggi per questo ruolo.";
+    var oreTip =
+      limits.hours != null
+        ? "Limite settimanale " +
+          limits.label +
+          ": " +
+          formatHoursLimit(limits.hours) +
+          " ore in vocale. Scambio ammesso: 100 msg ↔ 1 ora."
+        : isPm
+          ? "I Partner Manager non hanno limite ore vocali settimanale."
+          : "Nessun limite ore vocali per questo ruolo.";
+    var sanzTip =
+      limits.sanctions != null
+        ? "Minimo settimanale " +
+          limits.label +
+          ": " +
+          limits.sanctions +
+          " sanzioni applicate (warn/mute/kick/ban)."
+        : "Nessun minimo sanzioni per questo ruolo.";
+    var partnerTip = "Minimo settimanale Partner Manager: 30 partner.";
+    var activityTip =
+      limits.messages != null
+        ? "Attività su limiti " +
+          limits.label +
+          " (" +
+          limits.messages +
+          " msg / " +
+          formatHoursLimit(limits.hours) +
+          "h, scambio 100↔1h): Sufficiente = 1×; Discreto = +150 msg/+1,5h; Buono = 2×; Ottimo = 2×+300/+2h; Eccellente = 3×."
+        : "Ruolo senza griglia messaggi/vocale: Attività = Nessun limite.";
+    var conductTip =
+      "Condotta da valutazioni ±: Ottimo ≥3 positive e 0 negative; Discreto se positive > negative; Sufficiente se pari o nessuna; Insufficiente se negative > positive; Non classificato se solo negative.";
+
+    var stats;
+    var gradeCards;
+    if (isPm) {
+      stats =
+        '<div class="vc-staff-reso-stats vc-staff-reso-stats--pm">' +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Partner</span>' +
+        resoTipHtml(partnerTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>' +
+        esc(item.weeklyPartners != null ? String(item.weeklyPartners) : "—") +
+        "</strong></div></div>" +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Minimo</span>' +
+        resoTipHtml(partnerTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>30</strong></div></div></div>';
+      gradeCards =
+        '<div class="vc-staff-reso-grades vc-staff-reso-grades--pm">' +
+        renderAutoValutazioniBox(item, true) +
+        "</div>";
+    } else {
+      stats =
+        '<div class="vc-staff-reso-stats">' +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Messaggi</span>' +
+        resoTipHtml(msgTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>' +
+        esc(item.weeklyMessages != null ? String(item.weeklyMessages) : "—") +
+        "</strong></div></div>" +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Ore vocali</span>' +
+        resoTipHtml(oreTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>' +
+        esc(formatResoVoiceHours(item.weeklyVoiceSeconds)) +
+        "</strong></div></div>" +
+        '<div class="vc-staff-reso-stat"><div class="vc-staff-reso-stat__head"><span>Sanzioni</span>' +
+        resoTipHtml(sanzTip) +
+        '</div><div class="vc-staff-reso-stat__value"><strong>' +
+        esc(item.weeklySanctions != null ? String(item.weeklySanctions) : "—") +
+        "</strong></div></div></div>";
+      gradeCards =
+        '<div class="vc-staff-reso-grades">' +
+        '<article class="vc-staff-reso-grade"><div class="vc-staff-reso-grade__head"><span>Attività</span>' +
+        resoTipHtml(activityTip) +
+        "</div><strong>" +
+        esc(item.activityGrade || "—") +
+        "</strong></article>" +
+        '<article class="vc-staff-reso-grade"><div class="vc-staff-reso-grade__head"><span>Condotta</span>' +
+        resoTipHtml(conductTip) +
+        "</div><strong>" +
+        esc(item.behaviorGrade || "—") +
+        "</strong></article>" +
+        renderAutoValutazioniBox(item, false) +
+        "</div>";
+    }
+
+    var rolesChrono = renderProfileResoRolesChrono(item, payload);
+    var statusLabel = String(item.statusLabel || item.status || "").trim();
+
+    return (
+      renderProfileResoToolbar(state) +
+      '<div class="vc-staff-reso-hero vc-staff-reso-hero--reso' +
+      (rolesChrono ? " has-roles" : "") +
+      '">' +
+      '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--lg">' +
+      profileResoAvatarHtml(payload, item) +
+      '</span><div class="vc-staff-reso-hero__main">' +
+      '<h3 class="vc-staff-reso-hero__name">' +
+      esc(displayName) +
+      "</h3>" +
+      '<p class="vc-staff-reso-hero__meta">' +
+      esc(roleLabel) +
+      (statusLabel ? " · " + esc(statusLabel) : "") +
+      "</p></div>" +
+      rolesChrono +
+      "</div>" +
+      stats +
+      (isPm ? "" : renderProfileCostanzaChart(item.costanzaChart)) +
+      '<section class="vc-staff-reso-section"><div class="vc-staff-reso-section__head"><h3>' +
+      (isPm ? "Esito" : "Valutazione") +
+      "</h3></div>" +
+      gradeCards +
+      "</section>" +
+      renderProfileResoDecisionMeta(item)
+    );
+  }
+
+  function closeProfileResoSheet() {
+    var sheet = global.document.getElementById("vc-staff-reso-sheet");
+    if (sheet && sheet.getAttribute("data-profile-reso") === "1") {
+      try {
+        sheet.classList.remove("is-in");
+        sheet.hidden = true;
+        sheet.setAttribute("hidden", "");
+        sheet.style.setProperty("display", "none", "important");
+      } catch (eHide) {}
+      try {
+        if (sheet.parentNode) sheet.parentNode.removeChild(sheet);
+      } catch (eRm) {}
+    }
+    try {
+      global.document.documentElement.classList.remove("vc-staff-reso-sheet-open");
+    } catch (eCls) {}
+    try {
+      if (typeof global.__vcSyncLoaderScrollLock === "function") global.__vcSyncLoaderScrollLock();
+      else if (typeof global.__vcUnpinPageScroll === "function") global.__vcUnpinPageScroll();
+    } catch (eUnpin) {}
+  }
+
+  function ensureProfileResoSheet() {
+    closeProfileResoSheet();
+    var sheet = global.document.createElement("div");
+    sheet.id = "vc-staff-reso-sheet";
+    sheet.className = "vc-staff-reso-sheet is-reso-sheet";
+    sheet.setAttribute("data-profile-reso", "1");
+    sheet.setAttribute("data-reso-bound", "profileResoInboxUi1");
+    sheet.hidden = true;
+    sheet.innerHTML =
+      '<button type="button" class="vc-staff-reso-sheet__backdrop" data-reso-close="1" aria-label="Chiudi"></button>' +
+      '<div class="vc-staff-reso-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="vc-staff-reso-title">' +
+      '<div class="vc-staff-reso-sheet__head">' +
+      '<div><p class="vc-staff-reso-sheet__kicker">Resoconto</p>' +
+      '<h2 id="vc-staff-reso-title" class="vc-staff-reso-sheet__title"></h2></div>' +
+      '<button type="button" class="vc-staff-reso-sheet__close" data-reso-close="1" aria-label="Chiudi">\u2715</button>' +
+      "</div>" +
+      '<div class="vc-staff-reso-sheet__body" id="vc-staff-reso-body"></div>' +
+      '<div class="vc-staff-reso-sheet__foot" id="vc-staff-reso-foot"></div>' +
+      "</div>";
+    global.document.body.appendChild(sheet);
+    sheet.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      if (t.closest("[data-reso-close]")) {
+        ev.preventDefault();
+        closeProfileResoSheet();
+        return;
+      }
+      var weekBtn = t.closest("[data-reso-week]");
+      if (weekBtn && sheet.contains(weekBtn) && !weekBtn.disabled) {
+        ev.preventDefault();
+        var delta = Number(weekBtn.getAttribute("data-reso-week") || "0");
+        var st = sheet.__vcResoState || {};
+        var weeks = Array.isArray(st.weeks) ? st.weeks : [];
+        var idx = -1;
+        weeks.forEach(function (w, i) {
+          if (String(w.weekKey || "") === String(st.week || "")) idx = i;
+        });
+        var next = idx + (delta < 0 ? 1 : -1);
+        if (next < 0 || next >= weeks.length) return;
+        loadProfileResocontoIntoSheet(sheet, { week: weeks[next].weekKey });
+        return;
+      }
+      var trackBtn = t.closest("[data-reso-track]");
+      if (trackBtn && sheet.contains(trackBtn)) {
+        ev.preventDefault();
+        var st2 = sheet.__vcResoState || {};
+        st2.track = String(st2.track || "s").toLowerCase() === "p" ? "s" : "p";
+        sheet.__vcResoState = st2;
+        paintProfileReso(sheet);
+        return;
+      }
+      var rejectUi = t.closest("[data-reso-reject-ui]");
+      if (rejectUi && sheet.contains(rejectUi)) {
+        ev.preventDefault();
+        var alts = sheet.querySelector("[data-reso-alts]");
+        if (alts) {
+          alts.hidden = false;
+          alts.removeAttribute("hidden");
+        }
+        var actions = sheet.querySelector("[data-reso-actions]");
+        if (actions) actions.classList.add("is-rejected-plan");
+        rejectUi.disabled = true;
+        rejectUi.setAttribute("aria-pressed", "true");
+        var box = sheet.querySelector("#vc-staff-reso-auto-box");
+        if (box) {
+          box.classList.add("is-cleared");
+          var list = box.querySelector(".vc-staff-reso-auto__list");
+          if (list) {
+            list.innerHTML =
+              '<p class="vc-staff-reso-auto__empty">Esito automatico annullato. Scegli un’opzione sotto.</p>';
+          }
+        }
+        return;
+      }
+      var actBtn = t.closest("[data-reso-act]");
+      if (!actBtn || !sheet.contains(actBtn) || actBtn.disabled) return;
+      ev.preventDefault();
+      if (sheet.__vcResoBusy) return;
+      var action = String(actBtn.getAttribute("data-reso-act") || "");
+      var messageId = String(actBtn.getAttribute("data-message-id") || "").trim();
+      var userId = String(actBtn.getAttribute("data-user-id") || "").trim();
+      var kind = String(actBtn.getAttribute("data-kind") || "s").trim();
+      if (!messageId || !userId || (action !== "accept" && action !== "reject")) return;
+      sheet.__vcResoBusy = true;
+      actBtn.disabled = true;
+      var body = {
+        action: action,
+        messageId: messageId,
+        userId: userId,
+        kind: kind,
+        roleId: String(actBtn.getAttribute("data-role-id") || ""),
+        actionKey: String(actBtn.getAttribute("data-action-key") || ""),
+      };
+      var override = String(actBtn.getAttribute("data-override-key") || "").trim();
+      if (override) body.overrideActionKey = override;
+      var reason = String(actBtn.getAttribute("data-reason") || "").trim();
+      if (reason) body.reason = reason;
+      postProfileResoDecide(body)
+        .then(function (out) {
+          sheet.__vcResoBusy = false;
+          if (!sheet.isConnected) return;
+          if (!out.res.ok || !out.data || !out.data.ok) {
+            try {
+              if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
+                global.VcSiteToast.show(
+                  (out.data && out.data.message) || "Operazione non riuscita.",
+                  true,
+                );
+              }
+            } catch (eT) {}
+            actBtn.disabled = false;
+            return;
+          }
+          loadProfileResocontoIntoSheet(sheet, {});
+        })
+        .catch(function () {
+          sheet.__vcResoBusy = false;
+          actBtn.disabled = false;
+        });
+    });
+    global.document.addEventListener(
+      "keydown",
+      function onEsc(ev) {
+        if (ev.key !== "Escape") return;
+        if (!sheet.isConnected || sheet.hidden) return;
+        ev.preventDefault();
+        closeProfileResoSheet();
+        global.document.removeEventListener("keydown", onEsc, true);
+      },
+      true,
+    );
+    return sheet;
+  }
+
+  function openProfileResoSheet(payload, root) {
+    closeStatSheet();
+    var sheet = ensureProfileResoSheet();
+    sheet.__vcStatPayload = payload;
+    sheet.__vcStatRoot = root;
+    sheet.__vcStatKind = "resoconto";
+    sheet.hidden = false;
+    try {
+      sheet.removeAttribute("hidden");
+      sheet.style.removeProperty("display");
+      sheet.style.removeProperty("pointer-events");
+    } catch (eSt) {}
+    try {
+      global.document.documentElement.classList.add("vc-staff-reso-sheet-open");
+    } catch (eCls) {}
+    try {
+      if (typeof global.__vcSyncLoaderScrollLock === "function") global.__vcSyncLoaderScrollLock();
+      else if (typeof global.__vcPinPageScroll === "function") global.__vcPinPageScroll();
+    } catch (ePin) {}
+    unlockSheetPageChrome();
+    global.requestAnimationFrame(function () {
+      try {
+        sheet.classList.add("is-in");
+      } catch (eIn) {}
+    });
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    if (body) body.innerHTML = '<p class="vc-staff-stat-sheet__hint">Carico resoconto…</p>';
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    if (foot) foot.innerHTML = "";
+    loadProfileResocontoIntoSheet(sheet, {});
+  }
+
+  function paintProfileReso(sheet) {
+    if (!sheet || !sheet.__vcResoState) return;
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    var kicker = sheet.querySelector(".vc-staff-reso-sheet__kicker");
+    var item = pickResoItem(sheet.__vcResoState.items, sheet.__vcResoState.track);
+    var isPm = item && String(item.kind || "").toLowerCase() === "p";
+    var kindLabel = isPm ? "Partner Manager" : "Staff";
+    if (kicker) {
+      kicker.textContent =
+        "Resoconto · " + kindLabel + (item && item.weekLabel ? " · " + item.weekLabel : "");
+    }
+    if (body) {
+      body.innerHTML = renderProfileResoInboxBody(sheet.__vcResoState, sheet.__vcStatPayload || {});
+    }
+    if (foot) {
+      foot.innerHTML = item ? profileResoActionButtons(item) : "";
+    }
+    try {
+      if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
+        global.VcAvatarFallback.scan(sheet);
+      }
+    } catch (eAv) {}
+  }
+
+  function fetchProfileResoconto(userId, week) {
+    var token = getStaffToken();
+    if (!token) return Promise.reject(new Error("no_token"));
+    var url =
+      workflowsApiBase() +
+      "?queue=resoconti&scope=all&page=1&pageSize=10&userId=" +
+      encodeURIComponent(String(userId || ""));
+    if (week) url += "&week=" + encodeURIComponent(String(week));
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer =
+      ctrl &&
+      global.setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (eAb) {}
+      }, 14000);
+    return fetch(url, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { res: res, data: data };
+        });
+      })
+      .finally(function () {
+        if (timer) global.clearTimeout(timer);
+      });
+  }
+
+  function postProfileResoDecide(body) {
+    var token = getStaffToken();
+    if (!token) return Promise.reject(new Error("no_token"));
+    return fetch(workflowsApiBase(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(Object.assign({ queue: "resoconti" }, body || {})),
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { res: res, data: data };
+      });
+    });
+  }
+
+  function loadProfileResocontoIntoSheet(sheet, opts) {
+    opts = opts || {};
+    if (!sheet) return;
+    var payload = sheet.__vcStatPayload || {};
+    var uid = targetUserIdFromPayload(payload);
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    if (!/^\d{17,20}$/.test(uid)) {
+      if (body) body.innerHTML = '<p class="vc-staff-stat-sheet__hint is-error">Profilo non valido.</p>';
+      if (foot) foot.innerHTML = "";
+      return;
+    }
+    var prev = sheet.__vcResoState || {};
+    var week = opts.week != null ? opts.week : prev.week || "";
+    if (body) body.innerHTML = '<p class="vc-staff-stat-sheet__hint">Carico resoconto…</p>';
+    if (foot) foot.innerHTML = "";
+    fetchProfileResoconto(uid, week)
+      .then(function (out) {
+        if (!sheet.isConnected) return;
+        if (!out.res.ok || !out.data || !out.data.ok) {
+          if (body) {
+            body.innerHTML =
+              '<p class="vc-staff-stat-sheet__hint is-error">' +
+              esc((out.data && out.data.message) || "Resoconto non disponibile.") +
+              "</p>";
+          }
+          return;
+        }
+        var items = Array.isArray(out.data.items) ? out.data.items : [];
+        var tracks = availableResoTracks(items);
+        var track = prev.track || "";
+        if (track === "p" && !tracks.pm) track = tracks.staff ? "s" : "";
+        if (track === "s" && !tracks.staff) track = tracks.pm ? "p" : "";
+        if (!track) track = tracks.pm && !tracks.staff ? "p" : "s";
+        sheet.__vcResoState = {
+          week: out.data.week || week || "",
+          weeks: Array.isArray(out.data.weeks) ? out.data.weeks : [],
+          items: items,
+          track: track,
+        };
+        paintProfileReso(sheet);
+      })
+      .catch(function () {
+        if (!sheet.isConnected) return;
+        if (body) {
+          body.innerHTML =
+            '<p class="vc-staff-stat-sheet__hint is-error">Errore nel caricamento.</p>';
+        }
+      });
+  }
+
+  function fetchPmShopRedeems(userId) {
+    var token = getStaffToken();
+    if (!token) return Promise.reject(new Error("no_token"));
+    var url = pmShopApiBase() + "?userId=" + encodeURIComponent(String(userId || "")) + "&limit=30";
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer =
+      ctrl &&
+      global.setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (eAb) {}
+      }, 12000);
+    return fetch(url, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { res: res, data: data };
+        });
+      })
+      .finally(function () {
+        if (timer) global.clearTimeout(timer);
+      });
+  }
+
+  function postPmShopRedeem(body) {
+    var token = getStaffToken();
+    if (!token) return Promise.reject(new Error("no_token"));
+    return fetch(pmShopApiBase(), {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
@@ -1483,6 +3022,40 @@
       }
       return undefined;
     });
+  }
+
+  /* pmPointsToast1: feedback punti → toast float (niente status inline nella sheet) */
+  function showProfileToast(msg, isError) {
+    var text = String(msg || "").trim();
+    if (!text) return false;
+    try {
+      if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
+        global.VcSiteToast.show(text, Boolean(isError));
+        return true;
+      }
+    } catch (e1) {}
+    try {
+      if (typeof global.__vcShowSiteToast === "function") {
+        global.__vcShowSiteToast(text, Boolean(isError));
+        return true;
+      }
+    } catch (e2) {}
+    try {
+      var tools = global.VcStaffTools;
+      if (tools && typeof tools.showStaffToast === "function") {
+        tools.showStaffToast(text, Boolean(isError));
+        return true;
+      }
+      if (tools && typeof tools.showToast === "function") {
+        tools.showToast(text, Boolean(isError));
+        return true;
+      }
+      if (tools && typeof tools.setStatus === "function") {
+        tools.setStatus("vc-staff-profile-toast", text, Boolean(isError));
+        return true;
+      }
+    } catch (e3) {}
+    return false;
   }
 
   function askReasonAndConfirm(opts) {
@@ -1610,6 +3183,600 @@
     );
   }
 
+  /* pauseReviewProfile1 + pauseReviewHistory1: form HS + lista storico come Inbox Pause */
+  function pauseReviewStatusLabel(item) {
+    if (!item) return "In attesa";
+    if (item.statusLabel) return String(item.statusLabel).trim() || "In attesa";
+    var st = String(item.status || "pending").toLowerCase();
+    if (st === "accepted") return "Accettata";
+    if (st === "rejected") return "Rifiutata";
+    if (st === "cancelled" || st === "canceled") return "Annullata";
+    var phase = String(item.phase || "").toLowerCase();
+    if (phase === "active") return "In corso";
+    if (phase === "planned") return "Programmata";
+    if (phase === "ended") return "Finita";
+    return "In attesa";
+  }
+
+  function pauseReviewStatusClass(item) {
+    var st = String((item && item.status) || "pending").toLowerCase();
+    if (st === "accepted") return "is-ok";
+    if (st === "rejected") return "is-no";
+    if (st === "cancelled" || st === "canceled") return "is-muted";
+    return "is-pending";
+  }
+
+  function pauseReviewRoleBadgesHtml(item) {
+    var labels = [];
+    var ruolo = String((item && (item.ruolo || item.ruoloLabel || item.ruoloRichiesto)) || "").trim();
+    if (ruolo) labels.push(ruolo);
+    if (!labels.length && Array.isArray(item && item.roles)) {
+      item.roles.forEach(function (r) {
+        var lab = String((r && (r.label || r.name || r)) || "").trim();
+        if (lab) labels.push(lab);
+      });
+    }
+    if (!labels.length) return "";
+    return labels
+      .map(function (lab) {
+        return (
+          '<span class="vc-staff-inbox-type-badge vc-staff-inbox-type-badge--pause-role">' +
+          esc(lab) +
+          "</span>"
+        );
+      })
+      .join("");
+  }
+
+  function pauseItemKey(item) {
+    if (!item) return "";
+    var id = String(item.id || item.pauseId || "").trim();
+    if (id) return "id:" + id;
+    return (
+      "r:" +
+      String(item.start || item.startIso || "") +
+      "|" +
+      String(item.end || item.endIso || "") +
+      "|" +
+      String(item.status || "")
+    );
+  }
+
+  function pauseReviewActionButtons(item) {
+    if (!item || !item.canAct) return "";
+    var uid = esc(String(item.userId || ""));
+    var pid = esc(String(item.id || item.pauseId || ""));
+    if (!uid || !pid) return "";
+    return (
+      '<div class="vc-staff-inbox-actions vc-staff-inbox-actions--forge">' +
+      '<div class="vc-staff-rank-forge__rail">' +
+      '<button type="button" class="vc-staff-rank-forge__card is-up" data-pause-act="accept" data-user-id="' +
+      uid +
+      '" data-id="' +
+      pid +
+      '">' +
+      '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-check"></i></span>' +
+      '<span class="vc-staff-rank-forge__name">Accetta</span>' +
+      '<span class="vc-staff-rank-forge__hint">Approva la pausa richiesta</span></button>' +
+      '<button type="button" class="vc-staff-rank-forge__card is-down" data-pause-act="reject" data-user-id="' +
+      uid +
+      '" data-id="' +
+      pid +
+      '">' +
+      '<span class="vc-staff-rank-forge__ico" aria-hidden="true"><i class="fa fa-times"></i></span>' +
+      '<span class="vc-staff-rank-forge__name">Rifiuta</span>' +
+      '<span class="vc-staff-rank-forge__hint">Chiudi senza accettare</span></button>' +
+      "</div></div>"
+    );
+  }
+
+  function mergePauseReviewItems(apiItems, payload) {
+    var out = [];
+    var seen = {};
+    var uid = targetUserIdFromPayload(payload);
+    (Array.isArray(apiItems) ? apiItems : []).forEach(function (it) {
+      if (!it) return;
+      var row = Object.assign({}, it);
+      if (!row.userId && uid) row.userId = uid;
+      var key = pauseItemKey(row);
+      if (!key || seen[key]) return;
+      seen[key] = true;
+      out.push(row);
+    });
+    var hist = historyFromPayloadOrDom(payload, null);
+    (Array.isArray(hist) ? hist : []).forEach(function (h) {
+      if (!h) return;
+      var row = {
+        id: "",
+        pauseId: "",
+        userId: uid,
+        start: String(h.start || "").trim(),
+        end: String(h.end || "").trim(),
+        startIso: String(h.startIso || "").trim(),
+        endIso: String(h.endIso || "").trim(),
+        status: String(h.status || "accepted").trim() || "accepted",
+        statusLabel: h.statusLabel || "",
+        phase: h.phase || "",
+        motivazione: String(h.motivazione || h.reason || "").trim(),
+        ruolo: String(h.ruolo || "").trim(),
+        canAct: false,
+        fromHistory: true,
+      };
+      var key = pauseItemKey(row);
+      /* dedupe su date+status anche se workflow ha id */
+      var dateKey =
+        "r:" +
+        String(row.start || row.startIso || "") +
+        "|" +
+        String(row.end || row.endIso || "") +
+        "|" +
+        String(row.status || "");
+      if (seen[key] || seen[dateKey]) return;
+      seen[key] = true;
+      seen[dateKey] = true;
+      out.push(row);
+    });
+    out.sort(function (a, b) {
+      var ap = String((a && a.status) || "").toLowerCase() === "pending" ? 0 : 1;
+      var bp = String((b && b.status) || "").toLowerCase() === "pending" ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      var as = String((a && (a.startIso || a.start)) || "");
+      var bs = String((b && (b.startIso || b.start)) || "");
+      return bs.localeCompare(as);
+    });
+    return out;
+  }
+
+  function renderProfilePauseListHtml(items, selectedKey) {
+    var rows = Array.isArray(items) ? items : [];
+    if (!rows.length) {
+      return '<p class="vc-staff-stat-sheet__hint">Nessuna richiesta di pausa in archivio per questo staff.</p>';
+    }
+    return (
+      '<ul class="vc-staff-pause-review-list" role="list">' +
+      rows
+        .map(function (it) {
+          var key = pauseItemKey(it);
+          var range =
+            it.start && it.end
+              ? String(it.start) + " \u2192 " + String(it.end)
+              : it.startIso && it.endIso
+                ? String(it.startIso) + " \u2192 " + String(it.endIso)
+                : "Date non disponibili";
+          var motive = String(it.motivazione || it.preview || it.body || "").trim();
+          if (motive.length > 110) motive = motive.slice(0, 107) + "\u2026";
+          var selected = selectedKey && selectedKey === key;
+          return (
+            '<li class="vc-staff-pause-review-list__item' +
+            (selected ? " is-selected" : "") +
+            (String(it.status || "").toLowerCase() === "pending" ? " is-pending" : "") +
+            '" role="button" tabindex="0" data-pause-pick="' +
+            esc(key) +
+            '">' +
+            '<div class="vc-staff-pause-review-list__main">' +
+            '<p class="vc-staff-pause-review-list__range">' +
+            esc(range) +
+            "</p>" +
+            (pauseReviewRoleBadgesHtml(it) || "") +
+            (motive
+              ? '<p class="vc-staff-pause-review-list__motive">' + esc(motive) + "</p>"
+              : "") +
+            "</div>" +
+            '<span class="vc-staff-inbox-status ' +
+            pauseReviewStatusClass(it) +
+            '">' +
+            esc(pauseReviewStatusLabel(it)) +
+            "</span></li>"
+          );
+        })
+        .join("") +
+      "</ul>"
+    );
+  }
+
+  function renderProfilePauseDetailHtml(item, payload) {
+    if (!item) {
+      return '<p class="vc-staff-stat-sheet__hint">Seleziona una richiesta.</p>';
+    }
+    var displayName =
+      String((item && item.displayName) || "").trim() ||
+      String((((payload || {}).identity || {}).displayName) || "").trim() ||
+      "Staff";
+    var rangeMeta =
+      item.start && item.end
+        ? String(item.start) + " \u2192 " + String(item.end)
+        : String(item.startIso || "") && String(item.endIso || "")
+          ? String(item.startIso) + " \u2192 " + String(item.endIso)
+          : "";
+    var motivazione = String(
+      item.motivazione || item.content || item.body || item.preview || item.reason || "",
+    ).trim();
+    var avatarHtml = "";
+    try {
+      if (global.VCStaffTools && typeof global.VCStaffTools.avatarImgHtml === "function") {
+        avatarHtml = global.VCStaffTools.avatarImgHtml(item.avatarUrl, item.userId, {
+          width: 56,
+          height: 56,
+        });
+      }
+    } catch (eAv) {}
+    if (!avatarHtml) {
+      avatarHtml =
+        '<span class="vc-staff-avatar-fallback" aria-hidden="true">' +
+        esc(displayName.slice(0, 1).toUpperCase()) +
+        "</span>";
+    }
+    return (
+      '<button type="button" class="vc-staff-pause-review-back" data-pause-back="1">\u2190 Tutte le richieste</button>' +
+      '<div class="vc-staff-reso-hero vc-staff-reso-hero--pause">' +
+      '<span class="vc-staff-avatar-wrap vc-staff-avatar-wrap--lg">' +
+      avatarHtml +
+      '</span><div class="vc-staff-reso-hero__main">' +
+      '<div class="vc-staff-reso-hero__name-row">' +
+      '<h3 class="vc-staff-reso-hero__name">' +
+      esc(displayName) +
+      "</h3>" +
+      pauseReviewRoleBadgesHtml(item) +
+      "</div>" +
+      (rangeMeta ? '<p class="vc-staff-reso-hero__meta">' + esc(rangeMeta) + "</p>" : "") +
+      "</div>" +
+      '<span class="vc-staff-inbox-status vc-staff-reso-hero__status ' +
+      pauseReviewStatusClass(item) +
+      '">' +
+      esc(pauseReviewStatusLabel(item)) +
+      "</span></div>" +
+      (motivazione
+        ? '<div class="vc-staff-inbox-detail__field vc-staff-inbox-detail__qa"><h4>Motivazione</h4><div class="vc-staff-inbox-detail__answer">' +
+          esc(motivazione).replace(/\n/g, "<br>") +
+          "</div></div>"
+        : '<p class="vc-staff-stat-sheet__hint">Nessuna motivazione registrata.</p>')
+    );
+  }
+
+  function renderProfilePauseReviewBody(sheet) {
+    var payload = (sheet && sheet.__vcStatPayload) || {};
+    var items = (sheet && sheet.__vcPauseItems) || [];
+    var view = (sheet && sheet.__vcPauseView) || "list";
+    var item = (sheet && sheet.__vcPauseItem) || null;
+    var hist = historyFromPayloadOrDom(payload, sheet && sheet.__vcStatRoot);
+    var ranges = resolvePauseRanges(hist);
+    var initial = pickCalendarMonth(ranges);
+    var head =
+      pauseTradeHtml(payload) +
+      '<div data-pause-cal-host class="vc-staff-pause-review-cal">' +
+      buildMiniCalHtml(hist, initial.y, initial.m) +
+      "</div>";
+    if (view === "detail" && item) {
+      return head + renderProfilePauseDetailHtml(item, payload);
+    }
+    return (
+      head +
+      '<div class="vc-staff-pause-review-section">' +
+      '<p class="vc-staff-pause-review-section__title">Richieste</p>' +
+      renderProfilePauseListHtml(items, item ? pauseItemKey(item) : "") +
+      "</div>"
+    );
+  }
+
+  function fetchProfilePauseReview(userId) {
+    var token = getStaffToken();
+    if (!token) return Promise.reject(new Error("no_token"));
+    var url =
+      workflowsApiBase() +
+      "?queue=pause&scope=all&page=1&pageSize=40&userId=" +
+      encodeURIComponent(String(userId || ""));
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer =
+      ctrl &&
+      global.setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (eAb) {}
+      }, 14000);
+    return fetch(url, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { res: res, data: data };
+        });
+      })
+      .finally(function () {
+        if (timer) global.clearTimeout(timer);
+      });
+  }
+
+  function postProfilePauseDecide(body) {
+    var token = getStaffToken();
+    if (!token) return Promise.reject(new Error("no_token"));
+    return fetch(workflowsApiBase(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(Object.assign({ queue: "pause" }, body || {})),
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { res: res, data: data };
+      });
+    });
+  }
+
+  function paintProfilePauseReview(sheet) {
+    if (!sheet) return;
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    var kicker = sheet.querySelector(".vc-staff-reso-sheet__kicker");
+    var titleEl = sheet.querySelector("#vc-staff-reso-title");
+    var item = sheet.__vcPauseItem || null;
+    var view = sheet.__vcPauseView || "list";
+    if (kicker) {
+      kicker.textContent =
+        view === "detail" ? "Richiesta pausa" : "Pause \u00b7 richieste";
+    }
+    if (titleEl) {
+      titleEl.textContent = "";
+      titleEl.setAttribute("aria-hidden", "true");
+    }
+    if (body) {
+      body.innerHTML = renderProfilePauseReviewBody(sheet);
+    }
+    if (foot) {
+      foot.innerHTML = view === "detail" && item ? pauseReviewActionButtons(item) : "";
+    }
+    try {
+      if (global.VcAvatarFallback && typeof global.VcAvatarFallback.scan === "function") {
+        global.VcAvatarFallback.scan(sheet);
+      }
+    } catch (eAv) {}
+  }
+
+  function loadProfilePauseIntoSheet(sheet) {
+    if (!sheet) return;
+    var payload = sheet.__vcStatPayload || {};
+    var uid = targetUserIdFromPayload(payload);
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    if (!/^\d{17,20}$/.test(uid)) {
+      if (body) body.innerHTML = '<p class="vc-staff-stat-sheet__hint is-error">Profilo non valido.</p>';
+      if (foot) foot.innerHTML = "";
+      return;
+    }
+    if (body) body.innerHTML = '<p class="vc-staff-stat-sheet__hint">Carico richieste pausa\u2026</p>';
+    if (foot) foot.innerHTML = "";
+    fetchProfilePauseReview(uid)
+      .then(function (out) {
+        if (!sheet.isConnected) return;
+        var apiItems =
+          out && out.res && out.res.ok && out.data && out.data.ok && Array.isArray(out.data.items)
+            ? out.data.items
+            : [];
+        if (out && out.res && !out.res.ok && body && !apiItems.length) {
+          /* fallback: almeno storico profilo */
+        }
+        var merged = mergePauseReviewItems(apiItems, payload);
+        sheet.__vcPauseItems = merged;
+        var pending = merged.filter(function (it) {
+          return String((it && it.status) || "").toLowerCase() === "pending";
+        });
+        /* Lista sempre (anche con pending); auto-open solo se 1 pending e nient'altro? No: lista. */
+        sheet.__vcPauseView = "list";
+        sheet.__vcPauseItem = pending[0] || null;
+        paintProfilePauseReview(sheet);
+      })
+      .catch(function () {
+        if (!sheet.isConnected) return;
+        var merged = mergePauseReviewItems([], payload);
+        sheet.__vcPauseItems = merged;
+        sheet.__vcPauseView = "list";
+        sheet.__vcPauseItem = null;
+        if (!merged.length && body) {
+          body.innerHTML =
+            '<p class="vc-staff-stat-sheet__hint is-error">Errore nel caricamento.</p>';
+          return;
+        }
+        paintProfilePauseReview(sheet);
+      });
+  }
+
+  function ensureProfilePauseSheet() {
+    closeProfileResoSheet();
+    var sheet = global.document.createElement("div");
+    sheet.id = "vc-staff-reso-sheet";
+    sheet.className = "vc-staff-reso-sheet is-pause-sheet";
+    sheet.setAttribute("data-profile-reso", "1");
+    sheet.setAttribute("data-profile-pause", "1");
+    sheet.setAttribute("data-reso-bound", "pauseReviewHistory1");
+    sheet.hidden = true;
+    sheet.__vcPauseView = "list";
+    sheet.__vcPauseItems = [];
+    sheet.__vcPauseItem = null;
+    sheet.innerHTML =
+      '<button type="button" class="vc-staff-reso-sheet__backdrop" data-reso-close="1" aria-label="Chiudi"></button>' +
+      '<div class="vc-staff-reso-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="vc-staff-reso-title">' +
+      '<div class="vc-staff-reso-sheet__head">' +
+      '<div><p class="vc-staff-reso-sheet__kicker">Pause \u00b7 richieste</p>' +
+      '<h2 id="vc-staff-reso-title" class="vc-staff-reso-sheet__title"></h2></div>' +
+      '<button type="button" class="vc-staff-reso-sheet__close" data-reso-close="1" aria-label="Chiudi">\u2715</button>' +
+      "</div>" +
+      '<div class="vc-staff-reso-sheet__body" id="vc-staff-reso-body"></div>' +
+      '<div class="vc-staff-reso-sheet__foot" id="vc-staff-reso-foot"></div>' +
+      "</div>";
+    global.document.body.appendChild(sheet);
+    sheet.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      if (t.closest("[data-reso-close]")) {
+        ev.preventDefault();
+        closeProfileResoSheet();
+        return;
+      }
+      var back = t.closest("[data-pause-back]");
+      if (back && sheet.contains(back)) {
+        ev.preventDefault();
+        sheet.__vcPauseView = "list";
+        sheet.__vcPauseItem = null;
+        paintProfilePauseReview(sheet);
+        return;
+      }
+      var pick = t.closest("[data-pause-pick]");
+      if (pick && sheet.contains(pick)) {
+        ev.preventDefault();
+        var want = String(pick.getAttribute("data-pause-pick") || "").trim();
+        var found = null;
+        (sheet.__vcPauseItems || []).forEach(function (it) {
+          if (!found && pauseItemKey(it) === want) found = it;
+        });
+        if (!found) return;
+        sheet.__vcPauseItem = found;
+        sheet.__vcPauseView = "detail";
+        paintProfilePauseReview(sheet);
+        return;
+      }
+      var nav = t.closest("[data-cal-nav]");
+      if (nav && sheet.contains(nav)) {
+        ev.preventDefault();
+        var delta = Number(nav.getAttribute("data-cal-nav") || "0");
+        var cal = sheet.querySelector(".vc-staff-mini-cal");
+        if (!cal) return;
+        var cy = Number(cal.getAttribute("data-y") || "0");
+        var cm = Number(cal.getAttribute("data-m") || "0");
+        cm += delta;
+        if (cm < 1) {
+          cm = 12;
+          cy -= 1;
+        } else if (cm > 12) {
+          cm = 1;
+          cy += 1;
+        }
+        var hist = historyFromPayloadOrDom(sheet.__vcStatPayload || {}, sheet.__vcStatRoot || null);
+        var calHost = sheet.querySelector("[data-pause-cal-host]");
+        if (calHost) calHost.innerHTML = buildMiniCalHtml(hist, cy, cm);
+        return;
+      }
+      var actBtn = t.closest("[data-pause-act]");
+      if (!actBtn || !sheet.contains(actBtn) || actBtn.disabled) return;
+      ev.preventDefault();
+      if (sheet.__vcPauseBusy) return;
+      var action = String(actBtn.getAttribute("data-pause-act") || "");
+      var userId = String(actBtn.getAttribute("data-user-id") || "").trim();
+      var pauseId = String(actBtn.getAttribute("data-id") || "").trim();
+      if (!userId || !pauseId || (action !== "accept" && action !== "reject")) return;
+      var confirmOpts =
+        action === "reject"
+          ? {
+              title: "Rifiuta pausa",
+              message: "Rifiutare questa richiesta di pausa?",
+              confirmLabel: "Rifiuta",
+              danger: true,
+            }
+          : {
+              title: "Accetta pausa",
+              message: "Accettare questa richiesta di pausa?",
+              confirmLabel: "Accetta",
+            };
+      dlgConfirm(confirmOpts).then(function (ok) {
+        if (!ok) return;
+        sheet.__vcPauseBusy = true;
+        actBtn.disabled = true;
+        postProfilePauseDecide({
+          action: action,
+          userId: userId,
+          pauseId: pauseId,
+          id: pauseId,
+        })
+          .then(function (out) {
+            sheet.__vcPauseBusy = false;
+            if (!sheet.isConnected) return;
+            if (!out.res.ok || !out.data || !out.data.ok) {
+              try {
+                if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
+                  global.VcSiteToast.show(
+                    (out.data && out.data.message) || "Operazione non riuscita.",
+                    true,
+                  );
+                }
+              } catch (eT) {}
+              actBtn.disabled = false;
+              return;
+            }
+            try {
+              if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
+                global.VcSiteToast.show(
+                  action === "reject" ? "Pausa rifiutata." : "Pausa accettata.",
+                  false,
+                );
+              }
+            } catch (eOk) {}
+            sheet.__vcPauseView = "list";
+            sheet.__vcPauseItem = null;
+            loadProfilePauseIntoSheet(sheet);
+            var reload = sheet.__vcStatRoot && sheet.__vcStatRoot.__vcReloadProfile;
+            if (typeof reload === "function") {
+              try {
+                reload();
+              } catch (eRel) {}
+            }
+          })
+          .catch(function () {
+            sheet.__vcPauseBusy = false;
+            actBtn.disabled = false;
+          });
+      });
+    });
+    global.document.addEventListener(
+      "keydown",
+      function onEsc(ev) {
+        if (ev.key !== "Escape") return;
+        if (!sheet.isConnected || sheet.hidden) return;
+        ev.preventDefault();
+        closeProfileResoSheet();
+        global.document.removeEventListener("keydown", onEsc, true);
+      },
+      true,
+    );
+    return sheet;
+  }
+
+  function openProfilePauseSheet(payload, root) {
+    closeStatSheet();
+    var sheet = ensureProfilePauseSheet();
+    sheet.__vcStatPayload = payload;
+    sheet.__vcStatRoot = root;
+    sheet.__vcStatKind = "pause";
+    sheet.hidden = false;
+    try {
+      sheet.removeAttribute("hidden");
+      sheet.style.removeProperty("display");
+      sheet.style.removeProperty("pointer-events");
+    } catch (eSt) {}
+    try {
+      global.document.documentElement.classList.add("vc-staff-reso-sheet-open");
+    } catch (eCls) {}
+    try {
+      if (typeof global.__vcSyncLoaderScrollLock === "function") global.__vcSyncLoaderScrollLock();
+      else if (typeof global.__vcPinPageScroll === "function") global.__vcPinPageScroll();
+    } catch (ePin) {}
+    unlockSheetPageChrome();
+    global.requestAnimationFrame(function () {
+      try {
+        sheet.classList.add("is-in");
+      } catch (eIn) {}
+    });
+    var body = sheet.querySelector("#vc-staff-reso-body");
+    if (body) body.innerHTML = '<p class="vc-staff-stat-sheet__hint">Carico richiesta pausa\u2026</p>';
+    var foot = sheet.querySelector("#vc-staff-reso-foot");
+    if (foot) foot.innerHTML = "";
+    loadProfilePauseIntoSheet(sheet);
+  }
+
   function pauseTradeHtml(payload) {
     if (!canWriteStaffManage()) return "";
     if (String(((payload || {}).role || {}).kind || "").toLowerCase() === "pm_only") return "";
@@ -1619,7 +3786,7 @@
         : 0) || 0,
     );
     return (
-      '<div class="vc-staff-pause-trade-card">' +
+      '<div class="vc-staff-pause-trade__card vc-no-sfx">' +
       '<div class="vc-staff-pause-trade-card__copy">' +
       "<strong>Valutazioni positive \u2192 giorni pausa</strong>" +
       "<span>Converti valutazioni positive in giorni extra sul budget pausa. Disponibili: <b>" +
@@ -1634,24 +3801,28 @@
   }
 
   function pmPointsSheetHtml(payload) {
-    var pts = Number(
-      (((payload || {}).partner || {}).points != null ? payload.partner.points : 0) || 0,
-    );
+    var partner = ((payload || {}).partner || {}) || {};
+    var pts = Number(partner.points != null ? partner.points : 0) || 0;
+    var earned = Number(partner.pointsEarned != null ? partner.pointsEarned : pts + Number(partner.redeemSpend || 0)) || 0;
+    var spent = Number(partner.redeemSpend != null ? partner.redeemSpend : 0) || 0;
     var canWrite = canWriteStaffManage();
+    /* pmSheetTrim1: niente riga Spendibili/Totali/Spesi né blurb sotto */
     var html =
-      '<div class="vc-staff-pm-points-card">' +
+      '<div class="vc-staff-pm-points__card vc-no-sfx">' +
       '<div class="vc-staff-pm-points-card__copy">' +
       "<strong>Punti Partner Manager</strong>" +
-      "<span>Saldo attuale: <b data-pm-points-balance>" +
+      /* hidden hooks for live updates after add/rm */
+      '<span class="vc-sr-only" aria-hidden="true">' +
+      "<b data-pm-points-balance>" +
       esc(String(pts)) +
+      "</b><b data-pm-points-earned>" +
+      esc(String(earned)) +
+      "</b><b data-pm-points-spent>" +
+      esc(String(spent)) +
       "</b></span>" +
-      (canWrite
-        ? "<span>Aggiungi o rimuovi punti. In caso di rimozione viene creato un record in Punti tolti.</span>"
-        : "<span>Solo High Staff pu\u00f2 modificare i punti.</span>") +
       "</div>";
     if (!canWrite) {
-      html +=
-        '<p class="vc-staff-stat-sheet__hint"><a href="/notifications/?view=staff&inbox=punti-tolti">Apri Punti tolti nell\u2019inbox</a></p></div>';
+      html += "</div>";
       return html;
     }
     html +=
@@ -1667,6 +3838,182 @@
       "</div>" +
       '<p class="vc-staff-stat-sheet__hint" data-pm-points-status hidden></p>' +
       "</div></div>";
+    return html;
+  }
+
+  function formatShopRedeemWhen(iso) {
+    if (!iso) return "—";
+    try {
+      var d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "—";
+      return d.toLocaleString("it-IT", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (eFmt) {
+      return "—";
+    }
+  }
+
+  function shopRedeemSourceLabel(source) {
+    var s = String(source || "");
+    if (s === "site_hs_manual") return "High Staff (sito)";
+    if (s === "discord_hs") return "High Staff (Discord)";
+    if (s === "site_self") return "Shop PM";
+    if (s === "ticket_ack") return "Ticket";
+    return s || "Shop";
+  }
+
+  /* pmShopOwnedUx1 */
+  function ownedShopBadgeLabel(blockedReason) {
+    var r = String(blockedReason || "").trim();
+    if (!r) return "Già attivo";
+    if (/vip\+/i.test(r)) return "VIP+ attivo";
+    if (/vip/i.test(r)) return "VIP attivo";
+    if (/custom/i.test(r)) return "Custom attivo";
+    var m = r.match(/^Hai già\s+(?:il |la |l'|i )?(.+?)\.?$/i);
+    if (m && m[1]) return m[1].trim();
+    return r.replace(/\.$/, "");
+  }
+
+  function applyPartnerShopSnapshot(payload, root, snap) {
+    if (!snap || typeof snap !== "object") return;
+    if (!payload.partner) payload.partner = {};
+    if (snap.points != null) payload.partner.points = snap.points;
+    if (snap.redeemSpend != null) payload.partner.redeemSpend = snap.redeemSpend;
+    if (snap.pointsEarned != null) payload.partner.pointsEarned = snap.pointsEarned;
+    if (snap.shop) payload.partner.shop = snap.shop;
+    if (root && root.__vcStaffPayload) {
+      if (!root.__vcStaffPayload.partner) root.__vcStaffPayload.partner = {};
+      if (snap.points != null) root.__vcStaffPayload.partner.points = snap.points;
+      if (snap.redeemSpend != null) root.__vcStaffPayload.partner.redeemSpend = snap.redeemSpend;
+      if (snap.shop) root.__vcStaffPayload.partner.shop = snap.shop;
+    }
+  }
+
+  function rebuildPmShopSpendSheet(wrap, historyItems) {
+    if (!wrap) return;
+    var bodyEl = wrap.querySelector("[data-stat-body]");
+    var payload = wrap.__vcStatPayload || {};
+    if (!bodyEl || !payload.partner) return;
+    var histKeep = null;
+    if (historyItems == null) {
+      var hostKeep = wrap.querySelector("[data-pm-shop-history-host]");
+      histKeep = hostKeep ? hostKeep.innerHTML : null;
+    }
+    try {
+      bodyEl.innerHTML = pmShopSpendSheetHtml(
+        payload,
+        Array.isArray(historyItems) ? historyItems : [],
+      );
+      if (histKeep != null) {
+        var hostNew = wrap.querySelector("[data-pm-shop-history-host]");
+        if (hostNew) hostNew.innerHTML = histKeep;
+      }
+    } catch (eRebuild) {}
+  }
+
+  function renderPmShopRedeemHistory(items) {
+    var rows = Array.isArray(items) ? items : [];
+    if (!rows.length) {
+      return (
+        '<div class="vc-staff-pm-shop-spend__empty" data-pm-shop-history-empty>' +
+        "<p>Nessun riscatto registrato ancora.</p></div>"
+      );
+    }
+    return (
+      '<ul class="vc-staff-pm-shop-spend__history" data-pm-shop-history>' +
+      rows
+        .map(function (row) {
+          var reason = String(row.reason || "").trim();
+          return (
+            '<li class="vc-staff-pm-shop-spend__row">' +
+            '<div class="vc-staff-pm-shop-spend__row-main">' +
+            "<strong>" +
+            esc(row.rewardLabel || "Premio " + (row.tier || "")) +
+            "</strong>" +
+            '<span class="vc-staff-pm-shop-spend__meta">' +
+            esc(formatShopRedeemWhen(row.createdAt)) +
+            " · −" +
+            esc(String(row.pointCost != null ? row.pointCost : 0)) +
+            " pt · " +
+            esc(shopRedeemSourceLabel(row.source)) +
+            "</span>" +
+            (reason
+              ? '<span class="vc-staff-pm-shop-spend__why">Perché: ' + esc(reason) + "</span>"
+              : "") +
+            "</div></li>"
+          );
+        })
+        .join("") +
+      "</ul>"
+    );
+  }
+
+  function pmShopSpendSheetHtml(payload, historyItems) {
+    var partner = ((payload || {}).partner || {}) || {};
+    var pts = Number(partner.points != null ? partner.points : 0) || 0;
+    var spent = Number(partner.redeemSpend != null ? partner.redeemSpend : 0) || 0;
+    var canWrite = canWriteStaffManage();
+    var shop = partner.shop || {};
+    /* pmShopManualOnly1: solo premi a consegna manuale (ticket) — Custom/VIP automatici fuori */
+    var tiers = (Array.isArray(shop.tiers) ? shop.tiers : []).filter(function (tier) {
+      var mode = String(tier.mode || "");
+      var n = Number(tier.tier);
+      if (mode === "ticket") return true;
+      if (mode === "instant") return false;
+      return n === 150 || n === 200 || n === 250;
+    });
+    /* pmShopCleanSheet1 + pmSheetTrim1: niente Spesi/Spendibili in sheet — solo bottoni + storico */
+    var html =
+      '<div class="vc-staff-pm-shop-spend__shell vc-no-sfx" data-pm-shop-spend-root>' +
+      '<span class="vc-sr-only" aria-hidden="true"><b data-pm-shop-spent>' +
+      esc(String(spent)) +
+      "</b><b data-pm-shop-balance>" +
+      esc(String(pts)) +
+      "</b></span>";
+
+    if (canWrite) {
+      html += '<div class="vc-staff-pm-shop-spend__tiers" data-pm-shop-tiers>';
+      if (!tiers.length) {
+        html +=
+          '<p class="vc-staff-stat-sheet__hint">Nessun premio manuale nel catalogo. Ricarica il profilo.</p>';
+      } else {
+        tiers.forEach(function (tier) {
+          var costLabel = esc(String(tier.cost != null ? tier.cost : tier.tier)) + " pt";
+          var rewardLabel = esc(tier.reward || "Premio " + tier.tier);
+          var disabled = Boolean(tier.blocked) || !tier.canAfford;
+          html +=
+            '<button type="button" class="vc-staff-stat-sheet__act is-pos vc-staff-pm-shop-spend__tier-btn vc-no-sfx' +
+            (disabled ? " is-unaffordable" : "") +
+            '" data-stat-act="pm_shop_redeem" data-pm-shop-tier="' +
+            esc(String(tier.tier)) +
+            '"' +
+            (disabled ? " disabled" : "") +
+            ' title="' +
+            esc(tier.reward || "") +
+            '">' +
+            '<span class="vc-staff-pm-shop-spend__tier-cost">' +
+            costLabel +
+            "</span> " +
+            rewardLabel +
+            "</button>";
+        });
+      }
+      html +=
+        "</div>" +
+        '<p class="vc-staff-stat-sheet__hint" data-pm-shop-status hidden></p>';
+    }
+
+    html +=
+      '<div class="vc-staff-pm-shop-spend__history-wrap">' +
+      "<h3>Storico riscatti</h3>" +
+      '<div data-pm-shop-history-host>' +
+      renderPmShopRedeemHistory(historyItems) +
+      "</div></div></div>";
     return html;
   }
 
@@ -1815,8 +4162,38 @@
     return sheetActionBarHtml(kind, { isSelf: isSelf }) + listPart;
   }
 
+  function tryConsumeStaffOpenFromUrl(root, payload) {
+    /* pauseOutInbox1: notifica pausa → /user/?id=…&tab=staff&staffOpen=pause */
+    if (!root || !payload) return;
+    try {
+      if (root.getAttribute("data-vc-staff-open-done") === "1") return;
+      var q = new URLSearchParams(global.location.search || "");
+      var open = String(q.get("staffOpen") || "")
+        .trim()
+        .toLowerCase();
+      if (open !== "pause") return;
+      root.setAttribute("data-vc-staff-open-done", "1");
+      q.delete("staffOpen");
+      q.delete("pauseId");
+      var next = q.toString();
+      var path = String(global.location.pathname || "/user/");
+      global.history.replaceState({}, "", path + (next ? "?" + next : "") + String(global.location.hash || ""));
+      global.setTimeout(function () {
+        try {
+          openStatSheet(root.__vcStaffPayload || payload, "pause", root);
+        } catch (eOpen) {}
+      }, 40);
+    } catch (eConsume) {}
+  }
+
   function openStatSheet(payload, kind, root) {
     closeStatSheet();
+    if (kind === "pm-punti-tolti" && !canOpenPmPuntiTolti(payload)) return;
+    if (kind === "resoconto" && !canOpenResoconto(payload)) return;
+    if (kind === "resoconto") {
+      openProfileResoSheet(payload, root);
+      return;
+    }
     var title = "Dettaglio";
     var body = "";
     var pauseHistoryRef = [];
@@ -1824,16 +4201,34 @@
     var canWrite = canWriteStaffManage();
     var isSelf = isOwnStaffProfile(payload);
     if (kind === "pause") {
+      /* pauseReviewProfile1: HS → form inbox accettazione; altri → solo calendario */
+      if (canWriteStaffManage()) {
+        openProfilePauseSheet(payload, root);
+        return;
+      }
       title = "Calendario pause";
       toneClass = " is-pause-sheet";
       pauseHistoryRef = historyFromPayloadOrDom(payload, root);
       var ranges = resolvePauseRanges(pauseHistoryRef);
       var initial = pickCalendarMonth(ranges);
-      body = pauseTradeHtml(payload) + buildMiniCalHtml(pauseHistoryRef, initial.y, initial.m);
+      body =
+        '<div data-pause-sheet-root>' +
+        pauseTradeHtml(payload) +
+        '<div data-pause-cal-host>' +
+        buildMiniCalHtml(pauseHistoryRef, initial.y, initial.m) +
+        "</div></div>";
     } else if (kind === "pm-points") {
       title = "Gestione Punti PM";
       toneClass = " is-pm-points-sheet";
       body = pmPointsSheetHtml(payload);
+    } else if (kind === "pm-punti-tolti") {
+      title = "Punti tolti";
+      toneClass = " is-pm-punti-tolti-sheet";
+      body = pmPuntiToltiSheetHtml();
+    } else if (kind === "pm-shop-spend") {
+      title = "Spesi in shop";
+      toneClass = " is-pm-shop-spend-sheet";
+      body = pmShopSpendSheetHtml(payload, []);
     } else {
       var meta = reasonListKindMeta(kind);
       title = meta.title;
@@ -1847,7 +4242,7 @@
 
     var wrap = global.document.createElement("div");
     wrap.id = "vc-staff-stat-sheet";
-    wrap.className = "vc-staff-stat-sheet" + toneClass;
+    wrap.className = "vc-staff-stat-sheet" + toneClass + " vc-no-sfx";
     wrap.setAttribute("role", "dialog");
     wrap.setAttribute("aria-modal", "true");
     wrap.__vcStatPayload = payload;
@@ -1855,14 +4250,14 @@
     wrap.__vcStatRoot = root;
     wrap.innerHTML =
       '<button type="button" class="vc-staff-stat-sheet__backdrop" data-stat-close="1" aria-label="Chiudi"></button>' +
-      '<div class="vc-staff-stat-sheet__panel">' +
+      '<div class="vc-staff-stat-sheet__panel vc-no-sfx">' +
       '<div class="vc-staff-stat-sheet__head">' +
       '<h2 class="vc-staff-stat-sheet__title">' +
       esc(title) +
       "</h2>" +
       '<button type="button" class="vc-staff-stat-sheet__close" data-stat-close="1" aria-label="Chiudi"><i class="fa fa-times" aria-hidden="true"></i></button>' +
       "</div>" +
-      '<div class="vc-staff-stat-sheet__body" data-stat-body="1">' +
+      '<div class="vc-staff-stat-sheet__body vc-no-sfx" data-stat-body="1">' +
       body +
       "</div></div>";
 
@@ -1898,9 +4293,14 @@
       }
       var bodyEl = wrap.querySelector("[data-stat-body]");
       if (bodyEl) {
-        var trade = bodyEl.querySelector(".vc-staff-pause-trade-card");
-        var tradeHtmlKeep = trade ? trade.outerHTML : pauseTradeHtml(wrap.__vcStatPayload);
-        bodyEl.innerHTML = tradeHtmlKeep + buildMiniCalHtml(pauseHistoryRef, cy, cm);
+        var calHost = bodyEl.querySelector("[data-pause-cal-host]");
+        if (calHost) {
+          calHost.innerHTML = buildMiniCalHtml(pauseHistoryRef, cy, cm);
+        } else {
+          var trade = bodyEl.querySelector(".vc-staff-pause-trade__card, .vc-staff-pause-trade-card");
+          var tradeHtmlKeep = trade ? trade.outerHTML : pauseTradeHtml(wrap.__vcStatPayload);
+          bodyEl.innerHTML = tradeHtmlKeep + buildMiniCalHtml(pauseHistoryRef, cy, cm);
+        }
       }
     });
 
@@ -1908,10 +4308,48 @@
     try {
       global.document.documentElement.classList.add("vc-staff-stat-sheet-open");
     } catch (e2) {}
+    unlockSheetPageChrome();
     try {
       if (typeof global.__vcSyncLoaderScrollLock === "function") global.__vcSyncLoaderScrollLock();
       else if (typeof global.__vcPinPageScroll === "function") global.__vcPinPageScroll();
     } catch (ePin) {}
+    unlockSheetPageChrome();
+
+    if (kind === "pm-punti-tolti") {
+      loadPmPuntiToltiIntoSheet(wrap);
+    }
+    if (kind === "pm-shop-spend") {
+      var shopUid = targetUserIdFromPayload(payload);
+      var host = wrap.querySelector("[data-pm-shop-history-host]");
+      if (host) host.innerHTML = '<p class="vc-staff-stat-sheet__hint">Carico storico…</p>';
+      fetchPmShopRedeems(shopUid)
+        .then(function (out) {
+          if (!wrap.isConnected) return;
+          var hostEl = wrap.querySelector("[data-pm-shop-history-host]");
+          if (!hostEl) return;
+          if (!out.res.ok || !out.data || !out.data.ok) {
+            hostEl.innerHTML =
+              '<p class="vc-staff-stat-sheet__hint is-error">' +
+              esc((out.data && out.data.message) || "Storico non disponibile.") +
+              "</p>";
+            return;
+          }
+          if (out.data.partner) {
+            applyPartnerShopSnapshot(payload, wrap.__vcStatRoot, out.data.partner);
+            rebuildPmShopSpendSheet(wrap, out.data.items || []);
+            return;
+          }
+          hostEl.innerHTML = renderPmShopRedeemHistory(out.data.items || []);
+        })
+        .catch(function () {
+          if (!wrap.isConnected) return;
+          var hostEl2 = wrap.querySelector("[data-pm-shop-history-host]");
+          if (hostEl2) {
+            hostEl2.innerHTML =
+              '<p class="vc-staff-stat-sheet__hint is-error">Errore nel caricamento storico.</p>';
+          }
+        });
+    }
   }
 
   function askOptionalPosTrade(payload, kindLabel) {
@@ -1976,6 +4414,100 @@
             closeStatSheet();
           };
 
+    if (action === "pm_shop_redeem") {
+      if (!canWriteStaffManage()) {
+        dlgAlert({ message: "Solo High Staff pu\u00f2 riscattare premi da qui." });
+        return;
+      }
+      var tier = Number(btn.getAttribute("data-pm-shop-tier"));
+      var statusElShop = wrap.querySelector("[data-pm-shop-status]");
+      if (!Number.isFinite(tier) || tier < 1) {
+        dlgAlert({ message: "Premio non valido." });
+        return;
+      }
+      btn.disabled = true;
+      btn.classList.add("is-busy");
+      btn.setAttribute("aria-busy", "true");
+      if (statusElShop) {
+        statusElShop.hidden = true;
+        statusElShop.textContent = "";
+        statusElShop.classList.remove("is-error");
+      }
+      showProfileToast("Riscatto in corso…", false);
+      postPmShopRedeem({
+        tier: tier,
+        userId: uid,
+        reason: "Riscatto manuale High Staff (sito)",
+      })
+        .then(function (out) {
+          btn.classList.remove("is-busy");
+          btn.removeAttribute("aria-busy");
+          if (!out.res.ok || !out.data || !out.data.ok) {
+            var errMsg = (out.data && out.data.message) || "Riscatto non riuscito.";
+            if (out.data && (out.data.shop || out.data.error === "already_owned")) {
+              applyPartnerShopSnapshot(payload, root, out.data);
+              rebuildPmShopSpendSheet(wrap, Array.isArray(out.data.redeems) ? out.data.redeems : null);
+            } else {
+              btn.disabled = false;
+            }
+            if (!showProfileToast(errMsg, true)) {
+              if (statusElShop) {
+                statusElShop.hidden = false;
+                statusElShop.classList.add("is-error");
+                statusElShop.textContent = errMsg;
+              } else {
+                dlgAlert({ message: errMsg });
+              }
+            }
+            return;
+          }
+          var okMsg = (out.data && out.data.message) || "Premio riscattato.";
+          showProfileToast(okMsg, false);
+          applyPartnerShopSnapshot(payload, root, out.data);
+          var balShop = wrap.querySelector("[data-pm-shop-balance]");
+          var spentShop = wrap.querySelector("[data-pm-shop-spent]");
+          if (balShop && out.data.points != null) balShop.textContent = String(out.data.points);
+          if (spentShop && out.data.redeemSpend != null) {
+            spentShop.textContent = String(out.data.redeemSpend);
+          }
+          try {
+            if (root) {
+              var spentCards = root.querySelectorAll(
+                '[data-vc-stat="pm-shop-spend"] .vc-user-profile-mini__value, [data-vc-stat="pm-shop-spend"] .vc-user-profile-stat__value',
+              );
+              for (var si = 0; si < spentCards.length; si += 1) {
+                if (out.data.redeemSpend != null) spentCards[si].textContent = String(out.data.redeemSpend);
+              }
+              var ptsCards = root.querySelectorAll(
+                '[data-vc-stat="pm-points"] .vc-user-profile-mini__value, [data-vc-stat="pm-points"] .vc-user-profile-stat__value',
+              );
+              for (var pi = 0; pi < ptsCards.length; pi += 1) {
+                if (out.data.points != null) ptsCards[pi].textContent = String(out.data.points);
+              }
+            }
+          } catch (eUpd) {}
+          rebuildPmShopSpendSheet(
+            wrap,
+            Array.isArray(out.data.redeems) ? out.data.redeems : [],
+          );
+          if (!Array.isArray(out.data.redeems) && /^\d{17,20}$/.test(uid)) {
+            fetchPmShopRedeems(uid).then(function (hOut) {
+              if (!wrap.isConnected || !hOut.data || !hOut.data.ok) return;
+              var h = wrap.querySelector("[data-pm-shop-history-host]");
+              if (h) h.innerHTML = renderPmShopRedeemHistory(hOut.data.items || []);
+            });
+          }
+          /* no full profile reload — evita spinner/remount mentre lo sheet è aperto */
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.classList.remove("is-busy");
+          btn.removeAttribute("aria-busy");
+          showProfileToast("Errore di rete sul riscatto.", true);
+        });
+      return;
+    }
+
     if (action === "pm_points_add" || action === "pm_points_rm") {
       if (!canWriteStaffManage()) {
         dlgAlert({ message: "Solo High Staff pu\u00f2 gestire i punti PM." });
@@ -1994,10 +4526,11 @@
       var label = action === "pm_points_add" ? "Aggiunta" : "Rimozione";
       btn.disabled = true;
       if (statusEl) {
-        statusEl.hidden = false;
+        statusEl.hidden = true;
+        statusEl.textContent = "";
         statusEl.classList.remove("is-error");
-        statusEl.textContent = label + " in corso\u2026";
       }
+      showProfileToast(label + " in corso…", false);
       postPmPointsAction({
         action: apiAction,
         userId: uid,
@@ -2007,21 +4540,47 @@
         .then(function (out) {
           btn.disabled = false;
           if (!out.res.ok || !out.data || !out.data.ok) {
-            if (statusEl) {
-              statusEl.classList.add("is-error");
-              statusEl.textContent = (out.data && out.data.message) || "Operazione non riuscita.";
-            } else {
-              dlgAlert({
-                message: (out.data && out.data.message) || "Operazione punti non riuscita.",
-              });
+            var errMsg = (out.data && out.data.message) || "Operazione non riuscita.";
+            if (!showProfileToast(errMsg, true)) {
+              if (statusEl) {
+                statusEl.hidden = false;
+                statusEl.classList.add("is-error");
+                statusEl.textContent = errMsg;
+              } else {
+                dlgAlert({ message: errMsg });
+              }
             }
             return;
           }
           var bal = wrap.querySelector("[data-pm-points-balance]");
           if (bal && out.data.points != null) bal.textContent = String(out.data.points);
-          if (payload.partner) payload.partner.points = out.data.points;
+          var earnedEl = wrap.querySelector("[data-pm-points-earned]");
+          var spentEl = wrap.querySelector("[data-pm-points-spent]");
+          if (spentEl && out.data.redeemSpend != null) spentEl.textContent = String(out.data.redeemSpend);
+          if (earnedEl) {
+            var earnedNow =
+              out.data.pointsEarned != null
+                ? out.data.pointsEarned
+                : Number(out.data.points || 0) + Number(out.data.redeemSpend || 0);
+            earnedEl.textContent = String(earnedNow);
+          }
+          if (payload.partner) {
+            if (out.data.points != null) payload.partner.points = out.data.points;
+            if (out.data.redeemSpend != null) payload.partner.redeemSpend = out.data.redeemSpend;
+            if (out.data.partnerCount != null) payload.partner.partnerCount = out.data.partnerCount;
+            if (out.data.pointsEarned != null) payload.partner.pointsEarned = out.data.pointsEarned;
+            else if (out.data.points != null || out.data.redeemSpend != null) {
+              payload.partner.pointsEarned =
+                Number(payload.partner.points || 0) + Number(payload.partner.redeemSpend || 0);
+            }
+          }
           if (root && root.__vcStaffPayload && root.__vcStaffPayload.partner) {
-            root.__vcStaffPayload.partner.points = out.data.points;
+            if (out.data.points != null) root.__vcStaffPayload.partner.points = out.data.points;
+            if (out.data.redeemSpend != null) root.__vcStaffPayload.partner.redeemSpend = out.data.redeemSpend;
+            if (out.data.partnerCount != null) root.__vcStaffPayload.partner.partnerCount = out.data.partnerCount;
+            if (payload.partner && payload.partner.pointsEarned != null) {
+              root.__vcStaffPayload.partner.pointsEarned = payload.partner.pointsEarned;
+            }
           }
           var mini = root
             ? root.querySelector(
@@ -2029,12 +4588,39 @@
               )
             : null;
           if (mini && out.data.points != null) mini.textContent = String(out.data.points);
-          if (statusEl) {
+          /* Aggiorna "Spesi in shop" / Partner se presenti nel grid. */
+          try {
+            if (root && (out.data.redeemSpend != null || out.data.partnerCount != null)) {
+              var minis = root.querySelectorAll(".vc-user-profile-mini, .vc-user-profile-stat");
+              for (var mi = 0; mi < minis.length; mi += 1) {
+                var lab = minis[mi].querySelector(
+                  ".vc-user-profile-mini__label, .vc-user-profile-stat__label",
+                );
+                var val = minis[mi].querySelector(
+                  ".vc-user-profile-mini__value, .vc-user-profile-stat__value",
+                );
+                if (!lab || !val) continue;
+                var lt = String(lab.textContent || "").trim().toLowerCase();
+                if (out.data.redeemSpend != null && lt.indexOf("spesi") !== -1) {
+                  val.textContent = String(out.data.redeemSpend);
+                }
+                if (out.data.partnerCount != null && lt === "partner") {
+                  val.textContent = String(out.data.partnerCount);
+                }
+              }
+            }
+          } catch (eSpendUi) {}
+          var okMsg =
+            (out.data.message || "Punti aggiornati.") +
+            (action === "pm_points_rm" ? " Registrato in Punti tolti." : "");
+          if (!showProfileToast(okMsg, false) && statusEl) {
+            statusEl.hidden = false;
             statusEl.classList.remove("is-error");
-            statusEl.textContent =
-              (out.data.message || "Punti aggiornati.") +
-              (action === "pm_points_rm" ? " Registrato in Punti tolti." : "");
+            statusEl.textContent = okMsg;
           }
+          try {
+            closeStatSheet();
+          } catch (eClose) {}
           if (typeof reload === "function") {
             try {
               reload();
@@ -2043,11 +4629,14 @@
         })
         .catch(function () {
           btn.disabled = false;
-          if (statusEl) {
-            statusEl.classList.add("is-error");
-            statusEl.textContent = "Errore di rete.";
-          } else {
-            dlgAlert({ message: "Errore di rete." });
+          if (!showProfileToast("Errore di rete.", true)) {
+            if (statusEl) {
+              statusEl.hidden = false;
+              statusEl.classList.add("is-error");
+              statusEl.textContent = "Errore di rete.";
+            } else {
+              dlgAlert({ message: "Errore di rete." });
+            }
           }
         });
       return;
@@ -2385,7 +4974,7 @@
     var p = global.__VC_STAFF_PERMS || {};
     var staffOk = Boolean(p.ok) || global.__VC_STAFF_MENU_ALLOWED === true;
     if (!staffOk) return false;
-    var isSelf = payload && payload.isSelf !== false;
+    var isSelf = payload && payload.isSelf === true;
     if (p.canManage || p.isHighStaff || p.highStaff) return true;
     if (p.isPmGestore || p.canManagePm) return true;
     if (isSelf && staffOk) return true;
@@ -2393,23 +4982,51 @@
   }
 
   function manageBtnHtml(payload, isSelf) {
-    if (!viewerCanManageProfile(payload)) return "";
+    var canManage = viewerCanManageProfile(payload);
+    var canReso = canOpenResoconto(payload);
+    if (!canManage && !canReso) return "";
     var uid = String((payload.identity && payload.identity.userId) || payload.targetUserId || "").trim();
     if (!uid) return "";
-    var label = isSelf ? "Gestisci" : "Gestisci";
+    var label = "Gestisci";
+    var resoPending = canReso
+      ? Math.max(0, Math.floor(Number((payload.resoconto && payload.resoconto.pendingCount) || 0)))
+      : 0;
+    var items = "";
+    if (canManage) {
+      items +=
+        '<button type="button" class="vc-staff-manage-menu__item" data-vc-staff-manage="' +
+        esc(uid) +
+        '"><i class="fa fa-sliders" aria-hidden="true"></i><span>Carriera</span><em>Pex &amp; Depex</em></button>';
+    }
+    if (canReso) {
+      items +=
+        '<button type="button" class="vc-staff-manage-menu__item' +
+        (resoPending ? " has-pending" : "") +
+        '" data-vc-staff-reso="1">' +
+        '<i class="fa fa-bar-chart" aria-hidden="true"></i><span>Resoconto</span><em>Settimanale</em>' +
+        pendingBadgeHtml(resoPending) +
+        "</button>";
+    }
     return (
-      '<div class="vc-staff-manage-cta-wrap">' +
-      '<button type="button" class="vc-staff-manage-cta vc-staff-manage-cta--hero" data-vc-staff-manage="' +
-      esc(uid) +
-      '" aria-label="' +
+      '<div class="vc-staff-manage-cta-wrap' +
+      (resoPending ? " has-pending" : "") +
+      '">' +
+      '<button type="button" class="vc-staff-manage-cta vc-staff-manage-cta--hero' +
+      (resoPending ? " has-pending" : "") +
+      '" data-vc-staff-manage-toggle="1" aria-expanded="false" aria-haspopup="true" aria-label="' +
       esc(label) +
+      (resoPending ? " (" + resoPending + " resoconti in attesa)" : "") +
       '" title="' +
       esc(label) +
       '">' +
+      pendingBadgeHtml(resoPending) +
       '<span class="vc-staff-manage-cta__ico" aria-hidden="true"><i class="fa fa-sliders"></i></span>' +
       '<span class="vc-staff-manage-cta__label">' +
       esc(label) +
-      "</span></button></div>"
+      "</span></button>" +
+      '<div class="vc-staff-manage-menu" data-vc-staff-manage-menu hidden role="menu" aria-label="Gestisci">' +
+      items +
+      "</div></div>"
     );
   }
 
@@ -2444,7 +5061,11 @@
         low === "staffer del mese" ||
         low === "staff del mese" ||
         low.indexOf("staffer del mese") !== -1 ||
-        low.indexOf("staff del mese") !== -1
+        low.indexOf("staff del mese") !== -1 ||
+        low === "staffer della settimana" ||
+        low === "staff della settimana" ||
+        low.indexOf("staffer della settimana") !== -1 ||
+        low.indexOf("staff della settimana") !== -1
       ) {
         continue;
       }
@@ -2499,6 +5120,10 @@
         if (p && p.isStaffDelMese) {
           chips +=
             '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--best" title="Best staff">Best</span>';
+        }
+        if (p && p.isStaffDelSettimana) {
+          chips +=
+            '<span class="vc-staff-list-pop__chip vc-staff-list-pop__chip--week" title="Staffer della settimana">Week</span>';
         }
         var avHtml = avatar
           ? '<img src="' +
@@ -2770,10 +5395,13 @@
 
   function mountStaffPeerDock(neighbors, hooks) {
     hooks = hooks || {};
-    unmountStaffPeerDock();
     var prev = neighbors && neighbors.prev ? String(neighbors.prev) : "";
     var next = neighbors && neighbors.next ? String(neighbors.next) : "";
-    if (!prev && !next) return null;
+    /* peerArrowsKeep1: roster ancora vuoto → non smontare frecce già montate */
+    if (!prev && !next) {
+      return global.document.getElementById("vc-staff-peer-dock");
+    }
+    unmountStaffPeerDock();
 
     var dock = global.document.createElement("div");
     dock.id = "vc-staff-peer-dock";
@@ -2851,33 +5479,252 @@
       (payload && payload.__vcStaffNeighbors) ||
       (payload && payload.neighbors) ||
       null;
-    if (!neighbors) {
-      unmountStaffPeerDock();
+    var prev = neighbors && neighbors.prev ? String(neighbors.prev) : "";
+    var next = neighbors && neighbors.next ? String(neighbors.next) : "";
+    /* peerArrowsKeep1: senza vicini validi lascia il dock esistente (non unmount) */
+    if (!prev && !next) return;
+    mountStaffPeerDock(neighbors, hooks);
+  }
+
+  function setManageMenuHeroOpen(root, open) {
+    try {
+      var hero =
+        (root && root.querySelector && root.querySelector(".vc-user-profile-hero, .vc-staff-profile-hero")) ||
+        (root && root.closest && root.closest(".vc-user-profile-hero, .vc-staff-profile-hero")) ||
+        null;
+      if (!hero && root && root.classList) {
+        if (root.classList.contains("vc-user-profile-hero") || root.classList.contains("vc-staff-profile-hero")) {
+          hero = root;
+        }
+      }
+      if (!hero) return;
+      hero.classList.toggle("is-manage-menu-open", Boolean(open));
+    } catch (eHero) {}
+  }
+
+  /* gestisciMenuPortal1: menu in body+fixed — absolute nell'hero resta sotto le card (z-index stacking) */
+  function placeManageMenuPortal(menu, toggle) {
+    if (!menu || !toggle || !global.document || !global.document.body) return;
+    var r = null;
+    try {
+      r = toggle.getBoundingClientRect();
+    } catch (eR) {
       return;
     }
-    mountStaffPeerDock(neighbors, hooks);
+    if (!r) return;
+    var gap = 8;
+    var vw = Math.max(0, Number(global.innerWidth) || 0);
+    var vh = Math.max(0, Number(global.innerHeight) || 0);
+    var width = Math.max(216, Math.min(280, Number(r.width) || 216));
+    var left = Math.min(Math.max(8, r.right - width), Math.max(8, vw - width - 8));
+    var top = r.bottom + gap;
+    menu.classList.add("is-portaled");
+    menu.style.position = "fixed";
+    menu.style.top = Math.round(top) + "px";
+    menu.style.left = Math.round(left) + "px";
+    menu.style.right = "auto";
+    menu.style.bottom = "auto";
+    menu.style.width = Math.round(width) + "px";
+    menu.style.minWidth = Math.round(width) + "px";
+    menu.style.zIndex = "2147483640";
+    menu.style.margin = "0";
+    try {
+      var mh = menu.offsetHeight || 0;
+      if (mh && top + mh > vh - 8) {
+        var above = r.top - gap - mh;
+        if (above >= 8) menu.style.top = Math.round(above) + "px";
+      }
+    } catch (eFlip) {}
+  }
+
+  function openManageMenuPortal(root, wrap, menu, toggle) {
+    if (!menu || !wrap || !toggle) return;
+    if (!menu.__vcManageHome) {
+      menu.__vcManageHome = { parent: menu.parentNode, next: menu.nextSibling };
+    }
+    if (menu.parentNode !== global.document.body) {
+      global.document.body.appendChild(menu);
+    }
+    menu.hidden = false;
+    menu.removeAttribute("hidden");
+    placeManageMenuPortal(menu, toggle);
+    wrap.classList.add("is-open");
+    toggle.setAttribute("aria-expanded", "true");
+    setManageMenuHeroOpen(root, true);
+    try {
+      if (menu.__vcManageReposition) {
+        global.removeEventListener("resize", menu.__vcManageReposition, true);
+        global.removeEventListener("scroll", menu.__vcManageReposition, true);
+      }
+    } catch (eRm) {}
+    menu.__vcManageReposition = function () {
+      if (!menu.isConnected || menu.hidden) return;
+      placeManageMenuPortal(menu, toggle);
+    };
+    try {
+      global.addEventListener("resize", menu.__vcManageReposition, true);
+      global.addEventListener("scroll", menu.__vcManageReposition, true);
+    } catch (eAdd) {}
+  }
+
+  function restoreManageMenuHome(menu) {
+    if (!menu) return;
+    try {
+      if (menu.__vcManageReposition) {
+        global.removeEventListener("resize", menu.__vcManageReposition, true);
+        global.removeEventListener("scroll", menu.__vcManageReposition, true);
+      }
+    } catch (eRm2) {}
+    menu.__vcManageReposition = null;
+    menu.classList.remove("is-portaled");
+    try {
+      menu.style.position = "";
+      menu.style.top = "";
+      menu.style.left = "";
+      menu.style.right = "";
+      menu.style.bottom = "";
+      menu.style.width = "";
+      menu.style.minWidth = "";
+      menu.style.zIndex = "";
+      menu.style.margin = "";
+    } catch (eSt) {}
+    var home = menu.__vcManageHome;
+    if (home && home.parent && home.parent.isConnected) {
+      try {
+        if (home.next && home.next.parentNode === home.parent) {
+          home.parent.insertBefore(menu, home.next);
+        } else {
+          home.parent.appendChild(menu);
+        }
+      } catch (eIns) {
+        try {
+          home.parent.appendChild(menu);
+        } catch (eAp) {}
+      }
+    }
+  }
+
+  function closeManageMenu(root) {
+    try {
+      var wrap =
+        (root && root.querySelector && root.querySelector(".vc-staff-manage-cta-wrap")) ||
+        null;
+      var toggle = wrap && wrap.querySelector("[data-vc-staff-manage-toggle]");
+      var menu =
+        (wrap && wrap.querySelector("[data-vc-staff-manage-menu]")) ||
+        global.document.querySelector("body > .vc-staff-manage-menu.is-portaled") ||
+        global.document.querySelector(".vc-staff-manage-menu.is-portaled");
+      if (menu) {
+        menu.hidden = true;
+        menu.setAttribute("hidden", "");
+        restoreManageMenuHome(menu);
+      }
+      if (toggle) toggle.setAttribute("aria-expanded", "false");
+      if (wrap) wrap.classList.remove("is-open");
+      setManageMenuHeroOpen(root, false);
+    } catch (eClose) {}
+  }
+
+  function openManageCareerFromProfile(root, payload, hooks, uid) {
+    var Modal = global.VCStaffManageModal;
+    if (!Modal || typeof Modal.open !== "function") return;
+    var live = root.__vcStaffPayload || payload || {};
+    var name = (live.identity && live.identity.displayName) || "Staff";
+    var ensure = typeof Modal.ensureScripts === "function" ? Modal.ensureScripts() : Promise.resolve();
+    ensure.then(function () {
+      return Modal.open(uid, {
+        displayName: name,
+        onUpdated: function (info) {
+          if (info && info.leftStaff) {
+            if (typeof root.__vcStaffReload === "function") {
+              root.__vcStaffReload({ leftStaff: true });
+            } else if (hooks && typeof hooks.onReload === "function") {
+              hooks.onReload({ leftStaff: true });
+            }
+            return;
+          }
+          if (typeof root.__vcStaffReload === "function") root.__vcStaffReload(info || null);
+          else if (hooks && typeof hooks.onReload === "function") hooks.onReload(info || null);
+        },
+      });
+    });
   }
 
   function bindManageButton(root, payload, hooks) {
     if (!root) return;
+    /* staffActionReload1: bind once — stacked listeners → N reload concurrent → “non visualizzabile”. */
+    if (root.getAttribute("data-vc-manage-bound") === "1") return;
+    root.setAttribute("data-vc-manage-bound", "1");
+
+    function handleManageMenuItem(ev, t) {
+      var resoBtn = t.closest("[data-vc-staff-reso]");
+      if (resoBtn) {
+        ev.preventDefault();
+        closeManageMenu(root);
+        openStatSheet(root.__vcStaffPayload || payload, "resoconto", root);
+        return true;
+      }
+      var careerBtn = t.closest("[data-vc-staff-manage]");
+      if (careerBtn) {
+        ev.preventDefault();
+        closeManageMenu(root);
+        var uidCareer = careerBtn.getAttribute("data-vc-staff-manage") || "";
+        openManageCareerFromProfile(root, payload, hooks, uidCareer);
+        return true;
+      }
+      return false;
+    }
+
     root.addEventListener("click", function manageClick(ev) {
-      var btn = ev.target && ev.target.closest ? ev.target.closest("[data-vc-staff-manage]") : null;
-      if (!btn || !root.contains(btn)) return;
-      ev.preventDefault();
-      var uid = btn.getAttribute("data-vc-staff-manage") || "";
-      var Modal = global.VCStaffManageModal;
-      if (!Modal || typeof Modal.open !== "function") return;
-      var name = (payload.identity && payload.identity.displayName) || "Staff";
-      var ensure = typeof Modal.ensureScripts === "function" ? Modal.ensureScripts() : Promise.resolve();
-      ensure.then(function () {
-        return Modal.open(uid, {
-          displayName: name,
-          onUpdated: function () {
-            if (hooks && typeof hooks.onReload === "function") hooks.onReload();
-          },
-        });
-      });
+      var t = ev.target;
+      if (!t || !t.closest) return;
+
+      if (root.contains(t) || (t.closest && t.closest(".vc-staff-manage-menu.is-portaled"))) {
+        if (handleManageMenuItem(ev, t)) return;
+      }
+
+      var toggle = t.closest("[data-vc-staff-manage-toggle]");
+      if (toggle && root.contains(toggle)) {
+        ev.preventDefault();
+        var wrap = toggle.closest(".vc-staff-manage-cta-wrap");
+        var menu =
+          (wrap && wrap.querySelector("[data-vc-staff-manage-menu]")) ||
+          global.document.querySelector("body > .vc-staff-manage-menu.is-portaled");
+        if (!menu || !wrap) return;
+        var open = menu.hasAttribute("hidden") || menu.hidden;
+        if (open) {
+          openManageMenuPortal(root, wrap, menu, toggle);
+        } else {
+          closeManageMenu(root);
+        }
+        return;
+      }
+
+      if (!t.closest(".vc-staff-manage-cta-wrap") && !t.closest(".vc-staff-manage-menu")) {
+        closeManageMenu(root);
+      }
     });
+    global.document.addEventListener(
+      "click",
+      function manageDocClose(ev) {
+        if (!root.isConnected) return;
+        var t = ev.target;
+        if (!t || !t.closest) {
+          closeManageMenu(root);
+          return;
+        }
+        /* gestisciMenuPortal1: item portati su body — gestisci click qui */
+        if (t.closest(".vc-staff-manage-menu.is-portaled")) {
+          handleManageMenuItem(ev, t);
+          return;
+        }
+        if (t.closest(".vc-staff-manage-cta-wrap") || t.closest(".vc-staff-manage-menu")) {
+          return;
+        }
+        closeManageMenu(root);
+      },
+      true,
+    );
   }
 
   function bindInteractions(root, payload, hooks) {
@@ -2905,7 +5752,7 @@
       return;
     }
 
-    var isSelf = payload.isSelf !== false;
+    var isSelf = payload.isSelf === true;
     var partner = payload.partner;
     var sf = payload.serataFilm;
 
@@ -2932,6 +5779,7 @@
 
     bindManageButton(root, payload, hooks);
     bindPeerNav(root, payload, hooks);
+    tryConsumeStaffOpenFromUrl(root, payload);
 
     if (
       partner &&

@@ -258,8 +258,9 @@
     }
 
     try {
-      var res = await fetch("https://discord.com/api/v10/users/@me", {
+      var res = await fetch("/webhooks/site-discord-me", {
         headers: { Authorization: "Bearer " + token },
+        credentials: "same-origin",
       });
       if (!res.ok) {
         clearToken();

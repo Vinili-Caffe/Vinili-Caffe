@@ -4,7 +4,11 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../../Utils/Config/ids");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { getHighestStaffLadderRoleId, STAFF_LADDER_KEYS_HIGH_TO_LOW } = require("../../Utils/Staff/staffRoleHierarchy");
+const {
+  getHighestStaffLadderRoleId,
+  STAFF_LADDER_KEYS_HIGH_TO_LOW,
+  stripStafferAwardRoles,
+} = require("../../Utils/Staff/staffRoleHierarchy");
 
 const NEGATIVES_PER_STAFF_WARN = 3;
 const STAFF_WARN_THREE_NEGATIVES_REASON = "Warn assegnato per aver raggiunto le 3 valutazioni negative";

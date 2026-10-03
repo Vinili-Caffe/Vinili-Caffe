@@ -22,7 +22,7 @@ const {
 } = require("../Services/Moderation/trustedBotGuardService");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
-const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
+const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, isUnknownDiscordMemberError } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { activateWelcomeContextForGuild, refreshWelcomeContextForGuild } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
@@ -1610,20 +1610,37 @@ async function recoverJoinAnnouncementsOnStartup(client, opts = {}) {
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return { ok: false, reason: "guild_not_found" };
 
-  const limit = Math.max(1, Math.min(50, Number(opts.limit || 25)));
+  const limit = Math.max(1, Math.min(80, Number(opts.limit || 40)));
+  const lookbackMs = Math.max(
+    5 * 60 * 1000,
+    Math.min(7 * 24 * 60 * 60 * 1000, Number(opts.lookbackMs || 24 * 60 * 60 * 1000)),
+  );
+  const minJoinedMs = Date.now() - lookbackMs;
   const botId = String(client.user?.id || "");
   const welcomeChannel = await resolveGuildChannel(guild, IDs.channels.chat);
   if (!welcomeChannel?.isTextBased?.()) return { ok: false, reason: "no_welcome_channel" };
 
   let recovered = 0;
   let pendingProcessed = 0;
+  let pendingWaitingVerify = 0;
+  let pendingClearedGone = 0;
+  let pendingStaleCleared = 0;
+  let pendingReady = 0;
+  let missedScanned = 0;
+  let missedRecovered = 0;
+  let missedSkippedOk = 0;
+  let rolesFixed = 0;
+
+  /* joinRecoverPendingDrain1: non limitare ai primi N (erano tutti unverified e bloccavano i ready) */
+  const pendingLimit = Math.max(20, Math.min(120, Math.max(limit * 3, 80)));
+  const missedLimit = Math.max(1, Math.min(50, limit));
 
   const pendingRows = await ActivityUserProfile.find({
     guildId,
     "profile.joinAnnouncePending": true,
   })
     .select("userId")
-    .limit(limit)
+    .limit(pendingLimit)
     .lean()
     .catch(() => []);
 
@@ -1631,25 +1648,280 @@ async function recoverJoinAnnouncementsOnStartup(client, opts = {}) {
     const userId = String(row?.userId || "");
     if (!userId) continue;
     pendingProcessed += 1;
-    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+
+    let member = null;
+    try {
+      member = await guild.members.fetch({ user: userId, force: true });
+    } catch (err) {
+      if (!isUnknownDiscordMemberError(err)) {
+        member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+      }
+    }
     if (!member || member.user?.bot) {
-      await ActivityUserProfile.updateOne(
+      const cleared = await ActivityUserProfile.updateOne(
         { guildId, userId },
         { $unset: { "profile.joinAnnouncePending": "" } },
       ).catch(() => null);
+      if (Number(cleared?.modifiedCount || cleared?.nModified || 0) > 0 || !member) {
+        pendingClearedGone += 1;
+      }
       continue;
     }
-    if (!(await shouldSendPublicMemberAnnouncement(member))) continue;
-    if (await joinWelcomeAlreadySent(welcomeChannel, member, botId)) {
-      await clearJoinAnnouncePending(member);
+
+    /* joinRecoverPendingSkip1: ancora senza Member+separatore → lascia pending per deferred verify */
+    const canAnnounce = await shouldSendPublicMemberAnnouncement(member).catch(() => false);
+    if (!canAnnounce) {
+      pendingWaitingVerify += 1;
       continue;
     }
-    await runDeferredJoinAnnouncements(member);
-    recovered += 1;
+
+    const joinedMs = Number(member.joinedTimestamp || 0);
+    const withinLookback = !joinedMs || joinedMs >= minJoinedMs;
+    if (!withinLookback) {
+      /* già verificato ma join fuori lookback: niente welcome spam, sblocca la coda */
+      await maybeApplyVerificationTenureOnJoin(member).catch(() => {});
+      const cleared = await ActivityUserProfile.updateOne(
+        { guildId, userId },
+        {
+          $set: { "profile.joinAnnounceSentAt": new Date() },
+          $unset: { "profile.joinAnnouncePending": "" },
+        },
+      ).catch((err) => {
+        global.logger?.warn?.("[JOIN RECOVER] stale clear failed:", userId, err?.message || err);
+        return null;
+      });
+      if (Number(cleared?.modifiedCount || cleared?.nModified || 0) > 0) {
+        pendingStaleCleared += 1;
+      }
+      continue;
+    }
+
+    pendingReady += 1;
+    const out = await processMissedJoinMember(member, { sendDm: false }).catch((err) => {
+      global.logger?.warn?.("[JOIN RECOVER] pending member failed:", userId, err?.message || err);
+      return null;
+    });
+    if (out?.roles) rolesFixed += 1;
+    if (out?.announced || out?.already) recovered += 1;
     await joinRecoverySleep(450);
   }
 
-  return { ok: true, recovered, pendingProcessed };
+  /* missedJoinCatchup1: join avvenuti a bot offline (nessun guildMemberAdd) */
+  const candidateIds = await collectRecentMissedJoinCandidateIds(guild, {
+    minJoinedMs,
+    limit: Math.max(missedLimit, 50),
+  }).catch((err) => {
+    global.logger?.warn?.("[JOIN RECOVER] collect missed joins failed:", err?.message || err);
+    return [];
+  });
+
+  for (const userId of candidateIds) {
+    if (missedRecovered >= missedLimit) break;
+    missedScanned += 1;
+    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    if (!member || member.user?.bot) {
+      missedSkippedOk += 1;
+      continue;
+    }
+
+    const profile = isMongoReady()
+      ? await ActivityUserProfile.findOne({ guildId, userId })
+          .select("profile.joinAnnounceSentAt profile.joinAnnouncePending")
+          .lean()
+          .catch(() => null)
+      : null;
+
+    if (!memberNeedsMissedJoinCatchup(member, profile)) {
+      missedSkippedOk += 1;
+      continue;
+    }
+
+    /* joinRecoverPendingDrain1: waitingVerify già in coda → skip; altrimenti processa ruoli senza contare recover */
+    const canAnnounce = await shouldSendPublicMemberAnnouncement(member).catch(() => false);
+    if (!canAnnounce) {
+      if (profile?.profile?.joinAnnouncePending === true) {
+        missedSkippedOk += 1;
+        continue;
+      }
+      const outPending = await processMissedJoinMember(member, { sendDm: false }).catch((err) => {
+        global.logger?.warn?.("[JOIN RECOVER] missed pending-setup failed:", userId, err?.message || err);
+        return null;
+      });
+      if (outPending?.pending || outPending?.ok) pendingWaitingVerify += 1;
+      missedSkippedOk += 1;
+      await joinRecoverySleep(350);
+      continue;
+    }
+
+    const out = await processMissedJoinMember(member, {
+      sendDm: Number(member.joinedTimestamp || 0) >= Date.now() - 6 * 60 * 60 * 1000,
+    }).catch((err) => {
+      global.logger?.warn?.("[JOIN RECOVER] missed join failed:", userId, err?.message || err);
+      return null;
+    });
+    if (!out?.ok) continue;
+    if (out.pending) {
+      pendingWaitingVerify += 1;
+      missedSkippedOk += 1;
+      continue;
+    }
+    missedRecovered += 1;
+    if (out.roles) rolesFixed += 1;
+    if (out.announced) recovered += 1;
+    await joinRecoverySleep(500);
+  }
+
+  const actionable =
+    recovered > 0 ||
+    rolesFixed > 0 ||
+    missedRecovered > 0 ||
+    pendingClearedGone > 0 ||
+    pendingStaleCleared > 0 ||
+    pendingReady > 0;
+  const recoverLine = `[JOIN RECOVER] pending=${pendingProcessed} ready=${pendingReady} waitingVerify=${pendingWaitingVerify} clearedGone=${pendingClearedGone} staleCleared=${pendingStaleCleared} missedScanned=${missedScanned} missedSkippedOk=${missedSkippedOk} missedRecovered=${missedRecovered} welcomes=${recovered} rolesFixed=${rolesFixed} lookbackMs=${lookbackMs}`;
+  /* joinRecoverPendingDrain1: idle (solo waitingVerify) → info, non warn ogni boot */
+  if (actionable) global.logger?.warn?.(recoverLine);
+  else global.logger?.info?.(recoverLine);
+
+  return {
+    ok: true,
+    recovered,
+    pendingProcessed,
+    pendingReady,
+    pendingWaitingVerify,
+    pendingClearedGone,
+    pendingStaleCleared,
+    missedScanned,
+    missedSkippedOk,
+    missedRecovered,
+    rolesFixed,
+    lookbackMs,
+  };
+}
+
+function memberHasAnyTenureRole(member) {
+  const ids = [IDs.roles?.NuovoUtente, IDs.roles?.Veterano, IDs.roles?.OG].filter(Boolean);
+  return ids.some((id) => Boolean(id && member?.roles?.cache?.has?.(String(id))));
+}
+
+function memberNeedsMissedJoinCatchup(member, profileDoc) {
+  if (!member?.id || member.user?.bot) return false;
+  const memberRoleId = String(IDs.roles?.Member || "").trim();
+  const preRoleId = String(IDs.roles?.preMember || "").trim();
+  const hasMember = Boolean(memberRoleId && member.roles?.cache?.has?.(memberRoleId));
+  const hasPre = Boolean(preRoleId && member.roles?.cache?.has?.(preRoleId));
+  const hasTenure = memberHasAnyTenureRole(member);
+  if (!hasMember && !hasPre) return true;
+  if (hasMember && !hasTenure) return true;
+  /* pending gestito dal drain dedicato — non forzare re-entry nel missed loop */
+  const joined = Number(member.joinedTimestamp || 0);
+  const sentRaw = profileDoc?.profile?.joinAnnounceSentAt;
+  const sentMs = sentRaw ? new Date(sentRaw).getTime() : 0;
+  if (joined > 0 && (!Number.isFinite(sentMs) || sentMs <= 0 || sentMs < joined - 5_000)) {
+    return true;
+  }
+  return false;
+}
+
+async function collectRecentMissedJoinCandidateIds(guild, opts = {}) {
+  const minJoinedMs = Number(opts.minJoinedMs || 0);
+  const limit = Math.max(1, Math.min(100, Number(opts.limit || 50)));
+  const byId = new Map();
+
+  /* missedJoinCatchup1: Discord non emette audit MemberAdd per join utenti.
+     Serve lo sweep su joinedTimestamp (fetch membri se la cache è incompleta). */
+  try {
+    const cached = Number(guild.members?.cache?.size || 0);
+    const total = Number(guild.memberCount || 0);
+    const needFetch =
+      typeof guild.members?.fetch === "function" &&
+      (cached < 50 || (total > 0 && cached < Math.min(total, Math.max(80, Math.floor(total * 0.35)))));
+    if (needFetch) {
+      await guild.members.fetch({ withPresences: false }).catch((err) => {
+        global.logger?.warn?.("[JOIN RECOVER] members.fetch failed:", err?.message || err);
+      });
+    }
+  } catch (errFetch) {
+    global.logger?.warn?.("[JOIN RECOVER] members hydrate failed:", errFetch?.message || errFetch);
+  }
+
+  try {
+    for (const m of guild.members.cache.values()) {
+      if (!m || m.user?.bot) continue;
+      const joined = Number(m.joinedTimestamp || 0);
+      if (!joined || joined < minJoinedMs) continue;
+      byId.set(String(m.id), joined);
+    }
+  } catch (_) {}
+
+  return [...byId.entries()]
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .slice(0, limit)
+    .map(([id]) => id);
+}
+
+async function processMissedJoinMember(member, opts = {}) {
+  if (!member?.guild?.id || !member?.id || member.user?.bot) {
+    return { ok: false, reason: "invalid" };
+  }
+  if (String(member.guild.id) !== String(IDs.guilds?.main || "")) {
+    return { ok: false, reason: "wrong_guild" };
+  }
+
+  let current = member;
+  await syncMutedMirrorOnMemberJoin(current).catch((err) => {
+    global.logger?.warn?.("[JOIN RECOVER] muted mirror:", current.id, err?.message || err);
+  });
+  await restoreUserOnJoin(current.guild.id, current.id, current).catch(() => false);
+  await cancelCustomPerksDiscordCleanupQueue(current.guild.id, current.id).catch(() => {});
+
+  current =
+    (await getGuildMemberCached(current.guild, current.id, { preferFresh: true }).catch(() => null)) || current;
+
+  await maybeApplyVerificationTenureOnJoin(current).catch((err) => {
+    global.logger?.warn?.("[JOIN RECOVER] tenure:", current.id, err?.message || err);
+  });
+  current =
+    (await getGuildMemberCached(current.guild, current.id, { preferFresh: true }).catch(() => null)) || current;
+
+  await syncPreMemberRoleForMember(current).catch((err) => {
+    global.logger?.warn?.("[JOIN RECOVER] preMember:", current.id, err?.message || err);
+  });
+  current =
+    (await getGuildMemberCached(current.guild, current.id, { preferFresh: true }).catch(() => null)) || current;
+
+  const rolesOk = true;
+  const canAnnounce = await shouldSendPublicMemberAnnouncement(current);
+  if (!canAnnounce) {
+    await markJoinAnnouncePending(current);
+    return { ok: true, announced: false, pending: true, roles: rolesOk };
+  }
+
+  const welcomeChannel = await resolveWelcomeChannelForMember(current);
+  const botId = String(current.client?.user?.id || "");
+  if (welcomeChannel && (await joinWelcomeAlreadySent(welcomeChannel, current, botId))) {
+    await clearJoinAnnouncePending(current);
+    return { ok: true, announced: false, already: true, roles: rolesOk };
+  }
+
+  await clearJoinAnnouncePending(current);
+  if (current.client) {
+    await activateWelcomeContextForGuild(current.guild.id, current.id).catch(() => {});
+  }
+  const out = await dispatchPublicJoinAnnouncements(current).catch((err) => {
+    global.logger?.warn?.("[JOIN RECOVER] welcome dispatch:", current.id, err?.message || err);
+    return { ok: false };
+  });
+
+  if (opts.sendDm) {
+    await sendDmWelcome(current).catch(() => {});
+  }
+
+  return {
+    ok: true,
+    announced: Boolean(out?.announced || out?.ok),
+    roles: rolesOk,
+  };
 }
 
 async function runDeferredJoinAnnouncements(member) {
@@ -1686,7 +1958,14 @@ async function maybeApplyVerificationTenureOnJoin(member) {
   }
 }
 
-module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnouncements, recoverJoinAnnouncementsOnStartup, matchUsernameFilters, getJoinGateNameCandidate,
+module.exports = {
+  name: "guildMemberAdd",
+  kickForJoinGate,
+  runDeferredJoinAnnouncements,
+  recoverJoinAnnouncementsOnStartup,
+  processMissedJoinMember,
+  matchUsernameFilters,
+  getJoinGateNameCandidate,
   async execute(member) {
     try {
       if (!member?.guild || !member?.user) return;

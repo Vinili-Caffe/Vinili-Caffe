@@ -119,9 +119,20 @@ function computeUserPartnershipScoresFromRows(rows, userId, weekBounds) {
   const own = list.find((row) => String(row.userId) === uid) || null;
   const ownStaff = own?.staff || null;
 
-  let totalFromActions = 0;
+  /* Daily/weekly must match Discord classifica PM: creates on THIS user's profile.
+     Do NOT reattribute to managerId — that zeroed weekly for every PM who tagged a manager
+     (Fan #1: 3 creates this week → API showed weekly 0). */
   let daily = 0;
   let weekly = 0;
+  const ownActions = Array.isArray(ownStaff?.partnerActions) ? ownStaff.partnerActions : [];
+  const ownAfterMs = getPartnerServerResetMs(ownStaff);
+  for (const action of ownActions) {
+    if (isValidPartnerCreate(action, "daily", weekBounds, ownAfterMs)) daily += 1;
+    if (isValidPartnerCreate(action, "weekly", weekBounds, ownAfterMs)) weekly += 1;
+  }
+
+  /* Manager-only credit (no own PM profile balance): still count creates attributed to them. */
+  let totalFromActions = 0;
   for (const row of list) {
     const actions = Array.isArray(row?.staff?.partnerActions) ? row.staff.partnerActions : [];
     const afterMs = getPartnerServerResetMs(row?.staff);
@@ -129,8 +140,6 @@ function computeUserPartnershipScoresFromRows(rows, userId, weekBounds) {
       const credited = resolvePartnerActionCreditUserId(action, row.userId);
       if (credited !== uid) continue;
       if (isValidPartnerCreate(action, "total", weekBounds, afterMs)) totalFromActions += 1;
-      if (isValidPartnerCreate(action, "daily", weekBounds, afterMs)) daily += 1;
-      if (isValidPartnerCreate(action, "weekly", weekBounds, afterMs)) weekly += 1;
     }
   }
 
@@ -235,14 +244,23 @@ async function aggregatePartnersScores(period, targetGuildId = null) {
     }
     out.sort((a, b) => b.score - a.score || String(a.userId || "").localeCompare(String(b.userId || "")));
   } else {
-    const scores = new Map();
+    /* Fan#1 weeklyFix2: daily/weekly = create sul profilo esecutore, NON managerId.
+       Altrimenti ogni partner con manager taggato sparisce dal conteggio PM (3→0). */
+    const uidSet = new Set();
     for (const row of Array.isArray(rows) ? rows : []) {
-      accumulatePartnerProfileScores(scores, row.userId, row.staff, period, weekBounds);
+      const id = String(row.userId || "").trim();
+      if (/^\d{16,22}$/.test(id)) uidSet.add(id);
     }
-    out = Array.from(scores.entries())
-      .map(([userId, score]) => ({ userId, guildId: gidFilter, score }))
-      .filter((row) => row.score > 0)
-      .sort((a, b) => b.score - a.score || String(a.userId || "").localeCompare(String(b.userId || "")));
+    out = [];
+    for (const uid of uidSet) {
+      const s = computeUserPartnershipScoresFromRows(rows, uid, weekBounds);
+      const score = Math.max(
+        0,
+        Math.floor(Number(period === "daily" ? s.daily : s.weekly) || 0),
+      );
+      if (score > 0) out.push({ userId: uid, guildId: gidFilter, score });
+    }
+    out.sort((a, b) => b.score - a.score || String(a.userId || "").localeCompare(String(b.userId || "")));
   }
 
   writeCache(key, out);
@@ -344,20 +362,36 @@ async function aggregateGlobalPartnersScores(period) {
 
   if (!guildIds.length) return [];
 
-  const weekBounds = per === "weekly" ? getPartnerLeaderboardWeekBoundsUtc(new Date()) : null;
+  const weekBounds = getPartnerLeaderboardWeekBoundsUtc(new Date());
   const rows = await ActivityUserProfile.find({ guildId: { $in: guildIds } })
     .select("userId staff.partnerActions staff.partnerCount staff.partnerRedeemSpend staff.partnerServerResetAt")
     .lean();
 
-  const scores = new Map();
-  for (const row of rows) {
-    accumulatePartnerProfileScores(scores, row.userId, row.staff, per, weekBounds);
+  /* Fan#1 weeklyFix2: stesso criterio own-profile di aggregatePartnersScores */
+  const uidSet = new Set();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const id = String(row.userId || "").trim();
+    if (/^\d{16,22}$/.test(id)) uidSet.add(id);
+    if (per === "total") {
+      const actions = Array.isArray(row?.staff?.partnerActions) ? row.staff.partnerActions : [];
+      for (const action of actions) {
+        const mid = String(action?.managerId || "").trim();
+        if (/^\d{16,22}$/.test(mid)) uidSet.add(mid);
+      }
+    }
   }
-
-  const out = Array.from(scores.entries())
-    .map(([userId, score]) => ({ userId, score }))
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score || String(a.userId).localeCompare(String(b.userId)));
+  const out = [];
+  for (const userId of uidSet) {
+    const s = computeUserPartnershipScoresFromRows(rows, userId, weekBounds);
+    const score = Math.max(
+      0,
+      Math.floor(
+        Number(per === "daily" ? s.daily : per === "weekly" ? s.weekly : s.total) || 0,
+      ),
+    );
+    if (score > 0) out.push({ userId, score });
+  }
+  out.sort((a, b) => b.score - a.score || String(a.userId).localeCompare(String(b.userId)));
 
   writeCache(key, out);
   return out;
@@ -393,13 +427,14 @@ async function getUserPartnershipScoresGuildLocal(guildId, userId) {
     .catch(() => null);
   const staff = row?.staff || null;
   const actions = Array.isArray(staff?.partnerActions) ? staff.partnerActions : [];
+  const afterMs = getPartnerServerResetMs(staff);
   const earned = resolvePartnerTotalEarned(staff);
   const points = resolvePartnerPointsShown(staff);
   let daily = 0;
   let weekly = 0;
   for (const action of actions) {
-    if (isValidPartnerCreate(action, "daily", weekBounds, 0)) daily += 1;
-    if (isValidPartnerCreate(action, "weekly", weekBounds, 0)) weekly += 1;
+    if (isValidPartnerCreate(action, "daily", weekBounds, afterMs)) daily += 1;
+    if (isValidPartnerCreate(action, "weekly", weekBounds, afterMs)) weekly += 1;
   }
   return { points, earned, partnerships: earned, total: earned, daily, weekly };
 }

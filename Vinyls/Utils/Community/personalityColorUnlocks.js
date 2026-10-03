@@ -45,6 +45,7 @@ const BASE_PLUS_COLOR_ROLE_IDS_ORDERED = [
   IDs.roles.blackPlus,
   IDs.roles.grayPlus,
   IDs.roles.whitePlus,
+  IDs.roles.brownPlus,
 ]
   .map((id) => String(id || "").trim())
   .filter(Boolean);

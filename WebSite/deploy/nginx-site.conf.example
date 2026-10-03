@@ -17,10 +17,7 @@ server {
     location = /user/customize { return 301 /personalizza/?target=rank; }
     location = /user/customize/ { return 301 /personalizza/?target=rank; }
     location = /user/custom { return 301 /personalizza/?target=primary; }
-    location = /user/custom/ {
-        # Keep ?target= via client stub; nginx can't easily rewrite query here.
-        try_files /user/custom/index.html =404;
-    }
+    location = /user/custom/ { return 301 /personalizza/?target=primary; }
     location ~ "^/users?/(\d{17,20})/?$" {
         try_files /user/index.html =404;
     }
@@ -62,13 +59,24 @@ server {
     location = /richieste/stato { return 302 /staff/pause/; }
     location = /richieste/stato/ { return 302 /staff/pause/; }
 
-    # Dopo chiusura evento Hogwarts (attivare a fine stagione):
-    # location ^~ /evento { return 302 /; }
+    # Alias path legacy → canonici (niente stub HTML in docroot).
+    # include /etc/nginx/snippets/vc-boards-redirect.conf;
+    # include /etc/nginx/snippets/vc-legacy-path-redirects.conf;
+    # Oppure copia da deploy/nginx-boards-redirect.conf + nginx-legacy-path-redirects.conf
+
+    # Dopo chiusura evento Hogwarts:
+    location ^~ /evento { return 302 /; }
 
     location = /staff/directory { return 302 /staff/organico/; }
     location = /staff/directory/ { return 302 /staff/organico/; }
     location = /staff/valutazioni { return 302 /staff/; }
     location = /staff/valutazioni/ { return 302 /staff/; }
+    location = /staff/pm { return 302 /staff/gestione/?tab=pm; }
+    location = /staff/pm/ { return 302 /staff/gestione/?tab=pm; }
+    location = /staff/profilo { return 302 /staff/; }
+    location = /staff/profilo/ { return 302 /staff/; }
+    location = /staff/moderazione { return 302 /staff/gestione/; }
+    location = /staff/moderazione/ { return 302 /staff/gestione/; }
 
     # HTML: mai in cache (i deploy aggiornano spesso ?v= negli asset).
     # Discord embed color: map User-Agent in conf.d + sub_filter theme-color

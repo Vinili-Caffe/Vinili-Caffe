@@ -16,11 +16,12 @@ const MIN_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 const STARTUP_BLAST_DM_DELAY_MS = 450;
 const EXTERNAL_STARTUP_DM_DELAY_MS = 600;
 const BLAST_STALE_LOCK_MS = 45 * 60 * 1000;
-const DM_FOOTER = "Se non vuoi ricevere questi avvisi in DM usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) nel server.";
+const DM_FOOTER = "Se non vuoi ricevere questi avvisi in DM usa [Personalizza](https://www.viniliecaffe.it/personalizza/) nel server.";
 const DEFAULT_TZ = "Europe/Rome";
 const STAFF_ROLE_IDS = [
   IDs.roles.Staff,
   IDs.roles.StafferDelMese,
+  IDs.roles.StafferDellaSettimana,
   IDs.roles.PartnerManager,
   IDs.roles.HighStaff,
   IDs.roles.Manager,
@@ -59,7 +60,7 @@ const defaultPool = [
   {
     title: "Gestione DM",
     description:
-      "Puoi gestire o disattivare questi promemoria con il [profilo sul sito](https://www.viniliecaffe.it/personalizza/).",
+      "Puoi gestire o disattivare questi promemoria con il [Personalizza](https://www.viniliecaffe.it/personalizza/).",
   },
   {
     title: "Attività community",

@@ -1,4 +1,4 @@
-/* 20260908ticketModalScrollStay2 — site custom dialogs (confirm/alert/prompt/choose) */
+/* 20261002compitiScrollUnlock2 — site custom dialogs (confirm/alert/prompt/choose) */
 (function (global) {
   "use strict";
 
@@ -117,8 +117,14 @@
       document.documentElement.classList.remove("vc-dialog-open");
     } catch (eCls) {}
     try {
-      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-      else if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+      /* compitiScrollUnlock2: release esplicito (sync da solo poteva early-return) */
+      if (typeof window.__vcReleaseModalScrollLock === "function") {
+        window.__vcReleaseModalScrollLock({ htmlClass: "vc-dialog-open", y: dialogScrollY, holdMs: 220 });
+      } else if (typeof window.__vcSyncLoaderScrollLock === "function") {
+        window.__vcSyncLoaderScrollLock();
+      } else if (typeof window.__vcUnpinPageScroll === "function") {
+        window.__vcUnpinPageScroll();
+      }
     } catch (eUnpin) {}
     /* ticketModalScrollStay2: after confirm, unpin/soft-lock can leave Y=0 before postAction */
     restoreDialogScroll();
@@ -178,6 +184,11 @@
       if (pending) finish(kind === "confirm" ? false : null);
       pending = { resolve: resolve, kind: kind, multiline: multiline };
       dialogScrollY = pageScrollY();
+      try {
+        if (typeof window.__vcResetPinnedPageScrollY === "function") {
+          window.__vcResetPinnedPageScrollY(dialogScrollY);
+        }
+      } catch (ePre) {}
       var root = ensureRoot();
       var titleEl = document.getElementById("vc-dialog-title");
       var textEl = document.getElementById("vc-dialog-text");
@@ -293,8 +304,17 @@
         document.documentElement.classList.add("vc-dialog-open");
       } catch (eOpenCls) {}
       try {
-        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-        else if (typeof window.__vcPinPageScroll === "function") window.__vcPinPageScroll();
+        if (typeof window.__vcArmModalScrollLock === "function") {
+          window.__vcArmModalScrollLock({
+            htmlClass: "vc-dialog-open",
+            y: dialogScrollY,
+            holdMs: 280,
+          });
+        } else if (typeof window.__vcSyncLoaderScrollLock === "function") {
+          window.__vcSyncLoaderScrollLock();
+        } else if (typeof window.__vcPinPageScroll === "function") {
+          window.__vcPinPageScroll({ soft: true, forcePhoneLock: true });
+        }
       } catch (ePin) {}
       requestAnimationFrame(function () {
         root.classList.add("is-open");

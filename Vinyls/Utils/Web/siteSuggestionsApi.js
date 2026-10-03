@@ -10,7 +10,7 @@ const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast"
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../Discord/guildDiscordIdentity");
-const { enqueueSiteInAppNotification, deleteSiteInAppNotifications } = require("./siteInAppNotificationsService");
+const { enqueueSiteInAppNotification, deleteSiteInAppNotifications, removeSiteInAppNotificationsMatching } = require("./siteInAppNotificationsService");
 const { recordTenantBugReport } = require("../../Services/Partner/tenantObjectiveService");
 const {
   applyLiveAvatarToSuggestionLike,
@@ -308,10 +308,13 @@ function clipNotifBody(text, maxLen) {
   return `${s.slice(0, Math.max(0, maxLen - 1))}…`;
 }
 
-function suggestionNotifOpenUrl(suggestionId) {
+function suggestionNotifOpenUrl(suggestionId, board) {
   const id = String(suggestionId || "").trim();
-  if (!id || !mongoose.isValidObjectId(id)) return "/feedback";
-  return `/feedback#vc-suggestion-${id}`;
+  const staff = board === "staff" || board === true;
+  if (!id || !mongoose.isValidObjectId(id)) {
+    return staff ? "/feedback/?board=staff" : "/feedback";
+  }
+  return staff ? `/feedback/?board=staff#vc-suggestion-${id}` : `/feedback#vc-suggestion-${id}`;
 }
 
 async function getHighStaffUserIds(guild) {
@@ -360,7 +363,7 @@ async function notifyHighStaffNewSuggestion(guild, suggestion, authorName) {
         body: `${safeAuthor} ha inviato ${label}: ${bodyPreview}`,
         kind: "suggestion",
         channel: "inbox",
-        openUrl: suggestionNotifOpenUrl(sid),
+        openUrl: suggestionNotifOpenUrl(sid, "staff"),
         dedupeKey: `suggestion:new:${sid}`,
         dedupeWindowMs: 86_400_000,
       }),
@@ -373,10 +376,18 @@ async function deleteSuggestionNotifications(guildId, suggestionId) {
   const sid = String(suggestionId || "").trim();
   if (!gid || !sid || !mongoose.isValidObjectId(sid)) return;
   const openUrl = suggestionNotifOpenUrl(sid);
+  const openUrlStaff = suggestionNotifOpenUrl(sid, "staff");
+  /* smartNotifLifecycle1: purge + dismiss OS (non solo pull DB) */
+  await removeSiteInAppNotificationsMatching({
+    exactKeys: [`suggestion:new:${sid}`],
+    openUrls: [openUrl, openUrlStaff],
+    kinds: ["suggestion"],
+    forceDismiss: true,
+  }).catch(() => null);
   await deleteSiteInAppNotifications({
     guildId: gid,
     kind: "suggestion",
-    $or: [{ openUrl }, { dedupeKey: `suggestion:new:${sid}` }],
+    $or: [{ openUrl }, { openUrl: openUrlStaff }, { dedupeKey: `suggestion:new:${sid}` }],
   }).catch(() => null);
 }
 
@@ -500,14 +511,13 @@ async function getSiteSuggestions(client, payload = {}) {
   let canAccessStaffBoard = false;
   const accessToken = String(payload.accessToken || "").trim();
 
-  // cinePolish1: public list query starts in parallel with Discord member resolve (no staff board probe).
-  const publicQuery = {
+  // feedbackShowRejected1: lista pubblica include rejected (community + staff); niente filtro $ne.
+  const listQuery = {
     docType: SG,
     guildId: guild.id,
     ...boardListQuery(board),
-    status: { $ne: "rejected" },
   };
-  const publicDocsP = SiteDocument.find(publicQuery)
+  const listDocsP = SiteDocument.find(listQuery)
     .sort({ updatedAt: -1, createdAt: -1 })
     .limit(LIST_LIMIT)
     .lean()
@@ -515,7 +525,7 @@ async function getSiteSuggestions(client, payload = {}) {
   const viewerP = accessToken
     ? resolveWebsiteGuildMember(client, accessToken).catch(() => null)
     : Promise.resolve(null);
-  const [publicDocs, resolved] = await Promise.all([publicDocsP, viewerP]);
+  const [listDocs, resolved] = await Promise.all([listDocsP, viewerP]);
 
   if (resolved && resolved.ok) {
     canAccessStaffBoard = memberCanAccessStaffFeedbackBoard(resolved.member);
@@ -539,44 +549,7 @@ async function getSiteSuggestions(client, payload = {}) {
   }
 
   const viewerId = viewer && viewer.id ? String(viewer.id) : "";
-  const canModerate = Boolean(viewer && viewer.canModerateSuggestions);
-  let docs = Array.isArray(publicDocs) ? publicDocs : [];
-
-  if (canModerate) {
-    // Moderators also see rejected — refetch once with full board query.
-    docs = await SiteDocument.find({ docType: SG, guildId: guild.id, ...boardListQuery(board) })
-      .sort({ updatedAt: -1, createdAt: -1 })
-      .limit(LIST_LIMIT)
-      .lean()
-      .catch(() => docs);
-  } else if (viewerId) {
-    // Own rejected rows (rare) — small parallel top-up, no second full board probe.
-    const ownRejected = await SiteDocument.find({
-      docType: SG,
-      guildId: guild.id,
-      ...boardListQuery(board),
-      userId: viewerId,
-      status: "rejected",
-    })
-      .sort({ updatedAt: -1, createdAt: -1 })
-      .limit(10)
-      .lean()
-      .catch(() => []);
-    if (Array.isArray(ownRejected) && ownRejected.length) {
-      const byId = new Map();
-      for (const d of [...docs, ...ownRejected]) {
-        const id = String(d && d._id ? d._id : "").trim();
-        if (id) byId.set(id, d);
-      }
-      docs = [...byId.values()]
-        .sort((a, b) => {
-          const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
-          const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
-          return tb - ta;
-        })
-        .slice(0, LIST_LIMIT);
-    }
-  }
+  let docs = Array.isArray(listDocs) ? listDocs : [];
 
   const authorIds = collectUserIdsFromSuggestionLikeDocs(docs);
   await prefetchGuildMembersForIds(guild, authorIds);
@@ -844,13 +817,16 @@ async function addSiteSuggestionComment(client, payload = {}) {
   const ownerId = String(existing.userId || "").trim();
   const actorId = String(resolved.userId || "").trim();
   const who = displayNameForMember(resolved.member);
-  const openUrl = suggestionNotifOpenUrl(suggestionId);
+  const board = suggestionBoardOf(existing);
+  const openUrl = suggestionNotifOpenUrl(suggestionId, board);
+  const notifChannel = board === "staff" ? "inbox" : "personal";
   let parentAuthor = "";
   if (parentOid) {
     const parent = (Array.isArray(existing.comments) ? existing.comments : []).find((x) => String(x._id) === rawParent);
     parentAuthor = parent ? String(parent.userId || "").trim() : "";
   }
   // discussionParticipantsFanOut1 — notify every prior participant (owner + comment authors), not only parent/owner.
+  // staffFeedbackCommentInbox1: staff-board comments always channel=inbox (Inbox tab).
   const participantIds = collectSuggestionDiscussionParticipantIds(existing, { excludeUserId: actorId });
   await Promise.all(
     participantIds.map((uid) => {
@@ -876,6 +852,7 @@ async function addSiteSuggestionComment(client, payload = {}) {
         title,
         body,
         kind: "suggestion",
+        channel: notifChannel,
         openUrl,
       });
     }),
@@ -972,7 +949,7 @@ async function setSiteSuggestionVote(client, payload = {}) {
       title: "Mi piace al tuo suggerimento",
       body: `${voterName} ha messo mi piace al tuo suggerimento sul sito.`,
       kind: "suggestion",
-      openUrl: suggestionNotifOpenUrl(suggestionId),
+      openUrl: suggestionNotifOpenUrl(suggestionId, suggestionBoardOf(fresh)),
     });
   }
 
@@ -1043,8 +1020,20 @@ async function staffAcceptSiteSuggestion(client, payload = {}) {
       title: "Suggerimento accettato",
       body: `Lo staff ha accettato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
       kind: "success",
-      openUrl: suggestionNotifOpenUrl(suggestionId),
+      openUrl: suggestionNotifOpenUrl(suggestionId, suggestionBoardOf(updated)),
     });
+    /* compitiAutoPickKeep1: anche /accept (non solo /decision) deve triggerare suggestion_kept */
+    try {
+      const { tryAutoSubmitCompito } = require("./siteStaffCompitiAutoComplete");
+      await tryAutoSubmitCompito(client, {
+        guildId: resolved.guild.id,
+        userId: authorAccept,
+        taskId: "suggestion_kept",
+        evidence: `Suggerimento accettato (${suggestionId})`,
+      });
+    } catch (errAuto) {
+      global.logger?.warn?.("[siteSuggestionsApi] compiti auto accept:", errAuto?.message || errAuto);
+    }
   }
 
   broadcastSiteSuggestionsChanged();
@@ -1114,7 +1103,7 @@ async function staffRejectSiteSuggestion(client, payload = {}) {
       title: "Suggerimento rifiutato",
       body: `Lo staff ha rifiutato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
       kind: "suggestion",
-      openUrl: suggestionNotifOpenUrl(suggestionId),
+      openUrl: suggestionNotifOpenUrl(suggestionId, suggestionBoardOf(updated)),
     });
   }
 
@@ -1189,27 +1178,43 @@ async function staffSetSiteSuggestionDecision(client, payload = {}) {
 
   const authorId = String(updated.userId || "").trim();
   const prevStatus = String(prev.status || "pending");
+  const boardUrl = suggestionBoardOf(updated);
+  /* smartNotifLifecycle1: accept/reject → via notif staff "nuovo suggerimento" */
+  if (nextStatus === "accepted" || nextStatus === "rejected") {
+    void deleteSuggestionNotifications(resolved.guild.id, suggestionId);
+  }
   if (authorId) {
     if (nextStatus === "accepted") {
       await notifySuggestionAuthor(resolved.guild.id, authorId, {
         title: "Suggerimento accettato",
         body: `Lo staff ha accettato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
         kind: "success",
-        openUrl: suggestionNotifOpenUrl(suggestionId),
+        openUrl: suggestionNotifOpenUrl(suggestionId, boardUrl),
       });
+      try {
+        const { tryAutoSubmitCompito } = require("./siteStaffCompitiAutoComplete");
+        await tryAutoSubmitCompito(client, {
+          guildId: resolved.guild.id,
+          userId: authorId,
+          taskId: "suggestion_kept",
+          evidence: `Suggerimento accettato (${suggestionId})`,
+        });
+      } catch (errAuto) {
+        global.logger?.warn?.("[siteSuggestionsApi] compiti auto:", errAuto?.message || errAuto);
+      }
     } else if (nextStatus === "rejected") {
       await notifySuggestionAuthor(resolved.guild.id, authorId, {
         title: "Suggerimento rifiutato",
         body: `Lo staff ha rifiutato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
         kind: "suggestion",
-        openUrl: suggestionNotifOpenUrl(suggestionId),
+        openUrl: suggestionNotifOpenUrl(suggestionId, boardUrl),
       });
     } else if (prevStatus !== "pending") {
       await notifySuggestionAuthor(resolved.guild.id, authorId, {
         title: "Suggerimento riaperto",
         body: "Lo staff ha rimesso il tuo suggerimento in valutazione sul sito.",
         kind: "suggestion",
-        openUrl: suggestionNotifOpenUrl(suggestionId),
+        openUrl: suggestionNotifOpenUrl(suggestionId, boardUrl),
       });
     }
   }

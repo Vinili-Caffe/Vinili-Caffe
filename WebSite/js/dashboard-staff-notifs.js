@@ -1,4 +1,14 @@
 (function () {
+  /* notifSheetUnifyDash1: sheet unificato via vc-landing-notif — questo client è dismesso */
+  try {
+    if (window.__VC_LANDING_NOTIF_CLIENT || window.__vcLandingNotifReady || window.__vcLandingNotifLoading) {
+      return;
+    }
+  } catch (eSkip) {}
+  /* fallback: se landing non è ancora partito, non montare comunque (auth lo carica) */
+  try {
+    if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
+  } catch (eDash) {}
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var POLL_MS = 60000;
@@ -223,8 +233,13 @@
   }
 
   function isMobileNotifViewport() {
+    if (window.VcNotifChrome && typeof window.VcNotifChrome.isMobile === "function") {
+      try {
+        return window.VcNotifChrome.isMobile();
+      } catch (eM) {}
+    }
     try {
-      return window.matchMedia("(max-width: 639.98px)").matches;
+      return window.matchMedia("(max-width: 639.98px), ((pointer: coarse) and (max-width: 920px))").matches;
     } catch (e) {
       return (window.innerWidth || 999) <= 640;
     }
@@ -266,6 +281,13 @@
   }
 
   function syncNotifMobileSheetChrome() {
+    /* notifChromeUnify1: prefer shared sheet/drawer ovunque */
+    if (window.VcNotifChrome && typeof window.VcNotifChrome.sync === "function") {
+      try {
+        window.VcNotifChrome.sync();
+        return;
+      } catch (eShared) {}
+    }
     if (notifPortalSyncing) return;
     var dd = byId("vc-notif-dropdown");
     if (!dd) return;
@@ -280,9 +302,15 @@
     }
     notifPortalSyncing = true;
     try {
-      if (dd.open && mobile) {
+      if (dd.open) {
         try {
-          root.classList.add("vc-notif-sheet-open");
+          if (mobile) {
+            root.classList.add("vc-notif-sheet-open");
+            root.classList.remove("vc-notif-drawer-open");
+          } else {
+            root.classList.add("vc-notif-drawer-open");
+            root.classList.remove("vc-notif-sheet-open");
+          }
           root.classList.add("vc-notif-dropdown-open");
         } catch (e0) {}
         portalNotifDropdownToBody(dd, true);
@@ -301,7 +329,7 @@
         }
       } else {
         try {
-          root.classList.remove("vc-notif-sheet-open");
+          root.classList.remove("vc-notif-sheet-open", "vc-notif-drawer-open");
           if (!dd.open) root.classList.remove("vc-notif-dropdown-open");
         } catch (e1) {}
         var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
@@ -316,9 +344,21 @@
   function ensureNotifCloseMobile(dd) {
     if (!dd) return;
     var head = dd.querySelector(".vc-notif-panel-head");
-    if (!head || head.querySelector(".vc-notif-close-mobile")) return;
+    if (!head) return;
+    /* notifCloseDedup1 */
+    try {
+      var dups = head.querySelectorAll(".vc-notif-close-mobile, #vc-notif-close-mobile");
+      for (var di = 1; di < dups.length; di++) {
+        try {
+          dups[di].remove();
+        } catch (eDup) {}
+      }
+      if (dups[0] && !dups[0].id) dups[0].id = "vc-notif-close-mobile";
+    } catch (eDedup) {}
+    if (head.querySelector(".vc-notif-close-mobile")) return;
     var closeM = document.createElement("button");
     closeM.type = "button";
+    closeM.id = "vc-notif-close-mobile";
     closeM.className = "vc-notif-action vc-notif-close-mobile";
     closeM.setAttribute("aria-label", t("notif.close", null, "Chiudi"));
     closeM.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
@@ -327,7 +367,9 @@
       ev.stopPropagation();
       dd.removeAttribute("open");
     });
-    head.appendChild(closeM);
+    var actions = head.querySelector(".vc-notif-panel-head-actions");
+    if (actions) actions.appendChild(closeM);
+    else head.appendChild(closeM);
   }
 
   function ensureNotifSeeAllLink() {

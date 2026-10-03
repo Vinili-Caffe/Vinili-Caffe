@@ -11,6 +11,7 @@ const ROLE_PANEL_CATEGORY_KEYS = [
   "relationship",
   "mentions",
   "hobby",
+  "gaming",
   "colors1",
   "colors_level",
   "colors_plus",
@@ -171,6 +172,32 @@ function buildHobbyRow() {
   );
 }
 
+function buildGamingRow() {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("personality_gaming")
+      .setPlaceholder("🎮 Seleziona i tuoi giochi")
+      .setMinValues(1)
+      .setMaxValues(13)
+      .addOptions(
+        { label: "Rimuovi tutti i giochi", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi ruoli dal tuo profilo" },
+        { label: "༄ Minecraft", value: IDs.roles.GameMinecraft, emoji: "⛏️", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ League of Legends", value: IDs.roles.GameLeagueOfLegends, emoji: "⚔️", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Fortnite", value: IDs.roles.GameFortnite, emoji: "🪂", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Roblox", value: IDs.roles.GameRoblox, emoji: "🧱", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Grand Theft Auto", value: IDs.roles.GameGrandTheftAuto, emoji: "🚗", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Call of Duty", value: IDs.roles.GameCallOfDuty, emoji: "🔫", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Rocket League", value: IDs.roles.GameRocketLeague, emoji: "⚽", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Among Us", value: IDs.roles.GameAmongUs, emoji: "🕵️", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ OSU!", value: IDs.roles.GameOsu, emoji: "🎯", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ The Sims", value: IDs.roles.GameTheSims, emoji: "🏠", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Valorant", value: IDs.roles.GameValorant, emoji: "🔫", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ FIFA", value: IDs.roles.GameFifa, emoji: "⚽", description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Brawl Stars", value: IDs.roles.GameBrawlStars, emoji: "⭐", description: "Clicca qui per ottenere il ruolo" },
+      ),
+  );
+}
+
 function buildColors1Row() {
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -214,6 +241,7 @@ function buildColorsPlusRow() {
         { label: "༄ Black Gradientᵖˡᵘˢ", value: IDs.roles.blackPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ Gray Gradientᵖˡᵘˢ", value: IDs.roles.grayPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
         { label: "༄ White Gradientᵖˡᵘˢ", value: IDs.roles.whitePlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "༄ Brown Gradientᵖˡᵘˢ", value: IDs.roles.brownPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
         ),
   );
 }
@@ -237,6 +265,8 @@ function buildRuoliColoriPersonalityMenuRow(categoryKey) {
       return buildMentionsRow();
     case "hobby":
       return buildHobbyRow();
+    case "gaming":
+      return buildGamingRow();
     case "colors1":
       return buildColors1Row();
     default:
@@ -264,6 +294,7 @@ function buildRolePanelCategoryPickerRow(ownerId, selectedKey, viewerId = null) 
         { label: "Stato sentimentale", value: "relationship", emoji: "💘", default: sel === "relationship" },
         { label: "Ping", value: "mentions", emoji: "🔔", default: sel === "mentions" },
         { label: "Hobby", value: "hobby", emoji: "🎯", default: sel === "hobby" },
+        { label: "Gaming", value: "gaming", emoji: "🎮", default: sel === "gaming" },
         { label: "Colori Base", value: "colors1", emoji: "🎨", default: sel === "colors1" },
         { label: "Colori Livelli", value: "colors_level", emoji: "<:VC_EXP:1482534670896730143>", default: sel === "colors_level" },
         { label: "Colori Plus", value: "colors_plus", emoji: "<:VC_Vip:1482534921472835895>", default: sel === "colors_plus" },
@@ -289,6 +320,7 @@ module.exports = {
   buildRelationshipRow,
   buildMentionsRow,
   buildHobbyRow,
+  buildGamingRow,
   buildColors1Row,
   buildColorsPlusRow,
   buildRuoliColoriPersonalityMenuRow,

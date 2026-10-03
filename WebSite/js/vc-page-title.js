@@ -3,7 +3,63 @@
 
   var DEFAULT_BRAND = "Vinili & Caffè";
   var SEP = " | ";
-  /* titleNoDupBrand1 */
+  /* titleNoDupBrand1 + voteTitle1: path fallback when <title> empty (no landing.js) */
+
+  var PATH_PAGE_LABELS = {
+    "/": "",
+    "/vote": "Vota",
+    "/faq": "FAQ",
+    "/wiki": "Wiki",
+    "/regole": "Regole",
+    "/donazioni": "Donazioni",
+    "/ruoli": "Ruoli",
+    "/sponsor": "Sponsor",
+    "/recensioni": "Recensioni",
+    "/feedback": "Feedback",
+    "/candidature": "Candidature",
+    "/appelli": "Appelli",
+    "/tickets": "Tickets",
+    "/perks": "Perks",
+    "/notifications": "Notifiche",
+    "/privacy": "Privacy",
+    "/terms": "Termini",
+    "/cookie": "Cookie",
+    "/copyright": "Copyright",
+    "/dati": "I tuoi dati",
+    "/personalizza": "Personalizza",
+    "/user": "Profilo",
+  };
+
+  function currentPath() {
+    try {
+      return String((global.location && global.location.pathname) || "/")
+        .replace(/\/index\.html$/i, "")
+        .replace(/\/+$/, "") || "/";
+    } catch (ePath) {
+      return "/";
+    }
+  }
+
+  function labelFromPath(pathname) {
+    var p = String(pathname || currentPath() || "/");
+    if (Object.prototype.hasOwnProperty.call(PATH_PAGE_LABELS, p)) {
+      return PATH_PAGE_LABELS[p];
+    }
+    /* longest prefix match for nested routes */
+    var best = "";
+    var bestLen = -1;
+    for (var key in PATH_PAGE_LABELS) {
+      if (!Object.prototype.hasOwnProperty.call(PATH_PAGE_LABELS, key)) continue;
+      if (key === "/") continue;
+      if (p === key || p.indexOf(key + "/") === 0) {
+        if (key.length > bestLen) {
+          best = PATH_PAGE_LABELS[key];
+          bestLen = key.length;
+        }
+      }
+    }
+    return best;
+  }
 
   function siteBrandName() {
     try {
@@ -120,7 +176,12 @@
   function applyFromDocument() {
     try {
       if (!global.document) return "";
-      return setTitle(global.document.title || siteBrandName());
+      var raw = String(global.document.title || "").trim();
+      if (!raw || isBrandLabel(raw, siteBrandName())) {
+        var fromPath = labelFromPath(currentPath());
+        if (fromPath) return setTitle(fromPath);
+      }
+      return setTitle(raw || siteBrandName());
     } catch (eApply) {
       return "";
     }

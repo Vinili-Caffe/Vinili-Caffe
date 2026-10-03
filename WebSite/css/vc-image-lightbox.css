@@ -1,7 +1,16 @@
-/* 20260908imgLightbox2 — classic in-site image viewer */
+/* 20260927compitiUx1 — classic in-site image viewer + compiti proofs */
 html.vc-img-lb-open,
 html.vc-img-lb-open body {
   overflow: hidden !important;
+}
+
+/* compitiUx1: bottoni lightbox sopra soft-fx / hold cursor */
+html.vc-img-lb-open .vc-img-lb,
+html.vc-img-lb-open .vc-img-lb.is-open,
+html.vc-img-lb-open .vc-img-lb [data-vc-lb],
+html.vc-img-lb-open .vc-img-lb button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
 }
 
 .vc-img-lb {

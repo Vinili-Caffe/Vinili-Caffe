@@ -1,7 +1,8 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { userAvatarUrlDynamic, sitePreferredAvatarUrl } = require("../Discord/guildDiscordIdentity");
 const { voteCountMonthKeyRome, romeMonthStartMs } = require("../romeVoteMonthKey");
+const { sendJsonWithEtag, weakEtagFromJson } = require("./siteHttpEtag");
 
 const CACHE_TTL_MS = 90_000;
 const cache = new Map();
@@ -91,8 +92,9 @@ function platformVoteState(client, leaf, platform) {
   };
 }
 
-/* voteMobileFast1: never Discord-fetch per voter — that timed out phones (toast spam). Cache only. */
-function fetchUserIdentity(client, guild, userId) {
+/* voteIdentityFetch1: cache first; if missing, fetch Discord user (top board only).
+   After reboot cache is cold → everyone was "Utente". */
+async function fetchUserIdentity(client, guild, userId, { allowFetch = false } = {}) {
   const out = {
     userId: String(userId || ""),
     username: "",
@@ -100,16 +102,39 @@ function fetchUserIdentity(client, guild, userId) {
     avatarUrl: "",
   };
   if (!out.userId) return out;
-  const member = guild?.members?.cache?.get?.(out.userId) || null;
+  let member = guild?.members?.cache?.get?.(out.userId) || null;
   let user = member?.user || null;
   if (!user && client?.users?.cache?.get) {
     user = client.users.cache.get(out.userId) || null;
   }
+  if (!user && allowFetch && client?.users?.fetch) {
+    try {
+      user = await Promise.race([
+        client.users.fetch(out.userId),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 2200)),
+      ]);
+    } catch (eFetch) {
+      user = null;
+    }
+  }
+  if (!member && allowFetch && guild?.members?.fetch && user) {
+    try {
+      member = await Promise.race([
+        guild.members.fetch(out.userId),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 1800)),
+      ]);
+    } catch (eMem) {
+      member = null;
+    }
+  }
   out.username = String(user?.username || "").trim();
-  out.displayName = String(
-    member?.displayName || user?.globalName || user?.username || "Utente"
-  ).trim() || "Utente";
+  out.displayName =
+    String(
+      member?.displayName || user?.globalName || user?.username || ""
+    ).trim() || "Utente";
   out.avatarUrl =
+    sitePreferredAvatarUrl(member, { size: 256, preferAnimated: true, allowDefault: false }) ||
+    sitePreferredAvatarUrl(user, { size: 256, preferAnimated: true, allowDefault: false }) ||
     (member && (userAvatarUrlDynamic(member, { size: 256, allowDefault: false }) || "")) ||
     userAvatarUrlDynamic(user, { size: 256, allowDefault: false }) ||
     "";
@@ -125,11 +150,14 @@ async function handleSiteVoteGet(client, req, res) {
 
     const q = req.query || {};
     const searchUserId = parseSearchUserId(q.userId ?? q.id ?? q.uid);
-    const cacheKey = `vote:v2:${guildId}:${searchUserId || "-"}`;
+    const cacheKey = `vote:v3:${guildId}:${searchUserId || "-"}`;
     const cached = cacheGet(cacheKey);
     if (cached) {
-      res.setHeader("Cache-Control", "public, max-age=30");
-      return res.json(cached);
+      /* siteApiW6: ETag/304 on vote poll */
+      return sendJsonWithEtag(req, res, cached, {
+        cacheControl: "public, max-age=30",
+        etag: weakEtagFromJson(cached),
+      });
     }
 
     const guild =
@@ -175,8 +203,27 @@ async function handleSiteVoteGet(client, req, res) {
 
     const totalVotes = activeRowsBase.reduce((sum, row) => sum + row.votes, 0);
     const topRowsBase = activeRowsBase.slice(0, 50);
+    /* voteIdentityFetch1: cache-only for deep ranks; Discord fetch for top 20 missing names. */
+    const identities = await Promise.all(
+      topRowsBase.map(async (base, i) => {
+        const cachedOnly = await fetchUserIdentity(client, guild, base.userId, {
+          allowFetch: false,
+        });
+        const needFetch =
+          i < 20 &&
+          (!cachedOnly.displayName ||
+            cachedOnly.displayName === "Utente" ||
+            !cachedOnly.username);
+        if (!needFetch) return cachedOnly;
+        return fetchUserIdentity(client, guild, base.userId, { allowFetch: true });
+      }),
+    );
     const rows = topRowsBase.map((base, i) => {
-      const identity = fetchUserIdentity(client, guild, base.userId);
+      const identity = identities[i] || {
+        username: "",
+        displayName: "Utente",
+        avatarUrl: "",
+      };
       return {
         rank: i + 1,
         userId: base.userId,
@@ -236,8 +283,10 @@ async function handleSiteVoteGet(client, req, res) {
       rows,
     };
     cacheSet(cacheKey, payload);
-    res.setHeader("Cache-Control", "public, max-age=30");
-    return res.json(payload);
+    return sendJsonWithEtag(req, res, payload, {
+      cacheControl: "public, max-age=30",
+      etag: weakEtagFromJson(payload),
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-vote:", err);
     return res.status(500).json({ ok: false, error: "internal" });

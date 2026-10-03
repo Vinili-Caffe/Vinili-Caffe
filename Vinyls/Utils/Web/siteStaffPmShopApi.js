@@ -1,7 +1,7 @@
 const IDs = require("../Config/ids");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
 const { memberIsPm } = require("./siteStaffRosterCache");
-const { resolvePartnerPointsShown } = require("../Staff/partnerPointsDisplayUtils");
+const { resolvePartnerPointsShown, resolvePartnerTotalEarned } = require("../Staff/partnerPointsDisplayUtils");
 const {
   PARTNER_MANAGER_REDEEM_TIERS,
   partnerManagerCanAffordReward,
@@ -17,6 +17,7 @@ const { openPartnerManagerShopWebTicketForMember } = require("../Ticket/partnerM
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
 const { resolvePartnerManagerShopInstantBlocks } = require("../Staff/partnerManagerTimedPerks");
+const { listPmShopRedeems } = require("../Partner/pmShopRedeemStore");
 
 function stripDiscordMessage(text) {
   return String(text || "")
@@ -66,12 +67,242 @@ function buildPmShopCatalogForWeb(balance, opts) {
   };
 }
 
+function memberIsHighStaff(member) {
+  try {
+    const { memberIsHighStaffEligible } = require("../Staff/staffRoleHierarchy");
+    return Boolean(memberIsHighStaffEligible(member));
+  } catch (_) {
+    return false;
+  }
+}
+
+function partnerSnapshotFromLean(lean) {
+  const staff = lean?.staff || {};
+  const points = resolvePartnerPointsShown(staff);
+  const redeemSpend = Math.max(0, Math.floor(Number(staff.partnerRedeemSpend || 0)));
+  let pointsEarned = points + redeemSpend;
+  try {
+    pointsEarned = Math.max(0, Math.floor(Number(resolvePartnerTotalEarned(staff) || 0)));
+  } catch (_) {}
+  return {
+    points,
+    redeemSpend,
+    partnerCount: Math.max(0, Math.floor(Number(staff.partnerCount || 0))),
+    pointsEarned,
+  };
+}
+
+async function handleSiteStaffPmShopGet(client, req, res) {
+  try {
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
+    if (!access.ok) {
+      return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+
+    const userId = String(req.query?.userId || "").trim();
+    if (!/^\d{16,20}$/.test(userId)) {
+      return res.status(400).json({ ok: false, error: "invalid_user", message: "Utente non valido." });
+    }
+
+    const isSelf = String(access.member?.id || "") === userId;
+    const isHs = memberIsHighStaff(access.member);
+    if (!isSelf && !isHs) {
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+        message: "Puoi vedere solo i tuoi riscatti shop (o quelli di un PM se sei High Staff).",
+      });
+    }
+
+    const guildId = String(IDs.guilds.main || "").trim();
+    const listed = await listPmShopRedeems({
+      guildId,
+      pmUserId: userId,
+      limit: Math.min(50, Math.max(1, Number(req.query?.limit) || 30)),
+      before: req.query?.before || null,
+    });
+
+    /* pmShopManualOnly1: partner da lean subito — niente members.fetch che bloccava lo storico */
+    let partner = null;
+    try {
+      const lean = await ActivityUserProfile.findOne({ guildId, userId })
+        .select("staff")
+        .lean()
+        .catch(() => null);
+      const snap = partnerSnapshotFromLean(lean);
+      partner = {
+        ...snap,
+        shop: buildPmShopCatalogForWeb(snap.points, { member: null, lean }),
+      };
+    } catch (_) {
+      partner = null;
+    }
+
+    return res.status(200).json({
+      ok: true,
+      userId,
+      items: listed.items,
+      hasMore: listed.hasMore,
+      nextBefore: listed.nextBefore,
+      partner,
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-staff-pm-shop GET:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleHsManualRedeem(client, guild, access, body) {
+  const targetUserId = String(body.userId || "").trim();
+  const tier = Math.floor(Number(body.tier));
+  const reason = String(body.reason || body.motivo || "").trim().slice(0, 400);
+
+  if (!memberIsHighStaff(access.member)) {
+    return {
+      status: 403,
+      json: { ok: false, error: "forbidden", message: "Solo High Staff può riscattare premi per un altro PM." },
+    };
+  }
+  if (!/^\d{16,20}$/.test(targetUserId)) {
+    return { status: 400, json: { ok: false, error: "invalid_user", message: "Utente non valido." } };
+  }
+  if (!PARTNER_MANAGER_REDEEM_TIERS.includes(tier)) {
+    return { status: 400, json: { ok: false, error: "invalid_tier", message: "Premio non valido." } };
+  }
+  /* pmShopManualOnly1: HS da sheet = solo premi a consegna manuale (ticket), non Custom/VIP automatici */
+  if (tier === 50 || tier === 100) {
+    return {
+      status: 400,
+      json: {
+        ok: false,
+        error: "instant_only",
+        message: "Custom Role e VIP si riscattano automaticamente dallo shop PM, non da qui.",
+      },
+    };
+  }
+
+  const targetMember = await guild.members.fetch(targetUserId).catch(() => null);
+  if (!targetMember || !memberIsPm(targetMember)) {
+    return {
+      status: 400,
+      json: { ok: false, error: "not_pm", message: "L'utente non è Partner Manager." },
+    };
+  }
+
+  const guildId = String(guild.id);
+  const lean = await ActivityUserProfile.findOne({ guildId, userId: targetUserId })
+    .select("staff")
+    .lean()
+    .catch(() => null);
+  const balance = resolvePartnerPointsShown(lean?.staff);
+  const cost = getPartnerRewardPointCost(tier);
+  const blocks = resolvePartnerManagerShopInstantBlocks(targetMember, lean);
+
+  if (tier === 50 && blocks.customBlocked) {
+    return {
+      status: 400,
+      json: {
+        ok: false,
+        error: "already_owned",
+        message: blocks.customBlockedReason,
+        ...partnerSnapshotFromLean(lean),
+        shop: buildPmShopCatalogForWeb(balance, { member: targetMember, lean }),
+      },
+    };
+  }
+  if (tier === 100 && blocks.vipBlocked) {
+    return {
+      status: 400,
+      json: {
+        ok: false,
+        error: "already_owned",
+        message: blocks.vipBlockedReason,
+        ...partnerSnapshotFromLean(lean),
+        shop: buildPmShopCatalogForWeb(balance, { member: targetMember, lean }),
+      },
+    };
+  }
+  if (balance < cost) {
+    return {
+      status: 400,
+      json: {
+        ok: false,
+        error: "insufficient",
+        message: `Servono ${cost} punti (saldo attuale: ${balance}).`,
+        ...partnerSnapshotFromLean(lean),
+      },
+    };
+  }
+
+  const actorUser = access.member.user || (await client.users.fetch(access.member.id).catch(() => null));
+  const resRedeem = await completePartnerManagerRedeemForGuild(guild, client, {
+    targetUserId,
+    redeemTier: tier,
+    actorUser,
+    reason: reason || "Riscatto manuale High Staff (sito)",
+    source: "site_hs_manual",
+  });
+  clearStaffProfileCacheForUser(targetUserId);
+
+  if (!resRedeem.ok) {
+    return {
+      status: 400,
+      json: {
+        ok: false,
+        error: resRedeem.code || "redeem_failed",
+        message: stripDiscordMessage(resRedeem.userMessage) || "Riscatto non riuscito.",
+      },
+    };
+  }
+
+  const afterLean = await ActivityUserProfile.findOne({ guildId, userId: targetUserId })
+    .select("staff")
+    .lean()
+    .catch(() => null);
+  const snap = partnerSnapshotFromLean(afterLean);
+  const history = await listPmShopRedeems({ guildId, pmUserId: targetUserId, limit: 30 });
+
+  return {
+    status: 200,
+    json: {
+      ok: true,
+      mode: "hs_manual",
+      tier,
+      message: stripDiscordMessage(resRedeem.userMessage) || "Premio riscattato.",
+      ...snap,
+      shop: buildPmShopCatalogForWeb(snap.points, { member: targetMember, lean: afterLean }),
+      redeems: history.items,
+    },
+  };
+}
+
 async function handleSiteStaffPmShopPost(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const tier = Math.floor(Number(body.tier));
+    const targetUserId = String(body.userId || "").trim();
+    const selfId = String(access.member?.id || "");
+
+    const guildId = String(IDs.guilds.main || "").trim();
+    const guild =
+      access.member.guild ||
+      client.guilds.cache.get(guildId) ||
+      (await client.guilds.fetch(guildId).catch(() => null));
+    if (!guild) {
+      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
+    }
+
+    /* pmShopHsRedeem1: High Staff su profilo altrui → riscatto manuale immediato (tutti i tier) */
+    if (targetUserId && targetUserId !== selfId) {
+      const out = await handleHsManualRedeem(client, guild, access, body);
+      return res.status(out.status).json(out.json);
     }
 
     const member = access.member;
@@ -79,22 +310,11 @@ async function handleSiteStaffPmShopPost(client, req, res) {
       return res.status(403).json({ ok: false, error: "forbidden", message: "Solo i Partner Manager possono usare lo shop." });
     }
 
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const tier = Math.floor(Number(body.tier));
     if (!PARTNER_MANAGER_REDEEM_TIERS.includes(tier)) {
       return res.status(400).json({ ok: false, error: "invalid_tier", message: "Premio non valido." });
     }
 
-    const guildId = String(IDs.guilds.main || "").trim();
-    const guild =
-      member.guild ||
-      client.guilds.cache.get(guildId) ||
-      (await client.guilds.fetch(guildId).catch(() => null));
-    if (!guild) {
-      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
-    }
-
-    const userId = String(member.id);
+    const userId = selfId;
     const lean = await ActivityUserProfile.findOne({ guildId, userId })
       .select("staff")
       .lean()
@@ -135,6 +355,8 @@ async function handleSiteStaffPmShopPost(client, req, res) {
         targetUserId: userId,
         redeemTier: tier,
         actorUser,
+        reason: String(body.reason || "").trim().slice(0, 400) || "Riscatto shop (sito)",
+        source: "site_self",
       });
       clearStaffProfileCacheForUser(userId);
       if (!resRedeem.ok) {
@@ -195,4 +417,5 @@ module.exports = {
   buildPmShopCatalogForWeb,
   stripDiscordMessage,
   handleSiteStaffPmShopPost,
+  handleSiteStaffPmShopGet,
 };

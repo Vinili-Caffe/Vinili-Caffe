@@ -287,10 +287,37 @@
   function applyDisclaimer() {
     var el = byId("vc-regole-disclaimer");
     if (!el || !payload) return;
-    el.textContent = String(payload.disclaimer || "").trim() || el.textContent;
+    var text = String(payload.disclaimer || "").trim();
+    if (!text) return;
+    var span = el.querySelector("[data-i18n='rules.disclaimer']");
+    if (!span) span = el.querySelector("span");
+    if (span) {
+      span.textContent = text;
+      return;
+    }
+    el.innerHTML =
+      '<i class="fa fa-exclamation-circle mr-1.5 text-amber-400/90" aria-hidden="true"></i>' +
+      '<span data-i18n="rules.disclaimer"></span>';
+    span = el.querySelector("span");
+    if (span) span.textContent = text;
   }
 
   async function load() {
+    /* contentStatic1: payload baked in vc-regole-static.js — no webhook per visit */
+    var baked = null;
+    try {
+      baked = window.__VC_REGOLE_STATIC;
+    } catch (eBake) {
+      baked = null;
+    }
+    if (baked && baked.ok && Array.isArray(baked.rules) && baked.rules.length) {
+      payload = baked;
+      setState("", false);
+      applyDisclaimer();
+      renderTabs();
+      renderList();
+      return;
+    }
     var url = resolvedApiUrl();
     if (!url) {
       setState(t("rules.errApi", "API regole non configurata."), true);

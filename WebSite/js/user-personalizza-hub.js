@@ -241,13 +241,13 @@
       if (customPage) customPage.hidden = true;
       hardHideEl(customLoading);
       allById("vc-custom-profile-loading").forEach(hardHideEl);
-      setLoaderCopy(rankLoading, "Caricamento Personalizza", "Sto preparando rank card, ruoli e impostazioni profilo…");
+      setLoaderCopy(rankLoading, "Caricamento…", "Un momento…");
           } else {
       if (rankPage) rankPage.hidden = true;
       if (customPage) customPage.hidden = false;
       hardHideEl(rankLoading);
       allById("vc-rank-customize-loading").forEach(hardHideEl);
-      setLoaderCopy(customLoading, "Caricamento Personalizza", "Sto preparando rank card, ruoli e impostazioni profilo…");
+      setLoaderCopy(customLoading, "Caricamento…", "Un momento…");
     }
   }
 
@@ -381,13 +381,8 @@
       maybeRedirectOwnPersonalizza();
     } catch (eProf) {}
   });
-  window.addEventListener("vc:auth-logout", function () {
-    try {
-      window.location.replace("/");
-    } catch (eOut) {
-      window.location.href = "/";
-    }
-  });
+  /* personalizzaRankFix1b: mai bounce a / da questa pagina (logout → resta con CTA login) */
+  window.addEventListener("vc:auth-logout", function () {});
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   }

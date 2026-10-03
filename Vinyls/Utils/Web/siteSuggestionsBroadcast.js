@@ -147,6 +147,52 @@ function broadcastSiteWebTicketsEvent(payload) {
   notifyExternalSiteRealtime(body);
 }
 
+/** leaveProfileLive1: invalidate site caches + push WS so open profiles drop immediately. */
+function invalidateLeftMemberSiteCaches(userId, guildId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
+  try {
+    const { markWebsiteMemberLeft } = require("./websiteGuildMemberFetch");
+    markWebsiteMemberLeft(uid);
+  } catch (_) {}
+  try {
+    const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
+    clearStaffProfileCacheForUser(uid);
+  } catch (_) {}
+  try {
+    const { invalidateProfileCacheForUser } = require("./siteUsersLeaderboardApi");
+    invalidateProfileCacheForUser(guildId, uid);
+  } catch (_) {}
+}
+
+function broadcastSiteMemberLeft(userId, guildId = "") {
+  const uid = String(userId || "").trim();
+  if (!/^\d{17,20}$/.test(uid)) return;
+  const gid = String(guildId || "").trim();
+  invalidateLeftMemberSiteCaches(uid, gid);
+  const payload = {
+    type: "member_left",
+    userId: uid,
+    guildId: gid || undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+  /* leaveProfileLive1: bots process often lacks SITE_API_EXTERNAL — always ping site-api loopback */
+  if (!isTruthyEnv("SITE_API_PROCESS")) {
+    const port = Number(process.env.SITE_API_PORT || 3020) || 3020;
+    const secret = String(process.env.SITE_REALTIME_NOTIFY_SECRET || "local").trim() || "local";
+    void fetch(`http://127.0.0.1:${port}/webhooks/site-realtime/notify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Notify": secret,
+      },
+      body: JSON.stringify(payload),
+    }).catch(() => null);
+  }
+}
+
 module.exports = {
   attachSiteSuggestionsWsServer,
   broadcastSiteSuggestionsChanged,
@@ -156,6 +202,8 @@ module.exports = {
   broadcastSiteStaffPausesChanged,
   broadcastSiteStaffWorkflowChanged,
   broadcastSiteWebTicketsEvent,
+  broadcastSiteMemberLeft,
+  invalidateLeftMemberSiteCaches,
   broadcastSiteRealtime,
   SUGGESTIONS_WS_PATH: LEGACY_SUGGESTIONS_WS_PATH,
   SITE_REALTIME_WS_PATH,

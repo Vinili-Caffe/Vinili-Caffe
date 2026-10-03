@@ -1055,10 +1055,6 @@ function getValPosTradedPauseBonusDays(staffDoc) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
-function getStaffPauseBonusDaysTotal(member, staffDoc) {
-  return getBestStaffPauseBonusDays(member, staffDoc) + getValPosTradedPauseBonusDays(staffDoc);
-}
-
 async function grantBestStaffPauseBonusYear(guildId, userId, year = null) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
@@ -1070,6 +1066,192 @@ async function grantBestStaffPauseBonusYear(guildId, userId, year = null) {
     { $setOnInsert: { guildId: g, userId: u }, $addToSet: { "staff.bestStaffPauseBonusYears": y } },
     { upsert: true, setDefaultsOnInsert: true },
   ).catch(() => null);
+}
+
+function getStaffWeekKeyNow(now = new Date()) {
+  const { getStaffWeekKeyNow: resolveWeekKey } = require("../Staff/stafferDellaSettimanaWeekKey");
+  return resolveWeekKey(now);
+}
+
+function formatRomeMonthKey(date = new Date()) {
+  const { formatRomeMonthKey: fmt } = require("../Staff/stafferDellaSettimanaWeekKey");
+  return fmt(date);
+}
+
+function coerceMonthKey(raw) {
+  const { coerceMonthKey: coerce } = require("../Staff/stafferDellaSettimanaWeekKey");
+  return coerce(raw);
+}
+
+function resolveStafferBonusMonthKey(opts = {}) {
+  const { resolveStafferBonusMonthKey: resolve } = require("../Staff/stafferDellaSettimanaWeekKey");
+  return resolve(opts);
+}
+
+function grantEntryMonthKey(grant) {
+  const mk = coerceMonthKey(grant?.monthKey);
+  if (mk) return mk;
+  const { monthKeyForStaffWeekKey } = require("../Staff/stafferDellaSettimanaWeekKey");
+  return monthKeyForStaffWeekKey(grant?.weekKey) || "";
+}
+
+function listBestStaffWeekPauseGrants(staffDoc) {
+  const raw =
+    staffDoc?.staff?.bestStaffWeekPauseBonusWeeks ?? staffDoc?.bestStaffWeekPauseBonusWeeks;
+  return Array.isArray(raw) ? raw : [];
+}
+
+function getBestStaffWeekPauseBonusGrantedForMonth(
+  staffDoc,
+  monthKey = resolveStafferBonusMonthKey({ weekKey: getStaffWeekKeyNow() }),
+) {
+  const mk = coerceMonthKey(monthKey) || resolveStafferBonusMonthKey({ weekKey: getStaffWeekKeyNow() });
+  if (!mk) return 0;
+  let total = 0;
+  for (const g of listBestStaffWeekPauseGrants(staffDoc)) {
+    if (grantEntryMonthKey(g) !== mk) continue;
+    const days = Number(g?.days);
+    total += Number.isFinite(days) && days > 0 ? Math.floor(days) : 1;
+  }
+  return total;
+}
+
+function computeWeekBonusDaysConsumed(pauses, monthKey = null) {
+  if (!Array.isArray(pauses)) return 0;
+  const mk = monthKey == null ? null : coerceMonthKey(monthKey) || String(monthKey || "").trim();
+  const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
+  let total = 0;
+  for (const pause of pauses) {
+    if (!pause || (pause.status !== "accepted" && pause.status !== "cancelled")) continue;
+    const n = Math.max(0, Math.floor(Number(pause.giorniAggiuntiviSettimana) || 0));
+    if (!n) continue;
+    const start = parseItalianDate(pause.dataRichiesta);
+    if (!start) continue;
+    if (start < yearStart || start > yearEnd) continue;
+    if (mk) {
+      const { monthKeyForRomeDateViaIsoWeek } = require("../Staff/stafferDellaSettimanaWeekKey");
+      if (monthKeyForRomeDateViaIsoWeek(start) !== mk) continue;
+    }
+    total += n;
+  }
+  return total;
+}
+
+function getBestStaffWeekPauseBonusDaysRemaining(
+  staffDoc,
+  monthKey = resolveStafferBonusMonthKey({ weekKey: getStaffWeekKeyNow() }),
+) {
+  const mk =
+    coerceMonthKey(monthKey) || resolveStafferBonusMonthKey({ weekKey: getStaffWeekKeyNow() });
+  const granted = getBestStaffWeekPauseBonusGrantedForMonth(staffDoc, mk);
+  const spent = computeWeekBonusDaysConsumed(
+    Array.isArray(staffDoc?.staff?.pauses) ? staffDoc.staff.pauses : staffDoc?.pauses,
+    mk,
+  );
+  return Math.max(0, granted - spent);
+}
+
+function allocateBestStaffWeekPauseBonusDays(staffDoc, giorniRichiesti) {
+  const need = Math.max(0, Math.floor(Number(giorniRichiesti) || 0));
+  if (!need) return 0;
+  return Math.min(getBestStaffWeekPauseBonusDaysRemaining(staffDoc), need);
+}
+
+function computeStaffPauseDayBudget(member, staffDoc, roleChoice) {
+  const baseLimit = getBasePauseLimit(member, roleChoice);
+  const annualBonus =
+    getBestStaffPauseBonusDays(member, staffDoc) + getValPosTradedPauseBonusDays(staffDoc);
+  const weekRemaining = getBestStaffWeekPauseBonusDaysRemaining(staffDoc);
+  const pauses = Array.isArray(staffDoc?.staff?.pauses)
+    ? staffDoc.staff.pauses
+    : Array.isArray(staffDoc?.pauses)
+      ? staffDoc.pauses
+      : [];
+  const usedRaw = computeConsumedPauseDays(pauses);
+  const weekConsumedYear = computeWeekBonusDaysConsumed(pauses, null);
+  const usedDays = Math.max(0, usedRaw - weekConsumedYear);
+  const maxGiorni = baseLimit + annualBonus + weekRemaining;
+  return {
+    baseLimit,
+    annualBonus,
+    weekRemaining,
+    usedRaw,
+    usedDays,
+    maxGiorni,
+    remaining: maxGiorni - usedDays,
+  };
+}
+
+function getStaffPauseBonusDaysTotal(member, staffDoc) {
+  return (
+    getBestStaffPauseBonusDays(member, staffDoc) +
+    getValPosTradedPauseBonusDays(staffDoc) +
+    getBestStaffWeekPauseBonusDaysRemaining(staffDoc)
+  );
+}
+
+async function grantBestStaffWeekPauseBonus(guildId, userId, options = {}) {
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!isValidGuildUserId(g, u)) return { ok: false, reason: "bad_ids" };
+  const weekKey = String(options.weekKey || getStaffWeekKeyNow()).trim();
+  /* stafferMonthBridge1: mese = giovedì della weekKey (non calendario del grant). */
+  const monthKey = resolveStafferBonusMonthKey({
+    weekKey,
+    monthKey: options.monthKey,
+  });
+  if (!weekKey || !monthKey) return { ok: false, reason: "bad_keys" };
+
+  const entry = {
+    weekKey,
+    monthKey,
+    days: 1,
+    grantedAt: new Date(),
+  };
+
+  // Atomic: push solo se weekKey non è già in array (anti double-grant memberUpdate+audit).
+  let result;
+  try {
+    result = await ActivityUserProfile.updateOne(
+      {
+        guildId: g,
+        userId: u,
+        "staff.bestStaffWeekPauseBonusWeeks": {
+          $not: { $elemMatch: { weekKey } },
+        },
+      },
+      {
+        $setOnInsert: { guildId: g, userId: u },
+        $push: { "staff.bestStaffWeekPauseBonusWeeks": entry },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+  } catch (err) {
+    // Race su upsert unico guildId+userId: rileggi, non fingere successo.
+    const after = await ActivityUserProfile.findOne(
+      { guildId: g, userId: u },
+      { "staff.bestStaffWeekPauseBonusWeeks": 1 },
+    )
+      .lean()
+      .catch(() => null);
+    if (
+      listBestStaffWeekPauseGrants(after || {}).some(
+        (row) => String(row?.weekKey || "").trim() === weekKey,
+      )
+    ) {
+      return { ok: true, already: true, weekKey, monthKey };
+    }
+    global.logger?.warn?.(
+      "[PAUSE] grantBestStaffWeekPauseBonus failed",
+      err?.message || err,
+    );
+    return { ok: false, reason: "db_error", weekKey, monthKey };
+  }
+
+  if (result.modifiedCount > 0 || result.upsertedCount > 0) {
+    return { ok: true, already: false, weekKey, monthKey };
+  }
+  return { ok: true, already: true, weekKey, monthKey };
 }
 
 async function restorePauseMessageStatusSync(client) {
@@ -1339,4 +1521,4 @@ function startPauseMessageStatusMaintenance(client) {
   });
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, resolvePauseStaffRankRoleId, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, buildAcceptedPauseMessageContent, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, startPauseMessageStatusMaintenance, rewriteStaleCancelledPauseMessages, syncSingleAcceptedPauseMessage, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, cancelOpenPausesOnMemberLeave, computeConsumedDaysForCancelledPause, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear, getPausePhase, hasActiveAcceptedStaffPause };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, computeStaffersInPauseByStaffRankForRange, getMemberStaffRankRoleId, getStaffRankLimitKey, resolvePauseStaffRankRoleId, buildAcceptedPauseLogContent, buildCancelledPauseLogContent, formatPauseRoleLabelForMessage, buildAcceptedPauseMessageContent, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, startPauseMessageStatusMaintenance, rewriteStaleCancelledPauseMessages, syncSingleAcceptedPauseMessage, scheduleAcceptedPauseMessagesRefreshAfterRankChange, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, cancelOpenPausesOnMemberLeave, computeConsumedDaysForCancelledPause, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, getValPosTradedPauseBonusDays, getStaffPauseBonusDaysTotal, grantBestStaffPauseBonusYear, getStaffWeekKeyNow, getBestStaffWeekPauseBonusDaysRemaining, allocateBestStaffWeekPauseBonusDays, computeStaffPauseDayBudget, grantBestStaffWeekPauseBonus, computeWeekBonusDaysConsumed, getPausePhase, hasActiveAcceptedStaffPause };

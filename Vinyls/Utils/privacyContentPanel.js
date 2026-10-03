@@ -165,7 +165,7 @@ async function handlePrivacyPanelInteraction(interaction) {
             .setColor("#6f4e37")
             .setTitle("<:success:1461731530333229226> Privacy aggiornata")
             .setDescription(
-              "<:VC_InactiveStatus:1482526984234860574> Le impostazioni sono salvate. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.",
+              "<:VC_InactiveStatus:1482526984234860574> Le impostazioni sono salvate. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.",
             ),
         ],
         components: [],

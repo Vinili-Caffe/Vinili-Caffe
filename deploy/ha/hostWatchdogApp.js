@@ -22,13 +22,21 @@ const BOOT_GRACE_MS = {
   default: Math.max(45_000, Number(process.env.HOST_WATCHDOG_DEFAULT_GRACE_MS || 60_000) || 60_000),
 };
 
-/** @type {{ name: string, kind: 'http'|'tcp', url?: string, host?: string, port?: number }} */
+const LAVALINK_PASSWORD = String(process.env.LAVALINK_PASSWORD || "youshallnotpass").trim() || "youshallnotpass";
+
+/** @type {{ name: string, kind: 'http'|'tcp', url?: string, host?: string, port?: number, headers?: Record<string,string> }} */
 const CHECKS = [
   { name: "bots", kind: "http", url: "http://127.0.0.1:3000/webhooks/health" },
   { name: "site-api", kind: "http", url: "http://127.0.0.1:3020/webhooks/site-api/health" },
   { name: "discadia-votes", kind: "http", url: "http://127.0.0.1:3010/webhooks/discadia/health" },
   { name: "topgg-votes", kind: "http", url: "http://127.0.0.1:3014/webhooks/topgg/health" },
-  { name: "lavalink", kind: "tcp", host: "127.0.0.1", port: 2333 },
+  /* lavalinkAuthHealth1: HTTP /version con Authorization (niente WARN RequestAuthorizationFilter) */
+  {
+    name: "lavalink",
+    kind: "http",
+    url: "http://127.0.0.1:2333/version",
+    headers: { Authorization: LAVALINK_PASSWORD },
+  },
   { name: "mongo", kind: "tcp", host: "127.0.0.1", port: 27017 },
 ];
 
@@ -57,7 +65,7 @@ function bootGraceMs(name) {
   return BOOT_GRACE_MS[name] != null ? BOOT_GRACE_MS[name] : BOOT_GRACE_MS.default;
 }
 
-function httpGetOk(url, timeoutMs = 8000) {
+function httpGetOk(url, timeoutMs = 8000, headers = null) {
   return new Promise((resolve) => {
     let settled = false;
     const done = (ok) => {
@@ -66,9 +74,10 @@ function httpGetOk(url, timeoutMs = 8000) {
       resolve(ok);
     };
     try {
-      const req = http.get(url, { timeout: timeoutMs }, (res) => {
+      const req = http.get(url, { timeout: timeoutMs, headers: headers || undefined }, (res) => {
         res.resume();
-        done(res.statusCode >= 200 && res.statusCode < 500);
+        /* lavalink /version: solo 2xx = sano (401 = password sbagliata / manca auth) */
+        done(res.statusCode >= 200 && res.statusCode < 300);
       });
       req.on("timeout", () => {
         req.destroy();
@@ -170,7 +179,7 @@ async function tick() {
   for (const check of CHECKS) {
     const info = pm2?.get(check.name) || null;
     let ok = false;
-    if (check.kind === "http") ok = await httpGetOk(check.url);
+    if (check.kind === "http") ok = await httpGetOk(check.url, 8000, check.headers || null);
     else if (check.kind === "tcp") ok = await tcpOk(check.host, check.port);
 
     if (info && check.name !== "mongo") {

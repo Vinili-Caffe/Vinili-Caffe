@@ -27,6 +27,42 @@ function getFreshMemberIdSnapshot(guildId) {
   return snap;
 }
 
+/** Keep byRole index in sync after Discord role add/remove so site lists don't resurrect stale members. */
+function dropMemberFromRoleSnapshot(guildId, roleId, memberId) {
+  const gid = String(guildId || "");
+  const rid = String(roleId || "");
+  const mid = String(memberId || "");
+  if (!gid || !rid || !mid) return false;
+  const snap = guildMemberIdSnapshots.get(gid);
+  if (!snap?.byRole?.get) return false;
+  const ids = snap.byRole.get(rid);
+  if (!Array.isArray(ids) || !ids.length) return false;
+  const next = ids.filter((id) => String(id) !== mid);
+  if (next.length === ids.length) return false;
+  snap.byRole.set(rid, next);
+  snap.at = Date.now();
+  return true;
+}
+
+function addMemberToRoleSnapshot(guildId, roleId, memberId) {
+  const gid = String(guildId || "");
+  const rid = String(roleId || "");
+  const mid = String(memberId || "");
+  if (!gid || !rid || !/^\d{16,22}$/.test(mid)) return false;
+  let snap = guildMemberIdSnapshots.get(gid);
+  if (!snap) {
+    snap = { ids: [], byRole: new Map(), at: Date.now() };
+    guildMemberIdSnapshots.set(gid, snap);
+  }
+  if (!(snap.byRole instanceof Map)) snap.byRole = new Map();
+  const ids = snap.byRole.get(rid) || [];
+  if (ids.some((id) => String(id) === mid)) return false;
+  snap.byRole.set(rid, [...ids, mid]);
+  if (!snap.ids.includes(mid)) snap.ids = [...snap.ids, mid];
+  snap.at = Date.now();
+  return true;
+}
+
 function storeMemberFetchSnapshot(guildId, fetched) {
   const gid = String(guildId || "");
   if (!gid || !fetched) return null;
@@ -276,4 +312,6 @@ module.exports = {
   resolveGuildMemberIds,
   memberListLooksComplete,
   getFreshMemberIdSnapshot,
+  dropMemberFromRoleSnapshot,
+  addMemberToRoleSnapshot,
 };

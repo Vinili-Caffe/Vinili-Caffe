@@ -433,6 +433,7 @@
             "</span><time>" +
             esc(formatChatTime(m.createdAt)) +
             "</time>" +
+            receiptTicksHtml(m, mine) +
             (m.editedAt ? '<span class="vc-wfc-msg__edited">(modificato)</span>' : "") +
             "</div>" +
             replyQuoteHtml(m) +
@@ -447,6 +448,100 @@
         .join("") +
       "</ul>"
     );
+  }
+
+  function receiptTicksHtml(m, mine) {
+    if (!mine) return "";
+    var read =
+      m.read === true ||
+      String(m.receiptStatus || "").toLowerCase() === "read" ||
+      (Array.isArray(m.readBy) &&
+        m.readBy.some(function (r) {
+          return String((r && r.userId) || "") && String(r.userId) !== String(m.authorId || "");
+        }));
+    var label = read ? "Letto" : "Inviato";
+    return (
+      '<span class="vc-msg-ticks' +
+      (read ? " is-read" : " is-sent") +
+      '" title="' +
+      label +
+      '" aria-label="' +
+      label +
+      '">' +
+      '<svg class="vc-msg-ticks__svg" viewBox="0 0 16 11" width="16" height="11" aria-hidden="true" focusable="false">' +
+      (read
+        ? '<path d="M11.1 1.1 5.6 7.2 3.1 4.8l-1.2 1.2 3.7 3.7 6.7-7.4z"/><path d="M14.4 1.1 8.9 7.2 7.6 5.9l-1.1 1.2 2.4 2.4 6.7-7.4z"/>'
+        : '<path d="M13.2 1.1 6.5 8.5 2.8 4.9 1.6 6.1 6.5 11l8-8.7z"/>') +
+      "</svg></span>"
+    );
+  }
+
+  function applyReceiptsToOwnMessages(messageIds, readerId) {
+    var ids = Array.isArray(messageIds) ? messageIds : [];
+    if (!ids.length) return;
+    var idSet = {};
+    for (var i = 0; i < ids.length; i += 1) idSet[String(ids[i])] = 1;
+    var reader = String(readerId || "").trim();
+    var changed = false;
+    state.messages = state.messages.map(function (m) {
+      if (!m || !idSet[String(m.id || "")]) return m;
+      if (String(m.authorId || "") !== String(state.profileId || "")) return m;
+      if (m.read === true || String(m.receiptStatus || "") === "read") return m;
+      changed = true;
+      var next = Object.assign({}, m, { read: true, receiptStatus: "read" });
+      if (reader) {
+        var rb = Array.isArray(m.readBy) ? m.readBy.slice() : [];
+        if (
+          !rb.some(function (r) {
+            return String((r && r.userId) || "") === reader;
+          })
+        ) {
+          rb.push({ userId: reader, at: new Date().toISOString() });
+        }
+        next.readBy = rb;
+      }
+      return next;
+    });
+    if (!changed) return;
+    for (var j = 0; j < ids.length; j += 1) {
+      var mid = String(ids[j] || "");
+      var node = document.querySelector('.vc-wfc-msg[data-msg-id="' + mid + '"] .vc-msg-ticks');
+      if (!node) continue;
+      node.classList.remove("is-sent");
+      node.classList.add("is-read");
+      node.setAttribute("title", "Letto");
+      node.setAttribute("aria-label", "Letto");
+      node.innerHTML =
+        '<svg class="vc-msg-ticks__svg" viewBox="0 0 16 11" width="16" height="11" aria-hidden="true" focusable="false">' +
+        '<path d="M11.1 1.1 5.6 7.2 3.1 4.8l-1.2 1.2 3.7 3.7 6.7-7.4z"/><path d="M14.4 1.1 8.9 7.2 7.6 5.9l-1.1 1.2 2.4 2.4 6.7-7.4z"/>' +
+        "</svg>";
+    }
+  }
+
+  function markChatRead(messageIds) {
+    if (!state.dedupeKey) return;
+    var token = "";
+    try {
+      if (typeof c("getToken") === "function") token = String(c("getToken")() || "");
+    } catch (eTok) {}
+    if (!token) {
+      try {
+        token = String(localStorage.getItem("vc_discord_access_token") || "");
+      } catch (eLs) {}
+    }
+    if (!token) return;
+    var body = { dedupeKey: state.dedupeKey };
+    if (Array.isArray(messageIds) && messageIds.length) body.messageIds = messageIds.slice(0, 80);
+    fetchJson(apiBase() + "/read", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      timeoutMs: 12000,
+    }).catch(function () {});
   }
 
   function composerReplyBarHtml() {
@@ -595,7 +690,7 @@
           '<input type="file" id="vc-wfc-file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple hidden />' +
           "</label>" +
           '<button type="button" class="vc-wfc-composer__emoji" id="vc-wfc-emoji" title="Emoji"><i class="fa fa-smile-o" aria-hidden="true"></i></button>' +
-          '<textarea id="vc-wfc-input" rows="2" maxlength="2000" placeholder="Scrivi… (@ utenti, # canali)"></textarea>' +
+          '<textarea id="vc-wfc-input" rows="2" maxlength="2000" enterkeyhint="send" placeholder="Scrivi… (@ utenti, # canali)"></textarea>' +
           '<button type="submit" class="' +
           esc(sendClass) +
           '" id="vc-wfc-send"' +
@@ -858,14 +953,56 @@
     var input = byId("vc-wfc-input");
     if (!menu || !input || menu.hidden) return;
     var rect = input.getBoundingClientRect();
-    var maxH = state.mentionMenu.mode === "channel" ? 360 : 280;
-    var h = Math.min(maxH, Math.max(120, window.innerHeight - 24));
-    var top = Math.max(8, rect.top - h - 8);
-    if (rect.top < 160) top = Math.min(window.innerHeight - h - 8, rect.bottom + 8);
-    menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 320)) + "px";
-    menu.style.top = top + "px";
-    menu.style.width = Math.min(320, Math.max(220, rect.width)) + "px";
-    menu.style.maxHeight = h + "px";
+    var row = (input.closest && input.closest(".vc-wfc-composer__row")) || input;
+    var widthRect = row.getBoundingClientRect ? row.getBoundingClientRect() : rect;
+    var vv = window.visualViewport;
+    var vpTop = vv && vv.offsetTop != null ? Number(vv.offsetTop) || 0 : 0;
+    var vpH = vv && vv.height ? Number(vv.height) : window.innerHeight || 0;
+    var vpW = vv && vv.width ? Number(vv.width) : window.innerWidth || 0;
+    var vpLeft = vv && vv.offsetLeft != null ? Number(vv.offsetLeft) || 0 : 0;
+    var gap = 8;
+    var visibleTop = vpTop + gap;
+    var visibleBottom = vpTop + vpH - gap;
+    var wantMax = state.mentionMenu.mode === "channel" ? 360 : 280;
+    var spaceAbove = Math.max(0, rect.top - visibleTop);
+    var spaceBelow = Math.max(0, visibleBottom - rect.bottom);
+    var preferAbove = spaceAbove >= 96 || spaceAbove >= spaceBelow;
+    var maxH = Math.min(wantMax, Math.max(96, (preferAbove ? spaceAbove : spaceBelow) - gap));
+    var width = Math.min(Math.max(widthRect.width || rect.width || 240, 240), Math.max(200, vpW - gap * 2));
+    var left = Math.max(vpLeft + gap, Math.min(widthRect.left, vpLeft + vpW - width - gap));
+    menu.style.position = "fixed";
+    menu.style.zIndex = "200000";
+    menu.style.left = Math.round(left) + "px";
+    menu.style.width = Math.round(width) + "px";
+    menu.style.maxHeight = Math.round(maxH) + "px";
+    menu.style.bottom = "auto";
+    menu.style.visibility = "hidden";
+    var menuH = 0;
+    try {
+      menuH = Math.ceil(menu.getBoundingClientRect().height || menu.offsetHeight || 0);
+    } catch (e) {
+      menuH = 0;
+    }
+    if (!menuH) menuH = Math.min(maxH, 56);
+    menuH = Math.min(menuH, maxH);
+    var top;
+    if (preferAbove) {
+      top = rect.top - menuH - gap;
+      if (top < visibleTop) {
+        if (spaceBelow > spaceAbove) {
+          top = rect.bottom + gap;
+        } else {
+          top = visibleTop;
+        }
+      }
+    } else {
+      top = rect.bottom + gap;
+      if (top + Math.min(96, menuH) > visibleBottom) {
+        top = Math.max(visibleTop, rect.top - menuH - gap);
+      }
+    }
+    menu.style.top = Math.round(Math.max(visibleTop, top)) + "px";
+    menu.style.visibility = "visible";
   }
 
   function wireMentionMenuFilters(menu) {
@@ -1535,8 +1672,17 @@
             var roomClr = ensureWorkflowTypingRoom();
             if (roomClr) roomClr.clearUser(data.message.authorId);
           }
+          if (
+            String(data.message.authorId || "") &&
+            String(data.message.authorId) !== String(state.profileId || "") &&
+            String(data.message.authorKind || "") !== "system"
+          ) {
+            markChatRead([data.message.id]);
+          }
           refreshDom();
           scrollToBottom();
+        } else if (data.type === "workflow_chat_receipts") {
+          applyReceiptsToOwnMessages(data.messageIds, data.readerId);
         } else if (data.type === "workflow_chat_message_deleted" && data.messageId) {
           removeMessageFromState(data.messageId);
         } else if (data.type === "workflow_chat_reaction" && data.message) {
@@ -1747,6 +1893,7 @@
         state.subjectChat = out.data.subjectChat || null;
         state.messages = nextMessages;
         seedMentionNamesFromMessages(state.messages);
+        if (out.data.viewerId) state.profileId = String(out.data.viewerId || state.profileId || "");
         if (unchanged) return;
         refreshDom();
         if (!opts.silent) scrollToBottom();
@@ -1834,11 +1981,23 @@
     if (nearBottom) scrollToBottom();
   }
 
+  function syncWatchingWorkflowFlag() {
+    try {
+      var key = String(state.dedupeKey || "").trim();
+      if (key) {
+        window.__VC_WATCHING_WORKFLOW = { dedupeKey: key, at: Date.now() };
+      } else if (window.__VC_WATCHING_WORKFLOW) {
+        delete window.__VC_WATCHING_WORKFLOW;
+      }
+    } catch (eW) {}
+  }
+
   function teardown() {
     captureDraft();
     stopWorkflowTypingRoom();
     state.seq += 1;
     state.dedupeKey = "";
+    syncWatchingWorkflowFlag();
     state.tab = "";
     state.messages = [];
     state.canSend = null;
@@ -1912,6 +2071,7 @@
     if (sameConv) {
       if (!sameKey) {
         state.dedupeKey = key;
+        syncWatchingWorkflowFlag();
         if (state.pollTimer) {
           try {
             clearInterval(state.pollTimer);
@@ -1966,6 +2126,7 @@
 
     teardown();
     state.dedupeKey = key;
+    syncWatchingWorkflowFlag();
     state.tab = tab || "";
     state.loading = true;
     state.error = "";

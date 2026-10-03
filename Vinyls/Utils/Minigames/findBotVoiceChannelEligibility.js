@@ -3,9 +3,20 @@ const {
   isPublicVoiceHubId,
   isSpawnedHubChannel,
 } = require("../../Services/Voice/publicVoiceHubService");
-const { isAutomodExemptStanzaChannel } = require("../../Services/Voice/stanzaVoiceRoomsService");
 
 const STANZA_LOBBY_VOICE_ID = String(IDs.channels?.stanzaLobbyVoice || "").trim();
+
+function isCoffeeManagedStanzaChannel(channel) {
+  if (!channel) return false;
+  if (/Stanza di\s+/i.test(String(channel.name || ""))) return true;
+  try {
+    const coffee = require("../../../Coffee/Services/Voice/stanzaVoiceRoomsService");
+    if (typeof coffee.isManagedStanzaRoomChannel === "function") {
+      return Boolean(coffee.isManagedStanzaRoomChannel(channel, String(channel.parentId || "")));
+    }
+  } catch (_) {}
+  return false;
+}
 
 function buildDefaultFindBotVoiceExcludedChannelIds(client) {
   const out = new Set();
@@ -43,9 +54,7 @@ function isVoiceChannelEligibleForFindBotMinigame(channel, client, excludedChann
   if (isPublicVoiceHubId(id, client)) return false;
   if (isSpawnedHubChannel(channel, client)) return false;
   if (id === STANZA_LOBBY_VOICE_ID) return false;
-
-  const guild = channel.guild;
-  if (guild && isAutomodExemptStanzaChannel(channel, guild)) return false;
+  if (isCoffeeManagedStanzaChannel(channel)) return false;
 
   return true;
 }

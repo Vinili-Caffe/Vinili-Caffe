@@ -25,6 +25,7 @@ const {
 } = require("../Staff/staffPanelActions");
 const { viewerIsFounder } = require("../Staff/staffProfilePanelRuntime");
 const { clearStaffProfileCacheForUser } = require("./siteStaffProfileApi");
+const { clearWebsiteMemberCaches, fetchWebsiteGuildMember, ensureWebsiteGuild } = require("./websiteGuildMemberFetch");
 const {
   runValutazionePositiveAddForPanel,
   runValutazioneNegativeAddForPanel,
@@ -50,6 +51,7 @@ const {
   computeConsumedPauseDays,
   getBasePauseLimit,
   getStaffPauseBonusDaysTotal,
+  computeStaffPauseDayBudget,
   getPausePhase,
   getPauseStatusLabel,
   computePauseScaledDaysThisYear,
@@ -412,6 +414,7 @@ async function buildRoster(client) {
     },
     guild: roster.guild,
     staffDelMese: roster.staffDelMese || null,
+    staffDelSettimana: roster.staffDelSettimana || null,
   };
 }
 
@@ -420,11 +423,12 @@ function buildMemberPauseBlock(guild, targetMember, staffDoc, pausedSet) {
   const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
   const today = getTodayUtc();
   const yearBounds = getCurrentYearBoundsUtc(today);
-  const consumed = computeConsumedPauseDays(pauses);
-  const baseLimit = getBasePauseLimit(targetMember);
-  const bonusDays = getStaffPauseBonusDaysTotal(targetMember, staffDoc || {});
-  const maxDays = baseLimit + bonusDays;
-  const daysRemaining = Math.max(0, maxDays - consumed);
+  const budget = computeStaffPauseDayBudget(targetMember, { staff: staffDoc || {} }, null);
+  const consumed = budget.usedDays;
+  const baseLimit = budget.baseLimit;
+  const bonusDays = budget.annualBonus + budget.weekRemaining;
+  const maxDays = budget.maxGiorni;
+  const daysRemaining = Math.max(0, budget.remaining);
 
   const history = [];
   for (const pause of pauses) {
@@ -478,7 +482,32 @@ function buildMemberPauseBlock(guild, targetMember, staffDoc, pausedSet) {
   };
 }
 
-async function buildMemberDetail(guild, targetMember, pausedSet) {
+function buildProspectPexChoices(viewerMember, { fromPartnerManager = false } = {}) {
+  const fromLabel = fromPartnerManager ? "Partner Manager" : "Member";
+  const founder = viewerIsFounder(viewerMember);
+  const out = [];
+  const push = (action, roleKey, label) => {
+    const roleId = String(IDs.roles?.[roleKey] || "").trim();
+    if (!roleId) return;
+    out.push({
+      id: action,
+      label: `${fromLabel} → ${label}`,
+      roleId,
+      roleLabel: label,
+    });
+  };
+  push("pex_helper", "Helper", "Helper");
+  if (founder) {
+    push("pex_mod", "Mod", "Moderator");
+    push("pex_senior_moderator", "SeniorModerator", "Senior Moderator");
+    push("pex_director", "Director", "Director");
+    push("pex_admin", "Admin", "Admin");
+    push("pex_manager", "Manager", "Manager");
+  }
+  return out;
+}
+
+async function buildMemberDetail(guild, targetMember, pausedSet, viewerMember = null) {
   const guildId = String(guild.id);
   const uid = String(targetMember.id);
   const { loadLegacyStaffByUserIds, mergeStaffEmbedded } = require("../Staff/staffLegacyMerge");
@@ -510,10 +539,20 @@ async function buildMemberDetail(guild, targetMember, pausedSet) {
   const depexTargetRoleId = ladderRoleId ? peekDepexLadderTargetRoleId(ladderRoleId) : null;
   const memberRoleLabel = roleName(IDs.roles?.Member) || "Member";
   const pexTargetLabel = roleName(pexTargetRoleId) || (pexTargetRoleId ? "Ruolo nuovo" : null);
+  // pexPmRolePick1: da PM-only offri scelta grado (Helper + avanzati se Founder), come Discord.
+  const prospectPexChoices =
+    isPmOnly && memberIsPm(targetMember)
+      ? buildProspectPexChoices(viewerMember, { fromPartnerManager: true })
+      : [];
   const depexTargetLabel =
     depexTargetRoleId === "" || depexTargetRoleId === String(IDs.roles?.Member || "")
       ? memberRoleLabel
       : roleName(depexTargetRoleId) || (depexTargetRoleId != null ? memberRoleLabel : null);
+  /* depexDupMember1: Helper/Mod — ladder già → Member: niente doppia scelta Depex→Member */
+  const depexLadderIsMember =
+    !depexTargetRoleId ||
+    depexTargetRoleId === "" ||
+    String(depexTargetRoleId) === String(IDs.roles?.Member || "");
 
   let partnerPointsSpendable = Math.max(0, Math.floor(Number(resolvePartnerPointsShown(staff) || 0)));
   let partnerPointsEarned = Math.max(
@@ -557,10 +596,13 @@ async function buildMemberDetail(guild, targetMember, pausedSet) {
     memberRoleLabel,
     canPex: Boolean(ladderRoleId && pexTargetRoleId),
     canPexProspect: isPmOnly && memberIsPm(targetMember),
+    prospectPexChoices,
     canPexPm: !memberIsPm(targetMember),
-    canDepexLadder: Boolean(ladderRoleId),
+    canDepexLadder: Boolean(ladderRoleId) && !depexLadderIsMember,
     canDepexPm: memberIsPm(targetMember),
     canDepexFull: Boolean(ladderRoleId) || memberIsPm(targetMember) || memberHasStaffRole(targetMember),
+    depexLadderIsMember,
+    viewerIsFounder: viewerIsFounder(viewerMember),
     valutazioni: {
       positive: Math.max(0, Math.floor(Number(staff.positiveCount || 0))),
       negative: Math.max(0, Math.floor(Number(staff.negativeCount || 0))),
@@ -586,7 +628,7 @@ async function buildMemberDetail(guild, targetMember, pausedSet) {
 
 async function assertManageAccess(client, req, { write = false } = {}) {
   const accessToken = normalizeHeaderSecret(req.headers.authorization);
-  const access = await assertWebsiteStaffAccess(client, accessToken);
+  const access = await assertWebsiteStaffAccess(client, accessToken, { req });
   if (!access.ok) return access;
   const isHighStaff = memberIsHighStaffEligible(access.member);
   const isPmGestore = memberIsResocontoPmReviewer(access.member);
@@ -628,6 +670,29 @@ function filterRosterForPmGestore(roster) {
   };
 }
 
+async function resolveManageTargetMember(client, guild, targetId, { force = false } = {}) {
+  const uid = String(targetId || "").trim();
+  if (!uid) return { guild: guild || null, member: null, unavailable: false };
+  let g = guild || null;
+  if (!g) {
+    const guildId = String(IDs.guilds.main || "");
+    g =
+      (await ensureWebsiteGuild(client, guildId).catch(() => null)) ||
+      (await client.guilds.fetch(guildId).catch(() => null));
+  }
+  if (!g) return { guild: null, member: null, unavailable: true };
+  if (!force) {
+    const hit = g.members?.cache?.get?.(uid) || null;
+    if (hit) return { guild: g, member: hit, unavailable: false };
+  }
+  const member = await fetchWebsiteGuildMember(g, uid, {
+    force: Boolean(force),
+    timeoutMs: force ? 18_000 : 12_000,
+  }).catch(() => null);
+  if (member) return { guild: g, member, unavailable: false };
+  return { guild: g, member: null, unavailable: true };
+}
+
 async function handleSiteStaffManageGet(client, req, res) {
   try {
     const access = await assertManageAccess(client, req);
@@ -639,26 +704,63 @@ async function handleSiteStaffManageGet(client, req, res) {
       });
     }
 
-    let roster = await buildRoster(client);
-    if (access.pmManageOnly) {
-      roster = filterRosterForPmGestore(roster);
+    const targetId = String(req.query?.userId || req.query?.target || "").trim();
+    const skipHeavyRoster = Boolean(targetId) && String(req.query?.roster || "1") === "0";
+    const forceMember = String(req.query?.fresh || "") === "1";
+
+    let roster = { sections: [], paused: new Set(), counts: { total: 0, onPause: 0 }, guild: null };
+    if (!skipHeavyRoster) {
+      roster = await buildRoster(client);
+      if (access.pmManageOnly) {
+        roster = filterRosterForPmGestore(roster);
+      }
+    } else {
+      // manageSheetFast1: modal Gestisci needs member detail, not full roster stats.
+      try {
+        const light = await getCachedStaffRoster(client);
+        if (light?.ok) {
+          roster = {
+            sections: [],
+            paused: light.paused || new Set(),
+            counts: light.counts || { total: 0, onPause: 0 },
+            guild: light.guild || null,
+          };
+        }
+      } catch (eLight) {}
+      try {
+        if (!roster.paused || !(roster.paused instanceof Set) || roster.paused.size === 0) {
+          const guildId = String(IDs.guilds.main || "");
+          const paused = await getStaffListPausedUserIds(guildId).catch(() => null);
+          if (paused) roster.paused = paused;
+        }
+      } catch (ePause) {}
     }
+
     const guildId = String(IDs.guilds.main || "");
-    const guild = roster.guild || (await client.guilds.fetch(guildId).catch(() => null));
+    let guild =
+      roster.guild ||
+      (await ensureWebsiteGuild(client, guildId).catch(() => null)) ||
+      (await client.guilds.fetch(guildId).catch(() => null));
     if (!guild) {
       return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
     }
 
-    const targetId = String(req.query?.userId || req.query?.target || "").trim();
     let member = null;
     if (targetId) {
       if (!/^\d{16,22}$/.test(targetId)) {
         return res.status(400).json({ ok: false, error: "bad_user", message: "userId non valido." });
       }
-      const targetMember =
-        guild.members.cache.get(targetId) || (await guild.members.fetch(targetId).catch(() => null));
+      const resolved = await resolveManageTargetMember(client, guild, targetId, { force: forceMember });
+      guild = resolved.guild || guild;
+      const targetMember = resolved.member;
       if (!targetMember) {
-        return res.status(404).json({ ok: false, error: "not_found", message: "Membro non trovato nel server." });
+        return res.status(resolved.unavailable ? 503 : 404).json({
+          ok: false,
+          error: resolved.unavailable ? "member_unavailable" : "not_found",
+          message: resolved.unavailable
+            ? "Membro non raggiungibile (Discord lento). Riprova tra poco."
+            : "Membro non trovato nel server.",
+        });
       }
       if (access.pmManageOnly) {
         if (!memberIsPm(targetMember)) {
@@ -675,7 +777,7 @@ async function handleSiteStaffManageGet(client, req, res) {
           message: "L'utente selezionato non è nello staff.",
         });
       }
-      member = await buildMemberDetail(guild, targetMember, roster.paused);
+      member = await buildMemberDetail(guild, targetMember, roster.paused, access.member);
     }
 
     const allowedActions = access.readOnly
@@ -782,15 +884,21 @@ async function handleSiteStaffManagePost(client, req, res) {
     }
 
     const guildId = String(IDs.guilds.main || "");
-    const guild = await client.guilds.fetch(guildId).catch(() => null);
+    const resolved = await resolveManageTargetMember(client, null, targetId, { force: true });
+    const guild = resolved.guild;
     if (!guild) {
       return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Server non disponibile." });
     }
 
-    const targetMember =
-      guild.members.cache.get(targetId) || (await guild.members.fetch(targetId).catch(() => null));
+    const targetMember = resolved.member;
     if (!targetMember) {
-      return res.status(404).json({ ok: false, error: "not_found", message: "Membro non trovato nel server." });
+      return res.status(resolved.unavailable ? 503 : 404).json({
+        ok: false,
+        error: resolved.unavailable ? "member_unavailable" : "not_found",
+        message: resolved.unavailable
+          ? "Membro non raggiungibile (Discord lento). Riprova tra poco."
+          : "Membro non trovato nel server.",
+      });
     }
     if (access.pmManageOnly && !memberIsPm(targetMember)) {
       return res.status(403).json({
@@ -941,6 +1049,9 @@ async function handleSiteStaffManagePost(client, req, res) {
         try {
       clearStaffProfileCacheForUser(targetId);
     } catch (_) {}
+    try {
+      clearWebsiteMemberCaches(targetId);
+    } catch (_) {}
 
     if (
       action === "pex" ||
@@ -953,9 +1064,18 @@ async function handleSiteStaffManagePost(client, req, res) {
     }
 
     const paused = await getStaffListPausedUserIds(guildId);
-    const refreshed =
-      guild.members.cache.get(targetId) || (await guild.members.fetch(targetId).catch(() => null)) || targetMember;
-    const member = await buildMemberDetail(guild, refreshed, paused);
+    let refreshed = null;
+    try {
+      refreshed = await guild.members.fetch({ user: targetId, force: true });
+    } catch (_) {
+      refreshed = guild.members.cache.get(targetId) || targetMember;
+    }
+    const member = await buildMemberDetail(
+      guild,
+      refreshed || targetMember,
+      paused,
+      access.member,
+    );
 
     res.setHeader("Cache-Control", "private, no-store");
     return res.status(200).json({

@@ -1,4 +1,5 @@
 /* Confessionale staff page — cine + red/gold accents + curtain + smoke beat */
+/* confessionaleTabFreeze1: smoke/curtain default nascosti; switcher sempre cliccabile */
 
 .vc-confessionale-page {
   --vc-conf-gold: #d4a574;
@@ -7,11 +8,20 @@
   --vc-conf-red-deep: #3a0e12;
 }
 
-html.vc-confessionale-route body.vc-confessionale-page .vc-blob {
-  position: fixed !important;
+/* confessionalePerf5: blob blur staff-cine lagga la pagina — spegni del tutto */
+html.vc-confessionale-route body.vc-confessionale-page .vc-blob,
+html.vc-confessionale-route body.vc-confessionale-page .vc-blob-a,
+html.vc-confessionale-route body.vc-confessionale-page .vc-blob-b,
+html.vc-confessionale-route body.vc-confessionale-page .vc-blob-c,
+html.vc-staff-cine-route body.vc-confessionale-page .vc-blob,
+html.vc-staff-route body.vc-staff-area.vc-confessionale-page .vc-blob {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  filter: none !important;
   pointer-events: none !important;
-  margin: 0 !important;
-  z-index: 0 !important;
+  animation: none !important;
+  will-change: auto !important;
 }
 
 html.vc-staff-app-revealed.vc-confessionale-route.vc-page-cine-ready.vc-confessionale-curtain-done body.vc-confessionale-page > main,
@@ -49,7 +59,16 @@ html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine {
 .vc-confessionale-page .vc-home-cine__photo {
   object-fit: cover;
   object-position: center center;
-  filter: saturate(1.05) contrast(1.05);
+  /* confessionalePerf5: niente filter full-viewport (compositing continuo) */
+  filter: none !important;
+}
+
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__grain,
+html.vc-confessionale-route body.vc-confessionale-page .vc-home-cine__canvas {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .vc-confessionale-page .vc-home-cine__veil {
@@ -69,6 +88,14 @@ html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) #vc-mobil
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
+}
+
+/* Toast sopra overlay page (curtain/smoke usano z altissimi solo in intro) */
+body.vc-confessionale-page .vc-site-toast-host,
+body.vc-confessionale-page #vc-site-toast-host,
+body.vc-confessionale-page .vc-dash-save-toast-host {
+  z-index: 2147483000 !important;
+  pointer-events: none;
 }
 
 /* Lock scroll durante intro — batte vc-page-cine-boot overflow:auto !important */
@@ -92,7 +119,7 @@ html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-c
   touch-action: none !important;
 }
 
-/* Curtain overlay — sopra tutto lo chrome staff (fullscreen reale) */
+/* Curtain overlay — nascosto di default; solo intro attiva / is-open */
 .vc-confessionale-curtain {
   position: fixed !important;
   top: 0 !important;
@@ -108,11 +135,19 @@ html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) body.vc-c
   max-height: none !important;
   margin: 0 !important;
   z-index: 2147482500 !important;
-  pointer-events: auto !important;
+  display: none !important;
+  pointer-events: none !important;
   overflow: hidden !important;
   background: #080504 !important;
   transform: none !important;
   filter: none !important;
+}
+
+html.vc-confessionale-intro-active:not(.vc-confessionale-curtain-done) .vc-confessionale-curtain:not(.is-done):not([hidden]),
+.vc-confessionale-curtain.is-open:not(.is-done):not([hidden]) {
+  display: block !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
 }
 
 html.vc-confessionale-curtain-done .vc-confessionale-curtain {
@@ -122,8 +157,11 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
 }
 
 .vc-confessionale-curtain[hidden],
-.vc-confessionale-curtain.is-done {
+.vc-confessionale-curtain.is-done,
+html.vc-confessionale-intro-active #vc-confessionale-curtain.is-done,
+html.vc-confessionale-intro-active #vc-confessionale-curtain[hidden].is-done {
   display: none !important;
+  visibility: hidden !important;
   pointer-events: none !important;
 }
 
@@ -220,7 +258,7 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   background: rgba(40, 16, 16, 0.88);
 }
 
-/* Smoke beat after curtains — fullscreen opaco subito (niente flash pagina) */
+/* Smoke beat after curtains — fullscreen opaco solo quando attivo (mai di default) */
 .vc-confessionale-smoke {
   position: fixed !important;
   top: 0 !important;
@@ -236,12 +274,12 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   max-height: none !important;
   margin: 0 !important;
   z-index: 2147482600 !important;
-  display: flex !important;
+  display: none !important;
   align-items: center;
   justify-content: center;
-  pointer-events: auto !important;
+  pointer-events: none !important;
   background: #060303 !important;
-  opacity: 1 !important;
+  opacity: 0 !important;
   transform: none !important;
   filter: none !important;
 }
@@ -255,8 +293,10 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   pointer-events: none;
 }
 
-.vc-confessionale-smoke.is-visible {
-  opacity: 1;
+.vc-confessionale-smoke.is-visible:not([hidden]):not(.is-done) {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 .vc-confessionale-smoke[hidden],
@@ -273,7 +313,50 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   cursor: default;
 }
 .vc-confessionale-smoke.is-armed-pending .vc-confessionale-smoke__card {
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* confessionaleIntroOnce1: dopo entrata overlay mai più sopra la UI */
+html.vc-confessionale-curtain-done #vc-confessionale-curtain,
+html.vc-confessionale-curtain-done #vc-confessionale-smoke,
+html.vc-confessionale-curtain-done .vc-confessionale-curtain,
+html.vc-confessionale-curtain-done .vc-confessionale-smoke {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+  animation: none !important;
+}
+/* confessionaleSyncFreeze1: stop fog GPU dopo intro */
+html.vc-confessionale-curtain-done #vc-confessionale-smoke *,
+html.vc-confessionale-curtain-done .vc-confessionale-smoke *,
+.vc-confessionale-smoke.is-done *,
+.vc-confessionale-smoke[hidden] * {
+  animation: none !important;
+  transition: none !important;
+  pointer-events: none !important;
+}
+
+html.vc-confessionale-curtain-done,
+html.vc-confessionale-curtain-done body {
+  overflow: auto !important;
+  overscroll-behavior: auto !important;
+  touch-action: manipulation !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+html.vc-staff-app-revealed.vc-confessionale-curtain-done body.vc-confessionale-page > header,
+html.vc-staff-app-revealed.vc-confessionale-curtain-done body.vc-confessionale-page > main,
+html.vc-staff-app-revealed.vc-confessionale-curtain-done body.vc-confessionale-page > footer,
+html.vc-confessionale-curtain-done.vc-page-cine-ready body.vc-confessionale-page > header,
+html.vc-confessionale-curtain-done.vc-page-cine-ready body.vc-confessionale-page > main,
+html.vc-confessionale-curtain-done.vc-page-cine-ready body.vc-confessionale-page > footer {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 .vc-confessionale-smoke__fog {
@@ -405,6 +488,16 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   justify-content: center;
   gap: 0.75rem;
   width: 100%;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto !important;
+}
+
+.vc-confessionale-page .vc-confessionale-switch .vc-role-seg-switch__btn,
+.vc-confessionale-page .vc-confessionale-switch .vc-confessionale-tab {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 6;
 }
 
 .vc-confessionale-page .vc-role-seg-switch__seg {
@@ -469,18 +562,7 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
 }
 
 .vc-confessionale-page .vc-confessionale-anon-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid rgba(212, 168, 136, 0.28);
-  background: rgba(16, 12, 9, 0.72);
-  color: rgba(240, 208, 144, 0.92);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: none !important;
 }
 
 .vc-confessionale-page .vc-confessionale-panel[hidden] {
@@ -493,21 +575,172 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   margin: 0 auto 1.15rem;
 }
 
+/* confessionaleAnonSwitcher1: segmented Con nome / Anonimo (no pill toggle) */
+.vc-confessionale-page .vc-confessionale-comment-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.7rem;
+  margin-top: 0.65rem;
+}
+
+.vc-confessionale-page .vc-confessionale-anon-switch {
+  align-self: center;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+}
+
+.vc-confessionale-page .vc-confessionale-anon-switch__seg {
+  display: inline-flex !important;
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 0.18rem !important;
+  gap: 0.12rem !important;
+}
+
+.vc-confessionale-page .vc-confessionale-anon-switch__btn {
+  flex: 0 0 auto !important;
+  width: 2.35rem !important;
+  min-width: 2.35rem !important;
+  height: 2.1rem !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.vc-confessionale-page .vc-confessionale-anon-switch__btn .fa {
+  font-size: 0.92rem !important;
+  opacity: 0.82 !important;
+  line-height: 1 !important;
+}
+
+.vc-confessionale-page .vc-confessionale-anon-switch__btn.is-active .fa,
+.vc-confessionale-page .vc-confessionale-anon-switch__btn.vc-confessionale-anon-switch__btn--on .fa {
+  opacity: 1 !important;
+}
+
+.vc-confessionale-page .vc-confessionale-anon-switch__btn.is-active,
+.vc-confessionale-page .vc-confessionale-anon-switch__btn.vc-confessionale-anon-switch__btn--on {
+  background: linear-gradient(180deg, rgba(122, 84, 58, 0.96), rgba(78, 54, 38, 0.94)) !important;
+  color: #f7ecdf !important;
+  border-color: rgba(212, 168, 136, 0.28) !important;
+  box-shadow: 0 3px 12px rgba(111, 78, 55, 0.28) !important;
+}
+
+.vc-confessionale-page .vc-confessionale-anon-switch__input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* legacy toggle classes kept inert if old markup cached */
+.vc-confessionale-page .vc-confessionale-anon-toggle {
+  display: none !important;
+}
+
+.vc-confessionale-page .vc-confessionale-comment-btn {
+  width: 100%;
+  margin: 0;
+}
+
+.vc-confessionale-page .vc-confessionale-comment__avatar--anon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 0 !important;
+  overflow: hidden;
+  background: rgba(28, 20, 16, 0.9);
+  color: rgba(240, 208, 144, 0.9);
+  font-size: 0.75rem;
+  box-sizing: border-box;
+}
+
 .vc-confessionale-page .vc-confessionale-feed {
   margin-top: 0.25rem;
 }
 
-.vc-confessionale-page .vc-confessionale-card__avatar {
+.vc-confessionale-page .vc-confessionale-card[data-conf-open] {
+  cursor: pointer;
+}
+
+.vc-confessionale-page .vc-confessionale-sheet .vc-confessionale-comment-form {
+  margin-top: 1rem;
+}
+
+.vc-confessionale-page .vc-confessionale-sheet .vc-confessionale-comment-actions {
+  margin-top: 0.65rem;
+}
+
+.vc-confessionale-page .vc-confessionale-card__avatar,
+.vc-confessionale-page .vc-feedback-sheet__avatar.vc-confessionale-card__avatar {
   display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
   border-radius: 999px;
   background: rgba(122, 84, 58, 0.35);
   border: 1px solid rgba(212, 168, 136, 0.28);
   color: #f0d090;
   font-size: 1rem;
+  line-height: 0 !important;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0 !important;
+  margin: 0;
+}
+
+/* confessionaleIconCenter2: centra glyph FA in avatar + badge (senza translate ad-hoc) */
+.vc-confessionale-page .vc-confessionale-card__avatar .fa,
+.vc-confessionale-page .vc-feedback-sheet__avatar.vc-confessionale-card__avatar .fa,
+.vc-confessionale-page .vc-confessionale-comment__avatar--anon .fa,
+.vc-confessionale-page .vc-feedback-ico-badge .fa,
+.vc-confessionale-page .vc-feedback-ico-badge i,
+.vc-confessionale-page .vc-staff-rank-forge__ico .fa,
+.vc-confessionale-page .vc-staff-rank-forge__ico i {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  transform: none !important;
+}
+.vc-confessionale-page .vc-confessionale-card__avatar .fa:before,
+.vc-confessionale-page .vc-feedback-sheet__avatar.vc-confessionale-card__avatar .fa:before,
+.vc-confessionale-page .vc-confessionale-comment__avatar--anon .fa:before,
+.vc-confessionale-page .vc-feedback-ico-badge .fa:before,
+.vc-confessionale-page .vc-feedback-ico-badge i:before,
+.vc-confessionale-page .vc-staff-rank-forge__ico .fa:before,
+.vc-confessionale-page .vc-staff-rank-forge__ico i:before {
+  display: block !important;
+  line-height: 1 !important;
+  width: 1em !important;
+  height: 1em !important;
+  margin: 0 auto !important;
+  transform: none !important;
+}
+/* Glyph ottici: user-secret pende a sx, trash un filo in alto */
+.vc-confessionale-page .vc-confessionale-card__avatar .fa-user-secret:before,
+.vc-confessionale-page .vc-confessionale-comment__avatar--anon .fa-user-secret:before {
+  transform: translate(0.06em, 0.02em) !important;
+}
+.vc-confessionale-page .vc-feedback-ico-badge .fa-trash-o:before,
+.vc-confessionale-page .vc-feedback-ico-badge .fa-check:before,
+.vc-confessionale-page .vc-feedback-ico-badge .fa-circle-o:before {
+  transform: translateY(0.04em) !important;
 }
 
 .vc-confessionale-page .vc-confessionale-discuss {
@@ -526,6 +759,20 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.vc-confessionale-page .vc-confessionale-discuss__closed {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(212, 168, 136, 0.22);
+  background: rgba(18, 12, 10, 0.55);
+  color: rgba(232, 214, 190, 0.88);
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .vc-confessionale-page .vc-confessionale-discuss__empty {
@@ -759,18 +1006,7 @@ html.vc-confessionale-curtain-done .vc-confessionale-curtain {
 }
 
 .vc-confessionale-anon-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(240, 208, 144, 0.9);
-  border: 1px solid rgba(240, 208, 144, 0.35);
-  border-radius: 999px;
-  padding: 0.28rem 0.7rem;
-  background: rgba(60, 16, 18, 0.45);
+  display: none !important;
 }
 
 /* Ambient BGM hint + player (seratafilm family) */
@@ -925,6 +1161,16 @@ body.vc-confessionale-page .vc-bgm-player--confessionale.is-open .vc-bgm-player_
   body.vc-confessionale-page .vc-bgm-player--confessionale:hover .vc-bgm-player__range,
   body.vc-confessionale-page .vc-bgm-player--confessionale:focus-within .vc-bgm-player__range {
     pointer-events: auto;
+  }
+  /* confBgmHoverClose1: focus sullo slider non tiene aperto dopo mouseleave */
+  body.vc-confessionale-page .vc-bgm-player--confessionale:focus-within:not(:hover):not(.is-open) .vc-bgm-player__meta {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(0, 0.45rem, 0) scale(0.96);
+  }
+  body.vc-confessionale-page .vc-bgm-player--confessionale:focus-within:not(:hover):not(.is-open) .vc-bgm-player__meta *,
+  body.vc-confessionale-page .vc-bgm-player--confessionale:focus-within:not(:hover):not(.is-open) .vc-bgm-player__range {
+    pointer-events: none;
   }
 }
 
@@ -1111,4 +1357,47 @@ body.vc-confessionale-page .vc-bgm-player--confessionale .vc-bgm-player__range::
   height: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+/* confListLikeFeedback1: griglia card come /feedback/ (niente carousel stage) */
+body.vc-confessionale-page .vc-conf-filters .vc-feedback-filters__hint {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.82rem;
+  color: rgba(247, 236, 223, 0.72);
+  letter-spacing: 0.01em;
+}
+html[data-vc-theme="light"] body.vc-confessionale-page .vc-conf-filters .vc-feedback-filters__hint {
+  color: rgba(74, 52, 36, 0.72);
+}
+body.vc-confessionale-page .vc-reviews-grid .vc-confessionale-card.vc-feedback-card {
+  cursor: pointer;
+}
+body.vc-confessionale-page .vc-feedback-scope-dock.vc-conf-scope-dock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.55rem;
+}
+
+/* confNavScopeActive1: tab attiva Community|Staff senza dipendere da body#top */
+body.vc-confessionale-page .vc-feedback-scope-bar .vc-notif-scope-bar__btn.is-active,
+body.vc-confessionale-page .vc-feedback-scope-bar .vc-notif-scope-bar__btn[aria-selected="true"],
+body.vc-reviews-page.vc-confessionale-page .vc-feedback-scope-bar .vc-notif-scope-bar__btn.is-active,
+body.vc-reviews-page.vc-confessionale-page .vc-feedback-scope-bar .vc-notif-scope-bar__btn[aria-selected="true"] {
+  color: #fff8f0 !important;
+  -webkit-text-fill-color: #fff8f0 !important;
+  background: linear-gradient(145deg, rgba(92, 64, 44, 0.98), rgba(36, 24, 16, 0.98)) !important;
+  background-color: rgba(56, 38, 26, 0.98) !important;
+  border: 1px solid rgba(236, 205, 176, 0.42) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 247, 236, 0.14) !important;
+}
+html[data-vc-theme="light"] body.vc-confessionale-page .vc-feedback-scope-bar .vc-notif-scope-bar__btn.is-active,
+html[data-vc-theme="light"] body.vc-confessionale-page .vc-feedback-scope-bar .vc-notif-scope-bar__btn[aria-selected="true"] {
+  color: #3b2a1c !important;
+  -webkit-text-fill-color: #3b2a1c !important;
+  background: linear-gradient(175deg, #fffaf4 0%, #efe4d6 100%) !important;
+  background-color: #f6efe6 !important;
+  border: 1px solid rgba(111, 78, 55, 0.28) !important;
 }

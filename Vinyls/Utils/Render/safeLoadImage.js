@@ -115,6 +115,50 @@ function isDiscordCdnRewritableHost(host) {
   return h === "cdn.discordapp.com" || h === "media.discordapp.net";
 }
 
+function discordCdnUserIdFromAvatarUrl(url) {
+  const raw = String(url || "").trim();
+  if (!/^https?:\/\//i.test(raw)) return "";
+  try {
+    const u = new URL(raw);
+    if (!isDiscordCdnRewritableHost(u.host)) return "";
+    const path = String(u.pathname || "");
+    let m = path.match(/\/guilds\/\d{16,22}\/users\/(\d{16,22})\/avatars\//i);
+    if (m) return m[1];
+    m = path.match(/\/avatars\/(\d{16,22})\//i);
+    if (m) return m[1];
+  } catch (_) {}
+  return "";
+}
+
+function discordCdnDefaultAvatarFallbackUrl(url, { size = 256 } = {}) {
+  const uid = discordCdnUserIdFromAvatarUrl(url);
+  if (!uid) return null;
+  let index = 0;
+  try {
+    index = Number((BigInt(uid) >> 22n) % 6n);
+  } catch {
+    index = 0;
+  }
+  const sz = Math.max(16, Math.min(4096, Number(size) || 256));
+  return `https://cdn.discordapp.com/embed/avatars/${index}.png?size=${sz}`;
+}
+
+function isDiscordCdnAvatarAssetUrl(url) {
+  const raw = String(url || "");
+  if (!/^https?:\/\//i.test(raw)) return false;
+  try {
+    const u = new URL(raw);
+    if (!isDiscordCdnRewritableHost(u.host)) return false;
+    const path = String(u.pathname || "");
+    return (
+      /\/guilds\/\d{16,22}\/users\/\d{16,22}\/avatars\//i.test(path) ||
+      /\/avatars\/\d{16,22}\//i.test(path)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function discordCdnPathLooksAnimatedAsset(pathname) {
   return /\/a_[a-f0-9]+/i.test(String(pathname || ""));
 }
@@ -292,6 +336,28 @@ async function safeLoadImage(source, opts = {}) {
         }
         throw e;
       }
+    }
+
+    /* Stale guild/user avatar hash → Discord CDN 404. Fall back to default embed avatar. */
+    if (
+      !lastDecodeErr &&
+      Number(lastErr?.response?.status) === 404 &&
+      isDiscordCdnAvatarAssetUrl(src)
+    ) {
+      let size = 256;
+      try {
+        size = Number(new URL(src).searchParams.get("size")) || 256;
+      } catch (_) {}
+      const fallback = discordCdnDefaultAvatarFallbackUrl(src, { size });
+      if (fallback && fallback !== src) {
+        try {
+          const res = await fetchImage(fallback);
+          const buf = Buffer.from(res.data);
+          if (buf.length) return await loadImageFromBuffer(loadImage, buf);
+        } catch (_) {}
+      }
+      /* Expected miss: don't spam logs for dead avatar hashes */
+      return null;
     }
 
     if (lastDecodeErr) throw lastDecodeErr;
@@ -570,4 +636,6 @@ module.exports = {
   buildDiscordCdnStaticCandidates,
   discordCdnPathLooksAnimatedAsset,
   discordCdnStaticAvatarUrl,
+  discordCdnDefaultAvatarFallbackUrl,
+  isDiscordCdnAvatarAssetUrl,
 };

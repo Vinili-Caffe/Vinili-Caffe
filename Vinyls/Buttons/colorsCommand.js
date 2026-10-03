@@ -96,7 +96,7 @@ module.exports = {
       const ownerId = parts[1];
       const action = parts[2];
       if (interaction.user?.id !== ownerId) {
-        await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
+        await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
         return true;
       }
       if (!(await ackEphemeral(interaction))) return true;
@@ -132,7 +132,7 @@ module.exports = {
     const ownerId = parts[1];
     const segment = parts[2];
     if (interaction.user?.id !== ownerId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo menu non è tuo. Usa [profilo sul sito](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo menu non è tuo. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/).", flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
       return true;
     }
 

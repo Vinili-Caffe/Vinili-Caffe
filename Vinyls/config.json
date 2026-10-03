@@ -66,7 +66,9 @@
       "bumped successfully",
       "thank you for bumping",
       "bump complete",
-      "bump done"
+      "bump done",
+      "boost earned",
+      "+1 boost earned"
     ]
   },
   "topgg": {
@@ -81,6 +83,18 @@
     "statsDigestOnStartup": false,
     "voteRecoveryOnStartup": true,
     "voteRecoveryLookbackHours": 72
+  },
+  "boards": {
+    "enabled": true,
+    "publicOpen": false,
+    "voteCooldownHours": 12,
+    "bumpCooldownHours": 2,
+    "scoreVotesWeight": 1,
+    "scoreBumpsWeight": 3,
+    "statsRefreshMinutes": 60,
+    "maxTags": 12,
+    "maxCategories": 12,
+    "maxMarkdownChars": 4000
   },
   "discadiaVoteReminder": {
     "enabled": true,
@@ -106,7 +120,7 @@
     }
   },
   "autoPoll": {
-    "enabled": true,
+    "enabled": false,
     "apiUrl": "https://opentdb.com/api.php?amount=1&type=multiple&encode=url3986",
     "apiThemeCatalog": [
       {
@@ -265,7 +279,7 @@
     "duplicateLookbackLimit": 100
   },
   "staffProofRequestThreads": {
-    "enabled": true,
+    "enabled": false,
     "guildId": "1462458562507964584",
     "channelId": "1526900797936242718",
     "channelIds": [
@@ -279,13 +293,17 @@
     "autoArchiveDuration": 10080
   },
   "mainStaffAlertThreads": {
-    "enabled": true,
+    "enabled": false,
     "guildId": "1462458562507964584",
     "channelId": "1526909652967751741",
     "mainGuildId": "1329080093599076474",
     "staffRoleIds": ["1442568904311570555", "1442568901887000618"],
     "threadName": "Richiesta staff",
     "autoArchiveDuration": 10080
+  },
+  "staffAccessMirror": {
+    "enabled": false,
+    "accessGuildId": "1462458562507964584"
   },
   "tts": {
     "enabled": true,
@@ -303,7 +321,7 @@
   },
   "minigames": {
     "enabled": true,
-    "hogwartsExclusiveDuringEvent": true,
+    "hogwartsExclusiveDuringEvent": false,
     "hogwartsUnsortedHousePointsPerWin": 25,
     "hogwartsEventSpawn": {
       "targetIntervalMs": 600000,
@@ -754,42 +772,53 @@
     "pageUrl": "/evento/pozioni",
     "redirectUrl": "/evento/shop"
   },
+  "gameNewsAlerts": {
+    "enabled": true,
+    "channelId": "1553533004591276122",
+    "pollIntervalMs": 1200000,
+    "maxAgeMs": 604800000,
+    "translateToItalian": true,
+    "crosspost": false,
+    "maxPostsPerPoll": 3
+  },
   "twitchLiveAlerts": {
-    "enabled": false,
+    "enabled": true,
     "pollIntervalSec": 90,
     "reannounceCooldownSec": 2700,
-    "streamVoiceChannelId": "1522558362288521226",
+    "streamVoiceChannelId": "1548393335557726272",
     "streamers": [
       {
-        "login": "d1unkk",
-        "displayName": "d1unkk",
+        "login": "diunk17",
+        "displayName": "diunk17",
         "discordUserId": "610531025470095390",
         "deleteAnnouncementOnOffline": true,
-        "voiceNameOn": "༄🟢︲Streaming diunk17: ON",
-        "voiceNameOff": "༄🔴︲Streaming diunk17: OFF",
-        "voiceStatusOn": "Sono in live su https://www.twitch.tv/d1unkk"
+        "streamVoiceChannelId": "1548393335557726272",
+        "voiceNameOn": "༄🟢︲Streaming diunk17",
+        "voiceNameOff": "༄🔴︲Streaming diunk17",
+        "voiceStatusOn": "🟢 Sono in live su https://www.twitch.tv/diunk17"
       }
     ]
   },
   "kickLiveAlerts": {
-    "enabled": true,
+    "enabled": false,
     "pollIntervalSec": 90,
     "reannounceCooldownSec": 2700,
-    "streamVoiceChannelId": "1540424077255123096",
+    "streamVoiceChannelId": "1548393335557726272",
     "streamers": [
       {
         "slug": "diunk17",
         "displayName": "diunk17",
         "discordUserId": "610531025470095390",
         "deleteAnnouncementOnOffline": true,
-        "voiceNameOn": "༄🟢︲Streaming diunk17: ON",
-        "voiceNameOff": "༄🔴︲Streaming diunk17: OFF",
-        "voiceStatusOn": "Sono in live su https://kick.com/diunk17"
+        "streamVoiceChannelId": "1548393335557726272",
+        "voiceNameOn": "༄🟢︲Streaming diunk17",
+        "voiceNameOff": "༄🔴︲Streaming diunk17",
+        "voiceStatusOn": "🟢 Sono in live su https://kick.com/diunk17"
       }
     ]
   },
   "kickSubscriberSync": {
-    "enabled": true,
+    "enabled": false,
     "streamerSlug": "diunk17",
     "roleId": "1544830822031298592",
     "moderatorRoleId": "1544831244640976917",
@@ -878,6 +907,10 @@
     "intervalMs": 600000,
     "minDigits": 2,
     "separator": " ",
+    "centerWithInvisibleSpaces": true,
+    "centerInnerSlots": 9,
+    "centerSidePad": 1,
+    "invisibleSpace": "　",
     "channelCategoryIds": [
       "1442569076902989844",
       "1519315215102120147"
@@ -885,6 +918,8 @@
   },
   "publicVoiceHubs": {
     "enabled": true,
+    "categoryId": "1442569076902989844",
+    "disabledCreateGroups": ["penta", "hexa", "setta", "octa"],
     "channelIds": [
       "1442569113108218058",
       "1442569121350025306",
@@ -894,6 +929,11 @@
       "1544077007921487942",
       "1544076839788617728"
     ]
+  },
+  "gameVoiceHubs": {
+    "enabled": true,
+    "categoryId": "1519315215102120147",
+    "spawnUserLimit": 0
   },
   "sponsorVerifyPanelsEnabled": false,
   "sponsorGuildIds": [

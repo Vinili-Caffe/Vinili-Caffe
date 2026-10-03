@@ -205,6 +205,7 @@ function buildPremiumFooterTemplate() {
               <h4 data-i18n="footer.discover">Scopri</h4>
               <ul>
                 <li><a href="{{WIKI_URL}}" data-i18n="footer.wiki">Wiki</a></li>
+                <li><a href="/bacheca/" data-i18n="footer.bacheca">Bacheca</a></li>
                 <li><a href="{{COMMUNITY_RULES_URL}}" data-i18n="footer.rules">Regole</a></li>
                 <li><a href="{{FAQ_URL}}" data-i18n="footer.faq">FAQ</a></li>
                 <li><a href="{{SPONSOR_URL}}" data-i18n="footer.sponsor">Sponsor</a></li>
@@ -1157,6 +1158,7 @@ function buildKickLivePipBootHtml(cfg, opts) {
   const scriptPrefix = opts && typeof opts.scriptPrefix === "string" ? opts.scriptPrefix : "";
   const scriptSrc = scriptPrefix ? `${scriptPrefix}js/vc-kick-pip.js` : "/js/vc-kick-pip.js";
   const syncSrc = scriptPrefix ? `${scriptPrefix}js/vc-chrome-sync.js` : "/js/vc-chrome-sync.js";
+  const ver = opts && opts.assetVer ? `?v=${opts.assetVer}` : "";
   const pollMs = Number.isFinite(Number(pip.pollIntervalMs)) ? Number(pip.pollIntervalMs) : 90000;
   const previewLimitMs = Number.isFinite(Number(pip.previewLimitMs)) ? Number(pip.previewLimitMs) : 600000;
   const payload = {
@@ -1170,25 +1172,61 @@ function buildKickLivePipBootHtml(cfg, opts) {
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
   return (
     `    <script>window.__VC_KICK_PIP=${json};</script>\n` +
-    `    <script src="${syncSrc}" defer></script>\n` +
-    `    <script src="${scriptSrc}" defer></script>\n`
+    `    <script src="${syncSrc}${ver}" defer></script>\n` +
+    `    <script src="${scriptSrc}${ver}" defer></script>\n`
   );
+}
+
+function stripKickLivePipBoot(html) {
+  let next = String(html || "");
+  // Remove Kick config stub/boot only (keep shared chrome-sync if Twitch still needs it).
+  next = next.replace(/\s*<script>window\.__VC_KICK_PIP=[\s\S]*?<\/script>/g, "\n");
+  next = next.replace(/\s*<script[^>]*\bvc-kick-pip\.js[^>]*><\/script>/g, "\n");
+  return next;
 }
 
 function applyKickLivePipToDist(distDir, cfg) {
   const pip = cfg.kickLivePip && typeof cfg.kickLivePip === "object" ? cfg.kickLivePip : null;
-  if (!pip || pip.enabled === false) return;
-    const homePath = path.join(distDir, "index.html");
+  const homePath = path.join(distDir, "index.html");
   if (!fs.existsSync(homePath)) return;
-  const html = fs.readFileSync(homePath, "utf8");
-  if (html.includes("window.__VC_KICK_PIP") || html.includes("js/vc-kick-pip.js")) return;
+  let html = fs.readFileSync(homePath, "utf8");
   if (html.includes("vc-seratafilm-page") || html.includes("vc-dashboard-page")) return;
+
+  // kickPipUpsert1: always re-apply from site.config (old stub enabled:false blocked re-inject).
+  html = stripKickLivePipBoot(html);
+  if (!pip || pip.enabled === false) {
+    if (html !== fs.readFileSync(homePath, "utf8")) fs.writeFileSync(homePath, html, "utf8");
+    return;
+  }
+
   const boot = buildKickLivePipBootHtml(cfg, { scriptPrefix: "/" });
   if (!boot) return;
+
+  // Prefer insert before Twitch boot / chrome-sync / </body>
   let next = html;
-  if (next.includes("</body>")) next = next.replace("</body>", `${boot}  </body>`);
-  else if (next.includes("</head>")) next = next.replace("</head>", `${boot}  </head>`);
-  else next += `\n${boot}`;
+  if (/window\.__VC_TWITCH_PIP=/.test(next)) {
+    next = next.replace(/(\s*<script>window\.__VC_TWITCH_PIP=)/, `\n${boot}$1`);
+  } else if (/vc-chrome-sync\.js/.test(next)) {
+    next = next.replace(/(\s*<script[^>]*vc-chrome-sync\.js[^>]*><\/script>)/, `\n${boot}$1`);
+  } else if (next.includes("</body>")) {
+    next = next.replace("</body>", `${boot}  </body>`);
+  } else if (next.includes("</head>")) {
+    next = next.replace("</head>", `${boot}  </head>`);
+  } else {
+    next += `\n${boot}`;
+  }
+
+  // Dedupe chrome-sync if Kick boot + existing Twitch both inject it.
+  const syncRe = /<script[^>]*\bvc-chrome-sync\.js[^>]*><\/script>\s*/g;
+  const syncHits = next.match(syncRe) || [];
+  if (syncHits.length > 1) {
+    let seen = 0;
+    next = next.replace(syncRe, (m) => {
+      seen += 1;
+      return seen === 1 ? m : "";
+    });
+  }
+
   if (next !== html) fs.writeFileSync(homePath, next, "utf8");
 }
 
@@ -1702,9 +1740,10 @@ function ensureDiscordAvatarScriptBeforeFallback(html, { scriptPrefix = "", asse
   );
 }
 
+/* viewAsCineFix1: no html::before (conflicts with session-verify/loading); stub element instead */
 const AUTH_INSTANT_BOOT_SNIPPET =
-  `<script id="vc-auth-instant-boot">(function(){try{var t=localStorage.getItem("vc_discord_access_token");if(!t)return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;document.documentElement.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
-<style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}</style>
+  `<script id="vc-auth-instant-boot">(function(){try{var rawGet=Storage.prototype.getItem;if(!window.__vcViewAsLsTokenPatched){window.__vcViewAsLsTokenPatched=true;Storage.prototype.getItem=function(key){try{if(String(key||"")==="vc_discord_access_token"){var vaMask=String(rawGet.call(sessionStorage,"vc_view_as")||"").trim().toLowerCase();if(vaMask==="logout")return null}}catch(eM){}return rawGet.apply(this,arguments)};window.__vcDiscordRawLocalStorageGetItem=function(key){return rawGet.call(localStorage,key)}}var root=document.documentElement;var va="";try{va=String(rawGet.call(sessionStorage,"vc_view_as")||"").trim().toLowerCase()}catch(e0){try{va=String(sessionStorage.getItem("vc_view_as")||"").trim().toLowerCase()}catch(e00){}}if(va==="real"||va==="none"||va==="off")va="";var allowed=false;try{allowed=String(rawGet.call(sessionStorage,"vc_view_as_allowed")||"")==="1"}catch(e1){try{allowed=sessionStorage.getItem("vc_view_as_allowed")==="1"}catch(e11){}}var barOpen=false;try{barOpen=String(rawGet.call(localStorage,"vc_view_as_bar_open")||"")==="1"}catch(eBar){try{barOpen=localStorage.getItem("vc_view_as_bar_open")==="1"}catch(eBar2){}}if(va||barOpen){root.classList.add("vc-view-as-bar-on");root.style.setProperty("--vc-view-as-bar-h","2.25rem")}if(va){root.classList.add("vc-view-as-active");if(va==="logout")root.classList.add("vc-view-as-guest");if(va==="member")root.classList.add("vc-view-as-member");window.__VC_VIEW_AS=va;try{if(!window.__vcViewAsEarlyFetch&&typeof window.fetch==="function"){window.__vcViewAsEarlyFetch=true;var orig=window.fetch;window.fetch=function(input,init){try{var url=typeof input==="string"?input:(input&&input.url);var u=String(url||"");if(/\\/webhooks\\//i.test(u)||u.indexOf("/webhooks/")===0){init=init?Object.assign({},init):{};var hdr={};try{var src=init.headers||{};if(src&&typeof src.forEach==="function"){src.forEach(function(v,k){hdr[String(k)]=String(v)})}else if(src&&typeof src==="object"){Object.keys(src).forEach(function(k){hdr[k]=src[k]})}}catch(eH){}var mode=va;try{var live=String(rawGet.call(sessionStorage,"vc_view_as")||"").trim().toLowerCase();if(live&&live!=="real"&&live!=="none"&&live!=="off")mode=live}catch(eMode){}hdr["X-VC-View-As"]=mode;var authNow=String(hdr.Authorization||hdr.authorization||"").trim();if(!authNow||/^Bearer\\s*$/i.test(authNow)){var real="";try{if(typeof window.__vcDiscordRawLocalStorageGetItem==="function")real=String(window.__vcDiscordRawLocalStorageGetItem("vc_discord_access_token")||"").trim()}catch(eR){}if(real)hdr.Authorization="Bearer "+real}init.headers=hdr}}catch(eF){}return orig.call(this,input,init)}}}catch(eP){}}function placeViewAsStub(){try{if(!(va||barOpen))return true;if(document.getElementById("vc-view-as-bar")||document.getElementById("vc-view-as-bar-stub"))return true;var host=document.body;if(!host)return false;var d=document.createElement("div");d.id="vc-view-as-bar-stub";d.setAttribute("aria-hidden","true");d.style.setProperty("display","none","important");host.insertBefore(d,host.firstChild);return true}catch(eS){return true}}if(!placeViewAsStub()){document.addEventListener("DOMContentLoaded",function(){placeViewAsStub()})}var t=null;try{t=localStorage.getItem("vc_discord_access_token")}catch(eT){}if(!t)return;if(va==="logout")return;var e=Number(localStorage.getItem("vc_discord_expires_at")||"0");if(e&&Date.now()>=e)return;if((location.hash||"").indexOf("access_token=")!==-1)return;root.classList.add("vc-auth-session-pending")}catch(x){}})();</script>
+<style id="vc-auth-session-instant-css">html.vc-auth-session-pending #discord-login-btn,html.vc-auth-session-pending button[data-vc-discord-login]{visibility:hidden!important;pointer-events:none!important}html.vc-auth-session-pending #discord-login-state,html.vc-auth-session-pending .header-login-state{display:flex!important;visibility:visible!important}html.vc-auth-session-pending #discord-login-state[hidden],html.vc-auth-session-pending .header-login-state[hidden]{display:flex!important;visibility:visible!important}#header-quick-actions{min-width:2.75rem;min-height:2.375rem}html.vc-view-as-bar-on{--vc-view-as-bar-h:2.25rem}#vc-view-as-bar-stub{position:fixed;top:0;left:0;right:0;height:var(--vc-view-as-bar-h,2.25rem);z-index:10040;pointer-events:none;box-sizing:border-box;background:#16100d;border-bottom:1px solid rgba(226,194,164,.14)}html:not(.vc-view-as-bar-on) #vc-view-as-bar-stub,html.vc-view-as-bar-on:has(#vc-view-as-bar:not([hidden])) #vc-view-as-bar-stub,html.vc-session-verify-pending #vc-view-as-bar-stub,html.vc-page-cine-boot:not(.vc-page-cine-ready) #vc-view-as-bar-stub,html.vc-staff-access-pending:not(.vc-staff-app-revealed) #vc-view-as-bar-stub,html.vc-loader-blocking-live #vc-view-as-bar-stub,html.vc-dash-access-pending:not(.vc-dash-access-ready) #vc-view-as-bar-stub,html.vc-loading-scroll-lock #vc-view-as-bar-stub{display:none!important}html.vc-view-as-bar-on body>header.fixed,html.vc-view-as-bar-on body.vc-body>header.fixed,html.vc-view-as-bar-on body.vc-dashboard-page>header{top:var(--vc-view-as-bar-h)!important}html.vc-view-as-guest #discord-login-state,html.vc-view-as-guest .header-login-state,html.vc-view-as-guest .discord-account-menu,html.vc-view-as-guest .discord-login-row,html.vc-view-as-guest .discord-profile-link,html.vc-view-as-guest .vc-auth-pending-shell,html.vc-view-as-guest .vc-auth-early-shell,html.vc-view-as-guest #vc-notif-bell,html.vc-view-as-guest #vc-notif-bell-inbox,html.vc-view-as-guest .vc-notif-bell{display:none!important;visibility:hidden!important}html.vc-view-as-guest #discord-login-btn,html.vc-view-as-guest button[data-vc-discord-login],html.vc-view-as-guest .vc-discord-login-btn{visibility:visible!important;display:inline-flex!important;pointer-events:auto!important}html.vc-view-as-guest.vc-auth-session-pending #discord-login-btn,html.vc-view-as-guest.vc-auth-session-pending button[data-vc-discord-login]{visibility:visible!important;display:inline-flex!important;pointer-events:auto!important}</style>
 `;
 
 function ensureAuthPendingBootInHtml(html, { scriptPrefix = "", assetSuffix = "" } = {}) {
@@ -1778,16 +1817,86 @@ function ensureFaBootInHtml(html, { scriptPrefix = "", assetSuffix = "" } = {}) 
       next = `${FA_NOFLASH_STYLE}\n${next}`;
     }
   }
-  const preload =
-    '<link rel="preload" as="font" type="font/woff2" href="/css/font-awesome/fonts/fontawesome-webfont.woff2?v=4.7.0" crossorigin />';
-  if (!next.includes("fontawesome-webfont.woff2")) {
-    next = next.replace(/(<link[^>]*font-awesome[^>]*>)/i, `${preload}\n$1`);
-  }
+  /* preloadUnusedKill1: no FA font preload (unused during boot → console spam) */
   if (!next.includes("vc-fa-boot.js")) {
     const bootTag = `<script src="${scriptPrefix}js/vc-fa-boot.js${assetSuffix}"></script>`;
     next = next.replace(/(<link[^>]*font-awesome[^>]*>)/i, `${bootTag}\n$1`);
   }
   return next;
+}
+
+function applyGtagToDist(distDir) {
+  /* gtagAllPages1: Consent Mode block on every HTML page (idempotent) */
+  let id = "G-KPF6425N60";
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "site.config.json"), "utf8"));
+    const fromCfg = String(cfg.googleAnalyticsMeasurementId || "").trim();
+    if (fromCfg) id = fromCfg;
+  } catch (_) {}
+  const block = `    <!-- gtagPrivacy2 / gtagAllPages1: Consent Mode BEFORE gtag/js — sitewide -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("consent", "default", {
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+        analytics_storage: "denied",
+        functionality_storage: "granted",
+        personalization_storage: "denied",
+        security_storage: "granted",
+        wait_for_update: 500
+      });
+      gtag("set", "ads_data_redaction", true);
+      gtag("set", "url_passthrough", true);
+      try {
+        if (localStorage.getItem("vc_cookie_consent") === "accepted") {
+          gtag("consent", "update", { analytics_storage: "granted" });
+        }
+      } catch (e) {}
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>
+    <script>
+      gtag("js", new Date());
+      gtag("config", "${id}", {
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false,
+        anonymize_ip: true,
+        send_page_view: true
+      });
+    </script>
+`;
+  const oldRe =
+    /(?:<!--\s*gtagPrivacy2[\s\S]*?-->\s*)?(?:<script>\s*window\.dataLayer[\s\S]*?<\/script>\s*)?<script[^>]*googletagmanager\.com\/gtag\/js[^>]*>\s*<\/script>\s*<script>\s*(?:window\.dataLayer[\s\S]*?)?gtag\([\s\S]*?<\/script>/i;
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        if (name === "node_modules" || name.startsWith("_tmp") || name === "scripts") continue;
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      let html = fs.readFileSync(p, "utf8");
+      if (html.includes("gtagAllPages1") && html.includes(`gtag/js?id=${id}`)) continue;
+      let next = html;
+      if (/googletagmanager\.com\/gtag\/js/i.test(html) || html.includes("gtagPrivacy2")) {
+        next = html.replace(oldRe, block.trimEnd());
+        if (next === html && html.includes(`gtag/js?id=${id}`) && html.includes('gtag("consent"')) {
+          next = html.replace("gtagPrivacy2", "gtagPrivacy2 / gtagAllPages1");
+        }
+      } else if (/<head[^>]*>/i.test(html)) {
+        next = html.replace(/<head[^>]*>/i, (m) => `${m}\n${block}`);
+      } else if (/<\/head>/i.test(html)) {
+        next = html.replace(/<\/head>/i, `${block}  </head>`);
+      } else {
+        next = html + "\n" + block;
+      }
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
 }
 
 function applyFaBootToDist(distDir, assetVersion = "") {
@@ -2828,8 +2937,41 @@ async function main() {
   const cookieYesBlock = "";
 
   const gaId = String(cfg.googleAnalyticsMeasurementId || "").trim();
+  /* gtagAllPages1: Consent Mode (gtagPrivacy2) — same block injected sitewide */
   const gaBlock = gaId
-    ? `    <script async src="https://www.googletagmanager.com/gtag/js?id=${escAttr(gaId)}"></script>\n    <script>\n      window.dataLayer = window.dataLayer || [];\n      function gtag(){dataLayer.push(arguments);}\n      gtag("js", new Date());\n      gtag("config", "${escAttr(gaId)}");\n    </script>\n`
+    ? `    <!-- gtagPrivacy2 / gtagAllPages1: Consent Mode BEFORE gtag/js — sitewide -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("consent", "default", {
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+        analytics_storage: "denied",
+        functionality_storage: "granted",
+        personalization_storage: "denied",
+        security_storage: "granted",
+        wait_for_update: 500
+      });
+      gtag("set", "ads_data_redaction", true);
+      gtag("set", "url_passthrough", true);
+      try {
+        if (localStorage.getItem("vc_cookie_consent") === "accepted") {
+          gtag("consent", "update", { analytics_storage: "granted" });
+        }
+      } catch (e) {}
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=${escAttr(gaId)}"></script>
+    <script>
+      gtag("js", new Date());
+      gtag("config", "${escAttr(gaId)}", {
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false,
+        anonymize_ip: true,
+        send_page_view: true
+      });
+    </script>
+`
     : "";
 
   const year = String(new Date().getFullYear());
@@ -3057,11 +3199,11 @@ async function main() {
   const copyrightUrlResolved =
     String(cfg.copyrightUrl ?? "").trim() || defaultLegalPath("copyright");
   const legalTermsDate =
-    String(cfg.legalTermsUpdated ?? "").trim() || "14 agosto 2026";
+    String(cfg.legalTermsUpdated ?? "").trim() || "11 settembre 2026";
   const legalPrivacyDate =
-    String(cfg.legalPrivacyUpdated ?? "").trim() || "14 agosto 2026";
+    String(cfg.legalPrivacyUpdated ?? "").trim() || "11 settembre 2026";
   const legalCookieDate =
-    String(cfg.legalCookieUpdated ?? "").trim() || "14 agosto 2026";
+    String(cfg.legalCookieUpdated ?? "").trim() || "11 settembre 2026";
   const discordInviteDisplay = inviteCode ? `discord.gg/${inviteCode}` : "Discord";
   const wikiUrlResolved =
     String(cfg.wikiUrl ?? "").trim() || (siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : "/wiki");
@@ -3804,6 +3946,37 @@ async function main() {
     },
     filmTitle: String(seratafilmEventRaw.filmTitle || "").trim(),
     nextFilmTitle: String(seratafilmEventRaw.nextFilmTitle || "").trim(),
+    creditsSkip: (() => {
+      const raw =
+        seratafilmEventRaw.creditsSkip && typeof seratafilmEventRaw.creditsSkip === "object"
+          ? seratafilmEventRaw.creditsSkip
+          : {};
+      const parseClock = (value) => {
+        const s = String(value || "").trim();
+        if (!s) return NaN;
+        if (/^\d+(\.\d+)?$/.test(s)) return Number(s);
+        const m = s.match(/^(\d{1,2}):([0-5]\d)(?::([0-5]\d(?:\.\d+)?))?$/);
+        if (!m) return NaN;
+        const hh = Number(m[1]);
+        const mm = Number(m[2]);
+        const ss = m[3] != null ? Number(m[3]) : 0;
+        if (![hh, mm, ss].every((n) => Number.isFinite(n))) return NaN;
+        return hh * 3600 + mm * 60 + ss;
+      };
+      const startFromSeconds = Number(raw.startSeconds);
+      const startFromAt = parseClock(raw.startAt || raw.start || "");
+      const startSeconds = Number.isFinite(startFromSeconds)
+        ? Math.max(0, startFromSeconds)
+        : Number.isFinite(startFromAt)
+          ? Math.max(0, startFromAt)
+          : NaN;
+      if (raw.enabled === false || !Number.isFinite(startSeconds)) return { enabled: false };
+      return {
+        enabled: true,
+        startSeconds,
+        label: String(raw.label || "Salta titoli di coda").trim() || "Salta titoli di coda",
+      };
+    })(),
     adBreak: (() => {
       const raw = seratafilmEventRaw.adBreak && typeof seratafilmEventRaw.adBreak === "object" ? seratafilmEventRaw.adBreak : {};
       const videoUrl = String(raw.videoUrl || "").trim();
@@ -4010,7 +4183,7 @@ async function main() {
     COPYRIGHT_URL: escAttr(copyrightUrlResolved),
     COPYRIGHT_OG_TITLE: escAttr(`${siteName} | Copyright e Licenza`),
     COPYRIGHT_OG_DESCRIPTION: escAttr(
-      `Avviso di copyright e licenza proprietaria di ${siteName}.`,
+      `Avviso di copyright e licenza proprietaria di ${siteName}: sito, bot e server Discord ufficiale.`,
     ),
     NOTIFICATIONS_URL: escAttr(defaultLegalPath("notifications")),
     USER_PERSONALIZZA_URL: escAttr(defaultLegalPath("personalizza")),
@@ -4722,6 +4895,7 @@ async function main() {
   const staffPageRels = [
     "staff/index.html",
     "staff/pause/index.html",
+    "staff/compiti/index.html",
     "staff/punti-tolti/index.html",
     "staff/accesso-richiesto/index.html",
     "staff/ticket/index.html",
@@ -4800,6 +4974,7 @@ async function main() {
   applyDiscordAvatarToDist(DIST, buildAssetVersion);
   applyAuthPendingBootToDist(DIST, buildAssetVersion);
   applyFaBootToDist(DIST, buildAssetVersion);
+  applyGtagToDist(DIST);
   applyEmojiRenderToDist(DIST, buildAssetVersion);
   applyVcDialogToDist(DIST, buildAssetVersion);
   applyCursorTrailToDist(DIST, buildAssetVersion);

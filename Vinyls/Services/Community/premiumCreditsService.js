@@ -1,4 +1,5 @@
-const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
+const { getBotState } = require("../../Utils/BotState/botStateStore");
+const BotState = require("../../Schemas/BotState/botStateSchema");
 const { isMongoReady } = require("../../Utils/Database/mongoConnect");
 const { grantTenantPremium, getTenantPremium } = require("../../MultiGuild/core/tenantPremium");
 
@@ -61,6 +62,33 @@ async function loadCreditsMap() {
   return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 }
 
+/** Ensure legacy bare-number rows become {c,ops} before atomic $inc. */
+async function ensureCreditsRowShape(uid) {
+  const path = `value.${uid}`;
+  await BotState.updateOne(
+    { key: BOT_STATE_KEY, [path]: { $type: "number" } },
+    [
+      {
+        $set: {
+          [path]: {
+            c: { $ifNull: [`$${path}`, 0] },
+            ops: [],
+            at: Date.now(),
+          },
+        },
+      },
+    ],
+  ).catch(() => null);
+  await BotState.updateOne(
+    {
+      key: BOT_STATE_KEY,
+      $or: [{ [path]: { $exists: false } }, { [path]: null }],
+    },
+    { $set: { [path]: { c: 0, ops: [], at: Date.now() } } },
+    { upsert: true },
+  ).catch(() => null);
+}
+
 async function getPremiumCredits(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) return 0;
@@ -115,10 +143,19 @@ async function setPremiumCredits(userId, credits) {
   if (!uid) return { ok: false, error: "bad_user" };
   if (!isMongoReady()) return { ok: false, error: "mongo_unavailable" };
   const next = normalizeCredits(credits);
+  await ensureCreditsRowShape(uid);
   const map = await loadCreditsMap();
   const row = normalizeRow(map[uid]);
-  map[uid] = { c: next, at: Date.now(), ops: row.ops };
-  await setBotState(BOT_STATE_KEY, map);
+  const updated = await BotState.findOneAndUpdate(
+    { key: BOT_STATE_KEY },
+    {
+      $set: {
+        [`value.${uid}`]: { c: next, at: Date.now(), ops: row.ops },
+      },
+    },
+    { upsert: true, new: true },
+  ).catch(() => null);
+  if (!updated) return { ok: false, error: "persist_failed" };
   return { ok: true, credits: next };
 }
 
@@ -127,8 +164,7 @@ async function addPremiumCredits(userId, delta) {
   if (!uid) return { ok: false, error: "bad_user" };
   const amount = Math.floor(Number(delta));
   if (!Number.isFinite(amount) || amount === 0) return { ok: false, error: "bad_delta" };
-  const current = await getPremiumCredits(uid);
-  return setPremiumCredits(uid, current + amount);
+  return adjustPremiumCredits(uid, amount, { reason: "add" });
 }
 
 function getPremiumCreditPlan(months) {
@@ -144,18 +180,30 @@ async function spendPremiumCredits(userId, credits, meta = {}) {
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "bad_amount" };
   if (!isMongoReady()) return { ok: false, error: "mongo_unavailable" };
 
-  const map = await loadCreditsMap();
-  const row = normalizeRow(map[uid]);
-  if (row.c < amount) return { ok: false, error: "insufficient", credits: row.c };
+  await ensureCreditsRowShape(uid);
+  const op = buildOpEntry("spend", -amount, meta);
+  // premiumCreditsAtomic1: $inc solo se saldo >= amount (no lost update cross-user)
+  const updated = await BotState.findOneAndUpdate(
+    {
+      key: BOT_STATE_KEY,
+      [`value.${uid}.c`]: { $gte: amount },
+    },
+    {
+      $inc: { [`value.${uid}.c`]: -amount },
+      $set: { [`value.${uid}.at`]: Date.now() },
+      $push: {
+        [`value.${uid}.ops`]: { $each: [op], $slice: -MAX_OPS },
+      },
+    },
+    { new: true },
+  ).catch(() => null);
 
-  const next = row.c - amount;
-  map[uid] = {
-    c: next,
-    at: Date.now(),
-    ops: appendOp(row.ops, buildOpEntry("spend", -amount, meta)),
-  };
-  const saved = await setBotState(BOT_STATE_KEY, map);
-  if (!saved) return { ok: false, error: "persist_failed" };
+  if (!updated) {
+    const current = await getPremiumCredits(uid);
+    if (current < amount) return { ok: false, error: "insufficient", credits: current };
+    return { ok: false, error: "persist_failed", credits: current };
+  }
+  const next = normalizeRow(updated.value?.[uid]).c;
   return { ok: true, credits: next };
 }
 
@@ -166,16 +214,30 @@ async function adjustPremiumCredits(userId, delta, meta = {}) {
   if (!Number.isFinite(amount) || amount === 0) return { ok: false, error: "bad_delta" };
   if (!isMongoReady()) return { ok: false, error: "mongo_unavailable" };
 
-  const map = await loadCreditsMap();
-  const row = normalizeRow(map[uid]);
-  const next = normalizeCredits(row.c + amount);
-  map[uid] = {
-    c: next,
-    at: Date.now(),
-    ops: appendOp(row.ops, buildOpEntry("adjust", amount, meta)),
-  };
-  const saved = await setBotState(BOT_STATE_KEY, map);
-  if (!saved) return { ok: false, error: "persist_failed" };
+  await ensureCreditsRowShape(uid);
+  if (amount < 0) {
+    return spendPremiumCredits(uid, -amount, { ...meta, reason: meta.reason || "adjust" });
+  }
+  const op = buildOpEntry("adjust", amount, meta);
+  const updated = await BotState.findOneAndUpdate(
+    { key: BOT_STATE_KEY },
+    {
+      $inc: { [`value.${uid}.c`]: amount },
+      $set: { [`value.${uid}.at`]: Date.now() },
+      $push: {
+        [`value.${uid}.ops`]: { $each: [op], $slice: -MAX_OPS },
+      },
+    },
+    { upsert: true, new: true },
+  ).catch(() => null);
+  if (!updated) return { ok: false, error: "persist_failed" };
+  const next = normalizeCredits(normalizeRow(updated.value?.[uid]).c);
+  if (next !== normalizeRow(updated.value?.[uid]).c) {
+    await BotState.updateOne(
+      { key: BOT_STATE_KEY },
+      { $set: { [`value.${uid}.c`]: next } },
+    ).catch(() => null);
+  }
   return { ok: true, credits: next };
 }
 

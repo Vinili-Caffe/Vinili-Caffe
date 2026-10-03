@@ -1,9 +1,19 @@
 (function () {
   "use strict";
-    var ACCESS_TOKEN_KEY = "vc_discord_access_token";
+  /* reviewsStaffBoard1: Server|Staff switch + recensione staffer */
+  /* reviewsStaffBoard2: tab pubblica; write solo membri non-staff */
+  /* listSkeletonBusy1: no empty+skeleton overlap */
+  /* listSkeletonClear1: clear skels on fail/timeout + fetchGen */
+  /* listSkeletonStage2: 1 compact loader — no stacked skels / broken nav */
+  /* reviewsStafferFilter1: on Staff board, filter by specific staffer */
+  /* reviewsStaffReply1: toast deny write + staffer reply own + inbox notif */
+  /* reviewsStafferCustom1: custom staffer dropdown (no native select) */
+  /* violPass11: click/filters defer + stage height senza Forced reflow */
+  var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var state = {
     payload: null,
+    board: "server", /* server | staff (ignored on bot page) */
     replyOpenId: null,
     editModalOpen: false,
     deepLinkAppliedId: "",
@@ -13,6 +23,7 @@
     langFilter: "it",
     draftLang: "it",
     filterStars: 0, /* reviewsFilters1: 0 = tutte, 1–5 */
+    filterStaffUserId: "", /* reviewsStafferFilter1: "" = tutti */
     sortBy: "newest", /* newest | oldest | rating_desc | rating_asc */
     reviewsPager: {
       page: 1,
@@ -26,8 +37,10 @@
     stageKey: "",
     stageSlideTimer: null,
     stageForceMotion: false,
+    fetchGen: 0,
     draft: {
       server: { rating: 5, content: "" },
+      staff: { rating: 5, content: "", staffUserId: "" },
     },
   };
 
@@ -41,20 +54,217 @@
   function pageKind() {
     try {
       var k = String((cfg().kind || "server")).trim().toLowerCase();
-      return k === "bot" ? "bot" : "server";
-    } catch (e) {
-      return "server";
-    }
+      if (k === "bot") return "bot";
+    } catch (e) {}
+    return state.board === "staff" ? "staff" : "server";
   }
 
   function isBotReviewsPage() {
     return pageKind() === "bot";
   }
 
+  function isStaffBoard() {
+    return !isBotReviewsPage() && state.board === "staff";
+  }
+
+  /* reviewsStaffBoard2: tab Staff pubblica; write solo non-staff */
+  function canAccessStaffReviews() {
+    return true;
+  }
+
+  function canWriteStaffReview() {
+    var viewer = state.payload && state.payload.viewer;
+    if (viewer && typeof viewer.canWriteStaffReview === "boolean") {
+      return Boolean(viewer.canWriteStaffReview);
+    }
+    return false;
+  }
+
   function viewerOwnReview(viewer) {
     if (!viewer) return null;
     if (isBotReviewsPage()) return viewer.botReview || null;
+    if (isStaffBoard()) {
+      var sid = String((state.draft.staff && state.draft.staff.staffUserId) || "").trim();
+      var list = Array.isArray(viewer.staffReviews) ? viewer.staffReviews : [];
+      if (sid) {
+        for (var i = 0; i < list.length; i++) {
+          if (String(list[i].staffUserId || "") === sid) return list[i];
+        }
+      }
+      return null;
+    }
     return viewer.serverReview || null;
+  }
+
+  function activeDraft() {
+    return isStaffBoard() ? state.draft.staff : state.draft.server;
+  }
+
+  function normalizeBoardId(value) {
+    return String(value || "").trim().toLowerCase() === "staff" ? "staff" : "server";
+  }
+
+  function readBoardFromUrl() {
+    try {
+      var q = new URLSearchParams(window.location.search || "");
+      if (normalizeBoardId(q.get("board")) === "staff") return "staff";
+    } catch (e) {}
+    return "server";
+  }
+
+  function readStafferFilterFromUrl() {
+    try {
+      var q = new URLSearchParams(window.location.search || "");
+      var sid = String(q.get("staffer") || "").trim();
+      if (/^\d{5,32}$/.test(sid)) return sid;
+    } catch (e) {}
+    return "";
+  }
+
+  function writeBoardToUrl(board) {
+    try {
+      if (isBotReviewsPage()) return;
+      var u = new URL(window.location.href);
+      if (board === "staff") u.searchParams.set("board", "staff");
+      else u.searchParams.delete("board");
+      var staffer = board === "staff" ? String(state.filterStaffUserId || "").trim() : "";
+      if (staffer && /^\d{5,32}$/.test(staffer)) u.searchParams.set("staffer", staffer);
+      else u.searchParams.delete("staffer");
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(null, document.title, u.pathname + u.search + u.hash);
+      }
+    } catch (e2) {}
+  }
+
+  function staffersList() {
+    var list = state.payload && Array.isArray(state.payload.staffers) ? state.payload.staffers : [];
+    return list;
+  }
+
+  function stafferFilterOptions() {
+    var map = {};
+    var order = [];
+    function add(id, name) {
+      var sid = String(id || "").trim();
+      if (!sid || map[sid]) return;
+      map[sid] = { id: sid, name: String(name || sid).trim() || sid };
+      order.push(sid);
+    }
+    staffersList().forEach(function (row) {
+      add(row && row.id, row && row.name);
+    });
+    var reviews =
+      state.payload && state.payload.reviews && Array.isArray(state.payload.reviews.staff)
+        ? state.payload.reviews.staff
+        : [];
+    reviews.forEach(function (row) {
+      add(row && row.staffUserId, row && row.staffName);
+    });
+    return order
+      .map(function (id) {
+        return map[id];
+      })
+      .sort(function (a, b) {
+        return String(a.name || "").localeCompare(String(b.name || ""), "it", { sensitivity: "base" });
+      });
+  }
+
+  function stafferSelectMarkup(selectedId) {
+    var sid = String(selectedId || "").trim();
+    var opts =
+      '<option value="">' +
+      esc(t("reviews.pickStaffer", "Seleziona uno staffer")) +
+      "</option>";
+    staffersList().forEach(function (row) {
+      var id = String(row && row.id ? row.id : "").trim();
+      if (!id) return;
+      opts +=
+        '<option value="' +
+        esc(id) +
+        '"' +
+        (id === sid ? " selected" : "") +
+        ">" +
+        esc(row.name || id) +
+        "</option>";
+    });
+    return (
+      '<div class="vc-reviews-field"><label for="vc-review-modal-staffer">Staffer</label>' +
+      '<select id="vc-review-modal-staffer" class="vc-reviews-select" data-review-staffer-select>' +
+      opts +
+      "</select></div>"
+    );
+  }
+
+  function switchReviewsBoard(next) {
+    if (isBotReviewsPage()) return;
+    var board = normalizeBoardId(next);
+    if (board === state.board) return;
+    state.board = board;
+    state.payload = null;
+    state.renderFingerprint = "";
+    state.replyOpenId = null;
+    state.editModalOpen = false;
+    state.filterStars = 0;
+    state.filterStaffUserId = board === "staff" ? readStafferFilterFromUrl() : "";
+    state.sortBy = "newest";
+    state.carouselIndex = 0;
+    state.reviewsPager.page = 1;
+    state.reviewsPager.userControlled = false;
+    state.stageKey = "";
+    state.deepLinkAppliedId = "";
+    writeBoardToUrl(board);
+    syncReviewsScopeBar();
+    showReviewsSkeleton();
+    void fetchPayload({ force: true });
+  }
+
+  function syncReviewsScopeBar() {
+    var dock = byId("vc-reviews-scope-dock");
+    if (!dock) return;
+    Array.prototype.slice.call(dock.querySelectorAll("[data-reviews-board]")).forEach(function (btn) {
+      var on = btn.getAttribute("data-reviews-board") === state.board;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+
+  function ensureReviewsScopeBar() {
+    if (isBotReviewsPage()) return;
+    var host = byId("vc-reviews-sections-row");
+    var section = host && host.querySelector ? host.querySelector(".vc-reviews-section--split") : null;
+    var dock = byId("vc-reviews-scope-dock");
+    if (!dock) {
+      dock = document.createElement("div");
+      dock.id = "vc-reviews-scope-dock";
+      dock.className = "vc-feedback-scope-dock vc-reviews-scope-dock";
+      dock.innerHTML =
+        '<div class="vc-notif-scope-bar vc-feedback-scope-bar" role="tablist" aria-label="Ambito recensioni">' +
+        '<button type="button" role="tab" class="vc-notif-scope-bar__btn" data-reviews-board="server" aria-selected="true">' +
+        '<i class="fa fa-server" aria-hidden="true"></i><span>Server</span></button>' +
+        '<button type="button" role="tab" class="vc-notif-scope-bar__btn" data-reviews-board="staff" aria-selected="false">' +
+        '<i class="fa fa-shield" aria-hidden="true"></i><span>Staff</span></button>' +
+        "</div>";
+      var filters = byId("vc-reviews-filters");
+      var stage = byId("vc-reviews-stage");
+      if (section && filters && filters.parentNode === section) {
+        section.insertBefore(dock, filters);
+      } else if (section && stage && stage.parentNode === section) {
+        section.insertBefore(dock, stage);
+      } else if (section) {
+        section.insertBefore(dock, section.firstChild);
+      } else if (host) {
+        host.insertBefore(dock, host.firstChild);
+      } else {
+        document.body.appendChild(dock);
+      }
+      dock.addEventListener("click", function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-reviews-board]") : null;
+        if (!btn || !dock.contains(btn)) return;
+        switchReviewsBoard(btn.getAttribute("data-reviews-board"));
+      });
+    }
+    dock.hidden = false;
+    syncReviewsScopeBar();
   }
 
   function currentSiteLang() {
@@ -104,11 +314,8 @@
   }
 
   function showReviewsLoginGate() {
-    var g = byId("vc-reviews-gate");
-    if (!g) return;
-    g.removeAttribute("hidden");
-    g.classList.remove("vc-reviews-gate--dismissed");
-    g.setAttribute("aria-hidden", "false");
+    /* gateKill1: soft page — mai overlay fullscreen; login solo sui CTA */
+    hideReviewsGate();
   }
 
   function wireGateLoginCta() {
@@ -145,8 +352,20 @@
     state.reviewsPager.page = 1;
     state.reviewsPager.totalPages = 1;
     state.reviewsPager.userControlled = false;
+    state.stageKey = "";
+    window.clearTimeout(showReviewsSkeleton._wd);
     var serverWrap = byId("vc-reviews-server-list");
-    if (serverWrap) serverWrap.innerHTML = "";
+    if (serverWrap) {
+      serverWrap.className = "vc-reviews-stage__track";
+      serverWrap.removeAttribute("aria-busy");
+      serverWrap.removeAttribute("data-vc-skel-at");
+      serverWrap.innerHTML = "";
+    }
+    var stage = byId("vc-reviews-stage");
+    if (stage) {
+      stage.classList.remove("is-loading", "is-empty");
+    }
+    setReviewsStageNavVisible(false);
     var pager = byId("vc-reviews-pager");
     if (pager) {
       pager.innerHTML = "";
@@ -184,7 +403,12 @@
     var host = String(window.location.hostname || "").toLowerCase();
     var local = String(conf.apiUrlLocal || "").trim();
     var remote = String(conf.apiUrl || "").trim();
-    var base = (host === "localhost" || host === "127.0.0.1") && local ? local : remote || local;
+    if (remote === "#" || remote === "about:blank") remote = "";
+    if (local === "#" || local === "about:blank") local = "";
+    /* phoneApiSoft429Kill1: mai apiUrlLocal in produzione (127.0.0.1 → “non trova nulla” da telefono) */
+    var base = "";
+    if ((host === "localhost" || host === "127.0.0.1") && local) base = local;
+    else base = remote || "/webhooks/site-reviews";
     if (!base) return "";
     var kind = pageKind();
     try {
@@ -276,6 +500,8 @@
   function refreshReviewsPayloadQuiet() {
     if (state.editModalOpen || isTypingInReviewField()) return Promise.resolve();
     if (!byId("vc-reviews-server-list")) return Promise.resolve();
+    /* voteLikeStale1: ignore quiet responses older than a local like/vote patch */
+    var gen = Number(state.fetchGen || 0);
     return fetch(apiUrl(), {
       method: "GET",
       headers: authHeaders(),
@@ -283,6 +509,7 @@
     })
       .then(parseJsonResponse)
       .then(function (body) {
+        if (gen !== state.fetchGen) return;
         if (!body || body.ok !== true) return;
         setStatus("", false);
         var fp = reviewsPayloadFingerprint(body);
@@ -462,7 +689,8 @@
       }
     } catch (eBuild) {}
     if (!rebuilt && uid && hash) {
-      rebuilt = "https://cdn.discordapp.com/avatars/" + uid + "/" + hash + ".png?size=" + sz;
+      var extFb = /^a_/i.test(hash) ? "gif" : "png";
+      rebuilt = "https://cdn.discordapp.com/avatars/" + uid + "/" + hash + "." + extFb + "?size=" + sz;
     }
     if (!rebuilt && src && /^https:\/\/cdn\.discordapp\.com\/(?:avatars|guilds)\//i.test(src) && !isDiscordDefaultAvatarUrl(src)) {
       rebuilt = src.replace(/\.(gif|webp|jpe?g)(\?|#|$)/i, ".png$2");
@@ -556,14 +784,28 @@
   function reviewCardMarkup(review) {
     var viewer = state.payload && state.payload.viewer;
     var tokenOk = Boolean(getToken());
-    var canReply = Boolean(viewer && viewer.canReplyAsServer);
+    var viewerId = viewer && viewer.id ? String(viewer.id) : "";
+    var reviewUserId = String(review.userId || "");
+    var targetStaffId = String(review.staffUserId || "");
+    /* reviewsStaffReply1: HS reply only on server/bot; on Staff board only the reviewed staffer */
+    var canReplyAsServer = Boolean(viewer && viewer.canReplyAsServer) && !isStaffBoard();
+    var canReplyAsTarget =
+      isStaffBoard() && Boolean(tokenOk && viewerId && targetStaffId && targetStaffId === viewerId);
+    var canReply = canReplyAsServer || canReplyAsTarget;
     var likeCount = Math.max(0, Math.round(Number(review.likeCount || 0)));
     var liked = Boolean(review.likedByViewer);
     var sr = review.serverReply && review.serverReply.content ? review.serverReply : null;
     var rid = esc(review.id);
-    var viewerId = viewer && viewer.id ? String(viewer.id) : "";
-    var reviewUserId = String(review.userId || "");
     var isOwn = Boolean(tokenOk && viewerId && reviewUserId && reviewUserId === viewerId);
+    var replyLabel = isStaffBoard()
+      ? t("reviews.stafferReply", "Risposta dello staffer")
+      : t("reviews.serverReply", "Risposta del server");
+    var replyFormLabel = isStaffBoard()
+      ? t("reviews.stafferReplyForm", "La tua risposta (visibile a tutti)")
+      : t("reviews.serverReplyForm", "Messaggio ufficiale (visibile a tutti)");
+    var replyPlaceholder = isStaffBoard()
+      ? t("reviews.stafferReplyPlaceholder", "Rispondi alla recensione su di te...")
+      : t("reviews.serverReplyPlaceholder", "Rispondi a nome del server...");
     var out =
       '<article class="vc-reviews-card" id="vc-review-' +
       rid +
@@ -576,6 +818,11 @@
       '<div><strong>' +
       esc(review.authorName || "Utente") +
       "</strong>" +
+      (isStaffBoard() && (review.staffName || review.staffUserId)
+        ? '<span class="vc-reviews-card__target">su <strong>' +
+          esc(review.staffName || "Staffer") +
+          "</strong></span>"
+        : "") +
       '<span>' +
       esc(formatDateIt(review.createdAt || review.updatedAt)) +
       "</span></div></div>" +
@@ -585,7 +832,11 @@
       "</span>" +
       (isOwn
         ? '<div class="vc-reviews-card__own-actions">' +
-          '<button type="button" class="vc-reviews-card__icon-btn" data-review-edit-open aria-label="' +
+          '<button type="button" class="vc-reviews-card__icon-btn" data-review-edit-open' +
+          (isStaffBoard() && review.staffUserId
+            ? ' data-review-staff-id="' + esc(String(review.staffUserId)) + '"'
+            : "") +
+          ' aria-label="' +
           esc(t("reviews.editBtn", "Modifica la tua recensione")) +
           '"><i class="fa fa-pencil" aria-hidden="true"></i></button>' +
           '<button type="button" class="vc-reviews-card__icon-btn vc-reviews-card__icon-btn--danger" data-review-delete="' +
@@ -603,7 +854,7 @@
       out +=
         '<div class="vc-reviews-card__reply">' +
         '<span class="vc-reviews-card__reply-label">' +
-        esc(t("reviews.serverReply", "Risposta del server")) +
+        esc(replyLabel) +
         "</span>" +
         '<p class="vc-reviews-card__reply-text">' +
         esc(sr.content) +
@@ -640,10 +891,14 @@
         '<div class="vc-reviews-reply-form">' +
         '<label class="vc-reviews-reply-form__label" for="vc-reviews-reply-' +
         rid +
-        '">Messaggio ufficiale (visibile a tutti)</label>' +
+        '">' +
+        esc(replyFormLabel) +
+        "</label>" +
         '<textarea id="vc-reviews-reply-' +
         rid +
-        '" class="vc-reviews-textarea vc-reviews-reply-form__ta" rows="3" placeholder="Rispondi a nome del server...">' +
+        '" class="vc-reviews-textarea vc-reviews-reply-form__ta" rows="3" enterkeyhint="send" placeholder="' +
+        esc(replyPlaceholder) +
+        '">' +
         esc(sr ? sr.content : "") +
         "</textarea>" +
         '<div class="vc-reviews-reply-form__actions"><button type="button" class="vc-reviews-submit" data-review-reply-submit="' +
@@ -722,7 +977,11 @@
   }
 
   function hasActiveReviewsFilters() {
-    return Number(state.filterStars || 0) >= 1 || normalizeReviewSort(state.sortBy) !== "newest";
+    return (
+      Number(state.filterStars || 0) >= 1 ||
+      normalizeReviewSort(state.sortBy) !== "newest" ||
+      (isStaffBoard() && Boolean(String(state.filterStaffUserId || "").trim()))
+    );
   }
 
   function ensureReviewsFiltersBar() {
@@ -750,13 +1009,31 @@
         var clearBtn = tEl.closest("[data-reviews-filter-clear]");
         if (clearBtn && bar.contains(clearBtn)) {
           state.filterStars = 0;
+          state.filterStaffUserId = "";
           state.sortBy = "newest";
           state.carouselIndex = 0;
           state.reviewsPager.page = 1;
           state.reviewsPager.userControlled = false;
           state.stageKey = "";
-          syncReviewsFiltersBar();
-          render();
+          writeBoardToUrl(state.board);
+          /* violPass11: niente sync+render sync nel click (Violation 200ms+) */
+          scheduleReviewsRender({ syncFilters: true });
+          return;
+        }
+        var stafferOpt = tEl.closest("[data-reviews-staffer-option]");
+        if (stafferOpt && bar.contains(stafferOpt)) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          var rawOpt = String(stafferOpt.getAttribute("data-reviews-staffer-option") || "").trim();
+          /* reviewsStafferFilterAll1: __all__ / empty = Tutti (avoid empty attr quirks) */
+          applyStafferFilter(rawOpt === "__all__" ? "" : rawOpt);
+          return;
+        }
+        var stafferToggle = tEl.closest("[data-reviews-staffer-toggle]");
+        if (stafferToggle && bar.contains(stafferToggle)) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          toggleStafferFilterMenu(stafferToggle);
           return;
         }
         var chip = tEl.closest("[data-reviews-filter]");
@@ -776,11 +1053,94 @@
         state.reviewsPager.page = 1;
         state.reviewsPager.userControlled = false;
         state.stageKey = "";
-        syncReviewsFiltersBar();
-        render();
+        scheduleReviewsRender({ syncFilters: true });
       });
+      if (!window.__vcReviewsStafferMenuDocClose) {
+        window.__vcReviewsStafferMenuDocClose = true;
+        document.addEventListener(
+          "click",
+          function (ev) {
+            var menu = byId("vc-reviews-staffer-menu");
+            var wrap = byId("vc-reviews-staffer-dd");
+            if (!menu || menu.hidden) return;
+            var t = ev.target;
+            if (wrap && t && wrap.contains(t)) return;
+            closeStafferFilterMenu();
+          },
+          true,
+        );
+        document.addEventListener("keydown", function (ev) {
+          if (ev.key === "Escape") closeStafferFilterMenu();
+        });
+      }
     }
     syncReviewsFiltersBar();
+  }
+
+  function stafferFilterLabel(selectedId) {
+    var sid = String(selectedId || "").trim();
+    if (!sid) return t("reviews.filterAllStaffers", "Tutti gli staffer");
+    var opts = stafferFilterOptions();
+    for (var i = 0; i < opts.length; i += 1) {
+      if (String(opts[i].id) === sid) return opts[i].name || sid;
+    }
+    return sid;
+  }
+
+  function closeStafferFilterMenu() {
+    var menu = byId("vc-reviews-staffer-menu");
+    var btn = byId("vc-reviews-staffer-toggle");
+    var wrap = byId("vc-reviews-staffer-dd");
+    if (menu) {
+      menu.hidden = true;
+      menu.setAttribute("hidden", "");
+    }
+    if (btn) btn.setAttribute("aria-expanded", "false");
+    if (wrap) wrap.classList.remove("is-open");
+  }
+
+  function toggleStafferFilterMenu(btn) {
+    var menu = byId("vc-reviews-staffer-menu");
+    var wrap = byId("vc-reviews-staffer-dd");
+    if (!menu || !btn) return;
+    var open = menu.hasAttribute("hidden") || menu.hidden;
+    if (open) {
+      menu.hidden = false;
+      menu.removeAttribute("hidden");
+      btn.setAttribute("aria-expanded", "true");
+      if (wrap) wrap.classList.add("is-open");
+    } else {
+      closeStafferFilterMenu();
+    }
+  }
+
+  function applyStafferFilter(nextId) {
+    state.filterStaffUserId = String(nextId || "").trim();
+    state.carouselIndex = 0;
+    state.reviewsPager.page = 1;
+    state.reviewsPager.userControlled = false;
+    state.stageKey = "";
+    writeBoardToUrl(state.board);
+    scheduleReviewsRender({ syncFilters: true });
+  }
+
+  var _reviewsRenderRaf = 0;
+  var _reviewsRenderNeedFilters = false;
+  function scheduleReviewsRender(opts) {
+    if (opts && opts.syncFilters) _reviewsRenderNeedFilters = true;
+    if (_reviewsRenderRaf) return;
+    _reviewsRenderRaf = window.requestAnimationFrame(function () {
+      _reviewsRenderRaf = 0;
+      if (_reviewsRenderNeedFilters) {
+        _reviewsRenderNeedFilters = false;
+        try {
+          syncReviewsFiltersBar();
+        } catch (eF) {}
+      }
+      try {
+        render();
+      } catch (eR) {}
+    });
   }
 
   function syncReviewsFiltersBar() {
@@ -815,6 +1175,52 @@
         "</button>"
       );
     }).join("");
+    var stafferRow = "";
+    if (isStaffBoard()) {
+      var selectedStaffer = String(state.filterStaffUserId || "").trim();
+      var allLabel = t("reviews.filterAllStaffers", "Tutti gli staffer");
+      var currentLabel = stafferFilterLabel(selectedStaffer);
+      var items =
+        '<li role="none"><button type="button" role="option" class="vc-reviews-staffer-dd__item' +
+        (!selectedStaffer ? " is-active" : "") +
+        '" data-reviews-staffer-option="__all__" aria-selected="' +
+        (!selectedStaffer ? "true" : "false") +
+        '"><span class="vc-reviews-staffer-dd__lab">' +
+        esc(allLabel) +
+        "</span></button></li>";
+      stafferFilterOptions().forEach(function (row) {
+        var id = String(row && row.id ? row.id : "").trim();
+        if (!id) return;
+        var on = id === selectedStaffer;
+        items +=
+          '<li role="none"><button type="button" role="option" class="vc-reviews-staffer-dd__item' +
+          (on ? " is-active" : "") +
+          '" data-reviews-staffer-option="' +
+          esc(id) +
+          '" aria-selected="' +
+          (on ? "true" : "false") +
+          '"><span class="vc-reviews-staffer-dd__lab">' +
+          esc(row.name || id) +
+          "</span></button></li>";
+      });
+      stafferRow =
+        '<div class="vc-feedback-filters__row vc-feedback-filters__row--staffer">' +
+        '<span class="vc-feedback-filters__label">' +
+        esc(t("reviews.filterStaffer", "Staffer")) +
+        "</span>" +
+        '<div class="vc-feedback-filters__chips vc-feedback-filters__chips--select">' +
+        '<div id="vc-reviews-staffer-dd" class="vc-reviews-staffer-dd' +
+        (selectedStaffer ? " has-value" : "") +
+        '">' +
+        '<button type="button" id="vc-reviews-staffer-toggle" class="vc-reviews-staffer-dd__btn" data-reviews-staffer-toggle="1" aria-haspopup="listbox" aria-expanded="false" aria-controls="vc-reviews-staffer-menu" aria-label="' +
+        esc(t("reviews.filterStaffer", "Staffer")) +
+        '"><span class="vc-reviews-staffer-dd__value">' +
+        esc(currentLabel) +
+        '</span><i class="fa fa-chevron-down" aria-hidden="true"></i></button>' +
+        '<ul id="vc-reviews-staffer-menu" class="vc-reviews-staffer-dd__menu" role="listbox" hidden>' +
+        items +
+        "</ul></div></div></div>";
+    }
     /* azzeraFix1: dedicated clear row under filter chips (no margin-left:auto float) */
     var clearRow = hasActiveReviewsFilters()
       ? '<div class="vc-feedback-filters__row vc-feedback-filters__row--clear">' +
@@ -831,11 +1237,14 @@
     var ctaLabel =
       isLogged && tokenOk && serverExisting
         ? t("reviews.edit", "Modifica recensione")
-        : t("reviews.write", "Scrivi recensione");
+        : isStaffBoard()
+          ? t("reviews.writeStaff", "Recensisci staffer")
+          : t("reviews.write", "Scrivi recensione");
     /* reviewsCtaAlign1: same __main + __rows + __toolbar as feedbackSort1 */
     bar.innerHTML =
       '<div class="vc-feedback-filters__main">' +
       '<div class="vc-feedback-filters__rows">' +
+      stafferRow +
       '<div class="vc-feedback-filters__row">' +
       '<span class="vc-feedback-filters__label">Stelle</span>' +
       '<div class="vc-feedback-filters__chips" role="group" aria-label="Stelle">' +
@@ -893,7 +1302,7 @@
 
   function currentOrderedReviews() {
     var payload = state.payload || { reviews: { server: [], staff: [], bot: [] } };
-    var listKey = isBotReviewsPage() ? "bot" : "server";
+    var listKey = isBotReviewsPage() ? "bot" : isStaffBoard() ? "staff" : "server";
     var allReviews = Array.isArray(payload.reviews && payload.reviews[listKey]) ? payload.reviews[listKey] : [];
     if (isBotReviewsPage()) {
       var want = normalizeLang(state.langFilter || currentSiteLang());
@@ -906,6 +1315,14 @@
       allReviews = allReviews.filter(function (row) {
         return reviewRatingValue(row) === stars;
       });
+    }
+    if (isStaffBoard()) {
+      var wantStaffer = String(state.filterStaffUserId || "").trim();
+      if (wantStaffer) {
+        allReviews = allReviews.filter(function (row) {
+          return String((row && row.staffUserId) || "") === wantStaffer;
+        });
+      }
     }
     return sortReviewsList(allReviews, state.sortBy);
   }
@@ -924,6 +1341,7 @@
       state.stageForceMotion = false;
       var s = byId("vc-reviews-stage");
       if (s) s.classList.remove("is-sliding");
+      pinStageCardSolidFill(byId("vc-reviews-server-list"));
     }, 520);
   }
 
@@ -932,8 +1350,9 @@
     if (ordered.length <= 1) return;
     state.carouselIndex = wrapCarouselIndex(state.carouselIndex + (dir < 0 ? -1 : 1), ordered.length);
     state.reviewsPager.userControlled = true;
+    state.replyOpenId = null;
     pulseStageMotion();
-    render();
+    scheduleReviewsRender();
   }
 
   function goCarouselIndex(nextIdx) {
@@ -941,8 +1360,9 @@
     if (!ordered.length) return;
     state.carouselIndex = wrapCarouselIndex(nextIdx, ordered.length);
     state.reviewsPager.userControlled = true;
+    state.replyOpenId = null;
     pulseStageMotion();
-    render();
+    scheduleReviewsRender();
   }
 
   function stageSlotsKey(slots, idx, n) {
@@ -976,13 +1396,42 @@
 
   function syncStageTrackHeight(root) {
     if (!root) return;
-    var center = root.querySelector(".vc-reviews-stage__card.is-center");
-    if (!center || root.classList.contains("is-solo") || root.classList.contains("is-empty")) {
+    /* reviewsLikeReplyStay1: misura anche con reply aperta (laterali restano) */
+    if (root.classList.contains("is-solo") || root.classList.contains("is-empty")) {
       root.style.removeProperty("min-height");
       return;
     }
-    var h = Math.ceil(center.getBoundingClientRect().height + 44);
-    if (h > 120) root.style.minHeight = h + "px";
+    /* violPass11: solo offsetHeight centro — niente getBoundingClientRect loop (Forced reflow) */
+    var center = root.querySelector(".vc-reviews-stage__card.is-center");
+    if (!center) return;
+    var targetH = 0;
+    try {
+      targetH = Math.ceil(center.offsetHeight || 0);
+    } catch (eH) {
+      targetH = 0;
+    }
+    if (targetH <= 80) return;
+    var sides = root.querySelectorAll(
+      ".vc-reviews-stage__card.is-left, .vc-reviews-stage__card.is-right",
+    );
+    for (var i = 0; i < sides.length; i += 1) {
+      try {
+        sides[i].style.setProperty("min-height", targetH + "px", "important");
+      } catch (eSide) {}
+    }
+    root.style.setProperty("min-height", targetH + 28 + "px", "important");
+  }
+
+  var _stageHeightRaf = 0;
+  function scheduleStageTrackHeight(root) {
+    if (!root) return;
+    if (_stageHeightRaf) return;
+    _stageHeightRaf = window.requestAnimationFrame(function () {
+      _stageHeightRaf = 0;
+      try {
+        syncStageTrackHeight(root);
+      } catch (eH2) {}
+    });
   }
 
   function reviewCardMarkupForStage(review, posClass, offset) {
@@ -997,6 +1446,52 @@
         (offset === 0 ? "0" : "-1") +
         '"',
     );
+  }
+
+  /* cardStatsBorderAll1e: stesso bordo live stats (no flat fill che azzera il conic) */
+  function pinStageCardSolidFill(rootEl) {
+    try {
+      var theme = document.documentElement.getAttribute("data-vc-theme") || "dark";
+      var isLight = theme === "light";
+      var fill = isLight
+        ? "linear-gradient(175deg, #fffaf4 0%, #efe4d6 100%)"
+        : [
+            "radial-gradient(120% 90% at 0% 0%, rgba(236, 205, 176, 0.12), transparent 52%)",
+            "radial-gradient(90% 70% at 100% 0%, rgba(111, 78, 55, 0.16), transparent 48%)",
+            "linear-gradient(175deg, #17130f 0%, #100c09 55%, #0b0807 100%)",
+            "conic-gradient(from 0deg, rgba(255, 247, 236, 0.98) 0deg, rgba(236, 205, 176, 0.9) 70deg, rgba(212, 168, 136, 0.78) 140deg, rgba(180, 130, 90, 0.82) 200deg, rgba(212, 168, 136, 0.78) 270deg, rgba(255, 247, 236, 0.98) 360deg)",
+          ].join(", ");
+      var color = isLight ? "#f6efe6" : "#100c09";
+      var origin = isLight
+        ? "border-box"
+        : "padding-box, padding-box, padding-box, border-box";
+      var clip = origin;
+      var scope = rootEl || document;
+      var cards = scope.querySelectorAll
+        ? scope.querySelectorAll(".vc-reviews-stage__card")
+        : [];
+      for (var i = 0; i < cards.length; i += 1) {
+        var el = cards[i];
+        el.style.removeProperty("background");
+        el.style.setProperty("background-color", color, "important");
+        el.style.setProperty("background-image", fill, "important");
+        el.style.setProperty("background-origin", origin, "important");
+        el.style.setProperty("background-clip", clip, "important");
+        el.style.setProperty("-webkit-background-clip", clip, "important");
+        if (!isLight) {
+          el.style.setProperty("border", "2px solid transparent", "important");
+          el.style.setProperty("border-color", "transparent", "important");
+          el.style.setProperty(
+            "box-shadow",
+            "0 0 0 1px rgba(255, 247, 236, 0.16)",
+            "important",
+          );
+        }
+        el.style.setProperty("animation", "none", "important");
+        el.style.setProperty("filter", "none", "important");
+        el.style.setProperty("-webkit-filter", "none", "important");
+      }
+    } catch (ePinFill) {}
   }
 
   function renderStageDots(n, idx) {
@@ -1035,27 +1530,44 @@
     var nextBtn = document.querySelector("[data-reviews-stage-next]");
     if (!n) {
       state.stageKey = "";
+      window.clearTimeout(showReviewsSkeleton._wd);
       root.className = "vc-reviews-stage__track is-empty";
       root.style.removeProperty("min-height");
-      if (stage) stage.classList.add("is-empty");
+      if (stage) {
+        stage.classList.add("is-empty");
+        stage.classList.remove("is-loading");
+        stage.classList.remove("is-reply-open");
+      }
       root.setAttribute("aria-live", "off");
+      root.removeAttribute("aria-busy");
+      if (window.VcListSkeleton && typeof window.VcListSkeleton.clearBusy === "function") {
+        window.VcListSkeleton.clearBusy(root);
+      }
       root.innerHTML = emptyMarkup(
         "fa-commenting-o",
-        Number(state.filterStars || 0) >= 1
-          ? t("reviews.emptyFiltered", "Nessuna recensione con queste stelle")
+        hasActiveReviewsFilters()
+          ? t("reviews.emptyFiltered", "Nessuna recensione con questi filtri")
           : t("reviews.empty", "Ancora nessuna recensione"),
-        Number(state.filterStars || 0) >= 1
-          ? t("reviews.emptyFilteredHint", "Prova un altro filtro stelle o azzera i filtri.")
+        hasActiveReviewsFilters()
+          ? t("reviews.emptyFilteredHint", "Prova un altro filtro o azzera i filtri.")
           : isBotReviewsPage()
             ? t("botReviews.emptyHint", "Scrivi la prima recensione su Vinili.")
             : t("reviews.emptyHint", "Sarai tu a inaugurare questa sezione."),
       );
       renderStageDots(0, 0);
-      if (prevBtn) prevBtn.disabled = true;
-      if (nextBtn) nextBtn.disabled = true;
+      setReviewsStageNavVisible(false);
       return;
     }
-    if (stage) stage.classList.remove("is-empty");
+    window.clearTimeout(showReviewsSkeleton._wd);
+    if (stage) {
+      stage.classList.remove("is-empty");
+      stage.classList.remove("is-loading");
+      stage.classList.toggle("is-reply-open", Boolean(state.replyOpenId));
+    }
+    root.removeAttribute("aria-busy");
+    if (window.VcListSkeleton && typeof window.VcListSkeleton.clearBusy === "function") {
+      window.VcListSkeleton.clearBusy(root);
+    }
     var idx = wrapCarouselIndex(state.carouselIndex, n);
     state.carouselIndex = idx;
     var slots = [];
@@ -1071,23 +1583,24 @@
     }
     var key = stageSlotsKey(slots, idx, n);
     var mode = n === 1 ? " is-solo" : n === 2 ? " is-duo" : " is-trio";
+    var replyMode = state.replyOpenId ? " is-reply-open" : "";
     if (key === state.stageKey && root.querySelector(".vc-reviews-stage__card")) {
-      root.className = "vc-reviews-stage__track" + mode;
+      root.className = "vc-reviews-stage__track" + mode + replyMode;
       scanReviewAvatars(root);
+      pinStageCardSolidFill(root);
       renderStageDots(n, idx);
+      setReviewsStageNavVisible(n > 1);
       if (prevBtn) prevBtn.disabled = n <= 1;
       if (nextBtn) nextBtn.disabled = n <= 1;
       if (stage) {
         stage.setAttribute("data-count", String(n));
         stage.setAttribute("data-index", String(idx + 1));
       }
-      window.requestAnimationFrame(function () {
-        syncStageTrackHeight(root);
-      });
+      scheduleStageTrackHeight(root);
       return;
     }
     state.stageKey = key;
-    root.className = "vc-reviews-stage__track" + mode;
+    root.className = "vc-reviews-stage__track" + mode + replyMode;
     root.setAttribute("aria-live", "off");
     root.innerHTML = slots
       .map(function (slot) {
@@ -1103,19 +1616,16 @@
           staged[si].classList.remove("vc-home-rise", "is-in", "vc-fx-card", "vc-home-panel");
         }
       } catch (eStrip) {}
+      pinStageCardSolidFill(rootEl || root);
     }
     stripStageFx(root);
     scanReviewAvatars(root);
+    /* violPass11: un solo rAF ripin — niente 3 pass + timeout (setTimeout Violation) */
     window.requestAnimationFrame(function () {
       stripStageFx(root);
-      window.setTimeout(function () {
-        stripStageFx(root);
-      }, 120);
-      window.setTimeout(function () {
-        stripStageFx(root);
-      }, 400);
     });
     renderStageDots(n, idx);
+    setReviewsStageNavVisible(n > 1);
     if (prevBtn) prevBtn.disabled = n <= 1;
     if (nextBtn) nextBtn.disabled = n <= 1;
     if (stage) {
@@ -1124,14 +1634,23 @@
       if (state.stageForceMotion) stage.classList.add("is-sliding");
       else stage.classList.remove("is-sliding");
     }
-    window.requestAnimationFrame(function () {
-      syncStageTrackHeight(root);
-    });
+    scheduleStageTrackHeight(root);
   }
 
   function bindReviewsStageOnce() {
     if (state.carouselBound) return;
     state.carouselBound = true;
+    try {
+      if (window.MutationObserver) {
+        var mo = new MutationObserver(function () {
+          pinStageCardSolidFill(byId("vc-reviews-server-list"));
+        });
+        mo.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-vc-theme"],
+        });
+      }
+    } catch (eMo) {}
     document.addEventListener("click", function (ev) {
       var el = ev.target;
       if (!el || typeof el.closest !== "function") return;
@@ -1269,7 +1788,7 @@
     pager.hidden = false;
     var mp = window.__vcMiniPager;
     if (mp && typeof mp.fill === "function") {
-      mp.fill(pager, page, totalPages, { aria: "Paginazione recensioni" }, {
+      mp.fill(pager, page, totalPages, { aria: "Paginazione recensioni", classic: true }, {
         go: function (nextPage) {
           var cap = Math.max(1, Number(state.reviewsPager.totalPages) || 1);
           var next = Math.max(1, Math.min(cap, Number(nextPage) || 1));
@@ -1277,14 +1796,7 @@
           state.reviewsPager.userControlled = true;
           state.reviewsPager.page = next;
           render();
-          var list = byId("vc-reviews-server-list");
-          if (list && typeof list.scrollIntoView === "function") {
-            window.requestAnimationFrame(function () {
-              try {
-                list.scrollIntoView({ behavior: "smooth", block: "start" });
-              } catch (eScroll) {}
-            });
-          }
+          /* scrollStayAll1: no scrollIntoView */
         },
       });
       return;
@@ -1336,10 +1848,18 @@
 
   function syncDraftFromPayload() {
     var viewer = state.payload && state.payload.viewer;
+    var draft = activeDraft();
     var own = viewerOwnReview(viewer);
+    if (isStaffBoard()) {
+      if (!String(draft.staffUserId || "").trim() && staffersList().length) {
+        draft.staffUserId = String(staffersList()[0].id || "");
+      }
+      own = viewerOwnReview(viewer);
+    }
     if (own) {
-      state.draft.server.rating = Math.max(1, Math.min(5, Math.round(Number(own.rating) || 5)));
-      state.draft.server.content = String(own.content || "");
+      draft.rating = Math.max(1, Math.min(5, Math.round(Number(own.rating) || 5)));
+      draft.content = String(own.content || "");
+      if (isStaffBoard() && own.staffUserId) draft.staffUserId = String(own.staffUserId);
       state.draftLang = normalizeLang(own.contentLang || currentSiteLang());
     } else {
       state.draftLang = currentSiteLang();
@@ -1357,15 +1877,21 @@
   }
 
   function reviewFormModalInnerMarkup(isUpdate) {
+    var draft = activeDraft();
     var title = isUpdate
       ? t("reviews.editTitle", "Modifica la tua recensione")
-      : t("reviews.writeTitle", "Scrivi una recensione");
+      : isStaffBoard()
+        ? t("reviews.writeStaffTitle", "Recensisci uno staffer")
+        : t("reviews.writeTitle", "Scrivi una recensione");
     var submitLabel = isUpdate
       ? t("reviews.update", "Aggiorna recensione")
       : t("reviews.submit", "Invia recensione");
     var placeholder = isBotReviewsPage()
       ? t("botReviews.placeholder", "Cosa ti piace di Vinili: musica, partnership, strumenti…")
-      : t("reviews.placeholder", "Scrivi cosa ti piace del server, dell'ambiente o delle attività...");
+      : isStaffBoard()
+        ? t("reviews.staffPlaceholder", "Come ti trovi con questo staffer? Feedback costruttivo e rispettoso.")
+        : t("reviews.placeholder", "Scrivi cosa ti piace del server, dell'ambiente o delle attività...");
+    var ratingKind = isStaffBoard() ? "staff" : "server";
     return (
       '<div class="vc-reviews-modal__backdrop" data-review-modal-dismiss tabindex="-1"></div>' +
       '<div class="vc-reviews-modal__panel" role="dialog" aria-modal="true" aria-labelledby="vc-reviews-modal-title">' +
@@ -1376,20 +1902,82 @@
       '<button type="button" class="vc-reviews-modal__close" data-review-modal-dismiss aria-label="Chiudi"><i class="fa fa-times" aria-hidden="true"></i></button>' +
       "</div>" +
       '<div class="vc-reviews-modal__body">' +
+      (isStaffBoard() ? stafferSelectMarkup(draft.staffUserId) : "") +
       '<div class="vc-reviews-field"><label>Valutazione</label>' +
-      ratingInputMarkup("server", state.draft.server.rating) +
+      ratingInputMarkup(ratingKind, draft.rating) +
       "</div>" +
       '<div class="vc-reviews-field"><label for="vc-review-modal-content">Recensione</label><textarea id="vc-review-modal-content" class="vc-reviews-textarea" rows="5" placeholder="' +
       esc(placeholder) +
       '">' +
-      esc(state.draft.server.content) +
+      esc(draft.content) +
       "</textarea></div>" +
       '<div class="vc-reviews-formcard__actions">' +
-      '<button type="button" class="vc-reviews-submit" data-review-submit="server">' +
+      '<button type="button" class="vc-reviews-submit" data-review-submit="' +
+      esc(ratingKind) +
+      '">' +
       esc(submitLabel) +
       "</button>" +
       "</div></div></div>"
     );
+  }
+
+  function pinReviewsModalScroll() {
+    try {
+      if (typeof window.__vcArmModalScrollLock === "function") {
+        window.__vcArmModalScrollLock({
+          htmlClass: "vc-reviews-modal-open",
+          datasetKey: "vcReviewsScrollY",
+        });
+        return;
+      }
+      var y =
+        window.scrollY ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        0;
+      try {
+        if (typeof window.__vcGetPinnedPageScrollY === "function") {
+          var pinned = Number(window.__vcGetPinnedPageScrollY()) || 0;
+          if (pinned > y) y = pinned;
+        }
+      } catch (e0) {}
+      document.documentElement.dataset.vcReviewsScrollY = String(y);
+      if (typeof window.__vcResetPinnedPageScrollY === "function") {
+        window.__vcResetPinnedPageScrollY(y);
+      }
+      document.documentElement.classList.add("vc-reviews-modal-open");
+      if (typeof window.__vcPinPageScroll === "function") {
+        window.__vcPinPageScroll({ soft: true, forcePhoneLock: true });
+      }
+      if (typeof window.__vcHoldPageScroll === "function") {
+        window.__vcHoldPageScroll(280, y);
+      }
+    } catch (ePin) {}
+  }
+
+  function unpinReviewsModalScroll() {
+    try {
+      if (typeof window.__vcReleaseModalScrollLock === "function") {
+        window.__vcReleaseModalScrollLock({
+          htmlClass: "vc-reviews-modal-open",
+          datasetKey: "vcReviewsScrollY",
+        });
+        return;
+      }
+      var y = Number(document.documentElement.dataset.vcReviewsScrollY || "0") || 0;
+      delete document.documentElement.dataset.vcReviewsScrollY;
+      document.documentElement.classList.remove("vc-reviews-modal-open");
+      if (typeof window.__vcUnpinPageScroll === "function") {
+        window.__vcUnpinPageScroll();
+      }
+      try {
+        window.scrollTo(0, y);
+        if (document.documentElement) document.documentElement.scrollTop = y;
+        if (document.body) document.body.scrollTop = y;
+      } catch (eScr) {}
+      if (typeof window.__vcHoldPageScroll === "function") {
+        window.__vcHoldPageScroll(280, y);
+      }
+    } catch (eUnpin) {}
   }
 
   function syncReviewFormModal() {
@@ -1401,6 +1989,7 @@
       try {
         document.documentElement.classList.remove("vc-reviews-modal-open");
       } catch (e0) {}
+      unpinReviewsModalScroll();
       return;
     }
     var viewer = state.payload && state.payload.viewer;
@@ -1408,47 +1997,60 @@
     root.hidden = false;
     root.innerHTML = reviewFormModalInnerMarkup(Boolean(serverExisting));
     root.className = "vc-reviews-modal vc-reviews-modal--open";
-    try {
-      document.documentElement.classList.add("vc-reviews-modal-open");
-    } catch (e1) {}
+    pinReviewsModalScroll();
   }
 
   function openReviewFormModal() {
     var token = getToken();
     var viewer = state.payload && state.payload.viewer;
     if (!token || !viewer || !viewer.id) {
-      setStatus(t("reviews.loginToWrite", "Devi effettuare il login con Discord per scrivere una recensione."), true);
-      var lb = byId("discord-login-btn");
-      if (lb) {
-        try {
-          lb.focus();
-        } catch (e2) {}
+      if (window.VcLoginRequired && typeof window.VcLoginRequired.require === "function") {
+        window.VcLoginRequired.require({
+          title: t("reviews.write", "Scrivi recensione"),
+          sub: t("reviews.gateSub", "Recensioni"),
+          body: t(
+            "reviews.loginToWrite",
+            "Accedi con Discord per scrivere una recensione.",
+          ),
+        });
+        return;
       }
+      setStatus(t("reviews.loginToWrite", "Devi effettuare il login con Discord per scrivere una recensione."), true);
       return;
     }
-    var serverExisting = viewerOwnReview(viewer);
-    if (serverExisting) {
+    if (isStaffBoard() && !canWriteStaffReview()) {
+      setStatus(t("reviews.staffWriteDenied", "Staff e High Staff non possono recensire se stessi o altri staffer."), true);
+      return;
+    }
+    var draft = activeDraft();
+    var existing = viewerOwnReview(viewer);
+    if (isStaffBoard() && !String(draft.staffUserId || "").trim() && staffersList().length) {
+      draft.staffUserId = String(staffersList()[0].id || "");
+      existing = viewerOwnReview(viewer);
+    }
+    if (existing) {
       syncDraftFromPayload();
     } else {
-      state.draft.server.rating = 5;
-      state.draft.server.content = "";
+      draft.rating = 5;
+      draft.content = "";
       state.draftLang = currentSiteLang();
       if (window.VcFormDrafts) {
         var saved = window.VcFormDrafts.load("reviews:" + pageKind());
         if (saved && typeof saved === "object") {
-          if (typeof saved.content === "string") state.draft.server.content = saved.content;
-          if (saved.rating != null) state.draft.server.rating = Math.max(1, Math.min(5, Math.round(Number(saved.rating) || 5)));
+          if (typeof saved.content === "string") draft.content = saved.content;
+          if (saved.rating != null) draft.rating = Math.max(1, Math.min(5, Math.round(Number(saved.rating) || 5)));
+          if (isStaffBoard() && saved.staffUserId) draft.staffUserId = String(saved.staffUserId);
         }
       }
     }
     state.editModalOpen = true;
     render();
-    var ta = byId("vc-review-modal-content");
-    if (ta) {
+    var focusEl = isStaffBoard() ? byId("vc-review-modal-staffer") : byId("vc-review-modal-content");
+    if (focusEl) {
       window.requestAnimationFrame(function () {
         window.requestAnimationFrame(function () {
           try {
-            ta.focus();
+            focusEl.focus();
           } catch (e3) {}
         });
       });
@@ -1480,20 +2082,51 @@
     var viewer = state.payload && state.payload.viewer;
     var tokenOk = Boolean(getToken());
     var isLogged = Boolean(viewer && viewer.id);
-    var serverExisting = viewerOwnReview(viewer);
+    var existing = viewerOwnReview(viewer);
+    var staffWriteDenied = isStaffBoard() && isLogged && tokenOk && !canWriteStaffReview();
     btn.hidden = false;
     btn.classList.add("vc-feedback-filters__cta");
-    if (!isLogged || !tokenOk) {
+    btn.classList.toggle("is-denied", staffWriteDenied);
+    btn.toggleAttribute("aria-disabled", staffWriteDenied);
+    if (staffWriteDenied) {
+      /* reviewsStaffReply1: keep CTA visible — toast explains why staff cannot write */
+      setReviewHeadCtaLabel(btn, t("reviews.writeStaff", "Recensisci staffer"), "fa fa-pencil");
+      btn.setAttribute(
+        "aria-label",
+        t("reviews.staffWriteDeniedAria", "Staff: non puoi recensire altri staffer"),
+      );
+      btn.title = t(
+        "reviews.staffWriteDenied",
+        "Staff e High Staff non possono recensire se stessi o altri staffer.",
+      );
+    } else if (!isLogged || !tokenOk) {
       setReviewHeadCtaLabel(btn, t("reviews.write", "Scrivi recensione"), "fa fa-pencil");
       btn.setAttribute("aria-label", t("reviews.writeAriaLogin", "Accedi con Discord per scrivere una recensione"));
-    } else if (serverExisting) {
+      btn.removeAttribute("title");
+    } else if (existing) {
       setReviewHeadCtaLabel(btn, t("reviews.edit", "Modifica recensione"), "fa fa-pencil");
       btn.setAttribute("aria-label", t("reviews.editBtn", "Modifica la tua recensione"));
+      btn.removeAttribute("title");
+    } else if (isStaffBoard()) {
+      setReviewHeadCtaLabel(btn, t("reviews.writeStaff", "Recensisci staffer"), "fa fa-pencil");
+      btn.setAttribute("aria-label", t("reviews.writeStaffAria", "Scrivi una recensione su uno staffer"));
+      btn.removeAttribute("title");
     } else {
       setReviewHeadCtaLabel(btn, t("reviews.write", "Scrivi recensione"), "fa fa-pencil");
       btn.setAttribute("aria-label", t("reviews.writeAriaNew", "Scrivi una nuova recensione"));
+      btn.removeAttribute("title");
     }
     btn.onclick = function () {
+      if (staffWriteDenied) {
+        setStatus(
+          t(
+            "reviews.staffWriteDenied",
+            "Staff e High Staff non possono recensire se stessi o altri staffer.",
+          ),
+          true,
+        );
+        return;
+      }
       openReviewFormModal();
     };
   }
@@ -1507,8 +2140,37 @@
       if (state.deepLinkAppliedId === raw) return;
       var el = document.getElementById("vc-review-" + raw);
       if (!el) return;
+      /* notifHashYoYo1: aspetta curtain/boot — smooth a metà load = yo-yo */
+      var root = document.documentElement;
+      var bootBusy =
+        root.classList.contains("vc-interaction-hold") ||
+        (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) ||
+        (document.getElementById("vc-cine-boot-curtain") &&
+          !root.classList.contains("vc-cine-curtain-off"));
+      if (bootBusy) {
+        if (!applyReviewDeepLink._wait) {
+          applyReviewDeepLink._wait = 1;
+          var retry = function () {
+            applyReviewDeepLink._wait = 0;
+            try {
+              applyReviewDeepLink();
+            } catch (eR) {}
+          };
+          document.addEventListener("vc:cine-curtain-off", retry, { once: true });
+          document.addEventListener("vc:page-cine-ready", retry, { once: true });
+          window.setTimeout(retry, 900);
+        }
+        return;
+      }
       state.deepLinkAppliedId = raw;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      try {
+        /* violPass11: scrollIntoView — niente getBoundingClientRect+pageYOffset (Forced reflow) */
+        el.scrollIntoView({ behavior: "auto", block: "center" });
+      } catch (eScr) {
+        try {
+          el.scrollIntoView(true);
+        } catch (eScr2) {}
+      }
       el.classList.add("vc-deep-link-flash");
       window.setTimeout(function () {
         try {
@@ -1538,10 +2200,25 @@
     var serverWrap = byId("vc-reviews-server-list");
     if (!serverWrap) return;
 
+    /* listSkeletonBusy1 / listSkeletonStage2: never paint empty over active loading */
+    if (!state.payload) {
+      var loading =
+        serverWrap.getAttribute("aria-busy") === "true" ||
+        Boolean(serverWrap.querySelector(".vc-list-skel, .vc-reviews-stage-loading"));
+      ensureReviewsScopeBar();
+      ensureReviewsFiltersBar();
+      if (loading) {
+        syncReviewFormModal();
+        syncReviewHeadButton();
+        return;
+      }
+    }
+
     if (isBotReviewsPage()) {
       state.langFilter = currentSiteLang();
     }
 
+    ensureReviewsScopeBar();
     ensureReviewsFiltersBar(); /* reviewsFilters1 */
     var orderedReviews = currentOrderedReviews();
     ensurePageIncludesDeepLink(orderedReviews);
@@ -1557,9 +2234,14 @@
     syncReviewHeadButton();
     bind();
     bindReviewsStageOnce();
-    window.requestAnimationFrame(function () {
-      applyReviewDeepLink();
-    });
+    /* violPass11: deep-link solo se hash presente — evita rAF a vuoto ogni render */
+    try {
+      if (String(window.location.hash || "").indexOf("#vc-review-") === 0) {
+        window.requestAnimationFrame(function () {
+          applyReviewDeepLink();
+        });
+      }
+    } catch (eDl) {}
   }
 
   var reviewsPagerClickBound = false;
@@ -1581,15 +2263,8 @@
           Number(state.reviewsPager.page || 1) + 1,
         );
       }
-      render();
-      var list = byId("vc-reviews-server-list");
-      if (list && typeof list.scrollIntoView === "function") {
-        window.requestAnimationFrame(function () {
-          try {
-            list.scrollIntoView({ behavior: "smooth", block: "start" });
-          } catch (eScroll) {}
-        });
-      }
+      scheduleReviewsRender();
+      /* scrollStayAll1: no scrollIntoView su freccette pager */
     });
   }
 
@@ -1599,13 +2274,39 @@
     if (taModal && !taModal._vcBound) {
       taModal._vcBound = true;
       taModal.addEventListener("input", function () {
-        state.draft.server.content = taModal.value;
+        var d = activeDraft();
+        d.content = taModal.value;
         if (window.VcFormDrafts) {
-          window.VcFormDrafts.save("reviews:" + pageKind(), {
-            content: String(taModal.value || ""),
-            rating: Number(state.draft.server.rating) || 5,
-          });
+          window.VcFormDrafts.save(
+            "reviews:" + pageKind(),
+            {
+              content: String(taModal.value || ""),
+              rating: Number(d.rating) || 5,
+              staffUserId: isStaffBoard() ? String(d.staffUserId || "") : undefined,
+            },
+            { notify: true },
+          );
         }
+      });
+    }
+    var staffSel = byId("vc-review-modal-staffer");
+    if (staffSel && !staffSel._vcBound) {
+      staffSel._vcBound = true;
+      staffSel.addEventListener("change", function () {
+        state.draft.staff.staffUserId = String(staffSel.value || "").trim();
+        syncDraftFromPayload();
+        if (window.VcFormDrafts) {
+          window.VcFormDrafts.save(
+            "reviews:" + pageKind(),
+            {
+              content: String(state.draft.staff.content || ""),
+              rating: Number(state.draft.staff.rating) || 5,
+              staffUserId: String(state.draft.staff.staffUserId || ""),
+            },
+            { notify: true },
+          );
+        }
+        render();
       });
     }
     if (_delegationBound) return;
@@ -1617,6 +2318,10 @@
       if (dismiss) { state.editModalOpen = false; render(); return; }
       var editOpen = el.closest("[data-review-edit-open]");
       if (editOpen) {
+        if (isStaffBoard()) {
+          var sidEdit = String(editOpen.getAttribute("data-review-staff-id") || "").trim();
+          if (sidEdit) state.draft.staff.staffUserId = sidEdit;
+        }
         syncDraftFromPayload(); state.editModalOpen = true; render();
         var ta = byId("vc-review-modal-content");
         if (ta) { window.requestAnimationFrame(function () { window.requestAnimationFrame(function () { try { ta.focus(); } catch (e) {} }); }); }
@@ -1625,7 +2330,11 @@
       var rating = el.closest("[data-review-set-rating]");
       if (rating) {
         var value = Math.max(1, Math.min(5, Math.round(Number(rating.getAttribute("data-rating-value") || 0) || 0)));
-        state.draft.server.rating = value; render(); return;
+        var kind = String(rating.getAttribute("data-review-set-rating") || "server");
+        if (kind === "staff") state.draft.staff.rating = value;
+        else state.draft.server.rating = value;
+        render();
+        return;
       }
       var submit = el.closest("[data-review-submit]");
       if (submit) { submitReview(); return; }
@@ -1637,6 +2346,9 @@
       }
       var like = el.closest("[data-review-like]");
       if (like) {
+        try {
+          ev.preventDefault();
+        } catch (eLikePrev) {}
         if (like.disabled) return;
         var likeId = String(like.getAttribute("data-review-like") || "").trim();
         if (likeId) toggleReviewLike(likeId, like);
@@ -1644,8 +2356,17 @@
       }
       var replyToggle = el.closest("[data-review-reply-toggle]");
       if (replyToggle) {
+        try {
+          ev.preventDefault();
+        } catch (eRtPrev) {}
         var rtId = String(replyToggle.getAttribute("data-review-reply-toggle") || "").trim();
-        if (rtId) { state.replyOpenId = state.replyOpenId === rtId ? null : rtId; render(); }
+        if (rtId) {
+          /* reviewsLikeReplyStay1 / reviewsReplyOpenFlow1 */
+          holdReviewsPageScroll(420);
+          state.replyOpenId = state.replyOpenId === rtId ? null : rtId;
+          render();
+          holdReviewsPageScroll(420);
+        }
         return;
       }
       var replySub = el.closest("[data-review-reply-submit]");
@@ -1699,26 +2420,110 @@
     return "reviewsCinePolish1:" + pageKind();
   }
 
-  function showReviewsSkeleton() {
-    var track = byId("vc-reviews-server-list");
-    if (!track || state.payload) return;
-    track.innerHTML =
-      '<article class="vc-reviews-card vc-list-skel" aria-hidden="true">' +
-      '<div class="vc-list-skel__row"><span class="vc-list-skel__avatar"></span><span class="vc-list-skel__lines"><i></i><i></i></span></div>' +
-      '<span class="vc-list-skel__block"></span></article>';
-    track.setAttribute("aria-busy", "true");
+  function setReviewsStageNavVisible(on) {
+    var prevBtn = document.querySelector("[data-reviews-stage-prev]");
+    var nextBtn = document.querySelector("[data-reviews-stage-next]");
+    var dots = byId("vc-reviews-stage-dots");
+    if (prevBtn) {
+      prevBtn.hidden = !on;
+      if (!on) prevBtn.disabled = true;
+    }
+    if (nextBtn) {
+      nextBtn.hidden = !on;
+      if (!on) nextBtn.disabled = true;
+    }
+    if (dots && !on) {
+      dots.hidden = true;
+    }
   }
 
-  function fetchPayload() {
-    if (fetchPayloadInFlight) return fetchPayloadInFlight;
+  function reviewsStageLoadingMarkup() {
+    return (
+      '<div class="vc-reviews-stage-loading" role="status" aria-live="polite">' +
+      '<span class="vc-reviews-stage-loading__pulse" aria-hidden="true"></span>' +
+      '<span class="vc-reviews-stage-loading__label">Caricamento recensioni...</span>' +
+      "</div>"
+    );
+  }
+
+  function showReviewsSkeleton() {
+    var track = byId("vc-reviews-server-list");
+    var stage = byId("vc-reviews-stage");
+    if (!track || state.payload) return;
+    state.stageKey = "";
+    track.className = "vc-reviews-stage__track is-loading";
+    track.style.removeProperty("min-height");
+    track.innerHTML = reviewsStageLoadingMarkup();
+    track.setAttribute("aria-busy", "true");
+    if (window.VcListSkeleton && typeof window.VcListSkeleton.clearBusy === "function") {
+      /* keep busy flag; schedule shared watchdog via data attr */
+      try {
+        track.setAttribute("data-vc-skel-at", String(Date.now()));
+      } catch (eAt) {}
+    }
+    if (stage) {
+      stage.classList.add("is-loading");
+      stage.classList.remove("is-empty");
+    }
+    setReviewsStageNavVisible(false);
+    /* listSkeletonStage2: hard stop shimmer after 10s if fetch never settles */
+    window.clearTimeout(showReviewsSkeleton._wd);
+    showReviewsSkeleton._wd = window.setTimeout(function () {
+      if (state.payload) return;
+      var trackEl = byId("vc-reviews-server-list");
+      if (!trackEl || trackEl.getAttribute("aria-busy") !== "true") return;
+      clearReviewsListAfterFetchFail(t("reviews.errorTimeout", "Timeout: riprova tra poco."));
+    }, 10000);
+  }
+
+  /* listSkeletonClear1: never leave shimmer forever after fail/soft-fail */
+  function clearReviewsListAfterFetchFail(message) {
+    var track = byId("vc-reviews-server-list");
+    var stage = byId("vc-reviews-stage");
+    window.clearTimeout(showReviewsSkeleton._wd);
+    if (!track) return;
+    state.stageKey = "";
+    track.removeAttribute("aria-busy");
+    track.removeAttribute("data-vc-skel-at");
+    track.className = "vc-reviews-stage__track is-empty";
+    track.innerHTML = emptyMarkup(
+      "fa-exclamation-circle",
+      t("reviews.loadError", "Impossibile caricare le recensioni."),
+      message || t("reviews.loadErrorHint", "Ricarica la pagina o riprova tra poco."),
+    );
+    if (stage) {
+      stage.classList.add("is-empty");
+      stage.classList.remove("is-loading");
+    }
+    setReviewsStageNavVisible(false);
+  }
+
+  function fetchPayload(opts) {
+    var force = Boolean(opts && opts.force);
+    if (fetchPayloadInFlight && !force) return fetchPayloadInFlight;
+    var gen = (state.fetchGen = Number(state.fetchGen || 0) + 1);
+    var boardAtFetch = pageKind();
 
     setStatus("", false);
-    showReviewsSkeleton();
+    if (!force || !state.payload) showReviewsSkeleton();
     var url = apiUrl();
     var cacheKey = reviewsCacheKey();
     var loadError = t("reviews.loadError", "Impossibile caricare le recensioni.");
+    if (window.VcApiCache) {
+      try {
+        if (force) window.VcApiCache.invalidate(cacheKey);
+        if (typeof window.VcApiCache.clearWebhookBlock === "function") {
+          window.VcApiCache.clearWebhookBlock(url);
+        }
+      } catch (eInvR) {}
+    }
+
+    function stillCurrent() {
+      return gen === state.fetchGen && pageKind() === boardAtFetch;
+    }
 
     function applyBody(body) {
+      if (!stillCurrent()) return;
       if (!body || body.ok !== true) throw new Error((body && body.message) || loadError);
       state.payload = body;
       syncDraftFromPayload();
@@ -1728,6 +2533,18 @@
       if (wsr !== 0 && wsr !== 1) {
         connectReviewsWebSocket();
       }
+    }
+
+    function onFetchFail(err) {
+      if (!stillCurrent()) return state.payload || null;
+      if (state.payload) {
+        setStatus("", false);
+        return state.payload;
+      }
+      var msg = err && err.message ? err.message : loadError;
+      clearReviewsListAfterFetchFail(msg);
+      setStatus(msg, true);
+      return null;
     }
 
     function finishFetch(promise) {
@@ -1743,9 +2560,12 @@
           ttlMs: 60000,
           staleMs: 120000,
           persistMs: 15 * 60 * 1000,
-          timeoutMs: 24000,
-          fetchInit: { method: "GET", headers: authHeaders(), cache: "default" },
+          timeoutMs: 12000,
+          forceNetwork: force || !state.payload,
+          useCache: !force && Boolean(state.payload),
+          fetchInit: { method: "GET", headers: authHeaders(), cache: force ? "no-store" : "default" },
           onStale: function (cached) {
+            if (force || !stillCurrent()) return;
             if (cached && cached.body && cached.body.ok === true) {
               try {
                 applyBody(cached.body);
@@ -1754,20 +2574,24 @@
           },
         })
           .then(function (out) {
+            if (!stillCurrent()) return state.payload || null;
             if (!out || !out.body || out.body.ok !== true) {
               if (state.payload) return state.payload;
-              throw new Error(loadError);
+              var softMsg =
+                (out && out.body && (out.body.message || out.body.error)) ||
+                (out && out.timedOut ? "timeout" : "") ||
+                loadError;
+              if (softMsg === "timeout") softMsg = t("reviews.errorTimeout", "Timeout: riprova tra poco.");
+              if (softMsg === "network_error") softMsg = t("reviews.errorNetwork", "Connessione instabile: riprova.");
+              if (softMsg === "rate_limited_client" || softMsg === "rate_limited") {
+                softMsg = t("reviews.errorRate", "Troppe richieste: attendi un momento.");
+              }
+              throw new Error(softMsg);
             }
             applyBody(out.body);
             return out.body;
           })
-          .catch(function (err) {
-            if (state.payload) {
-              setStatus("", false);
-              return state.payload;
-            }
-            setStatus(err && err.message ? err.message : loadError, true);
-          }),
+          .catch(onFetchFail),
       );
     }
 
@@ -1775,20 +2599,14 @@
       fetch(url, {
         method: "GET",
         headers: authHeaders(),
-        cache: "default",
+        cache: force ? "no-store" : "default",
       })
         .then(parseJsonResponse)
         .then(function (body) {
           applyBody(body);
           return body;
         })
-        .catch(function (err) {
-          if (state.payload) {
-            setStatus("", false);
-            return state.payload;
-          }
-          setStatus(err && err.message ? err.message : loadError, true);
-        }),
+        .catch(onFetchFail),
     );
   }
 
@@ -1798,12 +2616,28 @@
       setStatus(t("reviews.loginToSubmit", "Devi effettuare il login con Discord per inviare una recensione."), true);
       return;
     }
+    var draft = activeDraft();
+    if (isStaffBoard()) {
+      if (!canWriteStaffReview()) {
+        setStatus(t("reviews.staffWriteDenied", "Staff e High Staff non possono recensire se stessi o altri staffer."), true);
+        return;
+      }
+      if (!String(draft.staffUserId || "").trim()) {
+        setStatus(t("reviews.pickStafferRequired", "Seleziona lo staffer da recensire."), true);
+        return;
+      }
+    }
     var payload = {
       kind: pageKind(),
-      rating: state.draft.server.rating,
-      content: state.draft.server.content,
+      rating: draft.rating,
+      content: draft.content,
     };
+    if (isStaffBoard()) payload.staffUserId = String(draft.staffUserId || "").trim();
     payload.contentLang = currentSiteLang();
+    try {
+      var ref = String(new URLSearchParams(window.location.search).get("ref") || "").trim();
+      if (/^\d{17,20}$/.test(ref) && pageKind() === "server") payload.broughtByStaffId = ref;
+    } catch (eRef) {}
     if (isBotReviewsPage()) {
       state.draftLang = payload.contentLang;
     }
@@ -1825,11 +2659,95 @@
         if (window.VcFormDrafts) window.VcFormDrafts.clear("reviews:" + pageKind());
         if (window.VcApiCache) window.VcApiCache.invalidate(reviewsCacheKey());
         setStatus(body.message || t("reviews.saved", "Recensione salvata."), false);
-        return fetchPayload();
+        return fetchPayload({ force: true });
       })
       .catch(function (err) {
         setStatus(err && err.message ? err.message : t("reviews.saveError", "Errore durante il salvataggio."), true);
       });
+  }
+
+  function patchReviewLikeInPayload(reviewId, liked, likeCount) {
+    if (!state.payload || !state.payload.reviews) return false;
+    var rid = String(reviewId || "");
+    var buckets = ["server", "staff", "bot"];
+    for (var b = 0; b < buckets.length; b += 1) {
+      var list = state.payload.reviews[buckets[b]];
+      if (!Array.isArray(list)) continue;
+      for (var i = 0; i < list.length; i += 1) {
+        if (String((list[i] && list[i].id) || "") === rid) {
+          var nextCount = Math.max(0, Number(likeCount) || 0);
+          var next = Object.assign({}, list[i], {
+            likedByViewer: Boolean(liked),
+            likeCount: nextCount,
+          });
+          /* keep likes[] length aligned with likeCount for stageSlotsKey */
+          if (Array.isArray(list[i].likes)) {
+            var likes = list[i].likes.slice();
+            if (likes.length > nextCount) likes = likes.slice(0, nextCount);
+            while (likes.length < nextCount) likes.push({ id: "local-" + likes.length });
+            next.likes = likes;
+          }
+          list[i] = next;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /* reviewsLikeReplyStay1: update like UI without full stage rebuild (no scroll jump) */
+  function patchReviewLikeUi(reviewId, liked, likeCount) {
+    var rid = String(reviewId || "").trim();
+    if (!rid) return;
+    var n = Math.max(0, Number(likeCount) || 0);
+    var on = Boolean(liked);
+    var buttons;
+    try {
+      buttons = document.querySelectorAll('[data-review-like="' + rid.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"]');
+    } catch (eQ) {
+      buttons = [];
+    }
+    for (var i = 0; i < buttons.length; i += 1) {
+      var btn = buttons[i];
+      try {
+        btn.classList.toggle("is-liked", on);
+        var ico = btn.querySelector("i.fa, i[class*='fa-heart']");
+        if (ico) {
+          ico.classList.remove("fa-heart", "fa-heart-o");
+          ico.classList.add(on ? "fa-heart" : "fa-heart-o");
+        }
+        var label = btn.querySelector(".vc-reviews-like__n");
+        if (label) label.textContent = String(n);
+      } catch (eBtn) {}
+    }
+    /* keep stageKey in sync so a later render does not force a needless rebuild */
+    try {
+      if (state.stageKey) {
+        state.stageKey = String(state.stageKey).replace(
+          new RegExp("(" + rid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ":[^:]*:[^:]*:[^:]*:)(\\d+)(:)"),
+          "$1" + String(n) + "$3",
+        );
+      }
+    } catch (eKey) {}
+  }
+
+  function holdReviewsPageScroll(ms) {
+    try {
+      var y =
+        window.scrollY ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        (document.body && document.body.scrollTop) ||
+        0;
+      if (typeof window.__vcHoldPageScroll === "function") {
+        window.__vcHoldPageScroll(Math.max(120, Number(ms) || 280), y);
+      } else {
+        window.setTimeout(function () {
+          try {
+            window.scrollTo(0, y);
+          } catch (eScr) {}
+        }, 0);
+      }
+    } catch (eHold) {}
   }
 
   function toggleReviewLike(reviewId, buttonEl) {
@@ -1838,6 +2756,7 @@
       setStatus(t("reviews.loginToLike", "Accedi con Discord per mettere like."), true);
       return;
     }
+    holdReviewsPageScroll(480);
     if (buttonEl) buttonEl.disabled = true;
     setStatus("", false);
     fetch(reviewActionUrl(reviewId, "like"), {
@@ -1852,13 +2771,32 @@
           throw new Error((body && body.message) || t("reviews.likeError", "Errore like."));
         }
         setStatus(body.message || "Ok.", false);
-        return fetchPayload();
+        /* voteLikeStale1: patch immediato + invalida cache + bump gen (no stale quiet/WS revert) */
+        try {
+          if (window.VcApiCache) {
+            window.VcApiCache.invalidate(reviewsCacheKey());
+            if (typeof window.VcApiCache.clearWebhookBlock === "function") {
+              window.VcApiCache.clearWebhookBlock(apiUrl());
+            }
+          }
+        } catch (eInvL) {}
+        if (patchReviewLikeInPayload(reviewId, body.liked, body.likeCount)) {
+          state.fetchGen = Number(state.fetchGen || 0) + 1;
+          state.renderFingerprint = reviewsPayloadFingerprint(state.payload);
+          /* reviewsLikeReplyStay1: no full render — DOM patch only */
+          patchReviewLikeUi(reviewId, body.liked, body.likeCount);
+          holdReviewsPageScroll(480);
+          return;
+        }
+        holdReviewsPageScroll(480);
+        return fetchPayload({ force: true });
       })
       .catch(function (err) {
         setStatus(err && err.message ? err.message : t("reviews.likeError", "Errore like."), true);
       })
       .then(function () {
         if (buttonEl) buttonEl.disabled = false;
+        holdReviewsPageScroll(320);
       });
   }
 
@@ -1950,6 +2888,11 @@
   function main() {
     wireGateLoginCta();
     bindReviewsPagerOnce();
+    if (!isBotReviewsPage()) {
+      state.board = readBoardFromUrl();
+      state.filterStaffUserId = state.board === "staff" ? readStafferFilterFromUrl() : "";
+    }
+    ensureReviewsScopeBar();
     ensureReviewsFiltersBar(); /* reviewsFilters1: toolbar before data */
     if (isBotReviewsPage()) {
       state.langFilter = currentSiteLang();
@@ -1960,7 +2903,9 @@
       fetchPayload();
       return;
     }
-    showReviewsLoginGate();
+    /* loginRequiredModal1: niente gate fullscreen — pagina leggibile, login sui CTA */
+    hideReviewsGate();
+    fetchPayload();
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
@@ -1974,8 +2919,10 @@
       }
       return;
     }
-    clearReviewsContent();
-    showReviewsLoginGate();
+    /* listSkeletonStage2: ignore transient profile blips while token still valid */
+    if (getToken()) return;
+    hideReviewsGate();
+    if (!state.payload) fetchPayload();
   });
 
   document.addEventListener("vc:langchange", function () {
@@ -2006,10 +2953,7 @@
   window.addEventListener("hashchange", function () {
     if (byId("vc-reviews-server-list")) {
       state.reviewsPager.userControlled = false;
-      window.requestAnimationFrame(function () {
-        if (state.payload) render();
-        applyReviewDeepLink();
-      });
+      scheduleReviewsRender();
     }
   });
 
@@ -2019,3 +2963,4 @@
     main();
   }
 })();
+/* violPass11 */

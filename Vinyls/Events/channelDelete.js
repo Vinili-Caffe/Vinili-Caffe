@@ -101,6 +101,18 @@ module.exports = {
     await markDeletedChannelSnapshot(channel).catch(() => { });
 
     try {
+      const { isProtectedStreamerStageChannelId, ensureStreamerStageChannel } = require("../Services/Community/streamerStageGuardService");
+      if (isProtectedStreamerStageChannelId(channel.id, client) || /Streaming diunk|Streaming D1uk/i.test(String(channel.name || ""))) {
+        global.logger?.warn?.("[channelDelete] protected streamer stage deleted — recreating:", channel.id, channel.name);
+        await ensureStreamerStageChannel(client).catch((err) => {
+          global.logger?.warn?.("[channelDelete] streamer stage recreate failed:", err?.message || err);
+        });
+      }
+    } catch (eGuard) {
+      global.logger?.warn?.("[channelDelete] streamer stage guard:", eGuard?.message || eGuard);
+    }
+
+    try {
       const parentId = channel.parentId;
       if (parentId) {
         const parent = guild?.channels?.cache?.get(parentId) || (await guild?.channels?.fetch(parentId).catch(() => null));

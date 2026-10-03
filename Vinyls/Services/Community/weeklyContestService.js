@@ -1922,7 +1922,7 @@ async function runContestFinalePrizeGrantJob(client) {
         { upsert: true, setDefaultsOnInsert: true },
       ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] finale meta disegni:", err));
       global.logger?.info?.(
-        `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (disegni): 1°=${first?.userId || "-"} (Decorazione NO BUNDLE), 2°=${second?.userId || "-"} (Custom role + voc dal [profilo sul sito](https://www.viniliecaffe.it/personalizza/), unlock DB ${secondUnlock ? "ok" : "fallito"}), 3°=${third?.userId || "-"} (+10 livelli, assegnati ${Number(thirdAward?.awardedLevels || 0)} livelli / ${Number(thirdAward?.deltaExp || 0)} exp).`,
+        `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (disegni): 1°=${first?.userId || "-"} (Decorazione NO BUNDLE), 2°=${second?.userId || "-"} (Custom role + voc dal [Personalizza](https://www.viniliecaffe.it/personalizza/), unlock DB ${secondUnlock ? "ok" : "fallito"}), 3°=${third?.userId || "-"} (+10 livelli, assegnati ${Number(thirdAward?.awardedLevels || 0)} livelli / ${Number(thirdAward?.deltaExp || 0)} exp).`,
       );
       continue;
     }

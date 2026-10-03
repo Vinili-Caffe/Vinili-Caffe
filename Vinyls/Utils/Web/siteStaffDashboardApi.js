@@ -19,6 +19,7 @@ const {
   stripDiscordDecorations,
 } = require("./siteStaffRosterCache");
 const { countOpenWebTickets } = require("./siteWebTicketsApi");
+const { sendJsonWithEtag, weakEtagFromJson, weakEtagFromParts } = require("./siteHttpEtag");
 
 const DASH_CACHE_TTL_MS = 20_000;
 let dashCache = null;
@@ -85,7 +86,7 @@ async function buildDashboardPayload(client, viewerMember) {
 async function handleSiteStaffDashboardGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({
         ok: false,
@@ -97,17 +98,23 @@ async function handleSiteStaffDashboardGet(client, req, res) {
     const now = Date.now();
     const cacheKey = `${access.member.id}:${memberIsHighStaffEligible(access.member) ? "m" : "s"}`;
     if (dashCache && dashCache.key === cacheKey && dashCache.exp > now) {
-      res.setHeader("Cache-Control", "private, max-age=15");
-      return res.status(200).json(dashCache.payload);
+      /* siteApiW6: ETag/304 on staff dashboard */
+      return sendJsonWithEtag(req, res, dashCache.payload, {
+        cacheControl: "private, no-cache",
+        etag: dashCache.etag || weakEtagFromParts(["dash", cacheKey, dashCache.exp]),
+      });
     }
 
     const payload = await buildDashboardPayload(client, access.member);
     if (!payload.ok) {
       return res.status(payload.status || 500).json(payload);
     }
-    dashCache = { key: cacheKey, exp: now + DASH_CACHE_TTL_MS, payload };
-    res.setHeader("Cache-Control", "private, max-age=15");
-    return res.status(200).json(payload);
+    const etag = weakEtagFromJson(payload);
+    dashCache = { key: cacheKey, exp: now + DASH_CACHE_TTL_MS, payload, etag };
+    return sendJsonWithEtag(req, res, payload, {
+      cacheControl: "private, no-cache",
+      etag,
+    });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-dashboard:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });

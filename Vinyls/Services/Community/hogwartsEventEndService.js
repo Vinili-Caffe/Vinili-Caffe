@@ -500,14 +500,20 @@ async function runHogwartsEventCompletionSweep(client, options = {}) {
 }
 
 function startHogwartsEventEndLoop(client) {
-  const { isHogwartsRuntimeDisabled } = require("../../Utils/Web/hogwartsRuntimeKillSwitch");
-  if (isHogwartsRuntimeDisabled(client)) return;
+  /* Keep finale VIP/role cleanup alive even after event runtime kill-switch */
   if (!client || loopState.has(client)) return;
   loopState.add(client);
 
   const tick = async () => {
-    await runHogwartsEventCompletionSweep(client).catch((err) => {
-      global.logger?.error?.("[HOGWARTS FINALE PRIZES] sweep:", err?.message || err);
+    const guild = await resolveMainGuild(client);
+    if (guild) {
+      await cleanupExpiredHogwartsFinaleRewards(guild).catch((err) => {
+        global.logger?.warn?.("[HOGWARTS FINALE PRIZES] cleanup:", err?.message || err);
+      });
+    }
+    /* Re-award/wipe only if still needed; wipe disabled by default after retirement */
+    await awardHogwartsFinalePrizes(client).catch((err) => {
+      global.logger?.error?.("[HOGWARTS FINALE PRIZES] award:", err?.message || err);
     });
   };
 

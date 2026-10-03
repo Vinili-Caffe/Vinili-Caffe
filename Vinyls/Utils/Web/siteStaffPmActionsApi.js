@@ -19,7 +19,7 @@ const MAX_POINTS = 500;
 async function handleSiteStaffPmActionsPost(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
-    const access = await assertWebsiteStaffAccess(client, accessToken);
+    const access = await assertWebsiteStaffAccess(client, accessToken, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -102,6 +102,16 @@ async function handleSiteStaffPmActionsPost(client, req, res) {
         return res.status(400).json({ ok: false, error: "failed", message: "Operazione non riuscita." });
       }
       const points = resolvePartnerPointsShown(updated.staff);
+      const redeemSpend = Math.max(
+        0,
+        Math.floor(Number(updated.staff?.partnerRedeemSpend ?? 0) || 0),
+      );
+      const partnerCount = Math.max(0, Math.floor(Number(updated.staff?.partnerCount ?? 0) || 0));
+      let pointsEarned = points + redeemSpend;
+      try {
+        const { resolvePartnerTotalEarned } = require("../Staff/partnerPointsDisplayUtils");
+        pointsEarned = Math.max(0, Math.floor(Number(resolvePartnerTotalEarned(updated.staff) || 0)));
+      } catch (_) {}
       let pointsRemovedLogged = false;
       if (action === "points_remove") {
         try {
@@ -158,6 +168,9 @@ async function handleSiteStaffPmActionsPost(client, req, res) {
         ok: true,
         message: formatPartnerPointsChange(action === "points_add" ? "add" : "remove", amount),
         points,
+        redeemSpend,
+        partnerCount,
+        pointsEarned,
         pointsRemovedLogged,
       });
     }

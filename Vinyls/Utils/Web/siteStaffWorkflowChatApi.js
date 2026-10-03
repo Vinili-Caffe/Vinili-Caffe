@@ -3,7 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
-const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("./siteStaffAccessApi");
+const { assertWebsiteStaffAccess, normalizeHeaderSecret, memberCanViewResocontiInbox } = require("./siteStaffAccessApi");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { memberIsHighStaffEligible, memberCanReviewAppelli } = require("../Staff/staffRoleHierarchy");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
@@ -78,7 +78,7 @@ function memberCanAccessQueue(member, guild, queue) {
   if (q === "appelli") return memberCanReviewAppelli(member);
   if (q === "candidature") return memberHasCandidatureReviewAccess(member, guild);
   if (q === "resoconti") {
-    return Boolean(member?.id);
+    return memberCanViewResocontiInbox(member);
   }
   return false;
 }
@@ -328,7 +328,7 @@ function serializeMessage(doc, replyMap, avatarOverrides, roleOverrides) {
   if (!authorRoleLabel && roleOverrides && roleOverrides.get(authorId)) {
     authorRoleLabel = String(roleOverrides.get(authorId) || "").trim();
   }
-  return {
+  const out = {
     id: String(doc?._id || ""),
     dedupeKey: String(doc?.dedupeKey || ""),
     queue: String(doc?.queue || ""),
@@ -352,6 +352,63 @@ function serializeMessage(doc, replyMap, avatarOverrides, roleOverrides) {
     editedAt: doc?.editedAt ? new Date(doc.editedAt).toISOString() : null,
     createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString() : null,
   };
+  const receipt = messageReceiptStatus(doc);
+  if (receipt) {
+    out.receiptStatus = receipt;
+    out.read = receipt === "read";
+  }
+  return out;
+}
+
+function messageReceiptStatus(doc) {
+  const kind = String(doc?.authorKind || "").toLowerCase();
+  if (kind === "system") return null;
+  const authorId = String(doc?.authorId || "").trim();
+  if (!authorId) return null;
+  const readBy = Array.isArray(doc?.readBy) ? doc.readBy : [];
+  const read = readBy.some((r) => {
+    const uid = String(r?.userId || "").trim();
+    return uid && uid !== authorId;
+  });
+  return read ? "read" : "sent";
+}
+
+async function markWorkflowMessagesRead(readerId, messageDocs, { dedupeKey = "" } = {}) {
+  const reader = String(readerId || "").trim();
+  if (!reader) return { messageIds: [], at: null };
+  const at = new Date();
+  const candidates = (Array.isArray(messageDocs) ? messageDocs : []).filter((m) => {
+    if (!m || !m._id) return false;
+    if (String(m.authorKind || "").toLowerCase() === "system") return false;
+    if (String(m.authorId || "") === reader) return false;
+    const already = (Array.isArray(m.readBy) ? m.readBy : []).some(
+      (r) => String(r?.userId || "") === reader,
+    );
+    return !already;
+  });
+  const ids = candidates.map((m) => m._id);
+  if (!ids.length) return { messageIds: [], at: null };
+  await SiteWorkflowChatMessage.updateMany(
+    {
+      _id: { $in: ids },
+      readBy: { $not: { $elemMatch: { userId: reader } } },
+    },
+    { $push: { readBy: { userId: reader, at } } },
+  ).catch(() => null);
+  const idSet = new Set(ids.map((id) => String(id)));
+  for (const m of messageDocs || []) {
+    if (!idSet.has(String(m?._id || ""))) continue;
+    if (!Array.isArray(m.readBy)) m.readBy = [];
+    m.readBy.push({ userId: reader, at });
+  }
+  const key = String(dedupeKey || "").trim();
+  if (key) {
+    try {
+      const { cancelChatDmFallback } = require("./siteChatDmFallback");
+      cancelChatDmFallback("workflow", key, reader);
+    } catch (_) {}
+  }
+  return { messageIds: [...idSet], at: at.toISOString() };
 }
 
 async function loadWorkflowDoc(guildId, dedupeKey) {
@@ -746,7 +803,7 @@ async function resolveSubjectChatMember(client, guild, accessToken, { inviteOnly
   return { ok: true, userId: userRes.userId, member: userRes.member };
 }
 
-async function resolveWorkflowChatAccess(client, accessToken, dedupeKey) {
+async function resolveWorkflowChatAccess(client, accessToken, dedupeKey, opts = {}) {
   const token = normalizeHeaderSecret(accessToken);
   if (!token) {
     return {
@@ -791,7 +848,10 @@ async function resolveWorkflowChatAccess(client, accessToken, dedupeKey) {
   const subjectEverInvited = subjectChatEverInvited(subjectChat);
         const subjectMayJoin = queue === "pause" || (inviteOnly && subjectEverInvited);
 
-  const staffAccess = await assertWebsiteStaffAccess(client, token);
+  const staffAccess = await assertWebsiteStaffAccess(client, token, {
+    req: opts.req,
+    viewAs: opts.viewAs,
+  });
   if (staffAccess.ok && memberCanAccessQueue(staffAccess.member, guild, queue)) {
     const memberId = String(staffAccess.member?.id || "").trim();
     const isSubject = Boolean(subjectUserId && memberId && subjectUserId === memberId);
@@ -865,7 +925,7 @@ async function resolveWorkflowChatAccess(client, accessToken, dedupeKey) {
 async function handleSiteStaffWorkflowChatGet(client, req, res) {
   try {
     const dedupeKey = String(req.query?.dedupeKey || req.query?.key || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -882,6 +942,18 @@ async function handleSiteStaffWorkflowChatGet(client, req, res) {
     let visible = docs || [];
     if (access.isSubject && !access.isStaffReviewer && access.inviteOnly) {
       visible = visible.filter((d) => messageVisibleInSubjectWindows(d, access.subjectChat?.windows));
+    }
+
+    const readerId = String(access.member?.id || "").trim();
+    const marked = await markWorkflowMessagesRead(readerId, visible, { dedupeKey: access.dedupeKey });
+    if (marked.messageIds.length) {
+      emitChatEvent("workflow_chat_receipts", {
+        dedupeKey: access.dedupeKey,
+        queue: access.queue,
+        readerId,
+        messageIds: marked.messageIds,
+        at: marked.at,
+      });
     }
 
     const replyMap = new Map(visible.map((d) => [String(d._id), d]));
@@ -905,9 +977,58 @@ async function handleSiteStaffWorkflowChatGet(client, req, res) {
       subjectChat: subjectChatMeta,
       maxImages: MAX_IMAGES,
       messages: visible.map((d) => serializeMessage(d, replyMap, avatarOverrides, roleOverrides)),
+      viewerId: readerId,
     });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat GET:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteStaffWorkflowChatReadPost(client, req, res) {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const dedupeKey = String(body.dedupeKey || body.key || req.query?.dedupeKey || "").trim();
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
+    if (!access.ok) {
+      return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
+    }
+    const readerId = String(access.member?.id || "").trim();
+    if (!readerId) {
+      return res.status(401).json({ ok: false, error: "unauthorized", message: "Sessione non valida." });
+    }
+    const rawIds = Array.isArray(body.messageIds) ? body.messageIds : [];
+    const wantIds = [
+      ...new Set(rawIds.map((id) => String(id || "").trim()).filter((id) => mongoose.isValidObjectId(id))),
+    ].slice(0, 120);
+    const q = { guildId: access.guild.id, dedupeKey: access.dedupeKey };
+    if (wantIds.length) q._id = { $in: wantIds };
+    let docs = await SiteWorkflowChatMessage.find(q)
+      .sort({ createdAt: -1 })
+      .limit(wantIds.length ? wantIds.length : 120)
+      .lean()
+      .catch(() => []);
+    if (access.isSubject && !access.isStaffReviewer && access.inviteOnly) {
+      docs = (docs || []).filter((d) => messageVisibleInSubjectWindows(d, access.subjectChat?.windows));
+    }
+    const marked = await markWorkflowMessagesRead(readerId, docs || [], { dedupeKey: access.dedupeKey });
+    if (marked.messageIds.length) {
+      emitChatEvent("workflow_chat_receipts", {
+        dedupeKey: access.dedupeKey,
+        queue: access.queue,
+        readerId,
+        messageIds: marked.messageIds,
+        at: marked.at,
+      });
+    }
+    return res.status(200).json({
+      ok: true,
+      dedupeKey: access.dedupeKey,
+      messageIds: marked.messageIds,
+      at: marked.at,
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-staff-workflow-chat read:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
   }
 }
@@ -917,7 +1038,7 @@ async function handleSiteStaffWorkflowChatPost(client, req, res) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const dedupeKey = String(body.dedupeKey || body.key || "").trim();
 
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1055,6 +1176,7 @@ async function handleSiteStaffWorkflowChatPost(client, req, res) {
       }).catch(() => []);
 
       await notifyWorkflowChatNewMessage({
+        client,
         guild: access.guild,
         guildId: access.guild.id,
         queue: access.queue,
@@ -1070,6 +1192,7 @@ async function handleSiteStaffWorkflowChatPost(client, req, res) {
         roleId: access.workflow?.workflowRoleId || access.workflow?.workflowFields?.roleId,
         participantStaffIds,
         skipUserIds: mentioned || [],
+        messageId: String(doc?._id || ""),
       });
     } catch (_) {}
 
@@ -1085,7 +1208,7 @@ async function handleSiteStaffWorkflowChatReactionPost(client, req, res) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const dedupeKey = String(body.dedupeKey || req.query?.dedupeKey || "").trim();
     const messageId = String(body.messageId || req.params?.messageId || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1190,7 +1313,7 @@ async function handleSiteStaffWorkflowChatReactionPost(client, req, res) {
 async function handleSiteStaffWorkflowChatEmojisGet(client, req, res) {
   try {
     const dedupeKey = String(req.query?.dedupeKey || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1219,7 +1342,7 @@ async function handleSiteStaffWorkflowChatFileGet(client, req, res) {
     if (!dedupeKey || uploadFolderKey(dedupeKey) !== folderKey) {
       return res.status(403).json({ ok: false, error: "forbidden", message: "Accesso negato." });
     }
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1264,7 +1387,7 @@ async function handleSiteStaffWorkflowChatSubjectPost(client, req, res) {
       });
     }
 
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1399,7 +1522,7 @@ async function handleSiteStaffWorkflowChatMessagePatch(client, req, res) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const dedupeKey = String(body.dedupeKey || req.query?.dedupeKey || "").trim();
     const messageId = String(req.params?.messageId || body.messageId || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1488,7 +1611,7 @@ async function handleSiteStaffWorkflowChatMessageDelete(client, req, res) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const dedupeKey = String(body.dedupeKey || req.query?.dedupeKey || "").trim();
     const messageId = String(req.params?.messageId || body.messageId || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1529,7 +1652,7 @@ async function handleSiteStaffWorkflowChatTypingPost(client, req, res) {
   try {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const dedupeKey = String(body.dedupeKey || body.key || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1568,7 +1691,7 @@ async function handleSiteStaffWorkflowChatTypingPost(client, req, res) {
 async function handleSiteStaffWorkflowChatMentionsGet(client, req, res) {
   try {
     const dedupeKey = String(req.query?.dedupeKey || req.query?.key || "").trim();
-    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey);
+    const access = await resolveWorkflowChatAccess(client, bearerFromRequest(req), dedupeKey, { req });
     if (!access.ok) {
       return res.status(access.status).json({ ok: false, error: access.error, message: access.message });
     }
@@ -1739,6 +1862,7 @@ async function handleSiteStaffWorkflowChatMentionsGet(client, req, res) {
 module.exports = {
   handleSiteStaffWorkflowChatGet,
   handleSiteStaffWorkflowChatPost,
+  handleSiteStaffWorkflowChatReadPost,
   handleSiteStaffWorkflowChatReactionPost,
   handleSiteStaffWorkflowChatEmojisGet,
   handleSiteStaffWorkflowChatFileGet,

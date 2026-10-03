@@ -25,7 +25,8 @@ Variabili utili nel `.env` del processo Node:
 - `MUSIC_ENABLED` — `0` per non inizializzare Shoukaku
 - `MUSIC_DEFAULT_VOLUME` — 0–1000 come in [Lavalink REST](https://lavalink.dev/api/rest.html) (**100 = 100%**; default bot **50** = 50%; valori molto alti amplificano oltre il livello «normale»)
 - `MUSIC_SEARCH_PREFIX` — prefisso ricerca Lavalink per titoli senza URL (default `ytsearch:`)
-- `MUSIC_SPOTIFY_URL_LOOKUP` — `1` (default) per tentare `spsearch:` e costruire il link Spotify nell’embed `+play`; `0` per usare solo URI/ISRC già sulla traccia
+- `MUSIC_SPOTIFY_URL_LOOKUP` — `1` (default) per costruire il link Spotify nell’embed `+play` via **Spotify Web API** (client credentials in `.env`: `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`). Non usa più Lavalink `spsearch:` (LavaSrc a volte va in `SocketTimeout` e riempie PM2 di stack).
+- `MUSIC_SEARCH_MODE` — `youtube` (consigliato): ricerche testo su yt/ytm. Link `open.spotify.com` / `spotify:` restano gestiti da LavaSrc. `spotify` / `spotify_first` non forzano più `spsearch` sulle query di testo.
 - `MUSIC_INACTIVITY_IDLE_MS` — dopo quanti ms di **nessun brano in riproduzione** (o pausa) **oppure canale senza umani** il bot lascia il vocale e invia l’embed di inattività (default `180000` = 3 minuti; minimo 60s)
 - `+play` accetta link **Spotify** (`/track/`, `/album/`, `/playlist/`), non **show** / **episode** (podcast).
 - `MUSIC_LOGS` — `1` per log di debug musica

@@ -42,11 +42,11 @@ function siteUserProfilePageUrl() {
 }
 
 function siteUserProfilePageDiscordRef() {
-  return `[profilo sul sito](${siteUserProfilePageUrl()})`;
+  return `[Personalizza](${siteUserProfilePageUrl()})`;
 }
 
 function siteUserProfilePagePlainRef() {
-  return `profilo sul sito: ${siteUserProfilePageUrl()}`;
+  return `Personalizza: ${siteUserProfilePageUrl()}`;
 }
 
 function isLegacyTicketPanelChannelId(channelId) {

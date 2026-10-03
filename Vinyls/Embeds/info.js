@@ -42,7 +42,7 @@ async function run(client) {
   const infoLinksText = [
     "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](https://www.instagram.com/viniliecaffe/)",
     "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](https://www.tiktok.com/@viniliecaffe)",
-    "<:VC_Link:1482460590894088222> [Sito Ufficiale](https://www.viniliecaffe.it)",
+    "<:VC_Link:1482460590894088222> [Sito Ufficiale](https://www.viniliecaffe.it/)",
   ].join("\n");
   const infoMetaText = [
     "<:exp:1470067108543987846> Owner: <@295500038401163264>",

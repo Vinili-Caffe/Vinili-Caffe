@@ -4,14 +4,20 @@
   var ALIASES = {
     "/richieste": "/staff/pause/",
     "/richieste/stato": "/staff/pause/",
-    "/staff/ticket": "/tickets/?view=staff",
-    "/staff/tickets": "/tickets/?view=staff",
+    "/staff/ticket": "/tickets/",
+    "/staff/tickets": "/tickets/",
     "/staff/directory": "/staff/organico/",
     "/staff/valutazioni": "/staff/",
     "/staff/profilo": "/staff/",
-    "/staff/pm": "/staff/organico/",
+    "/staff/pm": "/staff/punti-tolti/",
     "/staff/moderazione": "/staff/organico/",
     "/staff/gestione": "/staff/organico/",
+    "/notifiche": "/notifications/",
+    "/messaggi": "/notifications/",
+    "/inbox": "/notifications/?view=staff",
+    "/profilo": "/user/",
+    "/account": "/user/",
+    "/premium": "/perks/",
   };
 
   function normPath(pathname) {

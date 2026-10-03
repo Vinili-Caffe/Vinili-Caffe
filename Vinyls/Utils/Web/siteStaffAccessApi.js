@@ -13,16 +13,52 @@ const {
 } = require("../Staff/staffRoleHierarchy");
 const { memberIsResocontoPmReviewer } = require("../Ticket/ticketPartnershipStaffRoles");
 const {
+  getResocontoSegmentsForReviewerUserId,
+  memberHasResocontoReviewerRole,
+} = require("../Staff/resocontoAccess");
+const {
   accountUsername,
   userAvatarUrlDynamic,
   discordDefaultAvatarUrl,
 } = require("../Discord/guildDiscordIdentity");
+const {
+  parseViewAsFromReq,
+  canUseViewAs,
+  applyViewAsToStaffAccessPayload,
+  normalizeViewAs,
+  applyViewAsToResolvedMember,
+  flagsForPreset,
+} = require("./siteViewAsPreview");
 
 const ACCESS_CACHE_TTL_MS = 600_000;
 const ACCESS_CACHE_MAX = 400;
 const accessCache = new Map();
 const accessInflight = new Map();
 const STAFF_ACCESS_CACHE_MARKER = "staffAccessCache1";
+
+/* inboxNoDirector1 */
+/** Inbox Resoconti: HS / gestore PM / reviewer — non Director, non staff ladder. */
+function memberCanViewResocontiInbox(member) {
+  if (!member) return false;
+  if (memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS)) return true;
+  if (memberHasDirectorRole(member)) return false;
+  if (memberIsResocontoPmReviewer(member)) return true;
+  if (memberHasResocontoReviewerRole(member)) return true;
+  const uid = String(member.id || "").trim();
+  if (uid && getResocontoSegmentsForReviewerUserId(uid).length) return true;
+  return false;
+}
+
+/** Punti tolti inbox: tutti i Partner Manager + HS/gestore — non Director. */
+function memberCanViewPmPointsRemovedInbox(member) {
+  if (!member) return false;
+  if (memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS)) return true;
+  if (memberHasDirectorRole(member)) return false;
+  if (memberIsResocontoPmReviewer(member)) return true;
+  const pmRole = String(IDs.roles.PartnerManager || "").trim();
+  if (pmRole && member?.roles?.cache?.has?.(pmRole)) return true;
+  return false;
+}
 
 function normalizeHeaderSecret(raw) {
   if (raw == null) return "";
@@ -69,6 +105,7 @@ function writeCachedAccess(token, payload) {
 
 const TRANSIENT_ACCESS_ERRORS = new Set([
   "discord_unreachable",
+  "discord_timeout",
   "guild_unavailable",
   "member_fetch_failed",
   "member_unavailable",
@@ -104,6 +141,13 @@ function memberHasMainServerStaffAccess(member) {
   const staffRoleId = String(IDs.roles.Staff || "").trim();
   if (staffRoleId && member.roles?.cache?.has?.(staffRoleId)) return true;
   return false;
+}
+
+/** Compiti + Confessionale: High Staff oppure Helper/Mod/Senior/Director. Solo-PM esclusi (PM+staff ok). */
+function memberCanUseOpsStaffPages(member) {
+  if (!member) return false;
+  if (memberHasAnyRoleKey(member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS)) return true;
+  return memberHasAnyRoleKey(member, ["Helper", "Mod", "SeniorModerator", "Director"]);
 }
 
 function buildCachedStaffMember(guild, cached) {
@@ -176,7 +220,7 @@ function collectMemberRoleIds(member) {
   return [];
 }
 
-async function assertWebsiteStaffAccess(client, accessToken) {
+async function assertWebsiteStaffAccess(client, accessToken, opts = {}) {
   const token = String(accessToken || "").trim();
   if (!token) {
     return {
@@ -189,15 +233,38 @@ async function assertWebsiteStaffAccess(client, accessToken) {
 
   const cacheKey = accessCacheKey(token);
   const existing = accessInflight.get(cacheKey);
-  if (existing) return existing;
-
-  const run = doAssertWebsiteStaffAccess(client, token);
-  accessInflight.set(cacheKey, run);
+  const run = existing || doAssertWebsiteStaffAccess(client, token);
+  if (!existing) accessInflight.set(cacheKey, run);
+  let out;
   try {
-    return await run;
+    out = await run;
   } finally {
     if (accessInflight.get(cacheKey) === run) accessInflight.delete(cacheKey);
   }
+
+  /* viewAsRoleHard1: remap / deny after real staff assert so preview never keeps Founder powers. */
+  const viewAs = normalizeViewAs(opts.viewAs || (opts.req ? parseViewAsFromReq(opts.req) : ""));
+  if (!out?.ok || !viewAs || !out.member) return out;
+  if (!canUseViewAs(out.member, { userId: out.member.id })) return out;
+
+  const remapped = applyViewAsToResolvedMember(out.member, viewAs, { userId: out.member.id });
+  if (remapped.denied) {
+    return {
+      ok: false,
+      status: 403,
+      error: "view_as_preview",
+      message: `Preview (${viewAs}): area staff non disponibile.`,
+      viewAs,
+      viewAsActive: true,
+    };
+  }
+  return {
+    ...out,
+    member: remapped.member,
+    viewAs,
+    viewAsActive: true,
+    viewAsFlags: remapped.flags || flagsForPreset(viewAs),
+  };
 }
 
 async function doAssertWebsiteStaffAccess(client, token) {
@@ -219,35 +286,37 @@ async function doAssertWebsiteStaffAccess(client, token) {
     const guild = client.guilds.cache.get(guildId) || null;
     if (guild) {
       const cachedMember = guild.members.cache.get(cached.userId) || null;
-      if (cachedMember && memberHasMainServerStaffAccess(cachedMember)) {
-        const avatars = collectMemberAvatarMeta(cachedMember);
-        writeCachedAccess(token, {
-          ok: true,
-          status: 200,
-          userId: String(cachedMember.id),
-          roleIds: collectMemberRoleIds(cachedMember),
-          displayName: String(
-            cachedMember.displayName || cachedMember.user?.globalName || cachedMember.user?.username || "",
-          ).trim(),
-          username: String(cachedMember.user?.username || "").trim(),
-          avatarHash: avatars.avatarHash,
-          memberAvatarHash: avatars.memberAvatarHash,
-          payload: cached.payload || undefined,
-        });
-        return { ok: true, member: cachedMember, user: cachedMember.user || null };
-      }
-      if (Array.isArray(cached.roleIds) && cached.roleIds.length) {
-        const synth = buildCachedStaffMember(guild, cached);
-        if (memberHasMainServerStaffAccess(synth)) {
-          return { ok: true, member: synth, user: synth.user || null };
+      if (cachedMember) {
+        if (memberHasMainServerStaffAccess(cachedMember)) {
+          const avatars = collectMemberAvatarMeta(cachedMember);
+          writeCachedAccess(token, {
+            ok: true,
+            status: 200,
+            userId: String(cachedMember.id),
+            roleIds: collectMemberRoleIds(cachedMember),
+            displayName: String(
+              cachedMember.displayName || cachedMember.user?.globalName || cachedMember.user?.username || "",
+            ).trim(),
+            username: String(cachedMember.user?.username || "").trim(),
+            avatarHash: avatars.avatarHash,
+            memberAvatarHash: avatars.memberAvatarHash,
+            payload: cached.payload || undefined,
+          });
+          return { ok: true, member: cachedMember, user: cachedMember.user || null };
         }
+        // staffCacheLiveDeny1: member live in cache senza staff → niente synth da roleIds stale
+        const deny = {
+          ok: false,
+          status: 403,
+          error: "forbidden",
+          message: "Questa area è riservata allo staff del server Vinili & Caffè.",
+        };
+        writeCachedAccess(token, deny);
+        return deny;
       }
-    } else if (Array.isArray(cached.roleIds) && cached.roleIds.length) {
-            const synth = buildCachedStaffMember(null, cached);
-      if (memberHasMainServerStaffAccess(synth)) {
-        return { ok: true, member: synth, user: synth.user || null };
-      }
+      // Member non in cache: non fidarsi dei roleIds vecchi — riresolve sotto.
     }
+    // guild offline / member missing: fall through to full resolve (no synth privilege)
   }
 
   const resolved = await resolveWebsiteCandidatureMember(client, token);
@@ -295,6 +364,47 @@ async function doAssertWebsiteStaffAccess(client, token) {
   return { ok: true, member, user: resolved.user || null };
 }
 
+function respondStaffAccessPayload(res, realPayload, req, member, extra = {}) {
+  const viewAs = parseViewAsFromReq(req);
+  const out = applyViewAsToStaffAccessPayload(
+    { ...realPayload, ...(extra || {}) },
+    viewAs,
+    member || {
+      id: String(extra.userId || realPayload?.identity?.userId || ""),
+      roles: {
+        cache: {
+          has: (id) => (Array.isArray(extra.roleIds) ? extra.roleIds.map(String).includes(String(id)) : false),
+          keys: () => (Array.isArray(extra.roleIds) ? extra.roleIds.map(String) : []),
+        },
+      },
+    },
+  );
+  /* siteApiW3: ETag/304 on staff-access payload */
+  const uid = String(extra.userId || out?.identity?.userId || member?.id || "").trim();
+  const rolesKey = Array.isArray(extra.roleIds)
+    ? extra.roleIds.map(String).sort().join(",")
+    : Array.isArray(out?.roleIds)
+      ? out.roleIds.map(String).sort().join(",")
+      : "";
+  const viewAsKey = viewAs && viewAs.userId ? String(viewAs.userId) : "0";
+  const flags = [
+    out?.ok ? "1" : "0",
+    out?.staff ? "1" : "0",
+    out?.highStaff ? "1" : "0",
+    out?.canManageStaff ? "1" : "0",
+    out?.canReviewCandidature ? "1" : "0",
+    out?.canReviewAppelli ? "1" : "0",
+  ].join("");
+  const etag = `"sa-${uid}-${viewAsKey}-${flags}-${rolesKey.slice(0, 48)}"`;
+  res.setHeader("ETag", etag);
+  res.setHeader("Cache-Control", "private, no-cache");
+  const inm = String(req?.headers?.["if-none-match"] || "").trim();
+  if (inm && inm === etag) {
+    return res.status(304).end();
+  }
+  return res.status(200).json(out);
+}
+
 async function handleSiteStaffAccessGet(client, req, res) {
   try {
     const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -321,9 +431,12 @@ async function handleSiteStaffAccessGet(client, req, res) {
       accessCache.delete(accessCacheKey(accessToken));
     }
 
-        if (cached && cached.ok === true && cached.payload) {
-      res.setHeader("Cache-Control", "private, no-store");
-      return res.status(200).json({ ...cached.payload, cached: true });
+    if (cached && cached.ok === true && cached.payload) {
+      const stubMember = buildCachedStaffMember(null, cached);
+      return respondStaffAccessPayload(res, { ...cached.payload, cached: true }, req, stubMember, {
+        userId: cached.userId,
+        roleIds: cached.roleIds,
+      });
     }
 
     const out = await assertWebsiteStaffAccess(client, accessToken);
@@ -350,6 +463,12 @@ async function handleSiteStaffAccessGet(client, req, res) {
     const candidatureReview = memberHasCandidatureReviewAccess(member, member?.guild || null);
     const appelliReview = memberCanReviewAppelli(member);
     const isDirector = memberHasDirectorRole(member);
+    const canViewResoconti = memberCanViewResocontiInbox(member);
+    const canViewPmPointsRemoved = memberCanViewPmPointsRemovedInbox(member);
+    const canOpsStaff = memberCanUseOpsStaffPages(member);
+    const canCompiti = canOpsStaff;
+    const canConfessionale = canOpsStaff;
+    const founder = canUseViewAs(member);
 
     const payload = {
       ok: true,
@@ -358,11 +477,16 @@ async function handleSiteStaffAccessGet(client, req, res) {
       isPm,
       isPmGestore,
       canManagePm,
-      canViewPmPointsRemoved: Boolean(isHighStaff || isPm || isPmGestore),
-      canReviewPmPointsRemoved: Boolean(isHighStaff || isPmGestore),
+      canCompiti,
+      canConfessionale,
+      canViewResoconti,
+      canViewPmPointsRemoved,
+      canReviewPmPointsRemoved: Boolean(isHighStaff || (isPmGestore && !isDirector)),
       candidatureReview,
       appelliReview,
       director: isDirector,
+      isFounder: founder,
+      viewAsAllowed: founder,
       permissions: {
         staff: true,
         highStaff: isHighStaff,
@@ -370,8 +494,11 @@ async function handleSiteStaffAccessGet(client, req, res) {
         isPm,
         isPmGestore,
         canManagePm,
-        canViewPmPointsRemoved: Boolean(isHighStaff || isPm || isPmGestore),
-        canReviewPmPointsRemoved: Boolean(isHighStaff || isPmGestore),
+        canCompiti,
+        canConfessionale,
+        canViewResoconti,
+        canViewPmPointsRemoved,
+        canReviewPmPointsRemoved: Boolean(isHighStaff || (isPmGestore && !isDirector)),
         candidatureReview,
         appelliReview,
         director: isDirector,
@@ -386,6 +513,7 @@ async function handleSiteStaffAccessGet(client, req, res) {
     };
     const prev = readCachedAccess(accessToken) || {};
     const roleIds = collectMemberRoleIds(member);
+    // Cache only the real (non view-as) payload.
     writeCachedAccess(accessToken, {
       ok: true,
       status: 200,
@@ -396,8 +524,7 @@ async function handleSiteStaffAccessGet(client, req, res) {
       payload,
     });
 
-    res.setHeader("Cache-Control", "private, no-store");
-    return res.status(200).json(payload);
+    return respondStaffAccessPayload(res, payload, req, member, { userId, roleIds });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-staff-access:", err);
     return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
@@ -408,5 +535,9 @@ module.exports = {
   handleSiteStaffAccessGet,
   assertWebsiteStaffAccess,
   memberHasMainServerStaffAccess,
+  memberCanUseOpsStaffPages,
+  memberCanViewResocontiInbox,
+  memberCanViewPmPointsRemovedInbox,
   normalizeHeaderSecret,
+  parseViewAsFromReq,
 };

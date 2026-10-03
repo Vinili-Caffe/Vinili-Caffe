@@ -3,9 +3,8 @@
 (function () {
   try {
     var ID = "vc-phone-root-unlock-css";
-    /* phoneGateLock1: during boot/loaders lock scroll + hide cine bg (was unlocking and showing GIF behind). */
+    /* loadScrollLockFs1: lock scroll su TUTTI i viewport durante boot/loader (prima solo phone) */
     var css =
-      "@media (pointer:coarse),(max-width:920px){" +
       "html.vc-page-cine-boot:not(.vc-page-cine-ready)," +
       "html.vc-page-cine-boot:not(.vc-page-cine-ready) body," +
       "html.vc-site-polish.vc-page-cine-boot:not(.vc-page-cine-ready)," +
@@ -14,39 +13,61 @@
       "html.vc-user-profile-pending,html.vc-user-profile-pending body," +
       "html.vc-loading-scroll-lock,html.vc-loading-scroll-lock body," +
       "html.vc-loader-blocking-live,html.vc-loader-blocking-live body," +
+      "html.vc-interaction-hold,html.vc-interaction-hold body," +
       "html.vc-rank-customize-pending,html.vc-rank-customize-pending body," +
       "html.vc-custom-profile-pending,html.vc-custom-profile-pending body," +
       "html.vc-session-verify-pending,html.vc-session-verify-pending body," +
       "html.vc-staff-access-pending:not(.vc-staff-app-revealed)," +
       "html.vc-staff-access-pending:not(.vc-staff-app-revealed) body," +
       "html.vc-notif-staff-loading,html.vc-notif-staff-loading body," +
+      "html.vc-page-cine-ready.vc-interaction-hold,html.vc-page-cine-ready.vc-interaction-hold body," +
       "html:has(.vc-ul-loading:not([hidden])),html:has(.vc-ul-loading:not([hidden])) body," +
       "html:has(#vc-roles-loading:not([hidden])),html:has(#vc-roles-loading:not([hidden])) body," +
+      "html:has(#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden))," +
+      "html:has(#vc-staff-loading:not([hidden]):not(.vc-staff-loading--hidden)) body," +
+      "html:has(#vc-shared-boot-overlay:not([hidden])),html:has(#vc-shared-boot-overlay:not([hidden])) body," +
+      "html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden))," +
+      "html:has(.vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)) body," +
       "html:has(#vc-staff-inbox-loading:not([hidden]):not(.vc-staff-loading--hidden))," +
       "html:has(#vc-staff-inbox-loading:not([hidden]):not(.vc-staff-loading--hidden)) body{" +
       "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
       "overscroll-behavior:none!important;touch-action:none!important;" +
       "height:100%!important;max-height:100dvh!important}" +
+      /* scrollYankFix1 / loadFreezeHard1: during ANY load lock — freeze totale (no pan-y) */
+      "html.vc-page-cine-ready.vc-loading-scroll-lock," +
+      "html.vc-page-cine-ready.vc-loading-scroll-lock body," +
+      "html.vc-page-cine-ready.vc-loader-blocking-live," +
+      "html.vc-page-cine-ready.vc-loader-blocking-live body," +
+      "html.vc-page-cine-ready.vc-interaction-hold," +
+      "html.vc-page-cine-ready.vc-interaction-hold body," +
+      "html.vc-page-cine-ready.vc-session-verify-pending," +
+      "html.vc-page-cine-ready.vc-session-verify-pending body{" +
+      "overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;" +
+      "overscroll-behavior:none!important;" +
+      "position:static!important;inset:auto!important;top:auto!important;" +
+      "left:auto!important;right:auto!important;bottom:auto!important;" +
+      "height:auto!important;max-height:none!important;width:100%!important;" +
+      "touch-action:none!important}" +
+      "@media (pointer:coarse),(max-width:920px){" +
       "html.vc-page-cine-boot:not(.vc-page-cine-ready) .vc-home-cine," +
       "html.vc-loader-blocking-live .vc-home-cine," +
       "html.vc-loading-scroll-lock .vc-home-cine," +
       "html.vc-user-leader-pending .vc-home-cine," +
-      "html.vc-user-profile-pending .vc-home-cine," +
       "html.vc-notif-staff-loading .vc-home-cine{" +
       "visibility:hidden!important;opacity:0!important;pointer-events:none!important}" +
+      "}" +
       "#vc-ul-loading[hidden],.vc-ul-loading[hidden],#vc-roles-loading[hidden]," +
-      "#vc-shared-boot-overlay[hidden]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}" +
-      "}";
+      "#vc-shared-boot-overlay[hidden]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}";
     function inject() {
       var el = document.getElementById(ID);
       if (!el) {
         el = document.createElement("style");
         el.id = ID;
-        el.setAttribute("data-vc", "phoneGateLock1");
+        el.setAttribute("data-vc", "loadFreezeHard1");
       }
       el.textContent = css;
       var host = document.head || document.documentElement;
-      host.appendChild(el);
+      if (el.parentNode !== host) host.appendChild(el);
     }
     inject();
     window.__vcPhoneRootUnlockInject = inject;
@@ -54,7 +75,7 @@
   try {
     if (!window.VcPerf || !window.VcPerf.__ready) {
       var s = document.createElement("script");
-      s.src = "/js/vc-perf.js?v=20260904forceMidAll1sitePerfFix1";
+      s.src = "/js/vc-perf.js?v=20260929ulSolidNine1";
       s.async = false;
       (document.head || document.documentElement).appendChild(s);
     } else if (typeof window.VcPerf.apply === "function") {
@@ -88,14 +109,16 @@
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fixNavGhost, { once: true });
     }
-    window.addEventListener("pageshow", fixNavGhost);
+    window.addEventListener("pageshow", function () {
+      window.setTimeout(fixNavGhost, 0);
+    });
   } catch (e0) {}
 })();
 (function () {
   try {
     if (!window.VcApiCache) {
       var s = document.createElement("script");
-      s.src = "/js/vc-api-cache.js?v=20260908notifApiErr1";
+      s.src = "/js/vc-api-cache.js?v=20261002violPass5";
       (document.head || document.documentElement).appendChild(s);
     }
   } catch (eApiBoot) {}
@@ -104,7 +127,7 @@
   try {
     if (!window.VcPerf || !window.VcPerf.__ready) {
       var s = document.createElement("script");
-      s.src = "/js/vc-perf.js?v=20260904forceMidAll1";
+      s.src = "/js/vc-perf.js?v=20260929ulSolidNine1";
       s.defer = true;
       (document.head || document.documentElement).appendChild(s);
     } else if (typeof window.VcPerf.apply === "function") {
@@ -114,21 +137,36 @@
 })();
 
 (function () {
+  /* pwaResumeWin1 + pwaResumeAll1: resume path delega a vc-pwa-resume-boot */
   var RESUME_KEY = "vc-pwa-resume";
   var WANT_HOME_KEY = "vc-pwa-want-home";
 
   function isStandalonePwa() {
+    try {
+      if (window.VcPwaResume && typeof window.VcPwaResume.isPwa === "function" && window.VcPwaResume.isPwa()) {
+        return true;
+      }
+    } catch (eV) {}
     try {
       if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
     } catch (e0) {}
     try {
       if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
     } catch (e1) {}
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: minimal-ui)").matches) return true;
+    } catch (e2) {}
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: window-controls-overlay)").matches) return true;
+    } catch (e3) {}
     return Boolean(navigator.standalone);
   }
 
   function currentPath() {
     try {
+      if (window.VcPwaResume && typeof window.VcPwaResume.path === "function") {
+        return window.VcPwaResume.path();
+      }
       var p = String(window.location.pathname || "/").replace(/\/index\.html$/i, "") || "/";
       if (p !== "/" && p.charAt(p.length - 1) !== "/") p += "/";
       if (p === "//") p = "/";
@@ -139,13 +177,25 @@
   }
 
   function safeResumePath(path) {
+    try {
+      if (window.VcPwaResume && typeof window.VcPwaResume.safe === "function") {
+        return window.VcPwaResume.safe(path);
+      }
+    } catch (eV) {}
     var p = String(path || "");
-    if (!p || p.charAt(0) !== "/" || p.indexOf("//") !== -1 || p.indexOf("\\") !== -1) return "";
-    if (p.length > 180) return "";
+    if (!p || p.charAt(0) !== "/" || p.indexOf("\\") !== -1) return "";
+    if (/^\/\//.test(p) || p.indexOf("://") !== -1) return "";
+    if (p.length > 240) return "";
     return p;
   }
 
   function saveResume(path) {
+    try {
+      if (window.VcPwaResume && typeof window.VcPwaResume.save === "function") {
+        window.VcPwaResume.save(path);
+        return;
+      }
+    } catch (eS) {}
     var p = safeResumePath(path);
     if (!p) return;
     try {
@@ -230,6 +280,38 @@
     return p === "/faq" || p === "/vote";
   }
 
+  function isBackHomeLabel(a) {
+    if (!a) return false;
+    try {
+      var t = String(a.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (/torna alla home|back to home/i.test(t)) return true;
+      if (a.querySelector && a.querySelector('[data-i18n="dash.backHome"], [data-i18n="sf.backHome"]')) {
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function isMisroutedHomeHref(href) {
+    try {
+      var u = new URL(String(href || ""), window.location.href);
+      if (!isSiteHost(u.hostname) && String(href || "").charAt(0) !== "/") return false;
+      var p = String(u.pathname || "/").replace(/\/+$/, "") || "/";
+      return p === "/user" || isBrokenHomePath(p);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function shouldForceHomeNav(a, href) {
+    if (!a) return false;
+    if (isBrandHomeAnchor(a) || isHomeHref(href)) return true;
+    /* homeResumeGuard1: "Torna alla Home" che punta a /user/ (o path rotti) → forza / */
+    return isBackHomeLabel(a) && isMisroutedHomeHref(href || a.getAttribute("href") || "");
+  }
+
   function isBrandHomeAnchor(a) {
     if (!a || !a.tagName || String(a.tagName).toUpperCase() !== "A") return false;
     if (a.classList && (a.classList.contains("vc-snav-item") || a.classList.contains("vc-snav-row"))) return false;
@@ -279,7 +361,7 @@
     stripMisplacedHeaderSiteNameClass();
     var home = siteHomeHref();
     var nodes = document.querySelectorAll(
-      'header .vc-header-bar > div:first-child a.vc-header-site-name, header .vc-header-bar > div:first-child a.vc-header-logo-link + a[href], .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a[href], .vc-mobile-nav-drawer__brand a.vc-header-site-name, header .vc-header-bar > div:first-child a[aria-label="Vai alla homepage"], .vc-premium-footer__logo-row, a[data-i18n="footer.home"]'
+      'header .vc-header-bar > div:first-child a.vc-header-site-name, header .vc-header-bar > div:first-child a.vc-header-logo-link + a[href], .vc-mobile-nav-drawer__brand a.vc-header-logo-link + a[href], .vc-mobile-nav-drawer__brand a.vc-header-site-name, header .vc-header-bar > div:first-child a[aria-label="Vai alla homepage"], .vc-premium-footer__logo-row, a[data-i18n="footer.home"], a.vc-auth-required-secondary[href], a[data-i18n="dash.backHome"], a[data-i18n="sf.backHome"]'
     );
     for (var i = 0; i < nodes.length; i++) {
       var a = nodes[i];
@@ -289,7 +371,7 @@
         var u = new URL(href, window.location.href);
         if (!isSiteHost(u.hostname) && href.charAt(0) !== "/") continue;
         var p = String(u.pathname || "/").replace(/\/+$/, "") || "/";
-        if (isBrokenHomePath(p) || p === "/" || isBrandHomeAnchor(a)) {
+        if (isBrokenHomePath(p) || p === "/" || isBrandHomeAnchor(a) || (isBackHomeLabel(a) && (p === "/" || p === "/user"))) {
           a.setAttribute("href", home);
         }
       } catch (eA) {}
@@ -343,6 +425,7 @@
     } catch (ePf) {}
   }
 
+  /* navFastReveal1: prefetch al tocco/click prima della navigazione */
   var navPrefetchSeen = typeof WeakSet === "function" ? new WeakSet() : null;
   var navPrefetchPaths = typeof Set === "function" ? new Set() : null;
 
@@ -353,7 +436,8 @@
       var u = new URL(raw, window.location.origin);
       if (u.origin !== window.location.origin) return;
       var path = u.pathname || "/";
-      if (path === window.location.pathname) return;
+      if (!path.endsWith("/") && !/\.[a-z0-9]{1,5}$/i.test(path)) path += "/";
+      if (path === window.location.pathname || path === (window.location.pathname.replace(/\/+$/, "") + "/")) return;
       if (navPrefetchPaths) {
         if (navPrefetchPaths.has(path)) return;
         navPrefetchPaths.add(path);
@@ -362,7 +446,8 @@
       if (document.querySelector(key)) return;
       var l = document.createElement("link");
       l.rel = "prefetch";
-      l.href = path + (path.endsWith("/") ? "index.html" : "");
+      l.as = "document";
+      l.href = path;
       l.setAttribute("data-vc-prefetch-nav", path);
       (document.head || document.documentElement).appendChild(l);
     } catch (eNavPf) {}
@@ -371,6 +456,23 @@
   function wireNavPrefetch() {
     if (wireNavPrefetch._wired) return;
     wireNavPrefetch._wired = true;
+    function maybePrefetchFromEvent(ev) {
+      /* pwaCpuNuke2: niente prefetch a ogni pointerdown in PWA (spike CPU/rete) */
+      try {
+        if (
+          window.__VC_PWA_CPU_NUKE ||
+          document.documentElement.classList.contains("vc-pwa-cpu-nuke")
+        ) {
+          return;
+        }
+      } catch (eNukePf) {}
+      var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
+      if (!a) return;
+      if (a.hasAttribute("download")) return;
+      var target = String(a.getAttribute("target") || "").toLowerCase();
+      if (target === "_blank") return;
+      prefetchNavHref(a.getAttribute("href") || "");
+    }
     document.addEventListener(
       "pointerenter",
       function (ev) {
@@ -379,22 +481,13 @@
         } catch (eMq) {
           return;
         }
-        var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
-        if (!a) return;
-        if (navPrefetchSeen) {
-          if (navPrefetchSeen.has(a)) return;
-          navPrefetchSeen.add(a);
-        }
-        if (
-          a.closest(".vc-header-snav, .vc-mobile-nav-drawer, .vc-snav-panel, header") ||
-          a.classList.contains("vc-snav-item") ||
-          a.classList.contains("vc-snav-row")
-        ) {
-          prefetchNavHref(a.getAttribute("href") || "");
-        }
+        maybePrefetchFromEvent(ev);
       },
       true
     );
+    /* navFastReveal1: prefetch al tocco/click prima della navigazione */
+    document.addEventListener("pointerdown", maybePrefetchFromEvent, true);
+    document.addEventListener("touchstart", maybePrefetchFromEvent, { capture: true, passive: true });
   }
 
   try {
@@ -403,13 +496,15 @@
     } else {
       repairBrokenHomeLinks();
     }
-    window.addEventListener("pageshow", repairBrokenHomeLinks);
+    window.addEventListener("pageshow", function () {
+      window.setTimeout(repairBrokenHomeLinks, 0);
+    });
     document.addEventListener(
       "pointerdown",
       function (ev) {
         var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
         if (!a) return;
-        if (isBrandHomeAnchor(a) || isHomeHref(a.getAttribute("href") || "")) {
+        if (shouldForceHomeNav(a, a.getAttribute("href") || "")) {
           try {
             a.setAttribute("href", "/");
           } catch (eH) {}
@@ -426,7 +521,7 @@
         } catch (eT) {}
         var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
         if (!a) return;
-        if (isBrandHomeAnchor(a) || isHomeHref(a.getAttribute("href") || "")) {
+        if (shouldForceHomeNav(a, a.getAttribute("href") || "")) {
           goHomeNow(ev);
         }
       },
@@ -440,15 +535,36 @@
   var PENDING_NAV_URL = "/__vc/pending-nav";
 
   function pendingNavToPath(data) {
+    /* pushOpenDestFix1: se url è home ma c’è ticketId → deep link ticket */
     var url = String((data && data.url) || "").trim();
     var tid = String((data && data.ticketId) || "").trim();
-    if (!url && /^[a-f0-9]{24}$/i.test(tid)) {
-      url = "/tickets/?ticketId=" + encodeURIComponent(tid) + "#" + tid;
+    var pathOnly = "";
+    try {
+      if (url) {
+        var probe = new URL(url, window.location.origin);
+        pathOnly = String(probe.pathname || "/").replace(/\/+$/, "") || "/";
+      }
+    } catch (eProbe) {}
+    if (/^[a-f0-9]{24}$/i.test(tid) && (!url || pathOnly === "/")) {
+      var staff = /[?&]view=staff\b/i.test(url);
+      url =
+        "/tickets/" +
+        (staff ? "?view=staff&" : "?") +
+        "ticketId=" +
+        encodeURIComponent(tid) +
+        "#" +
+        tid;
     }
     if (!url) return "";
     try {
       var u = new URL(url, window.location.origin);
-      if (u.origin !== window.location.origin) return "";
+      var host = String(u.hostname || "").toLowerCase();
+      var hereHost = String(window.location.hostname || "").toLowerCase();
+      var sameVinili =
+        u.origin === window.location.origin ||
+        (/^(?:www\.)?viniliecaffe\.(?:it|gg)$/.test(host) &&
+          /^(?:www\.)?viniliecaffe\.(?:it|gg)$/.test(hereHost));
+      if (!sameVinili) return "";
       return u.pathname + u.search + u.hash;
     } catch (e) {
       return "";
@@ -456,26 +572,61 @@
   }
 
   function readPendingNavPath() {
+    /* pushOpenCold1: anche PWA — una read boot (no poll). Serve se start_url vince su openWindow. */
+    /* pushOpenCold2: retry brevi — Android scrive pending DOPO il boot di start_url */
     if (!("caches" in window)) return Promise.resolve("");
-    return caches
-      .open(PENDING_NAV_CACHE)
-      .then(function (cache) {
-        return cache.match(PENDING_NAV_URL).then(function (res) {
-          if (!res) return "";
-          return res.json().then(function (data) {
-            var at = Number(data && data.at) || 0;
-            if (at && Date.now() - at > 120000) {
-              return cache.delete(PENDING_NAV_URL).then(function () {
-                return "";
-              });
-            }
-            return pendingNavToPath(data);
+    var delays = [0, 150, 400, 900, 1600];
+    function once() {
+      return caches
+        .open(PENDING_NAV_CACHE)
+        .then(function (cache) {
+          return cache.match(PENDING_NAV_URL).then(function (res) {
+            if (!res) return "";
+            return res.json().then(function (data) {
+              var at = Number(data && data.at) || 0;
+              if (at && Date.now() - at > 120000) {
+                return cache.delete(PENDING_NAV_URL).then(function () {
+                  return "";
+                });
+              }
+              return pendingNavToPath(data);
+            });
           });
+        })
+        .catch(function () {
+          return "";
         });
-      })
-      .catch(function () {
-        return "";
+    }
+    function step(i) {
+      return once().then(function (path) {
+        if (path) return path;
+        if (i + 1 >= delays.length) return "";
+        return new Promise(function (resolve) {
+          window.setTimeout(function () {
+            resolve(step(i + 1));
+          }, delays[i + 1]);
+        });
       });
+    }
+    return step(0);
+  }
+
+  function isPwaColdStartHome() {
+    /* pwaResumeWin1: ?app= OPPURE home PWA senza referrer same-site (Windows a volte droppa ?app=) */
+    try {
+      if (/[?&]app=/.test(String(window.location.search || ""))) return true;
+    } catch (e) {}
+    try {
+      var nav = performance.getEntriesByType && performance.getEntriesByType("navigation");
+      if (nav && nav[0] && nav[0].type === "reload") return false;
+    } catch (eN) {}
+    try {
+      if (document.referrer) {
+        var ref = new URL(document.referrer);
+        if (isSiteHost(ref.hostname)) return false;
+      }
+    } catch (eR) {}
+    return isStandalonePwa();
   }
 
   function maybeRestoreFromHome() {
@@ -486,32 +637,52 @@
       var search = String(window.location.search || "");
       if (/[?&]code=/.test(search) || /[?&]state=/.test(search)) return false;
     } catch (eQ) {}
-        if (consumeWantHome()) {
-      saveResume("/");
+    if (consumeWantHome()) {
+      try {
+        if (window.VcPwaResume && typeof window.VcPwaResume.save === "function") {
+          window.VcPwaResume.save("/", { allowHome: true, force: true });
+        } else {
+          localStorage.setItem(RESUME_KEY, JSON.stringify({ p: "/", t: Date.now() }));
+        }
+      } catch (eWh) {}
       return false;
     }
-        try {
-      if (document.referrer) {
-        var ref = new URL(document.referrer);
-        if (isSiteHost(ref.hostname)) {
-          var refPath = safeResumePath(
-            String(ref.pathname || "/").replace(/\/index\.html$/i, "") || "/"
-          );
-          if (refPath && refPath !== "/") {
-            saveResume("/");
-            return false;
-          }
-        }
-      }
-    } catch (eRef) {}
+    /*
+     * homeResumeGuard1 + pwaResumeWin1:
+     * cold-start icona (?app= o home PWA senza referrer).
+     * NON azzerare vc-pwa-resume se non è cold-start (bug Windows → sempre homepage).
+     */
+    if (!isPwaColdStartHome()) {
+      return false;
+    }
     try {
       var data = JSON.parse(localStorage.getItem(RESUME_KEY) || "null");
       var path = safeResumePath(data && data.p);
       var at = Number(data && data.t) || 0;
-      if (!path || path === "/" || Date.now() - at > 2 * 60 * 60 * 1000) return false;
-            var norm = String(path || "").replace(/\/+$/, "") || "/";
-      if (norm === "/vote") return false;
-      if (path === here) return false;
+      /* pwaResumeForever1: niente TTL — ripristina anche dopo giorni */
+      var ttlMs = 0;
+      try {
+        if (window.VcPwaResume && Number(window.VcPwaResume.ttlMs) > 0) {
+          ttlMs = Number(window.VcPwaResume.ttlMs);
+        }
+      } catch (eTtl) {}
+      if (!path || path === "/") return false;
+      if (ttlMs > 0 && at && Date.now() - at > ttlMs) return false;
+      try {
+        var pu = new URL(path, window.location.origin);
+        var norm = String(pu.pathname || "/").replace(/\/+$/, "") || "/";
+        if (norm === "/vote" || norm === "/faq") return false;
+        path = pu.pathname + pu.search + pu.hash;
+      } catch (ePu) {
+        return false;
+      }
+      var hereFull = "";
+      try {
+        hereFull = window.location.pathname + window.location.search + window.location.hash;
+      } catch (eH) {
+        hereFull = here;
+      }
+      if (path === hereFull || path === here) return false;
       try {
         document.documentElement.style.background = "#100c09";
         document.documentElement.style.colorScheme = "dark";
@@ -525,7 +696,7 @@
 
       if (isStandalonePwa() && currentPath() === "/") {
     readPendingNavPath().then(function (pendingPath) {
-      if (pendingPath) {
+      function goPending() {
         try {
           var hereFull = window.location.pathname + window.location.search + window.location.hash;
           if (hereFull !== pendingPath) {
@@ -536,6 +707,20 @@
           window.location.replace(pendingPath);
           return;
         }
+        if (!maybeRestoreFromHome()) saveResume(currentPath());
+      }
+      if (pendingPath) {
+        if (!("caches" in window)) {
+          goPending();
+          return;
+        }
+        return caches
+          .open(PENDING_NAV_CACHE)
+          .then(function (cache) {
+            return cache.delete(PENDING_NAV_URL);
+          })
+          .catch(function () {})
+          .then(goPending);
       }
       if (!maybeRestoreFromHome()) saveResume(currentPath());
     });
@@ -599,7 +784,7 @@
       var a = ev.target && ev.target.closest ? ev.target.closest("a[href]") : null;
       if (!a) return;
       var href = a.getAttribute("href") || "";
-      if (isBrandHomeAnchor(a) || isHomeHref(href)) {
+      if (shouldForceHomeNav(a, href)) {
         goHomeNow(ev);
         return;
       }
@@ -654,8 +839,10 @@
 })();
 
 (function () {
-  var CONSENT_KEY = "vc_cookie_banner_ack_v3";
-  var CONSENT_COOKIE = "vc_cookie_banner_ack_v3";
+  var CONSENT_KEY = "vc_cookie_consent";
+  var CONSENT_COOKIE = "vc_cookie_consent";
+  var CONSENT_KEY_LEGACY = "vc_cookie_banner_ack_v3";
+  var CONSENT_PENDING_KEY = "vc_cookie_consent_pending";
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var DISCORD_EXPIRES_AT_KEY = "vc_discord_expires_at";
   var FORBIDDEN_BOOKS_KEY = "vc_forbidden_section_books_v1";
@@ -681,26 +868,235 @@
   function isLegalCookiePage() {
     try {
       var path = normalizeLegalPath(window.location.pathname);
-      return path === "/cookie" || path === "/privacy" || path === "/terms";
+      return (
+        path === "/cookie" ||
+        path === "/privacy" ||
+        path === "/terms" ||
+        path === "/dati"
+      );
     } catch (e) {
       return false;
     }
   }
 
+  function readStoredChoice(store, key) {
+    try {
+      if (!store) return "";
+      var v = String(store.getItem(key) || "").trim();
+      if (v === "accepted" || v === "rejected") return v;
+    } catch (e) {}
+    return "";
+  }
+
+  function readCookieConsentChoice() {
+    var choice =
+      readStoredChoice(window.localStorage, CONSENT_KEY) ||
+      readStoredChoice(window.sessionStorage, CONSENT_KEY) ||
+      readStoredChoice(window.localStorage, CONSENT_KEY_LEGACY) ||
+      readStoredChoice(window.sessionStorage, CONSENT_KEY_LEGACY);
+    if (choice) return choice;
+    try {
+      var raw = String(document.cookie || "");
+      if (new RegExp("(?:^|; )" + CONSENT_COOKIE + "=accepted(?:;|$)").test(raw)) return "accepted";
+      if (new RegExp("(?:^|; )" + CONSENT_COOKIE + "=rejected(?:;|$)").test(raw)) return "rejected";
+      if (new RegExp("(?:^|; )" + CONSENT_KEY_LEGACY + "=accepted(?:;|$)").test(raw)) return "accepted";
+      if (new RegExp("(?:^|; )" + CONSENT_KEY_LEGACY + "=rejected(?:;|$)").test(raw)) return "rejected";
+    } catch (e2) {}
+    return "";
+  }
+
   function hasCookieConsent() {
+    return readCookieConsentChoice() === "accepted";
+  }
+
+  function hasCookieChoice() {
+    var c = readCookieConsentChoice();
+    return c === "accepted" || c === "rejected";
+  }
+
+  function hasDiscordLoginForCookies() {
     try {
-      if (window.sessionStorage && window.sessionStorage.getItem(CONSENT_KEY) === "accepted") return true;
-    } catch (e) {}
+      if (window.VcLoginRequired && typeof window.VcLoginRequired.hasToken === "function") {
+        if (window.VcLoginRequired.hasToken()) return true;
+      }
+    } catch (e0) {}
     try {
-      if (window.localStorage && window.localStorage.getItem(CONSENT_KEY) === "accepted") return true;
-    } catch (e) {}
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        if (window.__vcDiscordGetAccessToken()) return true;
+      }
+    } catch (e1) {}
     try {
-      return document.cookie.split(";").some(function (part) {
-        return part.trim().indexOf(CONSENT_COOKIE + "=accepted") === 0;
-      });
-    } catch (e) {
+      var tok = localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY);
+      var exp = Number(localStorage.getItem(DISCORD_EXPIRES_AT_KEY) || "0");
+      return Boolean(tok && (!exp || Date.now() < exp));
+    } catch (e2) {
       return false;
     }
+  }
+
+  function rememberPendingCookieChoice(choice) {
+    var value = choice === "rejected" ? "rejected" : "accepted";
+    try {
+      if (window.sessionStorage) window.sessionStorage.setItem(CONSENT_PENDING_KEY, value);
+    } catch (e) {}
+  }
+
+  function clearPendingCookieChoice() {
+    try {
+      if (window.sessionStorage) window.sessionStorage.removeItem(CONSENT_PENDING_KEY);
+    } catch (e) {}
+  }
+
+  function readPendingCookieChoice() {
+    try {
+      var v = String((window.sessionStorage && window.sessionStorage.getItem(CONSENT_PENDING_KEY)) || "").trim();
+      if (v === "accepted" || v === "rejected") return v;
+    } catch (e) {}
+    return "";
+  }
+
+  function getDiscordAccessTokenForCookies() {
+    try {
+      if (typeof window.__vcDiscordGetAccessToken === "function") {
+        var t = window.__vcDiscordGetAccessToken();
+        if (t) return String(t);
+      }
+    } catch (e0) {}
+    try {
+      var tok = localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY);
+      var exp = Number(localStorage.getItem(DISCORD_EXPIRES_AT_KEY) || "0");
+      if (tok && (!exp || Date.now() < exp)) return String(tok);
+    } catch (e1) {}
+    return "";
+  }
+
+  function showCookieRejectDenied(tCookie) {
+    var title = tCookie("cookie.rejectDeniedTitle", "Rifiuto non disponibile");
+    var body = tCookie(
+      "cookie.rejectDeniedBody",
+      "Per scegliere «Solo essenziali» serve VIP (o VIP+) oppure Double Booster."
+    );
+    try {
+      if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
+        window.VcSiteToast.show(body, true);
+        return;
+      }
+    } catch (eT) {}
+    try {
+      if (window.VcLoginRequired && typeof window.VcLoginRequired.open === "function") {
+        window.VcLoginRequired.open({ title: title, body: body, sub: "" });
+        return;
+      }
+    } catch (eM) {}
+    try {
+      window.alert(body);
+    } catch (eA) {}
+  }
+
+  function fetchCookieRejectEligibility() {
+    var token = getDiscordAccessTokenForCookies();
+    if (!token) return Promise.resolve({ ok: false, canReject: false, missingToken: true });
+    var url = "/webhooks/site-cookie-consent";
+    try {
+      if (window.__VC_COOKIE_CONSENT_API) url = String(window.__VC_COOKIE_CONSENT_API);
+    } catch (eU) {}
+    return fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + token,
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { http: r.status, ...(j && typeof j === "object" ? j : {}) };
+        });
+      })
+      .catch(function () {
+        return { ok: false, canReject: false, error: "network" };
+      });
+  }
+
+  function requireDiscordLoginForCookies(tCookie, choice) {
+    if (hasDiscordLoginForCookies()) return true;
+    rememberPendingCookieChoice(choice);
+    var opts = {
+      title: tCookie("cookie.loginTitle", "Login richiesto"),
+      body: tCookie(
+        "cookie.loginBody",
+        "Accedi con Discord per accettare o rifiutare i cookie."
+      ),
+    };
+    try {
+      if (window.VcLoginRequired && typeof window.VcLoginRequired.require === "function") {
+        return window.VcLoginRequired.require(opts);
+      }
+    } catch (eReq) {}
+    try {
+      if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
+        window.__vcDiscordStartOAuthRedirect();
+        return false;
+      }
+    } catch (eO) {}
+    try {
+      var hdr = document.getElementById("discord-login-btn");
+      if (hdr) hdr.click();
+    } catch (eH) {}
+    return false;
+  }
+
+  function finalizeCookieChoice(choice) {
+    clearPendingCookieChoice();
+    rememberCookieConsent(choice);
+    try {
+      window.dispatchEvent(
+        new CustomEvent(choice === "accepted" ? "vc:cookie-accepted" : "vc:cookie-rejected")
+      );
+    } catch (eEv) {}
+    var banner = document.getElementById("vc-necessity-banner");
+    if (banner) closeCookieBanner(banner);
+    if (choice === "accepted") {
+      try {
+        if (typeof window.__vcHogwartsYoutubeStartFromGesture === "function") {
+          window.__vcHogwartsYoutubeStartFromGesture();
+        }
+      } catch (eBgm) {}
+    }
+  }
+
+  function applyPendingCookieChoiceAfterLogin(tCookieFn) {
+    if (!hasDiscordLoginForCookies()) return Promise.resolve(false);
+    if (hasCookieChoice()) {
+      clearPendingCookieChoice();
+      return Promise.resolve(false);
+    }
+    var pending = readPendingCookieChoice();
+    if (!pending) return Promise.resolve(false);
+    function tCookie(key, fallback) {
+      if (typeof tCookieFn === "function") return tCookieFn(key, fallback);
+      try {
+        if (window.VcI18n && typeof window.VcI18n.t === "function") {
+          var v = window.VcI18n.t(key);
+          if (v && v !== key) return v;
+        }
+      } catch (eT) {}
+      return fallback;
+    }
+    if (pending !== "rejected") {
+      finalizeCookieChoice(pending);
+      return Promise.resolve(true);
+    }
+    return fetchCookieRejectEligibility().then(function (elig) {
+      if (elig && elig.canReject) {
+        finalizeCookieChoice("rejected");
+        return true;
+      }
+      clearPendingCookieChoice();
+      showCookieRejectDenied(tCookie);
+      return false;
+    });
   }
 
   function cookieDomainSuffixForConsent() {
@@ -713,20 +1109,32 @@
     return "";
   }
 
-  function rememberCookieConsent() {
+  function applyAnalyticsConsent(granted) {
     try {
-      if (window.localStorage) window.localStorage.setItem(CONSENT_KEY, "accepted");
+      if (typeof window.gtag === "function") {
+        window.gtag("consent", "update", {
+          analytics_storage: granted ? "granted" : "denied",
+        });
+      }
+    } catch (eG) {}
+  }
+
+  function rememberCookieConsent(choice) {
+    var value = choice === "rejected" ? "rejected" : "accepted";
+    try {
+      if (window.localStorage) window.localStorage.setItem(CONSENT_KEY, value);
     } catch (e) {}
     try {
-      if (window.sessionStorage) window.sessionStorage.setItem(CONSENT_KEY, "accepted");
-    } catch (e) {}
+      if (window.sessionStorage) window.sessionStorage.setItem(CONSENT_KEY, value);
+    } catch (e2) {}
     try {
       var maxAge = 60 * 60 * 24 * 180;
       var secure = String(window.location.protocol || "").toLowerCase() === "https:" ? "; Secure" : "";
       var domain = cookieDomainSuffixForConsent();
       document.cookie =
-        CONSENT_COOKIE + "=accepted; Max-Age=" + maxAge + "; Path=/; SameSite=Lax" + secure + domain;
-    } catch (e) {}
+        CONSENT_COOKIE + "=" + value + "; Max-Age=" + maxAge + "; Path=/; SameSite=Lax" + secure + domain;
+    } catch (e3) {}
+    applyAnalyticsConsent(value === "accepted");
   }
 
   function closeCookieBanner(root) {
@@ -737,74 +1145,132 @@
     }, 220);
   }
 
-    function initCookieConsent() {
+  function sanitizeLegalHref(raw) {
+    var value = String(raw || "").trim();
+    if (!value) return "";
+    if (/^javascript:/i.test(value)) return "";
+    if (value.startsWith("/")) return value;
+    if (/^https?:\/\//i.test(value)) return value;
+    return "";
+  }
+
+  function initCookieConsent() {
     if (isLegalCookiePage()) return;
-    if (hasCookieConsent()) return;
-    if (document.getElementById("vc-necessity-banner")) return;
-    if (document.getElementById("cookieyes")) return;
-    if (!document.documentElement) return;
-    function sanitizeLegalHref(raw) {
-      var value = String(raw || "").trim();
-      if (!value) return "";
-      if (/^javascript:/i.test(value)) return "";
-      if (value.startsWith("/")) return value;
-      if (/^https?:\/\//i.test(value)) return value;
-      return "";
-    }
-    function resolveCookiePolicyUrl() {
-      var fromWindow = "";
+    function tCookie(key, fallback) {
       try {
-        fromWindow = sanitizeLegalHref(window.__VC_COOKIE_POLICY_URL);
-      } catch (e0) {}
-      if (fromWindow) return fromWindow;
-      var fromDom = "";
-      try {
-        var link = document.querySelector('a[href*="/cookie"], a[href*="cookie-policy"], a[href*="cookie"]');
-        fromDom = sanitizeLegalHref(link && link.getAttribute("href"));
-      } catch (e1) {}
-      if (fromDom) return fromDom;
-      return "/cookie/";
-    }
-    var cookiePolicyUrl = resolveCookiePolicyUrl();
-
-    var root = document.createElement("section");
-    root.id = "vc-necessity-banner";
-    root.className = "vc-necessity-banner";
-    root.setAttribute("aria-label", "Avviso utilizzo cookie");
-    root.style.width = "fit-content";
-    root.style.maxWidth = "calc(100vw - 1.5rem)";
-    root.innerHTML =
-      '<div class="vc-necessity-banner__pill" role="dialog" aria-modal="false" aria-labelledby="vc-necessity-text" style="display:inline-flex;width:auto;gap:0.65rem">' +
-      '<p id="vc-necessity-text" class="vc-necessity-banner__text">' +
-      'Questo sito utilizza <a class="vc-necessity-banner__policy" href="' + cookiePolicyUrl + '">cookie essenziali</a>' +
-      "</p>" +
-      '<button type="button" class="vc-necessity-banner__accept" data-vc-necessity-confirm>Accetta</button>' +
-      "</div>";
-
-    function dismissFromUserAction(ev) {
-      if (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
-      rememberCookieConsent();
-      closeCookieBanner(root);
-      try {
-        window.dispatchEvent(new CustomEvent("vc:cookie-accepted"));
-      } catch (eEv) {}
-      try {
-        if (typeof window.__vcHogwartsYoutubeStartFromGesture === "function") {
-          window.__vcHogwartsYoutubeStartFromGesture();
+        if (window.VcI18n && typeof window.VcI18n.t === "function") {
+          var v = window.VcI18n.t(key);
+          if (v && v !== key) return v;
         }
-      } catch (eBgm) {}
+      } catch (eT) {}
+      return fallback;
     }
-    var acceptEl = root.querySelector(".vc-necessity-banner__accept");
-    if (acceptEl) acceptEl.addEventListener("click", dismissFromUserAction);
+    applyPendingCookieChoiceAfterLogin(tCookie).then(function (applied) {
+      if (applied) return;
+      if (hasCookieChoice()) {
+        applyAnalyticsConsent(hasCookieConsent());
+        return;
+      }
+      if (document.getElementById("vc-necessity-banner")) return;
+      if (document.getElementById("cookieyes")) return;
+      if (!document.documentElement) return;
+      var cookiePolicyUrl = "/cookie/";
+      try {
+        var fromWindow = sanitizeLegalHref(window.__VC_COOKIE_POLICY_URL);
+        if (fromWindow) cookiePolicyUrl = fromWindow;
+        else {
+          var link = document.querySelector('a[href*="/cookie"], a[href*="cookie-policy"], a[href*="cookie"]');
+          var fromDom = sanitizeLegalHref(link && link.getAttribute("href"));
+          if (fromDom) cookiePolicyUrl = fromDom;
+        }
+      } catch (e1) {}
 
-    (document.documentElement || document.body).appendChild(root);
-    window.requestAnimationFrame(function () {
+      var root = document.createElement("section");
+      root.id = "vc-necessity-banner";
+      root.className = "vc-necessity-banner";
+      root.setAttribute("aria-label", tCookie("cookie.bannerAria", "Avviso utilizzo cookie"));
+      root.setAttribute("data-i18n-attr", "aria-label:cookie.bannerAria");
+      root.innerHTML =
+        '<div class="vc-necessity-banner__pill" role="dialog" aria-modal="false" aria-labelledby="vc-necessity-text">' +
+        '<p id="vc-necessity-text" class="vc-necessity-banner__text">' +
+        '<span data-i18n="cookie.bannerBefore">' +
+        tCookie("cookie.bannerBefore", "Usa ") +
+        "</span>" +
+        '<a class="vc-necessity-banner__policy" href="' +
+        cookiePolicyUrl +
+        '" data-i18n="cookie.essentials">' +
+        tCookie("cookie.essentials", "cookie essenziali") +
+        "</a>" +
+        '<span data-i18n="cookie.bannerMid">' +
+        tCookie("cookie.bannerMid", " e Analytics. ") +
+        "</span>" +
+        '<a class="vc-necessity-banner__policy" href="' +
+        cookiePolicyUrl +
+        '" data-i18n="cookie.policyLink">' +
+        tCookie("cookie.policyLink", "Cookie Policy") +
+        "</a>" +
+        '<span data-i18n="cookie.bannerAfter">' +
+        tCookie("cookie.bannerAfter", ".") +
+        "</span>" +
+        "</p>" +
+        '<p class="vc-necessity-banner__login-hint" data-i18n="cookie.loginHint">' +
+        tCookie(
+          "cookie.loginHint",
+          "Per accettare serve il login Discord. Per rifiutare: VIP o Double Booster."
+        ) +
+        "</p>" +
+        '<div class="vc-necessity-banner__actions">' +
+        '<button type="button" class="vc-necessity-banner__reject" data-vc-necessity-reject data-i18n="cookie.reject">' +
+        tCookie("cookie.reject", "Solo essenziali") +
+        "</button>" +
+        '<button type="button" class="vc-necessity-banner__accept" data-vc-necessity-confirm data-i18n="cookie.accept">' +
+        tCookie("cookie.accept", "Accetta") +
+        "</button>" +
+        "</div>" +
+        "</div>";
+
+      function dismissFromUserAction(ev, choice) {
+        if (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+        if (!requireDiscordLoginForCookies(tCookie, choice)) return;
+        if (choice !== "rejected") {
+          finalizeCookieChoice(choice);
+          return;
+        }
+        rememberPendingCookieChoice("rejected");
+        var rejectBtn = root.querySelector(".vc-necessity-banner__reject");
+        if (rejectBtn) rejectBtn.disabled = true;
+        fetchCookieRejectEligibility().then(function (elig) {
+          if (rejectBtn) rejectBtn.disabled = false;
+          if (elig && elig.canReject) {
+            finalizeCookieChoice("rejected");
+            return;
+          }
+          clearPendingCookieChoice();
+          showCookieRejectDenied(tCookie);
+        });
+      }
+      var acceptEl = root.querySelector(".vc-necessity-banner__accept");
+      var rejectEl = root.querySelector(".vc-necessity-banner__reject");
+      if (acceptEl) {
+        acceptEl.addEventListener("click", function (ev) {
+          dismissFromUserAction(ev, "accepted");
+        });
+      }
+      if (rejectEl) {
+        rejectEl.addEventListener("click", function (ev) {
+          dismissFromUserAction(ev, "rejected");
+        });
+      }
+
+      (document.documentElement || document.body).appendChild(root);
       window.requestAnimationFrame(function () {
-        if (!root.parentNode) return;
-        root.classList.add("vc-necessity-banner--visible");
+        window.requestAnimationFrame(function () {
+          if (!root.parentNode) return;
+          root.classList.add("vc-necessity-banner--visible");
+        });
       });
     });
   }
@@ -814,10 +1280,23 @@
   } else {
     initCookieConsent();
   }
-  window.addEventListener("pageshow", function () {
-    if (hasCookieConsent()) return;
+  document.addEventListener("vc:i18n-ready", function () {
     if (document.getElementById("vc-necessity-banner")) return;
     initCookieConsent();
+  });
+  window.addEventListener("pageshow", function () {
+    applyPendingCookieChoiceAfterLogin().then(function (applied) {
+      if (applied) return;
+      if (hasCookieChoice()) {
+        applyAnalyticsConsent(hasCookieConsent());
+        return;
+      }
+      if (document.getElementById("vc-necessity-banner")) return;
+      initCookieConsent();
+    });
+  });
+  window.addEventListener("vc-discord-profile", function () {
+    applyPendingCookieChoiceAfterLogin();
   });
 })();
 (function () {
@@ -897,8 +1376,8 @@
       '<span class="vc-page-transition-vote-icon"><i class="fa fa-certificate"></i></span>' +
       "</div>" +
       '<span class="vc-page-transition-spinner" aria-hidden="true"></span>' +
-      '<p class="vc-page-transition-text">Caricamento...</p>' +
-      '<p class="vc-page-transition-sub">Sto preparando la pagina...</p>' +
+      '<p class="vc-page-transition-text">Caricamento…</p>' +
+      '<p class="vc-page-transition-sub">Un momento…</p>' +
       '<span class="vc-page-transition-bar" aria-hidden="true"><span class="vc-page-transition-barfill"></span></span>' +
       "</div>";
     document.body.appendChild(wrap);
@@ -911,14 +1390,9 @@
     var sub = ov.querySelector(".vc-page-transition-sub");
     ov.classList.toggle("vc-page-transition--vote", kind === "vote");
     ov.classList.toggle("vc-page-transition--login", kind === "login");
-    if (text) text.textContent = kind === "vote" ? "Caricamento..." : "Caricamento...";
+    if (text) text.textContent = "Caricamento…";
     if (sub) {
-      sub.textContent =
-        kind === "vote"
-          ? "Preparazione del sistema di voto"
-          : kind === "login"
-            ? "Accesso in corso..."
-            : "Sto preparando la pagina...";
+      sub.textContent = "Un momento…";
     }
   }
 
@@ -1012,6 +1486,12 @@
   }
 
   function markSnavDetailsCurrentFromLocation() {
+    try {
+      if (typeof window.__vcMarkHeaderSnavCurrent === "function") {
+        window.__vcMarkHeaderSnavCurrent();
+        return;
+      }
+    } catch (eDel) {}
     var bar = document.querySelector(".vc-header-bar");
     if (!bar) return;
     var cur = normalizePathname(window.location.pathname);
@@ -1040,31 +1520,75 @@
       d.classList.remove("vc-snav-details--current");
     });
 
-    var itemHit = false;
+    function sameSiteHost(hostname) {
+      try {
+        var a = String(window.location.hostname || "")
+          .replace(/^www\./i, "")
+          .toLowerCase();
+        var b = String(hostname || "")
+          .replace(/^www\./i, "")
+          .toLowerCase();
+        return Boolean(a && b && a === b);
+      } catch (eH) {
+        return false;
+      }
+    }
+    function pathFromHref(href) {
+      var raw = String(href || "").trim();
+      if (!raw || raw.charAt(0) === "#") return "";
+      try {
+        var u = new URL(raw, window.location.href);
+        if (!sameSiteHost(u.hostname)) return "";
+        return normalizePathname(u.pathname);
+      } catch (e) {
+        return "";
+      }
+    }
+    function scorePath(hrefPath) {
+      if (!hrefPath) return -1;
+      if (hrefPath === "/") return cur === "/" ? 10000 : -1;
+      if (cur === hrefPath) return 1000 + hrefPath.length;
+      if (cur.indexOf(hrefPath + "/") === 0) return 500 + hrefPath.length;
+      return -1;
+    }
+
+    var bestItem = null;
+    var bestItemScore = -1;
     allItems.forEach(function (a) {
-      var p = pathnameFromHref(a.getAttribute("href"));
-      if (!p || p !== cur) return;
+      var p = pathFromHref(a.getAttribute("href"));
+      if (!p) return;
       if (isUserProfileDetail && (p === "/user" || p === "/users")) return;
-      itemHit = true;
-      a.classList.add("vc-snav-item--active");
-      a.setAttribute("aria-current", "page");
+      var score = scorePath(p);
+      if (score > bestItemScore) {
+        bestItemScore = score;
+        bestItem = a;
+      }
     });
+    if (bestItem) {
+      bestItem.classList.add("vc-snav-item--active");
+      bestItem.setAttribute("aria-current", "page");
+    }
 
-    var rowHit = false;
-    bar.querySelectorAll("details.vc-snav-details").forEach(function (det) {
-      var hit = false;
-      det.querySelectorAll("a.vc-snav-row").forEach(function (a) {
-        var p = pathnameFromHref(a.getAttribute("href"));
-        if (!p || p !== cur) return;
-        if (isUserProfileDetail && (p === "/user" || p === "/users")) return;
-        hit = true;
-        rowHit = true;
-        a.classList.add("vc-snav-row--active");
-        a.setAttribute("aria-current", "page");
-      });
-      if (hit) det.classList.add("vc-snav-details--current");
+    var bestRow = null;
+    var bestRowScore = -1;
+    allRows.forEach(function (a) {
+      var p = pathFromHref(a.getAttribute("href"));
+      if (!p) return;
+      if (isUserProfileDetail && (p === "/user" || p === "/users")) return;
+      var score = scorePath(p);
+      if (score > bestRowScore) {
+        bestRowScore = score;
+        bestRow = a;
+      }
     });
-
+    if (bestRow) {
+      bestRow.classList.add("vc-snav-row--active");
+      bestRow.setAttribute("aria-current", "page");
+      try {
+        var det = bestRow.closest("details.vc-snav-details");
+        if (det) det.classList.add("vc-snav-details--current");
+      } catch (eDet) {}
+    }
   }
 
   function richiesteNavTitleNorm(det) {
@@ -1167,17 +1691,43 @@
   function initHeaderNavAccordion() {
     var bar = document.querySelector(".vc-header-bar");
     if (!bar) return;
+    /* snavExclusive2: binding vive in discord-auth (tutte le pagine); landing non ridoppia */
+    if (
+      window.__VC_SNAV_EXCLUSIVE === "20260914snavExclusive2" ||
+      bar.getAttribute("data-vc-snav-accordion") === "20260914snavExclusive2"
+    ) {
+      ensureTicketsInRichiesteNav();
+      linkifyTicketMentions(document);
+      document.addEventListener("vc:langchange", function () {
+        dedupeTicketsInRichiesteNav();
+        linkifyTicketMentions(document);
+        try {
+          if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
+        } catch (eNavLang) {}
+        try {
+          if (window.VcI18n && typeof window.VcI18n.apply === "function") {
+            window.VcI18n.apply(document);
+          }
+        } catch (eI18n) {}
+      });
+      markSnavDetailsCurrentFromLocation();
+      return;
+    }
+    if (bar.getAttribute("data-vc-snav-accordion") === "20260914snavExclusive1") return;
+    bar.setAttribute("data-vc-snav-accordion", "20260914snavExclusive1");
     var HEADER_MENU_SYNC_KEY = "vc_header_menu_sync_v1";
     var localWindowId = String(Date.now()) + "-" + String(Math.random()).slice(2);
     function getSnavDetails() {
-      return bar.querySelectorAll("details.vc-snav-details");
+      return document.querySelectorAll(
+        "header details.vc-snav-details, .vc-header-bar details.vc-snav-details, nav.vc-header-snav details.vc-snav-details",
+      );
     }
     function closeOtherSnavDetails(except) {
       getSnavDetails().forEach(function (other) {
         if (other !== except) other.open = false;
       });
     }
-    var notif = bar.querySelector("details.vc-notif-dropdown");
+    var notif = bar.querySelector("details.vc-notif-dropdown") || document.getElementById("vc-notif-dropdown");
     var accountMenuOpen = false;
     function closeLangMenu() {
       try {
@@ -1189,7 +1739,8 @@
     function syncHeaderDropdownOpenClasses() {
       var root = document.documentElement;
       if (!root) return;
-      var notifOpen = Boolean(notif && notif.open);
+      var liveNotif = document.getElementById("vc-notif-dropdown") || notif;
+      var notifOpen = Boolean(liveNotif && liveNotif.open);
       root.classList.toggle("vc-notif-dropdown-open", notifOpen);
       root.classList.toggle("vc-header-account-open", accountMenuOpen);
     }
@@ -1209,7 +1760,22 @@
         );
       } catch (e) {}
     }
-        bar.addEventListener(
+    /* snavExclusive1: chiudi gli altri PRIMA del toggle nativo */
+    bar.addEventListener(
+      "pointerdown",
+      function (ev) {
+        var sum = ev.target && ev.target.closest ? ev.target.closest("summary.vc-snav-summary") : null;
+        if (!sum || !bar.contains(sum)) return;
+        var det = sum.closest("details.vc-snav-details");
+        if (!det) return;
+        closeOtherSnavDetails(det);
+        if (notif) notif.open = false;
+        closeLangMenu();
+        setAccountMenuOpen(false);
+      },
+      true,
+    );
+    bar.addEventListener(
       "click",
       function (ev) {
         var sum = ev.target && ev.target.closest ? ev.target.closest("summary.vc-snav-summary") : null;
@@ -1232,6 +1798,7 @@
           closeOtherSnavDetails(d);
           if (notif) notif.open = false;
           closeLangMenu();
+          setAccountMenuOpen(false);
         }
         syncHeaderDropdownOpenClasses();
       },
@@ -1330,7 +1897,11 @@
       if (!openEl) return false;
       var t = ev.target;
       if (t && openEl.contains(t)) return true;
-      return pointInside(openEl, ev);
+      var sum = openEl.querySelector(":scope > summary, summary");
+      if (sum && ((t && sum.contains(t)) || pointInside(sum, ev))) return true;
+      var panel = openEl.querySelector(".vc-snav-panel, .vc-notif-panel");
+      if (panel && ((t && panel.contains(t)) || pointInside(panel, ev))) return true;
+      return false;
     }
     function closeAllHeaderDropdowns() {
       getSnavDetails().forEach(function (d) {
@@ -1339,6 +1910,7 @@
       var liveNotif = document.getElementById("vc-notif-dropdown") || notif;
       if (liveNotif) liveNotif.open = false;
       closeLangMenu();
+      setAccountMenuOpen(false);
       syncHeaderDropdownOpenClasses();
     }
     document.addEventListener(
@@ -1347,16 +1919,24 @@
         if (typeof ev.button === "number" && ev.button !== 0) return;
         var t = ev.target;
         if (!t || !t.closest) return;
-        var opens = Array.prototype.slice.call(
-          bar.querySelectorAll("details.vc-snav-details[open]"),
-        );
-                var liveNotif = document.getElementById("vc-notif-dropdown");
+        var opens = Array.prototype.slice.call(getSnavDetails()).filter(function (d) {
+          return d && d.open;
+        });
+        var liveNotif = document.getElementById("vc-notif-dropdown") || notif;
         if (liveNotif && liveNotif.open) opens.push(liveNotif);
-        if (!opens.length) return;
+        var anyOpen = opens.length > 0 || accountMenuOpen;
+        try {
+          anyOpen =
+            anyOpen ||
+            Boolean(document.documentElement.classList.contains("vc-header-account-open")) ||
+            Boolean(document.querySelector(".vc-lang-dropdown[data-open='1'], .vc-lang-panel:not([hidden])"));
+        } catch (eAny) {}
+        if (!anyOpen) return;
         for (var i = 0; i < opens.length; i++) {
           if (eventInsideOpenDropdown(opens[i], ev)) return;
         }
-                if (t.closest && t.closest("summary.vc-notif-summary, .vc-notif-summary")) return;
+        if (t.closest("summary.vc-notif-summary, .vc-notif-summary, summary.vc-snav-summary")) return;
+        if (t.closest(".discord-account-menu, .vc-lang-dropdown")) return;
         closeAllHeaderDropdowns();
       },
       true,
@@ -1381,8 +1961,167 @@
       try {
         if (typeof window.__vcMobileNavRebuild === "function") window.__vcMobileNavRebuild();
       } catch (eNavLang) {}
+      try {
+        if (window.VcI18n && typeof window.VcI18n.apply === "function") {
+          window.VcI18n.apply(document);
+        }
+      } catch (eI18n) {}
     });
     markSnavDetailsCurrentFromLocation();
+    ensureCommunityConfessionaleSnav();
+    normalizePremiumFooterCommunityLinks();
+  }
+
+  function normalizePremiumFooterCommunityLinks() {
+    /* footerConfessionale1: Confessionale in Community su tutti i footer (anche h4 senza heading class) */
+    try {
+      var footers = document.querySelectorAll("footer.vc-premium-footer");
+      for (var f = 0; f < footers.length; f += 1) {
+        var footer = footers[f];
+        var cols = footer.querySelectorAll(".vc-premium-footer__col");
+        var communityUl = null;
+        var discoverUl = null;
+        for (var c = 0; c < cols.length; c += 1) {
+          var col = cols[c];
+          var label = String(col.getAttribute("aria-label") || "").trim().toLowerCase();
+          var heading =
+            col.querySelector(".vc-premium-footer__heading") ||
+            col.querySelector("h2,h3,h4,[data-i18n='footer.community'],[data-i18n='footer.discover']");
+          var htxt = heading ? String(heading.textContent || "").trim().toLowerCase() : "";
+          var ul = col.querySelector("ul");
+          if (!ul) continue;
+          if (label === "community" || htxt === "community") communityUl = ul;
+          if (label === "scopri" || htxt === "scopri" || label === "discover" || htxt === "discover") {
+            discoverUl = ul;
+          }
+        }
+        if (!communityUl) continue;
+
+        function takeLinkLis(ul, hrefNeedle) {
+          var moved = [];
+          if (!ul) return moved;
+          var lis = ul.querySelectorAll("li");
+          for (var i = 0; i < lis.length; i += 1) {
+            var a = lis[i].querySelector("a[href]");
+            if (!a) continue;
+            var href = String(a.getAttribute("href") || "").toLowerCase();
+            if (href.indexOf(hrefNeedle) === -1) continue;
+            moved.push(lis[i]);
+          }
+          for (var j = 0; j < moved.length; j += 1) {
+            if (moved[j].parentNode) moved[j].parentNode.removeChild(moved[j]);
+          }
+          return moved;
+        }
+
+        function ensureLi(ul, hrefAbs, i18nKey, labelText) {
+          var existing = ul.querySelector('a[href*="' + hrefAbs.replace(/\/$/, "") + '"]');
+          if (existing && existing.closest("li")) return existing.closest("li");
+          var li = document.createElement("li");
+          var a = document.createElement("a");
+          a.href = hrefAbs;
+          a.setAttribute("data-i18n", i18nKey);
+          a.textContent = labelText;
+          li.appendChild(a);
+          return li;
+        }
+
+        takeLinkLis(discoverUl, "/bacheca");
+        takeLinkLis(communityUl, "/bacheca");
+        takeLinkLis(discoverUl, "/boards");
+        takeLinkLis(communityUl, "/boards");
+
+        var confFromDisc = takeLinkLis(discoverUl, "/confessionale");
+        takeLinkLis(communityUl, "/confessionale");
+
+        var confLi =
+          confFromDisc[0] ||
+          ensureLi(communityUl, "/confessionale/", "footer.confessionale", "Confessionale");
+
+        var rolesA = communityUl.querySelector('a[href*="/ruoli"]');
+        var usersA = communityUl.querySelector('a[href*="/user"]');
+        var anchorLi = (rolesA && rolesA.closest("li")) || (usersA && usersA.closest("li")) || null;
+        if (anchorLi && anchorLi.parentNode === communityUl) {
+          communityUl.insertBefore(confLi, anchorLi.nextSibling);
+        } else {
+          communityUl.appendChild(confLi);
+        }
+      }
+      try {
+        if (window.VcI18n && typeof window.VcI18n.apply === "function") {
+          window.VcI18n.apply(document.querySelector("footer.vc-premium-footer") || document);
+        }
+      } catch (eI18nF) {}
+    } catch (eFoot) {}
+  }
+
+  function ensureCommunityConfessionaleSnav() {
+    try {
+      var details = document.querySelectorAll("nav.vc-header-snav details.vc-snav-details");
+      for (var i = 0; i < details.length; i += 1) {
+        var d = details[i];
+        var sum = d.querySelector(".vc-snav-summary span");
+        var title = sum ? String(sum.textContent || "").trim().toLowerCase() : "";
+        if (title !== "community") continue;
+        var panel = d.querySelector(".vc-snav-panel");
+        if (!panel) continue;
+        /* hamBachecaDashTiles1: Bacheca in Community desktop snav */
+        if (!panel.querySelector('a[href*="/bacheca"], a[href*="/boards"]')) {
+          var bach = document.createElement("a");
+          bach.className = "vc-snav-row";
+          bach.href = "/bacheca/";
+          bach.setAttribute("data-vc-snav-bacheca", "1");
+          bach.innerHTML =
+            '<span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-th-large"></i></span>' +
+            '<span data-i18n="nav.bacheca">Bacheca</span>';
+          var users = panel.querySelector('a[href*="/user"]');
+          if (users && users.parentNode === panel) {
+            panel.insertBefore(bach, users);
+          } else {
+            panel.insertBefore(bach, panel.firstChild);
+          }
+        }
+        if (panel.querySelector('a[href*="/confessionale"]')) continue;
+        var a = document.createElement("a");
+        a.className = "vc-snav-row";
+        a.href = "/confessionale/";
+        a.innerHTML =
+          '<span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
+          '<span data-i18n="nav.confessionale">Confessionale</span>';
+        var faq = panel.querySelector('a[href*="/faq"]');
+        if (faq && faq.parentNode === panel) {
+          if (faq.nextSibling) panel.insertBefore(a, faq.nextSibling);
+          else panel.appendChild(a);
+        } else {
+          panel.appendChild(a);
+        }
+      }
+      /* Strip from staff panels if leftover — confessionaleCommNav3 */
+      for (var j = 0; j < details.length; j += 1) {
+        var sd = details[j];
+        var ssum = sd.querySelector(".vc-snav-summary span");
+        var st = ssum ? String(ssum.textContent || "").trim().toLowerCase() : "";
+        var marked =
+          (sd.classList && sd.classList.contains("vc-snav-details--staff")) ||
+          sd.hasAttribute("data-vc-staff-tools-nav");
+        if (
+          !marked &&
+          st !== "staff" &&
+          st.indexOf("staff") < 0 &&
+          st.indexOf("strumenti staff") < 0 &&
+          st !== "area staff"
+        ) {
+          continue;
+        }
+        if (st.indexOf("community") >= 0) continue;
+        var spans = sd.querySelectorAll(
+          'a[href*="/confessionale"], a[href*="/staff/confessionale"], a[data-vc-mobile-staff-confessionale], a[data-i18n="staff.confessionale"]'
+        );
+        for (var k = 0; k < spans.length; k += 1) {
+          if (spans[k] && spans[k].parentNode) spans[k].parentNode.removeChild(spans[k]);
+        }
+      }
+    } catch (eEns) {}
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initHeaderNavAccordion);
@@ -1392,7 +2131,7 @@
 })();
 (function () {
     var TIKTOK_PREVIEW_SVG =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43V7.36a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.21z"/></svg>';
+    '<svg xmlns="http://www.w3.org/2000/svg" class="vc-footer-tiktok-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>';
   var DISCORD_PREVIEW_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.419 0 1.334-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.419 0 1.334-.946 2.419-2.157 2.419z"/></svg>';
 
@@ -1597,26 +2336,34 @@
   var ticking = false;
   var MIN_DELTA = 6;
   var TOP_EPS = 12;
+  var navShellEl = null;
+  var navDocEl = document.documentElement;
 
   function getScrollY() {
     return window.pageYOffset || document.documentElement.scrollTop || 0;
   }
 
   function setNavScrolled(on) {
-    var navShell = document.querySelector("header .vc-nav-shell");
-    if (!navShell) return;
+    /* violPass11: cache shell — niente querySelector ogni scroll frame */
+    if (!navShellEl || !navShellEl.isConnected) {
+      navShellEl = document.querySelector("header .vc-nav-shell");
+    }
+    if (!navShellEl) return;
     if (on) {
-      navShell.classList.add("vc-nav-shell--scrolled");
-      document.documentElement.classList.add("vc-nav-shell-scrolled");
-    } else {
-      navShell.classList.remove("vc-nav-shell--scrolled");
-      document.documentElement.classList.remove("vc-nav-shell-scrolled");
+      if (!navShellEl.classList.contains("vc-nav-shell--scrolled")) {
+        navShellEl.classList.add("vc-nav-shell--scrolled");
+        navDocEl.classList.add("vc-nav-shell-scrolled");
+      }
+    } else if (navShellEl.classList.contains("vc-nav-shell--scrolled")) {
+      navShellEl.classList.remove("vc-nav-shell--scrolled");
+      navDocEl.classList.remove("vc-nav-shell-scrolled");
     }
   }
 
   function syncNavScrollState() {
     ticking = false;
-    var y = getScrollY();
+    /* violPass3: usa Y catturata nello scroll event — niente pageYOffset in rAF (Forced reflow) */
+    var y = pendingNavY;
     if (y <= TOP_EPS) {
       setNavScrolled(false);
       lastY = y;
@@ -1628,7 +2375,14 @@
     lastY = y;
   }
 
+  var pendingNavY = 0;
   function onNavScroll() {
+    /* violPass11: preferisci scrollTop già noto; evita doppio listener window+document */
+    try {
+      pendingNavY = document.documentElement.scrollTop || window.pageYOffset || 0;
+    } catch (eY) {
+      pendingNavY = 0;
+    }
     if (ticking) return;
     ticking = true;
     window.requestAnimationFrame(syncNavScrollState);
@@ -1637,8 +2391,8 @@
   function initHeaderScrollState() {
     lastY = getScrollY();
     setNavScrolled(false);
+    /* violPass11: un solo listener — document+window raddoppiava Violation scroll */
     window.addEventListener("scroll", onNavScroll, { passive: true });
-    document.addEventListener("scroll", onNavScroll, { passive: true, capture: true });
   }
 
   if (document.readyState === "loading") {
@@ -1752,7 +2506,15 @@
   function resetNode(node) {
     if (!node || !canRepeat(node)) return;
     stopAnimation(node);
+    /* ulCountStick1: se already ha target, tieni il valore (niente flash 0 su IO flicker) */
     var kind = readKind(node);
+    var to = readTarget(node);
+    if (to > 0.001) {
+      node.textContent = formatValue(to, kind);
+      node.setAttribute("data-vc-count-current", String(to));
+      node.setAttribute("data-vc-count-visible", "false");
+      return;
+    }
     node.textContent = formatValue(0, kind);
     node.setAttribute("data-vc-count-current", "0");
     node.setAttribute("data-vc-count-visible", "false");
@@ -1775,16 +2537,18 @@
       function (entries) {
         for (var i = 0; i < entries.length; i += 1) {
           var entry = entries[i];
-          if (!entry.isIntersecting || entry.intersectionRatio < 0.35) {
+          /* ulCountStick1: reset SOLO se fuori viewport (ratio<0.35 faceva flash 0 su layout shift) */
+          if (!entry.isIntersecting) {
             resetNode(entry.target);
             continue;
           }
+          if (entry.intersectionRatio < 0.2) continue;
           playNode(entry.target);
         }
       },
       {
         root: null,
-        rootMargin: "0px 0px -8% 0px",
+        rootMargin: "0px 0px -4% 0px",
         threshold: [0, 0.12, 0.2, 0.35, 0.5, 0.75, 1],
       },
     );
@@ -1823,7 +2587,15 @@
     var vh = window.innerHeight || document.documentElement.clientHeight || 0;
     var visible = rect.bottom > 0 && rect.top < vh * 0.92;
     if (visible) playNode(node);
-    else resetNode(node);
+    else {
+      /* ulCountStick1: fuori vista → snap al target, non 0 */
+      var kindSnap = readKind(node);
+      var toSnap = readTarget(node);
+      stopAnimation(node);
+      node.textContent = formatValue(toSnap, kindSnap);
+      node.setAttribute("data-vc-count-current", String(toSnap));
+      node.setAttribute("data-vc-count-visible", "false");
+    }
   }
 
   window.VCCountUp = {
@@ -1841,7204 +2613,91 @@
   }
 })();
 (function () {
-  var STORAGE_PREFIX = "vc_notifications_v1:";
-  var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
-  var NOTIF_SYNC_KEY = "vc_notifications_sync_v1";
-  var PENDING_READ_PREFIX = "vc_notifications_pending_read_v1:";
-  var MARK_ALL_AT_PREFIX = "vc_notifications_mark_all_at_v1:";
-  var CLEAR_ALL_AT_PREFIX = "vc_notifications_clear_all_at_v1:";
-  var TOASTED_PREFIX = "vc_notifications_toasted_v1:";
-  var CLICK_READ_KEY = "vc_notifications_click_read_v1";
-  var SW_PENDING_READ_CACHE = "vc-notif-pending-read-v1";
-  var SW_PENDING_READ_URL = "/__vc/pending-notif-read";
-  var SW_PENDING_NAV_CACHE = "vc-pending-nav-v1";
-  var SW_PENDING_NAV_URL = "/__vc/pending-nav";
-  var pendingNavPollTimer = 0;
-  var pendingNavApplying = false;
-  var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
-  var NOTIFICATIONS_PATH = "/notifications/";
-  var DEMO_ID = "__vc_ephemeral_demo__";
-  var ephemeralDemo = null;
-  var currentUserId = "";
-  var siteNotifsTimer = null;
-  var siteRealtimeWs = null;
-  var siteRealtimeWsReconnectTimer = null;
-  var SITE_NOTIFS_POLL_MS = 30000;
-  var SITE_NOTIFS_POLL_HIDDEN_MS = 90000;
-  var siteNotifsVisibilityTimer = null;
-  var notifPeerSyncTimer = null;
-  var notifSyncBc = null;
-  var lastNotifRenderSig = "";
-  var ignoreSelfNotifSync = 0;
-  try {
-    notifSyncBc = new BroadcastChannel("vc_notifications_sync_v1");
-  } catch (eBc) {
-    notifSyncBc = null;
-  }
-    var NOTIF_FLY_READ_MS = 3400;
-    var NOTIF_FLY_ANIM_MS = 280;
-  var notifFlyActiveCount = 0;
-  var notifInterruptQueue = [];
-  var notifInterruptOpen = false;
-  var notifInterruptCurrent = null;
-  var notifInterruptKeyHandler = null;
-
-  function loaderElReallyBlocking(el) {
-    if (!el) return false;
-    try {
-      if (el.hidden || el.hasAttribute("hidden")) return false;
-      if (el.classList && el.classList.contains("vc-staff-loading--hidden")) return false;
-      if (el.classList && el.classList.contains("vc-reviews-gate")) return false;
-      var cs = window.getComputedStyle(el);
-      if (!cs) return false;
-      if (cs.display === "none" || cs.visibility === "hidden") return false;
-      if (Number(cs.opacity || "1") < 0.05) return false;
-      if (cs.pointerEvents === "none") return false;
-      var r = el.getBoundingClientRect();
-      if (r.width < 24 || r.height < 24) return false;
-            if (r.width < window.innerWidth * 0.45 && r.height < window.innerHeight * 0.35) return false;
-      return true;
-    } catch (eVis) {
-      return false;
-    }
-  }
-
-  function isBlockingLoaderVisible() {
-    try {
-      var root = document.documentElement;
-      var coarse = false;
+  /* notifUnifyFix1 / siteApiW7: stesso chunk notif su tutte le pagine; push-cold più rapido */
+    var NOTIF_CHUNK_VER = "20261003pushOpenDestFix1";
+    /* notifReadDismissOs1 */
+  function loadNotifChunk() {
+    if (window.__vcLandingNotifLoading || window.__vcLandingNotifReady) return;
+    window.__vcLandingNotifLoading = 1;
+    var s = document.createElement("script");
+    /* versioned filename: CF edge ignora ?v= e serviva swallow vecchio (arm(0)=arm520) */
+    s.src = "/js/vc-landing-notif." + NOTIF_CHUNK_VER + ".js";
+    s.async = true;
+    s.onload = function () {
       try {
-        coarse =
-          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-          Number(navigator.maxTouchPoints || 0) > 0;
-      } catch (eC) {}
-            if (!coarse && root.classList.contains("vc-session-verify-pending")) return true;
-      if (root.classList.contains("vc-dash-access-pending")) return true;
-            if (root.classList.contains("vc-user-leader-pending")) {
-        var ulPend = document.getElementById("vc-ul-loading");
-        if (loaderElReallyBlocking(ulPend)) return true;
-      }
-      if (root.classList.contains("vc-user-profile-pending")) {
-        var prPend = document.getElementById("vc-user-profile-loading");
-        var bpPend = document.querySelector("body > .vc-user-profile-loader");
-        if (loaderElReallyBlocking(prPend) || loaderElReallyBlocking(bpPend)) return true;
-      }
-    } catch (e0) {}
-    var tr = document.getElementById("vc-page-transition");
-    if (tr && tr.classList.contains("vc-page-transition--on")) {
-      try {
-        var trCs = window.getComputedStyle(tr);
-        if (trCs && trCs.display !== "none" && trCs.visibility !== "hidden" && trCs.pointerEvents !== "none") {
-          return true;
-        }
-      } catch (eTrVis) {
-        return true;
-      }
-    }
-    try {
-      var coarse2 =
-        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-        Number(navigator.maxTouchPoints || 0) > 0;
-      if (!coarse2) {
-        var ov = document.querySelector(".vc-session-verify-overlay:not(.vc-session-verify-overlay--hidden)");
-        if (ov) return true;
-      }
-    } catch (eOv) {}
-                try {
-      var uls = document.querySelectorAll(".vc-ul-loading");
-      for (var ui = 0; ui < uls.length; ui += 1) {
-        if (loaderElReallyBlocking(uls[ui])) return true;
-      }
-    } catch (eUl) {
-      if (document.querySelector('.vc-ul-loading[data-vc-loader-blocking="1"]')) return true;
-    }
-    try {
-      var rankL = document.getElementById("vc-rank-customize-loading");
-      if (loaderElReallyBlocking(rankL)) return true;
-    } catch (eRk) {
-      if (document.querySelector("#vc-rank-customize-loading:not([hidden])")) return true;
-    }
-    var staffInboxLoading = document.getElementById("vc-staff-inbox-loading");
-    if (loaderElReallyBlocking(staffInboxLoading)) return true;
-    var profileLoading = document.getElementById("vc-user-profile-loading");
-    if (loaderElReallyBlocking(profileLoading)) return true;
-    try {
-      var bodyProf = document.querySelector("body > .vc-user-profile-loader");
-      if (loaderElReallyBlocking(bodyProf)) return true;
-    } catch (eBp) {}
-            try {
-      var view = document.getElementById("vc-user-profile-view");
-      if (view && !view.hidden) {
-        var loaders = view.querySelectorAll(":scope > .vc-user-profile-loader, :scope > [data-vc-profile-boot]");
-        for (var li = 0; li < loaders.length; li += 1) {
-          var L = loaders[li];
-          if (L.hidden || L.hasAttribute("hidden")) continue;
-          if (L.closest && L.closest("[data-vc-profile-staff-pane], .vc-user-profile-staff-pane")) continue;
-          return true;
-        }
-      }
-    } catch (eLoad) {}
-            return false;
-  }
-
-  try {
-    window.__vcLoaderElReallyBlocking = loaderElReallyBlocking;
-    window.__vcIsBlockingLoaderVisible = isBlockingLoaderVisible;
-  } catch (eVisExport) {}
-
-  function syncLoaderBlockingLiveClass() {
-        var live = false;
-    try {
-      var nodes = document.querySelectorAll(
-        '.vc-ul-loading[data-vc-loader-blocking="1"], #vc-roles-loading[data-vc-loader-blocking="1"]',
-      );
-      for (var i = 0; i < nodes.length; i += 1) {
-        if (loaderElReallyBlocking(nodes[i])) {
-          live = true;
-          break;
-        }
-      }
-    } catch (eScan) {}
-    if (!live) {
-      try {
-        var profLoad = document.getElementById("vc-user-profile-loading");
-        if (loaderElReallyBlocking(profLoad)) live = true;
-      } catch (eProf) {}
-    }
-    if (!live) {
-      try {
-        var bodyProf = document.querySelector("body > .vc-user-profile-loader:not([hidden])");
-        if (loaderElReallyBlocking(bodyProf)) live = true;
-      } catch (eBp) {}
-    }
-    try {
-      document.documentElement.classList.toggle("vc-loader-blocking-live", live);
-    } catch (eCls) {}
-    return live;
-  }
-
-  try {
-    window.__vcSyncLoaderBlockingLiveClass = syncLoaderBlockingLiveClass;
-  } catch (eLiveExport) {}
-
-  function resetScrollAfterOverlay() {
-    try {
-      var h = String(location.hash || "").replace(/^#/, "");
-      if (h && h.indexOf("access_token=") !== 0) return;
-      var y =
-        window.pageYOffset ||
-        (document.documentElement && document.documentElement.scrollTop) ||
-        (document.body && document.body.scrollTop) ||
-        0;
-      if (y > 8) return;
-      window.scrollTo(0, 0);
-      if (document.documentElement) document.documentElement.scrollTop = 0;
-      if (document.body) document.body.scrollTop = 0;
-    } catch (eScr) {}
-  }
-
-  var wasPageLoaderVisible = false;
-  var loaderScrollLockSideEffects = false;
-  var loaderScrollLockMoTimer = 0;
-  var loaderScrollListenersBound = false;
-  var scrollPinned = false;
-  var scrollPinSavedY = 0;
-  var scrollPinSoft = false;
-
-  function pageScrollY() {
-    try {
-      return (
-        window.pageYOffset ||
-        (document.documentElement && document.documentElement.scrollTop) ||
-        (document.body && document.body.scrollTop) ||
-        0
-      );
-    } catch (eY) {
-      return 0;
-    }
-  }
-
-  /* notifTicketScrollStay1: overflow-lock / focus / portal must not jump page to top */
-  function restorePageScrollY(y) {
-    var n = Math.max(0, Number(y) || 0);
-    try {
-      window.scrollTo(0, n);
-      if (document.documentElement) document.documentElement.scrollTop = n;
-      if (document.body) document.body.scrollTop = n;
-    } catch (eScr) {}
-  }
-
-  function holdPageScroll(ms) {
-    var y = pageScrollY();
-    function restore() {
-      if (Math.abs(pageScrollY() - y) > 1) restorePageScrollY(y);
-    }
-    restore();
-    try {
-      window.requestAnimationFrame(function () {
-        restore();
-        window.requestAnimationFrame(restore);
-      });
-    } catch (eRaf) {
-      restore();
-    }
-    window.setTimeout(restore, 0);
-    window.setTimeout(restore, 48);
-    if (ms && ms > 48) window.setTimeout(restore, Math.min(Number(ms) || 0, 320));
-    return y;
-  }
-
-  function isPageScrollFrozen() {
-    if (isBlockingLoaderVisible()) return true;
-    try {
-      var root = document.documentElement;
-      if (root.classList.contains("vc-rank-customize-pending")) return true;
-      if (root.classList.contains("vc-mobile-nav-open")) {
-        var navDr = document.getElementById("vc-mobile-nav-drawer");
-        if (navDr && navDr.classList.contains("vc-mobile-nav-drawer--open")) return true;
-      }
-      if (root.classList.contains("vc-user-leader-pending")) {
-        var ulFr = document.getElementById("vc-ul-loading");
-        if (loaderElReallyBlocking(ulFr)) return true;
-      }
-      if (root.classList.contains("vc-user-profile-pending")) {
-        var prFr = document.getElementById("vc-user-profile-loading");
-        var bpFr = document.querySelector("body > .vc-user-profile-loader");
-        if (loaderElReallyBlocking(prFr) || loaderElReallyBlocking(bpFr)) return true;
-      }
-      try {
-        var coarseFreeze =
-          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-          Number(navigator.maxTouchPoints || 0) > 0;
-        if (!coarseFreeze && root.classList.contains("vc-session-verify-pending")) return true;
-      } catch (eSesF) {}
-            if (isNotifPanelChromeOpen(root)) {
-        var ddFrozen = document.getElementById("vc-notif-dropdown");
-        if (ddFrozen && (ddFrozen.open || ddFrozen.hasAttribute("open"))) return true;
-      }
-      if (root.classList.contains("vc-staff-stat-sheet-open")) return true;
-      if (root.classList.contains("vc-staff-manage-sheet-open")) return true;
-      if (root.classList.contains("vc-staff-reso-sheet-open")) return true;
-      if (root.classList.contains("vc-staff-datepicker-open")) return true;
-      if (root.classList.contains("vc-dialog-open")) return true;
-      if (root.classList.contains("vc-dash-confirm-open")) return true;
-    } catch (eFrozen) {}
-    try {
-      if (document.querySelector(".vc-dialog.is-open, #vc-site-dialog.is-open:not([hidden]), .vc-dash-confirm.is-open")) {
-        return true;
-      }
-    } catch (eDlg) {}
-    return false;
-  }
-
-  function isCoarsePointerDevice() {
-    try {
-      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
-    } catch (e0) {}
-    try {
-      if (
-        window.matchMedia &&
-        window.matchMedia("(hover: none)").matches &&
-        Number(navigator.maxTouchPoints || 0) > 0
-      ) {
-        return true;
-      }
-    } catch (e1) {}
-    return Number(navigator.maxTouchPoints || 0) > 0;
-  }
-
-  function isStandalonePwaLocal() {
-    try {
-      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
-    } catch (e0) {}
-    try {
-      if (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) return true;
-    } catch (e1) {}
-    return Boolean(navigator.standalone);
-  }
-
-  function pinPageScroll(opts) {
-    var body = document.body;
-    if (!body) return;
-    opts = opts || {};
-    var soft = Boolean(opts.soft);
-    var phonePin = false;
-    var notifChromeOpen = false;
-    try {
-      phonePin = isCoarsePointerDevice() || isStandalonePwaLocal();
-      if (phonePin) soft = true;
-    } catch (eSoftForce) {
-      soft = true;
-      phonePin = true;
-    }
-    try {
-      /* notifSidebar4/5: notif drawer/sheet must never use position:fixed — fights CSS overflow
-         lock + PTR restore → continuous scroll jitter. notifSidebar5: panel-body scrolls under
-         overflow-only lock (no touch-action:none on panel). */
-      notifChromeOpen = isNotifPanelChromeOpen(document.documentElement);
-      if (notifChromeOpen) {
-        phonePin = true;
-        soft = true;
-        opts.forcePhoneLock = true;
-      }
-    } catch (eNotifPin) {}
-    if (!scrollPinned) {
-      scrollPinSavedY = pageScrollY();
-      scrollPinned = true;
-    }
-    scrollPinSoft = soft;
-    try {
-      /* phoneSheetPtrLock1: on phone never use position:fixed (breaks unlock),
-         but still lock overflow/overscroll so PTR + page scroll behind sheets die.
-         phoneNavTapFix1: hamburger alone must NOT soft-lock — iOS then eats tile taps.
-         CSS `.vc-mobile-nav-open` already locks overflow for the drawer. */
-      if (phonePin) {
-        var needPhoneOverflowLock = Boolean(opts.forcePhoneLock);
-        try {
-          var rootPin = document.documentElement;
-          needPhoneOverflowLock =
-            needPhoneOverflowLock ||
-            isNotifPanelChromeOpen(rootPin) ||
-            rootPin.classList.contains("vc-staff-manage-sheet-open") ||
-            rootPin.classList.contains("vc-staff-stat-sheet-open") ||
-            rootPin.classList.contains("vc-staff-reso-sheet-open") ||
-            rootPin.classList.contains("vc-staff-datepicker-open") ||
-            rootPin.classList.contains("vc-dialog-open") ||
-            rootPin.classList.contains("vc-dash-confirm-open") ||
-            rootPin.classList.contains("vc-loading-scroll-lock") ||
-            rootPin.classList.contains("vc-loader-blocking-live") ||
-            (rootPin.classList.contains("vc-page-cine-boot") &&
-              !rootPin.classList.contains("vc-page-cine-ready")) ||
-            rootPin.classList.contains("vc-user-leader-pending") ||
-            rootPin.classList.contains("vc-user-profile-pending") ||
-            rootPin.classList.contains("vc-rank-customize-pending") ||
-            rootPin.classList.contains("vc-session-verify-pending") ||
-            rootPin.classList.contains("vc-notif-staff-loading");
-        } catch (eNeedPin) {
-          needPhoneOverflowLock = true;
-        }
-        if (!needPhoneOverflowLock) {
-          try {
-            document.documentElement.classList.remove("vc-scroll-soft-lock");
-          } catch (eSoftOff) {}
-          scrollPinned = false;
-          scrollPinSoft = false;
-          return;
-        }
-        document.documentElement.style.setProperty("overflow", "hidden", "important");
-        document.documentElement.style.setProperty("overscroll-behavior", "none", "important");
-        document.documentElement.style.removeProperty("touch-action");
-        body.style.removeProperty("position");
-        body.style.removeProperty("left");
-        body.style.removeProperty("right");
-        body.style.removeProperty("top");
-        body.style.removeProperty("width");
-        body.style.setProperty("overflow", "hidden", "important");
-        body.style.setProperty("overscroll-behavior", "none", "important");
-        body.style.removeProperty("touch-action");
-        try {
-          document.documentElement.classList.add("vc-scroll-soft-lock");
-        } catch (eSoftCls) {}
-        /* notifTicketScrollStay1: soft overflow-lock can reset window scroll on iOS/Chrome */
-        restorePageScrollY(scrollPinSavedY);
-        try {
-          window.requestAnimationFrame(function () {
-            restorePageScrollY(scrollPinSavedY);
-          });
-        } catch (ePinRaf) {}
-        return;
-      }
-      document.documentElement.style.setProperty("overflow", "hidden", "important");
-      document.documentElement.style.setProperty("overscroll-behavior", "none", "important");
-      if (soft) {
-        document.documentElement.style.removeProperty("touch-action");
-      } else {
-        document.documentElement.style.setProperty("touch-action", "none", "important");
-      }
-      body.style.setProperty("position", "fixed", "important");
-      body.style.setProperty("left", "0", "important");
-      body.style.setProperty("right", "0", "important");
-      body.style.setProperty("width", "100%", "important");
-      body.style.setProperty("top", "-" + scrollPinSavedY + "px", "important");
-      body.style.setProperty("overflow", "hidden", "important");
-      body.style.setProperty("overscroll-behavior", "none", "important");
-      if (soft) {
-        body.style.setProperty("touch-action", "pan-y", "important");
-      } else {
-        body.style.setProperty("touch-action", "none", "important");
-      }
-    } catch (ePin) {}
-  }
-
-  function stripPhoneInlineScrollLocks() {
-    var phone = false;
-    try {
-      phone = isCoarsePointerDevice() || isStandalonePwaLocal();
-    } catch (ePh) {
-      phone = true;
-    }
-    if (!phone) return;
-    var root = document.documentElement;
-    var body = document.body;
-    var mustLock = false;
-    try {
-      var ddLive = document.getElementById("vc-notif-dropdown");
-      var notifReallyOpen = Boolean(
-        ddLive && (ddLive.open || ddLive.hasAttribute("open")) && isNotifPanelChromeOpen(root),
-      );
-      var inboxLoad = document.getElementById("vc-staff-inbox-loading");
-      var inboxLive =
-        Boolean(inboxLoad) &&
-        !inboxLoad.hidden &&
-        !inboxLoad.hasAttribute("hidden") &&
-        !inboxLoad.classList.contains("vc-staff-loading--hidden");
-      mustLock =
-        root.classList.contains("vc-mobile-nav-open") ||
-        notifReallyOpen ||
-        root.classList.contains("vc-dialog-open") ||
-        root.classList.contains("vc-staff-manage-sheet-open") ||
-        root.classList.contains("vc-staff-reso-sheet-open") ||
-        root.classList.contains("vc-staff-stat-sheet-open") ||
-        (root.classList.contains("vc-notif-staff-loading") && inboxLive);
-      if (root.classList.contains("vc-user-leader-pending")) {
-        var ulStrip = document.getElementById("vc-ul-loading");
-        if (
-          ulStrip &&
-          !ulStrip.hidden &&
-          !ulStrip.hasAttribute("hidden") &&
-          (typeof loaderElReallyBlocking !== "function" || loaderElReallyBlocking(ulStrip))
-        ) {
-          mustLock = true;
-        }
-      }
-    } catch (eMust) {
-      mustLock = false;
-    }
-    if (mustLock) return;
-    try {
-      if (typeof isBlockingLoaderVisible === "function" && isBlockingLoaderVisible()) return;
-      if (isLoaderScrollLocked()) return;
-    } catch (eLoaderKeep) {}
-    try {
-      root.style.removeProperty("overflow");
-      root.style.removeProperty("overscroll-behavior");
-      root.style.removeProperty("touch-action");
-      root.classList.remove("vc-scroll-soft-lock", "vc-loading-scroll-lock");
-    } catch (eR) {}
-    if (body) {
-      try {
-        body.style.removeProperty("position");
-        body.style.removeProperty("left");
-        body.style.removeProperty("right");
-        body.style.removeProperty("top");
-        body.style.removeProperty("width");
-        body.style.removeProperty("overflow");
-        body.style.removeProperty("overscroll-behavior");
-        body.style.removeProperty("touch-action");
-      } catch (eB) {}
-    }
-    scrollPinned = false;
-    scrollPinSoft = false;
-  }
-
-  function unpinPageScroll() {
-    var body = document.body;
-    var y = scrollPinSavedY;
-    var wasPinned = scrollPinned;
-    scrollPinned = false;
-    scrollPinSoft = false;
-    scrollPinSavedY = 0;
-    try {
-      document.documentElement.classList.remove("vc-scroll-soft-lock");
-    } catch (eSoftClsOff) {}
-    try {
-      document.documentElement.style.removeProperty("overflow");
-      document.documentElement.style.removeProperty("overscroll-behavior");
-      document.documentElement.style.removeProperty("touch-action");
-    } catch (eUnpinHtml) {}
-    if (body) {
-      try {
-        body.style.removeProperty("position");
-        body.style.removeProperty("left");
-        body.style.removeProperty("right");
-        body.style.removeProperty("top");
-        body.style.removeProperty("width");
-        body.style.removeProperty("overflow");
-        body.style.removeProperty("overscroll-behavior");
-        body.style.removeProperty("touch-action");
-      } catch (eUnpinStyle) {}
-    }
-    try {
-      stripPhoneInlineScrollLocks();
-    } catch (eStrip) {}
-    if (wasPinned) {
-      try {
-        window.scrollTo(0, y);
-      } catch (eUnpin) {}
-    }
-  }
-
-  try {
-    window.__vcPinPageScroll = pinPageScroll;
-    window.__vcUnpinPageScroll = unpinPageScroll;
-    window.__vcStripPhoneInlineScrollLocks = stripPhoneInlineScrollLocks;
-    window.__vcIsPageScrollFrozen = isPageScrollFrozen;
-    /* ticketModalScrollStay2: post-confirm postAction must reuse pinned Y, not 0 mid-unpin */
-    window.__vcGetPinnedPageScrollY = function () {
-      try {
-        if (scrollPinned && Number(scrollPinSavedY) > 0) return Number(scrollPinSavedY) || 0;
-      } catch (ePinY) {}
-      return pageScrollY();
-    };
-    window.__vcHoldPageScroll = holdPageScroll;
-  } catch (ePinExport) {}
-
-  function isLoaderScrollLocked() {
-    try {
-      var root = document.documentElement;
-      if (root.classList.contains("vc-loading-scroll-lock")) return true;
-      if (root.classList.contains("vc-loader-blocking-live")) return true;
-      if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) {
-        return true;
-      }
-      if (root.classList.contains("vc-user-leader-pending")) return true;
-      if (root.classList.contains("vc-user-profile-pending")) return true;
-      if (root.classList.contains("vc-notif-staff-loading")) return true;
-    } catch (eLockCls) {}
-    return false;
-  }
-
-  function isNotifPanelScrollTarget(t) {
-    /* notifSidebar5: wheel/touch on panel content must scroll — not be swallowed by guards/PTR */
-    try {
-      if (!t || !t.closest) return false;
-      return Boolean(
-        t.closest(
-          ".vc-notif-panel-body, .vc-notif-list, .vc-notif-list-wrap, .vc-notif-bell-pane, .vc-notif-bell-inbox, .vc-notif-panel",
-        ),
-      );
-    } catch (eHit) {
-      return false;
-    }
-  }
-
-  function blockLoaderScroll(e) {
-    try {
-      var tPtr = e && e.target;
-      if (isNotifPanelScrollTarget(tPtr)) return;
-    } catch (eNotifAllow) {}
-    if (window.__vcPtrTracking) {
-      /* phoneSheetPtrLock1: if a sheet/modal froze the page, kill PTR mid-gesture */
-      try {
-        if (typeof isPageScrollFrozen === "function" && isPageScrollFrozen()) {
-          try {
-            e.preventDefault();
-          } catch (ePrevPtr) {}
-        }
-      } catch (eFr) {}
-      return;
-    }
-    if (!isPageScrollFrozen() && !isLoaderScrollLocked()) return;
-    try {
-      var t = e && e.target;
-      if (t && t.closest) {
-        if (
-          t.closest(
-            ".vc-staff-stat-sheet__body, .vc-staff-stat-sheet__panel, .vc-staff-manage-sheet__panel, .vc-staff-manage-sheet__body, .vc-staff-reso-sheet__body, .vc-staff-reso-sheet__panel, .vc-staff-datepicker.is-sheet, .vc-notif-panel-body, .vc-notif-list, .vc-notif-list-wrap, .vc-notif-bell-pane, .vc-notif-bell-inbox, .vc-notif-panel, .vc-dialog__text, .vc-dialog__field, .vc-dash-confirm__text, .vc-mobile-nav-drawer__scroll",
-          )
-        ) {
-          return;
-        }
-        if (t.closest(".vc-staff-peer-dock, .vc-notif-mobile-backdrop, .vc-staff-stat-sheet__backdrop, .vc-staff-manage-sheet__backdrop, .vc-dialog__backdrop")) {
-          try {
-            e.preventDefault();
-          } catch (ePrevBg) {}
-          return;
-        }
-      }
-    } catch (eAllow) {}
-    try {
-      e.preventDefault();
-    } catch (ePrev) {}
-  }
-
-  var loaderScrollGuardOpts = { capture: true, passive: false };
-
-  function bindLoaderScrollGuards(enable) {
-    var want = Boolean(enable);
-    if (want === loaderScrollListenersBound) return;
-    try {
-      if (want) {
-        document.addEventListener("wheel", blockLoaderScroll, loaderScrollGuardOpts);
-        document.addEventListener("touchmove", blockLoaderScroll, loaderScrollGuardOpts);
-        loaderScrollListenersBound = true;
-      } else {
-        document.removeEventListener("wheel", blockLoaderScroll, loaderScrollGuardOpts);
-        document.removeEventListener("touchmove", blockLoaderScroll, loaderScrollGuardOpts);
-        loaderScrollListenersBound = false;
-      }
-    } catch (eBind) {
-      loaderScrollListenersBound = want;
-    }
-  }
-
-  function needNonPassiveScrollGuards() {
-                try {
-      if (isBlockingLoaderVisible()) return true;
-      if (isLoaderScrollLocked()) return true;
-      var root = document.documentElement;
-      if (root.classList.contains("vc-dialog-open")) return true;
-      if (root.classList.contains("vc-dash-confirm-open")) return true;
-      if (isNotifPanelChromeOpen(root)) return true;
-      if (root.classList.contains("vc-staff-manage-sheet-open")) return true;
-      if (root.classList.contains("vc-staff-stat-sheet-open")) return true;
-      if (root.classList.contains("vc-staff-reso-sheet-open")) return true;
-      if (root.classList.contains("vc-staff-datepicker-open")) return true;
-                        try {
-        var coarseGuard =
-          (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-          Number(navigator.maxTouchPoints || 0) > 0;
-        if (!coarseGuard && root.classList.contains("vc-session-verify-pending")) return true;
-      } catch (eSes) {}
-      if (root.classList.contains("vc-dash-access-pending")) return true;
-      if (root.classList.contains("vc-rank-customize-pending")) return true;
-    } catch (eNeed) {}
-    try {
-      if (document.querySelector(".vc-dialog.is-open, #vc-site-dialog.is-open:not([hidden]), .vc-dash-confirm.is-open")) {
-        return true;
-      }
-    } catch (eDlg) {}
-    return false;
-  }
-
-  var lastScrollLockFrozen = null;
-  var lastScrollLockOverlay = null;
-  var lastScrollLockNeedGuards = null;
-
-  function syncLoaderScrollLock() {
-    var frozen = false;
-    try {
-      frozen = isPageScrollFrozen();
-    } catch (eVis) {}
-    var on = false;
-    try {
-      on = isBlockingLoaderVisible();
-    } catch (eVis2) {}
-    var needGuards = false;
-    try {
-      needGuards = needNonPassiveScrollGuards();
-    } catch (eNeed2) {
-      needGuards = Boolean(on);
-    }
-
-    var softPin = !needGuards;
-    try {
-      if (document.documentElement.classList.contains("vc-mobile-nav-open")) softPin = true;
-    } catch (eSoftNav) {}
-    /* phoneGateLock1: while a blocking loader/boot is up, hard-lock scroll on phone too. */
-    var phone = false;
-    try {
-      phone = isCoarsePointerDevice() || isStandalonePwaLocal();
-    } catch (ePh) {
-      phone = true;
-    }
-    var bootPending = false;
-    var pendingGate = false;
-    try {
-      var rootLock = document.documentElement;
-      bootPending =
-        rootLock.classList.contains("vc-page-cine-boot") &&
-        !rootLock.classList.contains("vc-page-cine-ready");
-      pendingGate =
-        rootLock.classList.contains("vc-user-leader-pending") ||
-        rootLock.classList.contains("vc-user-profile-pending") ||
-        rootLock.classList.contains("vc-rank-customize-pending") ||
-        rootLock.classList.contains("vc-custom-profile-pending") ||
-        rootLock.classList.contains("vc-session-verify-pending") ||
-        rootLock.classList.contains("vc-notif-staff-loading") ||
-        (rootLock.classList.contains("vc-staff-access-pending") &&
-          !rootLock.classList.contains("vc-staff-app-revealed"));
-    } catch (eGate) {}
-    var wantLock = Boolean(on || frozen || bootPending || pendingGate);
-    /* phoneNavTapFix1: hamburger alone must not arm loading-scroll-lock / soft-lock.
-       CSS `.vc-mobile-nav-open` already freezes page scroll; soft-lock ate iOS tile taps. */
-    try {
-      var rootNavOnly = document.documentElement;
-      var navOnly =
-        rootNavOnly.classList.contains("vc-mobile-nav-open") &&
-        !on &&
-        !bootPending &&
-        !pendingGate &&
-        !isNotifPanelChromeOpen(rootNavOnly) &&
-        !rootNavOnly.classList.contains("vc-staff-manage-sheet-open") &&
-        !rootNavOnly.classList.contains("vc-staff-stat-sheet-open") &&
-        !rootNavOnly.classList.contains("vc-staff-reso-sheet-open") &&
-        !rootNavOnly.classList.contains("vc-staff-datepicker-open") &&
-        !rootNavOnly.classList.contains("vc-dialog-open") &&
-        !rootNavOnly.classList.contains("vc-dash-confirm-open");
-      if (navOnly) wantLock = false;
-    } catch (eNavOnly) {}
-    if (phone && wantLock) softPin = false;
-    else if (phone) softPin = true;
-
-    if (phone && !wantLock) {
-      if (scrollPinned) unpinPageScroll();
-      try {
-        document.documentElement.classList.remove("vc-ui-scroll-lock", "vc-scroll-soft-lock");
-        document.documentElement.classList.remove("vc-loading-scroll-lock");
-      } catch (ePhLock) {}
-      bindLoaderScrollGuards(false);
-    } else {
-      if (wantLock) pinPageScroll({ soft: softPin });
-      else if (scrollPinned) unpinPageScroll();
-      try {
-        document.documentElement.classList.remove("vc-ui-scroll-lock");
-      } catch (eUiLockOff) {}
-      try {
-        document.documentElement.classList.toggle("vc-loading-scroll-lock", wantLock);
-      } catch (eLock) {}
-      var guardsForBind = needGuards || wantLock;
-      try {
-        if (document.documentElement.classList.contains("vc-mobile-nav-open") && !on && !bootPending) {
-          guardsForBind = false;
-        }
-      } catch (eGuardNav) {}
-      bindLoaderScrollGuards(guardsForBind);
-    }
-
-    if (
-      frozen === lastScrollLockFrozen &&
-      on === lastScrollLockOverlay &&
-      needGuards === lastScrollLockNeedGuards
-    ) {
-      return;
-    }
-    lastScrollLockFrozen = frozen;
-    lastScrollLockOverlay = on;
-    lastScrollLockNeedGuards = needGuards;
-    if (wasPageLoaderVisible && !on) resetScrollAfterOverlay();
-    wasPageLoaderVisible = on;
-    if (on) {
-      if (!loaderScrollLockSideEffects) {
-        loaderScrollLockSideEffects = true;
-        hideNotifsForLoader();
-      }
-    } else {
-      loaderScrollLockSideEffects = false;
-      try {
-        flushNotifInterruptQueue();
-      } catch (eFlush) {}
-    }
-    try {
-      syncLoaderBlockingLiveClass();
-    } catch (eLiveSync) {}
-  }
-
-  function scheduleLoaderScrollLock() {
-    if (loaderScrollLockMoTimer) return;
-    loaderScrollLockMoTimer = setTimeout(function () {
-      loaderScrollLockMoTimer = 0;
-      syncLoaderScrollLock();
-    }, 48);
-  }
-
-  try {
-    window.__vcSyncLoaderScrollLock = syncLoaderScrollLock;
-  } catch (eSyncExport) {}
-
-  function closeNotifDropdownForLoader() {
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (dd && dd.open) {
-      try {
-        dd.open = false;
-        dd.removeAttribute("open");
+        window.__vcLandingNotifReady = 1;
       } catch (e0) {}
-    }
-    try {
-      document.documentElement.classList.remove(
-        "vc-notif-dropdown-open",
-        "vc-notif-sheet-open",
-        "vc-notif-drawer-open",
-        "vc-notif-overlay-active",
-      );
-    } catch (e1) {}
+    };
+    (document.body || document.documentElement).appendChild(s);
   }
-
-  function isNotifPanelChromeOpen(rootEl) {
-    var root = rootEl || document.documentElement;
-    try {
-      return (
-        root.classList.contains("vc-notif-sheet-open") ||
-        root.classList.contains("vc-notif-drawer-open")
-      );
-    } catch (eOpen) {
+  if (!window.__vcPinPageScroll) {
+    window.__vcPinPageScroll = function () {};
+    window.__vcUnpinPageScroll = function () {};
+    window.__vcIsPageScrollFrozen = function () {
       return false;
-    }
-  }
-
-  function dismissNotifFlyToasts() {
-    var cards = document.querySelectorAll(".vc-notif-fly-card");
-    var i;
-    for (i = 0; i < cards.length; i += 1) {
-      try {
-        cards[i].remove();
-      } catch (e0) {}
-    }
-    notifFlyActiveCount = 0;
-    try {
-      hideNotifInterruptForLoader();
-    } catch (eHideInt) {}
-    try {
-      syncGlobalNotifOverlayClass();
-    } catch (e1) {}
-  }
-
-  function hideNotifsForLoader() {
-    dismissNotifFlyToasts();
-    closeNotifDropdownForLoader();
-  }
-  try {
-    window.__vcHideNotifsForLoader = hideNotifsForLoader;
-  } catch (eHideFn) {}
-  try {
-    var loaderClassMo = new MutationObserver(function () {
-      scheduleLoaderScrollLock();
-    });
-    loaderClassMo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-        function observeLoaderHidden(el) {
-      if (!el || !el.getAttribute) return;
-      try {
-        loaderClassMo.observe(el, { attributes: true, attributeFilter: ["hidden", "class", "style"] });
-      } catch (eObs) {}
-    }
-    function bindKnownLoaderObservers() {
-      var ids = [
-        "vc-ul-loading",
-        "vc-roles-loading",
-        "vc-rank-customize-loading",
-        "vc-user-profile-loading",
-        "vc-shared-boot-overlay",
-        "vc-staff-loading",
-        "vc-staff-inbox-loading",
-        "vc-page-transition",
-      ];
-      for (var i = 0; i < ids.length; i++) {
-        observeLoaderHidden(document.getElementById(ids[i]));
-      }
-      try {
-        var list = document.querySelectorAll(
-          ".vc-ul-loading, body > .vc-user-profile-loader, #vc-user-profile-view > .vc-user-profile-loader, #vc-user-profile-view > [data-vc-profile-boot]",
-        );
-        for (var j = 0; j < list.length; j++) observeLoaderHidden(list[j]);
-      } catch (eList) {}
-    }
-    bindKnownLoaderObservers();
-        try {
-      var loaderBirthMo = new MutationObserver(function (muts) {
-        var need = false;
-        for (var m = 0; m < muts.length; m++) {
-          var nodes = muts[m].addedNodes || [];
-          for (var n = 0; n < nodes.length; n++) {
-            var node = nodes[n];
-            if (!node || node.nodeType !== 1) continue;
-            var el = node;
-            if (
-              (el.id && /loading|boot|transition/i.test(el.id)) ||
-              (el.classList &&
-                (el.classList.contains("vc-ul-loading") ||
-                  el.classList.contains("vc-user-profile-loader") ||
-                  el.classList.contains("vc-reviews-gate")))
-            ) {
-              observeLoaderHidden(el);
-              need = true;
-            }
-          }
-        }
-        if (need) scheduleLoaderScrollLock();
-      });
-      if (document.body) {
-        loaderBirthMo.observe(document.body, { childList: true, subtree: true });
-      }
-    } catch (eBirth) {}
-    syncLoaderScrollLock();
-  } catch (eMo) {}
-  var notifAudioCtx = null;
-  var notifAudioUnlocked = false;
-  var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
-  var baseDocumentTitle = "";
-  var lastTabUnreadShown = -1;
-  var baseFaviconHref = "";
-  var faviconBadgeGen = 0;
-  var faviconLinkEl = null;
-  var windowAttentionTimer = 0;
-  var windowAttentionOn = false;
-  var windowAttentionTitle = "";
-  var lastUnreadForAttention = 0;
-  var attentionFaviconHref = "";
-  try {
-    if (new URLSearchParams(window.location.search).get("notif") === "demo") {
-      ephemeralDemo = {
-        id: DEMO_ID,
-        title: "Voto registrato!",
-        body: "Il tuo voto è stato registrato con successo.",
-        at: Date.now() - 3 * 60 * 60 * 1000,
-        read: false,
-        kind: "vote",
-      };
-    }
-  } catch (e) {}
-  function siteBrandName() {
-    try {
-      if (window.VcPageTitle && typeof window.VcPageTitle.brand === "function") {
-        return window.VcPageTitle.brand();
-      }
-    } catch (ePt) {}
-    try {
-      var auth = typeof window !== "undefined" && window.__VC_AUTH ? window.__VC_AUTH : null;
-      var n = String((auth && auth.siteName) || "").trim();
-      if (n) {
-        // ampBakeFix1: bake JS often left &amp; — never show entity in tab title
-        return n
-          .replace(/&amp;/gi, "&")
-          .replace(/&quot;/gi, '"')
-          .replace(/&#39;/gi, "'")
-          .replace(/&lt;/gi, "<")
-          .replace(/&gt;/gi, ">");
-      }
-    } catch (eAuth) {}
-    return "Vinili & Caffè";
-  }
-
-    function normalizeBaseDocumentTitle(raw) {
-    try {
-      if (window.VcPageTitle && typeof window.VcPageTitle.format === "function") {
-        return window.VcPageTitle.format(raw);
-      }
-    } catch (eNorm) {}
-    var brand = siteBrandName();
-    var cleaned = String(raw || "")
-      .trim()
-      .replace(/\{\{\s*SITE_NAME\s*\}\}/g, brand)
-      .replace(/\{\{[A-Z0-9_]+\}\}/g, "")
-      .replace(/^\(\d+\+?(?:\s+notifich[ea])?\)\s+/i, "")
-      .replace(/^●\s+/, "")
-      .replace(/^Vinili(?:\s*&\s*Caff[eè])?\s*[-–—]\s+/i, "")
-      .trim()
-      .replace(/\bstaff\b/gi, "Staff");
-    if (!cleaned) return brand;
-    var pipe = cleaned.indexOf("|");
-    if (pipe >= 0) {
-      var left = cleaned.slice(0, pipe).trim();
-      var right = cleaned.slice(pipe + 1).trim();
-      if (!right) return brand;
-      if (!left || /^vinili$/i.test(left)) return brand + " | " + right;
-      return left + " | " + right;
-    }
-    return brand + " | " + cleaned;
-  }
-
-  function captureBaseDocumentTitle() {
-    var raw = String(document.title || "").trim();
-    var cleaned = normalizeBaseDocumentTitle(raw);
-    if (windowAttentionTimer && windowAttentionTitle) {
-      var attn = String(windowAttentionTitle || "").trim();
-      if (cleaned === attn || cleaned === normalizeBaseDocumentTitle(attn)) {
-        return baseDocumentTitle || cleaned;
-      }
-    }
-    if (!baseDocumentTitle) {
-      baseDocumentTitle = cleaned || siteBrandName();
-      return baseDocumentTitle;
-    }
-        if (
-      cleaned &&
-      cleaned !== baseDocumentTitle &&
-      !/^\(\d+\+?(?:\s+notifich[ea])?\)\s+/i.test(raw) &&
-      !/^●\s+/.test(raw)
-    ) {
-      baseDocumentTitle = cleaned;
-    }
-    return baseDocumentTitle;
-  }
-
-    function formatTabTitleWithUnread(unread, base) {
-    try {
-      if (window.VcPageTitle && typeof window.VcPageTitle.formatWithUnread === "function") {
-        return window.VcPageTitle.formatWithUnread(
-          unread,
-          base || baseDocumentTitle || document.title || siteBrandName(),
-        );
-      }
-    } catch (eFmt) {}
-    var n = Math.max(0, Math.floor(Number(unread) || 0));
-    var rest = normalizeBaseDocumentTitle(base || baseDocumentTitle || document.title || siteBrandName());
-    if (n <= 0) return rest;
-    var count = n > 99 ? "99+" : String(n);
-    return "(" + count + ") " + rest;
-  }
-
-  function resolveFaviconLink() {
-    if (faviconLinkEl && faviconLinkEl.isConnected) return faviconLinkEl;
-    faviconLinkEl =
-      document.querySelector('link[rel="icon"]') ||
-      document.querySelector('link[rel="shortcut icon"]');
-    if (!faviconLinkEl) {
-      faviconLinkEl = document.createElement("link");
-      faviconLinkEl.rel = "icon";
-      document.head.appendChild(faviconLinkEl);
-    }
-    if (!baseFaviconHref) {
-      baseFaviconHref = String(faviconLinkEl.href || faviconLinkEl.getAttribute("href") || "").trim();
-    }
-    return faviconLinkEl;
-  }
-
-  function drawFaviconBadgeOnCanvas(ctx, size, unread) {
-    var label = unread > 99 ? "99+" : String(unread);
-    var r = size * 0.22;
-    var cx = size - r - size * 0.06;
-    var cy = size - r - size * 0.06;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r + size * 0.04, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(20, 12, 8, 0.92)";
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = "#e11d48";
-    ctx.fill();
-    ctx.fillStyle = "#fff7ed";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font =
-      "700 " +
-      Math.max(10, Math.floor(size * (label.length > 2 ? 0.28 : 0.34))) +
-      "px system-ui,Segoe UI,sans-serif";
-    ctx.fillText(label, cx, cy + size * 0.02);
-  }
-
-  function paintPlainFaviconBadge(unread) {
-    var size = 64;
-    var canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    var ctx = canvas.getContext("2d");
-    if (!ctx) return "";
-    ctx.fillStyle = "#1a120e";
-    ctx.fillRect(0, 0, size, size);
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size * 0.34, 0, Math.PI * 2);
-    ctx.fillStyle = "#0b0908";
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size * 0.12, 0, Math.PI * 2);
-    ctx.fillStyle = "#d4a888";
-    ctx.fill();
-    drawFaviconBadgeOnCanvas(ctx, size, unread);
-    try {
-      return canvas.toDataURL("image/png");
-    } catch (e) {
-      return "";
-    }
-  }
-
-  function updateFaviconBadge(unread) {
-    var link = resolveFaviconLink();
-    var n = Math.max(0, Math.floor(Number(unread) || 0));
-    var gen = ++faviconBadgeGen;
-    if (n <= 0) {
-      if (baseFaviconHref) link.href = baseFaviconHref;
-      return;
-    }
-    var size = 64;
-    var applyDataUrl = function (dataUrl) {
-      if (gen !== faviconBadgeGen || !dataUrl) return;
-      link.href = dataUrl;
     };
-    if (!baseFaviconHref) {
-      applyDataUrl(paintPlainFaviconBadge(n));
-      return;
-    }
-    var img = new Image();
-    img.decoding = "async";
-    try {
-      img.crossOrigin = "anonymous";
-    } catch (eCo) {}
-    img.onload = function () {
-      if (gen !== faviconBadgeGen) return;
-      try {
-        var canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        var ctx = canvas.getContext("2d");
-        if (!ctx) {
-          applyDataUrl(paintPlainFaviconBadge(n));
-          return;
-        }
-        ctx.clearRect(0, 0, size, size);
-        ctx.drawImage(img, 0, 0, size, size);
-        drawFaviconBadgeOnCanvas(ctx, size, n);
-        applyDataUrl(canvas.toDataURL("image/png"));
-      } catch (eDraw) {
-        applyDataUrl(paintPlainFaviconBadge(n));
-      }
+    window.__vcHoldPageScroll = function () {};
+    window.__vcSyncLoaderScrollLock = function () {};
+    window.__vcHideNotifsForLoader = function () {};
+    window.__vcIsBlockingLoaderVisible = function () {
+      return false;
     };
-    img.onerror = function () {
-      applyDataUrl(paintPlainFaviconBadge(n));
+    window.__vcLoaderElReallyBlocking = function () {
+      return false;
     };
-    img.src = baseFaviconHref;
+    window.__vcSyncLoaderBlockingLiveClass = function () {};
   }
-
-  function syncBrowserTabNotifBadge(unread) {
-    var n = Math.max(0, Math.floor(Number(unread) || 0));
-    lastUnreadForAttention = n;
-    if (windowAttentionTimer) return;
-    captureBaseDocumentTitle();
-    var want = formatTabTitleWithUnread(n, baseDocumentTitle);
-    if (n === lastTabUnreadShown) {
-            if (String(document.title || "") !== want) document.title = want;
-      return;
-    }
-    lastTabUnreadShown = n;
-    document.title = want;
-    if (n > 0) {
-      if (typeof navigator.setAppBadge === "function") {
-        try {
-          navigator.setAppBadge(n > 99 ? 99 : n);
-        } catch (eBadge) {}
-      }
-    } else if (typeof navigator.clearAppBadge === "function") {
-      try {
-        navigator.clearAppBadge();
-      } catch (eClear) {}
-    }
-    updateFaviconBadge(n);
-  }
-
+  function wantsFastNotifBoot() {
     try {
-    captureBaseDocumentTitle();
-    lastTabUnreadShown = -1;
-    syncBrowserTabNotifBadge(0);
-  } catch (eTitleBoot) {}
-
-  function pageNeedsWindowAttention() {
-    if (typeof document.hidden === "boolean" && document.hidden) return true;
-    if (document.visibilityState && document.visibilityState !== "visible") return true;
-    try {
-      if (typeof document.hasFocus === "function" && !document.hasFocus()) return true;
-    } catch (eFocus) {}
+      var u = new URL(location.href);
+      if (u.searchParams.get("vcNotifRead")) return true;
+      if (u.searchParams.get("ticketId")) return true;
+      if (u.searchParams.get("vc_from_push")) return true;
+      if (/^[a-f0-9]{24}$/i.test(String(u.hash || "").replace(/^#/, "").trim())) return true;
+    } catch (e) {}
     return false;
   }
-
-  function paintAttentionFavicon() {
-    if (attentionFaviconHref) return attentionFaviconHref;
-    try {
-      var c = document.createElement("canvas");
-      c.width = 64;
-      c.height = 64;
-      var ctx = c.getContext("2d");
-      if (!ctx) return "";
-      ctx.fillStyle = "#1a120c";
-      ctx.beginPath();
-      ctx.arc(32, 32, 28, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#e8b86d";
-      ctx.beginPath();
-      ctx.arc(32, 32, 16, 0, Math.PI * 2);
-      ctx.fill();
-      attentionFaviconHref = c.toDataURL("image/png");
-    } catch (ePaint) {
-      attentionFaviconHref = "";
-    }
-    return attentionFaviconHref;
-  }
-
-  function applyAttentionFavicon(on) {
-    var href = on ? paintAttentionFavicon() : baseFaviconHref;
-    if (!href) return;
-    var link = resolveFaviconLink();
-    if (link) link.href = href;
-  }
-
-  function stopWindowAttention() {
-    if (windowAttentionTimer) {
-      clearInterval(windowAttentionTimer);
-      windowAttentionTimer = 0;
-    }
-    windowAttentionOn = false;
-    windowAttentionTitle = "";
-    lastTabUnreadShown = -1;
-    syncBrowserTabNotifBadge(lastUnreadForAttention);
-  }
-
-  function requestWindowAttention(opts) {
-    var title = String((opts && opts.title) || "Nuova notifica")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (title.length > 48) title = title.slice(0, 47) + "…";
-    if (!pageNeedsWindowAttention()) return;
-    windowAttentionTitle = title;
-    if (windowAttentionTimer) return;
-    windowAttentionOn = false;
-    var tick = function () {
-      if (!pageNeedsWindowAttention()) {
-        stopWindowAttention();
-        return;
-      }
-      windowAttentionOn = !windowAttentionOn;
-      var base = captureBaseDocumentTitle() || "Vinili & Caffè";
-      if (windowAttentionOn) {
-        document.title = "● " + windowAttentionTitle;
-        applyAttentionFavicon(true);
-        if (typeof navigator.setAppBadge === "function") {
-          try {
-            navigator.setAppBadge(Math.max(1, lastUnreadForAttention || 1));
-          } catch (eOn) {}
-        }
-      } else {
-        document.title = base;
-        applyAttentionFavicon(false);
-        if (typeof navigator.clearAppBadge === "function") {
-          try {
-            navigator.clearAppBadge();
-          } catch (eOff) {}
-        }
-      }
-    };
-    tick();
-    windowAttentionTimer = setInterval(tick, 850);
-  }
-
-  window.vcRequestWindowAttention = requestWindowAttention;
-  window.addEventListener("focus", stopWindowAttention);
-  document.addEventListener("visibilitychange", function () {
-    if (!pageNeedsWindowAttention()) stopWindowAttention();
-  });
-
-  function normalizeUserId(value) {
-    var id = String(value || "").trim();
-    return /^\d{17,20}$/.test(id) ? id : "";
-  }
-  function userStorageKey(userId) {
-    var id = normalizeUserId(userId || currentUserId);
-    return id ? STORAGE_PREFIX + id : "";
-  }
-  function userDismissedKey(userId) {
-    var id = normalizeUserId(userId || currentUserId);
-    return id ? DISMISSED_PREFIX + id : "";
-  }
-  function setCurrentUser(user) {
-    currentUserId = normalizeUserId(user && user.id);
-  }
-  function loadDismissedSet(userId) {
-    var key = userDismissedKey(userId);
-    if (!key) return new Set();
-    try {
-      var raw = localStorage.getItem(key);
-      var arr = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(arr)) return new Set();
-      return new Set(
-        arr
-          .map(function (x) {
-            return String(x || "").trim();
-          })
-          .filter(Boolean),
-      );
-    } catch (e) {
-      return new Set();
-    }
-  }
-  function notifyNotifStorePeers() {
-    try {
-      localStorage.setItem(NOTIF_SYNC_KEY, String(Date.now()) + ":" + Math.random().toString(36).slice(2, 8));
-    } catch (ePing) {}
-    try {
-      if (notifSyncBc) notifSyncBc.postMessage({ t: Date.now() });
-    } catch (eBcPost) {}
-    ignoreSelfNotifSync += 1;
-    try {
-      window.dispatchEvent(new CustomEvent("vc:notifications-sync"));
-    } catch (eEv) {
-    } finally {
-      ignoreSelfNotifSync -= 1;
-    }
-  }
-  function onNotifStorePeerSync() {
-    if (ignoreSelfNotifSync > 0) return;
-    lastNotifRenderSig = "";
-    render({ force: true });
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    if (notifPeerSyncTimer) clearTimeout(notifPeerSyncTimer);
-    notifPeerSyncTimer = setTimeout(function () {
-      notifPeerSyncTimer = null;
-      syncSiteNotificationsFromServer();
-    }, 450);
-  }
-  function isNotifStorageSyncKey(key) {
-    var k = String(key || "");
-    if (!k) return false;
-    if (k === NOTIF_SYNC_KEY) return true;
-    if (k.indexOf(STORAGE_PREFIX) === 0) return true;
-    if (k.indexOf(DISMISSED_PREFIX) === 0) return true;
-    if (k.indexOf(PENDING_READ_PREFIX) === 0) return true;
-    return false;
-  }
-  function saveDismissedSet(setLike, userId) {
-    var key = userDismissedKey(userId);
-    if (!key) return;
-    var arr = Array.from(setLike || []).filter(Boolean);
-    if (arr.length > 500) arr = arr.slice(arr.length - 500);
-    var next = JSON.stringify(arr);
-    try {
-      if (localStorage.getItem(key) === next) return;
-      localStorage.setItem(key, next);
-      notifyNotifStorePeers();
-    } catch (e) {}
-  }
-  function markDismissed(id, userId) {
-    var sid = String(id || "").trim();
-    if (!sid) return;
-    var set = loadDismissedSet(userId);
-    set.add(sid);
-    saveDismissedSet(set, userId);
-  }
-  function rememberDismissedNotif(item, userId) {
-    if (!item) return;
-    var uid = normalizeUserId(userId || currentUserId);
-    var lid = String((item && item.id) || "").trim();
-    if (!lid) return;
-    var set = loadDismissedSet(uid);
-    set.add(lid);
-    var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
-    if (fpId && fpId !== lid) set.add(fpId);
-    saveDismissedSet(set, uid);
-  }
-  function isNotifDismissed(item, uid, dismissed) {
-    if (!item) return true;
-    var set = dismissed || loadDismissedSet(uid);
-    var lid = String((item && item.id) || "").trim();
-    if (lid && set.has(lid)) return true;
-    var fpId = buildNotifFingerprintId(item, uid, String((item && item.kind) || "info"), String((item && item.openUrl) || ""));
-    return Boolean(fpId && set.has(fpId));
-  }
-  function hashText(input) {
-    var s = String(input || "");
-    var h = 5381;
-    for (var i = 0; i < s.length; i += 1) {
-      h = ((h << 5) + h) + s.charCodeAt(i);
-      h = h >>> 0;
-    }
-    return h.toString(36);
-  }
-  function buildStableNotifId(payload, ownerId, kind, openUrl) {
-    var explicit = payload && payload.id != null ? String(payload.id).trim() : "";
-    if (explicit) return explicit;
-    var title = String((payload && payload.title) || "").trim();
-    var body = String((payload && payload.body) || "").trim();
-    var atRaw = payload && payload.at;
-    var at = Number.isFinite(Number(atRaw)) ? String(Math.floor(Number(atRaw))) : "";
-    return "auto:" + hashText([ownerId, kind, title, body, String(openUrl || ""), at].join("|"));
-  }
-  function buildNotifFingerprintId(payload, ownerId, kind, openUrl) {
-    var p = payload && typeof payload === "object" ? Object.assign({}, payload) : {};
-    delete p.id;
-    delete p.read;
-    delete p.readAt;
-    return buildStableNotifId(p, ownerId, kind, openUrl);
-  }
-  function isAutoClientNotifId(id) {
-    return String(id || "").indexOf("auto:") === 0;
-  }
-    function isClientLocalNotifId(id) {
-    var s = String(id || "").trim();
-    return s.indexOf("auto:") === 0 || s.indexOf("sys:") === 0;
-  }
-  function isServerBackedNotifId(id) {
-    return /^[a-f0-9]{24}$/i.test(String(id || "").trim());
-  }
-  function sameNotifCore(a, b) {
-    if (!a || !b) return false;
-    return (
-      String((a && a.title) || "").trim() === String((b && b.title) || "").trim() &&
-      String((a && a.body) || "").trim() === String((b && b.body) || "").trim() &&
-      String((a && a.kind) || "").trim() === String((b && b.kind) || "").trim() &&
-      String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
-    );
-  }
-  function sameNotifPayload(a, b) {
-    if (!a || !b) return false;
-    return (
-      String((a && a.title) || "").trim() === String((b && b.title) || "").trim() &&
-      String((a && a.body) || "").trim() === String((b && b.body) || "").trim() &&
-      String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
-    );
-  }
-  function pendingReadKey() {
-    var uid = normalizeUserId(currentUserId);
-    return uid ? PENDING_READ_PREFIX + uid : PENDING_READ_PREFIX + "anon";
-  }
-  function readPendingRaw(key) {
-    var raw = "";
-    try {
-      raw = sessionStorage.getItem(key) || "";
-    } catch (eS) {}
-    if (!raw) {
-      try {
-        raw = localStorage.getItem(key) || "";
-      } catch (eL) {}
-    }
-    return raw;
-  }
-  function writePendingRaw(key, json) {
-    try {
-      sessionStorage.setItem(key, json);
-    } catch (eS) {}
-    try {
-      localStorage.setItem(key, json);
-    } catch (eL) {}
-  }
-  function parsePendingIdMap(raw) {
-    var map = {};
-    try {
-      var arr = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(arr)) {
-        for (var i = 0; i < arr.length; i += 1) {
-          var id = String(arr[i] || "").trim();
-          if (id) map[id] = true;
-        }
-      }
-    } catch (e) {}
-    return map;
-  }
-  function loadPendingReadMap() {
-    var map = parsePendingIdMap(readPendingRaw(pendingReadKey()));
-    var anon = parsePendingIdMap(readPendingRaw(PENDING_READ_PREFIX + "anon"));
-    var k;
-    for (k in anon) {
-      if (Object.prototype.hasOwnProperty.call(anon, k)) map[k] = true;
-    }
-    return map;
-  }
-  function savePendingReadMap(map) {
-    writePendingRaw(pendingReadKey(), JSON.stringify(Object.keys(map || {})));
-    if (normalizeUserId(currentUserId)) {
-      writePendingRaw(PENDING_READ_PREFIX + "anon", "[]");
-    }
-  }
-  function isPendingRead(id) {
-    var sid = String(id || "").trim();
-    return Boolean(sid && loadPendingReadMap()[sid]);
-  }
-  function rememberPendingRead(id) {
-    var sid = String(id || "").trim();
-    if (!sid) return;
-    var map = loadPendingReadMap();
-    map[sid] = true;
-    savePendingReadMap(map);
-  }
-  function loadClickReadIds() {
-    var merged = [];
-    var seen = {};
-    function addFrom(raw) {
-      try {
-        var arr = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(arr)) return;
-        for (var i = 0; i < arr.length; i += 1) {
-          var id = String(arr[i] || "").trim();
-          if (!id || seen[id]) continue;
-          seen[id] = true;
-          merged.push(id);
-        }
-      } catch (e) {}
-    }
-    try {
-      addFrom(sessionStorage.getItem(CLICK_READ_KEY));
-    } catch (eS) {}
-    try {
-      addFrom(localStorage.getItem(CLICK_READ_KEY));
-    } catch (eL) {}
-    return merged;
-  }
-  function rememberClickRead(id) {
-    var sid = String(id || "").trim();
-    if (!sid) return;
-    var arr = loadClickReadIds();
-    if (arr.indexOf(sid) === -1) arr.push(sid);
-    var json = JSON.stringify(arr);
-    try {
-      sessionStorage.setItem(CLICK_READ_KEY, json);
-    } catch (eS) {}
-    try {
-      localStorage.setItem(CLICK_READ_KEY, json);
-    } catch (eL) {}
-    rememberPendingRead(sid);
-  }
-  function clearClickReadIds() {
-    try {
-      sessionStorage.removeItem(CLICK_READ_KEY);
-    } catch (eS) {}
-    try {
-      localStorage.removeItem(CLICK_READ_KEY);
-    } catch (eL) {}
-  }
-  function tryFlushClickReads() {
-    var ids = loadClickReadIds();
-    if (!ids.length) return;
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    for (var i = 0; i < ids.length; i += 1) markOneRead(ids[i]);
-    clearClickReadIds();
-  }
-  function consumePendingReadFromSwCache() {
-    if (!("caches" in window)) return Promise.resolve();
-    return caches
-      .open(SW_PENDING_READ_CACHE)
-      .then(function (cache) {
-        return cache.match(SW_PENDING_READ_URL).then(function (res) {
-          if (!res) return;
-          return res.json().then(function (data) {
-            var ids = Array.isArray(data && data.ids) ? data.ids : [];
-            for (var i = 0; i < ids.length; i += 1) rememberClickRead(ids[i]);
-            return cache.delete(SW_PENDING_READ_URL);
-          });
-        });
-      })
-      .catch(function () {})
-      .then(function () {
-        tryFlushClickReads();
-      });
-  }
-  function ticketIdFromLocation() {
-    try {
-      var h = String(location.hash || "").replace(/^#/, "").trim();
-      if (/^[a-f0-9]{24}$/i.test(h)) return h.toLowerCase();
-      var q = String(new URLSearchParams(location.search || "").get("ticketId") || "").trim();
-      if (/^[a-f0-9]{24}$/i.test(q)) return q.toLowerCase();
-    } catch (e) {}
-    return "";
-  }
-  function ticketIdFromOpenDest(url, ticketId) {
-    var tid = String(ticketId || "").trim().toLowerCase();
-    if (/^[a-f0-9]{24}$/i.test(tid)) return tid;
-    try {
-      var u = new URL(String(url || ""), window.location.origin);
-      tid = String(u.searchParams.get("ticketId") || "").trim().toLowerCase();
-      if (/^[a-f0-9]{24}$/i.test(tid)) return tid;
-      tid = String(u.hash || "").replace(/^#/, "").trim().toLowerCase();
-      if (/^[a-f0-9]{24}$/i.test(tid)) return tid;
-    } catch (e2) {}
-    return "";
-  }
-  function alreadyOnOpenDest(url, ticketId) {
-    var tid = ticketIdFromOpenDest(url, ticketId);
-    if (!tid) return false;
-    try {
-      var path = String(location.pathname || "").replace(/\/+$/, "") || "/";
-      if (!/\/tickets$/i.test(path)) return false;
-      return ticketIdFromLocation() === tid;
-    } catch (e) {
-      return false;
-    }
-  }
-  function fallbackTicketDest(ticketId) {
-    var tid = String(ticketId || "").trim();
-    if (!/^[a-f0-9]{24}$/i.test(tid)) return "";
-    return "/tickets/?ticketId=" + encodeURIComponent(tid) + "#" + tid;
-  }
-  function applyOpenDest(url, ticketId) {
-    if (pendingNavApplying) return;
-    var dest = String(url || "").trim() || fallbackTicketDest(ticketId);
-    if (!dest) return;
-    if (alreadyOnOpenDest(dest, ticketId)) return;
-    pendingNavApplying = true;
-    try {
-      if (pendingNavPollTimer) {
-        clearInterval(pendingNavPollTimer);
-        pendingNavPollTimer = 0;
-      }
-    } catch (eT) {}
-    openNotifDestination(resolveNotifDestUrl(dest), "ticket");
-  }
-  function consumePendingNavFromSwCache() {
-    if (!("caches" in window)) return Promise.resolve(false);
-    return caches
-      .open(SW_PENDING_NAV_CACHE)
-      .then(function (cache) {
-        return cache.match(SW_PENDING_NAV_URL).then(function (res) {
-          if (!res) return false;
-          return res.json().then(function (data) {
-            var at = Number(data && data.at) || 0;
-            if (at && Date.now() - at > 120000) {
-              return cache.delete(SW_PENDING_NAV_URL).then(function () {
-                return false;
-              });
-            }
-            var url = String((data && data.url) || "").trim();
-            var ticketId = String((data && data.ticketId) || "").trim();
-            if (!url) url = fallbackTicketDest(ticketId);
-            if (!url) {
-              return cache.delete(SW_PENDING_NAV_URL).then(function () {
-                return false;
-              });
-            }
-            if (alreadyOnOpenDest(url, ticketId)) {
-              return cache.delete(SW_PENDING_NAV_URL).then(function () {
-                return false;
-              });
-            }
-            return cache.delete(SW_PENDING_NAV_URL).then(function () {
-              applyOpenDest(url, ticketId);
-              return true;
-            });
-          });
-        });
-      })
-      .catch(function () {
-        return false;
-      });
-  }
-  function startPendingNavPoll() {
-    if (pendingNavPollTimer) return;
-    var n = 0;
-    pendingNavPollTimer = setInterval(function () {
-      n += 1;
-      consumePendingNavFromSwCache().then(function (moved) {
-        if (moved || n >= 40) {
-          try {
-            clearInterval(pendingNavPollTimer);
-          } catch (eC) {}
-          pendingNavPollTimer = 0;
-        }
-      });
-    }, 250);
-  }
-  function isWatchingTicketChat(ticketId, openUrl) {
-    var tid = String(ticketId || "").trim().toLowerCase();
-    if (!tid) tid = extractTicketIdFromOpenUrl(openUrl);
-    if (!/^[a-f0-9]{24}$/i.test(tid)) return false;
-    if (document.visibilityState !== "visible") return false;
-    try {
-      if (typeof document.hasFocus === "function" && !document.hasFocus()) return false;
-    } catch (eFocus) {}
-    try {
-      var watching = window.__VC_WATCHING_TICKET;
-      if (watching && String(watching.id || "").toLowerCase() === tid) return true;
-    } catch (e1) {}
-    try {
-      var path = String(window.location.pathname || "");
-      if (path.indexOf("/tickets") === -1) return false;
-      var hash = String(window.location.hash || "").replace(/^#/, "").toLowerCase();
-      if (hash === tid) return true;
-      var q = "";
-      try {
-        q = String(new URLSearchParams(window.location.search || "").get("ticketId") || "").toLowerCase();
-      } catch (eQ) {}
-      return q === tid;
-    } catch (e2) {
-      return false;
-    }
-  }
-  function extractTicketIdFromOpenUrl(openUrl) {
-    var raw = String(openUrl || "").trim();
-    if (!raw) return "";
-    try {
-      var u = new URL(raw, window.location.origin);
-      var h = String(u.hash || "").replace(/^#/, "").trim().toLowerCase();
-      if (/^[a-f0-9]{24}$/i.test(h)) return h;
-      var q = String(u.searchParams.get("ticketId") || "").trim().toLowerCase();
-      if (/^[a-f0-9]{24}$/i.test(q)) return q;
-    } catch (e) {
-      var m = raw.match(/#([a-f0-9]{24})\b/i);
-      if (m) return String(m[1]).toLowerCase();
-    }
-    return "";
-  }
-  function extractTicketIdFromNotif(n) {
-    var tid = String((n && n.ticketId) || "").trim().toLowerCase();
-    if (/^[a-f0-9]{24}$/i.test(tid)) return tid;
-    return extractTicketIdFromOpenUrl(n && n.openUrl);
-  }
-  function forgetPendingRead(id) {
-    var sid = String(id || "").trim();
-    if (!sid) return;
-    var map = loadPendingReadMap();
-    if (!map[sid]) return;
-    delete map[sid];
-    savePendingReadMap(map);
-  }
-  function flushPendingReadsToServer() {
-    var map = loadPendingReadMap();
-    var ids = Object.keys(map);
-    if (!ids.length) return;
-    markSiteNotificationsReadBatchOnServer(ids);
-  }
-  function rememberPendingForItem(item) {
-    if (!item) return;
-    var xid = String(item.id || "").trim();
-    if (xid) rememberPendingRead(xid);
-    var uid = normalizeUserId(currentUserId);
-    var fp = buildNotifFingerprintId(
-      item,
-      uid,
-      String((item && item.kind) || "info"),
-      String((item && item.openUrl) || ""),
-    );
-    if (fp) rememberPendingRead(fp);
-  }
-  function markAllReadStampKey() {
-    var uid = normalizeUserId(currentUserId);
-    return MARK_ALL_AT_PREFIX + (uid || "anon");
-  }
-  function rememberMarkAllReadStamp() {
-    try {
-      localStorage.setItem(markAllReadStampKey(), String(Date.now()));
-    } catch (e) {}
-  }
-  function isRecentMarkAllRead() {
-    try {
-      var at = Number(localStorage.getItem(markAllReadStampKey()) || 0);
-      return Boolean(at && Date.now() - at < 20000);
-    } catch (e) {
-      return false;
-    }
-  }
-  function toastedKey() {
-    var uid = normalizeUserId(currentUserId);
-    return TOASTED_PREFIX + (uid || "anon");
-  }
-  function loadToastedMap() {
-    var map = {};
-    try {
-      var raw = localStorage.getItem(toastedKey());
-      var obj = raw ? JSON.parse(raw) : {};
-      if (!obj || typeof obj !== "object") return map;
-      var now = Date.now();
-      var keep = {};
-      for (var k in obj) {
-        if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
-        var at = Number(obj[k] || 0);
-        if (at && now - at < 1000 * 60 * 60 * 48) {
-          keep[k] = at;
-          map[k] = true;
-        }
-      }
-      if (Object.keys(keep).length !== Object.keys(obj).length) {
-        try {
-          localStorage.setItem(toastedKey(), JSON.stringify(keep));
-        } catch (eW) {}
-      }
-    } catch (e) {}
-    return map;
-  }
-  function rememberToastedId(id) {
-    var sid = String(id || "").trim();
-    if (!sid) return;
-    try {
-      var raw = localStorage.getItem(toastedKey());
-      var obj = raw ? JSON.parse(raw) : {};
-      if (!obj || typeof obj !== "object") obj = {};
-      obj[sid] = Date.now();
-      localStorage.setItem(toastedKey(), JSON.stringify(obj));
-    } catch (e) {}
-  }
-  function wasAlreadyToasted(id) {
-    var sid = String(id || "").trim();
-    if (!sid) return false;
-    return Boolean(loadToastedMap()[sid]);
-  }
-    function shouldPlayNotifAlert(row) {
-    if (!row || row.read) return false;
-    var id = String(row.id || "").trim();
-    if (id && wasAlreadyToasted(id)) return false;
-    if (recentlyGotOsPush(row)) return false;
-    return true;
-  }
-  function rememberToastedForDismissPush(p) {
-    if (!p || typeof p !== "object") return;
-    if (p.all === true) {
-      loadStored().forEach(function (x) {
-        var xid = String((x && x.id) || "").trim();
-        if (xid) rememberToastedId(xid);
-      });
-      return;
-    }
-    var sid = String(p.id || "").trim();
-    if (sid) rememberToastedId(sid);
-  }
-  function clearAllStampKey() {
-    var uid = normalizeUserId(currentUserId);
-    return CLEAR_ALL_AT_PREFIX + (uid || "anon");
-  }
-  function rememberClearAllStamp() {
-    try {
-      localStorage.setItem(clearAllStampKey(), String(Date.now()));
-    } catch (e) {}
-  }
-  function getClearAllAt() {
-    try {
-      return Number(localStorage.getItem(clearAllStampKey()) || 0) || 0;
-    } catch (e2) {
-      return 0;
-    }
-  }
-  function isClearedAwayServerRow(mapped, dismissed) {
-    if (!mapped) return true;
-    var sid = String(mapped.id || "").trim();
-    if (sid && dismissed && dismissed.has(sid)) return true;
-    var fpId = buildNotifFingerprintId(
-      mapped,
-      normalizeUserId(currentUserId),
-      String(mapped.kind || "info"),
-      String(mapped.openUrl || ""),
-    );
-    if (fpId && dismissed && dismissed.has(fpId)) return true;
-    var clearedAt = getClearAllAt();
-    var at = Number(mapped.at || 0) || 0;
-    if (clearedAt && at && at <= clearedAt) return true;
-    return false;
-  }
-  function notifDestIsSpecific(dest) {
-    var d = String(dest || "").trim();
-    if (!d) return false;
-    try {
-      var u = new URL(d, window.location.origin);
-      var path = String(u.pathname || "/").replace(/\/+$/, "") || "/";
-      if (path === "/") return Boolean(u.hash && u.hash.length > 1);
-      return true;
-    } catch (e) {
-      return d !== "/";
-    }
-  }
-  function applyPendingReads(items) {
-    var map = loadPendingReadMap();
-    var keys = Object.keys(map);
-    if (!keys.length) return Array.isArray(items) ? items : [];
-    var uid = normalizeUserId(currentUserId);
-    return (Array.isArray(items) ? items : []).map(function (x) {
-      var id = String((x && x.id) || "").trim();
-      var fp = buildNotifFingerprintId(
-        x,
-        uid,
-        String((x && x.kind) || "info"),
-        String((x && x.openUrl) || ""),
-      );
-      if ((id && map[id] && !x.read) || (fp && map[fp] && !x.read)) {
-        return Object.assign({}, x, { read: true });
-      }
-      return x;
-    });
-  }
-  function loadStored() {
-    var key = userStorageKey();
-    if (!key) return [];
-    try {
-      var raw = localStorage.getItem(key);
-      if (!raw) return [];
-      var arr = JSON.parse(raw);
-      return applyPendingReads(sortNotifItems(Array.isArray(arr) ? arr : []));
-    } catch (e) {
-      return [];
-    }
-  }
-  function notifTime(item) {
-    var n = Number(item && item.at);
-    return Number.isFinite(n) ? n : 0;
-  }
-  function sortNotifItems(items) {
-    return (Array.isArray(items) ? items.slice() : []).sort(function (a, b) {
-      var dt = notifTime(b) - notifTime(a);
-      if (dt !== 0) return dt;
-      return String(b && b.id || "").localeCompare(String(a && a.id || ""));
-    });
-  }
-  function saveStored(items) {
-    var key = userStorageKey();
-    if (!key) return;
-    var next = JSON.stringify(sortNotifItems(items));
-    try {
-      if (localStorage.getItem(key) === next) return;
-      localStorage.setItem(key, next);
-      notifyNotifStorePeers();
-    } catch (e) {}
-  }
-
-  /* notifCats3: classify personal vs inbox; split tickets/reviews/feedback; Punti tolti subject. */
-  /* notifUseful1: Mentions + candidature/appelli personal + SLA */
-  var DEDICATED_INBOX_QUEUES = {
-    pause: 1,
-    candidature: 1,
-    appelli: 1,
-    resoconti: 1,
-    "punti-tolti": 1,
-  };
-  function inboxQueueIdFromNotifUrl(raw) {
-    var s = String(raw || "").trim();
-    if (!s) return "";
-    try {
-      var u = new URL(s, window.location.origin);
-      var inbox = String(u.searchParams.get("inbox") || "")
-        .trim()
-        .toLowerCase();
-      return DEDICATED_INBOX_QUEUES[inbox] ? inbox : "";
-    } catch (eUrl) {
-      var m = s.toLowerCase().match(/[?&]inbox=(pause|candidature|appelli|resoconti|punti-tolti)\b/);
-      return m ? m[1] : "";
-    }
-  }
-  function isVoteRegisteredNotifClient(n) {
-    if (!n) return false;
-    var kind = String(n.kind || "").toLowerCase();
-    var title = String(n.title || "");
-    var body = String(n.body || "");
-    var hay = (title + " " + body).toLowerCase();
-    if (kind === "vote_reminder") return false;
-    if (/promemoria|puoi votare di nuovo|reminder/.test(hay)) return false;
-    if (kind === "vote") return true;
-    if (/voto\s+(su\s+)?(top\.?gg|discadia)\s+registrato/.test(hay)) return true;
-    if (/voto registrato/.test(hay) && /(top\.?gg|discadia)/.test(hay)) return true;
-    return false;
-  }
-  function notifMetaKey(n) {
-    return String((n && (n.dedupeKey || n.id)) || "").toLowerCase();
-  }
-  function isPuntiToltiSubjectNotifClient(n) {
-    if (!n) return false;
-    var key = notifMetaKey(n);
-    if (/^pt-removed:/.test(key) || /^pt-review:/.test(key)) return true;
-    var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
-    return /punto partnership rimosso|punti tolti\s*[—\-–]?\s*(rimozione confermata|segnalazione negata)/.test(
-      hay,
-    );
-  }
-  function isPersonalTicketOpenerNotifClient(n) {
-    if (!n) return false;
-    var ch = String(n.channel || "").toLowerCase();
-    var url = String(n.openUrl || "").toLowerCase();
-    if (ch === "inbox" || /(?:\?|&)view=staff\b/.test(url)) return false;
-    var key = notifMetaKey(n);
-    if (
-      /^web_ticket:(staff_reply|needs_reply|closed|claimed|close-request|close-rejected|event):/.test(key)
-    ) {
-      return true;
-    }
-    if (ch === "personal") {
-      var k0 = String(n.kind || "").toLowerCase();
-      if (k0 === "web_ticket" || k0 === "web_ticket_mention") return true;
-    }
-    var k = String(n.kind || "").toLowerCase();
-    if (k !== "web_ticket" && k !== "web_ticket_mention") return false;
-    return /\/tickets\//.test(url) && !/(?:\?|&)view=staff\b/.test(url);
-  }
-  function isStaffTicketSlaNotifClient(n) {
-    if (!n) return false;
-    if (String(n.kind || "").toLowerCase() === "web_ticket_sla") return true;
-    return /^web_ticket:sla:/.test(notifMetaKey(n));
-  }
-  function isMentionNotifClient(n) {
-    if (!n) return false;
-    var k = String(n.kind || "").toLowerCase();
-    if (k === "web_ticket_mention" || k === "workflow_mention") return true;
-    var key = notifMetaKey(n);
-    return /^web_ticket:mention:/.test(key) || /^wfc:mention:/.test(key);
-  }
-  function isWorkflowDecisionNotifClient(n) {
-    if (!n) return false;
-    if (String(n.kind || "").toLowerCase() === "workflow_decision") return true;
-    var key = notifMetaKey(n);
-    return /^(cand-|unban-|unmute-|cand-pex-|cand-rej-|wfc:decision:|appeal-auto-close:)/.test(key);
-  }
-  function isStaffTicketNotifClient(n) {
-    if (!n) return false;
-    if (isPersonalTicketOpenerNotifClient(n)) return false;
-    if (isStaffTicketSlaNotifClient(n)) return true;
-    var key = notifMetaKey(n);
-    if (/^web_ticket:queue:/.test(key) || /^web_ticket:chat:/.test(key) || /^web_ticket:sla:/.test(key)) {
-      return true;
-    }
-    var kind = String(n.kind || "").toLowerCase();
-    if (kind === "web_ticket_sla") return true;
-    if (kind === "web_ticket_mention" || kind === "workflow_mention") {
-      var urlM = String(n.openUrl || "").toLowerCase();
-      if (/\/tickets\//.test(urlM) && /(?:\?|&)view=staff\b/.test(urlM)) return true;
-      if (String(n.channel || "").toLowerCase() === "inbox") return true;
-      return false;
-    }
-    if (kind !== "web_ticket" && kind !== "web_ticket_mention") return false;
-    var url = String(n.openUrl || "").toLowerCase();
-    return /\/tickets\//.test(url) && /(?:\?|&)view=staff\b/.test(url);
-  }
-  function isStaffReviewNotifClient(n) {
-    if (!n) return false;
-    var key = notifMetaKey(n);
-    if (/^rev-new:/.test(key)) return true;
-    if (String(n.kind || "").toLowerCase() !== "review") return false;
-    return /^nuova recensione\b/i.test(String(n.title || "").trim());
-  }
-  function isStaffFeedbackNotifClient(n) {
-    if (!n) return false;
-    var key = notifMetaKey(n);
-    if (/^suggestion:new:/.test(key) || /^bot_feedback_new:/.test(key)) return true;
-    if (String(n.kind || "").toLowerCase() !== "suggestion") return false;
-    return /^(nuovo|nuova)\s+(suggerimento|segnalazione|bug)\b/i.test(String(n.title || "").trim());
-  }
-  function isDedicatedInboxQueueAlertClient(n) {
-    if (!n) return false;
-    var ch = String(n.channel || "").toLowerCase();
-    if (ch === "personal") return false;
-    var key = notifMetaKey(n);
-    if (
-      /^pt-removed:/.test(key) ||
-      /^pt-review:/.test(key) ||
-      /^pause:decision:/.test(key) ||
-      /^val-/.test(key) ||
-      /^wfc:(invite|remove|msg):subj:/.test(key) ||
-      /^wfc:decision:/.test(key)
-    ) {
-      return false;
-    }
-    if (isPuntiToltiSubjectNotifClient(n)) return false;
-    if (isWorkflowDecisionNotifClient(n)) return false;
-    if (/^inbox:(pause|candidature|appelli|resoconti)(?::|$)/.test(key)) return true;
-    if (/^pt-pending:/.test(key)) return true;
-    if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
-    var queue = inboxQueueIdFromNotifUrl(n.openUrl);
-    if (!queue) return false;
-    var hay = (String(n.title || "") + " " + String(n.body || "")).toLowerCase();
-    if (
-      /nuovo resoconto|nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
-        hay,
-      )
-    ) {
-      return true;
-    }
-    return false;
-  }
-  function isInboxLinkedNotifClient(n) {
-    if (!n) return false;
-    /* Subject/staff splits win over stale channel=personal. */
-    if (isWorkflowDecisionNotifClient(n) || isPersonalTicketOpenerNotifClient(n)) return false;
-    if (isPuntiToltiSubjectNotifClient(n)) return true;
-    if (isStaffTicketSlaNotifClient(n)) return true;
-    if (isStaffTicketNotifClient(n)) return true;
-    if (isStaffReviewNotifClient(n)) return true;
-    if (isStaffFeedbackNotifClient(n)) return true;
-    if (isMentionNotifClient(n) && String(n.channel || "").toLowerCase() !== "personal") return true;
-    var ch = String(n.channel || "").toLowerCase();
-    if (ch === "personal") return false;
-    if (ch === "inbox") return true;
-    if (isDedicatedInboxQueueAlertClient(n)) return true;
-    var key = String(n.dedupeKey || "").toLowerCase();
-    if (
-      /^inbox:/.test(key) ||
-      /^wfc:(invite|remove|msg):staff:/.test(key) ||
-      /^wfc:mention:/.test(key) ||
-      /^pt-pending:/.test(key) ||
-      /^web_ticket:sla:/.test(key)
-    ) {
-      return true;
-    }
-    return false;
-  }
-  function inboxNotifBucket(n) {
-    if (isPuntiToltiSubjectNotifClient(n)) return "punti-tolti";
-    if (isMentionNotifClient(n)) return "mentions";
-    if (isStaffTicketSlaNotifClient(n) || isStaffTicketNotifClient(n)) return "tickets";
-    if (isStaffReviewNotifClient(n)) return "reviews";
-    if (isStaffFeedbackNotifClient(n)) return "feedback";
-    return "avvisi";
-  }
-  function personalNotifCategory(n) {
-    var kind = String((n && n.kind) || "info").toLowerCase();
-    var key = notifMetaKey(n);
-    if (kind === "vote" || kind === "vote_reminder") return "votes";
-    if (kind === "web_ticket" || kind === "web_ticket_mention") return "tickets";
-    if (isMentionNotifClient(n)) return "tickets";
-    if (isWorkflowDecisionNotifClient(n)) {
-      if (/appelli|unban|unmute|appeal/.test(key + " " + String(n.openUrl || "").toLowerCase())) {
-        return "appelli";
-      }
-      return "candidature";
-    }
-    if (kind === "review") return "reviews";
-    if (kind === "suggestion") return "feedback";
-    if (kind === "staff") return "staff";
-    if (kind === "mod" || kind === "success") return "community";
-    return "system";
-  }
-  var PERSONAL_NOTIF_CATS = [
-    { id: "votes", label: "Voti", ico: "fa-clock-o" },
-    { id: "tickets", label: "Ticket", ico: "fa-ticket" },
-    { id: "candidature", label: "Candidature", ico: "fa-file-text-o" },
-    { id: "appelli", label: "Appelli", ico: "fa-gavel" },
-    { id: "reviews", label: "Recensioni", ico: "fa-star" },
-    { id: "feedback", label: "Feedback", ico: "fa-magic" },
-    { id: "staff", label: "Eventi staff", ico: "fa-id-badge" },
-    { id: "community", label: "Community", ico: "fa-users" },
-    { id: "system", label: "Sistema", ico: "fa-bell-o" },
-  ];
-  var INBOX_NOTIF_CATS = [
-    { id: "tickets", label: "Ticket", ico: "fa-ticket" },
-    { id: "mentions", label: "Mentions", ico: "fa-at" },
-    { id: "reviews", label: "Recensioni", ico: "fa-star" },
-    { id: "feedback", label: "Feedback", ico: "fa-magic" },
-    { id: "avvisi", label: "Avvisi", ico: "fa-bell" },
-  ];
-  function groupPersonalNotifsByCategory(items) {
-    var buckets = Object.create(null);
-    for (var i = 0; i < PERSONAL_NOTIF_CATS.length; i++) buckets[PERSONAL_NOTIF_CATS[i].id] = [];
-    (items || []).forEach(function (n) {
-      var id = personalNotifCategory(n);
-      if (!buckets[id]) buckets[id] = [];
-      buckets[id].push(n);
-    });
-    return PERSONAL_NOTIF_CATS.map(function (cat) {
-      return { id: cat.id, label: cat.label, ico: cat.ico, items: buckets[cat.id] || [] };
-    }).filter(function (g) {
-      return g.items.length > 0;
-    });
-  }
-  function inboxChannelRowsFromStore() {
-    var s = loadStored();
-    var uid = normalizeUserId(currentUserId);
-    var dismissed = loadDismissedSet(uid);
-    return s.filter(function (n) {
-      return (
-        !isClearedAwayServerRow(n, dismissed) &&
-        !isFilteredNotif(n) &&
-        !isVoteRegisteredNotifClient(n) &&
-        isInboxLinkedNotifClient(n) &&
-        !isDedicatedInboxQueueAlertClient(n)
-      );
-    });
-  }
-  function inboxNotifsForBucket(bucketId) {
-    return inboxChannelRowsFromStore().filter(function (n) {
-      return inboxNotifBucket(n) === bucketId;
-    });
-  }
-  function countInboxUnreadNotifs() {
-    return inboxChannelRowsFromStore().filter(function (n) {
-      return !n.read;
-    }).length;
-  }
-  function formatUnreadSub(n) {
-    var count = Math.max(0, Number(n) || 0);
-    if (window.VcI18n && typeof window.VcI18n.t === "function") {
-      try {
-        var t = window.VcI18n.t("notif.unread", { n: count });
-        if (t && t !== "notif.unread") return t;
-      } catch (eT) {}
-    }
-    if (count === 1) return "1 non letta";
-    return count + " non lette";
-  }
-  function clearNotifsByIds(ids) {
-    var idSet = {};
-    (ids || []).forEach(function (id) {
-      var sid = String(id || "").trim();
-      if (sid) idSet[sid] = true;
-    });
-    if (!Object.keys(idSet).length) return;
-    var uid = normalizeUserId(currentUserId);
-    var next = [];
-    loadStored().forEach(function (n) {
-      var nid = String((n && n.id) || "").trim();
-      if (nid && idSet[nid]) {
-        try {
-          rememberDismissedNotif(n, uid);
-        } catch (eRem) {}
-        try {
-          deleteSiteNotificationOnServer(nid);
-        } catch (eDel) {}
-        return;
-      }
-      next.push(n);
-    });
-    saveStored(next);
-    lastNotifRenderSig = "";
-    render({ force: true });
-    if (bellNotifScope === "staff") {
-      try {
-        var cached = readCachedBellStaffSummary();
-        renderBellStaffInbox((cached && cached.summary) || {});
-      } catch (eR) {}
-    }
-  }
-  /* notifCatBarFix1: count+trash+chev on the right; toggle = ico+label only. */
-  function buildNotifCategoryBar(opts) {
-    var bar = document.createElement("div");
-    bar.className = "vc-notif-cat-bar vc-notif-bell-inbox__link";
-    var toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className =
-      (opts.toggleClass || "vc-notif-cat-toggle vc-notif-bell-inbox__toggle") +
-      " vc-notif-cat-toggle-inner";
-    toggle.setAttribute("aria-expanded", opts.expanded ? "true" : "false");
-    if (opts.ariaControls) toggle.setAttribute("aria-controls", opts.ariaControls);
-    toggle.innerHTML = opts.toggleHtml || "";
-    var actions = document.createElement("span");
-    actions.className = "vc-notif-cat-head__actions";
-    if (opts.countHtml) {
-      actions.insertAdjacentHTML("beforeend", opts.countHtml);
-    }
-    var clearBtn = null;
-    if (typeof opts.onClear === "function") {
-      clearBtn = document.createElement("button");
-      clearBtn.type = "button";
-      clearBtn.className = "vc-notif-cat-clear";
-      if (opts.clearCatId) clearBtn.setAttribute("data-cat-clear", opts.clearCatId);
-      clearBtn.title = opts.clearTitle || "Elimina categoria";
-      clearBtn.setAttribute("aria-label", opts.clearAriaLabel || clearBtn.title);
-      clearBtn.innerHTML = '<i class="fa fa-trash-o" aria-hidden="true"></i>';
-      clearBtn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        opts.onClear(ev);
-      });
-      actions.appendChild(clearBtn);
-    }
-    var chev = document.createElement("i");
-    chev.className = "fa fa-chevron-down vc-notif-cat-chev vc-notif-bell-inbox__chev";
-    chev.setAttribute("aria-hidden", "true");
-    actions.appendChild(chev);
-    bar.appendChild(toggle);
-    bar.appendChild(actions);
-    if (typeof opts.onToggleClick === "function") {
-      toggle.addEventListener("click", opts.onToggleClick);
-    }
-    return { bar: bar, toggle: toggle, clearBtn: clearBtn, actions: actions, chev: chev };
-  }
-  function clearNotifCategory(catId, scope) {
-    var items =
-      scope === "inbox"
-        ? inboxNotifsForBucket(catId)
-        : rows().filter(function (n) {
-            return personalNotifCategory(n) === catId;
-          });
-    clearNotifsByIds(
-      items.map(function (n) {
-        return n && n.id;
-      }),
-    );
-  }
-
-  function isFilteredNotif(n) {
-    return Boolean(n && n.filtered);
-  }
-  function rows() {
-    var s = loadStored();
-    var uid = normalizeUserId(currentUserId);
-    var dismissed = loadDismissedSet(uid);
-    s = s.filter(function (n) {
-      return (
-        !isClearedAwayServerRow(n, dismissed) &&
-        !isFilteredNotif(n) &&
-        !isVoteRegisteredNotifClient(n) &&
-        !isInboxLinkedNotifClient(n)
-      );
-    });
-    var demo = ephemeralDemo && !isVoteRegisteredNotifClient(ephemeralDemo) ? ephemeralDemo : null;
-    return demo ? [demo].concat(s) : s;
-  }
-  function iconClass(kind) {
-    if (kind === "vote") return "fa-trophy";
-    if (kind === "vote_reminder") return "fa-clock-o";
-    if (kind === "success") return "fa-check-circle";
-    if (kind === "review") return "fa-star";
-    if (kind === "mod") return "fa-shield";
-    if (kind === "staff") return "fa-id-badge";
-    if (kind === "suggestion") return "fa-magic";
-    if (kind === "web_ticket" || kind === "web_ticket_mention") return "fa-ticket";
-    return "fa-bell-o";
-  }
-  function notificationsPageUrl() {
-    try {
-      return new URL(NOTIFICATIONS_PATH, window.location.origin).toString();
-    } catch (e) {
-      return NOTIFICATIONS_PATH;
-    }
-  }
-
-  function tUi(key, vars, fallback) {
-    try {
-      if (window.VcI18n && typeof window.VcI18n.t === "function") {
-        var v = window.VcI18n.t(key, vars);
-        if (v && v !== key) return v;
-      }
-    } catch (e) {}
-    var out = fallback != null ? fallback : key;
-    if (vars && typeof out === "string") {
-      out = out.replace(/\{(\w+)\}/g, function (_, k) {
-        return vars[k] != null ? String(vars[k]) : "{" + k + "}";
-      });
-    }
-    return out;
-  }
-
-  function ensureNotifSeeAllLink() {
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (!dd) return null;
-    var panel = dd.querySelector(".vc-notif-panel");
-    var foot = document.getElementById("vc-notif-panel-foot");
-    if (!foot) {
-      foot = document.createElement("div");
-      foot.className = "vc-notif-panel-foot";
-      foot.id = "vc-notif-panel-foot";
-      if (panel) panel.appendChild(foot);
-      else return null;
-    }
-    foot.hidden = false;
-    var seeAll = document.getElementById("vc-notif-see-all");
-    if (!seeAll) {
-      seeAll = document.createElement("a");
-      seeAll.id = "vc-notif-see-all";
-      seeAll.className = "vc-notif-see-all";
-      var label = document.createElement("span");
-      label.setAttribute("data-i18n", "notif.seeAll");
-      label.textContent = tUi("notif.seeAll", null, "Vedi tutte le notifiche");
-      seeAll.appendChild(label);
-      seeAll.appendChild(document.createTextNode(" "));
-      var chev = document.createElement("i");
-      chev.className = "fa fa-chevron-right";
-      chev.setAttribute("aria-hidden", "true");
-      seeAll.appendChild(chev);
-      foot.appendChild(seeAll);
-    }
-    /* notifSeeAll1: CTA always personal /notifications/ — Inbox tab stays separate */
-    seeAll.href = notificationsPageUrl();
-    seeAll.setAttribute(
-      "aria-label",
-      tUi("notif.seeAll", null, "Vedi tutte le notifiche"),
-    );
-    try {
-      var labelEl = seeAll.querySelector("span[data-i18n], span");
-      if (labelEl) {
-        labelEl.setAttribute("data-i18n", "notif.seeAll");
-        labelEl.textContent = tUi("notif.seeAll", null, "Vedi tutte le notifiche");
-      }
-    } catch (eLab) {}
-    if (isStandalonePwa()) dd.classList.add("vc-notif-dropdown--pwa");
-    return seeAll;
-  }
-
-  function buildNotifStoreSignature(items) {
-    var parts = [];
-    for (var si = 0; si < items.length; si += 1) {
-      var n = items[si];
-      if (!n) continue;
-      parts.push(
-        String(n.id || "") +
-          "\x1e" +
-          (n.read ? "1" : "0") +
-          "\x1e" +
-          (n.filtered ? "1" : "0") +
-          "\x1e" +
-          String(n.at || 0) +
-          "\x1e" +
-          String(n.kind || "") +
-          "\x1e" +
-          String(n.title || "") +
-          "\x1e" +
-          String(n.body || "") +
-          "\x1e" +
-          String(n.openUrl || ""),
-      );
-    }
-    return parts.join("\x1f");
-  }
-
-  function timeAgoLocalized(atMs) {
-    var nt = tUi;
-    var s = Math.floor((Date.now() - atMs) / 1000);
-    if (s < 45) return nt("notif.justNow", null, "Ora");
-    var m = Math.floor(s / 60);
-    if (m < 60) {
-      return m === 1
-        ? nt("notif.minuteAgo", null, "1 minuto fa")
-        : nt("notif.minutesAgo", { n: m }, "{n} minuti fa");
-    }
-    var h = Math.floor(m / 60);
-    if (h < 24) {
-      return h === 1
-        ? nt("notif.hourAgo", null, "1 ora fa")
-        : nt("notif.hoursAgo", { n: h }, "{n} ore fa");
-    }
-    var d = Math.floor(h / 24);
-    if (d < 7) {
-      return d === 1
-        ? nt("notif.dayAgo", null, "1 giorno fa")
-        : nt("notif.daysAgo", { n: d }, "{n} giorni fa");
-    }
-    return nt("notif.weekPlusAgo", null, "Più di una settimana fa");
-  }
-  function render(options) {
-    bindClearAllButton();
-    wireNotifMobileSheet();
-    wireNotifListClicks();
-    ensureNotifBellScopeUi();
-    var root = document.getElementById("vc-notif-dropdown");
-    var listEl = document.getElementById("vc-notif-list");
-    var badge = document.getElementById("vc-notif-badge");
-    var sub = document.getElementById("vc-notif-unread-sub");
-    var all = rows();
-    var unread = all.filter(function (n) {
-      return !n.read;
-    }).length;
-    if (!root || !listEl || !badge || !sub) {
-      syncBrowserTabNotifBadge(unread);
-      return;
-    }
-    var sig = buildNotifStoreSignature(all) + "|u:" + unread;
-    var force = options && options.force === true;
-    if (unread > 0) {
-      badge.hidden = false;
-      badge.textContent = unread > 99 ? "99+" : String(unread);
-    } else {
-      badge.hidden = true;
-      if (windowAttentionTimer) stopWindowAttention();
-    }
-    syncBrowserTabNotifBadge(unread);
-    if (!(bellNotifScope === "staff" && canBellStaffInbox())) {
-      sub.textContent = formatUnreadSub(unread);
-    } else if (typeof renderBellStaffInbox === "function") {
-      try {
-        sub.textContent = formatUnreadSub(countInboxUnreadNotifs());
-        var cachedInbox = typeof readCachedBellStaffSummary === "function" ? readCachedBellStaffSummary() : null;
-        if (cachedInbox && cachedInbox.summary) renderBellStaffInbox(cachedInbox.summary);
-      } catch (eInboxPaint) {}
-    }
-    if (all.length > 0) root.classList.add("vc-notif-dropdown--has-items");
-    else root.classList.remove("vc-notif-dropdown--has-items");
-    syncPushPromptUi();
-    if (!force && sig === lastNotifRenderSig) return;
-    lastNotifRenderSig = sig;
-    bindClearAllButton();
-    listEl.innerHTML = "";
-    listEl.classList.add("vc-notif-list--cats");
-    function appendPersonalNotifRow(host, n) {
-      var li = document.createElement("li");
-      var destRaw = String(n.openUrl || "").trim();
-      var btn = document.createElement(destRaw ? "a" : "button");
-      if (!destRaw) btn.type = "button";
-      btn.className = "vc-notif-item";
-      if (n.kind === "success") btn.classList.add("vc-notif-item--success");
-      if (n.read) btn.classList.add("vc-notif-item--read");
-      btn.setAttribute("data-id", n.id);
-      btn.setAttribute("data-open-url", destRaw);
-      btn.setAttribute("data-kind", String(n.kind || "info"));
-      if (destRaw) btn.href = resolveNotifDestUrl(destRaw);
-      var ico = document.createElement("span");
-      ico.className = "vc-notif-item-ico";
-      ico.setAttribute("aria-hidden", "true");
-      var fi = document.createElement("i");
-      fi.className = "fa " + iconClass(n.kind);
-      fi.setAttribute("aria-hidden", "true");
-      ico.appendChild(fi);
-      var main = document.createElement("div");
-      main.className = "vc-notif-item-main";
-      var title = document.createElement("p");
-      title.className = "vc-notif-item-title";
-      title.textContent = n.title || "";
-      var desc = document.createElement("p");
-      desc.className = "vc-notif-item-desc";
-      desc.textContent = n.body || "";
-      var time = document.createElement("time");
-      time.className = "vc-notif-item-time";
-      time.dateTime = new Date(n.at || Date.now()).toISOString();
-      time.textContent = timeAgoLocalized(n.at || Date.now());
-      main.appendChild(title);
-      main.appendChild(desc);
-      main.appendChild(time);
-      var dot = document.createElement("span");
-      dot.className = "vc-notif-item-dot";
-      if (n.read) dot.setAttribute("aria-hidden", "true");
-      else
-        dot.setAttribute(
-          "aria-label",
-          window.VcI18n && typeof window.VcI18n.t === "function"
-            ? window.VcI18n.t("notif.unreadDot")
-            : "Non letta",
-        );
-      btn.appendChild(ico);
-      btn.appendChild(main);
-      btn.appendChild(dot);
-      li.className = "vc-notif-row";
-      var dismiss = document.createElement("button");
-      dismiss.type = "button";
-      dismiss.className = "vc-notif-dismiss";
-      dismiss.setAttribute("data-id", n.id);
-      dismiss.setAttribute("aria-label", "Elimina notifica");
-      dismiss.title = "Elimina";
-      dismiss.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
-      li.appendChild(btn);
-      li.appendChild(dismiss);
-      host.appendChild(li);
-    }
-    var groups = groupPersonalNotifsByCategory(all);
-    groups.forEach(function (g) {
-      var section = document.createElement("li");
-      /* notifCats3: categories always start collapsed; chrome matches Inbox bars */
-      section.className = "vc-notif-cat-row vc-notif-bell-inbox__row";
-      section.setAttribute("data-notif-cat", g.id);
-      var unreadCat = g.items.filter(function (x) { return !x.read; }).length;
-      var itemsHost = document.createElement("ul");
-      itemsHost.className = "vc-notif-cat-items vc-notif-bell-inbox__items";
-      itemsHost.setAttribute("role", "list");
-      itemsHost.hidden = true;
-      itemsHost.setAttribute("hidden", "");
-      var catBar = buildNotifCategoryBar({
-        toggleClass: "vc-notif-cat-toggle vc-notif-bell-inbox__toggle",
-        toggleHtml:
-          '<span class="vc-notif-cat-ico vc-notif-bell-inbox__ico" aria-hidden="true"><i class="fa ' +
-          g.ico +
-          '"></i></span>' +
-          '<span class="vc-notif-cat-label vc-notif-bell-inbox__label">' +
-          escBellHtml(g.label) +
-          "</span>",
-        countHtml:
-          '<span class="vc-notif-cat-count vc-notif-bell-inbox__count">' +
-          String(g.items.length) +
-          (unreadCat ? " · " + unreadCat : "") +
-          "</span>",
-        clearCatId: g.id,
-        clearAriaLabel: "Elimina tutte in " + g.label,
-        onClear: function () {
-          clearNotifCategory(g.id, "personal");
-        },
-        onToggleClick: function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          var open = !section.classList.contains("is-open");
-          section.classList.toggle("is-open", open);
-          catBar.bar.classList.toggle("is-open", open);
-          catBar.toggle.classList.toggle("is-open", open);
-          catBar.toggle.setAttribute("aria-expanded", open ? "true" : "false");
-          itemsHost.hidden = !open;
-          if (open) itemsHost.removeAttribute("hidden");
-          else itemsHost.setAttribute("hidden", "");
-        },
-      });
-      var bar = catBar.bar;
-      var toggle = catBar.toggle;
-      g.items.forEach(function (n) {
-        appendPersonalNotifRow(itemsHost, n);
-      });
-      section.appendChild(bar);
-      section.appendChild(itemsHost);
-      listEl.appendChild(section);
-    });
-  }
-  function markAllRead() {
-    if (ephemeralDemo) ephemeralDemo.read = true;
-    try {
-      stopWindowAttention();
-    } catch (eStopAll) {}
-    rememberMarkAllReadStamp();
-    saveStored(
-      loadStored().map(function (x) {
-        rememberPendingForItem(x);
-        var xid = String((x && x.id) || "").trim();
-        if (xid) rememberToastedId(xid);
-        return Object.assign({}, x, { read: true });
-      }),
-    );
-    render({ force: true });
-    dismissOsNotifications({ all: true });
-    markAllSiteNotificationsReadOnServer().finally(function () {
-      window.setTimeout(function () {
-        syncSiteNotificationsFromServer();
-      }, 400);
-    });
-  }
-  function hasUnreadNotifs() {
-    if (ephemeralDemo && !ephemeralDemo.read) return true;
-    return rows().some(function (n) {
-      return !n.read;
-    });
-  }
-  function markAllReadOnBellOpen() {
-    if (!hasUnreadNotifs()) return;
-    markAllRead();
-  }
-  function removeMarkAllButton() {
-    var markBtn = document.getElementById("vc-notif-mark-all");
-    if (markBtn && markBtn.parentNode) markBtn.parentNode.removeChild(markBtn);
-  }
-  var lastClearAllCallAt = 0;
-  function clearAll(ev) {
-    if (ev && typeof ev.preventDefault === "function") {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
-    }
-    var now = Date.now();
-    if (now - lastClearAllCallAt < 500) return;
-    lastClearAllCallAt = now;
-    ephemeralDemo = null;
-    var uid = normalizeUserId(currentUserId);
-    var items = loadStored();
-    for (var ci = 0; ci < items.length; ci += 1) {
-      rememberDismissedNotif(items[ci], uid);
-    }
-    rememberClearAllStamp();
-    saveStored([]);
-    render({ force: true });
-    clearAllSiteNotificationsOnServer().finally(function () {
-      window.setTimeout(function () {
-        syncSiteNotificationsFromServer();
-      }, 600);
-    });
-  }
-  window.__vcClearAllNotifs = clearAll;
-  function clearAllEventTarget(ev) {
-    var t = ev && ev.target;
-    if (!t) return null;
-    if (t.nodeType === 3) t = t.parentElement;
-    if (t && !t.closest && t.parentElement) t = t.parentElement;
-    return t && t.closest ? t : null;
-  }
-  function onClearAllGesture(ev) {
-    var t = clearAllEventTarget(ev);
-    if (!t || !t.closest || !t.closest("#vc-notif-clear-all")) return;
-    if (ev.type === "pointerup" && Number(ev.button) > 0) return;
-    if (ev.type === "touchend" && ev.cancelable) ev.preventDefault();
-    clearAll(ev);
-  }
-  function bindClearAllButton() {
-    var btn = document.getElementById("vc-notif-clear-all");
-    if (!btn) return;
-    btn.onclick = function (ev) {
-      clearAll(ev);
-      return false;
-    };
-    if (btn.__vcClearBound) return;
-    btn.__vcClearBound = true;
-    btn.addEventListener("click", clearAll);
-    btn.addEventListener("pointerup", onClearAllGesture);
-    btn.addEventListener("touchend", onClearAllGesture, { passive: false });
-  }
-  if (!window.__vcNotifClearAllWired) {
-    window.__vcNotifClearAllWired = true;
-    document.addEventListener("click", onClearAllGesture, true);
-    document.addEventListener("pointerup", onClearAllGesture, true);
-    document.addEventListener("touchend", onClearAllGesture, true);
-  }
-  function onDismissOneGesture(ev) {
-    var t = ev && ev.target;
-    if (!t) return;
-    if (t.nodeType === 3) t = t.parentElement;
-    if (!t || !t.closest) return;
-    var btn = t.closest("button.vc-notif-dismiss");
-    if (!btn) return;
-    if (ev.type === "pointerup" && Number(ev.button) > 0) return;
-    if (ev.type === "touchend" && ev.cancelable) ev.preventDefault();
-    if (ev.preventDefault) ev.preventDefault();
-    if (ev.stopPropagation) ev.stopPropagation();
-    if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-    dismissOneSiteNotification(btn.getAttribute("data-id") || "");
-  }
-  if (!window.__vcNotifDismissWired) {
-    window.__vcNotifDismissWired = true;
-    document.addEventListener("click", onDismissOneGesture, true);
-    document.addEventListener("pointerup", onDismissOneGesture, true);
-    document.addEventListener("touchend", onDismissOneGesture, true);
-  }
-  function markOneRead(id, extra) {
-    var sid = String(id || "").trim();
-    var dest = String((extra && extra.openUrl) || "").trim();
-    if (ephemeralDemo && String(ephemeralDemo.id || "") === sid) {
-      ephemeralDemo.read = true;
-      render();
-      stopWindowAttention();
-      return;
-    }
-    if (!sid && !dest) return;
-    try {
-      stopWindowAttention();
-    } catch (eStop) {}
-    if (sid) {
-      rememberPendingRead(sid);
-      rememberClickRead(sid);
-      rememberToastedId(sid);
-    }
-    var ticketIds = {};
-    var idsToPost = sid ? [sid] : [];
-    var destMatch = notifDestIsSpecific(dest);
-    saveStored(
-      loadStored().map(function (x) {
-        if (!x || x.read) return x;
-        var xid = String((x && x.id) || "").trim();
-        var xDest = String((x && x.openUrl) || "").trim();
-        var match = Boolean(sid && xid === sid);
-        if (!match && destMatch && xDest && xDest === dest) match = true;
-        if (!match) return x;
-        rememberPendingForItem(x);
-        if (xid && idsToPost.indexOf(xid) === -1) idsToPost.push(xid);
-        var tid = extractTicketIdFromNotif(x);
-        if (tid) ticketIds[tid] = true;
-        return Object.assign({}, x, { read: true });
-      }),
-    );
-    render({ force: true });
-    dismissOsNotifications({ id: sid, ticketIds: Object.keys(ticketIds) });
-    function afterMark() {
-      window.setTimeout(function () {
-        syncSiteNotificationsFromServer();
-      }, 400);
-    }
-    if (!idsToPost.length) {
-      afterMark();
-      return;
-    }
-    markSiteNotificationsReadBatchOnServer(idsToPost).then(afterMark, afterMark);
-  }
-  function consumeNotifReadFromUrl() {
-    try {
-      var u = new URL(window.location.href);
-      var id = String(u.searchParams.get("vcNotifRead") || "").trim();
-      if (!id) return;
-      rememberClickRead(id);
-      u.searchParams.delete("vcNotifRead");
-      var cleaned = u.pathname + u.search + u.hash;
-      if (window.history && typeof window.history.replaceState === "function") {
-        window.history.replaceState({}, "", cleaned);
-      }
-    } catch (e) {}
-    tryFlushClickReads();
-  }
-  function pingSwClientFocus() {
-    try {
-      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
-      var watching = {};
-      try {
-        watching = window.__VC_WATCHING_TICKET || {};
-      } catch (eW) {}
-      var focused = false;
-      try {
-        focused =
-          document.visibilityState === "visible" &&
-          (typeof document.hasFocus !== "function" || document.hasFocus());
-      } catch (eF) {
-        focused = document.visibilityState === "visible";
-      }
-      navigator.serviceWorker.controller.postMessage({
-        type: "vc:client-focus",
-        focused: focused,
-        standalone: isStandalonePwa(),
-        ticketId: focused ? String(watching.id || "") : "",
-        token: getDiscordAccessToken(),
-      });
-    } catch (e) {}
-  }
-  function wireSwClientFocusPing() {
-    pingSwClientFocus();
-    window.addEventListener("focus", pingSwClientFocus);
-    window.addEventListener("blur", pingSwClientFocus);
-    document.addEventListener("visibilitychange", pingSwClientFocus);
-    window.setInterval(pingSwClientFocus, 4000);
-    try {
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.addEventListener("controllerchange", pingSwClientFocus);
-      }
-    } catch (e2) {}
-    try {
-      window.__vcPingSwClientFocus = pingSwClientFocus;
-    } catch (e3) {}
-  }
-  function wirePushNotifMarkRead() {
-    consumeNotifReadFromUrl();
-    consumePendingReadFromSwCache();
-    var pushSyncTimer = 0;
-    function scheduleInboxSyncFromPush() {
-            if (pushSyncTimer) clearTimeout(pushSyncTimer);
-      pushSyncTimer = setTimeout(function () {
-        pushSyncTimer = 0;
-        try {
-          syncSiteNotificationsFromServer();
-        } catch (eSync) {}
-      }, 220);
-    }
-    try {
-      if (!("serviceWorker" in navigator)) return;
-      navigator.serviceWorker.addEventListener("message", function (ev) {
-        var data = ev && ev.data ? ev.data : null;
-        if (!data || !data.type) return;
-        if (data.type === "vc:push-received") {
-          var p = data.payload && typeof data.payload === "object" ? data.payload : {};
-          if (String(p.type || "") === "dismiss") {
-            dismissOsNotifications({
-              ticketId: p.ticketId,
-              id: p.id,
-              all: p.all === true,
-            });
-            rememberToastedForDismissPush(p);
-            scheduleInboxSyncFromPush();
-            return;
-          }
-          rememberRecentOsPush(String(p.id || "").trim());
-          rememberRecentOsPush(String(p.messageId || "").trim());
-          rememberRecentOsPush(String(p.ticketId || "").trim());
-          setPushSubActive(true);
-                    scheduleInboxSyncFromPush();
-          if (isWatchingTicketChat(p.ticketId, p.openUrl)) {
-            var seenId = String(p.id || "").trim();
-            if (seenId) {
-              rememberClickRead(seenId);
-              tryFlushClickReads();
-            }
-            return;
-          }
-          /* phoneNotifFlyCard1: card in-app subito (non dipendere dal poll / soft-OS). */
-          try {
-            if (document.visibilityState === "visible") {
-              var pushToastId = String(p.id || p.messageId || "").trim();
-              if (!pushToastId || !wasAlreadyToasted(pushToastId)) {
-                if (pushToastId) rememberToastedId(pushToastId);
-                playNotifSound();
-                showNotifFlyToast({
-                  id: pushToastId || String(Date.now()),
-                  title: String(p.title || "Nuova notifica"),
-                  body: String(p.body || ""),
-                  kind: String(p.kind || "info"),
-                  openUrl: String(p.openUrl || "").trim(),
-                  ticketId: String(p.ticketId || "").trim(),
-                  messageId: String(p.messageId || "").trim(),
-                  at: Date.now(),
-                  read: false,
-                });
-              }
-            }
-          } catch (ePushFly) {}
-                    return;
-        }
-        if (data.type === "vc:push-resubscribe") {
-          refreshPushSubscriptionState().then(function (ok) {
-            if (!ok) syncPushPromptUi();
-          });
-          return;
-        }
-        if (data.type === "vc:force-reload-layout" || data.type === "vc:force-reload-home") {
-          try {
-            var want = String(data.v || "").trim();
-            var seen = String(sessionStorage.getItem("vc_layout_reload_v") || "").trim();
-            if (want && seen === want) return;
-            if (want) sessionStorage.setItem("vc_layout_reload_v", want);
-          } catch (eReloadKey) {}
-          try {
-            window.location.reload();
-          } catch (eReload) {}
-          return;
-        }
-        if (data.type === "vc:open-dest") {
-          var openId = String(data.id || "").trim();
-          var openTid = String(data.ticketId || "").trim();
-          if (openTid) markTicketNotificationsRead(openTid);
-          if (openId) markOneRead(openId, { openUrl: String(data.url || "").trim() });
-          applyOpenDest(String(data.url || "").trim(), openTid);
-          return;
-        }
-        if (data.type !== "vc:notif-mark-read") return;
-        var id = String(data.id || "").trim();
-        var ticketId = String(data.ticketId || "").trim();
-        if (ticketId) markTicketNotificationsRead(ticketId);
-        if (id) {
-          rememberClickRead(id);
-          tryFlushClickReads();
-        }
-      });
-    } catch (e2) {}
-  }
-  function resolveNotifDestUrl(dest) {
-    var u = String(dest || "").trim();
-    if (!u) return "";
-    if (/^https?:\/\//i.test(u)) return u;
-    try {
-      return new URL(u, window.location.origin).href;
-    } catch (e) {
-      return u;
-    }
-  }
-
-  function shouldOpenNotifInNewTab(href, kind) {
-    var k = String(kind || "").toLowerCase();
-    if (k !== "vote" && k !== "vote_reminder") return false;
-    try {
-      var u = new URL(String(href || ""), window.location.origin);
-      var host = String(u.hostname || "").toLowerCase();
-      return host.indexOf("top.gg") !== -1 || host.indexOf("discadia.com") !== -1;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  function openNotifDestination(href, kind) {
-    if (!href) return;
-    if (shouldOpenNotifInNewTab(href, kind)) {
-      try {
-        window.open(href, "_blank", "noopener,noreferrer");
-        return;
-      } catch (e) {}
-    }
-    try {
-      var dest = new URL(String(href), window.location.origin);
-      var here = window.location;
-      var destPath = String(dest.pathname || "").replace(/\/+$/, "") || "/";
-      var herePath = String(here.pathname || "").replace(/\/+$/, "") || "/";
-      var isTicketsDest = /\/tickets$/i.test(destPath);
-      var onTicketsPage = /\/tickets$/i.test(herePath);
-      if (isTicketsDest && onTicketsPage) {
-        var ticketId = String(dest.hash || "").replace(/^#/, "").trim();
-        if (!/^[a-f0-9]{24}$/i.test(ticketId)) {
-          try {
-            ticketId = String(dest.searchParams.get("ticketId") || "").trim();
-          } catch (eTid) {}
-        }
-        var wantStaff = false;
-        try {
-          wantStaff = dest.searchParams.get("view") === "staff";
-        } catch (eSp) {}
-        if (wantStaff) {
-          var cur = String(here.search || "");
-          if (cur.indexOf("view=staff") < 0) {
-                        window.location.href =
-              dest.pathname +
-              "?view=staff" +
-              (ticketId ? "&ticketId=" + encodeURIComponent(ticketId) + "#" + ticketId : "");
-            return;
-          }
-        }
-        if (ticketId && /^[a-f0-9]{24}$/i.test(ticketId)) {
-          if (String(here.hash || "").replace(/^#/, "") !== ticketId) {
-            try {
-              var yKeep =
-                window.pageYOffset ||
-                (document.documentElement && document.documentElement.scrollTop) ||
-                0;
-              history.replaceState(
-                null,
-                "",
-                here.pathname + here.search + "#" + ticketId,
-              );
-              window.scrollTo(0, yKeep);
-              if (document.documentElement) document.documentElement.scrollTop = yKeep;
-            } catch (eHash) {
-              /* ticketActionFail1: mai location.hash= — scrolla in alto la pagina */
-              try {
-                history.replaceState(null, "", here.pathname + here.search);
-              } catch (eHash2) {}
-            }
-          }
-          try {
-            window.dispatchEvent(
-              new CustomEvent("vc:web-tickets-open", {
-                detail: { id: ticketId, staff: wantStaff },
-              }),
-            );
-          } catch (eEv) {}
-          return;
-        }
-      }
-    } catch (eNav) {}
-    window.location.href = href;
-  }
-
-  function pulseNotifSummary() {
-    var sm = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
-    if (!sm) return;
-    try {
-      sm.classList.remove("vc-notif-summary--pulse");
-      void sm.offsetWidth;
-      sm.classList.add("vc-notif-summary--pulse");
-    } catch (e) {}
-  }
-
-  function syncGlobalNotifOverlayClass() {
-    var dd = document.getElementById("vc-notif-dropdown");
-    var root = document.documentElement;
-    if (!root) return;
-    var isDropdownOpen = Boolean(dd && dd.open);
-    var hasFlyToast = notifFlyActiveCount > 0 || notifInterruptOpen;
-    root.classList.toggle("vc-notif-overlay-active", isDropdownOpen || hasFlyToast);
-  }
-
-  function unlockNotifAudio() {
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return Promise.resolve(false);
-    try {
-      if (!notifAudioCtx) notifAudioCtx = new AC();
-      if (notifAudioCtx.state === "suspended" && typeof notifAudioCtx.resume === "function") {
-        return notifAudioCtx
-          .resume()
-          .then(function () {
-            notifAudioUnlocked = true;
-            return true;
-          })
-          .catch(function () {
-            return false;
-          });
-      }
-      notifAudioUnlocked = true;
-      return Promise.resolve(true);
-    } catch (e) {
-      return Promise.resolve(false);
-    }
-  }
-
-  function playNotifTone(ctx, freq, when, dur, peak) {
-    var master = ctx.createGain();
-    master.gain.setValueAtTime(0.0001, when);
-    master.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), when + 0.015);
-    master.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-    master.connect(ctx.destination);
-
-    var filter = ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(3400, when);
-    filter.Q.setValueAtTime(0.65, when);
-    filter.connect(master);
-
-    var sine = ctx.createOscillator();
-    sine.type = "sine";
-    sine.frequency.setValueAtTime(freq, when);
-    sine.connect(filter);
-
-    var sparkle = ctx.createOscillator();
-    var sparkleGain = ctx.createGain();
-    sparkle.type = "triangle";
-    sparkle.frequency.setValueAtTime(freq * 2, when);
-    sparkleGain.gain.setValueAtTime(0.28, when);
-    sparkle.connect(sparkleGain);
-    sparkleGain.connect(filter);
-
-    sine.start(when);
-    sparkle.start(when);
-    sine.stop(when + dur + 0.03);
-    sparkle.stop(when + dur + 0.03);
-  }
-
-  var lastNotifSoundAt = 0;
-  var lastFlyToastId = "";
-  var lastFlyToastAt = 0;
-  var recentOsPushAt = {};
-
-  function rememberRecentOsPush(id) {
-    var sid = String(id || "").trim();
-    if (!sid) return;
-    recentOsPushAt[sid] = Date.now();
-  }
-
-  function recentlyGotOsPush(item) {
-    var nowMs = Date.now();
-    var ids = [
-      String((item && item.id) || "").trim(),
-      String((item && item.messageId) || "").trim(),
-      String((item && item.ticketId) || "").trim(),
-    ];
-    for (var i = 0; i < ids.length; i += 1) {
-      var sid = ids[i];
-      if (!sid) continue;
-      if (recentOsPushAt[sid] && nowMs - recentOsPushAt[sid] < 60000) return true;
-    }
-    return false;
-  }
-
-  function clientOwnsOsBanner() {
-            if (pushSubActive === true) return false;
-    try {
-      if (
-        pushSubActive !== false &&
-        "serviceWorker" in navigator &&
-        navigator.serviceWorker.controller &&
-        typeof Notification !== "undefined" &&
-        Notification.permission === "granted"
-      ) {
-                return false;
-      }
-    } catch (eOwn) {}
-    return true;
-  }
-
-  function showNativeOsBanner(item) {
-    if (!item || item.read) return;
-    if (isWatchingTicketChat(item.ticketId, item.openUrl)) return;
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    if (!clientOwnsOsBanner()) return;
-    if (recentlyGotOsPush(item)) return;
-    try {
-      if (document.visibilityState === "visible" && document.hasFocus()) return;
-    } catch (eFocus) {}
-    var sid = String(item.id || "").trim();
-    var messageId = String(item.messageId || "").trim();
-    var ticketId = String(item.ticketId || "").trim();
-    var nowMs = Date.now();
-    if (sid) recentOsPushAt[sid] = nowMs;
-    if (messageId) recentOsPushAt[messageId] = nowMs;
-    var title = String(item.title || "Vinili & Caffè").replace(/\s+/g, " ").trim().slice(0, 120) || "Nuova notifica";
-    var body = String(item.body || "").trim().slice(0, 500);
-        var tag = messageId
-      ? "vc-site-msg-" + messageId
-      : ticketId && sid
-        ? "vc-site-ticket-" + ticketId + "-" + sid
-        : sid
-          ? "vc-site-" + sid
-          : "vc-site-" + String(nowMs);
-    var opts = {
-      body: body || "Nuova notifica",
-      tag: tag,
-      renotify: false,
-      silent: false,
-      lang: "it",
-      icon: "/images/og-server-icon.gif?v=20260904brandGif1",
-      badge: "/images/og-server-icon.gif?v=20260904brandGif1",
-      data: {
-        openUrl: String(item.openUrl || "/").trim() || "/",
-        kind: String(item.kind || "info"),
-        id: sid,
-        ticketId: ticketId,
-        messageId: messageId,
-      },
-    };
-    function viaPage() {
-      try {
-        var n = new Notification(title, opts);
-        n.onclick = function () {
-          try {
-            window.focus();
-          } catch (eF) {}
-          var href = resolveNotifDestUrl(opts.data.openUrl);
-          if (href) openNotifDestination(href, opts.data.kind);
-          try {
-            n.close();
-          } catch (eC) {}
-        };
-      } catch (eN) {}
-    }
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.ready
-        .then(function (reg) {
-          if (reg && typeof reg.showNotification === "function") {
-            return reg.showNotification(title, opts);
-          }
-          viaPage();
-        })
-        .catch(viaPage);
-    } else {
-      viaPage();
-    }
-  }
-
-  function playNotifSound() {
-    var nowMs = Date.now();
-    if (nowMs - lastNotifSoundAt < 1800) return;
-        try {
-      var sharedAt = Number(localStorage.getItem("vc_notif_sound_at_v1") || 0) || 0;
-      if (sharedAt && nowMs - sharedAt < 1800) {
-        lastNotifSoundAt = sharedAt;
-        return;
-      }
-      localStorage.setItem("vc_notif_sound_at_v1", String(nowMs));
-    } catch (eLs) {}
-    lastNotifSoundAt = nowMs;
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    unlockNotifAudio().then(function (ok) {
-      if (!ok || !notifAudioCtx) return;
-      try {
-        var ctx = notifAudioCtx;
-        if (ctx.state === "suspended") return;
-        var now = ctx.currentTime + 0.02;
-                playNotifTone(ctx, 784.0, now, 0.17, 0.22);
-        playNotifTone(ctx, 1174.7, now + 0.1, 0.22, 0.18);
-      } catch (e) {}
-    });
-  }
-
-  function placeNotifPopNearBell(root, bell) {
-    if (!root || !bell) return;
-    var br = bell.getBoundingClientRect();
-    var gap = 10;
-    var stack = Math.max(0, notifFlyActiveCount - 1) * 10;
-    var rw = Math.min(296, Math.max(220, window.innerWidth - 24));
-    root.style.position = "fixed";
-    root.style.display = "flex";
-    root.style.width = rw + "px";
-    var left = br.right - rw;
-    if (left < 12) left = 12;
-    if (left + rw > window.innerWidth - 12) left = Math.max(12, window.innerWidth - 12 - rw);
-    var top = br.bottom + gap + stack;
-    if (top + 88 > window.innerHeight - 12) {
-      top = Math.max(12, br.top - gap - 72 - stack);
-    }
-    root.style.top = Math.round(top) + "px";
-    root.style.left = Math.round(left) + "px";
-    root.style.right = "auto";
-    root.style.bottom = "auto";
-    var ox = Math.max(16, Math.min(rw - 16, br.left + br.width / 2 - left));
-    root.style.setProperty("--vc-pop-ox", Math.round(ox) + "px");
-  }
-
-  function escNotifDialog(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function detachNotifInterruptKey() {
-    if (notifInterruptKeyHandler) {
-      document.removeEventListener("keydown", notifInterruptKeyHandler, true);
-      notifInterruptKeyHandler = null;
-    }
-  }
-
-  function hideNotifInterruptUi() {
-    var root = document.getElementById("vc-notif-interrupt");
-    detachNotifInterruptKey();
-    if (root) {
-      root.classList.remove("is-open");
-      root.setAttribute("hidden", "");
-    }
-    notifInterruptOpen = false;
-    notifInterruptCurrent = null;
-    try {
-      syncGlobalNotifOverlayClass();
-    } catch (eSync) {}
-  }
-
-  function hideNotifInterruptForLoader() {
-    if (!notifInterruptOpen && !notifInterruptCurrent) return;
-    if (notifInterruptCurrent) {
-      notifInterruptQueue.unshift(notifInterruptCurrent);
-      if (notifInterruptQueue.length > 8) notifInterruptQueue.length = 8;
-    }
-    hideNotifInterruptUi();
-  }
-
-  function enqueueNotifInterrupt(row) {
-    if (!row) return;
-    var id = String(row.id || "").trim();
-    if (id && notifInterruptCurrent && String(notifInterruptCurrent.id || "") === id) return;
-    var i;
-    for (i = 0; i < notifInterruptQueue.length; i += 1) {
-      if (id && String((notifInterruptQueue[i] && notifInterruptQueue[i].id) || "") === id) return;
-    }
-    notifInterruptQueue.push(row);
-    if (notifInterruptQueue.length > 8) notifInterruptQueue.shift();
-  }
-
-  function ensureNotifInterruptRoot() {
-    var existing = document.getElementById("vc-notif-interrupt");
-    if (existing) return existing;
-    var root = document.createElement("div");
-    root.id = "vc-notif-interrupt";
-    root.className = "vc-dialog vc-notif-interrupt";
-    root.style.zIndex = "100800";
-    root.setAttribute("hidden", "");
-    root.innerHTML =
-      '<button type="button" class="vc-dialog__backdrop" data-vc-notif-dialog="cancel" aria-label="Chiudi"></button>' +
-      '<div class="vc-dialog__panel vc-notif-interrupt__panel" role="dialog" aria-modal="true" aria-labelledby="vc-notif-interrupt-title">' +
-      '<p class="vc-notif-interrupt__kicker" id="vc-notif-interrupt-kicker">Notifica</p>' +
-      '<div class="vc-dialog__icon is-info" id="vc-notif-interrupt-icon" aria-hidden="true"><i class="fa fa-bell-o"></i></div>' +
-      '<h3 class="vc-dialog__title vc-notif-interrupt__title" id="vc-notif-interrupt-title"></h3>' +
-      '<div class="vc-dialog__text vc-notif-interrupt__text" id="vc-notif-interrupt-text"></div>' +
-      '<div class="vc-dialog__actions vc-notif-interrupt__actions" id="vc-notif-interrupt-actions"></div>' +
-      "</div>";
-    document.body.appendChild(root);
-    root.addEventListener("click", function (ev) {
-      var btn = ev.target && ev.target.closest ? ev.target.closest("[data-vc-notif-dialog]") : null;
-      if (!btn || !notifInterruptOpen) return;
-      var action = btn.getAttribute("data-vc-notif-dialog");
-      if (action === "cancel") finishNotifInterrupt("close");
-      else if (action === "ok") finishNotifInterrupt("go");
-    });
-    return root;
-  }
-
-  function finishNotifInterrupt(action) {
-    var row = notifInterruptCurrent;
-    var dest = row ? resolveNotifDestUrl(String(row.openUrl || "").trim()) : "";
-    var kind = row ? String(row.kind || "info") : "info";
-    var alreadyRead = Boolean(row && row.read === true);
-    hideNotifInterruptUi();
-    if (row && !alreadyRead && (row.id || dest)) {
-      try {
-        markOneRead(row.id, { openUrl: dest });
-      } catch (eMark) {}
-    }
-    if (action === "go") {
-      if (dest) openNotifDestination(dest, kind);
-      else {
-        var dd = document.getElementById("vc-notif-dropdown");
-        try {
-          if (dd && !dd.open) dd.setAttribute("open", "");
-        } catch (eOpen) {}
-      }
-    }
-    window.setTimeout(function () {
-      flushNotifInterruptQueue();
-    }, 80);
-  }
-
-  function openNotifInterrupt(row) {
-    var title = row && row.title ? String(row.title) : tNotif("notif.itemTitle", "Notifica");
-    var body = row && row.body ? String(row.body) : "";
-    if (body.length > 280) body = body.slice(0, 279) + "…";
-    var kind = String((row && row.kind) || "info");
-    var dest = resolveNotifDestUrl(String((row && row.openUrl) || "").trim());
-    var alreadyRead = Boolean(row && row.read === true);
-    var closeLabel = tNotif("notif.close", "Chiudi");
-    var goLabel = dest
-      ? tNotif("notif.goThere", "Vai lì")
-      : tNotif("notif.seeAll", "Vedi tutte le notifiche");
-    var showGo = Boolean(dest) || !alreadyRead;
-
-    var root = ensureNotifInterruptRoot();
-    var kickerEl = document.getElementById("vc-notif-interrupt-kicker");
-    var titleEl = document.getElementById("vc-notif-interrupt-title");
-    var textEl = document.getElementById("vc-notif-interrupt-text");
-    var iconWrap = document.getElementById("vc-notif-interrupt-icon");
-    var actions = document.getElementById("vc-notif-interrupt-actions");
-    if (kickerEl) kickerEl.textContent = tNotif("notif.itemTitle", "Notifica");
-    if (titleEl) titleEl.textContent = title;
-    if (textEl) {
-      textEl.textContent = body;
-      textEl.hidden = !body;
-    }
-    if (iconWrap) {
-      iconWrap.className = "vc-dialog__icon is-info";
-      iconWrap.innerHTML = '<i class="fa ' + escNotifDialog(iconClass(kind)) + '"></i>';
-    }
-    if (actions) {
-      var html =
-        '<button type="button" class="vc-dialog__btn vc-header-pill" data-vc-notif-dialog="cancel">' +
-        escNotifDialog(closeLabel) +
-        "</button>";
-      if (showGo) {
-        html +=
-          '<button type="button" class="vc-dialog__btn vc-dialog__btn--primary vc-header-pill vc-home-cine-cta" data-vc-notif-dialog="ok">' +
-          escNotifDialog(goLabel) +
-          "</button>";
-      }
-      actions.innerHTML = html;
-    }
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (dd && dd.open) {
-      try {
-        dd.open = false;
-        dd.removeAttribute("open");
-      } catch (eDd) {}
-    }
-    notifInterruptCurrent = row;
-    notifInterruptOpen = true;
-    root.classList.add("is-open");
-    root.removeAttribute("hidden");
-    syncGlobalNotifOverlayClass();
-    pulseNotifSummary();
-    detachNotifInterruptKey();
-    notifInterruptKeyHandler = function (ev) {
-      if (!ev || ev.key !== "Escape") return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      finishNotifInterrupt("close");
-    };
-    document.addEventListener("keydown", notifInterruptKeyHandler, true);
-    window.setTimeout(function () {
-      try {
-        var focusBtn = root.querySelector('[data-vc-notif-dialog="ok"]') || root.querySelector('[data-vc-notif-dialog="cancel"]');
-        if (focusBtn) focusBtn.focus();
-      } catch (eF) {}
-    }, 20);
-  }
-
-  function flushNotifInterruptQueue() {
-    if (notifInterruptOpen) return;
-    if (isBlockingLoaderVisible()) return;
-    while (notifInterruptQueue.length) {
-      var next = notifInterruptQueue.shift();
-      if (!next) continue;
-      if (isWatchingTicketChat(next.ticketId, next.openUrl)) continue;
-      openNotifInterrupt(next);
-      return;
-    }
-  }
-
-  function ensureSiteNotifDropdown() {
-    var actions = document.getElementById("header-quick-actions");
-    if (!actions) return null;
-    var existing = document.getElementById("vc-notif-dropdown");
-    if (existing) {
-      normalizeHeaderQuickActionsOrder(actions);
-      return existing;
-    }
-    var toggle = actions.querySelector("#vc-mobile-nav-toggle");
-    var loginBtn = actions.querySelector("#discord-login-btn, [data-vc-discord-login]");
-    var html =
-      '<details class="vc-notif-dropdown" id="vc-notif-dropdown">' +
-      '<summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"><i class="fa fa-bell-o" aria-hidden="true"></i><span class="vc-notif-badge" id="vc-notif-badge" hidden aria-live="polite">0</span></summary>' +
-      '<div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">' +
-      '<div class="vc-notif-panel-head"><div class="vc-notif-panel-head-start"><span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span><div class="vc-notif-panel-head-text"><span class="vc-notif-panel-title">Notifiche</span><span class="vc-notif-panel-sub" id="vc-notif-unread-sub">0 non lette</span></div></div>' +
-      '<div class="vc-notif-panel-head-actions"><button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte" aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button></div></div>' +
-      '<div class="vc-notif-panel-body"><div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap"><div class="vc-notif-empty"><div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div><p class="vc-notif-empty-title">Nessuna notifica</p><p class="vc-notif-empty-sub">Sei tutto aggiornato!</p></div></div><div class="vc-notif-list-wrap" id="vc-notif-list-wrap"><ul class="vc-notif-list" id="vc-notif-list" role="list"></ul></div></div>' +
-      '<div class="vc-notif-panel-foot" id="vc-notif-panel-foot"><a href="/notifications/" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche <i class="fa fa-chevron-right" aria-hidden="true"></i></a></div></div></details>';
-    var anchor = toggle || loginBtn;
-    if (anchor) anchor.insertAdjacentHTML("beforebegin", html);
-    else actions.insertAdjacentHTML("afterbegin", html);
-    normalizeHeaderQuickActionsOrder(actions);
-    return document.getElementById("vc-notif-dropdown");
-  }
-
-  function placeNotifFlyFallback(root) {
-    if (!root) return;
-    var safeTop = 0;
-    try {
-      safeTop = Number(window.__vcSafeTop) || 0;
-    } catch (eSafe) {}
-    var rw = Math.min(320, Math.max(240, window.innerWidth - 24));
-    root.style.position = "fixed";
-    root.style.display = "flex";
-    root.style.width = rw + "px";
-    root.style.top = Math.round(Math.max(12, safeTop + 12)) + "px";
-    root.style.right = "12px";
-    root.style.left = "auto";
-    root.style.bottom = "auto";
-    root.style.setProperty("--vc-pop-ox", rw - 28 + "px");
-  }
-
-  function showNotifFlyToast(row) {
-    var toastId = String((row && row.id) || "");
-    var nowMs = Date.now();
-    if (toastId && toastId === lastFlyToastId && nowMs - lastFlyToastAt < 2500) return;
-    lastFlyToastId = toastId;
-    lastFlyToastAt = nowMs;
-    ensureSiteNotifDropdown();
-    var bell = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (isOnNotificationsPage()) {
-      pulseNotifSummary();
-      return;
-    }
-    /* phoneNotifFlyCard1: stesso popup card del PC (niente toast dash). */
-    if (dd && dd.open) {
-      pulseNotifSummary();
-      return;
-    }
-    var title = row && row.title ? String(row.title) : "Nuova notifica";
-    var body = row && row.body ? String(row.body) : "";
-    var kind = String((row && row.kind) || "info");
-    var dest = resolveNotifDestUrl(String((row && row.openUrl) || "").trim());
-    var atMs = typeof (row && row.at) === "number" ? row.at : Date.now();
-
-    var root = document.createElement("div");
-    root.className = "vc-notif-fly-card";
-    if (kind === "success") root.classList.add("vc-notif-fly-card--success");
-    root.setAttribute("role", "status");
-    root.setAttribute("aria-live", "polite");
-    root.style.position = "fixed";
-    root.style.zIndex = "100001";
-    root.style.display = "flex";
-
-    var ico = document.createElement("span");
-    ico.className = "vc-notif-fly-card__ico";
-    ico.setAttribute("aria-hidden", "true");
-    var fi = document.createElement("i");
-    fi.className = "fa " + iconClass(kind);
-    ico.appendChild(fi);
-
-    var main = document.createElement("button");
-    main.type = "button";
-    main.className = "vc-notif-fly-card__main";
-    var t = document.createElement("strong");
-    t.className = "vc-notif-fly-card__t";
-    t.textContent = title;
-    var b = document.createElement("span");
-    b.className = "vc-notif-fly-card__b";
-    b.textContent = body;
-    var time = document.createElement("time");
-    time.className = "vc-notif-fly-card__time";
-    time.dateTime = new Date(atMs).toISOString();
-    time.textContent = timeAgoLocalized(atMs);
-    main.appendChild(t);
-    if (body) main.appendChild(b);
-    main.appendChild(time);
-
-    var dismiss = document.createElement("button");
-    dismiss.type = "button";
-    dismiss.className = "vc-notif-fly-card__x";
-    dismiss.setAttribute("aria-label", "Chiudi");
-    dismiss.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
-
-    root.appendChild(ico);
-    root.appendChild(main);
-    root.appendChild(dismiss);
-    document.body.appendChild(root);
-    notifFlyActiveCount += 1;
-    syncGlobalNotifOverlayClass();
-    if (bell) placeNotifPopNearBell(root, bell);
-    else placeNotifFlyFallback(root);
-    pulseNotifSummary();
-
-    var finished = false;
-    function finish(fromClick) {
-      if (finished) return;
-      finished = true;
-      root.classList.add("vc-notif-fly-card--out");
-      window.setTimeout(function () {
-        try {
-          root.remove();
-        } catch (e2) {}
-        notifFlyActiveCount = Math.max(0, notifFlyActiveCount - 1);
-        syncGlobalNotifOverlayClass();
-        if (!fromClick) pulseNotifSummary();
-      }, NOTIF_FLY_ANIM_MS + 40);
-    }
-
-    main.addEventListener("click", function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      finish(true);
-      if (row && row.id) {
-        try {
-          markOneRead(row.id);
-        } catch (eMark) {}
-      }
-      if (dest) {
-        openNotifDestination(dest, kind);
-        return;
-      }
-      try {
-        if (dd && !dd.open) dd.setAttribute("open", "");
-      } catch (eOpen) {}
-    });
-    dismiss.addEventListener("click", function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      finish(true);
-    });
-
-    var onResize = function () {
-      if (finished) return;
-      if (bell) placeNotifPopNearBell(root, bell);
-      else placeNotifFlyFallback(root);
-    };
-    window.addEventListener("resize", onResize);
-    window.setTimeout(function () {
-      window.removeEventListener("resize", onResize);
-      if (!finished) finish(false);
-    }, NOTIF_FLY_READ_MS);
-  }
-
-  function addNotif(p) {
-    var ownerId = normalizeUserId((p && p.userId) || currentUserId);
-    if (!ownerId) return { added: false };
-    var kindRaw = p && p.kind;
-    var kind =
-      kindRaw === "vote"
-        ? "vote"
-        : kindRaw === "vote_reminder"
-          ? "vote_reminder"
-        : kindRaw === "success"
-          ? "success"
-          : kindRaw === "review"
-            ? "review"
-            : kindRaw === "mod"
-              ? "mod"
-              : kindRaw === "staff"
-                ? "staff"
-              : kindRaw === "suggestion"
-                ? "suggestion"
-                : kindRaw === "web_ticket" || kindRaw === "web_ticket_mention"
-                  ? "web_ticket"
-                : "info";
-    var openUrl = "";
-    if (p && typeof p.openUrl === "string") openUrl = String(p.openUrl).trim();
-    var stableId = buildStableNotifId(p, ownerId, kind, openUrl);
-    var titleRaw = String((p && p.title) || "").toLowerCase();
-    var bodyRaw = String((p && p.body) || "").toLowerCase();
-    if (
-      kind === "vote" &&
-      (titleRaw.indexOf("promemoria") !== -1 ||
-        bodyRaw.indexOf("promemoria") !== -1)
-    ) {
-      kind = "vote_reminder";
-    }
-    var fpId = buildNotifFingerprintId(p, ownerId, kind, openUrl);
-    var dismissed = loadDismissedSet(ownerId);
-    if ((stableId && dismissed.has(stableId)) || (fpId && dismissed.has(fpId))) return { added: false };
-    var incomingRead = Boolean(p && (p.read === true || p.readAt));
-    var ticketId = extractTicketIdFromNotif(p);
-    var item = {
-      id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
-      title: String((p && p.title) || ""),
-      body: String((p && p.body) || ""),
-      at: typeof (p && p.at) === "number" ? p.at : Date.now(),
-      read: incomingRead,
-      kind: kind,
-      openUrl: openUrl,
-      ticketId: ticketId,
-    };
-    var key = userStorageKey(ownerId);
-    var s = [];
-    try {
-      var raw = localStorage.getItem(key);
-      var arr = raw ? JSON.parse(raw) : [];
-      s = Array.isArray(arr) ? arr : [];
-    } catch (e) {
-      s = [];
-    }
-    if (stableId || fpId) {
-      for (var dup = 0; dup < s.length; dup += 1) {
-        var exId = String((s[dup] && s[dup].id) || "").trim();
-        var exKind = String((s[dup] && s[dup].kind) || kind);
-        var exOpen = String((s[dup] && s[dup].openUrl) || openUrl);
-        var exFp = buildNotifFingerprintId(s[dup], ownerId, exKind, exOpen);
-        var idMatch = Boolean(stableId && exId === stableId);
-        var fpMatch = Boolean(fpId && (exId === fpId || exFp === fpId));
-        var mongoToAutoFp = Boolean(
-          stableId &&
-            !isAutoClientNotifId(stableId) &&
-            isAutoClientNotifId(exId) &&
-            exFp === fpId,
-        );
-        if (!idMatch && !fpMatch && !mongoToAutoFp) continue;
-        var merged = Object.assign({}, s[dup], item, {
-          id: stableId || exId,
-          read: Boolean(s[dup].read) || incomingRead,
-        });
-        s[dup] = merged;
-        try {
-          localStorage.setItem(key, JSON.stringify(s));
-        } catch (e3) {}
-        if (!p || !p.__noRender) render();
-        return { added: false };
-      }
-    }
-    if (stableId && !isAutoClientNotifId(stableId)) {
-      for (var c = 0; c < s.length; c += 1) {
-        var cid = String((s[c] && s[c].id) || "").trim();
-        if (!cid || cid === stableId) continue;
-        if (!isAutoClientNotifId(cid) && cid.length === 24) continue;
-        if (!sameNotifCore(s[c], item)) continue;
-        var mergedC = Object.assign({}, s[c], item, {
-          id: stableId,
-          read: Boolean(s[c].read) || incomingRead,
-        });
-        s[c] = mergedC;
-        try {
-          localStorage.setItem(key, JSON.stringify(s));
-        } catch (e4) {}
-        if (!p || !p.__noRender) render();
-        return { added: false };
-      }
-    }
-    s.push(item);
-    s = sortNotifItems(s);
-    try {
-      localStorage.setItem(key, JSON.stringify(s));
-    } catch (e2) {}
-    if (!p || !p.__noRender) render();
-    if (!incomingRead && !p.__skipOsBanner) showNativeOsBanner(item);
-    if (!incomingRead && !p.__skipFlyToast) {
-      try {
-        if (stableId) rememberToastedId(stableId);
-        showNotifFlyToast(item);
-      } catch (eFly) {}
-    }
-    return { added: true };
-  }
-  function flushPendingLoginNotification() {
-    var raw = "";
-    try {
-      raw = String(localStorage.getItem(PENDING_LOGIN_NOTIF_KEY) || "");
-    } catch (e) {
-      raw = "";
-    }
-    if (!raw) return;
-    var data = null;
-    try {
-      data = JSON.parse(raw);
-    } catch (e2) {
-      data = null;
-    }
-    if (!data || typeof data !== "object") return;
-    var ownerId = normalizeUserId(data.userId);
-    if (!ownerId) {
-      try {
-        localStorage.removeItem(PENDING_LOGIN_NOTIF_KEY);
-      } catch (e4) {}
-      return;
-    }
-    if (!currentUserId || ownerId !== currentUserId) return;
-    try {
-      localStorage.removeItem(PENDING_LOGIN_NOTIF_KEY);
-    } catch (e3) {}
-    addNotif(Object.assign({}, data, { __skipOsBanner: true }));
-  }
-  function isMobileNotifViewport() {
-    try {
-                  return window.matchMedia(
-        "(max-width: 639.98px), ((pointer: coarse) and (max-width: 920px))",
-      ).matches;
-    } catch (e) {
-      return (window.innerWidth || 999) <= 640;
-    }
-  }
-
-  function isOnNotificationsPage() {
-    try {
-      return Boolean(document.body && document.body.classList.contains("vc-notifications-page"));
-    } catch (eOnNotifPage) {
-      return false;
-    }
-  }
-
-  function formatNotifToastMessage(row) {
-    var title = row && row.title ? String(row.title).trim() : "Nuova notifica";
-    var body = row && row.body ? String(row.body).trim() : "";
-    if (!body || body === title) return title;
-    var combined = title + " — " + body;
-    return combined.length > 140 ? combined.slice(0, 137) + "…" : combined;
-  }
-
-  function showDashStyleSiteToast(text, isError, opts) {
-    var msg = String(text || "").trim();
-    if (!msg) return false;
-    opts = opts || {};
-    if (window.VcSiteToast && typeof window.VcSiteToast.show === "function") {
-      window.VcSiteToast.show(msg, Boolean(isError), opts);
-      return true;
-    }
-    var host = document.getElementById("vc-site-toast-host");
-    if (!host) {
-      host = document.createElement("div");
-      host.id = "vc-site-toast-host";
-      host.className = "vc-dash-save-toast-host vc-site-toast-host";
-      host.setAttribute("aria-live", "polite");
-      host.setAttribute("aria-atomic", "true");
-      try {
-        host.style.setProperty("z-index", "300000", "important");
-      } catch (eZ) {}
-      document.body.appendChild(host);
-    } else {
-      try {
-        host.style.setProperty("z-index", "300000", "important");
-      } catch (eZ2) {}
-    }
-    host.innerHTML = "";
-    var pending =
-      opts.pending === true ||
-      opts.sticky === true ||
-      (!isError && /[…]$|\.\.\.$/.test(msg));
-    var toast = document.createElement("div");
-    toast.className =
-      "vc-dash-save-toast" + (isError ? " is-error" : "") + (pending ? " is-pending" : "");
-    toast.setAttribute("role", "status");
-    var ico = document.createElement("span");
-    ico.className = "vc-dash-save-toast__icon";
-    ico.setAttribute("aria-hidden", "true");
-    ico.innerHTML = isError
-      ? '<i class="fa fa-times" aria-hidden="true"></i>'
-      : pending
-        ? '<span class="vc-ui-spinner vc-ui-spinner--on-dark" aria-hidden="true"></span>'
-        : '<i class="fa fa-check" aria-hidden="true"></i>';
-    var p = document.createElement("p");
-    p.className = "vc-dash-save-toast__text";
-    p.textContent = msg;
-    toast.appendChild(ico);
-    toast.appendChild(p);
-    host.appendChild(toast);
-    requestAnimationFrame(function () {
-      toast.classList.add("is-visible");
-    });
-    if (pending) return true;
-    var ms = Number(opts.ms);
-    if (!Number.isFinite(ms) || ms <= 0) ms = isError ? 2800 : 3600;
-    window.setTimeout(function () {
-      toast.classList.add("is-leaving");
-      toast.classList.remove("is-visible");
-      window.setTimeout(function () {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 200);
-    }, ms);
-    return true;
-  }
-
-  try {
-    window.__vcShowSiteToast = showDashStyleSiteToast;
-  } catch (eToastExpo) {}
-
-  var notifPortalGuardUntil = 0;
-  var notifPortalSyncing = false;
-  /* notifDoubleClose1: invalidate pending portal forceOpen; ignore ghost 2nd tap. */
-  var notifPortalOpenGen = 0;
-  var notifBellGestureLockUntil = 0;
-
-  function normalizeHeaderQuickActionsOrder(actions) {
-    if (!actions) actions = document.getElementById("header-quick-actions");
-    if (!actions) return;
-    var promo = actions.querySelector("#vc-header-promo-btn, .vc-header-promo-btn");
-    var notif = actions.querySelector("#vc-notif-dropdown");
-    var toggle = actions.querySelector("#vc-mobile-nav-toggle");
-    var loginBtn = actions.querySelector("#discord-login-btn, [data-vc-discord-login]");
-    var loginState = actions.querySelector("#discord-login-state");
-    var cursor = actions.firstElementChild;
-    function place(el) {
-      if (!el || el.parentElement !== actions) return;
-      actions.insertBefore(el, cursor);
-      cursor = el.nextElementSibling;
-    }
-    place(promo);
-    place(notif);
-    place(toggle);
-    place(loginBtn);
-    place(loginState);
-  }
-
-  try {
-    window.__vcNormalizeHeaderQuickActionsOrder = normalizeHeaderQuickActionsOrder;
-  } catch (eNormExport) {}
-
-    function ensureNotifDropdownInHeader(force) {
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (!dd) return null;
-    var actions = document.getElementById("header-quick-actions");
-    if (!actions) return dd;
-    if (dd.open && !force) return dd;
-    if (dd.parentElement === actions) {
-      normalizeHeaderQuickActionsOrder(actions);
-      return dd;
-    }
-    var slot = document.getElementById("vc-notif-dropdown-slot");
-    if (slot && slot.parentNode === actions) {
-      actions.insertBefore(dd, slot);
-      try {
-        if (slot.parentNode) slot.parentNode.removeChild(slot);
-      } catch (eSlot) {}
-    } else {
-      var toggle = actions.querySelector("#vc-mobile-nav-toggle");
-      var promo = actions.querySelector("#vc-header-promo-btn, .vc-header-promo-btn");
-      if (toggle) actions.insertBefore(dd, toggle);
-      else if (promo && promo.nextSibling) actions.insertBefore(dd, promo.nextSibling);
-      else actions.appendChild(dd);
-    }
-    normalizeHeaderQuickActionsOrder(actions);
-    return dd;
-  }
-
-  try {
-    window.__vcEnsureNotifDropdownInHeader = ensureNotifDropdownInHeader;
-  } catch (eEnsExport) {}
-
-    /* notifSidebar4: never auto-close on visibility/pageshow/PTR repair; only forceClose. */
-    function repairNotifDropdownPortal(opts) {
-    opts = opts || {};
-    var forceClose = Boolean(opts.forceClose);
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (!dd) return;
-    var intentionallyOpen = false;
-    try {
-      intentionallyOpen = Boolean(dd.open || dd.hasAttribute("open"));
-    } catch (eOpenChk) {
-      intentionallyOpen = false;
-    }
-    if (!forceClose && intentionallyOpen) {
-      try {
-        syncNotifMobileSheetChrome();
-      } catch (eKeepOpen) {}
-      try {
-        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-      } catch (eLockKeep) {}
-      return;
-    }
-    notifPortalGuardUntil = 0;
-    notifPortalOpenGen += 1;
-    try {
-      dd.open = false;
-      dd.removeAttribute("open");
-    } catch (eClose) {}
-    try {
-      document.documentElement.classList.remove(
-        "vc-notif-dropdown-open",
-        "vc-notif-sheet-open",
-        "vc-notif-drawer-open",
-        "vc-notif-overlay-active",
-      );
-    } catch (eCls) {}
-    var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
-    if (oldBd) {
-      try {
-        oldBd.remove();
-      } catch (eBd) {}
-    }
-    setNotifHeaderSlotHold(false);
-    var slot = document.getElementById("vc-notif-dropdown-slot");
-    if (slot && slot.parentNode && dd.parentElement === document.body) {
-      try {
-        slot.parentNode.insertBefore(dd, slot);
-      } catch (eSlot) {}
-    }
-    ensureNotifDropdownInHeader(true);
-    try {
-      syncGlobalNotifOverlayClass();
-    } catch (eSync) {}
-        try {
-      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-    } catch (eLockRepair) {}
-    try {
-      restoreNotifScrollAfterClose();
-    } catch (eRestore) {}
-  }
-
-  try {
-    window.__vcRepairNotifDropdownPortal = repairNotifDropdownPortal;
-  } catch (eRepairExport) {}
-
-  function setNotifHeaderSlotHold(active) {
-    var actions = document.getElementById("header-quick-actions");
-    if (!actions) return;
-    var dd = document.getElementById("vc-notif-dropdown");
-    var slot = document.getElementById("vc-notif-dropdown-slot");
-    if (active) {
-      if (!slot) {
-        slot = document.createElement("span");
-        slot.id = "vc-notif-dropdown-slot";
-        var toggle = actions.querySelector("#vc-mobile-nav-toggle");
-        if (dd && dd.parentElement === actions) actions.insertBefore(slot, dd);
-        else if (toggle) actions.insertBefore(slot, toggle);
-        else actions.appendChild(slot);
-      }
-      slot.className = "vc-notif-dropdown-slot vc-notif-dropdown-slot--hold";
-      slot.hidden = false;
-      slot.setAttribute("aria-hidden", "true");
-      return;
-    }
-    if (slot) {
-      slot.className = "vc-notif-dropdown-slot";
-      slot.hidden = true;
-    }
-  }
-
-  function portalNotifDropdownToBody(dd, enable) {
-    if (!dd) return;
-    var slotId = "vc-notif-dropdown-slot";
-    var slot = document.getElementById(slotId);
-    if (enable) {
-      if (dd.parentElement !== document.body) {
-        if (!slot) {
-          slot = document.createElement("span");
-          slot.id = slotId;
-          slot.hidden = true;
-          slot.setAttribute("aria-hidden", "true");
-          if (dd.parentNode) dd.parentNode.insertBefore(slot, dd);
-        }
-        document.body.appendChild(dd);
-      }
-      setNotifHeaderSlotHold(true);
-      /* notifDoubleClose1: only latest portal open may forceOpen. */
-      notifPortalOpenGen += 1;
-      var openGen = notifPortalOpenGen;
-      function forceOpen() {
-        /* notifDoubleClose1: skip if user closed (or newer portal) after this schedule. */
-        if (openGen !== notifPortalOpenGen) return;
-        try {
-          dd.open = true;
-          dd.setAttribute("open", "");
-        } catch (eOpen) {}
-      }
-      forceOpen();
-      try {
-        window.requestAnimationFrame(forceOpen);
-      } catch (eRaf) {}
-      notifPortalGuardUntil = Date.now() + 700;
-      return;
-    }
-    notifPortalOpenGen += 1;
-    setNotifHeaderSlotHold(false);
-    ensureNotifDropdownInHeader(true);
-  }
-
-  /* notifSidebar2: intentional close must clear portal guard or Esc/2nd click get reopened.
-     notifDoubleClose1: bump openGen so pending rAF forceOpen cannot reopen. */
-  function requestCloseNotifDropdown(dd) {
-    notifPortalGuardUntil = 0;
-    notifPortalOpenGen += 1;
-    var live = dd || document.getElementById("vc-notif-dropdown");
-    if (!live) return;
-    try {
-      live.open = false;
-      live.removeAttribute("open");
-    } catch (eClose) {
-      try {
-        live.removeAttribute("open");
-      } catch (eClose2) {}
-    }
-  }
-
-  function primeDesktopNotifDrawer(dd) {
-    /* Classes only — do NOT forceOpen (would fight native <details> toggle). */
-    if (!dd || isMobileNotifViewport() || dd.open) return;
-    var root = document.documentElement;
-    try {
-      root.classList.add("vc-notif-drawer-open", "vc-notif-dropdown-open");
-      root.classList.remove("vc-notif-sheet-open");
-    } catch (ePrime) {}
-  }
-
-  function restoreNotifScrollAfterClose() {
-    try {
-      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-    } catch (eSync) {}
-    try {
-      var root = document.documentElement;
-      var stillFrozen =
-        (typeof isPageScrollFrozen === "function" && isPageScrollFrozen()) ||
-        isNotifPanelChromeOpen(root);
-      if (!stillFrozen && typeof window.__vcUnpinPageScroll === "function") {
-        window.__vcUnpinPageScroll();
-      }
-    } catch (eUnpin) {}
-    try {
-      if (typeof window.__vcStripPhoneInlineScrollLocks === "function") {
-        window.__vcStripPhoneInlineScrollLocks();
-      }
-    } catch (eStrip) {}
-  }
-
-  function clearStuckNotifDrawerPrime() {
-    /* notifBellFix1: pointerdown prime without a successful open left overflow-lock + dead bell. */
-    try {
-      var live = document.getElementById("vc-notif-dropdown");
-      if (live && live.open) return;
-      var root = document.documentElement;
-      if (!root) return;
-      if (
-        !root.classList.contains("vc-notif-drawer-open") &&
-        !root.classList.contains("vc-notif-sheet-open") &&
-        !root.classList.contains("vc-notif-dropdown-open")
-      ) {
-        return;
-      }
-      root.classList.remove("vc-notif-drawer-open", "vc-notif-sheet-open", "vc-notif-dropdown-open");
-      restoreNotifScrollAfterClose();
-    } catch (eClearPrime) {}
-  }
-
-  function scheduleNotifSheetChromeSync(opts) {
-    /* notifBellFix1: never portal/move <details> synchronously inside toggle — browsers cancel open. */
-    opts = opts || {};
-    var delay = opts.delayMs != null ? Number(opts.delayMs) : 0;
-    function run() {
-      try {
-        syncNotifMobileSheetChrome();
-      } catch (eSync) {}
-      try {
-        var live = document.getElementById("vc-notif-dropdown");
-        if (!live || !live.open) clearStuckNotifDrawerPrime();
-      } catch (eChk) {}
-    }
-    if (delay > 0) {
-      window.setTimeout(run, delay);
-      return;
-    }
-    try {
-      window.requestAnimationFrame(function () {
-        window.requestAnimationFrame(run);
-      });
-    } catch (eRaf) {
-      window.setTimeout(run, 0);
-    }
-  }
-
-  function syncNotifMobileSheetChrome() {
-    /* notifSidebar2: mobile sheet + desktop right drawer; no classic popup flash.
-       notifBellFix1: portal only after toggle settles (see scheduleNotifSheetChromeSync). */
-    if (notifPortalSyncing) return;
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (!dd) return;
-    var root = document.documentElement;
-    var mobile = isMobileNotifViewport();
-    if (!dd.open && Date.now() < notifPortalGuardUntil) {
-      try {
-        dd.open = true;
-        dd.setAttribute("open", "");
-      } catch (eRe) {}
-      return;
-    }
-    notifPortalSyncing = true;
-    try {
-      if (dd.open) {
-        var yKeepOpen = pageScrollY();
-        try {
-          if (mobile) {
-            root.classList.add("vc-notif-sheet-open");
-            root.classList.remove("vc-notif-drawer-open");
-          } else {
-            root.classList.add("vc-notif-drawer-open");
-            root.classList.remove("vc-notif-sheet-open");
-          }
-          root.classList.add("vc-notif-dropdown-open");
-        } catch (e0) {}
-        portalNotifDropdownToBody(dd, true);
-        try {
-          if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-        } catch (eLock) {}
-        if (!dd.querySelector(".vc-notif-mobile-backdrop")) {
-          var bd = document.createElement("div");
-          bd.className = "vc-notif-mobile-backdrop";
-          bd.setAttribute("aria-hidden", "true");
-          bd.addEventListener("click", function () {
-            notifBellGestureLockUntil = Date.now() + 420;
-            requestCloseNotifDropdown(dd);
-            scheduleNotifSheetChromeSync({ delayMs: 0 });
-          });
-          dd.insertBefore(bd, dd.firstChild);
-        }
-        try {
-          ensureNotifBellScopeUi();
-          syncNotifBellScopeChrome();
-        } catch (eScopeUi) {}
-        /* notifTicketScrollStay1 */
-        restorePageScrollY(yKeepOpen);
-        holdPageScroll(180);
-      } else {
-        notifPortalGuardUntil = 0;
-        try {
-          root.classList.remove("vc-notif-sheet-open", "vc-notif-drawer-open", "vc-notif-dropdown-open");
-        } catch (e1) {}
-        var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
-        if (oldBd) oldBd.remove();
-        portalNotifDropdownToBody(dd, false);
-        ensureNotifDropdownInHeader(true);
-        restoreNotifScrollAfterClose();
-      }
-      syncGlobalNotifOverlayClass();
-      try {
-        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
-      } catch (eLockClose) {}
-    } finally {
-      notifPortalSyncing = false;
-    }
-  }
-
-  function isLocalFrontendOrigin() {
-    try {
-      var h = String(window.location.hostname || "").toLowerCase();
-      return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
-    } catch (e) {
-      return false;
-    }
-  }
-  function resolvedSiteNotificationsUrl() {
-    var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
-    var local = String(c.apiUrlLocal || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
-    var u = String(c.apiUrl || "").trim();
-    if (u) return u;
-    return "/webhooks/site-notifications";
-  }
-  function resolvedSiteNotificationsReadUrl() {
-    var base = resolvedSiteNotificationsUrl();
-    if (!base) return "/webhooks/site-notifications/read";
-    return String(base).replace(/\/+$/, "") + "/read";
-  }
-  function resolvedSiteNotificationsClearUrl() {
-    var base = resolvedSiteNotificationsUrl();
-    if (!base) return "/webhooks/site-notifications/clear";
-    return String(base).replace(/\/+$/, "") + "/clear";
-  }
-  function resolvedSiteNotificationsDeleteUrl() {
-    var base = resolvedSiteNotificationsUrl();
-    if (!base) return "/webhooks/site-notifications/delete";
-    return String(base).replace(/\/+$/, "") + "/delete";
-  }
-  function resolvedSiteNotificationsPushUrl(suffix) {
-    var base = resolvedSiteNotificationsUrl();
-    var path = String(suffix || "").replace(/^\/+/, "");
-    if (!base) return "/webhooks/site-notifications/push/" + path;
-    return String(base).replace(/\/+$/, "") + "/push/" + path;
-  }
-  var PUSH_NATIVE_ASKED_KEY = "vc_push_native_asked_v1";
-  var PUSH_PROMPT_DISMISS_KEY = "vc_push_prompt_dismissed_v2";
-  var PUSH_OK_KEY = "vc_push_ok_v1";
-  var PUSH_PERM_KEY = "vc_push_perm_v1";
-  var PUSH_DISMISS_MS = 180 * 24 * 60 * 60 * 1000;
-  var pushAutoRecoverWired = false;
-  var pushAutoRecoverDone = false;
-    var pushNativeGestureInFlight = false;
-    var pushSubActive = null;
-  var refreshPushInFlight = null;
-  var lastPostedPushEndpoint = "";
-  var lastPostedPushAt = 0;
-  var lastPushErrorHint = "";
-  var PUSH_RESYNC_MIN_MS = 10 * 60 * 1000;
-  var cachedPushReg = null;
-  var cachedVapidPublicKey = "";
-  var vapidFetchInFlight = null;
-  var vapidFetchBlockedUntil = 0;
-  var siteNotifsSyncInFlight = null;
-  var siteNotifsBlockedUntil = 0;
-  var siteNotifsLastSyncAt = 0;
-  var SITE_NOTIFS_MIN_GAP_MS = 12000;
-  var siteNotifsPollBooted = false;
-  var pushSubscribeBlockedUntil = 0;
-    var pushSubscribePostInFlight = null;
-  var forbiddenStatusInFlight = null;
-  var forbiddenStatusBlockedUntil = 0;
-  var syncExistingPushInFlight = null;
-  function tNotif(key, fallback) {
-    try {
-      if (window.VcI18n && typeof window.VcI18n.t === "function") {
-        var v = window.VcI18n.t(key);
-        if (v && v !== key) return v;
-      }
-    } catch (e) {}
-    return fallback;
-  }
-  function isStandalonePwa() {
-    try {
-      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
-    } catch (e) {}
-    return Boolean(navigator.standalone);
-  }
-  function isBraveLike() {
-    try {
-      if (navigator.brave) return true;
-    } catch (e) {}
-    return /Brave/i.test(String(navigator.userAgent || ""));
-  }
-  function isIosLikeDevice() {
-    var ua = String(navigator.userAgent || "");
-    if (/iPad|iPhone|iPod/i.test(ua)) return true;
-    try {
-      if (navigator.platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1) return true;
-    } catch (e2) {}
-    if (
-      /Macintosh/i.test(ua) &&
-      /Safari/i.test(ua) &&
-      !/Chrome|Chromium|Firefox|Android|CriOS|FxiOS/i.test(ua) &&
-      isStandalonePwa()
-    ) {
-      return true;
-    }
-    return false;
-  }
-  function webPushSupported() {
-    return (
-      typeof window !== "undefined" &&
-      "serviceWorker" in navigator &&
-      "PushManager" in window &&
-      "Notification" in window
-    );
-  }
-  function storageGet(key) {
-    try {
-      return String(localStorage.getItem(key) || sessionStorage.getItem(key) || "");
-    } catch (e) {
-      return "";
-    }
-  }
-  function storageSet(key, value) {
-    try {
-      localStorage.setItem(key, value);
-    } catch (eL) {}
-    try {
-      sessionStorage.setItem(key, value);
-    } catch (eS) {}
-  }
-  function wasPushPromptDismissed() {
-    var raw = storageGet(PUSH_PROMPT_DISMISS_KEY);
-    if (!raw) return false;
-    if (raw === "1") return true;
-    var ts = Number(raw);
-    if (!ts) return true;
-    return Date.now() - ts < PUSH_DISMISS_MS;
-  }
-  function dismissPushPrompt() {
-    storageSet(PUSH_PROMPT_DISMISS_KEY, String(Date.now()));
-    clearPushCustomUi();
-  }
-  function currentPushPermission() {
-    return typeof Notification !== "undefined" ? String(Notification.permission || "") : "";
-  }
-  function isBravePermissionReset() {
-    var perm = currentPushPermission();
-    return perm !== "granted" && perm !== "denied" && (hadPushOk() || lastStoredPushPerm() === "granted");
-  }
-  function needsPushPermissionRecover() {
-    if (!webPushSupported()) return false;
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return false;
-    if (isIosLikeDevice() && !isStandalonePwa()) return false;
-    return isBravePermissionReset();
-  }
-  function tryRecoverPushFromGesture() {
-    if (pushAutoRecoverDone || pushNativeGestureInFlight || pushSubscribePostInFlight) return;
-    if (!needsPushPermissionRecover()) return;
-    if (!(cachedPushReg && cachedVapidPublicKey)) {
-      prefetchPushPrereqs();
-      return;
-    }
-    pushAutoRecoverDone = true;
-    subscribeWebPushNative({ fromGesture: true }).then(function (ok) {
-      notePushPermission();
-      if (ok) {
-        clearPushCustomUi();
-        return;
-      }
-      if (currentPushPermission() === "denied") dismissPushPrompt();
-    });
-  }
-  function wirePushAutoRecover() {
-    if (pushAutoRecoverWired) return;
-    pushAutoRecoverWired = true;
+  function schedule() {
     var run = function () {
-      tryRecoverPushFromGesture();
+      loadNotifChunk();
     };
-    document.addEventListener("pointerdown", run, true);
-    document.addEventListener("keydown", run, true);
-  }
-  function shouldShowPushPrompt() {
-    if (!webPushSupported()) return false;
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return false;
-    var perm = currentPushPermission() || "denied";
-    if (perm === "denied") return false;
-    if (pushSubActive === true) return false;
-    // Already registered successfully before + permission still granted → no nag banner.
-    if (perm === "granted" && hadPushOk() && pushSubActive !== false) return false;
-    if (wasPushPromptDismissed()) return false;
-        if (needsPushPermissionRecover()) return false;
-    if (isIosLikeDevice() && !isStandalonePwa()) return true;
-    return perm === "default" || perm === "granted";
-  }
-  function urlBase64ToUint8Array(base64String) {
-    var padding = "=".repeat((4 - (String(base64String || "").length % 4)) % 4);
-    var base64 = String(base64String || "").replace(/-/g, "+").replace(/_/g, "/") + padding;
-    var raw = atob(base64);
-    var out = new Uint8Array(raw.length);
-    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-    return out;
-  }
-  function uint8ToBase64Url(bytes) {
-    var bin = "";
-    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-  }
-  function normalizeVapidKey(s) {
-    return String(s || "")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/g, "")
-      .trim();
-  }
-  function subscriptionMatchesVapid(sub, publicKey) {
-    if (!sub || !publicKey) return false;
-    try {
-      var opts = typeof sub.options === "object" && sub.options ? sub.options : null;
-      var key = opts && opts.applicationServerKey ? opts.applicationServerKey : null;
-      if (!key) return true;
-      var have = key instanceof ArrayBuffer ? new Uint8Array(key) : new Uint8Array(key);
-      return normalizeVapidKey(uint8ToBase64Url(have)) === normalizeVapidKey(publicKey);
-    } catch (e) {
-      return true;
-    }
-  }
-  function rememberPushOk() {
-    try {
-      localStorage.setItem(PUSH_OK_KEY, String(Date.now()));
-    } catch (e) {}
-    try {
-      localStorage.removeItem(PUSH_PROMPT_DISMISS_KEY);
-      sessionStorage.removeItem(PUSH_PROMPT_DISMISS_KEY);
-    } catch (e2) {}
-    notePushPermission();
-  }
-  function hadPushOk() {
-    try {
-      return Boolean(localStorage.getItem(PUSH_OK_KEY));
-    } catch (e) {
-      return false;
-    }
-  }
-  function notePushPermission() {
-    try {
-      if (typeof Notification !== "undefined") {
-        localStorage.setItem(PUSH_PERM_KEY, String(Notification.permission || ""));
-      }
-    } catch (e) {}
-  }
-  function lastStoredPushPerm() {
-    try {
-      return String(localStorage.getItem(PUSH_PERM_KEY) || "");
-    } catch (e) {
-      return "";
-    }
-  }
-  function wasNativePushAsked() {
-    try {
-      return sessionStorage.getItem(PUSH_NATIVE_ASKED_KEY) === "1";
-    } catch (e) {
-      return false;
-    }
-  }
-  function markNativePushAsked() {
-    try {
-      sessionStorage.setItem(PUSH_NATIVE_ASKED_KEY, "1");
-    } catch (e) {}
-  }
-  function ensureServiceWorkerRegistration() {
-    if (!webPushSupported()) return Promise.resolve(null);
-    return navigator.serviceWorker
-      .register("/sw.js", { scope: "/", updateViaCache: "none" })
-      .then(function (reg) {
-        try {
-          if (reg && typeof reg.update === "function") reg.update();
-        } catch (eUp) {}
-        return navigator.serviceWorker.ready;
-      })
-      .catch(function () {
-        return null;
-      });
-  }
-  function prefetchPushPrereqs() {
-    if (!webPushSupported()) return Promise.resolve(null);
-    return Promise.all([ensureServiceWorkerRegistration(), fetchVapidPublicKey()])
-      .then(function (pair) {
-        if (pair[0]) cachedPushReg = pair[0];
-        if (pair[1]) cachedVapidPublicKey = pair[1];
-        return { reg: cachedPushReg, publicKey: cachedVapidPublicKey };
-      })
-      .catch(function () {
-        return { reg: cachedPushReg, publicKey: cachedVapidPublicKey };
-      });
-  }
-  function fetchVapidPublicKey() {
-    if (cachedVapidPublicKey) return Promise.resolve(cachedVapidPublicKey);
-    var now = Date.now();
-    if (vapidFetchBlockedUntil > now) return Promise.resolve("");
-    if (vapidFetchInFlight) return vapidFetchInFlight;
-    var url = resolvedSiteNotificationsPushUrl("vapid-public-key");
-    vapidFetchInFlight = fetch(url, {
-      method: "GET",
-      credentials: "omit",
-      cache: "no-store",
-    })
-      .then(function (r) {
-        if (r && r.status === 429) {
-          vapidFetchBlockedUntil = Date.now() + 90000;
-          try {
-            if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
-              window.VcApiCache.noteWebhook429(0, url);
-            }
-          } catch (eV429) {}
-          return null;
-        }
-        return r.json().catch(function () {
-          return null;
-        });
-      })
-      .then(function (j) {
-        if (!j || !j.ok || !j.enabled) return "";
-        var key = String(j.publicKey || "").trim();
-        if (key) cachedVapidPublicKey = key;
-        return key;
-      })
-      .catch(function () {
-        return "";
-      })
-      .finally(function () {
-        vapidFetchInFlight = null;
-      });
-    return vapidFetchInFlight;
-  }
-  function subscriptionPayload(subscription) {
-    var json = {};
-    try {
-      json = typeof subscription.toJSON === "function" ? subscription.toJSON() : {};
-    } catch (eJ) {
-      json = {};
-    }
-    if (!json || typeof json !== "object") json = {};
-    try {
-      if (!json.endpoint) json.endpoint = String(subscription.endpoint || "");
-    } catch (eEp) {}
-    json.keys = json.keys && typeof json.keys === "object" ? json.keys : {};
-    function keyOf(name) {
-      if (json.keys[name]) return String(json.keys[name]);
-      try {
-        if (!subscription.getKey) return "";
-        var buf = subscription.getKey(name);
-        if (!buf) return "";
-        return uint8ToBase64Url(new Uint8Array(buf));
-      } catch (eK) {
-        return "";
-      }
-    }
-    json.keys.p256dh = keyOf("p256dh");
-    json.keys.auth = keyOf("auth");
-    return json;
-  }
-  function postPushSubscription(subscription, opts) {
-    opts = opts || {};
-    var token = getDiscordAccessToken();
-    if (!token || !subscription) return Promise.resolve(false);
-    var json = subscriptionPayload(subscription);
-    var endpoint = String((json && json.endpoint) || "").trim();
-    if (!endpoint || !json.keys || !json.keys.p256dh || !json.keys.auth) {
-      try {
-        console.warn("[vc-push] incomplete subscription payload");
-      } catch (eInc) {}
-      return Promise.resolve(false);
-    }
-    var now = Date.now();
-    if (
-      !opts.force &&
-      endpoint &&
-      endpoint === lastPostedPushEndpoint &&
-      now - lastPostedPushAt < PUSH_RESYNC_MIN_MS
-    ) {
-      return Promise.resolve(true);
-    }
-    if (pushSubscribeBlockedUntil > now) return Promise.resolve(false);
-    if (pushSubscribePostInFlight) return pushSubscribePostInFlight;
-    function subscribePostOnce() {
-      return fetch(resolvedSiteNotificationsPushUrl("subscribe"), {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + token,
-          "Content-Type": "application/json",
-        },
-        credentials: "omit",
-        body: JSON.stringify({ subscription: json }),
-      });
-    }
-    pushSubscribePostInFlight = subscribePostOnce()
-      .then(function (r) {
-        try {
-          console.warn("[vc-push] subscribe POST", r && r.status);
-        } catch (eSt) {}
-        if (r && (r.status === 429 || r.status === 502 || r.status === 503)) {
-          var retryMs =
-            r.status === 429
-              ? Math.min(8000, Math.max(1500, Number(r.headers.get("Retry-After") || "0") * 1000 || 2500))
-              : 2000;
-          return new Promise(function (resolve) {
-            setTimeout(resolve, retryMs);
-          }).then(subscribePostOnce);
-        }
-        return r;
-      })
-      .then(function (r) {
-        if (r && r.status === 429) {
-          pushSubscribeBlockedUntil = Date.now() + 90000;
-          try {
-            if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
-              window.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), url);
-            }
-          } catch (eP429) {}
-          return false;
-        }
-        if (r && r.ok && endpoint) {
-          lastPostedPushEndpoint = endpoint;
-          lastPostedPushAt = Date.now();
-        }
-        return Boolean(r && r.ok);
-      })
-      .catch(function (err) {
-        try {
-          console.warn("[vc-push] subscribe POST failed", err && err.message ? err.message : err);
-        } catch (eC) {}
-        return false;
-      })
-      .finally(function () {
-        pushSubscribePostInFlight = null;
-      });
-    return pushSubscribePostInFlight;
-  }
-  function setPushSubActive(active) {
-    pushSubActive = active === true;
-    syncPushPromptUi();
-  }
-  function clearPushCustomUi() {
-    try {
-      var root = document.getElementById("vc-notif-dropdown");
-      if (root) root.classList.remove("vc-notif-dropdown--push-cta");
-      var banner = document.getElementById("vc-notif-push-banner");
-      if (banner) banner.remove();
-      var headBtn = document.getElementById("vc-notif-push-toggle");
-      if (headBtn) headBtn.remove();
-    } catch (e) {}
-  }
-  function syncPushPromptUi() {
-    var root = document.getElementById("vc-notif-dropdown");
-    var body = document.querySelector("#vc-notif-dropdown .vc-notif-panel-body");
-    if (!body) return;
-    var el = document.getElementById("vc-notif-push-banner");
-    if (!shouldShowPushPrompt()) {
-      if (el) el.remove();
-      if (root) root.classList.remove("vc-notif-dropdown--push-cta");
+    if (wantsFastNotifBoot()) {
+      run();
       return;
     }
-    if (root) root.classList.add("vc-notif-dropdown--push-cta");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "vc-notif-push-banner";
-      el.className = "vc-notif-push-banner";
-      el.innerHTML =
-        '<div class="vc-notif-push-banner-text">' +
-        '<strong class="vc-notif-push-banner-title"></strong>' +
-        '<span class="vc-notif-push-banner-sub"></span>' +
-        "</div>" +
-        '<div class="vc-notif-push-banner-actions">' +
-        '<button type="button" class="vc-notif-push-enable"></button>' +
-        '<button type="button" class="vc-notif-push-dismiss" aria-label=""></button>' +
-        "</div>";
-      body.insertBefore(el, body.firstChild);
-      var enableBtn = el.querySelector(".vc-notif-push-enable");
-      var dismissBtn = el.querySelector(".vc-notif-push-dismiss");
-      if (enableBtn) {
-        enableBtn.addEventListener("click", function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          subscribeWebPushFromUserGesture(enableBtn);
-        });
-      }
-      if (dismissBtn) {
-        dismissBtn.addEventListener("click", function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          dismissPushPrompt();
-        });
-      }
-    }
-    var titleEl = el.querySelector(".vc-notif-push-banner-title");
-    var subEl = el.querySelector(".vc-notif-push-banner-sub");
-    var enableEl = el.querySelector(".vc-notif-push-enable");
-    var dismissEl = el.querySelector(".vc-notif-push-dismiss");
-    if (titleEl) titleEl.textContent = tNotif("notif.pushTitle", "Notifiche sul dispositivo");
-    if (subEl) {
-      var permNow =
-        typeof Notification !== "undefined" ? String(Notification.permission || "") : "default";
-      if (isIosLikeDevice() && !isStandalonePwa()) {
-        subEl.textContent = tNotif(
-          "notif.pushIosHint",
-          "Su iPhone/iPad: aggiungi il sito alla Home, aprilo da lì, poi attiva le notifiche push.",
-        );
-      } else if (lastPushErrorHint) {
-        subEl.textContent = lastPushErrorHint;
-      } else if (permNow === "granted" && hadPushOk()) {
-        subEl.textContent = tNotif(
-          "notif.pushReconnect",
-          "Il permesso c’è già. Clicca Attiva per riattaccare questo PC — non dovrebbe più chiedere Consenti.",
-        );
-      } else if (permNow === "granted") {
-        subEl.textContent = tNotif(
-          "notif.pushGrantedNeedClick",
-          "Il permesso c’è, ma questo PC non è ancora registrato. Clicca di nuovo Attiva.",
-        );
-      } else if (isBraveLike()) {
-        subEl.textContent = tNotif(
-          "notif.pushBraveHint",
-          "Su Brave le push spesso non partono. Usa Chrome o Edge, poi clicca Attiva.",
-        );
-      } else {
-        subEl.textContent = tNotif(
-          "notif.pushSub",
-          "Senza questo gli avvisi arrivano solo quando riapri il sito. Attiva le push di sistema.",
-        );
-      }
-    }
-    if (enableEl) {
-      enableEl.textContent = tNotif("notif.pushEnable", "Attiva");
-      enableEl.disabled =
-        Boolean(isIosLikeDevice() && !isStandalonePwa()) ||
-        pushNativeGestureInFlight ||
-        Boolean(pushSubscribePostInFlight);
-      try {
-        var strayIco = enableEl.querySelector(".fa, i");
-        if (strayIco) strayIco.remove();
-      } catch (eIco) {}
-    }
-    if (dismissEl) {
-      dismissEl.setAttribute("aria-label", tNotif("notif.pushDismiss", "Nascondi"));
-      dismissEl.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
-    }
-  }
-  function subscribeWebPushFromUserGesture(btn) {
-    if (isIosLikeDevice() && !isStandalonePwa()) {
-      syncPushPromptUi();
-      return;
-    }
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = tNotif("notif.pushEnabling", "Attivazione…");
-    }
-    subscribeWebPushNative({ fromGesture: true })
-      .then(function (ok) {
-        if (!ok) {
-          try {
-            console.warn("[vc-push] subscribe failed", {
-              permission: typeof Notification !== "undefined" ? Notification.permission : "n/a",
-              standalone: isStandalonePwa(),
-            });
-          } catch (e0) {}
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = tNotif("notif.pushEnable", "Attiva");
-          }
-          try {
-            showNotifFlyToast({
-              id: "push-err-" + Date.now(),
-              title: tNotif("notif.pushTitle", "Notifiche sul dispositivo"),
-              body:
-                lastPushErrorHint ||
-                tNotif(
-                  "notif.pushError",
-                  "Non sono riuscito a registrare questo PC. Clicca di nuovo Attiva. Se resta così, usa Chrome o Edge.",
-                ),
-              kind: "info",
-              read: true,
-            });
-          } catch (e1) {}
-        } else {
-          syncPushPromptUi();
-        }
-      })
-      .catch(function () {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = tNotif("notif.pushEnable", "Attiva");
-        }
-      });
-  }
-  function describePushError(err) {
-    var name = String((err && err.name) || "").toLowerCase();
-    var msg = String((err && err.message) || err || "").toLowerCase();
-    if (
-      isBraveLike() &&
-      (name === "aborterror" ||
-        msg.indexOf("push service") >= 0 ||
-        msg.indexOf("registration failed") >= 0 ||
-        msg.indexOf("gcm") >= 0)
-    ) {
-      return tNotif(
-        "notif.pushBraveServices",
-        "Brave blocca Google FCM. Apri brave://settings/privacy, attiva “Use Google services for push messaging”, poi clicca di nuovo Attiva.",
-      );
-    }
-    if (msg.indexOf("vapid") >= 0) {
-      return tNotif("notif.pushError", "Chiave push assente. Ricarica la pagina e clicca di nuovo Attiva.");
-    }
-    if (msg.indexOf("subscribe_api") >= 0) {
-      return tNotif(
-        "notif.pushError",
-        "Il permesso c’è, ma il salvataggio sul server è fallito. Clicca di nuovo Attiva.",
-      );
-    }
-    return tNotif(
-      "notif.pushError",
-      "Non sono riuscito a registrare questo PC. Clicca di nuovo Attiva. Se resta così, usa Chrome o Edge.",
-    );
-  }
-  function createOrRepairPushSubscription(reg, publicKey, opts) {
-    var fromGesture = opts && opts.fromGesture === true;
-    function doSubscribe() {
-      return reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
-    }
-    function existingThenSubscribe() {
-      return reg.pushManager.getSubscription().then(function (existing) {
-        if (existing && !subscriptionMatchesVapid(existing, publicKey)) {
-          return existing
-            .unsubscribe()
-            .catch(function () {
-              return false;
-            })
-            .then(function () {
-              return doSubscribe();
-            });
-        }
-        if (existing) return existing;
-        return doSubscribe();
-      });
-    }
-            if (fromGesture) {
-      return doSubscribe().catch(function (err) {
-        return existingThenSubscribe().catch(function () {
-          throw err;
-        });
-      });
-    }
-    return existingThenSubscribe().catch(function (err) {
-      return reg.pushManager
-        .getSubscription()
-        .then(function (ghost) {
-          return ghost && typeof ghost.unsubscribe === "function"
-            ? ghost.unsubscribe().catch(function () {
-                return false;
-              })
-            : false;
-        })
-        .then(function () {
-          return doSubscribe();
-        })
-        .catch(function () {
-          throw err;
-        });
-    });
-  }
-  function refreshPushSubscriptionState(opts) {
-    opts = opts || {};
-    if (!webPushSupported()) {
-      pushSubActive = false;
-      return Promise.resolve(false);
-    }
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) {
-      pushSubActive = false;
-      return Promise.resolve(false);
-    }
-    if (refreshPushInFlight) return refreshPushInFlight;
-    refreshPushInFlight = ensureServiceWorkerRegistration()
-      .then(function (reg) {
-        if (!reg || !reg.pushManager) {
-          pushSubActive = false;
-          return false;
-        }
-        return reg.pushManager.getSubscription().then(function (sub) {
-          if (!sub) {
-            pushSubActive = false;
-            return false;
-          }
-          // pushActiveLocalFix1: Browser already has a push subscription → treat as active even if
-          // server resync POST fails (429 / temporary block). Avoid false banner.
-          pushSubActive = true;
-          lastPushErrorHint = "";
-          rememberPushOk();
-          return postPushSubscription(sub, opts).then(function (ok) {
-            if (ok) rememberPushOk();
-            return true;
-          });
-        });
-      })
-      .catch(function () {
-        pushSubActive = false;
-        return false;
-      })
-      .then(function (ok) {
-        refreshPushInFlight = null;
-        if (ok) syncPushPromptUi();
-        return ok;
-      });
-    return refreshPushInFlight;
-  }
-  function recreateGrantedPush() {
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") {
-      return Promise.resolve(false);
-    }
-    if (pushNativeGestureInFlight || pushSubscribePostInFlight) return Promise.resolve(false);
-    if (vapidFetchBlockedUntil > Date.now() && !cachedVapidPublicKey) return Promise.resolve(false);
-    return prefetchPushPrereqs()
-      .then(function (pair) {
-        var reg = pair && pair.reg;
-        var publicKey = pair && pair.publicKey;
-        if (!reg || !reg.pushManager || !publicKey) return false;
-        return createOrRepairPushSubscription(reg, publicKey, { fromGesture: false }).then(function (sub) {
-          if (!sub) return false;
-          return postPushSubscription(sub, { force: true }).then(function (ok) {
-            if (ok) {
-              lastPushErrorHint = "";
-              rememberPushOk();
-              setPushSubActive(true);
-            }
-            return ok === true;
-          });
-        });
-      })
-      .catch(function (err) {
-        try {
-          console.warn("[vc-push] recreate granted", err && err.message ? err.message : err);
-        } catch (e) {}
-        return false;
-      });
-  }
-    function subscribeWebPushNative(opts) {
-    var fromGesture = opts && opts.fromGesture === true;
-    if (!webPushSupported()) return Promise.resolve(false);
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return Promise.resolve(false);
-    if (isIosLikeDevice() && !isStandalonePwa()) return Promise.resolve(false);
-    if (typeof Notification !== "undefined" && Notification.permission === "denied") {
-      return Promise.resolve(false);
-    }
-        if (!fromGesture) {
-      return refreshPushSubscriptionState().then(function (ok) {
-        if (ok) return true;
-        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-          return recreateGrantedPush();
-        }
-        return false;
-      }).then(function (ok) {
-        syncPushPromptUi();
-        return ok;
-      });
-    }
-    if (pushNativeGestureInFlight) return Promise.resolve(false);
-
-    function finishSub(sub) {
-      if (!sub) throw new Error("no_subscription");
-      return postPushSubscription(sub, { force: true }).then(function (ok) {
-        if (!ok) throw new Error("subscribe_api");
-        lastPushErrorHint = "";
-        rememberPushOk();
-        return true;
-      });
-    }
-
-    function withPrereqs(reg, publicKey) {
-      if (!reg || !reg.pushManager) throw new Error("sw_failed");
-      markNativePushAsked();
-      return reg.pushManager.getSubscription().then(function (existing) {
-        if (existing) {
-          if (publicKey && !subscriptionMatchesVapid(existing, publicKey)) {
-            return createOrRepairPushSubscription(reg, publicKey, { fromGesture: true }).then(finishSub);
-          }
-          return finishSub(existing);
-        }
-        if (!publicKey) throw new Error("vapid_missing");
-        return createOrRepairPushSubscription(reg, publicKey, { fromGesture: true }).then(finishSub);
-      });
-    }
-
-    pushNativeGestureInFlight = true;
-    var start;
-    if (cachedPushReg && cachedVapidPublicKey) {
-      try {
-        start = withPrereqs(cachedPushReg, cachedVapidPublicKey);
-      } catch (eStart) {
-        start = Promise.reject(eStart);
-      }
+    var delay = 180;
+    try {
+      if (document.body && document.body.classList.contains("vc-web-tickets-page")) delay = 80;
+    } catch (eD) {}
+    try {
+      if (localStorage.getItem("vc_discord_access_token")) delay = Math.min(delay, 120);
+    } catch (e1) {}
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(run, { timeout: Math.max(400, delay + 200) });
     } else {
-      start = prefetchPushPrereqs().then(function (pair) {
-        return withPrereqs(pair && pair.reg, pair && pair.publicKey);
-      });
+      window.setTimeout(run, delay);
     }
-
-    return start
-      .then(function () {
-        pushNativeGestureInFlight = false;
-        setPushSubActive(true);
-        syncPushPromptUi();
-        return true;
-      })
-      .catch(function (err) {
-        try {
-          console.warn("[vc-push] subscribe error", err && err.message ? err.message : err);
-        } catch (eLog) {}
-        pushNativeGestureInFlight = false;
-        // If browser already has a subscription, keep active — don't show false "vapid missing".
-        return ensureServiceWorkerRegistration()
-          .then(function (reg) {
-            if (!reg || !reg.pushManager) return null;
-            return reg.pushManager.getSubscription();
-          })
-          .then(function (existing) {
-            if (existing) {
-              lastPushErrorHint = "";
-              rememberPushOk();
-              setPushSubActive(true);
-              syncPushPromptUi();
-              postPushSubscription(existing, { force: true }).catch(function () {});
-              return true;
-            }
-            lastPushErrorHint = describePushError(err);
-            setPushSubActive(false);
-            syncPushPromptUi();
-            return false;
-          })
-          .catch(function () {
-            lastPushErrorHint = describePushError(err);
-            setPushSubActive(false);
-            syncPushPromptUi();
-            return false;
-          });
-      });
-  }
-  function maybeAskNativePush() {
-    if (!webPushSupported()) return;
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    if (currentPushPermission() === "denied") return;
-    if (isIosLikeDevice() && !isStandalonePwa()) return;
-    if (needsPushPermissionRecover()) {
-      tryRecoverPushFromGesture();
-      return;
-    }
-    if (currentPushPermission() === "granted") {
-      subscribeWebPushNative().then(function () {
-        syncPushPromptUi();
-      });
-    }
-  }
-  function wirePushPermissionWatch() {
-    if (!webPushSupported()) return;
-    try {
-      if (!navigator.permissions || typeof navigator.permissions.query !== "function") return;
-      navigator.permissions.query({ name: "notifications" }).then(function (status) {
-        if (!status) return;
-        status.addEventListener("change", function () {
-          syncPushPromptUi();
-          if (String(status.state || "") === "granted") {
-            refreshPushSubscriptionState().then(function () {
-              syncPushPromptUi();
-            });
-          }
-        });
-      }).catch(function () {});
-    } catch (e) {}
-  }
-  function syncExistingWebPushSubscription() {
-    if (!webPushSupported()) return;
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    if (isIosLikeDevice() && !isStandalonePwa()) return;
-    if (syncExistingPushInFlight) return syncExistingPushInFlight;
-    syncExistingPushInFlight = subscribeWebPushNative()
-      .then(function () {
-        syncPushPromptUi();
-      })
-      .finally(function () {
-        syncExistingPushInFlight = null;
-      });
-    return syncExistingPushInFlight;
-  }
-  function siteRealtimeWsUrl() {
-    var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
-    if (c.wsEnabled === false || c.wsEnabled === "false") return "";
-    var explicit = String(c.wsUrl || "").trim();
-    if (explicit) return explicit;
-    var http = resolvedSiteNotificationsUrl();
-    if (!http || typeof URL === "undefined") return "";
-    try {
-      var u = new URL(http);
-      u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
-      var path = String(u.pathname || "").replace(/\/$/, "");
-      var dir = path.replace(/\/[^/]+$/, "");
-      u.pathname = (dir || "") + "/site-realtime-ws";
-      u.search = "";
-      u.hash = "";
-      return u.href;
-    } catch (e) {
-      return "";
-    }
-  }
-  function disconnectSiteRealtimeWs() {
-    if (siteRealtimeWsReconnectTimer) {
-      clearTimeout(siteRealtimeWsReconnectTimer);
-      siteRealtimeWsReconnectTimer = null;
-    }
-    try {
-      if (siteRealtimeWs) {
-        siteRealtimeWs.onclose = null;
-        siteRealtimeWs.close();
-      }
-    } catch (e2) {}
-    siteRealtimeWs = null;
-  }
-  function scheduleSiteRealtimeWsReconnect() {
-    if (siteRealtimeWsReconnectTimer) return;
-    siteRealtimeWsReconnectTimer = setTimeout(function () {
-      siteRealtimeWsReconnectTimer = null;
-      connectSiteRealtimeWebSocket();
-    }, 8000);
-  }
-  function stopSiteNotifsPoll() {
-    if (siteNotifsTimer) {
-      clearInterval(siteNotifsTimer);
-      siteNotifsTimer = null;
-    }
-  }
-  function connectSiteRealtimeWebSocket() {
-    if (typeof WebSocket === "undefined") return;
-    var url = siteRealtimeWsUrl();
-    if (!url) return;
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    if (siteRealtimeWsReconnectTimer) {
-      clearTimeout(siteRealtimeWsReconnectTimer);
-      siteRealtimeWsReconnectTimer = null;
-    }
-    try {
-      if (siteRealtimeWs) {
-        siteRealtimeWs.onclose = null;
-        siteRealtimeWs.close();
-      }
-    } catch (e0) {}
-    siteRealtimeWs = null;
-    try {
-      var ws = new WebSocket(url);
-      siteRealtimeWs = ws;
-      ws.onopen = function () {
-                syncSiteNotificationsFromServer();
-      };
-      ws.onmessage = function (ev) {
-        try {
-          var data = JSON.parse(String(ev.data || "{}"));
-          if (data.type === "notifications_changed") {
-            syncSiteNotificationsFromServer();
-          }
-        } catch (e3) {}
-      };
-      ws.onclose = function () {
-        siteRealtimeWs = null;
-        if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-          restartSiteNotifsPollTimer();
-          scheduleSiteRealtimeWsReconnect();
-        }
-      };
-      ws.onerror = function () {
-        try {
-          ws.close();
-        } catch (e4) {}
-      };
-    } catch (e5) {
-      siteRealtimeWs = null;
-    }
-  }
-  function getDiscordAccessToken() {
-    try {
-      if (typeof window.__vcDiscordGetAccessToken === "function") {
-        var viaAuth = String(window.__vcDiscordGetAccessToken() || "").trim();
-        if (viaAuth) return viaAuth;
-      }
-      return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
-    } catch (e) {
-      return "";
-    }
-  }
-  function deleteSiteNotificationOnServer(id) {
-    var token = getDiscordAccessToken();
-    var uid = normalizeUserId(currentUserId);
-    var sid = String(id || "").trim();
-    if (!token || !uid || !sid || !/^[a-f0-9]{24}$/i.test(sid)) return Promise.resolve(false);
-    var url = resolvedSiteNotificationsDeleteUrl();
-    return fetch(url, {
-      method: "POST",
-      credentials: "omit",
-      headers: {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ id: sid }),
-    })
-      .then(function (res) {
-        return res.ok;
-      })
-      .catch(function () {
-        return false;
-      });
-  }
-  function dismissOneSiteNotification(id) {
-    var sid = String(id || "").trim();
-    if (!sid) return;
-    var now = Date.now();
-    if (window.__vcLastDismissNotif === sid && now - (window.__vcLastDismissAt || 0) < 400) return;
-    window.__vcLastDismissNotif = sid;
-    window.__vcLastDismissAt = now;
-    if (ephemeralDemo && String(ephemeralDemo.id || "") === sid) {
-      rememberDismissedNotif(ephemeralDemo);
-      ephemeralDemo = null;
-    }
-    var items = loadStored();
-    var item = null;
-    for (var di = 0; di < items.length; di += 1) {
-      if (items[di] && String(items[di].id) === sid) {
-        item = items[di];
-        break;
-      }
-    }
-    if (item) rememberDismissedNotif(item);
-    else markDismissed(sid);
-    saveStored(items.filter(function (n) { return String((n && n.id) || "") !== sid; }));
-    render({ force: true });
-    deleteSiteNotificationOnServer(sid);
-  }
-  window.__vcDismissNotif = dismissOneSiteNotification;
-  function markSiteNotificationReadOnServer(id) {
-    return markSiteNotificationsReadBatchOnServer([id]);
-  }
-  function markSiteNotificationsReadBatchOnServer(ids) {
-    var token = getDiscordAccessToken();
-    var uid = normalizeUserId(currentUserId);
-    var list = Array.isArray(ids)
-      ? ids.map(function (x) { return String(x || "").trim(); }).filter(Boolean)
-      : [];
-    if (!token || !uid || !list.length) return Promise.resolve(false);
-    var body =
-      list.length === 1
-        ? JSON.stringify({ id: list[0] })
-        : JSON.stringify({ ids: list });
-    return fetch(resolvedSiteNotificationsReadUrl(), {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json",
-      },
-      credentials: "omit",
-      keepalive: true,
-      body: body,
-    })
-      .then(function (r) {
-        if (!r || !r.ok) return false;
-        return r
-          .json()
-          .then(function (j) {
-            var ok = Boolean(
-              j &&
-                (j.updated === true || Number(j.modified) > 0 || (j.updated !== false && j.ok === true)),
-            );
-            if (ok) {
-              for (var i = 0; i < list.length; i += 1) forgetPendingRead(list[i]);
-            }
-            return ok;
-          })
-          .catch(function () {
-            return false;
-          });
-      })
-      .catch(function () {
-        return false;
-      });
-  }
-  function markAllSiteNotificationsReadOnServer() {
-    var token = getDiscordAccessToken();
-    var uid = normalizeUserId(currentUserId);
-    if (!token || !uid) return Promise.resolve(false);
-    return fetch(resolvedSiteNotificationsReadUrl(), {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json",
-      },
-      credentials: "omit",
-      keepalive: true,
-      body: JSON.stringify({ all: true }),
-    })
-      .then(function (r) {
-        return r && r.ok;
-      })
-      .catch(function () {
-        return false;
-      });
-  }
-  function clearAllSiteNotificationsOnServer() {
-    var token = getDiscordAccessToken();
-    var uid = normalizeUserId(currentUserId);
-    if (!token || !uid) return Promise.resolve(false);
-    return fetch(resolvedSiteNotificationsClearUrl(), {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json",
-      },
-      credentials: "omit",
-      body: JSON.stringify({}),
-    })
-      .then(function (r) {
-        return r.json().catch(function () {
-          return null;
-        });
-      })
-      .then(function (j) {
-        return Boolean(j && j.ok);
-      })
-      .catch(function () {
-        return false;
-      });
-  }
-  function markSiteNotificationsReadForTicketOnServer(ticketId) {
-    var token = getDiscordAccessToken();
-    var uid = normalizeUserId(currentUserId);
-    var tid = String(ticketId || "").trim().toLowerCase();
-    if (!token || !uid || !/^[a-f0-9]{24}$/i.test(tid)) return Promise.resolve(false);
-    return fetch(resolvedSiteNotificationsReadUrl(), {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json",
-      },
-      credentials: "omit",
-      keepalive: true,
-      body: JSON.stringify({ ticketId: tid }),
-    })
-      .then(function (r) {
-        return r && r.ok;
-      })
-      .catch(function () {
-        return false;
-      });
-  }
-  function dismissOsNotifications(spec) {
-    spec = spec || {};
-    var ticketId = String(spec.ticketId || "").trim().toLowerCase();
-    var id = String(spec.id || "").trim();
-    var ticketIds = Array.isArray(spec.ticketIds) ? spec.ticketIds : [];
-    var ids = Array.isArray(spec.ids) ? spec.ids : [];
-    var all = spec.all === true;
-    var ticketMap = {};
-    var idMap = {};
-    if (ticketId) ticketMap[ticketId] = true;
-    if (id) idMap[id] = true;
-    for (var ti = 0; ti < ticketIds.length; ti += 1) {
-      var t = String(ticketIds[ti] || "").trim().toLowerCase();
-      if (t) ticketMap[t] = true;
-    }
-    for (var ii = 0; ii < ids.length; ii += 1) {
-      var n = String(ids[ii] || "").trim();
-      if (n) idMap[n] = true;
-    }
-    function matches(notif) {
-      if (!notif) return false;
-      if (all) return true;
-      var d = notif.data && typeof notif.data === "object" ? notif.data : {};
-      var nTid = String(d.ticketId || "").toLowerCase();
-      var nId = String(d.id || "");
-      var nMsg = String(d.messageId || "");
-      var nTag = String(notif.tag || "");
-      if (nTid && ticketMap[nTid]) return true;
-      if (nId && idMap[nId]) return true;
-      if (nMsg && (idMap[nMsg] || idMap[nId])) return true;
-      for (var tk in ticketMap) {
-        if (!ticketMap[tk]) continue;
-        if (nTag === "vc-site-ticket-" + tk) return true;
-        if (nTag.indexOf("vc-site-ticket-" + tk + "-") === 0) return true;
-      }
-      for (var ik in idMap) {
-        if (!idMap[ik]) continue;
-        if (nTag === "vc-site-" + ik || nTag.indexOf("vc-site-" + ik) === 0) return true;
-        if (nTag === "vc-site-msg-" + ik) return true;
-      }
-      return false;
-    }
-    var payload = {
-      type: "vc:dismiss-notifs",
-      ticketId: ticketId,
-      id: id,
-      ticketIds: Object.keys(ticketMap),
-      ids: Object.keys(idMap),
-      all: all,
-    };
-    function postDismiss(sw) {
-      try {
-        if (sw) sw.postMessage(payload);
-      } catch (ePost) {}
-    }
-    try {
-      postDismiss(navigator.serviceWorker && navigator.serviceWorker.controller);
-    } catch (eMsg) {}
-    if (!("serviceWorker" in navigator)) return;
-    var retry = Number(spec.retry || 0);
-    navigator.serviceWorker.ready
-      .then(function (reg) {
-        postDismiss(reg && reg.active);
-        if (!reg || typeof reg.getNotifications !== "function") return;
-        function closeListed(list) {
-          (list || []).forEach(function (notif) {
-            try {
-              if (matches(notif)) notif.close();
-            } catch (eClose) {}
-          });
-        }
-        var jobs = [reg.getNotifications()];
-        try {
-          jobs.push(reg.getNotifications({ includeTriggered: true }));
-        } catch (eInc) {}
-        return Promise.all(
-          jobs.map(function (p) {
-            return Promise.resolve(p).then(closeListed).catch(function () {});
-          }),
-        );
-      })
-      .then(function () {
-        if (!all || retry >= 2) return;
-        window.setTimeout(function () {
-          dismissOsNotifications({ all: true, retry: retry + 1 });
-        }, 350 * (retry + 1));
-      })
-      .catch(function () {});
-  }
-  function isPhoneOrInstalledPwa() {
-    if (isStandalonePwa()) return true;
-    if (isIosLikeDevice()) return true;
-    try {
-      return /Android/i.test(String(navigator.userAgent || ""));
-    } catch (e) {
-      return false;
-    }
-  }
-  function clearMobileOsToastsOnAppOpen() {
-    dismissOsNotificationsForReadItems(loadStored());
-  }
-  function dismissOsNotificationsForReadItems(items) {
-    var ticketIds = [];
-    var ids = [];
-    for (var i = 0; i < (items || []).length; i += 1) {
-      var it = items[i];
-      if (!it || !it.read) continue;
-      var tid = String(it.ticketId || "").trim().toLowerCase();
-      if (tid) ticketIds.push(tid);
-      var nid = String(it.id || "").trim();
-      if (nid) ids.push(nid);
-    }
-    if (!ticketIds.length && !ids.length) return;
-    dismissOsNotifications({ ticketIds: ticketIds, ids: ids });
-  }
-  var lastTicketNotifMark = { id: "", at: 0 };
-  function markTicketNotificationsRead(ticketId) {
-    var tid = String(ticketId || "").trim().toLowerCase();
-    if (!/^[a-f0-9]{24}$/i.test(tid)) return;
-    var now = Date.now();
-    var localUnread = 0;
-    saveStored(
-      loadStored().map(function (x) {
-        if (!x || x.read) return x;
-        if (extractTicketIdFromNotif(x) !== tid) return x;
-        localUnread += 1;
-        rememberPendingRead(x.id);
-        return Object.assign({}, x, { read: true });
-      }),
-    );
-    if (localUnread) render();
-    dismissOsNotifications({ ticketId: tid });
-    if (!localUnread && lastTicketNotifMark.id === tid && now - lastTicketNotifMark.at < 4000) return;
-    lastTicketNotifMark = { id: tid, at: now };
-    markSiteNotificationsReadForTicketOnServer(tid).finally(function () {
-      window.setTimeout(function () {
-        syncSiteNotificationsFromServer();
-      }, 400);
-    });
-  }
-  try {
-    window.__vcMarkTicketNotificationsRead = markTicketNotificationsRead;
-  } catch (eMarkTicket) {}
-  function mapServerRowToStoredItem(row) {
-    var kindRaw = row && row.kind;
-    var kind =
-      kindRaw === "vote"
-        ? "vote"
-        : kindRaw === "vote_reminder"
-          ? "vote_reminder"
-          : kindRaw === "success"
-            ? "success"
-            : kindRaw === "review"
-              ? "review"
-              : kindRaw === "mod"
-                ? "mod"
-                : kindRaw === "staff"
-                  ? "staff"
-              : kindRaw === "suggestion"
-                ? "suggestion"
-                : kindRaw === "web_ticket" || kindRaw === "web_ticket_mention"
-                  ? "web_ticket"
-                  : "info";
-    var titleRaw = String((row && row.title) || "").toLowerCase();
-    var bodyRaw = String((row && row.body) || "").toLowerCase();
-    if (
-      kind === "vote" &&
-      (titleRaw.indexOf("promemoria") !== -1 ||
-        bodyRaw.indexOf("promemoria") !== -1)
-    ) {
-      kind = "vote_reminder";
-    }
-    var openUrl = "";
-    if (row && typeof row.openUrl === "string") openUrl = String(row.openUrl).trim();
-    var atMs = typeof row.at === "number" ? row.at : Date.now();
-    var ticketId = extractTicketIdFromNotif(row) || extractTicketIdFromOpenUrl(openUrl);
-    var channel =
-      String((row && row.channel) || "").toLowerCase() === "inbox"
-        ? "inbox"
-        : String((row && row.channel) || "").toLowerCase() === "personal"
-          ? "personal"
-          : "";
-    var mappedRow = {
-      id: String(row.id || "").trim(),
-      title: String((row && row.title) || ""),
-      body: String((row && row.body) || ""),
-      at: atMs,
-      read: Boolean(row.read === true || row.readAt),
-      kind: kind,
-      openUrl: openUrl,
-      ticketId: ticketId,
-      filtered: Boolean(row && row.filtered),
-      channel: channel,
-      dedupeKey: String((row && row.dedupeKey) || "").trim(),
-    };
-    if (!mappedRow.channel) {
-      mappedRow.channel = isInboxLinkedNotifClient(mappedRow) ? "inbox" : "personal";
-    }
-    return mappedRow;
-  }
-  function mergeStoredWithServerNotificationList(list, uid) {
-    var oldItems = loadStored();
-    var beforeSig = buildNotifStoreSignature(oldItems);
-    var dismissed = loadDismissedSet(uid);
-    var oldIdMap = {};
-    var oldById = {};
-    for (var oi = 0; oi < oldItems.length; oi += 1) {
-      var oix = oldItems[oi];
-      var oid = String((oix && oix.id) || "").trim();
-      if (oid) {
-        oldIdMap[oid] = true;
-        oldById[oid] = oix;
-      }
-    }
-    var pendingReadMap = loadPendingReadMap();
-    var markAllRecent = isRecentMarkAllRead();
-    var serverIdMap = {};
-    var fromServer = [];
-    for (var i = 0; i < list.length; i += 1) {
-      var row = list[i];
-      if (!row || !row.title) continue;
-      var sid = String(row.id || "").trim();
-      if (!sid) continue;
-      var mapped = mapServerRowToStoredItem(row);
-      if (isVoteRegisteredNotifClient(mapped)) continue;
-      var fpId = buildNotifFingerprintId(mapped, uid, mapped.kind, mapped.openUrl);
-      if (isClearedAwayServerRow(mapped, dismissed)) continue;
-      serverIdMap[sid] = true;
-      var oldSame = oldById[sid];
-      if (mapped.read) {
-        forgetPendingRead(sid);
-        if (fpId) forgetPendingRead(fpId);
-      } else if (
-        !markAllRecent &&
-        (pendingReadMap[sid] || (fpId && pendingReadMap[fpId])) &&
-        oldSame &&
-        !sameNotifPayload(oldSame, mapped)
-      ) {
-        delete pendingReadMap[sid];
-        if (fpId) delete pendingReadMap[fpId];
-        forgetPendingRead(sid);
-        if (fpId) forgetPendingRead(fpId);
-      }
-      var watchingThis =
-        !mapped.read && isWatchingTicketChat(mapped.ticketId, mapped.openUrl);
-      if (watchingThis) {
-        mapped.read = true;
-        rememberPendingRead(sid);
-        rememberClickRead(sid);
-      }
-      fromServer.push(
-        Object.assign({}, mapped, {
-          read:
-            Boolean(mapped.read) ||
-            Boolean(markAllRecent) ||
-            Boolean(oldSame && oldSame.read) ||
-            Boolean(pendingReadMap[sid]) ||
-            Boolean(fpId && pendingReadMap[fpId]),
-        }),
-      );
-    }
-    var keepLocal = [];
-    for (var li = 0; li < oldItems.length; li += 1) {
-      var it = oldItems[li];
-      var lid = String((it && it.id) || "").trim();
-      if (!lid) continue;
-            if (!isClientLocalNotifId(lid) || serverIdMap[lid]) continue;
-      var exKind = String((it && it.kind) || "info");
-      var exOpen = String((it && it.openUrl) || "");
-      var fpId = buildNotifFingerprintId(it, uid, exKind, exOpen);
-      if (dismissed.has(lid) || dismissed.has(fpId)) continue;
-      keepLocal.push(it);
-    }
-    var merged = keepLocal.concat(fromServer);
-    saveStored(merged);
-    dismissOsNotificationsForReadItems(merged);
-    var changed = beforeSig !== buildNotifStoreSignature(merged);
-    var freshMs = 600000;
-    var toastRow = null;
-    var toastedMap = loadToastedMap();
-    for (var ti = 0; ti < fromServer.length; ti += 1) {
-      var fr = fromServer[ti];
-      if (!fr) continue;
-      var frid = String(fr.id || "").trim();
-      if (!frid || oldIdMap[frid]) continue;
-      if (toastedMap[frid]) continue;
-      if (isFilteredNotif(fr)) continue;
-      if (isNotifDismissed(fr, uid, dismissed)) continue;
-      if (Date.now() - (fr.at || 0) >= freshMs) continue;
-      if (fr.read) continue;
-      var oldSameRead = oldById[frid];
-      if (oldSameRead && oldSameRead.read) continue;
-      if (isWatchingTicketChat(fr.ticketId, fr.openUrl)) continue;
-      var candidate = {
-        id: fr.id,
-        title: fr.title,
-        body: fr.body,
-        kind: fr.kind,
-        at: fr.at,
-        read: fr.read,
-        openUrl: fr.openUrl,
-        ticketId: fr.ticketId,
-        messageId: fr.messageId,
-      };
-            if (!toastRow || fr.kind === "vote") {
-        toastRow = candidate;
-        if (fr.kind === "vote") break;
-      }
-    }
-    return { toastRow: toastRow, changed: changed };
-  }
-  function syncSiteNotificationsFromServer(opts) {
-    opts = opts || {};
-    var token = getDiscordAccessToken();
-    var uid = normalizeUserId(currentUserId);
-    if (!token || !uid) return;
-    var url = resolvedSiteNotificationsUrl();
-    if (!url) return;
-    var now = Date.now();
-    if (!opts.force && siteNotifsLastSyncAt && now - siteNotifsLastSyncAt < SITE_NOTIFS_MIN_GAP_MS) return;
-    if (siteNotifsBlockedUntil > now) return;
-    if (window.VcApiCache && typeof window.VcApiCache.isWebhookBlocked === "function") {
-      if (window.VcApiCache.isWebhookBlocked(url)) return;
-    }
-    if (siteNotifsSyncInFlight) return siteNotifsSyncInFlight;
-    var ctrl = null;
-    var tid = null;
-    var abortMs = 12000;
-    try {
-      if (
-        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-        Number(navigator.maxTouchPoints || 0) > 0
-      ) {
-        abortMs = 20000;
-      }
-    } catch (eMs) {}
-    try {
-      ctrl = new AbortController();
-      tid = setTimeout(function () {
-        try {
-          ctrl.abort();
-        } catch (eAb) {}
-      }, abortMs);
-    } catch (e0) {
-      ctrl = null;
-    }
-    var fetchOpts = {
-      headers: { Authorization: "Bearer " + token },
-      credentials: "omit",
-      cache: "no-store",
-    };
-    try {
-      if (window.VcPerf && typeof window.VcPerf.apiHeaders === "function") {
-        fetchOpts.headers = window.VcPerf.apiHeaders(fetchOpts.headers, url);
-      }
-      if (window.VcPerf && typeof window.VcPerf.notificationsLimit === "function") {
-        var lim = window.VcPerf.notificationsLimit(50);
-        url += (url.indexOf("?") >= 0 ? "&" : "?") + "limit=" + encodeURIComponent(String(lim));
-        if (window.VcPerf.isLite && window.VcPerf.isLite()) url += "&lite=1&perf=lite";
-        else if (window.VcPerf.tier && window.VcPerf.tier() === "mid") url += "&perf=mid";
-      }
-    } catch (ePerfN) {}
-    if (ctrl) fetchOpts.signal = ctrl.signal;
-    siteNotifsSyncInFlight = fetch(url, fetchOpts)
-      .then(function (r) {
-        if (r && r.status === 429) {
-          var blockMs = 90000;
-          try {
-            if (
-              (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-              Number(navigator.maxTouchPoints || 0) > 0
-            ) {
-              blockMs = 35000;
-            }
-          } catch (eMob429) {}
-          siteNotifsBlockedUntil = Date.now() + blockMs;
-          try {
-            if (window.VcApiCache && typeof window.VcApiCache.noteWebhook429 === "function") {
-              window.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), url);
-            }
-          } catch (eN429) {}
-          return null;
-        }
-        if (r && r.status === 401) {
-          try {
-            if (typeof window.__vcDiscordGetAccessToken === "function" && !window.__vcDiscordGetAccessToken()) {
-              localStorage.removeItem(DISCORD_ACCESS_TOKEN_KEY);
-            }
-          } catch (e401) {}
-          return null;
-        }
-        return r.text().then(function (raw) {
-          if (!raw || !String(raw).trim()) return null;
-          try {
-            return JSON.parse(raw);
-          } catch (eJ) {
-            return null;
-          }
-        });
-      })
-      .then(function (j) {
-        if (!j || j.ok !== true || !Array.isArray(j.items)) return;
-        var list = j.items.slice().reverse();
-        var mergeResult = mergeStoredWithServerNotificationList(list, uid);
-        if (mergeResult.changed) render();
-        tryFlushClickReads();
-        dismissOsNotificationsForReadItems(loadStored());
-        if (mergeResult.toastRow && shouldPlayNotifAlert(mergeResult.toastRow)) {
-          var toastId = String(mergeResult.toastRow.id || "").trim();
-          if (toastId) rememberToastedId(toastId);
-          playNotifSound();
-          showNativeOsBanner(mergeResult.toastRow);
-          try {
-            showNotifFlyToast(mergeResult.toastRow);
-          } catch (eFlySync) {}
-          pulseNotifSummary();
-        } else if (mergeResult.toastRow) {
-          var mutedId = String(mergeResult.toastRow.id || "").trim();
-          if (mutedId) rememberToastedId(mutedId);
-        }
-      })
-      .catch(function (err) {
-        /* apiFalseErr1: abort/rete = soft retry una volta, niente toast */
-        try {
-          if (err && err.name === "AbortError" && !opts._retried) {
-            setTimeout(function () {
-              syncSiteNotificationsFromServer({ force: true, _retried: true });
-            }, 1200);
-          }
-        } catch (eR) {}
-      })
-      .finally(function () {
-        siteNotifsSyncInFlight = null;
-        siteNotifsLastSyncAt = Date.now();
-        try {
-          if (tid) clearTimeout(tid);
-        } catch (e1) {}
-      });
-    return siteNotifsSyncInFlight;
-  }
-  function siteNotifsPollDelayMs() {
-    try {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-        return SITE_NOTIFS_POLL_HIDDEN_MS;
-      }
-    } catch (e) {}
-    /* phoneNotifFlyCard1: stesso poll del PC (prima 60s su touch → in-app in ritardo). */
-    return SITE_NOTIFS_POLL_MS;
-  }
-  function restartSiteNotifsPollTimer() {
-    stopSiteNotifsPoll();
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, siteNotifsPollDelayMs());
-  }
-  function scheduleSiteNotificationsPolling() {
-    stopSiteNotifsPoll();
-    disconnectSiteRealtimeWs();
-    try {
-      if (document.body && document.body.classList.contains("vc-dashboard-page")) return;
-      if (window.__VC_SITE_DASHBOARD && !window.__VC_SITE_NOTIFS) return;
-      if (!document.getElementById("vc-notif-dropdown")) return;
-    } catch (eDd) {}
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    if (siteNotifsPollBooted) {
-      restartSiteNotifsPollTimer();
-      return;
-    }
-    siteNotifsPollBooted = true;
-    syncSiteNotificationsFromServer();
-    if (pushSubActive !== true) syncExistingWebPushSubscription();
-        restartSiteNotifsPollTimer();
-    var wsUrl = siteRealtimeWsUrl();
-    var rs = siteRealtimeWs ? siteRealtimeWs.readyState : 3;
-    if (wsUrl && rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
-  }
-  var notifSheetResizeWired = false;
-  var notifSheetEscWired = false;
-  var bellNotifScope = "personal";
-  var bellNotifScopeWired = false;
-  var bellStaffSummaryAt = 0;
-  var bellStaffSummaryInFlight = null;
-  var bellStaffPerms = null;
-  var bellStaffQueueCache = Object.create(null);
-  var bellStaffQueueInFlight = Object.create(null);
-  var BELL_INBOX_PAGE_SIZE = 8;
-  var BELL_SCOPE_PREF_KEY = "vc_notif_scope_pref";
-  /* notifSidebar3: declare queue cache/inFlight (were undeclared → expand stuck on Caricamento…). */
-  /* notifInboxGate1: Pause = HS-only; hide gated rows until perms (like Punti tolti). */
-  var BELL_INBOX_ROWS = [
-    { id: "pause", label: "Pause", icon: "fa-pause-circle", requiresHighStaff: true },
-    { id: "candidature", label: "Candidature", icon: "fa-file-text-o", requiresCandidatureReview: true },
-    { id: "appelli", label: "Appelli", icon: "fa-balance-scale", requiresAppelliReview: true },
-    { id: "resoconti", label: "Resoconti", icon: "fa-bar-chart" },
-    { id: "punti-tolti", label: "Punti tolti", icon: "fa-minus-circle", punti: true },
-  ];
-
-  function readBellScopePref() {
-    try {
-      var v = String(localStorage.getItem(BELL_SCOPE_PREF_KEY) || "")
-        .trim()
-        .toLowerCase();
-      if (v === "staff" || v === "personal") return v;
-    } catch (ePref) {}
-    return "";
-  }
-
-  function writeBellScopePref(next) {
-    try {
-      localStorage.setItem(BELL_SCOPE_PREF_KEY, next === "staff" ? "staff" : "personal");
-    } catch (eWrite) {}
-  }
-
-  function readBellScopeFromUrl() {
-    try {
-      var sp = new URLSearchParams(location.search || "");
-      var view = String(sp.get("view") || sp.get("tab") || "")
-        .trim()
-        .toLowerCase();
-      if (view === "staff") return "staff";
-    } catch (eUrl) {}
-    return "";
-  }
-
-  function canBellStaffInbox() {
-    /* notifMobileSwitch1: do NOT require offsetParent — on phone the staff link/snav
-       is often display:none in the header while still present in DOM. Page dock
-       (revealTabs) already treats that as staff; bell switcher must match. */
-    try {
-      if (window.VcNotifScope && typeof window.VcNotifScope.canStaff === "function") {
-        if (window.VcNotifScope.canStaff()) return true;
-      }
-    } catch (eApi) {}
-    try {
-      if (window.__VC_STAFF_MENU_ALLOWED === true) return true;
-      var p = window.__VC_STAFF_PERMS;
-      if (p && typeof p === "object" && p.ok) return true;
-      var token = getDiscordAccessToken();
-      if (token) {
-        var fp = String(token).slice(0, 24);
-        try {
-          var menu = JSON.parse(sessionStorage.getItem("vc_menu_staff_v1") || "null");
-          if (menu && menu.allowed && menu.fp === fp && Date.now() - Number(menu.at || 0) < 300000) {
-            return true;
-          }
-        } catch (eMenu) {}
-        try {
-          var gate = JSON.parse(
-            sessionStorage.getItem("vc_staff_access_ok_v2") ||
-              localStorage.getItem("vc_staff_access_ok_v2_local") ||
-              "null",
-          );
-          if (gate && gate.ok === true && Number(gate.exp || 0) > Date.now()) return true;
-        } catch (eGate) {}
-      }
-      var link = document.getElementById("discord-staff-link");
-      if (link && !link.hasAttribute("hidden")) return true;
-      if (
-        document.querySelector(
-          "[data-vc-staff-tools-nav], .vc-snav-details--staff, .vc-header-snav [data-vc-staff-nav], .vc-snav-details[data-vc-staff-nav], #vc-staff-snav-details, #discord-staff-link:not([hidden])",
-        )
-      ) {
-        return true;
-      }
-    } catch (eCan) {}
-    return false;
-  }
-
-  function staffWorkflowsApiBase() {
-    try {
-      var c = window.__VC_STAFF_WORKFLOWS;
-      if (c && typeof c === "object") {
-        var u = String(c.apiUrl || "").trim();
-        if (u) return u;
-      }
-    } catch (eCfg) {}
-    return "/webhooks/site-staff-workflows";
-  }
-
-  function notificationsStaffPageUrl(inboxId, itemId) {
-    try {
-      var u = new URL(NOTIFICATIONS_PATH, window.location.origin);
-      u.searchParams.set("view", "staff");
-      if (inboxId) u.searchParams.set("inbox", String(inboxId));
-      if (itemId) {
-        u.searchParams.set("item", String(itemId));
-        u.searchParams.set("scope", "pending");
-      }
-      return u.toString();
-    } catch (eUrl) {
-      var q = "?view=staff";
-      if (inboxId) q += "&inbox=" + encodeURIComponent(String(inboxId));
-      if (itemId) {
-        q += "&item=" + encodeURIComponent(String(itemId)) + "&scope=pending";
-      }
-      return NOTIFICATIONS_PATH + q;
-    }
-  }
-
-  function readBellStaffPerms() {
-    var perms = {};
-    try {
-      var g = window.__VC_STAFF_PERMS;
-      if (g && typeof g === "object" && g.ok) {
-        Object.keys(g).forEach(function (k) {
-          perms[k] = g[k];
-        });
-      }
-    } catch (eG) {}
-    var extra = bellStaffPerms && typeof bellStaffPerms === "object" ? bellStaffPerms : null;
-    if (!extra) {
-      try {
-        var cached = readCachedBellStaffSummary();
-        if (cached && cached.permissions) extra = cached.permissions;
-      } catch (eCache) {}
-    }
-    if (extra && typeof extra === "object") {
-      Object.keys(extra).forEach(function (k) {
-        perms[k] = extra[k];
-      });
-    }
-    return perms;
-  }
-
-  function bellInboxRowIsGated(row) {
-    if (!row) return true;
-    if (row.punti || row.id === "punti-tolti") return true;
-    if (row.requiresHighStaff || row.id === "pause") return true;
-    if (row.requiresCandidatureReview || row.id === "candidature") return true;
-    if (row.requiresAppelliReview || row.id === "appelli") return true;
-    return false;
-  }
-
-  function canBellInboxRow(row) {
-    if (!row) return false;
-    var perms = readBellStaffPerms();
-    var hasPerms = Boolean(
-      perms &&
-        (Object.prototype.hasOwnProperty.call(perms, "highStaff") ||
-          Object.prototype.hasOwnProperty.call(perms, "candidatureReview") ||
-          Object.prototype.hasOwnProperty.call(perms, "appelliReview") ||
-          Object.prototype.hasOwnProperty.call(perms, "isPm") ||
-          Object.prototype.hasOwnProperty.call(perms, "pm") ||
-          Object.prototype.hasOwnProperty.call(perms, "isHighStaff") ||
-          Object.prototype.hasOwnProperty.call(perms, "canViewPmPointsRemoved")),
-    );
-    if (!hasPerms) {
-      /* Optimistic: only ungated queues (Resoconti) before perms; mirror Punti tolti gate. */
-      return !bellInboxRowIsGated(row);
-    }
-    /* Pause API is High Staff only — do not treat director as HS. */
-    var high = Boolean(perms.highStaff || perms.isHighStaff || perms.canManage);
-    var highOrDirector = high || Boolean(perms.director);
-    var pm = Boolean(perms.isPm || perms.pm || perms.partnerManager || perms.isPmGestore);
-    if (row.punti || row.id === "punti-tolti") {
-      return Boolean(perms.canViewPmPointsRemoved) || highOrDirector || pm;
-    }
-    if (row.requiresHighStaff || row.id === "pause") return high;
-    if (row.requiresCandidatureReview || row.id === "candidature") {
-      return Boolean(perms.candidatureReview) || highOrDirector;
-    }
-    if (row.requiresAppelliReview || row.id === "appelli") {
-      return Boolean(perms.appelliReview) || highOrDirector;
-    }
-    return true;
-  }
-
-  function hideBellInboxForbiddenRow(row) {
-    if (!row || !row.id) return;
-    try {
-      var list = document.getElementById("vc-notif-bell-inbox-list");
-      if (!list) return;
-      var el = list.querySelector('[data-bell-inbox="' + String(row.id).replace(/"/g, "") + '"]');
-      if (!el) return;
-      el.remove();
-      var hint = document.getElementById("vc-notif-bell-inbox-hint");
-      var left = list.querySelectorAll(".vc-notif-bell-inbox__row").length;
-      if (hint) {
-        hint.textContent = "";
-        hint.hidden = true;
-        hint.setAttribute("hidden", "");
-      }
-      void left;
-    } catch (eHide) {}
-  }
-
-  function isBellInboxForbiddenErr(err) {
-    if (!err) return false;
-    if (Number(err.status) === 403) return true;
-    var msg = String(err.message || err.error || "").toLowerCase();
-    return (
-      msg.indexOf("solo high staff") >= 0 ||
-      msg.indexOf("forbidden") >= 0 ||
-      msg.indexOf("non hai i permessi") >= 0
-    );
-  }
-
-  /* notifApiErr1: 401 / abort / rete soft → non toastare come fallimento duro */
-  function isBellInboxBenignErr(err) {
-    if (!err) return true;
-    if (err.benign === true) return true;
-    var st = Number(err.status) || 0;
-    if (st === 401 || st === 403 || st === 0 || st === 408 || st === 429) return true;
-    var msg = String(err.message || err.error || "").toLowerCase();
-    return (
-      msg.indexOf("abort") >= 0 ||
-      msg.indexOf("timeout") >= 0 ||
-      msg.indexOf("network") >= 0 ||
-      msg.indexOf("missing_token") >= 0 ||
-      msg.indexOf("invalid_token") >= 0 ||
-      msg.indexOf("accedi") >= 0 ||
-      msg.indexOf("invalid_json") >= 0 ||
-      msg.indexOf("empty") >= 0 ||
-      msg.indexOf("rate_limited") >= 0
-    );
-  }
-
-  function escBellHtml(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function bellInboxItemFocusId(queueId, item) {
-    if (!item) return "";
-    if (queueId === "pause") return String(item.id || "").trim();
-    if (queueId === "punti-tolti") return String(item.messageId || item.id || "").trim();
-    return String(item.messageId || item.recordId || item.id || "").trim();
-  }
-
-  function bellInboxItemLabel(queueId, item) {
-    if (!item) return "Richiesta";
-    if (queueId === "punti-tolti") {
-      var pm = item.pm || {};
-      var who = String(pm.displayName || pm.userId || "").trim();
-      var rule = String(item.rule || "").trim();
-      if (who && rule) return who + " · " + rule;
-      return who || rule || "Punti tolti";
-    }
-    var name = String(item.displayName || "").trim();
-    var title = String(item.title || "").trim();
-    var type = String(item.type || item.kind || "").trim();
-    if (name && !/^\d{16,22}$/.test(name)) return name;
-    if (title) return title;
-    if (type) return type;
-    return "Richiesta";
-  }
-
-  /* notifCats2: richer inbox queue row (who / what / when). */
-  function bellInboxItemDetail(queueId, item) {
-    if (!item) return { title: "Richiesta", subtitle: "", when: "", avatarUrl: "" };
-    var title = bellInboxItemLabel(queueId, item);
-    var subtitle = "";
-    var avatarUrl = String(item.avatarUrl || "").trim();
-    if (queueId === "pause") {
-      var start = String(item.start || "").trim();
-      var end = String(item.end || "").trim();
-      var role = String(item.ruoloRichiesto || item.ruoloTrack || "").trim();
-      var period = start && end ? start + " → " + end : start || end;
-      var bits = [];
-      if (role) bits.push(role);
-      if (period) bits.push(period);
-      var motiv = String(item.motivazione || item.preview || "").trim();
-      if (motiv && bits.length < 2) bits.push(motiv.slice(0, 80));
-      subtitle = bits.join(" · ");
-    } else if (queueId === "punti-tolti") {
-      var pm2 = item.pm || {};
-      title = String(pm2.displayName || pm2.userId || title).trim() || "Punti tolti";
-      avatarUrl = String(pm2.avatarUrl || item.avatarUrl || "").trim();
-      var rule2 = String(item.rule || "").trim();
-      var reporter = String((item.reporter && item.reporter.displayName) || item.reporterName || "").trim();
-      subtitle = [rule2, reporter ? "da " + reporter : ""].filter(Boolean).join(" · ");
-    } else if (queueId === "resoconti") {
-      var resoTitle = String(item.title || "").trim();
-      if (resoTitle && resoTitle !== title) subtitle = resoTitle;
-      else subtitle = String(item.preview || item.roleLabel || item.kind || "").trim().slice(0, 100);
-    } else {
-      subtitle = String(item.preview || item.title || item.type || item.kind || "").trim().slice(0, 100);
-      if (subtitle === title) subtitle = "";
-    }
-    var whenMs = Date.parse(String(item.createdAt || item.updatedAt || item.at || "")) || 0;
-    var when = whenMs ? timeAgoLocalized(whenMs) : "";
-    return { title: title, subtitle: subtitle, when: when, avatarUrl: avatarUrl };
-  }
-
-  function navigateBellInboxHref(href) {
-    var ddNav = document.getElementById("vc-notif-dropdown");
-    if (ddNav) requestCloseNotifDropdown(ddNav);
-    openNotifDestination(href, "mod");
-  }
-
-  function puntiToltiApiBase() {
-    try {
-      var c = window.__VC_STAFF_PM_POINTS_REMOVED;
-      if (c && typeof c === "object") {
-        var u = String(c.apiUrl || "").trim();
-        if (u) return u;
-      }
-    } catch (eCfg) {}
-    return "/webhooks/site-staff-pm-points-removed";
-  }
-
-  function fetchBellInboxQueueItems(row) {
-    var id = row && row.id ? String(row.id) : "";
-    if (!id) return Promise.resolve([]);
-    if (bellStaffQueueInFlight[id]) return bellStaffQueueInFlight[id];
-    var cached = bellStaffQueueCache[id];
-    if (cached && cached.ok !== false && Date.now() - Number(cached.at || 0) < 20000) {
-      return Promise.resolve(cached.items || []);
-    }
-    var token = getDiscordAccessToken();
-    if (!token) {
-      return Promise.reject(new Error("Accedi per vedere questa coda."));
-    }
-
-    var url;
-    if (row.punti || id === "punti-tolti") {
-      var pt = puntiToltiApiBase();
-      url =
-        pt +
-        (pt.indexOf("?") >= 0 ? "&" : "?") +
-        "limit=" +
-        encodeURIComponent(String(BELL_INBOX_PAGE_SIZE)) +
-        "&pending=1";
-    } else {
-      var api = staffWorkflowsApiBase();
-      url =
-        api +
-        (api.indexOf("?") >= 0 ? "&" : "?") +
-        "queue=" +
-        encodeURIComponent(id) +
-        "&scope=pending&pageSize=" +
-        encodeURIComponent(String(BELL_INBOX_PAGE_SIZE));
-    }
-
-    bellStaffQueueInFlight[id] = fetch(url, {
-      method: "GET",
-      credentials: "include",
-      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
-      cache: "no-store",
-    })
-      .then(function (res) {
-        return res
-          .json()
-          .catch(function () {
-            return null;
-          })
-          .then(function (body) {
-            return { ok: res.ok, status: res.status, body: body };
-          });
-      })
-      .then(function (out) {
-        /* notifApiErr1: ok:true senza items → lista vuota, non errore */
-        if (out && out.body && out.body.ok === true) {
-          var itemsOk = Array.isArray(out.body.items) ? out.body.items : [];
-          itemsOk = itemsOk.slice(0, BELL_INBOX_PAGE_SIZE);
-          bellStaffQueueCache[id] = { at: Date.now(), items: itemsOk, ok: true };
-          if (out.body.permissions) {
-            bellStaffPerms = out.body.permissions;
-          }
-          return itemsOk;
-        }
-        var st = Number(out && out.status) || 0;
-        var msg =
-          (out && out.body && (out.body.message || out.body.error)) ||
-          (st === 401 ? "Accedi per vedere questa coda." : "Impossibile caricare la coda.");
-        var err = new Error(String(msg));
-        err.status = st;
-        err.benign =
-          st === 401 ||
-          st === 403 ||
-          st === 0 ||
-          st === 408 ||
-          st === 429 ||
-          st >= 500 ||
-          !out ||
-          !out.body;
-        throw err;
-      })
-      .catch(function (err) {
-        if (cached && cached.ok !== false && Array.isArray(cached.items)) {
-          return cached.items;
-        }
-        throw err || new Error("Impossibile caricare la coda.");
-      })
-      .finally(function () {
-        bellStaffQueueInFlight[id] = null;
-      });
-    return bellStaffQueueInFlight[id];
-  }
-
-  function renderBellInboxItems(row, host, items) {
-    if (!host) return;
-    host.innerHTML = "";
-    host.hidden = false;
-    host.removeAttribute("hidden");
-    var queueItems = Array.isArray(items) ? items.slice() : [];
-    var ptExtra = [];
-    if (row && row.id === "punti-tolti") {
-      ptExtra = inboxNotifsForBucket("punti-tolti");
-      ptExtra.forEach(function (n) {
-        var item = document.createElement("li");
-        item.className =
-          "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--rich" + (n.read ? "" : " is-unread");
-        var a = document.createElement("a");
-        a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
-        var dest = String(n.openUrl || "").trim();
-        a.href = dest ? resolveNotifDestUrl(dest) : notificationsStaffPageUrl("punti-tolti");
-        var bodySnip = String(n.body || "").trim().slice(0, 110);
-        var whenTxt = timeAgoLocalized(n.at || Date.now());
-        a.innerHTML =
-          '<span class="vc-notif-bell-inbox__item-dot" aria-hidden="true"></span>' +
-          '<span class="vc-notif-bell-inbox__item-copy">' +
-          '<span class="vc-notif-bell-inbox__item-label">' +
-          escBellHtml(String(n.title || "Punti tolti")) +
-          "</span>" +
-          (bodySnip
-            ? '<span class="vc-notif-bell-inbox__item-sub">' + escBellHtml(bodySnip) + "</span>"
-            : "") +
-          '<span class="vc-notif-bell-inbox__item-time">' +
-          escBellHtml(whenTxt) +
-          "</span>" +
-          "</span>";
-        a.addEventListener("click", function (ev) {
-          ev.preventDefault();
-          try {
-            markOneRead(n.id);
-          } catch (eMark) {}
-          navigateBellInboxHref(a.href);
-        });
-        item.appendChild(a);
-        host.appendChild(item);
-      });
-    }
-    if (!queueItems.length && !ptExtra.length) {
-      var empty = document.createElement("li");
-      empty.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty";
-      empty.textContent = "Nessuna richiesta";
-      host.appendChild(empty);
-      return;
-    }
-    queueItems.forEach(function (item) {
-      var li = document.createElement("li");
-      li.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--rich";
-      var a = document.createElement("a");
-      a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
-      var focusId = bellInboxItemFocusId(row.id, item);
-      a.href = notificationsStaffPageUrl(row.id, focusId);
-      var det = bellInboxItemDetail(row.id, item);
-      var avHtml = det.avatarUrl
-        ? '<img class="vc-notif-bell-inbox__item-av" src="' +
-          escBellHtml(det.avatarUrl) +
-          '" alt="" width="28" height="28" loading="lazy" decoding="async" />'
-        : '<span class="vc-notif-bell-inbox__item-av vc-notif-bell-inbox__item-av--ph" aria-hidden="true"><i class="fa fa-user"></i></span>';
-      a.innerHTML =
-        avHtml +
-        '<span class="vc-notif-bell-inbox__item-copy">' +
-        '<span class="vc-notif-bell-inbox__item-label">' +
-        escBellHtml(det.title) +
-        "</span>" +
-        (det.subtitle
-          ? '<span class="vc-notif-bell-inbox__item-sub">' + escBellHtml(det.subtitle) + "</span>"
-          : "") +
-        (det.when
-          ? '<span class="vc-notif-bell-inbox__item-time">' + escBellHtml(det.when) + "</span>"
-          : "") +
-        "</span>" +
-        '<i class="fa fa-chevron-right" aria-hidden="true"></i>';
-      a.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        navigateBellInboxHref(a.href);
-      });
-      li.appendChild(a);
-      host.appendChild(li);
-    });
-    var more = document.createElement("li");
-    more.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--more";
-    var moreA = document.createElement("a");
-    moreA.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--more";
-    moreA.href = notificationsStaffPageUrl(row.id);
-    moreA.textContent = "Apri inbox completa";
-    moreA.addEventListener("click", function (ev) {
-      ev.preventDefault();
-      navigateBellInboxHref(moreA.href);
-    });
-    more.appendChild(moreA);
-    host.appendChild(more);
-  }
-
-  function renderBellInboxLoadError(row, host, message) {
-    if (!host) return;
-    host.innerHTML = "";
-    host.hidden = false;
-    host.removeAttribute("hidden");
-    var li = document.createElement("li");
-    li.className = "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty vc-notif-bell-inbox__item--error";
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "vc-notif-bell-inbox__retry";
-    btn.textContent = String(message || "Errore di caricamento") + " — riprova";
-    btn.addEventListener("click", function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      host.removeAttribute("data-loaded");
-      host.removeAttribute("data-loading");
-      host.innerHTML =
-        '<li class="vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty">Caricamento…</li>';
-      loadBellInboxSectionItems(row, host);
-    });
-    li.appendChild(btn);
-    host.appendChild(li);
-  }
-
-  function loadBellInboxSectionItems(row, itemsHost) {
-    if (!row || !itemsHost) return;
-    var gen = String((Number(itemsHost.getAttribute("data-gen") || 0) || 0) + 1);
-    itemsHost.setAttribute("data-gen", gen);
-    itemsHost.setAttribute("data-loading", "1");
-    fetchBellInboxQueueItems(row)
-      .then(function (items) {
-        if (itemsHost.getAttribute("data-gen") !== gen) return;
-        if (!itemsHost.isConnected) return;
-        itemsHost.removeAttribute("data-loading");
-        itemsHost.setAttribute("data-loaded", "1");
-        renderBellInboxItems(row, itemsHost, items || []);
-      })
-      .catch(function (err) {
-        if (itemsHost.getAttribute("data-gen") !== gen) return;
-        if (!itemsHost.isConnected) return;
-        itemsHost.removeAttribute("data-loading");
-        itemsHost.removeAttribute("data-loaded");
-        /* notifInboxGate1: never show "Solo High Staff — riprova"; hide gated queues. */
-        if (isBellInboxForbiddenErr(err) || !canBellInboxRow(row)) {
-          hideBellInboxForbiddenRow(row);
-          return;
-        }
-        /* notifApiErr1: niente toast globale — solo retry inline; benign = copy soft */
-        var benign = isBellInboxBenignErr(err);
-        var msg = benign
-          ? Number(err && err.status) === 401
-            ? "Accedi per vedere questa coda."
-            : "Caricamento non riuscito"
-          : (err && err.message) || "Impossibile caricare la coda.";
-        renderBellInboxLoadError(row, itemsHost, msg);
-      });
-  }
-
-  function toggleBellInboxSection(row, btn, itemsHost, forceOpen) {
-    if (!btn || !itemsHost) return;
-    if (!canBellInboxRow(row)) {
-      hideBellInboxForbiddenRow(row);
-      return;
-    }
-    var wantOpen =
-      typeof forceOpen === "boolean" ? forceOpen : btn.getAttribute("aria-expanded") !== "true";
-    btn.setAttribute("aria-expanded", wantOpen ? "true" : "false");
-    btn.classList.toggle("is-open", wantOpen);
-    var rowEl = btn.closest(".vc-notif-bell-inbox__row");
-    if (rowEl) rowEl.classList.toggle("is-open", wantOpen);
-    if (!wantOpen) {
-      itemsHost.hidden = true;
-      itemsHost.setAttribute("hidden", "");
-      return;
-    }
-    itemsHost.hidden = false;
-    itemsHost.removeAttribute("hidden");
-    if (itemsHost.getAttribute("data-loaded") || itemsHost.getAttribute("data-loading")) return;
-    itemsHost.innerHTML =
-      '<li class="vc-notif-bell-inbox__item vc-notif-bell-inbox__item--empty">Caricamento…</li>';
-    loadBellInboxSectionItems(row, itemsHost);
-  }
-
-  function ensureNotifBellScopeUi() {
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (!dd) return false;
-    var panel = dd.querySelector(".vc-notif-panel");
-    if (!panel) return false;
-    var head = panel.querySelector(".vc-notif-panel-head");
-    var body = panel.querySelector(".vc-notif-panel-body");
-    if (!body) return false;
-
-    var switchWrap = document.getElementById("vc-notif-bell-scope");
-    if (!switchWrap) {
-      switchWrap = document.createElement("div");
-      switchWrap.id = "vc-notif-bell-scope";
-      switchWrap.className = "vc-notif-scope-switch";
-      switchWrap.hidden = true;
-      switchWrap.innerHTML =
-        '<div class="vc-notif-scope-switch__seg" role="tablist" aria-label="Ambito notifiche">' +
-        '<button type="button" role="tab" class="vc-notif-scope-switch__btn is-active" id="vc-notif-bell-tab-personal" data-bell-scope="personal" aria-selected="true">' +
-        '<i class="fa fa-bell" aria-hidden="true"></i><span>Personali</span></button>' +
-        '<button type="button" role="tab" class="vc-notif-scope-switch__btn" id="vc-notif-bell-tab-staff" data-bell-scope="staff" aria-selected="false">' +
-        '<i class="fa fa-inbox" aria-hidden="true"></i><span>Inbox</span></button>' +
-        "</div>";
-      if (head && head.parentNode === panel) panel.insertBefore(switchWrap, head.nextSibling);
-      else panel.insertBefore(switchWrap, body);
-    }
-
-    var personalPane = document.getElementById("vc-notif-bell-pane-personal");
-    if (!personalPane) {
-      personalPane = document.createElement("div");
-      personalPane.id = "vc-notif-bell-pane-personal";
-      personalPane.className = "vc-notif-bell-pane";
-      personalPane.setAttribute("data-bell-pane", "personal");
-      while (body.firstChild) personalPane.appendChild(body.firstChild);
-      body.appendChild(personalPane);
-    }
-
-    var staffPane = document.getElementById("vc-notif-bell-pane-staff");
-    if (!staffPane) {
-      staffPane = document.createElement("div");
-      staffPane.id = "vc-notif-bell-pane-staff";
-      staffPane.className = "vc-notif-bell-pane vc-notif-bell-pane--staff";
-      staffPane.setAttribute("data-bell-pane", "staff");
-      staffPane.hidden = true;
-      staffPane.innerHTML =
-        '<div class="vc-notif-bell-inbox" id="vc-notif-bell-inbox">' +
-        '<p class="vc-notif-bell-inbox__hint" id="vc-notif-bell-inbox-hint">Caricamento inbox staff…</p>' +
-        '<ul class="vc-notif-bell-inbox__list" id="vc-notif-bell-inbox-list" role="list"></ul>' +
-        "</div>";
-      body.appendChild(staffPane);
-    }
-
-    if (!bellNotifScopeWired) {
-      bellNotifScopeWired = true;
-      switchWrap.addEventListener("click", function (ev) {
-        var btn =
-          ev.target && ev.target.closest ? ev.target.closest("[data-bell-scope]") : null;
-        if (!btn || !switchWrap.contains(btn)) return;
-        ev.preventDefault();
-        ev.stopPropagation();
-        var next = btn.getAttribute("data-bell-scope") === "staff" ? "staff" : "personal";
-        setBellNotifScope(next, { source: "bell" });
-      });
-      window.addEventListener("vc:notif-scope", function (ev) {
-        var next = ev && ev.detail && ev.detail.scope === "staff" ? "staff" : "personal";
-        setBellNotifScope(next, { source: "page", silent: true });
-      });
-      window.addEventListener("vc:staff-access-ok", function () {
-        syncNotifBellScopeChrome();
-      });
-      window.addEventListener("vc:auth-logout", function () {
-        setBellNotifScope("personal", { source: "logout", silent: true, remember: false });
-      });
-    }
-    return true;
-  }
-
-  function resolveInitialBellScope(opts) {
-    opts = opts || {};
-    var fromUrl = readBellScopeFromUrl();
-    if (fromUrl === "staff" && canBellStaffInbox()) return "staff";
-    if (isOnNotificationsPage()) {
-      try {
-        if (document.body && document.body.classList.contains("vc-notif-scope-staff") && canBellStaffInbox()) {
-          return "staff";
-        }
-      } catch (eBody) {}
-      try {
-        if (window.VcNotifScope && typeof window.VcNotifScope.getScope === "function") {
-          var pageScope = window.VcNotifScope.getScope();
-          if (pageScope === "staff" && canBellStaffInbox()) return "staff";
-        }
-      } catch (eGet) {}
-    }
-    /* bellOpenPersonal1: apertura campana → sempre Personali (anche desktop),
-       ignora pref sticky Inbox; deep-link ?view=staff / pagina notifiche staff restano. */
-    if (opts.fromBellOpen) {
-      return "personal";
-    }
-    var pref = readBellScopePref();
-    if (pref === "staff" && canBellStaffInbox()) return "staff";
-    return "personal";
-  }
-
-  function syncNotifBellScopeChrome() {
-    ensureNotifBellScopeUi();
-    var switchWrap = document.getElementById("vc-notif-bell-scope");
-    var tabP = document.getElementById("vc-notif-bell-tab-personal");
-    var tabS = document.getElementById("vc-notif-bell-tab-staff");
-    var personalPane = document.getElementById("vc-notif-bell-pane-personal");
-    var staffPane = document.getElementById("vc-notif-bell-pane-staff");
-    var staffOk = canBellStaffInbox();
-    if (!staffOk && bellNotifScope === "staff") bellNotifScope = "personal";
-    if (switchWrap) {
-      if (staffOk) {
-        switchWrap.hidden = false;
-        switchWrap.removeAttribute("hidden");
-      } else {
-        switchWrap.hidden = true;
-        switchWrap.setAttribute("hidden", "");
-      }
-    }
-    if (tabS) {
-      tabS.disabled = !staffOk;
-      tabS.setAttribute("aria-disabled", staffOk ? "false" : "true");
-      if (!staffOk) tabS.setAttribute("hidden", "");
-      else tabS.removeAttribute("hidden");
-    }
-    var isStaff = bellNotifScope === "staff" && staffOk;
-    if (tabP) {
-      tabP.classList.toggle("is-active", !isStaff);
-      tabP.setAttribute("aria-selected", !isStaff ? "true" : "false");
-    }
-    if (tabS) {
-      tabS.classList.toggle("is-active", isStaff);
-      tabS.setAttribute("aria-selected", isStaff ? "true" : "false");
-    }
-    if (personalPane) {
-      personalPane.hidden = isStaff;
-      if (isStaff) personalPane.setAttribute("hidden", "");
-      else personalPane.removeAttribute("hidden");
-    }
-    if (staffPane) {
-      staffPane.hidden = !isStaff;
-      if (!isStaff) staffPane.setAttribute("hidden", "");
-      else staffPane.removeAttribute("hidden");
-    }
-    try {
-      var dd = document.getElementById("vc-notif-dropdown");
-      if (dd) dd.classList.toggle("vc-notif-dropdown--staff-scope", isStaff);
-    } catch (eCls) {}
-    try {
-      var clearAll = document.getElementById("vc-notif-clear-all");
-      if (clearAll) {
-        clearAll.hidden = isStaff;
-        if (isStaff) clearAll.setAttribute("hidden", "");
-        else clearAll.removeAttribute("hidden");
-      }
-    } catch (eClear) {}
-    ensureNotifSeeAllLink();
-    if (isStaff) loadBellStaffInboxSummary();
-  }
-
-  function setBellNotifScope(next, opts) {
-    opts = opts || {};
-    var want = next === "staff" ? "staff" : "personal";
-    if (want === "staff" && !canBellStaffInbox()) want = "personal";
-    var prev = bellNotifScope;
-    bellNotifScope = want;
-    if (!opts || opts.remember !== false) writeBellScopePref(want);
-    syncNotifBellScopeChrome();
-    if (opts.source === "bell" && !opts.silent) {
-      try {
-        if (isOnNotificationsPage() && window.VcNotifScope && typeof window.VcNotifScope.setScope === "function") {
-          window.VcNotifScope.setScope(want, { remember: false });
-        } else {
-          window.dispatchEvent(new CustomEvent("vc:notif-scope", { detail: { scope: want, source: "bell" } }));
-        }
-      } catch (eSync) {}
-    }
-    if (prev !== want) {
-      try {
-        var sub = document.getElementById("vc-notif-unread-sub");
-        if (sub && want === "staff") sub.textContent = formatUnreadSub(countInboxUnreadNotifs());
-        else if (want === "personal") render({ force: false });
-      } catch (eSub) {}
-    }
-  }
-
-  function readCachedBellStaffSummary() {
-    try {
-      var pref = window.__VC_INBOX_SUMMARY_PREFETCH;
-      if (pref && pref.summary) return pref;
-      var now = Date.now();
-      var raw = sessionStorage.getItem("vc_inbox_summary_v1");
-      if (raw) {
-        var parsed = JSON.parse(raw);
-        if (parsed && parsed.summary && now - Number(parsed.at || 0) <= 120000) return parsed;
-      }
-      var rawLocal = localStorage.getItem("vc_inbox_summary_local_v1");
-      if (rawLocal) {
-        var parsedLocal = JSON.parse(rawLocal);
-        if (parsedLocal && parsedLocal.summary && now - Number(parsedLocal.at || 0) <= 600000) {
-          return parsedLocal;
-        }
-      }
-    } catch (eCache) {}
-    return null;
-  }
-
-  function renderBellStaffInbox(summary) {
-    var list = document.getElementById("vc-notif-bell-inbox-list");
-    var hint = document.getElementById("vc-notif-bell-inbox-hint");
-    /* notifCats3 marker */
-    /* notifUseful1 marker */
-    if (!list) return;
-    list.innerHTML = "";
-    try {
-      var subHead = document.getElementById("vc-notif-unread-sub");
-      if (subHead && bellNotifScope === "staff") {
-        subHead.textContent = formatUnreadSub(countInboxUnreadNotifs());
-      }
-    } catch (eSubH) {}
-
-    function appendInboxNotifCategory(cat) {
-      var items = inboxNotifsForBucket(cat.id);
-      if (!items.length && cat.id !== "avvisi") return;
-      if (!items.length) return;
-      var li = document.createElement("li");
-      li.className = "vc-notif-bell-inbox__row has-count";
-      li.setAttribute("data-bell-inbox", cat.id);
-      var unreadA = items.filter(function (x) {
-        return !x.read;
-      }).length;
-      var itemsHost = document.createElement("ul");
-      itemsHost.className = "vc-notif-bell-inbox__items";
-      itemsHost.setAttribute("role", "list");
-      itemsHost.hidden = true;
-      itemsHost.setAttribute("hidden", "");
-      items.slice(0, 12).forEach(function (n) {
-        var item = document.createElement("li");
-        item.className =
-          "vc-notif-bell-inbox__item vc-notif-bell-inbox__item--rich" + (n.read ? "" : " is-unread");
-        var a = document.createElement("a");
-        a.className = "vc-notif-bell-inbox__item-link vc-notif-bell-inbox__item-link--rich";
-        var dest = String(n.openUrl || "").trim();
-        a.href = dest ? resolveNotifDestUrl(dest) : notificationsStaffPageUrl("", "");
-        var bodySnip = String(n.body || "").trim().slice(0, 110);
-        var whenTxt = timeAgoLocalized(n.at || Date.now());
-        a.innerHTML =
-          '<span class="vc-notif-bell-inbox__item-dot" aria-hidden="true"></span>' +
-          '<span class="vc-notif-bell-inbox__item-copy">' +
-          '<span class="vc-notif-bell-inbox__item-label">' +
-          escBellHtml(String(n.title || cat.label)) +
-          "</span>" +
-          (bodySnip
-            ? '<span class="vc-notif-bell-inbox__item-sub">' + escBellHtml(bodySnip) + "</span>"
-            : "") +
-          '<span class="vc-notif-bell-inbox__item-time">' +
-          escBellHtml(whenTxt) +
-          "</span>" +
-          "</span>";
-        a.addEventListener("click", function (ev) {
-          ev.preventDefault();
-          try {
-            markOneRead(n.id);
-          } catch (eMark) {}
-          navigateBellInboxHref(a.href);
-        });
-        item.appendChild(a);
-        itemsHost.appendChild(item);
-      });
-      var catBar = buildNotifCategoryBar({
-        toggleClass: "vc-notif-bell-inbox__toggle",
-        toggleHtml:
-          '<span class="vc-notif-bell-inbox__ico" aria-hidden="true"><i class="fa ' +
-          cat.ico +
-          '"></i></span>' +
-          '<span class="vc-notif-bell-inbox__label">' +
-          escBellHtml(cat.label) +
-          "</span>",
-        countHtml:
-          '<span class="vc-notif-bell-inbox__count">' +
-          String(items.length) +
-          (unreadA ? " · " + unreadA : "") +
-          "</span>",
-        clearCatId: cat.id,
-        clearAriaLabel: "Elimina tutte in " + cat.label,
-        onClear: function () {
-          clearNotifCategory(cat.id, "inbox");
-        },
-        onToggleClick: function (ev) {
-          ev.preventDefault();
-          var open = !li.classList.contains("is-open");
-          li.classList.toggle("is-open", open);
-          catBar.bar.classList.toggle("is-open", open);
-          catBar.toggle.classList.toggle("is-open", open);
-          catBar.toggle.setAttribute("aria-expanded", open ? "true" : "false");
-          itemsHost.hidden = !open;
-          if (open) itemsHost.removeAttribute("hidden");
-          else itemsHost.setAttribute("hidden", "");
-        },
-      });
-      var bar = catBar.bar;
-      var btn = catBar.toggle;
-      li.appendChild(bar);
-      li.appendChild(itemsHost);
-      list.appendChild(li);
-    }
-
-    INBOX_NOTIF_CATS.forEach(appendInboxNotifCategory);
-
-    var sum = summary && typeof summary === "object" ? summary : {};
-    var total = 0;
-    var visible = 0;
-    var ptNotifs = inboxNotifsForBucket("punti-tolti");
-    BELL_INBOX_ROWS.forEach(function (row) {
-      if (!canBellInboxRow(row)) return;
-      visible += 1;
-      var count = Number(sum[row.id] || 0) || 0;
-      if (
-        (row.punti || row.id === "punti-tolti") &&
-        !sum[row.id] &&
-        bellStaffQueueCache[row.id] &&
-        Array.isArray(bellStaffQueueCache[row.id].items)
-      ) {
-        count = bellStaffQueueCache[row.id].items.length;
-      }
-      if (row.id === "punti-tolti") count += ptNotifs.length;
-      total += count;
-      var li = document.createElement("li");
-      li.className = "vc-notif-bell-inbox__row" + (count > 0 ? " has-count" : "");
-      li.setAttribute("data-bell-inbox", row.id);
-
-      var itemsHost = document.createElement("ul");
-      itemsHost.className = "vc-notif-bell-inbox__items";
-      itemsHost.id = "vc-notif-bell-inbox-items-" + row.id;
-      itemsHost.hidden = true;
-      itemsHost.setAttribute("hidden", "");
-      itemsHost.setAttribute("role", "list");
-
-      var catBarOpts = {
-        toggleClass: "vc-notif-bell-inbox__toggle",
-        ariaControls: "vc-notif-bell-inbox-items-" + row.id,
-        toggleHtml:
-          '<span class="vc-notif-bell-inbox__ico" aria-hidden="true"><i class="fa ' +
-          row.icon +
-          '"></i></span>' +
-          '<span class="vc-notif-bell-inbox__label">' +
-          escBellHtml(row.label) +
-          "</span>",
-        countHtml:
-          '<span class="vc-notif-bell-inbox__count">' +
-          (count > 99 ? "99+" : String(count)) +
-          "</span>",
-        onToggleClick: function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          toggleBellInboxSection(row, catBar.toggle, itemsHost);
-        },
-      };
-      if (row.id === "punti-tolti" && ptNotifs.length) {
-        catBarOpts.clearTitle = "Elimina notifiche Punti tolti";
-        catBarOpts.clearAriaLabel = "Elimina notifiche Punti tolti";
-        catBarOpts.onClear = function () {
-          clearNotifCategory("punti-tolti", "inbox");
-        };
-      }
-      var catBar = buildNotifCategoryBar(catBarOpts);
-      li.appendChild(catBar.bar);
-      li.appendChild(itemsHost);
-      list.appendChild(li);
-    });
-    if (hint) {
-      /* notifCats3: categories with 0 are enough — no empty-copy / sleeping disc. */
-      hint.textContent = "";
-      hint.hidden = true;
-      hint.setAttribute("hidden", "");
-    }
-    void total;
-    void visible;
-  }
-
-  function loadBellStaffInboxSummary(force) {
-    ensureNotifBellScopeUi();
-    var cached = readCachedBellStaffSummary();
-    if (cached && cached.permissions) bellStaffPerms = cached.permissions;
-    if (cached && cached.summary) renderBellStaffInbox(cached.summary);
-    if (!force && bellStaffSummaryAt && Date.now() - bellStaffSummaryAt < 20000 && cached) {
-      return Promise.resolve(cached);
-    }
-    var token = getDiscordAccessToken();
-    if (!token) {
-      renderBellStaffInbox({});
-      var hint = document.getElementById("vc-notif-bell-inbox-hint");
-      if (hint) hint.textContent = "Accedi per vedere l'inbox staff.";
-      return Promise.resolve(null);
-    }
-    if (bellStaffSummaryInFlight) return bellStaffSummaryInFlight;
-    var api = staffWorkflowsApiBase();
-    var url = api + (api.indexOf("?") >= 0 ? "&" : "?") + "queue=summary";
-    bellStaffSummaryInFlight = fetch(url, {
-      method: "GET",
-      credentials: "include",
-      headers: { Authorization: "Bearer " + token, Accept: "application/json" },
-      cache: "no-store",
-    })
-      .then(function (res) {
-        return res
-          .json()
-          .catch(function () {
-            return null;
-          })
-          .then(function (body) {
-            return { ok: res.ok, body: body };
-          });
-      })
-      .then(function (out) {
-        bellStaffSummaryAt = Date.now();
-        if (!out || !out.body || !out.body.ok || !out.body.summary) {
-          if (!cached) renderBellStaffInbox({});
-          return null;
-        }
-        if (out.body.permissions) bellStaffPerms = out.body.permissions;
-        try {
-          var cachePayload = {
-            summary: out.body.summary,
-            permissions: out.body.permissions || null,
-            at: Date.now(),
-          };
-          sessionStorage.setItem("vc_inbox_summary_v1", JSON.stringify(cachePayload));
-          localStorage.setItem("vc_inbox_summary_local_v1", JSON.stringify(cachePayload));
-          window.__VC_INBOX_SUMMARY_PREFETCH = out.body;
-        } catch (eStore) {}
-        renderBellStaffInbox(out.body.summary);
-        return out.body;
-      })
-      .catch(function () {
-        if (!cached) {
-          var hintErr = document.getElementById("vc-notif-bell-inbox-hint");
-          if (hintErr) hintErr.textContent = "Impossibile caricare l'inbox staff.";
-        }
-        return null;
-      })
-      .finally(function () {
-        bellStaffSummaryInFlight = null;
-      });
-    return bellStaffSummaryInFlight;
-  }
-
-  function wireNotifMobileSheet() {
-    var dd = document.getElementById("vc-notif-dropdown");
-    if (!dd) return false;
-    ensureNotifBellScopeUi();
-    if (!dd.__vcNotifSheetWired) {
-      dd.__vcNotifSheetWired = true;
-      /* notifSidebar2: prime drawer class before <details> paints classic popup.
-         notifBellFix1: click owns open/close; defer portal off the toggle stack. */
-      var summary = dd.querySelector("summary.vc-notif-summary");
-      if (summary && !summary.__vcNotifPrimeWired) {
-        summary.__vcNotifPrimeWired = true;
-        summary.addEventListener(
-          "pointerdown",
-          function () {
-            if (dd.open) {
-              notifPortalGuardUntil = 0;
-              return;
-            }
-            primeDesktopNotifDrawer(dd);
-          },
-          true,
-        );
-        summary.addEventListener(
-          "keydown",
-          function (ev) {
-            if (ev.key !== "Enter" && ev.key !== " ") return;
-            if (dd.open) {
-              notifPortalGuardUntil = 0;
-              return;
-            }
-            primeDesktopNotifDrawer(dd);
-          },
-          true,
-        );
-        summary.addEventListener(
-          "click",
-          function (ev) {
-            try {
-              if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
-              if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
-            } catch (ePrev) {}
-            var live = document.getElementById("vc-notif-dropdown") || dd;
-            if (!live) return;
-            /* notifDoubleClose1: one gesture → one toggle (blocks touch+click / ghost reopen). */
-            var nowMs = Date.now();
-            if (nowMs < notifBellGestureLockUntil) return;
-            notifBellGestureLockUntil = nowMs + 420;
-            if (live.open) {
-              notifPortalGuardUntil = 0;
-              requestCloseNotifDropdown(live);
-              /* toggle event owns chrome sync — avoid double portal/forceOpen. */
-              return;
-            }
-            primeDesktopNotifDrawer(live);
-            holdPageScroll(220);
-            try {
-              live.open = true;
-              live.setAttribute("open", "");
-            } catch (eOpen) {}
-            var repairGen = notifPortalOpenGen;
-            window.setTimeout(function () {
-              try {
-                if (repairGen !== notifPortalOpenGen) return;
-                var again = document.getElementById("vc-notif-dropdown");
-                if (again && again.open) syncNotifMobileSheetChrome();
-                else clearStuckNotifDrawerPrime();
-              } catch (eFix) {}
-            }, 48);
-          },
-          true,
-        );
-      }
-      dd.addEventListener("toggle", function () {
-        if (dd.open) holdPageScroll(220);
-        scheduleNotifSheetChromeSync({ delayMs: 0 });
-        if (dd.open) {
-          markAllReadOnBellOpen();
-          syncPushPromptUi();
-          maybeAskNativePush();
-          /* bellOpenPersonal1 + notifTicketScrollStay1 */
-          setBellNotifScope(resolveInitialBellScope({ fromBellOpen: true }), {
-            source: "open",
-            silent: true,
-            remember: false,
-          });
-          try {
-            syncNotifBellScopeChrome();
-          } catch (eBellChrome) {}
-        } else {
-          notifPortalGuardUntil = 0;
-          syncPushPromptUi();
-          ensureNotifDropdownInHeader(true);
-          restoreNotifScrollAfterClose();
-          clearStuckNotifDrawerPrime();
-        }
-      });
-    }
-    if (!notifSheetResizeWired) {
-      notifSheetResizeWired = true;
-      window.addEventListener("resize", function () {
-        syncNotifMobileSheetChrome();
-        var liveDd = document.getElementById("vc-notif-dropdown");
-        if (!liveDd || !liveDd.open) {
-          ensureNotifDropdownInHeader(true);
-          restoreNotifScrollAfterClose();
-        }
-      });
-      window.addEventListener("pageshow", function () {
-        /* notifSidebar4: soft repair — keep drawer open across bfcache/app switch. */
-        repairNotifDropdownPortal();
-        var liveDd = document.getElementById("vc-notif-dropdown");
-        if (!liveDd || !liveDd.open) restoreNotifScrollAfterClose();
-      });
-      /* notifSidebar4: do NOT close drawer on visibilitychange (tab hide / app background). */
-    }
-    if (!notifSheetEscWired) {
-      notifSheetEscWired = true;
-      document.addEventListener("keydown", function (ev) {
-        if (ev.key !== "Escape") return;
-        var live = document.getElementById("vc-notif-dropdown");
-        if (!live || !live.open) return;
-        notifBellGestureLockUntil = Date.now() + 420;
-        requestCloseNotifDropdown(live);
-        scheduleNotifSheetChromeSync({ delayMs: 0 });
-      });
-    }
-    var head = dd.querySelector(".vc-notif-panel-head");
-    if (head && !head.querySelector(".vc-notif-close-mobile")) {
-      var closeM = document.createElement("button");
-      closeM.type = "button";
-      closeM.className = "vc-notif-action vc-notif-close-mobile";
-      closeM.setAttribute(
-        "aria-label",
-        window.VcI18n && typeof window.VcI18n.t === "function" ? window.VcI18n.t("notif.close") : "Chiudi",
-      );
-      closeM.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
-      closeM.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        notifBellGestureLockUntil = Date.now() + 420;
-        requestCloseNotifDropdown(dd);
-        scheduleNotifSheetChromeSync({ delayMs: 0 });
-      });
-      head.appendChild(closeM);
-    }
-    return true;
-  }
-
-  function wireNotifListClicks() {
-    var listEl = document.getElementById("vc-notif-list");
-    if (!listEl || listEl.__vcNotifListWired) return false;
-    listEl.__vcNotifListWired = true;
-    listEl.addEventListener("click", function (ev) {
-      var t = ev.target;
-      if (!t || !t.closest) return;
-      var dismissBtn = t.closest("button.vc-notif-dismiss");
-      if (dismissBtn && listEl.contains(dismissBtn)) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        dismissOneSiteNotification(dismissBtn.getAttribute("data-id") || "");
-        return;
-      }
-      var btn = t.closest(".vc-notif-item");
-      if (!btn || !listEl.contains(btn)) return;
-      var id = btn.getAttribute("data-id");
-      var dest = String(btn.getAttribute("data-open-url") || "").trim();
-      var kind = String(btn.getAttribute("data-kind") || "info").toLowerCase();
-      if (id || dest) markOneRead(id, { openUrl: dest });
-      var href = resolveNotifDestUrl(dest);
-      if (href) {
-        ev.preventDefault();
-        var ddNav = document.getElementById("vc-notif-dropdown");
-        if (ddNav) ddNav.removeAttribute("open");
-        openNotifDestination(href, kind);
-      }
-    });
-    return true;
-  }
-
-  function ensureStaffLateNotifUi() {
-    ensureSiteNotifDropdown();
-    var had = Boolean(document.getElementById("vc-notif-dropdown"));
-    wireNotifMobileSheet();
-    wireNotifListClicks();
-    ensureNotifSeeAllLink();
-    bindClearAllButton();
-    removeMarkAllButton();
-    try {
-      /* notifMobileSwitch1: late staff gate must reveal Personali|Inbox on open bell too. */
-      syncNotifBellScopeChrome();
-    } catch (eScopeLate) {}
-    if (!had) return;
-    lastNotifRenderSig = "";
-    render({ force: true });
-    if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-      scheduleSiteNotificationsPolling();
-    }
-  }
-
-  function deferAfterFirstPaint(fn, fallbackMs) {
-    var done = false;
-    function run() {
-      if (done) return;
-      done = true;
-      try {
-        fn();
-      } catch (eDef) {}
-    }
-    if (typeof requestIdleCallback === "function") {
-      requestIdleCallback(run, { timeout: fallbackMs || 2800 });
-    } else {
-      window.setTimeout(run, fallbackMs || 900);
-    }
-  }
-
-  function init() {
-    ensureSiteNotifDropdown();
-    setCurrentUser(window.__VC_DISCORD_PROFILE || null);
-    render();
-    syncGlobalNotifOverlayClass();
-    document.addEventListener("pointerdown", unlockNotifAudio, true);
-    document.addEventListener("keydown", unlockNotifAudio, true);
-    wireNotifMobileSheet();
-    wireNotifListClicks();
-    ensureNotifSeeAllLink();
-    removeMarkAllButton();
-    var seeAll = document.getElementById("vc-notif-see-all");
-    bindClearAllButton();
-    if (seeAll) {
-      seeAll.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        repairNotifDropdownPortal({ forceClose: true });
-        /* notifSeeAll1: always personal root, never ?view=staff */
-        window.location.href = notificationsPageUrl();
-      });
-    }
-    window.addEventListener("vc:staff-access-ok", ensureStaffLateNotifUi);
-    window.addEventListener("vc:staff-notif-ready", ensureStaffLateNotifUi);
-    window.vcNotify = { add: addNotif, refresh: render, clearAll: clearAll };
-    flushPendingLoginNotification();
-    deferAfterFirstPaint(function () {
-      wirePushNotifMarkRead();
-      wirePushPermissionWatch();
-      wirePushAutoRecover();
-      consumePendingNavFromSwCache();
-      startPendingNavPoll();
-      wireSwClientFocusPing();
-      flushPendingReadsToServer();
-      tryFlushClickReads();
-      syncPushPromptUi();
-      if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-        scheduleSiteNotificationsPolling();
-        if (webPushSupported()) {
-          prefetchPushPrereqs().then(function () {
-            syncExistingWebPushSubscription();
-          });
-        } else {
-          syncExistingWebPushSubscription();
-        }
-      }
-    }, 2600);
-    window.addEventListener("pageshow", function () {
-      consumeNotifReadFromUrl();
-      consumePendingReadFromSwCache();
-      consumePendingNavFromSwCache();
-      startPendingNavPoll();
-      clearMobileOsToastsOnAppOpen();
-      if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-        syncExistingWebPushSubscription();
-      }
-    });
-    document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "visible") {
-        clearMobileOsToastsOnAppOpen();
-        syncSiteNotificationsFromServer();
-        if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-          syncExistingWebPushSubscription();
-        }
-      }
-    });
-  }
-  window.addEventListener("vc-discord-profile", function (ev) {
-    setCurrentUser(ev && ev.detail ? ev.detail.user : null);
-    lastNotifRenderSig = "";
-    render({ force: true });
-    syncGlobalNotifOverlayClass();
-    flushPendingLoginNotification();
-    consumeNotifReadFromUrl();
-    consumePendingReadFromSwCache();
-    tryFlushClickReads();
-    flushPendingReadsToServer();
-    syncPushPromptUi();
-    wirePushAutoRecover();
-    if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
-      scheduleSiteNotificationsPolling();
-      prefetchPushPrereqs().then(function () {
-        syncExistingWebPushSubscription();
-      });
-    } else {
-      stopSiteNotifsPoll();
-      disconnectSiteRealtimeWs();
-    }
-  });
-  document.addEventListener("vc:langchange", function () {
-    lastNotifRenderSig = "";
-    baseDocumentTitle = "";
-    lastTabUnreadShown = -1;
-    stopWindowAttention();
-    render({ force: true });
-  });
-  window.addEventListener("beforeunload", function () {
-    stopSiteNotifsPoll();
-    disconnectSiteRealtimeWs();
-  });
-  document.addEventListener("visibilitychange", function () {
-    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
-    restartSiteNotifsPollTimer();
-    if (document.visibilityState !== "visible") return;
-    if (siteNotifsVisibilityTimer) clearTimeout(siteNotifsVisibilityTimer);
-    siteNotifsVisibilityTimer = setTimeout(function () {
-      siteNotifsVisibilityTimer = null;
-      syncSiteNotificationsFromServer();
-    }, 400);
-  });
-  window.addEventListener("storage", function (ev) {
-    if (!ev || !isNotifStorageSyncKey(ev.key)) return;
-    onNotifStorePeerSync();
-  });
-  window.addEventListener("vc:notifications-sync", function () {
-    onNotifStorePeerSync();
-  });
-  if (notifSyncBc) {
-    notifSyncBc.addEventListener("message", function () {
-      onNotifStorePeerSync();
-    });
   }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+    document.addEventListener("DOMContentLoaded", schedule, { once: true });
+  } else schedule();
+  document.addEventListener(
+    "pointerdown",
+    function (ev) {
+      try {
+        var t = ev.target;
+        if (t && t.closest && t.closest("#vc-notif-dropdown, .vc-notif-summary, summary.vc-notif-summary")) {
+          loadNotifChunk();
+        }
+      } catch (e2) {}
+    },
+    true
+  );
 })();
 (function () {
+    /* staffNavFix1: do NOT block vc-mobile-nav.js — that file owns collapsible categories + badges */
     try {
-    window.__vcLandingMobileNavActive = true;
+    window.__vcLandingMobileNavActive = false;
   } catch (eOwn) {}
   var DRAWER_ID = "vc-mobile-nav-drawer";
   var TOGGLE_ID = "vc-mobile-nav-toggle";
@@ -9091,6 +2750,18 @@
     try {
       document.documentElement.classList.remove(BODY_OPEN_CLASS);
     } catch (e0) {}
+    /* navMobileShadowClose1: unlock non deve lasciare alone scrolled sulla pill */
+    try {
+      var yClose =
+        window.pageYOffset ||
+        (document.documentElement && document.documentElement.scrollTop) ||
+        0;
+      var shellClose = document.querySelector("header .vc-nav-shell");
+      if (shellClose && yClose <= 12) {
+        shellClose.classList.remove("vc-nav-shell--scrolled");
+        document.documentElement.classList.remove("vc-nav-shell-scrolled");
+      }
+    } catch (eNavScr) {}
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
     } catch (eSyncClose) {}
@@ -9273,12 +2944,39 @@
       var fromProfile = String(profile && profile.id || "").trim();
       if (/^\d{17,22}$/.test(fromProfile)) return fromProfile;
     } catch (eP) {}
+    try {
+      var menuUser = window.__VC_ACCOUNT_MENU_USER;
+      var fromMenu = String(menuUser && menuUser.id || "").trim();
+      if (/^\d{17,22}$/.test(fromMenu)) return fromMenu;
+    } catch (eMenu) {}
+    try {
+      var token = String(localStorage.getItem("vc_discord_access_token") || "").trim();
+      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+      if (token && (!exp || Date.now() < exp)) {
+        var fp = String(exp) + "|" + token.slice(0, 32);
+        var raw = sessionStorage.getItem("vc_discord_me_cache_v1") || localStorage.getItem("vc_discord_me_cache_local_v1");
+        if (raw) {
+          var o = JSON.parse(raw);
+          if (o && o.v === 1 && o.user && String(o.fp || "") === fp) {
+            var fromCache = String(o.user.id || "").trim();
+            if (/^\d{17,22}$/.test(fromCache)) return fromCache;
+          }
+        }
+        var uidRaw = localStorage.getItem("vc_discord_uid_v1");
+        if (uidRaw) {
+          var uo = JSON.parse(uidRaw);
+          var fromUid = String(uo && uo.uid || "").trim();
+          if (/^\d{17,22}$/.test(fromUid)) return fromUid;
+        }
+      }
+    } catch (eCache) {}
     return "";
   }
 
   function mobileProfileHref(userId) {
     var id = resolveMobileAccountUserId(userId);
-    return id ? "/user/?id=" + encodeURIComponent(id) : "/user";
+    /* profileHrefNoLeaderboard1: mai classifica /user senza id */
+    return id ? "/user/?id=" + encodeURIComponent(id) : "#";
   }
 
   function mobileProfileDetailUserId() {
@@ -9327,6 +3025,270 @@
       }
     } catch (eCache) {}
     return null;
+  }
+
+  function isBachecaNavHref(href) {
+    try {
+      var p = String(href || "")
+        .replace(/^https?:\/\/[^/]+/i, "")
+        .replace(/[?#].*$/, "")
+        .replace(/\/index\.html$/i, "")
+        .replace(/\/+$/, "") || "/";
+      return (
+        p === "/bacheca" ||
+        p.indexOf("/bacheca/") === 0 ||
+        p === "/boards" ||
+        p.indexOf("/boards/") === 0
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isBachecaNavLabel(label) {
+    var t = String(label || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    return t === "bacheca" || t === "boards" || t === "board";
+  }
+
+  /* hamFootOnly1: togli Bacheca (+ Dashboard) dalla griglia PRINCIPALE */
+  function stripBachecaTilesFromGrid(gridRoot) {
+    if (!gridRoot) return;
+    try {
+      var nodes = gridRoot.querySelectorAll(
+        'a[data-vc-mobile-bacheca], a[data-vc-mobile-dashboard], a[href="/bacheca/"], a[href="/bacheca"], a[href*="/bacheca/"], a[href="/boards/"], a[href="/boards"], a[href*="/dashboard"]'
+      );
+      var i;
+      for (i = 0; i < nodes.length; i += 1) {
+        var a = nodes[i];
+        if (!a || !a.classList || !a.classList.contains("vc-mobile-nav-tile")) continue;
+        if (a.closest && a.closest(".vc-mobile-nav-footer")) continue;
+        try {
+          a.parentNode && a.parentNode.removeChild(a);
+        } catch (eRm) {}
+      }
+    } catch (eStrip) {}
+  }
+
+  function findMobileNavSectionByTitle(gridRoot, want) {
+    if (!gridRoot || !want) return null;
+    var wantNorm = String(want)
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    var secs = gridRoot.querySelectorAll(".vc-mobile-nav-section, details.vc-mobile-nav-section");
+    var i;
+    for (i = 0; i < secs.length; i += 1) {
+      var sec = secs[i];
+      var titleEl = sec.querySelector(".vc-mobile-nav-section-title, summary, h3");
+      var title = String((titleEl && titleEl.textContent) || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+      if (title === wantNorm || title.indexOf(wantNorm) === 0) return sec;
+    }
+    return null;
+  }
+
+  function sectionGridEl(sec) {
+    if (!sec) return null;
+    return sec.querySelector(".vc-mobile-nav-grid") || sec;
+  }
+
+  function createBachecaTile() {
+    var a = document.createElement("a");
+    a.className = "vc-mobile-nav-tile";
+    a.href = "/bacheca/";
+    a.setAttribute("data-vc-mobile-bacheca", "1");
+    var ico = document.createElement("span");
+    ico.className = "vc-mobile-nav-tile-ico";
+    ico.setAttribute("aria-hidden", "true");
+    ico.innerHTML = '<i class="fa fa-th-large"></i>';
+    var lab = document.createElement("span");
+    lab.className = "vc-mobile-nav-tile-label";
+    lab.textContent = i18nLabel("nav.bacheca", "Bacheca");
+    a.appendChild(ico);
+    a.appendChild(lab);
+    bindMobileNavTileNav(a);
+    return a;
+  }
+
+  function ensureMobileBachecaTile(gridRoot) {
+    /* hamFootOnly1: niente tile Bacheca in PRINCIPALE — solo footer */
+    return;
+  }
+
+  function ensureMobileDashboardTile(gridRoot) {
+    /* hamFootOnly1: niente tile Dashboard in PRINCIPALE — solo footer */
+    return;
+  }
+
+  function isBachecaPathCurrent() {
+    try {
+      return isBachecaNavHref(window.location.pathname || "/");
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function applyFooterActionsLayout(actions) {
+    if (!actions) return;
+    actions.classList.add("is-trio");
+    actions.classList.remove("is-quad");
+  }
+
+  /* hamEsciFull1: Esci sempre barra sotto il trio, mai cella griglia */
+  function ensureFooterLogoutBarLayout(root) {
+    try {
+      var scope = root || document.getElementById("vc-mobile-nav-drawer-footer") || document;
+      var lo =
+        scope.querySelector &&
+        scope.querySelector(
+          ".vc-mobile-nav-footer__action--logout-bar, .vc-mobile-nav-footer__action--logout"
+        );
+      if (!lo) return;
+      try {
+        lo.classList.add(
+          "vc-mobile-nav-footer__action",
+          "vc-mobile-nav-footer__action--logout",
+          "vc-mobile-nav-footer__action--logout-bar"
+        );
+        lo.classList.remove("vc-mobile-nav-footer__action--icon");
+      } catch (eCls) {}
+      var actions = lo.closest && lo.closest(".vc-mobile-nav-footer__actions");
+      if (!actions) return;
+      var account = actions.closest(".vc-mobile-nav-footer__account") || actions.parentElement;
+      if (!account) return;
+      var toolbar = account.querySelector(":scope > .vc-mobile-nav-footer__toolbar");
+      if (!toolbar) {
+        toolbar = document.createElement("div");
+        toolbar.className = "vc-mobile-nav-footer__toolbar";
+        if (actions.parentNode === account) {
+          account.insertBefore(toolbar, actions);
+          toolbar.appendChild(actions);
+        } else {
+          account.appendChild(toolbar);
+          toolbar.appendChild(actions);
+        }
+      } else if (actions.parentNode !== toolbar) {
+        toolbar.insertBefore(actions, toolbar.firstChild);
+      }
+      toolbar.appendChild(lo);
+      applyFooterActionsLayout(actions);
+    } catch (eEns) {}
+  }
+
+  function appendDashboardFooterAction(actions) {
+    if (!actions) return null;
+    var allowed = isDashboardNavAllowed();
+    var dash = document.createElement("a");
+    dash.className =
+      "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--dashboard vc-mobile-nav-footer__action--icon";
+    dash.setAttribute("aria-label", i18nLabel("auth.dashboard", "Dashboard"));
+    dash.title = i18nLabel("auth.dashboard", "Dashboard");
+    dash.setAttribute("data-vc-mobile-dashboard", "1");
+    if (allowed) {
+      dash.href = resolveDashboardHref();
+      try {
+        if (document.body && document.body.classList.contains("vc-dashboard-page")) {
+          dash.classList.add("is-active");
+          dash.setAttribute("aria-current", "page");
+        }
+      } catch (eAct) {}
+    } else {
+      dash.classList.add("is-soon");
+      dash.setAttribute("aria-disabled", "true");
+    }
+    dash.innerHTML = allowed
+      ? '<i class="fa fa-server" aria-hidden="true"></i>'
+      : '<span class="vc-mobile-nav-footer__soon-inner" aria-hidden="true"><i class="fa fa-server" aria-hidden="true"></i></span>' +
+        '<span class="vc-mobile-nav-footer__soon-badge" data-i18n="dash.comingSoon">' +
+        i18nLabel("dash.comingSoon", "soon") +
+        "</span>";
+    dash.addEventListener("click", function (ev) {
+      if (!isDashboardNavAllowed()) {
+        try {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          if (ev && ev.stopPropagation) ev.stopPropagation();
+        } catch (ePrev) {}
+        return;
+      }
+      onMobileNavTileClick(ev, dash);
+    });
+    actions.appendChild(dash);
+    return dash;
+  }
+
+  function appendBachecaFooterAction(actions) {
+    if (!actions) return null;
+    var allowed = isDashboardNavAllowed();
+    var bach = document.createElement("a");
+    bach.className =
+      "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--bacheca vc-mobile-nav-footer__action--icon";
+    bach.setAttribute("aria-label", i18nLabel("nav.bacheca", "Bacheca"));
+    bach.title = i18nLabel("nav.bacheca", "Bacheca");
+    bach.setAttribute("data-vc-mobile-bacheca", "1");
+    if (allowed) {
+      bach.href = "/bacheca/";
+      if (isBachecaPathCurrent()) {
+        bach.classList.add("is-active");
+        bach.setAttribute("aria-current", "page");
+      }
+    } else {
+      bach.classList.add("is-soon");
+      bach.setAttribute("aria-disabled", "true");
+    }
+    bach.innerHTML = allowed
+      ? '<i class="fa fa-th-large" aria-hidden="true"></i>'
+      : '<span class="vc-mobile-nav-footer__soon-inner" aria-hidden="true"><i class="fa fa-th-large" aria-hidden="true"></i></span>' +
+        '<span class="vc-mobile-nav-footer__soon-badge" data-i18n="dash.comingSoon">' +
+        i18nLabel("dash.comingSoon", "soon") +
+        "</span>";
+    bach.addEventListener("click", function (ev) {
+      if (!isDashboardNavAllowed()) {
+        try {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          if (ev && ev.stopPropagation) ev.stopPropagation();
+        } catch (ePrev) {}
+        return;
+      }
+      onMobileNavTileClick(ev, bach);
+    });
+    actions.appendChild(bach);
+    return bach;
+  }
+
+  function createFooterLogoutButton(logoutBtn) {
+    var lo = document.createElement("button");
+    lo.type = "button";
+    /* hamFootTrioLogout1: logout a barra sotto il trio icone */
+    lo.className =
+      "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--logout vc-mobile-nav-footer__action--logout-bar";
+    lo.setAttribute("aria-label", i18nLabel("auth.logout", "Esci"));
+    lo.title = i18nLabel("auth.logout", "Esci");
+    lo.innerHTML =
+      '<i class="fa fa-sign-out" aria-hidden="true"></i><span data-i18n="auth.logout">' +
+      i18nLabel("auth.logout", "Esci") +
+      "</span>";
+    lo.addEventListener("click", function () {
+      if (logoutBtn) logoutBtn.click();
+      else if (typeof window.__vcDiscordCompleteLogout === "function") {
+        try {
+          window.__vcDiscordCompleteLogout({ reason: "user" });
+        } catch (eOut) {}
+      } else if (typeof window.__vcDiscordClearToken === "function") {
+        try {
+          window.__vcDiscordClearToken();
+        } catch (eClear) {}
+        try {
+          window.location.reload();
+        } catch (eRel) {}
+      }
+      closeDrawer();
+    });
+    return lo;
   }
 
   function syncDrawerFooter() {
@@ -9417,54 +3379,31 @@
       }
       prof.innerHTML = '<i class="fa fa-user" aria-hidden="true"></i>';
       prof.addEventListener("click", function (ev) {
+        try {
+          var idNow = resolveMobileAccountUserId(profile && profile.id);
+          if (idNow) {
+            prof.href = "/user/?id=" + encodeURIComponent(idNow);
+          }
+        } catch (eHrefNow) {}
         onMobileNavTileClick(ev, prof);
       });
       actions.appendChild(prof);
-      if (isDashboardNavAllowed()) {
-        var dash = document.createElement("a");
-        dash.className =
-          "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--dashboard vc-mobile-nav-footer__action--icon";
-        dash.href = resolveDashboardHref();
-        dash.setAttribute("aria-label", i18nLabel("auth.dashboard", "Dashboard"));
-        dash.title = i18nLabel("auth.dashboard", "Dashboard");
-        dash.setAttribute("data-vc-mobile-dashboard", "1");
-        dash.innerHTML = '<i class="fa fa-server" aria-hidden="true"></i>';
-        dash.addEventListener("click", function (ev) {
-          onMobileNavTileClick(ev, dash);
-        });
-        actions.appendChild(dash);
-        actions.classList.add("is-trio");
-      }
-      var lo = document.createElement("button");
-      lo.type = "button";
-      lo.className = "vc-mobile-nav-footer__action vc-mobile-nav-footer__action--logout vc-mobile-nav-footer__action--icon";
-      lo.setAttribute("aria-label", i18nLabel("auth.logout", "Esci"));
-      lo.title = i18nLabel("auth.logout", "Esci");
-      lo.innerHTML = '<i class="fa fa-sign-out" aria-hidden="true"></i>';
-      lo.addEventListener("click", function () {
-        if (logoutBtn) logoutBtn.click();
-        else if (typeof window.__vcDiscordCompleteLogout === "function") {
-          try {
-            window.__vcDiscordCompleteLogout({ reason: "user" });
-          } catch (eOut) {}
-        } else if (typeof window.__vcDiscordClearToken === "function") {
-          try {
-            window.__vcDiscordClearToken();
-          } catch (eClear) {}
-          try {
-            window.location.reload();
-          } catch (eRel) {}
-        }
-        closeDrawer();
-      });
-      actions.appendChild(lo);
+      /* hamFootTrioLogout1: Profilo · Bacheca · Dashboard, logout sotto */
+      appendBachecaFooterAction(actions);
+      appendDashboardFooterAction(actions);
+      applyFooterActionsLayout(actions);
+      var toolbar = document.createElement("div");
+      toolbar.className = "vc-mobile-nav-footer__toolbar";
+      toolbar.appendChild(actions);
+      toolbar.appendChild(createFooterLogoutButton(logoutBtn));
       wrap.appendChild(who);
-      wrap.appendChild(actions);
+      wrap.appendChild(toolbar);
       foot.appendChild(wrap);
+      ensureFooterLogoutBarLayout(foot);
       return;
     }
     if (!hasToken) {
-      /* navDiscordLoginGif1 */
+      /* bachecaHamGuestHide1: niente Bacheca da guest — solo login */
       var b = document.createElement("button");
       b.type = "button";
       b.className = "vc-mobile-nav-footer__login vc-discord-login-btn";
@@ -9548,36 +3487,95 @@
   }
 
   function ensureMobileConfessionaleTile(gridRoot) {
-    if (!gridRoot || isEventDedicatedNavPage()) return;
+    /* confessionaleCommNav3: Confessionale SOLO in Community — strip staff aggressivo */
+    if (!gridRoot) return;
     try {
-      if (gridRoot.querySelector('a[href*="/confessionale"]')) return;
-      var guideLink = gridRoot.querySelector('a[href*="/staff/guida"]');
-      if (!guideLink && !isStaffNavAllowed()) return;
-      var guideGrid =
-        (guideLink && guideLink.closest && guideLink.closest(".vc-mobile-nav-grid")) ||
-        null;
-      if (!guideGrid) {
-        var staffSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
-        guideGrid = staffSec ? staffSec.querySelector(".vc-mobile-nav-grid") || staffSec : null;
+      var staffTiles = gridRoot.querySelectorAll(
+        'a[data-vc-mobile-staff-confessionale], .vc-mobile-nav-section--staff-guide a[href*="/confessionale"], .vc-mobile-nav-section--staff a[href*="/confessionale"], [data-vc-staff-section] a[href*="/confessionale"]'
+      );
+      for (var i = 0; i < staffTiles.length; i += 1) {
+        var t = staffTiles[i];
+        if (t && t.parentNode) t.parentNode.removeChild(t);
       }
-      if (!guideGrid) return;
-      var cAdd = document.createElement("a");
-      cAdd.className = "vc-mobile-nav-tile";
-      cAdd.href = "/staff/confessionale/";
-      cAdd.setAttribute("data-vc-mobile-staff-confessionale", "1");
-      cAdd.innerHTML =
-        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
-        '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
-      bindMobileNavTileNav(cAdd);
-      guideGrid.appendChild(cAdd);
-    } catch (eConf) {}
+      var secsAll = gridRoot.querySelectorAll(".vc-mobile-nav-section, details");
+      for (var s0 = 0; s0 < secsAll.length; s0 += 1) {
+        var sec0 = secsAll[s0];
+        var title0 = String(
+          (sec0.querySelector("summary, .vc-mobile-nav-section-title") || {}).textContent || ""
+        )
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        var markedStaff =
+          (sec0.classList &&
+            (sec0.classList.contains("vc-mobile-nav-section--staff-guide") ||
+              sec0.classList.contains("vc-mobile-nav-section--staff"))) ||
+          sec0.hasAttribute("data-vc-staff-section");
+        var titledStaff =
+          title0 === "staff" ||
+          title0.indexOf("staff") >= 0 ||
+          title0.indexOf("strumenti staff") >= 0 ||
+          title0 === "gestione";
+        if (title0.indexOf("community") >= 0) continue;
+        if (!markedStaff && !titledStaff) continue;
+        var confStaff = sec0.querySelectorAll(
+          'a[href*="/confessionale"], a[href*="/staff/confessionale"], a[data-i18n="staff.confessionale"], a[data-i18n="nav.confessionale"]'
+        );
+        for (var c0 = 0; c0 < confStaff.length; c0 += 1) {
+          if (confStaff[c0] && confStaff[c0].parentNode) confStaff[c0].parentNode.removeChild(confStaff[c0]);
+        }
+      }
+      var communitySec = null;
+      for (var s1 = 0; s1 < secsAll.length; s1 += 1) {
+        var sec1 = secsAll[s1];
+        var title1 = String(
+          (sec1.querySelector("summary, .vc-mobile-nav-section-title") || {}).textContent || ""
+        )
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        if (title1.indexOf("community") >= 0) {
+          communitySec = sec1;
+          break;
+        }
+      }
+      if (communitySec && !communitySec.querySelector('a[href*="/confessionale"]')) {
+        var gComm = communitySec.querySelector(".vc-mobile-nav-grid") || communitySec;
+        var aConf = document.createElement("a");
+        aConf.className = "vc-mobile-nav-tile";
+        aConf.href = "/confessionale/";
+        aConf.innerHTML =
+          '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
+          '<span class="vc-mobile-nav-tile-label" data-i18n="nav.confessionale">Confessionale</span>';
+        gComm.appendChild(aConf);
+      }
+      var secs = gridRoot.querySelectorAll(".vc-mobile-nav-section, details");
+      for (var s = 0; s < secs.length; s += 1) {
+        var sec = secs[s];
+        var title = String(
+          (sec.querySelector("summary, .vc-mobile-nav-section-title") || {}).textContent || ""
+        ).toLowerCase();
+        if (title.indexOf("community") < 0) continue;
+        var bad = sec.querySelectorAll('a[href*="/staff/compiti"], a[data-vc-mobile-staff-compiti]');
+        for (var b = 0; b < bad.length; b += 1) {
+          if (bad[b] && bad[b].parentNode) bad[b].parentNode.removeChild(bad[b]);
+        }
+      }
+    } catch (eRm) {}
   }
 
   function appendStaffGuideSection(gridRoot, sourceDetails) {
     if (!gridRoot) return;
     if (isEventDedicatedNavPage()) return;
     try {
-      if (gridRoot.querySelector('a[href*="/staff/guida"]')) {
+      var existingStaffSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
+      if (existingStaffSec && existingStaffSec.tagName !== "DETAILS") {
+        try {
+          existingStaffSec.parentNode.removeChild(existingStaffSec);
+        } catch (eUp) {}
+        existingStaffSec = null;
+      }
+      if (existingStaffSec && gridRoot.querySelector('a[href*="/staff/guida"]')) {
         ensureMobileConfessionaleTile(gridRoot);
         return;
       }
@@ -9586,7 +3584,6 @@
       ? sourceDetails.querySelectorAll(".vc-snav-panel .vc-snav-row, a.vc-snav-row")
       : [];
     var guideRow = null;
-    var confRow = null;
     var r;
     for (r = 0; r < rows.length; r += 1) {
       var row = rows[r];
@@ -9604,17 +3601,17 @@
       if (!lab) lab = String(row.textContent || "").trim();
       if (isStaffOnlyNavHref(href) || isStaffOnlyNavLabel(lab)) continue;
       var labNorm = lab.replace(/\s+/g, " ").trim().toLowerCase();
+      /* confessionaleCommNav2: skip confessionale — vive in Community */
+      if (
+        String(href).toLowerCase().indexOf("/confessionale") >= 0 ||
+        labNorm === "confessionale" ||
+        labNorm === "il confessionale"
+      ) {
+        continue;
+      }
       if (!guideRow && (isStaffGuideHref(href) || isStaffGuideLabel(lab))) {
         guideRow = row;
         continue;
-      }
-      if (
-        !confRow &&
-        (String(href).toLowerCase().indexOf("/confessionale") >= 0 ||
-          labNorm === "confessionale" ||
-          labNorm === "il confessionale")
-      ) {
-        confRow = row;
       }
     }
     var tiles = [];
@@ -9632,36 +3629,69 @@
       bindMobileNavTileNav(a);
       tiles.push(a);
     }
-    if (confRow) {
-      var confTile = createTileFromRow(confRow);
-      if (confTile) {
-        try {
-          confTile.setAttribute("href", "/staff/confessionale/");
-        } catch (eC) {}
-        tiles.push(confTile);
-      }
-    } else if (isStaffNavAllowed()) {
-      var c = document.createElement("a");
-      c.className = "vc-mobile-nav-tile";
-      c.href = "/staff/confessionale/";
-      c.setAttribute("data-vc-mobile-staff-confessionale", "1");
-      c.innerHTML =
-        '<span class="vc-mobile-nav-tile-ico" aria-hidden="true"><i class="fa fa-comments"></i></span>' +
-        '<span class="vc-mobile-nav-tile-label">Confessionale</span>';
-      bindMobileNavTileNav(c);
-      tiles.push(c);
-    }
     if (!tiles.length) return;
-    var sec = document.createElement("section");
+    /* staffNavFix1 / staffCollapse1: STAFF = <details> richiudibile come le altre categorie */
+    var existingSec = gridRoot.querySelector(".vc-mobile-nav-section--staff-guide");
+    if (existingSec && existingSec.tagName === "DETAILS") {
+      var existingGrid = existingSec.querySelector(".vc-mobile-nav-grid") || existingSec;
+      for (var ti0 = 0; ti0 < tiles.length; ti0 += 1) {
+        var hrefT = String(tiles[ti0].getAttribute("href") || "").toLowerCase();
+        if (hrefT.indexOf("/staff/guida") >= 0 && existingSec.querySelector('a[href*="/staff/guida"]')) continue;
+        if (hrefT.indexOf("/confessionale") >= 0) continue;
+        if (hrefT.indexOf("/staff/compiti") >= 0 && existingSec.querySelector('a[href*="/staff/compiti"]')) continue;
+        if (tiles[ti0]) {
+          try {
+            markTileActive(tiles[ti0], null);
+          } catch (eMk) {}
+          existingGrid.appendChild(tiles[ti0]);
+        }
+      }
+      return;
+    }
+    if (existingSec && existingSec.parentNode) {
+      try {
+        existingSec.parentNode.removeChild(existingSec);
+      } catch (eRm) {}
+    }
+    var sec = document.createElement("details");
     sec.className = "vc-mobile-nav-section vc-mobile-nav-section--staff-guide";
-    var h = document.createElement("h3");
+    sec.setAttribute("data-vc-staff-section", "1");
+    try {
+      if (sectionShouldOpen("STAFF", tiles, 99)) sec.setAttribute("open", "");
+    } catch (eOpenDef) {}
+    var h = document.createElement("summary");
     h.className = "vc-mobile-nav-section-title";
-    h.textContent = "STAFF";
+    var txt = document.createElement("span");
+    txt.className = "vc-mobile-nav-section-title__txt";
+    txt.textContent = "STAFF";
+    var chev = document.createElement("i");
+    chev.className = "fa fa-chevron-down vc-mobile-nav-section-chev";
+    chev.setAttribute("aria-hidden", "true");
+    h.appendChild(txt);
+    h.appendChild(chev);
     var g = document.createElement("div");
     g.className = "vc-mobile-nav-grid";
-    for (var ti = 0; ti < tiles.length; ti += 1) g.appendChild(tiles[ti]);
+    for (var ti = 0; ti < tiles.length; ti += 1) {
+      if (tiles[ti]) {
+        try {
+          markTileActive(tiles[ti], null);
+        } catch (eMk2) {}
+        g.appendChild(tiles[ti]);
+      }
+    }
     sec.appendChild(h);
     sec.appendChild(g);
+    try {
+      bindSectionToggle(sec, "STAFF");
+    } catch (eBind) {}
+    h.addEventListener("click", function (ev) {
+      try {
+        if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+      } catch (ePrev) {}
+      try {
+        sec.open = !sec.open;
+      } catch (eOpen) {}
+    });
     gridRoot.appendChild(sec);
   }
 
@@ -9736,13 +3766,13 @@
   }
 
   function isDashboardNavAllowed() {
-    if (window.__VC_DASHBOARD_MENU_BLACKLISTED === true) return false;
-    if (window.__VC_DASHBOARD_ACCESS_OK === true) return true;
-    if (window.__VC_DASHBOARD_MENU_ALLOWED === true) return true;
-    if (window.__VC_DASHBOARD_MENU_ALLOWED === false && window.__VC_DASHBOARD_MENU_CHECKED === true) return false;
-    var link = document.getElementById("discord-dashboard-link");
-    if (link && !navItemHidden(link) && !link.classList.contains("is-blacklisted")) return true;
-    if (hasLikelyDiscordSession()) return true;
+    /* profileSoonDashBacheca1: solo founder (view-as allowed) */
+    try {
+      if (window.__VC_VIEW_AS_ALLOWED === true) return true;
+      var p = window.__VC_STAFF_PERMS || {};
+      if (p && (p.isFounder === true || p.viewAsAllowed === true)) return true;
+      if (sessionStorage.getItem("vc_view_as_allowed") === "1") return true;
+    } catch (e) {}
     return false;
   }
 
@@ -9929,13 +3959,75 @@
     return /\btickets\b/i.test(String(row.textContent || ""));
   }
 
-  function appendMobileNavSection(gridRoot, title, tiles) {
+  function sectionStorageKey(title) {
+    return (
+      "vc.mobileNav.sec.v2." +
+      String(title || "")
+        .replace(/\s+/g, "_")
+        .trim()
+        .toUpperCase()
+    );
+  }
+
+  function isPinnedSectionTitle(title) {
+    var t = String(title || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase();
+    if (t === "STAFF" || t.indexOf("STAFF") === 0) return false;
+    return t === "PRINCIPALE" || t === "SITO" || t === "MAIN";
+  }
+
+  function sectionHasActiveTile(tiles) {
+    var i;
+    for (i = 0; i < (tiles || []).length; i += 1) {
+      var tile = tiles[i];
+      if (!tile) continue;
+      if (tile.classList.contains("is-active") || tile.getAttribute("aria-current") === "page") return true;
+    }
+    return false;
+  }
+
+  function sectionShouldOpen(title, tiles, index) {
+    if (isPinnedSectionTitle(title)) return true;
+    try {
+      var stored = localStorage.getItem(sectionStorageKey(title));
+      if (stored === "0") return false;
+      if (stored === "1") return true;
+    } catch (eStore) {}
+    /* hamburgerOpenAll1: tutte le categorie aperte di default */
+    return true;
+  }
+
+  function bindSectionToggle(details, title) {
+    if (!details || isPinnedSectionTitle(title)) return;
+    details.addEventListener("toggle", function () {
+      try {
+        localStorage.setItem(sectionStorageKey(title), details.open ? "1" : "0");
+      } catch (eT) {}
+    });
+  }
+
+  function appendMobileNavSection(gridRoot, title, tiles, index) {
     if (!gridRoot || !tiles || !tiles.length) return;
-    var sec = document.createElement("section");
-    sec.className = "vc-mobile-nav-section";
-    var h = document.createElement("h3");
+    var pinned = isPinnedSectionTitle(title);
+    var sec = document.createElement(pinned ? "section" : "details");
+    sec.className = "vc-mobile-nav-section" + (pinned ? " vc-mobile-nav-section--pinned" : "");
+    if (!pinned && sectionShouldOpen(title, tiles, typeof index === "number" ? index : 0)) {
+      sec.setAttribute("open", "");
+    }
+    var h = document.createElement(pinned ? "h3" : "summary");
     h.className = "vc-mobile-nav-section-title";
-    h.textContent = title;
+    var txt = document.createElement("span");
+    txt.className = "vc-mobile-nav-section-title__txt";
+    txt.textContent = title;
+    h.appendChild(txt);
+    if (!pinned) {
+      var chev = document.createElement("i");
+      chev.className = "fa fa-chevron-down vc-mobile-nav-section-chev";
+      chev.setAttribute("aria-hidden", "true");
+      h.appendChild(chev);
+    }
     var g = document.createElement("div");
     g.className = "vc-mobile-nav-grid";
     var t;
@@ -9945,6 +4037,17 @@
     if (!g.children.length) return;
     sec.appendChild(h);
     sec.appendChild(g);
+    if (!pinned) {
+      bindSectionToggle(sec, title);
+      h.addEventListener("click", function (ev) {
+        try {
+          if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+        } catch (ePrev) {}
+        try {
+          sec.open = !sec.open;
+        } catch (eOpen) {}
+      });
+    }
     gridRoot.appendChild(sec);
   }
 
@@ -10000,6 +4103,17 @@
     var items = nav.querySelectorAll(":scope > a.vc-snav-item");
     var i;
     for (i = 0; i < items.length; i += 1) {
+      /* hamFootOnly1: skip Bacheca/Dashboard — solo footer */
+      try {
+        var hrefTop = String(items[i].getAttribute("href") || "").toLowerCase();
+        if (
+          hrefTop.indexOf("/bacheca") >= 0 ||
+          hrefTop.indexOf("/boards") >= 0 ||
+          hrefTop.indexOf("/dashboard") >= 0
+        ) {
+          continue;
+        }
+      } catch (eSkip) {}
       var tile = createTileFromItem(items[i]);
       if (tile) out.push(tile);
     }
@@ -10030,6 +4144,7 @@
         }
       } catch (eLab) {}
       if (isStaffOnlyNavHref(rowHref) || isStaffOnlyNavLabel(rowLab)) continue;
+      /* hamBachecaDashTiles1: includi Bacheca anche dalle sezioni snav */
       var tile = safeCreateTileFromRow(rowEl);
       if (tile) out.push(tile);
     }
@@ -10037,6 +4152,14 @@
   }
 
   function rebuildGrid() {
+    /* staffNavFix1: dedicated vc-mobile-nav.js owns the hamburger grid */
+    if (window.__vcMobileNavStandalone) {
+      try {
+        var fn = window.__vcMobileNavRebuild;
+        if (typeof fn === "function" && fn !== refreshMobileNav) fn();
+      } catch (eFwd) {}
+      return;
+    }
     var gridRoot = document.getElementById("vc-mobile-nav-drawer-grid");
     if (!gridRoot) return;
     var usedCanonical = false;
@@ -10053,7 +4176,17 @@
           document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"),
         );
         ensureMobileConfessionaleTile(gridRoot);
+        ensureMobileBachecaTile(gridRoot);
+        ensureMobileDashboardTile(gridRoot);
       } catch (eStaff) {}
+      stripBachecaTilesFromGrid(gridRoot);
+      try {
+        if (window.VcNavBadges && typeof window.VcNavBadges.schedule === "function") {
+          window.VcNavBadges.schedule();
+        } else if (window.VcNavBadges && typeof window.VcNavBadges.apply === "function") {
+          window.VcNavBadges.apply(document);
+        }
+      } catch (eBadgeCanon) {}
       return;
     }
     var nav = document.querySelector("nav.vc-header-snav");
@@ -10070,7 +4203,7 @@
       var sum = el.querySelector(".vc-snav-summary");
       var titleTxt = "MENU";
       if (sum) {
-        var sp = sum.querySelector("span");
+        var sp = sum.querySelector("span:not(.vc-nav-feat-badge)");
         titleTxt = sectionLabel(sp ? sp.textContent : sum.textContent);
       }
       if (isStaffDetailsEl(el) || isStaffOnlyNavSection(titleTxt)) {
@@ -10078,11 +4211,21 @@
         continue;
       }
       var sectionTiles = collectDetailsNavTiles(el);
-      appendMobileNavSection(gridRoot, titleTxt, sectionTiles);
+      appendMobileNavSection(gridRoot, titleTxt, sectionTiles, d + 1);
     }
 
     appendStaffGuideSection(gridRoot, document.querySelector("[data-vc-staff-tools-nav], .vc-snav-details--staff"));
     ensureMobileConfessionaleTile(gridRoot);
+    ensureMobileBachecaTile(gridRoot);
+    ensureMobileDashboardTile(gridRoot);
+    stripBachecaTilesFromGrid(gridRoot);
+    try {
+      if (window.VcNavBadges && typeof window.VcNavBadges.schedule === "function") {
+        window.VcNavBadges.schedule();
+      } else if (window.VcNavBadges && typeof window.VcNavBadges.apply === "function") {
+        window.VcNavBadges.apply(document);
+      }
+    } catch (eBadge) {}
   }
 
   function cloneBrand(intoEl) {
@@ -10405,6 +4548,13 @@
       });
       document.addEventListener("vc:langchange", function () {
         rebuildGrid();
+        try {
+          if (window.VcI18n && typeof window.VcI18n.apply === "function") {
+            var drawer = document.getElementById("vc-mobile-nav-drawer");
+            if (drawer) window.VcI18n.apply(drawer);
+            window.VcI18n.apply(document);
+          }
+        } catch (eLangApply) {}
       });
     }
   }
@@ -10492,7 +4642,35 @@
 
   function revealForbiddenSectionBooks() {
     if (revealForbiddenBooksTimer) window.clearTimeout(revealForbiddenBooksTimer);
-    revealForbiddenBooksTimer = window.setTimeout(revealForbiddenSectionBooksImpl, 80);
+    /* violPass7: due macrotask — evita setTimeout handler 2s+ (fetch/DOM sync) */
+    revealForbiddenBooksTimer = window.setTimeout(function () {
+      revealForbiddenBooksTimer = null;
+      window.setTimeout(revealForbiddenSectionBooksImpl, 0);
+    }, 120);
+  }
+
+  function hogwartsEventEnabled() {
+    try {
+      var ev = window.__VC_HEADER_PROMO && window.__VC_HEADER_PROMO.event;
+      if (ev && ev.enabled === false) return false;
+      if (ev && ev.previewMode === true) return true;
+    } catch (eEv) {}
+    return true;
+  }
+
+  function forbiddenBooksGoneStored() {
+    try {
+      return String(window.localStorage.getItem("vc:forbidden-books:gone") || "") === "1";
+    } catch (eLs) {
+      return false;
+    }
+  }
+
+  function markForbiddenBooksGone() {
+    forbiddenStatusBlockedUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    try {
+      window.localStorage.setItem("vc:forbidden-books:gone", "1");
+    } catch (eSet) {}
   }
 
   function revealForbiddenSectionBooksImpl() {
@@ -10518,15 +4696,44 @@
       applyForbiddenBooksVisibility(books, readForbiddenBooks(), {});
     }
 
+    /* consoleStorm2: no status fetch when event closed / past END / already 410 */
+    if (
+      !hogwartsEventEnabled() ||
+      forbiddenBooksGoneStored() ||
+      (Number.isFinite(FORBIDDEN_BOOKS_END_MS) && now > FORBIDDEN_BOOKS_END_MS)
+    ) {
+      markForbiddenBooksGone();
+      window.setTimeout(function () {
+        try {
+          removeAllForbiddenBooks();
+        } catch (eEarly) {}
+      }, 0);
+      return;
+    }
+
     fetchForbiddenBooksPublicStatus().then(function (status) {
       if (status && status.ok === true) forbiddenBooksRoundState = status;
       if (status && status.ok && (status.enabled === false || forbiddenHuntEnded(status))) {
-        removeAllForbiddenBooks();
+        markForbiddenBooksGone();
+        /* violPass7: remove DOM fuori dal tick del .then (era attributo al setTimeout) */
+        window.setTimeout(function () {
+          try {
+            removeAllForbiddenBooks();
+          } catch (eRm) {}
+        }, 0);
         return;
       }
-      proceed();
+      window.setTimeout(function () {
+        try {
+          proceed();
+        } catch (ePr) {}
+      }, 0);
     }).catch(function () {
-      proceed();
+      window.setTimeout(function () {
+        try {
+          proceed();
+        } catch (ePr2) {}
+      }, 0);
     });
   }
 
@@ -10625,19 +4832,21 @@
       return;
     }
     if (el.__vcForbiddenBookReady) {
+      /* cssFoucKill1: mai unhide in-title — prima flying/body, poi mostra */
+      if (!el.classList.contains("vc-forbidden-book--flying") && !el.__vcFlyTimer) startFlyingForbiddenBook(el);
       el.hidden = false;
       el.removeAttribute("hidden");
-      if (!el.classList.contains("vc-forbidden-book--flying") && !el.__vcFlyTimer) startFlyingForbiddenBook(el);
       return;
     }
     el.__vcForbiddenBookReady = true;
-    el.hidden = false;
-    el.removeAttribute("hidden");
     el.setAttribute("role", "button");
     el.setAttribute("tabindex", "0");
     el.setAttribute("title", "Cattura il libro proibito");
     el.setAttribute("aria-label", "Cattura libro proibito");
+    /* cssFoucKill1: sposta in body + classe flying PRIMA di togliere hidden (no flash 📖 in hero) */
     startFlyingForbiddenBook(el);
+    el.hidden = false;
+    el.removeAttribute("hidden");
     var collect = function () {
       if (el.__vcClaiming) return;
       var now = Date.now();
@@ -10688,6 +4897,14 @@
 
   function fetchForbiddenBooksPublicStatus() {
     var now = Date.now();
+    if (
+      !hogwartsEventEnabled() ||
+      forbiddenBooksGoneStored() ||
+      (Number.isFinite(FORBIDDEN_BOOKS_END_MS) && now > FORBIDDEN_BOOKS_END_MS)
+    ) {
+      markForbiddenBooksGone();
+      return Promise.resolve({ ok: true, closed: true, roundActive: false, enabled: false });
+    }
     if (forbiddenStatusBlockedUntil > now) {
       return Promise.resolve(forbiddenBooksRoundState || null);
     }
@@ -10712,7 +4929,7 @@
           }
           /* eventoClosedApi1: stop polling after Hogwarts kill-switch 410 */
           if (payload && payload.status === 410) {
-            forbiddenStatusBlockedUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
+            markForbiddenBooksGone();
             try {
               removeAllForbiddenBooks();
             } catch (eRm) {}
@@ -10736,7 +4953,7 @@
           return finish(forbiddenBooksRoundState || null);
         }
         if (res && res.status === 410) {
-          forbiddenStatusBlockedUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
+          markForbiddenBooksGone();
           try {
             removeAllForbiddenBooks();
           } catch (eRm2) {}
@@ -10839,6 +5056,24 @@
     removeForbiddenBooks(books);
   }
 
+  /* bgGifPause1: stop flying books while tab is in background */
+  document.addEventListener("visibilitychange", function () {
+    var books = document.querySelectorAll("[data-vc-forbidden-book]");
+    if (document.hidden) {
+      for (var i = 0; i < books.length; i += 1) {
+        pauseForbiddenBookFlight(books[i], 60 * 60 * 1000);
+      }
+      return;
+    }
+    for (var j = 0; j < books.length; j += 1) {
+      try {
+        window.clearTimeout(books[j].__vcPauseResumeTimer);
+      } catch (eClr) {}
+      books[j].__vcFlyPaused = false;
+      resumeForbiddenBookFlight(books[j]);
+    }
+  });
+
   function forbiddenBookViewport() {
     var vv = window.visualViewport;
     if (vv && Number.isFinite(vv.width) && Number.isFinite(vv.height)) {
@@ -10889,6 +5124,7 @@
 
   function resumeForbiddenBookFlight(el) {
     if (!el || !el.isConnected || el.__vcFlyPaused || el.__vcFlyTimer) return;
+    if (document.hidden) return;
     if (prefersForbiddenBookReducedMotion()) return;
     var move = el.__vcFlyMove;
     if (typeof move !== "function") return;
@@ -10898,6 +5134,22 @@
   }
 
   function startFlyingForbiddenBook(el) {
+    /* perfBgRam1: mid/lite/soft-fx-off → niente libri volanti (timer CPU) */
+    try {
+      if (
+        document.documentElement.classList.contains("vc-soft-fx-off") ||
+        document.documentElement.classList.contains("vc-perf-mid") ||
+        document.documentElement.classList.contains("vc-perf-lite") ||
+        document.documentElement.classList.contains("vc-perf-touch")
+      ) {
+        return;
+      }
+      if (window.VcPerf && typeof window.VcPerf.isMidOrLite === "function" && window.VcPerf.isMidOrLite()) {
+        return;
+      }
+    } catch (eSkipFly) {
+      return;
+    }
     try {
       if (el.parentNode !== document.body) document.body.appendChild(el);
     } catch (_) {}
@@ -11041,14 +5293,14 @@ function vcPageAssetVer() {
     if (document.querySelector('script[src*="vc-site-polish.js"]')) return;
   } catch (e0) {}
   var s = document.createElement("script");
-  s.src = "/js/vc-site-polish.js?v=20260909reviewsStageSpread4";
+  s.src = "/js/vc-site-polish.js?v=20260929cpuPagesIdle1";
   s.defer = true;
   (document.body || document.documentElement).appendChild(s);
 })();
 
 (function loadHeaderNameMarquee() {
   function marqueeAssetVer() {
-    return "20260903hamburgerActiveFix1";
+    return "20261002violPass7";
   }
   function inject() {
     try {
@@ -11100,7 +5352,7 @@ function vcPageAssetVer() {
 
 (function loadHeaderPromo() {
   function promoAssetVer() {
-    return "20260907candPillNoFlash2";
+    return "20261001navBrandCandFix1";
   }
   try {
     var hasActions = Boolean(document.getElementById("header-quick-actions"));
@@ -11239,7 +5491,8 @@ function vcPageAssetVer() {
   function wrapHandlers(root, handlers, opts) {
     handlers = handlers || {};
     opts = opts || {};
-    if (opts.scroll === false) return handlers;
+    /* scrollStayAll1: default = resta all'altezza attuale (no jump su freccette/tab) */
+    if (opts.scroll !== true) return handlers;
     var behavior = opts.scrollBehavior || "auto";
     function bump() {
       window.requestAnimationFrame(function () {
@@ -11296,6 +5549,10 @@ function vcPageAssetVer() {
       '<div class="vc-mini-pager__jump">' +
       '<button type="button" class="vc-mini-pager__now" data-pager-jump aria-haspopup="dialog" aria-expanded="false" title="' +
       jumpAria +
+      '" aria-label="' +
+      String(p) +
+      " — " +
+      jumpAria +
       '">' +
       String(p) +
       "</button>" +
@@ -11309,7 +5566,7 @@ function vcPageAssetVer() {
       tp +
       '" value="' +
       p +
-      '" data-pager-input>' +
+      '" name="vcPagerPage" id="vc-mini-pager-input" data-pager-input>' +
       '<span class="vc-mini-pager__of">/ ' +
       tp +
       "</span>" +
@@ -11429,7 +5686,12 @@ function vcPageAssetVer() {
       root.setAttribute("data-pager-page", String(p));
       root.setAttribute("data-pager-total", String(tp));
       var now = root.querySelector("[data-pager-jump]");
-      if (now) now.textContent = String(p);
+      if (now) {
+        now.textContent = String(p);
+        var jumpAriaSync = langEn() ? "Go to page" : "Vai a pagina";
+        now.setAttribute("aria-label", String(p) + " — " + jumpAriaSync);
+        now.setAttribute("title", jumpAriaSync);
+      }
       var input = root.querySelector("[data-pager-input]");
       if (input) {
         input.max = String(tp);
@@ -11463,19 +5725,69 @@ function vcPageAssetVer() {
   var lastRecoverAt = 0;
   var recovering = false;
   var watchHealthyStreak = 0;
-  var PHONE_WATCH_MS = 4500;
-  var PHONE_WATCH_MAX_MS = 90000;
+  var PHONE_WATCH_MS = 8000;
+  var PHONE_WATCH_MAX_MS = 45000;
 
   function isPhoneOrPwa() {
+    /* pwaCpuNuke1: desktop PWA NON è "phone recover" (maxTouchPoints su Win = false positive) */
+    try {
+      if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+      if ((window.innerWidth || 999) <= 920 && Number(navigator.maxTouchPoints || 0) > 0) return true;
+    } catch (eDet) {}
+    return false;
+  }
+
+  function isStandalonePwa() {
     try {
       return (
-        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
         (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
-        Boolean(navigator.standalone) ||
-        Number(navigator.maxTouchPoints || 0) > 0
+        (window.matchMedia && window.matchMedia("(display-mode: fullscreen)").matches) ||
+        (window.matchMedia && window.matchMedia("(display-mode: minimal-ui)").matches) ||
+        Boolean(navigator.standalone)
       );
-    } catch (eDet) {
+    } catch (eStand) {
       return false;
+    }
+  }
+
+  function curtainStillUp() {
+    try {
+      if (typeof window.__vcCineCurtainStillUp === "function") return Boolean(window.__vcCineCurtainStillUp());
+    } catch (eApi) {}
+    try {
+      var root = document.documentElement;
+      if (root.classList.contains("vc-cine-curtain-off")) return false;
+      /* personalizzaRankFix1e: vc-perf early CSS hides main until curtain-off
+         even when #vc-cine-boot-curtain is absent (ex. /personalizza/). */
+      if (document.getElementById("vc-cine-boot-curtain")) return true;
+      return Boolean(root.classList.contains("vc-site-polish") || root.classList.contains("vc-page-cine-boot"));
+    } catch (eCur) {
+      return false;
+    }
+  }
+
+  function liftCineCurtainNow() {
+    try {
+      if (typeof window.__vcLiftCineBootCurtain === "function") {
+        window.__vcLiftCineBootCurtain();
+        return;
+      }
+    } catch (eLift) {}
+    try {
+      var root = document.documentElement;
+      root.classList.add("vc-cine-curtain-off");
+      var cur = document.getElementById("vc-cine-boot-curtain");
+      if (cur && cur.parentNode) cur.parentNode.removeChild(cur);
+    } catch (eRm) {}
+  }
+
+  function cineBootAgeMs() {
+    try {
+      var t = Number(window.__vcCineBootStartedAt || window.__vcPhoneUnfreezeArmedAt || 0) || 0;
+      if (!t) return 99999;
+      return Math.max(0, Date.now() - t);
+    } catch (eAge) {
+      return 99999;
     }
   }
 
@@ -11489,6 +5801,21 @@ function vcPageAssetVer() {
   }
 
   function forceReveal() {
+    try {
+      var root = document.documentElement;
+      var age = cineBootAgeMs();
+      var softMs = isStandalonePwa() ? 2600 : isPhoneOrPwa() ? 4800 : 7000;
+      if (curtainStillUp() && root.classList.contains("vc-page-cine-ready")) {
+        liftCineCurtainNow();
+      } else if (curtainStillUp() && age >= softMs) {
+        if (typeof window.__vcRevealCineBoot === "function") window.__vcRevealCineBoot(true);
+        else liftCineCurtainNow();
+      }
+    } catch (eRev) {
+      try {
+        if (curtainStillUp() && cineBootAgeMs() >= 2600) liftCineCurtainNow();
+      } catch (eLift2) {}
+    }
     try {
       var nodes = document.querySelectorAll(".vc-home-rise:not(.is-in)");
       var vh = window.innerHeight || document.documentElement.clientHeight || 800;
@@ -11539,6 +5866,10 @@ function vcPageAssetVer() {
     try {
       if (typeof window.__vcSyncLoaderBlockingLiveClass === "function") window.__vcSyncLoaderBlockingLiveClass();
     } catch (eLiveStamp) {}
+    try {
+      /* loaderLoopFix1: riallinea scroll-lock dopo hide (live-class da sola non bastava) */
+      if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+    } catch (eLockStamp) {}
   }
 
   function clearPhoneHasFreezeGhosts() {
@@ -11681,15 +6012,36 @@ function vcPageAssetVer() {
                 );
               } catch (eGhostSheet) {}
             }
-            var mustLock =
-              root.classList.contains("vc-mobile-nav-open") ||
-              notifReallyOpen ||
-              root.classList.contains("vc-dialog-open") ||
-              root.classList.contains("vc-staff-manage-sheet-open") ||
-              root.classList.contains("vc-staff-reso-sheet-open") ||
-              root.classList.contains("vc-staff-stat-sheet-open");
+            /* sheetScrollStayFix1: keep page locked while any fullscreen sheet/modal is open */
+            var mustLock = false;
+            try {
+              if (typeof window.__vcIsPageScrollFrozen === "function") {
+                mustLock = window.__vcIsPageScrollFrozen();
+              }
+            } catch (eFr) {
+              mustLock = false;
+            }
+            if (!mustLock) {
+              mustLock =
+                root.classList.contains("vc-mobile-nav-open") ||
+                notifReallyOpen ||
+                root.classList.contains("vc-dialog-open") ||
+                root.classList.contains("vc-staff-manage-sheet-open") ||
+                root.classList.contains("vc-staff-reso-sheet-open") ||
+                root.classList.contains("vc-staff-stat-sheet-open") ||
+                root.classList.contains("vc-feedback-sheet-open") ||
+                root.classList.contains("vc-reviews-modal-open") ||
+                root.classList.contains("vc-dash-confirm-open") ||
+                root.classList.contains("vc-dash-cmds-modal-open") ||
+                root.classList.contains("vc-wfc-subject-open");
+            }
             if (mustLock && typeof window.__vcPinPageScroll === "function") {
-              window.__vcPinPageScroll({ soft: true });
+              window.__vcPinPageScroll({ soft: true, forcePhoneLock: true });
+              try {
+                if (typeof window.__vcSyncLoaderScrollLock === "function") {
+                  window.__vcSyncLoaderScrollLock();
+                }
+              } catch (eSyncKeep) {}
             } else if (!mustLock) {
               window.__vcUnpinPageScroll();
             }
@@ -11733,22 +6085,39 @@ function vcPageAssetVer() {
           document.documentElement.classList.remove("vc-user-leader-pending");
         }
       } catch (eLead) {}
-      document.documentElement.classList.add("vc-page-cine-ready");
-      document.documentElement.classList.remove("vc-page-cine-boot");
+      /* pwaBlank1: non forzare ready+lift prima del soft timeout (race col boot) */
+      if (cineBootAgeMs() >= (isStandalonePwa() ? 2600 : 4500) || curtainStillUp() && document.documentElement.classList.contains("vc-page-cine-ready")) {
+        document.documentElement.classList.add("vc-page-cine-ready");
+        document.documentElement.classList.remove("vc-page-cine-boot");
+        liftCineCurtainNow();
+      }
     } catch (eCls) {}
     try {
       var rootBoot = document.documentElement;
       if (
         rootBoot.classList.contains("vc-page-cine-boot") &&
         !rootBoot.classList.contains("vc-page-cine-ready") &&
-        Date.now() - (window.__vcPhoneUnfreezeArmedAt || 0) > 8000
+        Date.now() - (window.__vcPhoneUnfreezeArmedAt || 0) > (isStandalonePwa() ? 3200 : 8000)
       ) {
         rootBoot.classList.add("vc-page-cine-ready");
         rootBoot.classList.remove("vc-page-cine-boot");
+        liftCineCurtainNow();
       }
     } catch (eBootReady) {}
     try {
-      if (typeof window.__vcUnpinPageScroll === "function") window.__vcUnpinPageScroll();
+      /* sheetScrollStayFix1: do not strip scroll lock under open sheets */
+      var keepSheet = false;
+      try {
+        keepSheet =
+          typeof window.__vcIsPageScrollFrozen === "function" && window.__vcIsPageScrollFrozen();
+      } catch (eKeep) {
+        keepSheet = false;
+      }
+      if (keepSheet) {
+        if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+      } else if (typeof window.__vcUnpinPageScroll === "function") {
+        window.__vcUnpinPageScroll();
+      }
     } catch (eU) {}
     try {
       if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
@@ -11758,14 +6127,37 @@ function vcPageAssetVer() {
   function pageLooksHealthy() {
     try {
       var root = document.documentElement;
+      /* pwaBlank1: sipario nero ancora su = non healthy anche se ready è già settato */
+      if (curtainStillUp()) return false;
       if (root.classList.contains("vc-page-cine-boot") && !root.classList.contains("vc-page-cine-ready")) return false;
-      if (root.classList.contains("vc-loading-scroll-lock")) return false;
+      var blockingNow = false;
       try {
-        if (typeof window.__vcIsBlockingLoaderVisible === "function" && window.__vcIsBlockingLoaderVisible()) return false;
+        if (typeof window.__vcIsBlockingLoaderVisible === "function") {
+          blockingNow = window.__vcIsBlockingLoaderVisible();
+        } else if (document.querySelector('.vc-ul-loading[data-vc-loader-blocking="1"]:not([hidden])')) {
+          blockingNow = true;
+        }
       } catch (eBlkH) {
-        if (document.querySelector('.vc-ul-loading[data-vc-loader-blocking="1"]')) return false;
+        blockingNow = Boolean(
+          document.querySelector('.vc-ul-loading[data-vc-loader-blocking="1"]:not([hidden])'),
+        );
       }
-            return root.classList.contains("vc-page-cine-ready") || root.classList.contains("vc-home-motion-ready");
+      if (blockingNow) return false;
+      /* loaderLoopFix1: scroll-lock orfano dopo hide loader non deve far girare recover forever */
+      if (root.classList.contains("vc-loading-scroll-lock")) {
+        var pendingGate =
+          root.classList.contains("vc-user-leader-pending") ||
+          root.classList.contains("vc-user-profile-pending") ||
+          root.classList.contains("vc-rank-customize-pending") ||
+          root.classList.contains("vc-custom-profile-pending") ||
+          root.classList.contains("vc-session-verify-pending");
+        if (pendingGate) return false;
+        if (!root.classList.contains("vc-page-cine-ready") && !root.classList.contains("vc-home-motion-ready")) {
+          return false;
+        }
+        /* ready + lock orfano → healthy (heartbeat lo toglie) */
+      }
+      return root.classList.contains("vc-page-cine-ready") || root.classList.contains("vc-home-motion-ready");
     } catch (eH) {
       return false;
     }
@@ -11791,14 +6183,39 @@ function vcPageAssetVer() {
           (rootKeep.classList.contains("vc-notif-sheet-open") ||
             rootKeep.classList.contains("vc-notif-drawer-open")),
       );
+      /* sheetScrollStayFix1: also keep lock for feedback/staff/reviews sheets */
+      if (
+        !keepNotifScrollLock &&
+        typeof window.__vcIsPageScrollFrozen === "function" &&
+        window.__vcIsPageScrollFrozen()
+      ) {
+        keepNotifScrollLock = true;
+      }
     } catch (eKeepN) {
       keepNotifScrollLock = false;
     }
     try {
       var root = document.documentElement;
-      root.classList.add("vc-page-cine-ready");
-      root.classList.add("vc-home-motion-ready");
-      root.classList.remove("vc-page-cine-boot");
+      var age = cineBootAgeMs();
+      var softMs = isStandalonePwa() ? 2600 : isPhoneOrPwa() ? 4800 : 7000;
+      var readyAlready = root.classList.contains("vc-page-cine-ready");
+      var curtainUp = curtainStillUp();
+      /* Inconsistenza classica webapp: ready senza lift → alza subito */
+      if (curtainUp && readyAlready) {
+        liftCineCurtainNow();
+      }
+      /* Solo dopo soft timeout forziamo ready+lift (evita FOUC a 0ms) */
+      if (!readyAlready && (age >= softMs || (force && age >= Math.min(1100, softMs)))) {
+        root.classList.add("vc-page-cine-ready");
+        root.classList.add("vc-home-motion-ready");
+        root.classList.remove("vc-page-cine-boot");
+        liftCineCurtainNow();
+      } else if (curtainUp && age >= softMs) {
+        root.classList.add("vc-page-cine-ready");
+        root.classList.add("vc-home-motion-ready");
+        root.classList.remove("vc-page-cine-boot");
+        liftCineCurtainNow();
+      }
       if (!keepNotifScrollLock) root.classList.remove("vc-loading-scroll-lock");
       root.classList.remove("vc-session-verify-pending");
             try {
@@ -11865,13 +6282,29 @@ function vcPageAssetVer() {
         }
       } catch (eBlk) {}
       var lockCls = root.classList.contains("vc-loading-scroll-lock");
+      var softLock = root.classList.contains("vc-scroll-soft-lock");
       var fixed = getComputedStyle(body).position === "fixed" || body.style.position === "fixed";
-      var must =
-        root.classList.contains("vc-mobile-nav-open") ||
-        root.classList.contains("vc-dialog-open") ||
-        root.classList.contains("vc-staff-manage-sheet-open") ||
-        root.classList.contains("vc-staff-reso-sheet-open") ||
-        root.classList.contains("vc-staff-stat-sheet-open");
+      var must = false;
+      try {
+        if (typeof window.__vcIsPageScrollFrozen === "function") {
+          must = window.__vcIsPageScrollFrozen();
+        }
+      } catch (eFrHb) {
+        must = false;
+      }
+      if (!must) {
+        must =
+          root.classList.contains("vc-mobile-nav-open") ||
+          root.classList.contains("vc-dialog-open") ||
+          root.classList.contains("vc-staff-manage-sheet-open") ||
+          root.classList.contains("vc-staff-reso-sheet-open") ||
+          root.classList.contains("vc-staff-stat-sheet-open") ||
+          root.classList.contains("vc-feedback-sheet-open") ||
+          root.classList.contains("vc-reviews-modal-open") ||
+          root.classList.contains("vc-dash-confirm-open") ||
+          root.classList.contains("vc-dash-cmds-modal-open") ||
+          root.classList.contains("vc-wfc-subject-open");
+      }
       if (root.classList.contains("vc-user-leader-pending")) {
         var ulHb = document.getElementById("vc-ul-loading");
         if (ulHb && !loaderLooksDead(ulHb)) must = true;
@@ -11880,20 +6313,37 @@ function vcPageAssetVer() {
       if (root.classList.contains("vc-user-profile-pending")) {
         var prHb = document.getElementById("vc-user-profile-loading");
         var bpHb = document.querySelector("body > .vc-user-profile-loader");
+        /* staffSwitchIdLock1: non droppare pending se staff tab ancora in boot senza pane */
+        var staffBootHold =
+          root.classList.contains("vc-user-profile-staff-tab-pending") ||
+          root.classList.contains("vc-staff-boot-block");
+        var staffPaneOk = Boolean(
+          document.querySelector(
+            ".vc-user-profile-staff-pane .vc-user-profile-hero, .vc-user-profile-staff-pane .vc-staff-profile-panel, .vc-staff-prof-miss",
+          ),
+        );
         if ((prHb && !loaderLooksDead(prHb)) || (bpHb && !loaderLooksDead(bpHb))) must = true;
+        else if (staffBootHold && !staffPaneOk) must = true;
         else root.classList.remove("vc-user-profile-pending");
       }
       var dd = document.getElementById("vc-notif-dropdown");
       if (dd && (dd.open || dd.hasAttribute("open"))) must = true;
       if (must || blocking) {
-        if (lockCls || fixed) {
+        if (lockCls || softLock || fixed) {
           try {
             if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
           } catch (eSyncHb) {}
+        } else {
+          try {
+            if (typeof window.__vcPinPageScroll === "function") {
+              window.__vcPinPageScroll({ soft: true, forcePhoneLock: true });
+            }
+            if (typeof window.__vcSyncLoaderScrollLock === "function") window.__vcSyncLoaderScrollLock();
+          } catch (eRepinHb) {}
         }
         return;
       }
-      if (!lockCls && !fixed) return;
+      if (!lockCls && !softLock && !fixed) return;
       try {
         root.classList.remove("vc-loading-scroll-lock");
         root.classList.remove("vc-user-leader-pending");
@@ -11939,6 +6389,15 @@ function vcPageAssetVer() {
     try {
       window.__vcPhoneUnfreezeArmedAt = Date.now();
     } catch (eArmAt) {}
+    /* pwaCpuNuke1: desktop PWA — un recover soft, ZERO watch interval (CPU loop) */
+    if (isStandalonePwa()) {
+      recover(false);
+      window.setTimeout(function () {
+        recover(false);
+      }, 900);
+      window.setTimeout(clearPhoneHasFreezeGhosts, 600);
+      return;
+    }
     recover(true);
     if (!isPhoneOrPwa()) {
       window.setTimeout(function () {
@@ -11975,18 +6434,28 @@ function vcPageAssetVer() {
     arm();
   }
   window.addEventListener("pageshow", function (ev) {
-    if (isPhoneOrPwa()) {
-      recover(Boolean(ev && ev.persisted));
-      clearPhoneHasFreezeGhosts();
-    } else if (ev && ev.persisted) {
-      recover(true);
-    }
+    /* extOnlyFix1: recover fuori dal handler sync */
+    var persisted = Boolean(ev && ev.persisted);
+    window.setTimeout(function () {
+      try {
+        if (isPhoneOrPwa()) {
+          recover(persisted);
+          clearPhoneHasFreezeGhosts();
+        } else if (persisted) {
+          recover(true);
+        }
+      } catch (ePs) {}
+    }, 0);
   });
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState !== "visible") return;
     if (!isPhoneOrPwa()) return;
-    recover(true);
-    clearPhoneHasFreezeGhosts();
+    window.setTimeout(function () {
+      try {
+        recover(true);
+        clearPhoneHasFreezeGhosts();
+      } catch (eVis) {}
+    }, 0);
   });
   window.addEventListener("focus", function () {
     try {
@@ -12003,84 +6472,106 @@ function vcPageAssetVer() {
 })();
 
 (function () {
+  /* consoleStorm2: CF 1015 — never fire warm webhook storm in parallel */
   function warmPublicApis() {
     if (!window.VcApiCache || typeof window.VcApiCache.prefetchIdle !== "function") return;
+    var path = "/";
+    try {
+      path = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
+    } catch (ePath) {}
+    var jobs = [];
+    try {
+      if (path !== "/ruoli" && path !== "/roles") {
+        jobs.push(function () {
+          window.VcApiCache.prefetchIdle(
+            window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles", v: "roles2" }),
+            "/webhooks/site-roles",
+            { ttlMs: 90000, staleMs: 600000, persistMs: 20 * 60 * 1000, timeoutMs: 28000 },
+          );
+        });
+      }
+      if (path !== "/vote") {
+        jobs.push(function () {
+          window.VcApiCache.prefetchIdle("vote:anon", "/webhooks/site-vote", {
+            ttlMs: 45000,
+            staleMs: 300000,
+            timeoutMs: 24000,
+          });
+        });
+      }
+      if (path !== "/recensioni" && path !== "/reviews") {
+        jobs.push(function () {
+          window.VcApiCache.prefetchIdle("reviews:server", "/webhooks/site-reviews?kind=server", {
+            ttlMs: 60000,
+            staleMs: 600000,
+            timeoutMs: 15000,
+          });
+        });
+      }
+      if (path !== "/user" && path.indexOf("/user/") !== 0) {
+        jobs.push(function () {
+          window.VcApiCache.prefetchIdle(
+            window.VcApiCache.keyFor("/webhooks/site-users?board=level&page=1&perPage=24", { scope: "users" }),
+            "/webhooks/site-users?board=level&page=1&perPage=24",
+            {
+              ttlMs: 60000,
+              staleMs: 600000,
+              persistMs: 15 * 60 * 1000,
+              timeoutMs: 20000,
+            },
+          );
+        });
+      }
+      var regoleCfg = window.__VC_REGOLE || {};
+      var regoleUrl = String(regoleCfg.apiUrl || regoleCfg.api || "").trim();
+      /* contentStatic1: skip warm if baked pack is present */
+      var hasRegoleStatic = false;
+      try {
+        hasRegoleStatic = Boolean(
+          window.__VC_REGOLE_STATIC &&
+            window.__VC_REGOLE_STATIC.ok &&
+            Array.isArray(window.__VC_REGOLE_STATIC.rules) &&
+            window.__VC_REGOLE_STATIC.rules.length,
+        );
+      } catch (eRs) {}
+      if (!hasRegoleStatic && regoleUrl && regoleUrl.indexOf("{{") < 0 && path !== "/regole") {
+        jobs.push(function () {
+          window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor(regoleUrl, { scope: "regole" }), regoleUrl, {
+            ttlMs: 10 * 60 * 1000,
+            staleMs: 60 * 60 * 1000,
+            persistMs: 24 * 60 * 60 * 1000,
+            timeoutMs: 15000,
+          });
+        });
+      }
+      var liveCfg = window.__VC_LIVE || {};
+      var liveExtra = String(liveCfg.extraStatsPath || liveCfg.extraStatsUrl || "").trim();
+      if (liveExtra && liveExtra.indexOf("{{") < 0) {
+        jobs.push(function () {
+          window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor(liveExtra, { scope: "live" }), liveExtra, {
+            ttlMs: 45000,
+            staleMs: 300000,
+            timeoutMs: 12000,
+          });
+        });
+      }
+    } catch (eP) {}
+
     var touchWarm = false;
     try {
       touchWarm =
         (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
         Number(navigator.maxTouchPoints || 0) > 0;
     } catch (eTw) {}
-    /* phoneApiGlobalFix1: su telefono niente storm di warm al first paint */
-    if (touchWarm) {
+    var startMs = touchWarm ? 18000 : 14000;
+    var gapMs = 4500;
+    jobs.forEach(function (job, i) {
       window.setTimeout(function () {
         try {
-          window.VcApiCache.prefetchIdle(
-            window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles", v: "roles2" }),
-            "/webhooks/site-roles",
-            { ttlMs: 90000, staleMs: 600000, persistMs: 20 * 60 * 1000, timeoutMs: 28000 },
-          );
-          window.VcApiCache.prefetchIdle("vote:anon", "/webhooks/site-vote", {
-            ttlMs: 45000,
-            staleMs: 300000,
-            timeoutMs: 24000,
-          });
-        } catch (eLate) {}
-      }, 12000);
-      return;
-    }
-    window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor("/webhooks/site-roles", { scope: "roles", v: "roles2" }), "/webhooks/site-roles", {
-      ttlMs: 90000,
-      staleMs: 600000,
-      persistMs: 20 * 60 * 1000,
-      timeoutMs: 15000,
+          job();
+        } catch (eJob) {}
+      }, startMs + i * gapMs);
     });
-    window.VcApiCache.prefetchIdle("vote:anon", "/webhooks/site-vote", {
-      ttlMs: 45000,
-      staleMs: 300000,
-      timeoutMs: 12000,
-    });
-    try {
-      var path = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
-      if (path !== "/recensioni" && path !== "/reviews") {
-        window.VcApiCache.prefetchIdle("reviews:server", "/webhooks/site-reviews?kind=server", {
-          ttlMs: 60000,
-          staleMs: 600000,
-          timeoutMs: 15000,
-        });
-      }
-      if (path !== "/user" && path.indexOf("/user/") !== 0) {
-        window.VcApiCache.prefetchIdle(
-          window.VcApiCache.keyFor("/webhooks/site-users?board=level&page=1&perPage=24", { scope: "users" }),
-          "/webhooks/site-users?board=level&page=1&perPage=24",
-          {
-            ttlMs: 60000,
-            staleMs: 600000,
-            persistMs: 15 * 60 * 1000,
-            timeoutMs: 20000,
-          },
-        );
-      }
-      var regoleCfg = window.__VC_REGOLE || {};
-      var regoleUrl = String(regoleCfg.apiUrl || regoleCfg.api || "").trim();
-      if (regoleUrl && regoleUrl.indexOf("{{") < 0 && path !== "/regole") {
-        window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor(regoleUrl, { scope: "regole" }), regoleUrl, {
-          ttlMs: 10 * 60 * 1000,
-          staleMs: 60 * 60 * 1000,
-          persistMs: 24 * 60 * 60 * 1000,
-          timeoutMs: 15000,
-        });
-      }
-      var liveCfg = window.__VC_LIVE || {};
-      var liveExtra = String(liveCfg.extraStatsPath || liveCfg.extraStatsUrl || "").trim();
-      if (liveExtra && liveExtra.indexOf("{{") < 0) {
-        window.VcApiCache.prefetchIdle(window.VcApiCache.keyFor(liveExtra, { scope: "live" }), liveExtra, {
-          ttlMs: 45000,
-          staleMs: 300000,
-          timeoutMs: 12000,
-        });
-      }
-    } catch (eP) {}
   }
 
   function scheduleWarm() {
@@ -12098,3 +6589,15 @@ function vcPageAssetVer() {
   }
 })();
 
+
+/* consoleRest1 */
+
+/* staffNavFix1 */
+
+/* consoleNoise2 */
+
+/* console429Kill1 */
+/* violKill1 */
+/* extOnlyFix1 */
+/* violPass2 */
+/* violPass11 */

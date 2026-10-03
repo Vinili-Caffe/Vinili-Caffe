@@ -1,45 +1,45 @@
 {
-  "id": "/?app=vinili-caffe-v10",
+  "id": "/?app=vinili-caffe-v12",
   "name": "Vinili & Caffè",
   "short_name": "Vinili & Caffè",
   "description": "Community Discord Vinili & Caffè",
-  "start_url": "/?app=vinili-caffe-v10",
+  "start_url": "/?app=vinili-caffe-v12",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "launch_handler": {
-    "client_mode": ["navigate-existing", "auto"]
+    "client_mode": ["focus-existing", "auto"]
   },
   "handle_links": "preferred",
   "background_color": "#100c09",
   "theme_color": "#100c09",
   "icons": [
     {
-      "src": "/images/pwa-icon-192-v6.png?v=20260825pwa8",
+      "src": "/images/pwa-icon-192-v7.png?v=20260930pwaLogoDisco1",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/images/pwa-icon-512-v6.png?v=20260825pwa8",
+      "src": "/images/pwa-icon-512-v7.png?v=20260930pwaLogoDisco1",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/images/pwa-icon-192-v6.png?v=20260825pwa8",
+      "src": "/images/pwa-icon-192-maskable-v7.png?v=20260930pwaLogoDisco1",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/images/pwa-icon-512-v6.png?v=20260825pwa8",
+      "src": "/images/pwa-icon-512-maskable-v7.png?v=20260930pwaLogoDisco1",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/apple-touch-icon-v6.png?v=20260825pwa8",
+      "src": "/apple-touch-icon-v7.png?v=20260930pwaLogoDisco1",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"

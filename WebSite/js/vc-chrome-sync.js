@@ -1,6 +1,18 @@
 (function (global) {
   "use strict";
-  if (global.__VC_CHROME_SYNC) return;
+  var VER = "20260928consoleErrFix1";
+  if (global.__VC_CHROME_SYNC && global.__VC_CHROME_SYNC.ver === VER) {
+    global.VcChromeSync = global.__VC_CHROME_SYNC;
+    return;
+  }
+  /* navBadgeSyncAll5: bundle CDN con ?v= vecchia non deve downgradare */
+  try {
+    var prevSync = global.__VC_CHROME_SYNC && global.__VC_CHROME_SYNC.ver;
+    if (prevSync && String(prevSync) > String(VER)) {
+      global.VcChromeSync = global.__VC_CHROME_SYNC;
+      return;
+    }
+  } catch (ePrev) {}
 
   var CHANNEL = "vc_chrome_widgets_v1";
   var LS_MIRROR = "vc_chrome_prefs_mirror_v1";
@@ -12,6 +24,12 @@
   var serverPending = null;
   var applyingRemote = false;
   var hydratedServer = false;
+  var pullInFlight = null;
+  var pushInFlight = null;
+  var lastPushAt = 0;
+  /* lsGetStorm1: mirror in RAM — nav-badges chiamava get() a ogni MO (~20/s → Storage Service) */
+  var mirrorMem = null;
+  var mirrorMemReady = false;
 
   try {
     if (typeof BroadcastChannel === "function") bc = new BroadcastChannel(CHANNEL);
@@ -29,17 +47,23 @@
   }
 
   function readMirror() {
+    if (mirrorMemReady) return mirrorMem || {};
     try {
       var raw = localStorage.getItem(LS_MIRROR);
-      return raw ? JSON.parse(raw) : {};
+      mirrorMem = raw ? JSON.parse(raw) : {};
+      if (!mirrorMem || typeof mirrorMem !== "object") mirrorMem = {};
     } catch (e) {
-      return {};
+      mirrorMem = {};
     }
+    mirrorMemReady = true;
+    return mirrorMem;
   }
 
   function writeMirror(prefs) {
+    mirrorMem = prefs && typeof prefs === "object" ? prefs : {};
+    mirrorMemReady = true;
     try {
-      localStorage.setItem(LS_MIRROR, JSON.stringify(prefs || {}));
+      localStorage.setItem(LS_MIRROR, JSON.stringify(mirrorMem));
     } catch (e) {}
   }
 
@@ -59,9 +83,16 @@
   function mergePrefs(base, incoming) {
     var out = Object.assign({}, base || {});
     var inc = incoming || {};
-    var nested = ["kickPip", "hogwartsBgm", "seratafilmBgm", "confessionaleBgm", "typeSfx"];
+    var nested = ["kickPip", "twitchPip", "hogwartsBgm", "seratafilmBgm", "confessionaleBgm", "typeSfx", "navFeatSeen"];
     Object.keys(inc).forEach(function (key) {
-      if (nested.indexOf(key) >= 0 && inc[key] && typeof inc[key] === "object") {
+      if (key === "navFeatSeen" && inc[key] && typeof inc[key] === "object") {
+        var baseMap = out[key] && typeof out[key] === "object" ? out[key] : {};
+        var nextMap = Object.assign({}, baseMap);
+        Object.keys(inc[key]).forEach(function (p) {
+          nextMap[p] = Math.max(Number(nextMap[p]) || 0, Number(inc[key][p]) || 0);
+        });
+        out[key] = nextMap;
+      } else if (nested.indexOf(key) >= 0 && inc[key] && typeof inc[key] === "object") {
         out[key] = Object.assign({}, out[key] || {}, inc[key]);
       } else {
         out[key] = inc[key];
@@ -94,10 +125,36 @@
     }, 700);
   }
 
+  function invalidateChromeCache() {
+    try {
+      if (global.VcApiCache && typeof global.VcApiCache.invalidateContains === "function") {
+        global.VcApiCache.invalidateContains("site-chrome-prefs");
+        global.VcApiCache.invalidateContains("chrome");
+      }
+    } catch (eInv) {}
+  }
+
   function pushServer(prefs) {
     var token = getToken();
     if (!token || !prefs) return;
-    fetch(API, {
+    if (global.VcApiCache && typeof global.VcApiCache.isWebhookBlocked === "function") {
+      if (global.VcApiCache.isWebhookBlocked(API)) return;
+    }
+    try {
+      if (typeof global.__vcWebhookGlobalBlockedUntil === "function") {
+        if (Date.now() < Number(global.__vcWebhookGlobalBlockedUntil() || 0)) return;
+      }
+    } catch (eBlk) {}
+    /* rateLimitCalm1: un POST alla volta; skip se push freschissimo */
+    if (pushInFlight) {
+      serverPending = prefs;
+      return pushInFlight;
+    }
+    if (Date.now() - lastPushAt < 900) {
+      scheduleServerPush(prefs);
+      return;
+    }
+    pushInFlight = fetch(API, {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
@@ -106,14 +163,59 @@
       credentials: "omit",
       keepalive: true,
       body: JSON.stringify({ prefs: prefs }),
-    }).catch(function () {});
+    })
+      .then(function (r) {
+        lastPushAt = Date.now();
+        if (r && r.status === 429) {
+          try {
+            if (global.VcApiCache && typeof global.VcApiCache.noteWebhook429 === "function") {
+              global.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "20"), API);
+            }
+          } catch (e429p) {}
+          return;
+        }
+        /* rateLimitCalm1: invalida solo se OK (evita storm pull subito dopo POST fallito) */
+        if (r && r.ok) invalidateChromeCache();
+      })
+      .catch(function () {})
+      .finally(function () {
+        pushInFlight = null;
+        if (serverPending) {
+          var again = serverPending;
+          serverPending = null;
+          scheduleServerPush(again);
+        }
+      });
+    return pushInFlight;
   }
 
-  function pullServer() {
+  function pullServer(force) {
     var token = getToken();
-    if (!token || hydratedServer) return;
-    if (global.VcApiCache && typeof global.VcApiCache.isWebhookBlocked === "function") {
-      if (global.VcApiCache.isWebhookBlocked()) return;
+    if (!token) return;
+    /* rateLimitCalm1: force = preferisci rete se idle, NON ignora cool-down / singleflight */
+    if (pullInFlight) return pullInFlight;
+    if (hydratedServer && !force) return;
+    var blocked = false;
+    try {
+      if (global.VcApiCache && typeof global.VcApiCache.isWebhookBlocked === "function") {
+        blocked = global.VcApiCache.isWebhookBlocked(API);
+      }
+    } catch (eB1) {}
+    try {
+      if (!blocked && typeof global.__vcWebhookGlobalBlockedUntil === "function") {
+        blocked = Date.now() < Number(global.__vcWebhookGlobalBlockedUntil() || 0);
+      }
+    } catch (eB2) {}
+    if (blocked) {
+      /* usa mirror locale; non battere rete in 429 */
+      try {
+        notify(readMirror(), "blocked");
+      } catch (eN) {}
+      return;
+    }
+    if (force) {
+      hydratedServer = false;
+      /* non invalidate subito: lascia cache finché non arriva risposta fresca */
     }
     var cacheKey =
       global.VcApiCache && typeof global.VcApiCache.keyFor === "function"
@@ -122,25 +224,31 @@
     function applyData(data) {
       if (!data || data.ok !== true || !data.prefs) return false;
       var local = readMirror();
-      var remoteAt = Number(data.prefs.updatedAt) || 0;
+      var remote = data.prefs || {};
+      var remoteAt = Number(remote.updatedAt) || 0;
       var localAt = Number(local.updatedAt) || 0;
-      if (remoteAt >= localAt) {
-        writeMirror(mergePrefs(local, data.prefs));
-        notify(data.prefs, "server");
-      } else {
-        pushServer(local);
-      }
+      var navUnion = mergePrefs(
+        { navFeatSeen: (local && local.navFeatSeen) || {} },
+        { navFeatSeen: (remote && remote.navFeatSeen) || {} }
+      ).navFeatSeen;
+      var merged = remoteAt >= localAt ? mergePrefs(local, remote) : mergePrefs(remote, local);
+      if (navUnion && typeof navUnion === "object") merged.navFeatSeen = navUnion;
+      writeMirror(merged);
+      notify(merged, "server");
+      if (localAt > remoteAt) pushServer(merged);
       return true;
     }
     function markHydratedOk() {
       hydratedServer = true;
     }
     if (global.VcApiCache && typeof global.VcApiCache.fetchWithCache === "function" && cacheKey) {
-      global.VcApiCache
+      pullInFlight = global.VcApiCache
         .fetchWithCache(cacheKey, API, {
-          ttlMs: 30000,
-          staleMs: 5 * 60 * 1000,
+          ttlMs: force ? 4000 : 30000,
+          staleMs: force ? 8000 : 5 * 60 * 1000,
           auth: token,
+          forceNetwork: !!force,
+          useCache: true,
           fetchInit: {
             headers: { Authorization: "Bearer " + token },
             credentials: "omit",
@@ -148,12 +256,24 @@
           },
         })
         .then(function (payload) {
+          if (payload && payload.status === 429) {
+            try {
+              if (global.VcApiCache && typeof global.VcApiCache.noteWebhook429 === "function") {
+                global.VcApiCache.noteWebhook429(20, API);
+              }
+            } catch (e429c) {}
+            return;
+          }
           if (applyData(payload && payload.body ? payload.body : null)) markHydratedOk();
         })
-        .catch(function () {});
-      return;
+        .catch(function () {})
+        .finally(function () {
+          pullInFlight = null;
+        });
+      return pullInFlight;
     }
-    fetch(API, {
+    /* rateLimitCalm1: niente ?_=timestamp (rompeva singleflight del fetch gate) */
+    pullInFlight = fetch(API, {
       headers: { Authorization: "Bearer " + token },
       credentials: "omit",
       cache: "no-store",
@@ -162,7 +282,7 @@
         if (r && r.status === 429) {
           try {
             if (global.VcApiCache && typeof global.VcApiCache.noteWebhook429 === "function") {
-              global.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "0"), API);
+              global.VcApiCache.noteWebhook429(Number(r.headers.get("Retry-After") || "20"), API);
             }
           } catch (e429) {}
           return null;
@@ -178,7 +298,11 @@
       .then(function (data) {
         if (data && applyData(data)) markHydratedOk();
       })
-      .catch(function () {});
+      .catch(function () {})
+      .finally(function () {
+        pullInFlight = null;
+      });
+    return pullInFlight;
   }
 
   if (bc) {
@@ -196,6 +320,8 @@
     if (!ev || ev.key !== LS_MIRROR || !ev.newValue) return;
     try {
       var prefs = JSON.parse(ev.newValue);
+      mirrorMem = prefs && typeof prefs === "object" ? prefs : {};
+      mirrorMemReady = true;
       notify(prefs, "storage");
     } catch (eS) {}
   });
@@ -212,6 +338,7 @@
   }
 
   global.__VC_CHROME_SYNC = {
+    ver: VER,
     tabId: TAB_ID,
     get: readMirror,
     publish: publish,
@@ -271,6 +398,15 @@
       shell.addEventListener("pointerdown", stopRangeBubble, true);
       shell.addEventListener("touchstart", stopRangeBubble, { capture: true, passive: true });
       shell.addEventListener("touchmove", stopRangeBubble, { capture: true, passive: true });
+      /* confBgmHoverClose1: desktop leave = close (focus sullo slider non tiene aperto) */
+      shell.addEventListener("pointerleave", function () {
+        if (isCoarseUi()) return;
+        close();
+        try {
+          var ae = document.activeElement;
+          if (ae && shell.contains(ae) && typeof ae.blur === "function") ae.blur();
+        } catch (eBlur) {}
+      });
       document.addEventListener(
         "pointerdown",
         function (ev) {
@@ -363,4 +499,8 @@
       } catch (eV) {}
     },
   };
+  /* hamBadgeSync3: alias usato da vc-nav-badges / widget */
+  global.VcChromeSync = global.__VC_CHROME_SYNC;
 })(typeof window !== "undefined" ? window : this);
+
+/* navBadgeSyncAll5 */

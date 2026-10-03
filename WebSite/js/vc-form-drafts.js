@@ -1,6 +1,9 @@
 (function (global) {
   var PREFIX = "vc_form_draft_v1:";
   var MAX_CHARS = 400000;
+  /* draftToast1: toast "Bozza salvata" dopo persist (throttled) */
+  var lastNotifyAt = 0;
+  var DEFAULT_TOAST_GAP_MS = 3200;
 
   function storage() {
     try {
@@ -14,7 +17,31 @@
     return PREFIX + String(name || "").trim();
   }
 
-  function save(name, data) {
+  function notifySaved(opts) {
+    opts = opts || {};
+    var gap = Number(opts.minGapMs);
+    if (!Number.isFinite(gap) || gap < 0) gap = DEFAULT_TOAST_GAP_MS;
+    var now = Date.now();
+    if (now - lastNotifyAt < gap) return false;
+    lastNotifyAt = now;
+    var msg = String(opts.message || "Bozza salvata.").trim() || "Bozza salvata.";
+    try {
+      if (global.VcSiteToast && typeof global.VcSiteToast.show === "function") {
+        global.VcSiteToast.show(msg, false, { ms: Number(opts.ms) > 0 ? Number(opts.ms) : 1400 });
+        return true;
+      }
+    } catch (e1) {}
+    try {
+      if (typeof global.__vcShowSiteToast === "function") {
+        global.__vcShowSiteToast(msg, false, { ms: Number(opts.ms) > 0 ? Number(opts.ms) : 1400 });
+        return true;
+      }
+    } catch (e2) {}
+    return false;
+  }
+
+  function save(name, data, opts) {
+    opts = opts || {};
     var s = storage();
     var key = fullKey(name);
     if (!s || !key || key === PREFIX) return false;
@@ -26,6 +53,7 @@
       var payload = JSON.stringify({ at: Date.now(), data: data });
       if (payload.length > MAX_CHARS) return false;
       s.setItem(key, payload);
+      if (opts.notify) notifySaved(opts);
       return true;
     } catch (e) {
       return false;
@@ -95,10 +123,11 @@
         if (typeof opts.onRestore === "function") opts.onRestore(saved);
       } catch (eRestore) {}
     }
+    var wantNotify = opts.notify !== false;
     var persist = debounce(function () {
       var v = read();
       if (v == null || v === "" || v === false) clear(name);
-      else save(name, v);
+      else save(name, v, wantNotify ? { notify: true } : {});
     }, opts.debounceMs || 180);
     el.addEventListener("input", persist);
     el.addEventListener("change", persist);
@@ -106,7 +135,7 @@
       saveNow: function () {
         var v = read();
         if (v == null || v === "" || v === false) clear(name);
-        else save(name, v);
+        else save(name, v, wantNotify ? { notify: true } : {});
       },
       clear: function () {
         clear(name);
@@ -125,11 +154,12 @@
         setter(saved);
       } catch (eSet) {}
     }
+    var wantNotify = opts.notify !== false;
     var persist = debounce(function () {
       try {
         var v = getter();
         if (v == null || v === "" || (typeof v === "object" && !Object.keys(v).length)) clear(name);
-        else save(name, v);
+        else save(name, v, wantNotify ? { notify: true } : {});
       } catch (eGet) {}
     }, opts.debounceMs || 220);
     return {
@@ -137,7 +167,7 @@
         try {
           var v = getter();
           if (v == null || v === "" || (typeof v === "object" && !Object.keys(v).length)) clear(name);
-          else save(name, v);
+          else save(name, v, wantNotify ? { notify: true } : {});
         } catch (e) {}
       },
       clear: function () {
@@ -167,6 +197,7 @@
     bindField: bindField,
     bindObject: bindObject,
     autoBind: autoBind,
+    notifySaved: notifySaved,
   };
 
   function boot() {

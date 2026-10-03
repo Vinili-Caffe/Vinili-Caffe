@@ -27,6 +27,8 @@ const {
   DEFAULT_TICKET_PANEL_COLOR,
   DEFAULT_TICKET_BUTTON_EMOJI,
   getDefaultTicketPanelFooter,
+  getDefaultTicketPanelTitle,
+  getDefaultTicketPanelDescription,
   isDefaultishSinglePanelEmbed,
   isDefaultishMultiPanelEmbed,
   resolveTicketBotLanguage,
@@ -87,10 +89,14 @@ function buildSingleEmbed(panel, options = {}) {
     ? DEFAULT_TICKET_PANEL_COLOR
     : panel.color || DEFAULT_TICKET_PANEL_COLOR;
   const title = useDefault
-    ? DEFAULT_TICKET_PANEL_TITLE
+    ? getDefaultTicketPanelTitle(lang)
     : String(panel.title || DEFAULT_TICKET_PANEL_TITLE).slice(0, 256);
   const embed = new EmbedBuilder().setColor(colorToInt(color)).setTitle(title);
-  if (!useDefault && panel.content) embed.setDescription(String(panel.content).slice(0, 4096));
+  if (useDefault) {
+    embed.setDescription(getDefaultTicketPanelDescription(lang));
+  } else if (panel.content) {
+    embed.setDescription(String(panel.content).slice(0, 4096));
+  }
   if (panel.largeImageUrl) embed.setImage(panel.largeImageUrl);
   if (panel.smallImageUrl) embed.setThumbnail(panel.smallImageUrl);
   if (useDefault) {
@@ -104,7 +110,8 @@ function buildMultiEmbed(multi, options = {}) {
   if (isDefaultishMultiPanelEmbed(multi)) {
     return new EmbedBuilder()
       .setColor(colorToInt(DEFAULT_TICKET_PANEL_COLOR))
-      .setTitle(DEFAULT_TICKET_PANEL_TITLE)
+      .setTitle(getDefaultTicketPanelTitle(lang))
+      .setDescription(getDefaultTicketPanelDescription(lang))
       .setFooter({ text: getDefaultTicketPanelFooter(lang) });
   }
   const embed = new EmbedBuilder().setColor(colorToInt(multi.color || DEFAULT_TICKET_PANEL_COLOR));

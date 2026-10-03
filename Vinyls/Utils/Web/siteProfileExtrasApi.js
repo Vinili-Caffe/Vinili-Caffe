@@ -45,6 +45,7 @@ const {
   getSerializedSiteNotifPrefs,
   mutateSiteNotifPrefs,
 } = require("./siteNotifPrefs");
+const { applyViewAsToResolvedMember } = require("./siteViewAsPreview");
 
 const ROLE_PANEL_LABELS = Object.freeze({
   pronouns: "Pronomi",
@@ -55,6 +56,7 @@ const ROLE_PANEL_LABELS = Object.freeze({
   relationship: "Stato sentimentale",
   mentions: "Ping",
   hobby: "Hobby",
+  gaming: "Gaming",
   colors1: "Colori Base",
   colors_level: "Colori Livelli",
   colors_plus: "Colori Plus",
@@ -173,7 +175,7 @@ function categoryRolePool(cat) {
 }
 
 function isMultiToggleCategory(cat) {
-  return cat === "mentions" || cat === "hobby";
+  return cat === "mentions" || cat === "hobby" || cat === "gaming";
 }
 
 async function buildRolePanelCategory(guild, member, cat, prefetched = {}) {
@@ -234,14 +236,20 @@ async function buildRolePanelCategory(guild, member, cat, prefetched = {}) {
   };
 }
 
-async function getProfileExtras(client, { accessToken, section: sectionRaw } = {}) {
+async function getProfileExtras(client, { accessToken, section: sectionRaw, viewAs: viewAsRaw } = {}) {
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
-  const { guild, member, userId } = resolved;
+  let { guild, member, userId } = resolved;
+  const viewAsApplied = applyViewAsToResolvedMember(member, viewAsRaw, {
+    userId,
+  });
+  if (viewAsApplied.viewAs) {
+    member = viewAsApplied.member;
+  }
   const section = normalizeExtrasSection(sectionRaw);
 
   const cacheKey = section ? `${userId}:${section}` : userId;
-  const cached = readExtrasCache(cacheKey);
+  const cached = viewAsApplied.viewAs ? null : readExtrasCache(cacheKey);
   if (cached) return { ...cached, cached: true };
 
   const needAll = !section;
@@ -334,8 +342,8 @@ async function getProfileExtras(client, { accessToken, section: sectionRaw } = {
     };
   }
 
-  writeExtrasCache(cacheKey, payload);
-  return payload;
+  if (!viewAsApplied.viewAs) writeExtrasCache(cacheKey, payload);
+  return { ...payload, viewAs: viewAsApplied.viewAs || null };
 }
 
 async function mutateDm(guildId, userId, payload) {
@@ -594,7 +602,7 @@ async function mutateRolePanel(guild, member, userId, payload) {
     toRemove = heldInPool;
     message = "Selezione rimossa.";
   } else if (multi) {
-    // Ping / Hobby: toggle — puoi tenerne più di uno.
+    // Ping / Hobby / Gaming: toggle — puoi tenerne più di uno.
     if (member.roles.cache.has(value)) {
       toRemove = [value];
       message = "Ruolo rimosso.";

@@ -368,12 +368,19 @@ function getCategorySettings(client) {
     ? cfg.channelCategoryIds.map((id) => String(id || "").trim()).filter(Boolean)
     : [];
   const fallbackCategoryId = String(IDs.categories?.categoryPublics || "").trim();
+  const invisibleSpaceRaw = typeof cfg.invisibleSpace === "string" ? cfg.invisibleSpace : "\u3000";
+  const invisibleSpace = invisibleSpaceRaw || "\u3000";
   return {
     enabled: cfg.enabled !== false,
     debounceMs: Math.max(300, Number(cfg.debounceMs || 1200)),
     intervalMs: Math.max(60 * 1000, Number(cfg.intervalMs || 10 * 60 * 1000)),
     minDigits: Math.max(1, Number(cfg.minDigits || 2)),
     separator: typeof cfg.separator === "string" ? cfg.separator : " ",
+    /* categoryCenterPad3: pad minimo — evita text-overflow "..." di Discord in sidebar */
+    centerWithInvisibleSpaces: cfg.centerWithInvisibleSpaces !== false,
+    centerInnerSlots: Math.max(4, Math.min(20, Number(cfg.centerInnerSlots || 9))),
+    centerSidePad: Math.max(0, Math.min(4, Number(cfg.centerSidePad ?? 1))),
+    invisibleSpace,
     channelCategoryIds: channelCategoryIds.length
       ? channelCategoryIds
       : fallbackCategoryId
@@ -396,6 +403,41 @@ function replaceNumberPrefixOnly(name, nextNumber, separator) {
     return value.replace(INDEX_PREFIX_RE, nextNumber);
   }
   return `${nextNumber}${separator}${value}`;
+}
+
+/* categoryCenterPad3: ideographic pad corto; frame = label più lunga → niente "..." Discord */
+const CATEGORY_DOT = "・";
+const CATEGORY_INVISIBLE_CHARS_RE = /[\u3000\u3164\u2800\u115F\u1160\u200B\u200C\u200D\uFEFF]/g;
+
+function extractCoreCategoryLabel(name) {
+  let s = String(name || "");
+  s = s.replace(INDEX_PREFIX_RE, "");
+  s = s.replace(CATEGORY_INVISIBLE_CHARS_RE, " ");
+  s = s.replace(/^[・·•‧.\s]+/, "").replace(/[・·•‧.\s]+$/, "");
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+
+function buildCenteredCategoryBody(label, options = {}) {
+  const core = extractCoreCategoryLabel(label) || String(label || "").trim() || "CATEGORY";
+  const padChar = String(options.invisibleSpace || "\u3000").slice(0, 1) || "\u3000";
+  const sidePad = Math.max(0, Math.min(4, Number(options.centerSidePad ?? 1)));
+  const minFrame = Math.max(4, Math.min(20, Number(options.centerInnerSlots) || 9));
+  const coreLen = Array.from(core).length;
+  const frameWidth = Math.max(coreLen, Number(options.centerFrameWidth) || minFrame);
+  /* pad corto: stesso frame, niente overflow "..." in channel list */
+  const extra = Math.max(0, frameWidth - coreLen);
+  const left = sidePad + Math.floor(extra / 2);
+  const right = sidePad + (extra - Math.floor(extra / 2));
+  return `${CATEGORY_DOT}${padChar.repeat(left)}${core}${padChar.repeat(right)}${CATEGORY_DOT}`;
+}
+
+function buildNumberedCenteredCategoryName(nextNumber, currentName, options = {}) {
+  const core = extractCoreCategoryLabel(currentName);
+  if (!core) {
+    return replaceNumberPrefixOnly(currentName, nextNumber, options.separator || " ");
+  }
+  return `${nextNumber}${buildCenteredCategoryBody(core, options)}`.slice(0, 100);
 }
 
 function replaceNumberSuffixOnly(name, nextNumber) {
@@ -727,12 +769,24 @@ async function renumberGuildCategoryNames(guild, options) {
     .sort((a, b) => a.rawPosition - b.rawPosition || a.id.localeCompare(b.id))
     .map((channel) => channel);
 
+  let maxCoreLen = 0;
+  for (const category of categories) {
+    if (!category || shouldSkipCategoryNumbering(category)) continue;
+    const core = extractCoreCategoryLabel(category.name);
+    if (!core) continue;
+    maxCoreLen = Math.max(maxCoreLen, Array.from(core).length);
+  }
+  const centerOpts = {
+    ...options,
+    centerFrameWidth: Math.max(maxCoreLen, Number(options.centerInnerSlots) || 10),
+  };
+
   let nonTicketIndex = 1;
   for (let index = 0; index < categories.length; index += 1) {
     const category = categories[index];
     if (!category?.manageable) continue;
     if (shouldSkipCategoryNumbering(category)) {
-            const restored = resolveRestoredTicketsCategoryName(category.name);
+      const restored = resolveRestoredTicketsCategoryName(category.name);
       if (restored && restored !== category.name) {
         await renameChannelNameForNumbering(category, restored, "category");
       }
@@ -740,7 +794,12 @@ async function renumberGuildCategoryNames(guild, options) {
     }
 
     const nextNumber = toSuperscriptNumber(nonTicketIndex++, options.minDigits);
-    const expectedName = replaceNumberPrefixOnly(category.name, nextNumber, options.separator,);
+    let expectedName;
+    if (options.centerWithInvisibleSpaces !== false) {
+      expectedName = buildNumberedCenteredCategoryName(nextNumber, category.name, centerOpts);
+    } else {
+      expectedName = replaceNumberPrefixOnly(category.name, nextNumber, options.separator);
+    }
     if (category.name === expectedName) continue;
     await renameChannelNameForNumbering(category, expectedName, "category");
   }
@@ -990,6 +1049,9 @@ module.exports = {
   runAllGuilds,
   startCategoryNumberingLoop,
   isCategoryNumberingBotRename,
+  getCategorySettings,
+  extractCoreCategoryLabel,
+  buildNumberedCenteredCategoryName,
   runSponsorKickAfter24h,
   startSponsorKickLoop,
   runSponsorGuildNicknameSweep,
