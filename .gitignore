@@ -6,6 +6,19 @@ logs
 deploy/_tmp_*
 WebSite/scripts/_tmp_*
 WebSite/scripts/_tmp_*/
+WebSite/scripts/_stage_*/
+
+# Live HTML dumps / hold snips (never ship)
+WebSite/_live_*
+WebSite/**/_live_*
+
+# Deploy stamp twins (canon = stem without .YYYYMMDDlabel)
+# SW: only /sw-m1.js is registered; stamped sw-m1.*.js are killed at runtime
+WebSite/sw-m1.*.js
+WebSite/js/*.20[0-9][0-9][0-9][0-9][0-9][0-9]*.js
+WebSite/css/*.20[0-9][0-9][0-9][0-9][0-9][0-9]*.css
+WebSite/**/*.20[0-9][0-9][0-9][0-9][0-9][0-9]*.js.gz
+WebSite/**/*.20[0-9][0-9][0-9][0-9][0-9][0-9]*.css.gz
 
 npm-debug.log*
 yarn-debug.log*

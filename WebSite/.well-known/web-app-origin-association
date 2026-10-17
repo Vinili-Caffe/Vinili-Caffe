@@ -1,0 +1,16 @@
+{
+  "https://www.viniliecaffe.it/?app=vinili-caffe-v13": {
+    "scope": "/"
+  },
+  "https://www.viniliecaffe.it/": {
+    "scope": "/"
+  },
+  "web_apps": [
+    {
+      "web_app_identity": "https://www.viniliecaffe.it/?app=vinili-caffe-v13"
+    },
+    {
+      "web_app_identity": "https://www.viniliecaffe.it/"
+    }
+  ]
+}
